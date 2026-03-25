@@ -111,7 +111,13 @@ class EscrowMonitor {
       );
 
       streamer.status.listen((status) {
-        print('[monitor] Contract event stream status: $status');
+        if (status is StreamStatusError) {
+          print('[monitor] Contract event stream error: ${status.error}');
+          print('[monitor] ${status.stackTrace}');
+        } else {
+          print('[monitor] Contract event stream status: '
+              '${status.runtimeType}');
+        }
       });
 
       _eventSub = streamer.stream.listen(

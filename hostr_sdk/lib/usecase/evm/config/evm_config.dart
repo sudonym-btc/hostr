@@ -38,6 +38,12 @@ class EvmChainConfig {
   final String rpcUrl;
   final AAConfig? accountAbstraction;
 
+  /// The Boltz currency string for this chain's native asset (e.g. `RBTC`).
+  /// Used by [BoltzSwapProvider] to resolve swap pairs when no ERC-20 token
+  /// address is specified. Set to `null` on chains that only support ERC-20
+  /// token swaps (no native asset pair).
+  final String? boltzCurrency;
+
   /// The deployed escrow contract address for this chain (optional).
   ///
   /// When set, [EscrowMethods.ensureEscrowMethod] will fetch the runtime
@@ -56,6 +62,7 @@ class EvmChainConfig {
     required this.id,
     required this.chainId,
     required this.rpcUrl,
+    this.boltzCurrency,
     this.accountAbstraction,
     this.escrowContractAddress,
     this.tokens = const {},
@@ -75,6 +82,7 @@ class EvmChainConfig {
       id: json['id'] as String,
       chainId: json['chainId'] as int,
       rpcUrl: json['rpcUrl'] as String,
+      boltzCurrency: json['boltzCurrency'] as String?,
       accountAbstraction: json['accountAbstraction'] != null
           ? AAConfig.fromJson(
               json['accountAbstraction'] as Map<String, dynamic>,
@@ -96,6 +104,7 @@ class EvmChainConfig {
     'id': id,
     'chainId': chainId,
     'rpcUrl': rpcUrl,
+    if (boltzCurrency != null) 'boltzCurrency': boltzCurrency,
     if (accountAbstraction != null)
       'accountAbstraction': accountAbstraction!.toJson(),
     if (escrowContractAddress != null)

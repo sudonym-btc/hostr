@@ -9,8 +9,8 @@ import '../../../../util/token_amount_ext.dart';
 class SwapOutQuote {
   final TokenAmount balance;
   final TokenAmount invoiceAmount;
-  final TokenAmount estimatedGasFee;
-  final TokenAmount estimatedSwapFee;
+  final DenominatedAmount estimatedGasFee;
+  final DenominatedAmount estimatedSwapFee;
 
   const SwapOutQuote({
     required this.balance,
@@ -26,6 +26,17 @@ class SwapOutQuote {
 /// for pair info; callers supply the chain-specific balance and gas estimate.
 @injectable
 class SwapOutQuoteService {
+  TokenAmount _amountFromSats(Token token, int sats) {
+    return TokenAmount.fromDenominated(
+      DenominatedAmount(
+        denomination: 'BTC',
+        value: BigInt.from(sats),
+        decimals: 8,
+      ),
+      token,
+    );
+  }
+
   /// Build a [SwapOutQuote] for the given balance, gas estimate, and
   /// optional desired amount.
   ///
@@ -40,16 +51,22 @@ class SwapOutQuoteService {
     TokenAmount? requestedAmount,
     String boltzCurrency = 'RBTC',
   }) async {
-    final balanceRounded = balance.roundDownToSats();
-    final gasFeeRounded = estimatedGasFee.roundUpToSats();
+    final balanceRounded = TokenAmountEvmExt(balance).roundDownToSats();
+    final gasFeeRounded = TokenAmountEvmExt(estimatedGasFee).roundUpToSats();
 
     final pair = await getIt<BoltzClient>().getSubmarinePair(
       from: boltzCurrency,
       to: 'BTC',
     );
 
-    final minInvoice = rbtcFromSatsInt(pair.limits.minimal.ceil());
-    final maxInvoiceByPair = rbtcFromSatsInt(pair.limits.maximal.floor());
+    final minInvoice = _amountFromSats(
+      balance.token,
+      pair.limits.minimal.ceil(),
+    );
+    final maxInvoiceByPair = _amountFromSats(
+      balance.token,
+      pair.limits.maximal.floor(),
+    );
 
     final percentage = pair.fees.percentage;
     final minerFeesSatsRoundedUp = pair.fees.minerFees.ceil();
@@ -59,8 +76,8 @@ class SwapOutQuoteService {
 
     if (spendableAfterGasSats <= 0) {
       throw StateError(
-        'Balance ${balance.getInSats} sats is not enough to cover estimated gas '
-        '${estimatedGasFee.getInSats} sats.',
+        'Balance ${TokenAmountEvmExt(balance).getInSats} sats is not enough to cover estimated gas '
+        '${TokenAmountEvmExt(estimatedGasFee).getInSats} sats.',
       );
     }
 
@@ -76,47 +93,57 @@ class SwapOutQuoteService {
       );
     }
 
-    final maxInvoiceByBalance = rbtcFromSatsInt(maxInvoiceByBalanceSats);
+    final maxInvoiceByBalance = _amountFromSats(
+      balance.token,
+      maxInvoiceByBalanceSats,
+    );
     final maxInvoice = TokenAmount.max(
-      TokenAmount.zero(rbtc),
+      TokenAmount.zero(balance.token),
       maxInvoiceByBalance < maxInvoiceByPair
           ? maxInvoiceByBalance
           : maxInvoiceByPair,
     );
 
-    final invoiceAmount = (requestedAmount ?? maxInvoice).roundDownToSats();
+    final invoiceAmount = TokenAmountEvmExt(
+      requestedAmount ?? maxInvoice,
+    ).roundDownToSats();
 
     if (invoiceAmount < minInvoice) {
       throw StateError(
-        'Invoice amount ${invoiceAmount.getInSats} sats is below Boltz minimum '
-        '${minInvoice.getInSats} sats.',
+        'Invoice amount ${TokenAmountEvmExt(invoiceAmount).getInSats} sats is below Boltz minimum '
+        '${TokenAmountEvmExt(minInvoice).getInSats} sats.',
       );
     }
     if (invoiceAmount > maxInvoiceByPair) {
       throw StateError(
-        'Invoice amount ${invoiceAmount.getInSats} sats exceeds Boltz maximum '
-        '${maxInvoiceByPair.getInSats} sats.',
+        'Invoice amount ${TokenAmountEvmExt(invoiceAmount).getInSats} sats exceeds Boltz maximum '
+        '${TokenAmountEvmExt(maxInvoiceByPair).getInSats} sats.',
       );
     }
     if (invoiceAmount > maxInvoiceByBalance) {
       throw StateError(
-        'Invoice amount ${invoiceAmount.getInSats} sats exceeds affordable maximum '
-        '${maxInvoiceByBalance.getInSats} sats after gas+swap fees.',
+        'Invoice amount ${TokenAmountEvmExt(invoiceAmount).getInSats} sats exceeds affordable maximum '
+        '${TokenAmountEvmExt(maxInvoiceByBalance).getInSats} sats after gas+swap fees.',
       );
     }
 
     final estimatedSwapFeeSats =
-        invoiceAmount.getInSats.toDouble() * (percentage / 100.0) +
+        TokenAmountEvmExt(invoiceAmount).getInSats.toDouble() *
+            (percentage / 100.0) +
         minerFeesSatsRoundedUp;
-    final estimatedSwapFee = rbtcFromSatsInt(
-      estimatedSwapFeeSats.ceil(),
-    ).roundUpToSats();
 
+    // Express all fees in BTC sats (8 decimals) so totalFees can add them
+    // regardless of whether the swapped asset is native (RBTC) or an ERC-20
+    // token. Gas fees originate as RBTC wei (18 decimals) → rescale to sats.
     return SwapOutQuote(
       balance: balanceRounded,
       invoiceAmount: invoiceAmount,
-      estimatedGasFee: gasFeeRounded,
-      estimatedSwapFee: estimatedSwapFee,
+      estimatedGasFee: gasFeeRounded.toDenominated().rescale(8),
+      estimatedSwapFee: DenominatedAmount(
+        denomination: 'BTC',
+        value: BigInt.from(estimatedSwapFeeSats.ceil()),
+        decimals: 8,
+      ),
     );
   }
 }

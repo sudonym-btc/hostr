@@ -22,6 +22,12 @@ class EvmSwapOutOperation extends SwapOutOperation {
   final SwapOutQuoteService quoteService;
   final Payments payments;
 
+  EthereumAddress? get _requestedTokenAddress {
+    final amount = params.amount;
+    if (amount == null || !amount.token.isERC20) return null;
+    return EthereumAddress.fromHex(amount.token.address);
+  }
+
   EvmSwapOutOperation({
     required this.configuredChain,
     required super.auth,
@@ -371,7 +377,10 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
     // 2. Fall back to timelock refund (must wait for block height)
     try {
-      final currentBlock = await configuredChain.chain.client.getBlockNumber();
+      // Use getLocktimeBlockNumber() because on Arbitrum L2, Boltz returns
+      // Ethereum L1 block numbers for timeouts while eth_blockNumber returns
+      // the much-larger L2 sequencer block.
+      final currentBlock = await configuredChain.chain.getLocktimeBlockNumber();
       if (currentBlock < data.timeoutBlockHeight) {
         logger.w(
           'Timelock not expired yet (current: $currentBlock, '
@@ -459,7 +468,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
             : configuredChain.swaps!.getEtherSwapContract().self;
         final fromBlock = data.creationBlockHeight != null
             ? BlockNum.exact(data.creationBlockHeight!)
-            : const BlockNum.genesis();
+            : const BlockNum.exact(0);
 
         final event = contract.event('Claim');
         final filter = FilterOptions.events(
@@ -495,7 +504,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
             : configuredChain.swaps!.getEtherSwapContract().self;
         final fromBlock = data.creationBlockHeight != null
             ? BlockNum.exact(data.creationBlockHeight!)
-            : const BlockNum.genesis();
+            : const BlockNum.exact(0);
 
         final event = contract.event('Refund');
         final filter = FilterOptions.events(
@@ -560,12 +569,18 @@ class EvmSwapOutOperation extends SwapOutOperation {
     int creationBlock,
   ) => logger.span('_prepareSwap', () async {
     final preimageHash = _extractPreimageHash(invoice);
-    final swap = await configuredChain.swaps!.submarine(invoice: invoice);
+    final swap = await configuredChain.swaps!.submarine(
+      invoice: invoice,
+      tokenAddress: _requestedTokenAddress,
+    );
     logger.i('Submarine swap created: ${swap.toString()}');
 
     final expectedLockAmount = rbtcFromSatsInt(swap.expectedAmount.ceil());
     final expectedLockAmountRounded = expectedLockAmount.roundUpToSats();
-    final gasFeeRounded = quote.estimatedGasFee.roundUpToSats();
+    final gasFeeRounded = TokenAmount.fromDenominated(
+      quote.estimatedGasFee,
+      quote.balance.token,
+    ).roundUpToSats();
     final balanceRounded = quote.balance.roundDownToSats();
 
     if (expectedLockAmountRounded + gasFeeRounded > balanceRounded) {
@@ -588,24 +603,47 @@ class EvmSwapOutOperation extends SwapOutOperation {
       claimAddress: lockClaimAddress.with0x,
       lockedAmountWeiHex: expectedLockAmountRounded.getInWei.toRadixString(16),
       lockerAddress: params.evmKey.address.with0x,
-      timeoutBlockHeight: swap.timeoutBlockHeight.toInt(),
+      timeoutBlockHeight: swap.timeoutBlockHeight!.toInt(),
       chainId: configuredChain.config.chainId,
       accountIndex: params.accountIndex,
       creationBlockHeight: creationBlock,
-      tokenAddress: configuredChain.swaps!.tokenAddress?.eip55With0x,
+      tokenAddress: _requestedTokenAddress?.eip55With0x,
     );
     logger.i('Swap-out data persisted for ${swap.id} before lock');
     return SwapOutAwaitingOnChain(data);
   });
 
   Future<SwapOutQuote> _buildQuote() => logger.span('_buildQuote', () async {
+    final balance = await _getSwapBalance();
     return quoteService.buildQuote(
-      balance: await configuredChain.chain.getBalance(params.evmKey.address),
+      balance: balance,
       estimatedGasFee: await _estimateLockGasFee(),
       requestedAmount: params.amount,
-      boltzCurrency: configuredChain.swaps!.currency,
+      boltzCurrency: configuredChain.swaps!.currencyForTokenAddress(
+        _requestedTokenAddress,
+      ),
     );
   });
+
+  Future<TokenAmount> _getSwapBalance() =>
+      logger.span('_getSwapBalance', () async {
+        final tokenAddress = _requestedTokenAddress;
+        if (tokenAddress == null) {
+          return configuredChain.chain.getBalance(params.evmKey.address);
+        }
+
+        final token = IERC20(
+          address: tokenAddress,
+          client: configuredChain.chain.client,
+        );
+        final raw = await token.balanceOf((account: params.evmKey.address));
+        return tokenAmountFromEvm(
+          tokenAddress.eip55With0x,
+          raw,
+          chainId: configuredChain.config.chainId,
+          knownTokens: configuredChain.config.tokens,
+        );
+      });
 
   Future<TokenAmount> _estimateLockGasFee() =>
       logger.span('_estimateLockGasFee', () async {

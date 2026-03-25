@@ -98,7 +98,8 @@ class Evm {
             .firstOrNull;
         if (match == null) {
           _logger.d(
-            'Boltz currency ${info.currency} (chainId=${info.chainId}) '
+            'Boltz chain ${info.chainKey} '
+            '(chainId=${info.chainId}) '
             'has no matching chain config — skipping',
           );
           continue;
@@ -110,6 +111,7 @@ class Evm {
           chainInfo: info,
           chain: match.chain,
           logger: _logger,
+          nativeCurrency: match.config.boltzCurrency,
         );
 
         // Replace the configured chain with one that includes swaps.
@@ -122,7 +124,7 @@ class Evm {
         );
 
         _logger.i(
-          'Attached Boltz swap provider for ${info.currency} '
+          'Attached Boltz swap provider for ${info.chainKey} '
           'to chain ${match.config.id}',
         );
       }
@@ -227,11 +229,16 @@ class Evm {
   ///
   /// Returns the list of created [EvmSwapOutOperation]s (one per funded
   /// address that meets the optional [minimumBalance]).
+  ///
+  /// Scans both **native** balances and **ERC-20 token** balances for every
+  /// token listed in the chain's Boltz discovery (`chainInfo.tokens`).
   Future<List<EvmSwapOutOperation>> swapOutAll({TokenAmount? minimumBalance}) =>
       _logger.span('swapOutAll', () async {
         final ops = <EvmSwapOutOperation>[];
         for (final configured in configuredChains) {
           if (configured.swaps == null) continue;
+
+          // ── Native-asset sweep ──────────────────────────────────────
           final funded = await configured.chain.getAddressesWithBalance();
           for (final entry in funded) {
             if (minimumBalance != null && entry.balance < minimumBalance) {
@@ -246,6 +253,38 @@ class Evm {
                   evmKey: evmKey,
                   accountIndex: entry.accountIndex,
                   amount: null,
+                ),
+                auth: _auth,
+                logger: _logger,
+                nwc: getIt<Nwc>(),
+                payments: getIt<Payments>(),
+                quoteService: getIt<SwapOutQuoteService>(),
+              ),
+            );
+          }
+
+          // ── ERC-20 token sweep ──────────────────────────────────────
+          final boltzTokens = configured.swaps!.chainInfo.tokens;
+          if (boltzTokens.isEmpty) continue;
+
+          final tokenFunded = await configured.chain
+              .getAddressesWithTokenBalances(boltzTokens);
+
+          for (final entry in tokenFunded) {
+            if (minimumBalance != null && entry.balance < minimumBalance) {
+              continue;
+            }
+            final evmKey = await _auth.hd.getActiveEvmKey(
+              accountIndex: entry.accountIndex,
+            );
+            // Pass the full ERC-20 balance as `amount` so the swap-out
+            // operation knows which token to lock (via amount.token).
+            ops.add(
+              configured.swapOut(
+                params: SwapOutParams(
+                  evmKey: evmKey,
+                  accountIndex: entry.accountIndex,
+                  amount: entry.balance,
                 ),
                 auth: _auth,
                 logger: _logger,

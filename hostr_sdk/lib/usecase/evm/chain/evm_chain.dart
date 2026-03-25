@@ -6,6 +6,7 @@ import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
+import '../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/http_client_factory.dart';
 import '../../../util/network_error.dart';
@@ -148,9 +149,38 @@ class EvmChain {
   });
 
   Future<List<FilterEvent>> _getLogsDirect(FilterOptions filter) {
+    // Arbitrum's public RPC rejects named block tags like "earliest" in
+    // eth_getLogs and requires hex block numbers.  Normalise them here so
+    // every caller is safe.
+    final normalised = _normaliseBlockTags(filter);
     return _callRpcWithRetry(
-      'getLogs(${_stringifyFilterOptions(filter)})',
-      (client) => client.getLogs(filter),
+      'getLogs(${_stringifyFilterOptions(normalised)})',
+      (client) => client.getLogs(normalised),
+    );
+  }
+
+  /// Replaces the `"earliest"` block tag ([BlockNum.genesis]) with `0x0` so
+  /// that RPCs which only accept hex strings (e.g. Arbitrum One) work.
+  FilterOptions _normaliseBlockTags(FilterOptions filter) {
+    final from = filter.fromBlock;
+    final to = filter.toBlock;
+
+    // BlockNum.genesis() → useAbsolute=false, blockNum=0 → "earliest"
+    // Replace with BlockNum.exact(0) → "0x0"
+    final normFrom = from != null && !from.useAbsolute && from.blockNum == 0
+        ? const BlockNum.exact(0)
+        : from;
+    final normTo = to != null && !to.useAbsolute && to.blockNum == 0
+        ? const BlockNum.exact(0)
+        : to;
+
+    if (identical(normFrom, from) && identical(normTo, to)) return filter;
+
+    return FilterOptions(
+      address: filter.address,
+      topics: filter.topics,
+      fromBlock: normFrom,
+      toBlock: normTo,
     );
   }
 
@@ -245,6 +275,48 @@ class EvmChain {
       'getBlockNumber',
       (client) => client.getBlockNumber(),
     );
+  }
+
+  /// Known Arbitrum L2 chain IDs where [getBlockNumber] returns L2 blocks
+  /// but Boltz timelock heights reference Ethereum L1 blocks.
+  static const Set<int> _arbitrumChainIds = {
+    42161, // Arbitrum One
+    421614, // Arbitrum Sepolia
+    42170, // Arbitrum Nova
+    412346, // Anvil (local dev/test Arbitrum)
+  };
+
+  /// Returns the block number relevant for locktime / timelock comparisons.
+  ///
+  /// On Arbitrum L2 chains, Boltz swap contracts and the Boltz backend use
+  /// Ethereum L1 block numbers for timelocks. However, `eth_blockNumber`
+  /// on Arbitrum returns the much-larger L2 sequencer block number. This
+  /// method extracts the `l1BlockNumber` from the Arbitrum block metadata
+  /// so that client-side expiry checks compare apples-to-apples.
+  ///
+  /// On non-Arbitrum chains (e.g. Rootstock), delegates to [getBlockNumber].
+  Future<int> getLocktimeBlockNumber() {
+    if (!_arbitrumChainIds.contains(config.chainId)) {
+      return getBlockNumber();
+    }
+    return _callRpcWithRetry('getLocktimeBlockNumber', (client) async {
+      final block = await client.makeRPCCall<Map<String, dynamic>>(
+        'eth_getBlockByNumber',
+        ['latest', false],
+      );
+      final l1BlockHex = block['l1BlockNumber'] as String?;
+      if (l1BlockHex == null) {
+        logger.w(
+          'Arbitrum block metadata missing l1BlockNumber, '
+          'falling back to eth_blockNumber',
+        );
+        return client.getBlockNumber();
+      }
+      final clean = l1BlockHex.startsWith('0x')
+          ? l1BlockHex.substring(2)
+          : l1BlockHex;
+      return int.parse(clean, radix: 16);
+    });
   }
 
   Future<TokenAmount> getBalance(EthereumAddress address) =>
@@ -527,6 +599,97 @@ class EvmChain {
 
     return funded;
   });
+
+  /// Returns the ERC-20 token balance for a single [owner] address.
+  ///
+  /// Uses the generated [IERC20] binding to call `balanceOf` and wraps
+  /// the result in a [TokenAmount] with the correct [Token] metadata
+  /// resolved from [config.tokens] (falls back to 18 decimals).
+  Future<TokenAmount> getERC20Balance(
+    EthereumAddress owner,
+    EthereumAddress tokenAddress,
+  ) => logger.span('getERC20Balance', () async {
+    final token = IERC20(address: tokenAddress, client: client);
+    final raw = await _callRpcWithRetry(
+      'balanceOf(${tokenAddress.eip55With0x}, ${owner.eip55With0x})',
+      (_) => token.balanceOf((account: owner)),
+    );
+    return tokenAmountFromEvm(
+      tokenAddress.eip55With0x,
+      raw,
+      chainId: config.chainId,
+      knownTokens: config.tokens,
+    );
+  });
+
+  /// Scans all HD-derived addresses for non-zero ERC-20 balances across
+  /// the given [tokens] map (Boltz token-name → contract address).
+  ///
+  /// Returns one record per (address, token) pair that has a non-zero
+  /// balance, along with the Boltz token name for downstream swap routing.
+  Future<
+    List<
+      ({
+        EthereumAddress address,
+        int accountIndex,
+        TokenAmount balance,
+        String tokenName,
+        EthereumAddress tokenAddress,
+      })
+    >
+  >
+  getAddressesWithTokenBalances(Map<String, EthereumAddress> tokens) =>
+      logger.span('getAddressesWithTokenBalances', () async {
+        if (tokens.isEmpty) return [];
+
+        final funded =
+            <
+              ({
+                EthereumAddress address,
+                int accountIndex,
+                TokenAmount balance,
+                String tokenName,
+                EthereumAddress tokenAddress,
+              })
+            >[];
+
+        // Derive all HD addresses up front.
+        final addresses = await Future.wait(
+          List.generate(_maxScanIndex, (i) async {
+            return (
+              index: i,
+              address: await auth.hd.getEvmAddress(accountIndex: i),
+            );
+          }),
+        );
+
+        // For each token, check all addresses in parallel.
+        for (final tokenEntry in tokens.entries) {
+          final tokenName = tokenEntry.key;
+          final tokenAddr = tokenEntry.value;
+
+          final results = await Future.wait(
+            addresses.map((entry) async {
+              final balance = await getERC20Balance(entry.address, tokenAddr);
+              return (entry: entry, balance: balance);
+            }),
+          );
+
+          for (final r in results) {
+            if (r.balance.value > BigInt.zero) {
+              funded.add((
+                address: r.entry.address,
+                accountIndex: r.entry.index,
+                balance: r.balance,
+                tokenName: tokenName,
+                tokenAddress: tokenAddr,
+              ));
+            }
+          }
+        }
+
+        return funded;
+      });
 
   /// Returns the total balance across all HD-derived addresses that hold
   /// funds, scanning up to [_maxScanIndex] indices.

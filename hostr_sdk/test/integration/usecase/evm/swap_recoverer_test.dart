@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart';
 import 'package:logger/logger.dart';
+import 'package:models/main.dart';
 import 'package:test/test.dart';
 
 import '../../../support/integration_test_harness.dart';
@@ -55,7 +56,12 @@ void main() {
       // Run a full swap-in to completion so the store has a terminal entry.
       final configured = hostr.evm.configuredChains.first;
       final swapLimits = await configured.getSwapInLimits();
-      final amount = swapLimits.min + rbtcFromSatsInt(1000);
+      final amount =
+          TokenAmount.fromDenominated(
+            swapLimits.min,
+            Token.rbtc(configured.config.chainId),
+          ) +
+          rbtcFromSatsInt(1000);
 
       final swapIn = configured.swapIn(
         params: SwapInParams(
@@ -92,7 +98,12 @@ void main() {
       // 1. Run a full swap-in to completion.
       final configured = hostr.evm.configuredChains.first;
       final swapLimits = await configured.getSwapInLimits();
-      final amount = swapLimits.min + rbtcFromSatsInt(1000);
+      final amount =
+          TokenAmount.fromDenominated(
+            swapLimits.min,
+            Token.rbtc(configured.config.chainId),
+          ) +
+          rbtcFromSatsInt(1000);
 
       final swapIn = configured.swapIn(
         params: SwapInParams(

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:chopper/chopper.dart';
-import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -23,91 +22,74 @@ class BoltzClient {
 
   /// Discover all EVM chains supported by this Boltz instance.
   ///
-  /// Calls `GET /chain/contracts` (no currency filter) and returns one
-  /// [BoltzChainInfo] per currency that has an EtherSwap contract.
-  Future<List<BoltzChainInfo>> discoverChains() =>
-      logger.span('discoverChains', () async {
-        final res = await gBoltzCli.chainContractsGet();
-        if (!res.isSuccessful || res.body == null) {
-          throw StateError('Failed to fetch chain contracts from Boltz');
-        }
+  /// Parses `GET /chain/contracts` for chain topology (chainId, swap
+  /// contracts, tokens). Does **not** resolve swap-pair availability —
+  /// that is looked up at swap-time via `getReversePair` / `getSubmarinePair`.
+  Future<List<BoltzChainInfo>> discoverChains() => logger.span(
+    'discoverChains',
+    () async {
+      final res = await gBoltzCli.chainContractsGet();
+      if (!res.isSuccessful || res.body == null) {
+        throw StateError('Failed to fetch chain contracts from Boltz');
+      }
 
-        final body = res.body;
-        if (body is! Map) {
-          throw StateError('Unexpected Boltz chain contracts response shape');
-        }
+      final body = res.body;
+      if (body is! Map) {
+        throw StateError('Unexpected Boltz chain contracts response shape');
+      }
 
-        final chains = <BoltzChainInfo>[];
-        for (final entry in body.entries) {
-          final currency = entry.key.toString();
-          final data = entry.value;
-          if (data is! Map) continue;
+      final chains = <BoltzChainInfo>[];
+      for (final entry in body.entries) {
+        final chainKey = entry.key.toString();
+        final data = entry.value;
+        if (data is! Map) continue;
 
-          final network = data['network'];
-          if (network is! Map) continue;
+        final network = data['network'];
+        if (network is! Map) continue;
 
-          final chainIdRaw = network['chainId'];
-          // chainId can be int or double from JSON
-          if (chainIdRaw == null) continue;
-          final chainId = chainIdRaw is int
-              ? chainIdRaw
-              : (chainIdRaw as num).toInt();
+        final chainIdRaw = network['chainId'];
+        if (chainIdRaw == null) continue;
+        final chainId = chainIdRaw is int
+            ? chainIdRaw
+            : (chainIdRaw as num).toInt();
 
-          final swapContracts = data['swapContracts'];
-          if (swapContracts is! Map) continue;
+        final swapContracts = data['swapContracts'];
+        if (swapContracts is! Map) continue;
 
-          final etherSwapRaw = swapContracts['EtherSwap'];
-          final erc20SwapRaw = swapContracts['ERC20Swap'];
-          if (etherSwapRaw is! String || etherSwapRaw.isEmpty) continue;
+        final etherSwapRaw = swapContracts['EtherSwap'];
+        final erc20SwapRaw = swapContracts['ERC20Swap'];
+        if (etherSwapRaw is! String || etherSwapRaw.isEmpty) continue;
 
-          // Parse tokens map — Boltz v2 may return either a plain hex
-          // address string or a nested object with a `contractAddress` field.
-          final tokensRaw = data['tokens'];
-          final tokens = <String, EthereumAddress>{};
-          if (tokensRaw is Map) {
-            for (final tokenEntry in tokensRaw.entries) {
-              final tokenName = tokenEntry.key.toString();
-              final tokenData = tokenEntry.value;
-              if (tokenData is String && tokenData.isNotEmpty) {
-                // Plain address string (e.g. "0x948B3c...")
-                tokens[tokenName] = EthereumAddress.fromHex(tokenData);
-              } else if (tokenData is Map &&
-                  tokenData['contractAddress'] is String) {
-                // Nested object with contractAddress field
-                tokens[tokenName] = EthereumAddress.fromHex(
-                  tokenData['contractAddress'] as String,
-                );
-              }
-            }
-          }
+        final tokensRaw = data['tokens'];
+        final tokens = tokensRaw is Map<String, dynamic>
+            ? _parseTokenAddresses(tokensRaw)
+            : tokensRaw is Map
+            ? _parseTokenAddresses(
+                tokensRaw.map((key, value) => MapEntry(key.toString(), value)),
+              )
+            : <String, EthereumAddress>{};
 
-          // Determine the Boltz pair currency identifier.
-          // For chains with tokens (e.g. arbitrum → tBTC), the swap pair
-          // key is the token name, NOT the chain key.  For chains without
-          // tokens (e.g. rsk) the chain key doubles as the pair currency.
-          final pairCurrency = tokens.isNotEmpty ? tokens.keys.first : currency;
+        final info = BoltzChainInfo(
+          chainKey: chainKey,
+          chainId: chainId,
+          etherSwap: EthereumAddress.fromHex(etherSwapRaw),
+          erc20Swap: erc20SwapRaw is String && erc20SwapRaw.isNotEmpty
+              ? EthereumAddress.fromHex(erc20SwapRaw)
+              : EthereumAddress.fromHex(etherSwapRaw),
+          tokens: tokens,
+        );
+        chains.add(info);
 
-          chains.add(
-            BoltzChainInfo(
-              currency: pairCurrency,
-              chainId: chainId,
-              etherSwap: EthereumAddress.fromHex(etherSwapRaw),
-              erc20Swap: erc20SwapRaw is String && erc20SwapRaw.isNotEmpty
-                  ? EthereumAddress.fromHex(erc20SwapRaw)
-                  : EthereumAddress.fromHex(etherSwapRaw), // fallback
-              tokens: tokens,
-            ),
-          );
+        logger.i(
+          'Boltz discovered chain: $chainKey '
+          '(chainId=$chainId, tokens=${tokens.keys.toList()})',
+        );
+      }
 
-          logger.i(
-            'Boltz discovered chain: $currency (chainId=$chainId, '
-            'etherSwap=$etherSwapRaw)',
-          );
-        }
-
-        logger.i('Boltz discovered ${chains.length} chain(s)');
-        return chains;
-      });
+      logger.i('Boltz discovered ${chains.length} chain(s)');
+      return chains;
+    },
+  );
 
   Future<SubmarineResponse> submarine({
     required String invoice,
@@ -180,18 +162,29 @@ class BoltzClient {
   });
 
   Future<ReverseResponse> reverseSubmarine({
-    required double invoiceAmount,
+    double? invoiceAmount,
+    double? onchainAmount,
     required String preimageHash,
     required String claimAddress,
     String? description,
     String from = 'BTC',
     String to = 'RBTC',
   }) => logger.span('reverseSubmarine', () async {
-    logger.i('Swapping $invoiceAmount for $claimAddress');
+    if (invoiceAmount == null && onchainAmount == null) {
+      throw ArgumentError(
+        'Either invoiceAmount or onchainAmount must be provided',
+      );
+    }
+
+    logger.i(
+      'Creating reverse swap $from->$to for $claimAddress '
+      '(invoiceAmount=$invoiceAmount, onchainAmount=$onchainAmount)',
+    );
     ReverseRequest r = ReverseRequest(
       from: from,
       to: to,
       invoiceAmount: invoiceAmount,
+      onchainAmount: onchainAmount,
       claimAddress: claimAddress,
       preimageHash: preimageHash,
       description: description,
@@ -275,47 +268,24 @@ class BoltzClient {
     return SubmarinePair.fromJson(pairJson);
   });
 
-  /// Given a desired **on-chain** amount, compute the Lightning invoice amount
-  /// needed so that after Boltz deducts its percentage + miner fees the
-  /// recipient receives at least [desiredOnchainAmount].
-  ///
-  /// Boltz reverse-swap formula:
-  ///   `onchain = invoice × (1 − percentage/100) − lockupFee`
-  ///
-  /// The claim fee is **not** deducted by Boltz — the recipient pays it
-  /// separately (via RIF Relay on EVM, or a sweep tx on BTC).
-  ///
-  /// Solving for invoice:
-  ///   `invoice = (desired + lockupFee) / (1 − percentage/100)`
-  Future<({TokenAmount invoiceAmount, TokenAmount feeOverhead})>
-  computeInvoiceForDesiredOnchain({
-    required TokenAmount desiredOnchainAmount,
-    String from = 'BTC',
-    String to = 'RBTC',
-  }) => logger.span('computeInvoiceForDesiredOnchain', () async {
-    final pair = await getReversePair(from: from, to: to);
-    final pFraction = pair.fees.percentage / 100.0;
-    final lockupFee = pair.fees.minerFees.lockup;
-
-    final desiredSats = desiredOnchainAmount.getInSats.toDouble();
-    final invoiceSats = (desiredSats + lockupFee) / (1.0 - pFraction);
-    final invoiceSatsCeil = invoiceSats.ceil();
-
-    final invoice = rbtcFromSatsInt(invoiceSatsCeil);
-    final feeOverhead = rbtcFromSats(
-      BigInt.from(invoiceSatsCeil) - desiredOnchainAmount.getInSats,
-    );
-
-    logger.i(
-      'computeInvoiceForDesiredOnchain $from->$to: '
-      'desired=${desiredOnchainAmount.getInSats}, invoice=${invoice.getInSats}, '
-      'overhead=${feeOverhead.getInSats} (lockup=$lockupFee, pct=${pair.fees.percentage}%)',
-    );
-    return (invoiceAmount: invoice, feeOverhead: feeOverhead);
-  });
-
   Future<Response> getSwapSubmarine() async {
     return await gBoltzCli.swapSubmarineGet();
+  }
+
+  Map<String, EthereumAddress> _parseTokenAddresses(Map<String, dynamic> raw) {
+    final tokens = <String, EthereumAddress>{};
+    for (final entry in raw.entries) {
+      final tokenName = entry.key.toString();
+      final tokenData = entry.value;
+      if (tokenData is String && tokenData.isNotEmpty) {
+        tokens[tokenName] = EthereumAddress.fromHex(tokenData);
+      } else if (tokenData is Map && tokenData['contractAddress'] is String) {
+        tokens[tokenName] = EthereumAddress.fromHex(
+          tokenData['contractAddress'] as String,
+        );
+      }
+    }
+    return tokens;
   }
 
   Stream<SwapStatus> subscribeToSwap({

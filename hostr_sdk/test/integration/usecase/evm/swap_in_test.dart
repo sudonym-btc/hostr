@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
+import 'package:models/main.dart';
 import 'package:test/test.dart';
 
 import '../../../support/integration_test_harness.dart';
@@ -37,7 +38,12 @@ void main() {
         );
         final configured = evm.configuredChains.first;
         final swapLimits = await configured.getSwapInLimits();
-        final amount = swapLimits.min + rbtcFromSatsInt(1000);
+        final amount =
+            TokenAmount.fromDenominated(
+              swapLimits.min,
+              Token.rbtc(configured.config.chainId),
+            ) +
+            rbtcFromSatsInt(1000);
 
         final swapIn = configured.swapIn(
           params: SwapInParams(

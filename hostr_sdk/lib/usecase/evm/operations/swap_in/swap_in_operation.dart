@@ -4,7 +4,6 @@ import 'package:models/main.dart';
 import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
-import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
@@ -153,7 +152,7 @@ abstract class SwapInOperation
     StepGuard(
       step: SwapInStep.claimRelay,
       allowedFrom: {'funded', 'claimRelaying'},
-      staleTimeout: Duration(minutes: 30),
+      staleTimeout: Duration(minutes: 1),
       backgroundAllowed: true,
     ),
     StepGuard(
@@ -206,7 +205,7 @@ abstract class SwapInOperation
   Future<SwapInFees> estimateFees();
 
   /// Fetches the chain's minimum and maximum swap-in amounts.
-  Future<({TokenAmount min, TokenAmount max})> getSwapLimits();
+  Future<({DenominatedAmount min, DenominatedAmount max})> getSwapLimits();
 
   // ── Init & amount adjustment (UI-facing) ──────────────────────────
 
@@ -217,14 +216,22 @@ abstract class SwapInOperation
     applyTelemetry();
     try {
       final limits = await getSwapLimits();
+      final minAmount = TokenAmount.fromDenominated(
+        limits.min,
+        params.amount.token,
+      );
+      final maxAmount = TokenAmount.fromDenominated(
+        limits.max,
+        params.amount.token,
+      );
 
       params.minAmount = params.minAmount != null
-          ? TokenAmount.max(params.minAmount!, limits.min)
-          : limits.min;
+          ? TokenAmount.max(params.minAmount!, minAmount)
+          : minAmount;
 
       params.maxAmount = params.maxAmount != null
-          ? TokenAmount.min(params.maxAmount!, limits.max)
-          : limits.max;
+          ? TokenAmount.min(params.maxAmount!, maxAmount)
+          : maxAmount;
 
       if (params.amount < params.minAmount!) {
         params.amount = params.minAmount!;

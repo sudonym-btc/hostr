@@ -340,7 +340,7 @@ class InfrastructureSink implements SeedSink {
         final filter = FilterOptions.events(
           contract: contract.self,
           event: event,
-          fromBlock: const BlockNum.genesis(),
+          fromBlock: const BlockNum.exact(0),
         );
         final logs = await _retryChainCall((c) => c.getLogs(filter));
         for (final log in logs) {
@@ -362,7 +362,7 @@ class InfrastructureSink implements SeedSink {
           final filter = FilterOptions.events(
             contract: contract.self,
             event: event,
-            fromBlock: const BlockNum.genesis(),
+            fromBlock: const BlockNum.exact(0),
           );
           final logs = await _retryChainCall((c) => c.getLogs(filter));
           for (final log in logs) {

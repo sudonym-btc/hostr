@@ -155,11 +155,11 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "+ ${formatTokenAmount(fees.estimatedGasFees)} in gas",
+                  "+ ${formatAmount(fees.estimatedGasFees)} in gas",
                   style: subtleStyle,
                 ),
                 Text(
-                  "+ ${formatTokenAmount(fees.estimatedSwapFees)} in swap fees",
+                  "+ ${formatAmount(fees.estimatedSwapFees)} in swap fees",
                   style: subtleStyle,
                 ),
               ],

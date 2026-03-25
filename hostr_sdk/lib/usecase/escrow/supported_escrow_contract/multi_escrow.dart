@@ -319,24 +319,38 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     Iterable<String> eventTopics, {
     BlockNum? fromBlock,
   }) {
-    final topics = <List<String?>>[
-      [...eventTopics],
-    ];
+    // Solidity indexed topic layout:
+    //   TradeCreated:          [sig, tradeId, token, arbiter]
+    //   Arbitrated/Claimed/Released: [sig, tradeId, token]
+    //
+    // Only TradeCreated has `arbiter` indexed (at topic[3]).
+    // When filtering by arbiter we therefore restrict topic[0] to
+    // TradeCreated — the other events can't be matched by arbiter
+    // via log topics and must be discovered per-tradeId instead.
+    final hasArbiter = params.arbiterEvmAddress != null;
+    final effectiveEventTopics = hasArbiter
+        ? [_eventTopic('TradeCreated')]
+        : [...eventTopics];
+
+    final topics = <List<String?>>[effectiveEventTopics];
 
     if (params.tradeId != null) {
       topics.add([_tradeIdTopic(params.tradeId!)]);
     }
-    if (params.arbiterEvmAddress != null) {
+    if (hasArbiter) {
       if (params.tradeId == null) {
-        topics.add([]);
+        topics.add([]); // topic[1]: wildcard for tradeId
       }
-      topics.add([_indexedAddressTopic(params.arbiterEvmAddress!)]);
+      topics.add([]); // topic[2]: wildcard for token
+      topics.add([
+        _indexedAddressTopic(params.arbiterEvmAddress!),
+      ]); // topic[3]: arbiter
     }
 
     return FilterOptions(
       address: contract.self.address,
       topics: topics,
-      fromBlock: fromBlock ?? BlockNum.genesis(),
+      fromBlock: fromBlock ?? const BlockNum.exact(0),
     );
   }
 
@@ -382,7 +396,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   BlockNum _effectiveFromBlock(_CachedTradeEvents? cachedTrade) {
     if (cachedTrade?.highestSeenBlock == null) {
-      return BlockNum.genesis();
+      return const BlockNum.exact(0);
     }
     return BlockNum.exact(cachedTrade!.highestSeenBlock! + 1);
   }
@@ -512,7 +526,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       log.transactionHash!,
     );
     return contract.client.getBlockInformation(
-      blockNumber: receipt!.blockNumber.toString(),
+      blockNumber: receipt!.blockNumber.toBlockParam(),
     );
   }
 

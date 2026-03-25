@@ -138,8 +138,14 @@ class Hostr {
         // configured chain's escrow contract address.
         final bytecodeHashes = <String>{};
         for (final chain in evm.configuredChains) {
+          logger.i(
+            'Getting bytecode hashes for ${chain.config.id} - ${chain.config.escrowContractAddress}',
+          );
           final addr = chain.config.escrowContractAddress;
-          if (addr == null || addr.isEmpty) continue;
+          if (addr == null || addr.isEmpty) {
+            logger.w('No escrow contract address for chain ${chain.config.id}');
+            continue;
+          }
           try {
             bytecodeHashes.add(
               await SupportedEscrowContractRegistry.bytecodeHashForAddress(

@@ -1,5 +1,3 @@
-import 'package:models/main.dart';
-
 import '../../../util/custom_logger.dart';
 import '../../auth/auth.dart';
 import '../../nwc/nwc.dart';
@@ -81,13 +79,5 @@ class ConfiguredEvmChain {
       params: params,
       initialState: initialState,
     );
-  }
-
-  /// Get swap-in limits from Boltz for this chain.
-  Future<({TokenAmount min, TokenAmount max})> getSwapInLimits() {
-    if (swaps == null) {
-      throw StateError('No Boltz swap provider for chain ${config.id}');
-    }
-    return swaps!.getSwapInLimits();
   }
 }

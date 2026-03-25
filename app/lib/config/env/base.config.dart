@@ -113,7 +113,7 @@ const arbitrumMainnetTokens = {
     decimals: 6,
   ),
   'tBTC': TokenConfig(
-    address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0cD8D',
+    address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40',
     decimals: 18,
   ),
 };

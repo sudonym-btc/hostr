@@ -44,12 +44,20 @@ class SwapInParams {
 }
 
 class SwapInFees {
-  final TokenAmount estimatedGasFees;
-  final TokenAmount estimatedSwapFees;
-  final TokenAmount estimatedRelayFees;
+  final DenominatedAmount estimatedGasFees;
+  final DenominatedAmount estimatedSwapFees;
+  final DenominatedAmount estimatedRelayFees;
 
-  TokenAmount get totalFees =>
+  DenominatedAmount get totalFees =>
       estimatedGasFees + estimatedSwapFees + estimatedRelayFees;
+
+  /// For reverse swaps, the fee overhead is borne by the Lightning invoice
+  /// — not by inflating the on-chain amount. The on-chain amount is exactly
+  /// what was requested; Boltz generates a larger invoice to cover its fees.
+  DenominatedAmount get requiredSwapAmountOverhead => DenominatedAmount.zero(
+    estimatedSwapFees.denomination,
+    estimatedSwapFees.decimals,
+  );
 
   SwapInFees({
     required this.estimatedGasFees,

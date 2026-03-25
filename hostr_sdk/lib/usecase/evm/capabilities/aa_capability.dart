@@ -63,9 +63,29 @@ class AACapability {
     List<CallIntent> intents,
   ) async {
     final publicClient = _initPublicClient();
-    final client = _initSmartAccountClient(signer, publicClient: publicClient);
-    final feeQuote = await _getFeeQuote(publicClient);
+    final bundler = _initPimlicoClient();
+    final account = _initSimpleAccount(signer, publicClient: publicClient);
+    final smartAccountAddress = await account.getAddress();
+    final isDeployed = await publicClient.isDeployed(smartAccountAddress);
+
+    _logger.i(
+      'sendUserOp: smartAccount=${smartAccountAddress.hex}, '
+      'deployed=$isDeployed, chainId=$_chainId, '
+      'calls=[${intents.map((i) => '${i.methodName}→${i.to.hex}').join(', ')}]',
+    );
+
+    final client = _initSmartAccountClient(
+      signer,
+      publicClient: publicClient,
+      bundler: bundler,
+    );
+    final feeQuote = await _getFeeQuote(bundler, publicClient);
     final calls = intents.map(_toPermissionlessCall).toList();
+
+    _logger.d(
+      'sendUserOp fee: maxFeePerGas=${feeQuote.maxFeePerGas}, '
+      'maxPriorityFeePerGas=${feeQuote.maxPriorityFeePerGas}',
+    );
 
     try {
       final receipt = await client.sendUserOperationAndWait(
@@ -96,12 +116,8 @@ class AACapability {
   permissionless.SmartAccountClient _initSmartAccountClient(
     EthPrivateKey signer, {
     required permissionless.PublicClient publicClient,
+    required permissionless.BundlerClient bundler,
   }) {
-    final bundler = permissionless.createBundlerClient(
-      url: _aaConfig.bundlerUrl,
-      entryPoint: _entryPointAddress,
-    );
-
     final paymaster = _aaConfig.paymasterAddress.isNotEmpty
         ? permissionless.createPaymasterClient(url: _aaConfig.bundlerUrl)
         : null;
@@ -130,9 +146,31 @@ class AACapability {
   permissionless.PublicClient _initPublicClient() =>
       permissionless.createPublicClient(url: _nodeRpcUrl);
 
+  permissionless.PimlicoClient _initPimlicoClient() =>
+      permissionless.createPimlicoClient(
+        url: _aaConfig.bundlerUrl,
+        entryPoint: _entryPointAddress,
+      );
+
   Future<({BigInt maxFeePerGas, BigInt maxPriorityFeePerGas})> _getFeeQuote(
+    permissionless.PimlicoClient bundler,
     permissionless.PublicClient publicClient,
   ) async {
+    // Prefer the bundler's recommended gas price — it reflects the
+    // minimum the bundler will accept, which can be higher than the
+    // node's eth_gasPrice on L2s like Arbitrum.
+    try {
+      final gasPrices = await bundler.getUserOperationGasPrice();
+      final fast = gasPrices.fast;
+      return (
+        maxFeePerGas: fast.maxFeePerGas,
+        maxPriorityFeePerGas: fast.maxPriorityFeePerGas,
+      );
+    } catch (e) {
+      _logger.w('Bundler gas price unavailable, falling back to node: $e');
+    }
+
+    // Fallback: derive from the node's fee data.
     final feeData = await publicClient.getFeeData();
     final maxPriorityFeePerGas =
         feeData.maxPriorityFeePerGas ?? feeData.gasPrice;

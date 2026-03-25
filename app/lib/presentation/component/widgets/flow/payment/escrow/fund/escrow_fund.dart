@@ -122,7 +122,7 @@ class EscrowFundConfirmWidget extends StatefulWidget {
 
 class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
   bool _loading = false;
-  late final Future _feeEstimate;
+  late final Future<EscrowFundFees> _feeEstimate;
 
   @override
   void initState() {
@@ -154,7 +154,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
           AmountWidget(
             amount: context.read<EscrowFundOperation>().params!.amount,
             loading: _loading,
-            feeWidget: FutureBuilder(
+            feeWidget: FutureBuilder<EscrowFundFees>(
               future: _feeEstimate,
               builder: (context, snapshot) {
                 final baseStyle = Theme.of(context).textTheme.bodySmall!;
@@ -178,11 +178,11 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatTokenAmount(snapshot.data!.networkFees)} in network fees",
+                      "+ ${formatAmount(snapshot.data!.networkFees)} in network fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatTokenAmount(snapshot.data!.estimatedEscrowFees)} in escrow fees",
+                      "+ ${formatAmount(snapshot.data!.estimatedEscrowFees)} in escrow fees",
                       style: subtleStyle,
                     ),
                   ],

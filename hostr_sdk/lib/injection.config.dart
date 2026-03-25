@@ -268,7 +268,7 @@ extension GetItInjectableX on _i174.GetIt {
         requests: gh<_i1014.Requests>(),
         logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
-        config: gh<_i910.HostrConfig>(),
+        evm: gh<_i305.Evm>(),
       ),
     );
     gh.singleton<_i943.EscrowTrusts>(
