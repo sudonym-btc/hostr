@@ -270,10 +270,6 @@ class _EscrowServicesModalContent extends StatelessWidget {
               Text('Chain ID: ${service.chainId}'),
               Text('Max duration: ${service.maxDuration.inHours}h'),
               if (feeDesc.isNotEmpty) Text('Fee: $feeDesc'),
-              Text(
-                'Min: ${service.minAmount} sats'
-                '${service.maxAmount != null ? ' · Max: ${service.maxAmount} sats' : ''}',
-              ),
             ],
           ),
         ),

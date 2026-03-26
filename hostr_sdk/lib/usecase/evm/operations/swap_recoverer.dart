@@ -97,19 +97,23 @@ class SwapRecoverer {
     OnBackgroundProgress? onProgress,
   }) => _logger.span('_recoverSwapIn', () async {
     final data = state.data!;
+    final configuredChain = getIt<Evm>().getChainByChainId(data.chainId);
+    if (configuredChain == null) {
+      throw StateError('No configured EVM chain for chainId ${data.chainId}');
+    }
     final evmKey = await _auth.hd.getActiveEvmKey(
       accountIndex: data.accountIndex,
     );
 
     final cubit = EvmSwapInOperation(
-      configuredChain: getIt<Evm>().configuredChains.first,
+      configuredChain: configuredChain,
       auth: _auth,
       logger: _logger,
       params: SwapInParams(
         evmKey: evmKey,
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
-        amount: TokenAmount.zero(rbtc),
+        amount: TokenAmount.zero(Token.rbtc(data.chainId)),
         // Restore parent link from persisted data so notifications
         // update the same OS notification as the parent operation.
         parentOperationId: data.parentOperationId,
@@ -135,12 +139,16 @@ class SwapRecoverer {
     bool isBackground = false,
   }) => _logger.span('_recoverSwapOut', () async {
     final data = state.data!;
+    final configuredChain = getIt<Evm>().getChainByChainId(data.chainId);
+    if (configuredChain == null) {
+      throw StateError('No configured EVM chain for chainId ${data.chainId}');
+    }
     final evmKey = await _auth.hd.getActiveEvmKey(
       accountIndex: data.accountIndex,
     );
 
     final cubit = EvmSwapOutOperation(
-      configuredChain: getIt<Evm>().configuredChains.first,
+      configuredChain: configuredChain,
       auth: _auth,
       logger: _logger,
       nwc: getIt<Nwc>(),

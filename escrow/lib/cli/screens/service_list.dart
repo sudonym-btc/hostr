@@ -30,10 +30,7 @@ Future<Navigation> serviceListScreen(DaemonClient client) async {
     final options = services.map((s) {
       final chain = 'chain=${s.chainId}';
       final fees = '${s.feePercent}%';
-      final range = s.maxAmount != null
-          ? '${s.minAmount}–${s.maxAmount} sats'
-          : '≥${s.minAmount} sats';
-      return '${s.contractAddress.substring(0, 10)}…  $chain  $fees  $range';
+      return '${s.contractAddress.substring(0, 10)}…  $chain  $fees';
     }).toList();
 
     final idx =

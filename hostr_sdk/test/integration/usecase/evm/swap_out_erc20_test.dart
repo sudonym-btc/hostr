@@ -132,13 +132,16 @@ void main() {
   late IntegrationTestHarness harness;
   late Web3Client web3;
 
-  setUpAll(() async {
+  setUp(() async {
     harness = await IntegrationTestHarness.create(
       name: 'hostr_swap_out_erc20_it',
       seed: DateTime.now().microsecondsSinceEpoch,
       logLevel: Level.warning,
       cleanHydratedStorage: true,
     );
+  });
+
+  setUpAll(() async {
     web3 = Web3Client(IntegrationTestHarness.anvilRpc, http.Client());
   });
 

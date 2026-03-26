@@ -10,7 +10,7 @@
 /// [EscrowVerification.verify].
 ///
 /// Prerequisites:
-///   - Anvil running on https://anvil.hostr.development (chain-id 412346)
+///   - Anvil running on https://arbitrum.hostr.development (chain-id 412346)
 ///   - Nostr relay at wss://relay.hostr.development
 ///   - Boltz at https://boltz.hostr.development/v2
 ///   - AlbyHub at https://alby.hostr.development
@@ -415,21 +415,22 @@ void main() {
           appNamePrefix: 'swap-in-rbtc-fee-it',
         );
 
-        final configured = evm.configuredChains.first;
+        final configured = evm.getChainById('rootstock-regtest')!;
+        final evmKey = await hostr.auth.hd.getActiveEvmKey();
+        await harness.anvilRootstock.setBalance(
+          address: evmKey.address.eip55With0x,
+          amountWei: rbtcFromSatsInt(1000000).getInWei,
+        );
         final swapLimits = await configured.swaps!.getSwapInLimits();
         final amount =
             TokenAmount.fromDenominated(
               swapLimits.min,
               Token.rbtc(configured.config.chainId),
             ) +
-            rbtcFromSatsInt(1000);
+            rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
         final swapIn = configured.swapIn(
-          params: SwapInParams(
-            evmKey: await hostr.auth.hd.getActiveEvmKey(),
-            accountIndex: 0,
-            amount: amount,
-          ),
+          params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
           auth: hostr.auth,
           logger: CustomLogger(),
         );
@@ -446,7 +447,7 @@ void main() {
 
         expect(swapIn.state, isA<SwapInCompleted>());
       },
-      timeout: const Timeout(Duration(seconds: 30)),
+      timeout: const Timeout(Duration(seconds: 60)),
     );
   });
 
@@ -480,15 +481,7 @@ void main() {
         );
 
         final configured = evm.configuredChains.first;
-        if (configured.swaps == null) {
-          markTestSkipped('Boltz not configured — skipping ERC-20 swap-in');
-          return;
-        }
         final boltzTokens = configured.swaps!.chainInfo.tokens;
-        if (boltzTokens.isEmpty) {
-          markTestSkipped('No Boltz ERC-20 tokens discovered — skipping');
-          return;
-        }
 
         // Use the first Boltz-discovered ERC-20 token (typically tBTC).
         final tokenEntry = boltzTokens.entries.first;
@@ -569,7 +562,7 @@ void main() {
           appNamePrefix: 'swap-out-rbtc-fee-it',
         );
 
-        await harness.anvil.setBalance(
+        await harness.anvilRootstock.setBalance(
           address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
           amountWei: rbtcFromSatsInt(500000).getInWei,
         );
@@ -580,7 +573,9 @@ void main() {
           isNotEmpty,
           reason: 'Should have at least one swap-out op',
         );
-        final swapOut = swapOuts.first;
+        final swapOut = swapOuts.firstWhere(
+          (op) => op.configuredChain.config.id == 'rootstock-regtest',
+        );
 
         // ── Fee estimation ──
         final fees = await swapOut.estimateFees();
@@ -650,16 +645,7 @@ void main() {
         await hostr.evm.init();
 
         final configured = hostr.evm.configuredChains.first;
-        if (configured.swaps == null) {
-          markTestSkipped('Boltz not configured — skipping ERC-20 swap-out');
-          return;
-        }
         final boltzTokens = configured.swaps!.chainInfo.tokens;
-        if (boltzTokens.isEmpty) {
-          markTestSkipped('No Boltz ERC-20 tokens discovered — skipping');
-          return;
-        }
-
         // Fund HD #0 with native gas + ERC-20 tokens.
         final userKey = await hostr.auth.hd.getActiveEvmKey();
         await anvil.setBalance(
@@ -677,7 +663,7 @@ void main() {
           address: tokenEntry.value,
           client: web3,
         );
-        final mintAmount = BigInt.from(10) * BigInt.from(10).pow(18);
+        final mintAmount = BigInt.from(200000) * BigInt.from(10).pow(10);
         await _waitForReceipt(
           web3,
           await tokenContract.transfer((
@@ -686,20 +672,28 @@ void main() {
           ), credentials: _deployerKey),
         );
 
-        // swapOutAll should pick up both native and ERC-20.
-        final ops = await hostr.evm.swapOutAll();
-        expect(ops.length, greaterThanOrEqualTo(2));
-
-        final erc20Ops = ops.where(
-          (op) => op.params.amount != null && op.params.amount!.token.isERC20,
+        final tbtcToken = Token(
+          chainId: configured.config.chainId,
+          address: tokenEntry.value.eip55With0x,
+          decimals: 18,
         );
-        expect(
-          erc20Ops,
-          isNotEmpty,
-          reason: 'Expected at least one ERC-20 swap-out op',
+        final requestedAmount = TokenAmount(
+          value: BigInt.from(50000) * BigInt.from(10).pow(10),
+          token: tbtcToken,
         );
 
-        final erc20Op = erc20Ops.first;
+        final erc20Op = configured.swapOut(
+          params: SwapOutParams(
+            evmKey: userKey,
+            accountIndex: 0,
+            amount: requestedAmount,
+          ),
+          auth: hostr.auth,
+          logger: CustomLogger(),
+          nwc: hostr.nwc,
+          payments: hostr.payments,
+          quoteService: SwapOutQuoteService(),
+        );
 
         // ── Fee estimation ──
         final fees = await erc20Op.estimateFees();

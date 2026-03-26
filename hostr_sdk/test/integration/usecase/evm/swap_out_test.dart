@@ -60,13 +60,16 @@ void main() {
         appNamePrefix: 'swap-out-it',
       );
 
-      // Fund with enough sats to cover Anvil's high gas price (~2.9 gwei).
-      await harness.anvil.setBalance(
+      // Fund on the Rootstock chain — native swaps use RSK.
+      await harness.anvilRootstock.setBalance(
         address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSatsInt(500000).getInWei,
+        amountWei: rbtcFromSatsInt(1000000).getInWei,
       );
 
-      final swapOut = (await hostr.evm.swapOutAll()).first;
+      final ops = await hostr.evm.swapOutAll();
+      final swapOut = ops.firstWhere(
+        (op) => op.configuredChain.config.id == 'rootstock-regtest',
+      );
 
       final emittedStates = <SwapOutState>[swapOut.state];
       final sub = swapOut.stream.listen(emittedStates.add);
@@ -96,14 +99,17 @@ void main() {
       // Sign in without NWC so _acquireInvoice falls through to external.
       await harness.hostr.auth.signin(MockKeys.guest.privateKey!);
 
-      await harness.anvil.setBalance(
+      await harness.anvilRootstock.setBalance(
         address:
             (await harness.hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSatsInt(500000).getInWei,
+        amountWei: rbtcFromSatsInt(1000000).getInWei,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
-      final swapOut1 = (await harness.hostr.evm.swapOutAll()).first;
+      final ops = await harness.hostr.evm.swapOutAll();
+      final swapOut1 = ops.firstWhere(
+        (op) => op.configuredChain.config.id == 'rootstock-regtest',
+      );
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);
 

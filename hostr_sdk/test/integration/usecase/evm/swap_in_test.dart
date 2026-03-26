@@ -36,14 +36,22 @@ void main() {
           user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
           appNamePrefix: 'swap-in-it',
         );
-        final configured = evm.configuredChains.first;
+        final configured = evm.getChainById('rootstock-regtest')!;
+
+        // Fund the EOA on rootstock so it can pay gas for the claim tx.
+        final evmKey = await hostr.auth.hd.getActiveEvmKey();
+        await harness.anvilRootstock.setBalance(
+          address: evmKey.address.eip55With0x,
+          amountWei: rbtcFromSatsInt(100000).getInWei,
+        );
+
         final swapLimits = await configured.swaps!.getSwapInLimits();
         final amount =
             TokenAmount.fromDenominated(
               swapLimits.min,
               Token.rbtc(configured.config.chainId),
             ) +
-            rbtcFromSatsInt(1000);
+            rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
         final swapIn = configured.swapIn(
           params: SwapInParams(

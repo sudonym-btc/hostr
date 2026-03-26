@@ -64,6 +64,7 @@ services:
           - lnbits.${DOMAIN}
           - alby.${DOMAIN}
           - anvil.${DOMAIN}
+          - rsk.${DOMAIN}
           - arbitrum.${DOMAIN}
           - boltz.${DOMAIN}
           - paymaster.${DOMAIN}

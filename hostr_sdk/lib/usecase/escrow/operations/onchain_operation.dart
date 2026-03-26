@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:web3dart/web3dart.dart';
 
 import '../../../config.dart';
@@ -611,18 +612,36 @@ abstract class OnchainOperation
   /// multiple intents that will be batched into a single UserOperation.
   Future<List<CallIntent>> buildCallIntents();
 
+  /// Build state overrides for gas estimation.
+  ///
+  /// Override in subclasses that need to simulate token balances during
+  /// `eth_estimateUserOperationGas` — e.g. escrow funding where the ERC-20
+  /// tokens arrive via swap *after* the gas estimate.
+  ///
+  /// Returns `null` by default (no overrides).
+  Future<List<permissionless.StateOverride>?> buildGasEstimationStateOverrides(
+    List<CallIntent> intents,
+  ) async => null;
+
   /// Estimate gas for a list of call intents via ERC-4337.
   ///
   /// Returns the gas fee as a [TokenAmount] in the chain's native token,
   /// plus whether the gas is currently sponsored by a paymaster.
+  ///
+  /// If [stateOverride] is not provided, [buildGasEstimationStateOverrides]
+  /// is called to allow subclasses to inject simulated token balances.
   Future<({TokenAmount gasFee, bool gasSponsored})> estimateCallIntentsFee(
-    List<CallIntent> intents,
-  ) {
+    List<CallIntent> intents, {
+    List<permissionless.StateOverride>? stateOverride,
+  }) {
     return logger.span('estimateCallIntentsFee', () async {
+      final effectiveOverrides =
+          stateOverride ?? await buildGasEstimationStateOverrides(intents);
       final signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
       final estimate = await configuredChain.aa!.estimateGasFee(
         signer,
-        intents,
+        intents: intents,
+        stateOverride: effectiveOverrides,
       );
       return (
         gasFee: rbtcFromWei(estimate.gasCostWei),
@@ -638,7 +657,7 @@ abstract class OnchainOperation
   ) => logger.span('broadcastCallIntents', () async {
     try {
       await contract.ensureDeployed();
-      return await configuredChain.aa!.sendUserOp(credentials, intents);
+      return await configuredChain.sendCalls(credentials, intents);
     } catch (error) {
       throw contract.decodeWriteError(error);
     }
@@ -798,7 +817,8 @@ abstract class OnchainOperation
           data.transactionInformation ?? await chain.awaitTransaction(txHash);
       data = data.copyWithTransactionInformation(transactionInformation);
 
-      final receipt = await chain.awaitReceipt(txHash);
+      final receipt =
+          data.transactionReceipt ?? await chain.awaitReceipt(txHash);
       logger.i(
         'Receipt received for $namespace tx $txHash: status=${receipt.status}',
       );

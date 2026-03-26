@@ -42,6 +42,7 @@ class _PermissiveHttpOverrides extends HttpOverrides {
 class IntegrationTestHarness {
   final Hostr hostr;
   final AnvilClient anvil;
+  final AnvilClient anvilRootstock;
   final AlbyHubClient albyHub;
   final TestSeedHelper seeds;
   final Directory hydratedDir;
@@ -58,6 +59,7 @@ class IntegrationTestHarness {
   IntegrationTestHarness({
     required this.hostr,
     required this.anvil,
+    required this.anvilRootstock,
     required this.albyHub,
     required this.seeds,
     required this.hydratedDir,
@@ -68,7 +70,17 @@ class IntegrationTestHarness {
   static const bootstrapRelays = env.bootstrapRelays;
   static const bootstrapBlossom = env.blossomUrl;
   static const hostrRelay = env.relayUrl;
-  static var anvilRpc = env.evmConfig.chains.first.rpcUrl;
+
+  /// RPC URL for the Arbitrum-regtest anvil (ERC-20 / escrow / AA tests).
+  static var anvilRpc = env.evmConfig.chains
+      .firstWhere((c) => c.id.contains('arbitrum'))
+      .rpcUrl;
+
+  /// RPC URL for the Rootstock-regtest anvil (native swap tests).
+  static var rootstockRpc = env.evmConfig.chains
+      .firstWhere((c) => c.id.contains('rootstock'))
+      .rpcUrl;
+
   static const albyHubUrl = 'https://alby.hostr.development';
 
   final List<KeyPair> fundedKeys;
@@ -129,24 +141,36 @@ class IntegrationTestHarness {
         );
 
     final anvil = AnvilClient(rpcUri: Uri.parse(anvilRpc));
+    final anvilRootstock = AnvilClient(rpcUri: Uri.parse(rootstockRpc));
     List<KeyPair> fundKeys = [seeds.deriveKeyPair(Random().nextInt(1000000))];
+    final fundFutures = <Future>[];
+    for (final key in fundKeys) {
+      final address = (await deriveEvmKey(key.privateKey!)).address.eip55With0x;
+      final amount = rbtcFromSatsInt(1000000).getInWei;
+      fundFutures.add(anvil.setBalance(address: address, amountWei: amount));
+      fundFutures.add(
+        anvilRootstock.setBalance(address: address, amountWei: amount),
+      );
+    }
     await Future.wait([
       anvil.setAutomine(true),
-      ...fundKeys.map(
-        (key) async => anvil.setBalance(
-          address: (await deriveEvmKey(key.privateKey!)).address.eip55With0x,
-          amountWei: rbtcFromSatsInt(1000000).getInWei,
-        ),
-      ),
+      anvilRootstock.setAutomine(true),
+      ...fundFutures,
     ]);
     final albyHub = AlbyHubClient(
       baseUri: Uri.parse(albyHubUrl),
       unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
     );
 
+    // Run Boltz chain discovery so swap providers are attached before any
+    // test tries to use swaps.  This mirrors what Hostr.connect() does but
+    // without the relay/auth subscription side-effects.
+    await resolvedHostr.evm.init();
+
     return IntegrationTestHarness(
       hostr: resolvedHostr,
       anvil: anvil,
+      anvilRootstock: anvilRootstock,
       albyHub: albyHub,
       hydratedDir: storageDir,
       seeds: seeds,

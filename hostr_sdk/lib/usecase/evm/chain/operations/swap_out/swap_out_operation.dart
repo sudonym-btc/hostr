@@ -123,8 +123,8 @@ class EvmSwapOutOperation extends SwapOutOperation {
             methodName: 'ERC20Swap.lock',
           );
 
-          // Send both as a single batched UserOperation
-          tx = await configuredChain.aa!.sendUserOp(params.evmKey, [
+          // Send both as a single batched operation
+          tx = await configuredChain.sendCalls(params.evmKey, [
             approveIntent,
             lockIntent,
           ]);
@@ -144,7 +144,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
             value: EtherAmount.inWei(data.lockedAmountWei),
             methodName: 'EtherSwap.lock',
           );
-          tx = await configuredChain.aa!.sendUserOp(params.evmKey, [intent]);
+          tx = await configuredChain.sendCalls(params.evmKey, [intent]);
           logger.i('Locked funds in EtherSwap: $tx');
         }
 
@@ -364,7 +364,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           );
         }
 
-        final refundTx = await configuredChain.aa!.sendUserOp(params.evmKey, [
+        final refundTx = await configuredChain.sendCalls(params.evmKey, [
           intent,
         ]);
 
@@ -430,9 +430,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       }
 
-      final refundTx = await configuredChain.aa!.sendUserOp(params.evmKey, [
-        intent,
-      ]);
+      final refundTx = await configuredChain.sendCalls(params.evmKey, [intent]);
 
       logger.i('Timelock refund broadcast: $refundTx');
       return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
@@ -446,7 +444,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
   @override
   Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
-    final gasEstimate = await configuredChain.aa!.estimateGasFee(params.evmKey);
+    final gasEstimate = await configuredChain.estimateGas(params.evmKey);
     final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
 
     final chainBalance = await _getSwapBalance();
@@ -667,13 +665,11 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       });
 
-  Future<TokenAmount> _estimateLockGasFee() => logger.span(
-    '_estimateLockGasFee',
-    () async {
-      final estimate = await configuredChain.aa!.estimateGasFee(params.evmKey);
-      return rbtcFromWei(estimate.gasCostWei);
-    },
-  );
+  Future<TokenAmount> _estimateLockGasFee() =>
+      logger.span('_estimateLockGasFee', () async {
+        final estimate = await configuredChain.estimateGas(params.evmKey);
+        return rbtcFromWei(estimate.gasCostWei);
+      });
 
   Uint8List _decodePaymentHash(String paymentHash) {
     final normalized = paymentHash.startsWith('0x')

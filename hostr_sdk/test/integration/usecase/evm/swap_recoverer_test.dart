@@ -54,21 +54,22 @@ void main() {
       );
 
       // Run a full swap-in to completion so the store has a terminal entry.
-      final configured = hostr.evm.configuredChains.first;
+      final configured = hostr.evm.getChainById('rootstock-regtest')!;
+      final evmKey = await hostr.auth.hd.getActiveEvmKey();
+      await harness.anvilRootstock.setBalance(
+        address: evmKey.address.eip55With0x,
+        amountWei: rbtcFromSatsInt(100000).getInWei,
+      );
       final swapLimits = await configured.swaps!.getSwapInLimits();
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,
             Token.rbtc(configured.config.chainId),
           ) +
-          rbtcFromSatsInt(1000);
+          rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
       final swapIn = configured.swapIn(
-        params: SwapInParams(
-          evmKey: await hostr.auth.hd.getActiveEvmKey(),
-          accountIndex: 0,
-          amount: amount,
-        ),
+        params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
         auth: hostr.auth,
         logger: CustomLogger(),
       );
@@ -96,21 +97,22 @@ void main() {
       );
 
       // 1. Run a full swap-in to completion.
-      final configured = hostr.evm.configuredChains.first;
+      final configured = hostr.evm.getChainById('rootstock-regtest')!;
+      final evmKey = await hostr.auth.hd.getActiveEvmKey();
+      await harness.anvilRootstock.setBalance(
+        address: evmKey.address.eip55With0x,
+        amountWei: rbtcFromSatsInt(100000).getInWei,
+      );
       final swapLimits = await configured.swaps!.getSwapInLimits();
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,
             Token.rbtc(configured.config.chainId),
           ) +
-          rbtcFromSatsInt(1000);
+          rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
       final swapIn = configured.swapIn(
-        params: SwapInParams(
-          evmKey: await hostr.auth.hd.getActiveEvmKey(),
-          accountIndex: 0,
-          amount: amount,
-        ),
+        params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
         auth: hostr.auth,
         logger: CustomLogger(),
       );

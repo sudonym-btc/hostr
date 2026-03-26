@@ -90,6 +90,10 @@ class Evm {
       return;
     }
 
+    if (!getIt.isRegistered<BoltzClient>()) {
+      getIt.registerSingleton<BoltzClient>(_boltzClient!);
+    }
+
     try {
       final discovered = await _boltzClient!.discoverChains();
       for (final info in discovered) {
@@ -241,7 +245,8 @@ class Evm {
           // ── Native-asset sweep ──────────────────────────────────────
           final funded = await configured.chain.getAddressesWithBalance();
           for (final entry in funded) {
-            if (minimumBalance != null && entry.balance < minimumBalance) {
+            if (minimumBalance != null &&
+                entry.balance.getInSats < minimumBalance.getInSats) {
               continue;
             }
             final evmKey = await _auth.hd.getActiveEvmKey(
@@ -271,7 +276,8 @@ class Evm {
               .getAddressesWithTokenBalances(boltzTokens);
 
           for (final entry in tokenFunded) {
-            if (minimumBalance != null && entry.balance < minimumBalance) {
+            if (minimumBalance != null &&
+                entry.balance.getInSats < minimumBalance.getInSats) {
               continue;
             }
             final evmKey = await _auth.hd.getActiveEvmKey(

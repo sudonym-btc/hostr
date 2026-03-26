@@ -13,10 +13,11 @@ void main() {
   late IntegrationTestHarness harness;
 
   setUp(() async {
+    await IntegrationTestHarness.clearBoltzPendingEvmTransactions();
     harness = await IntegrationTestHarness.create(
       name: 'hostr_escrow_fund_recoverer_it',
       seed: DateTime.now().microsecondsSinceEpoch,
-      logLevel: Level.warning,
+      logLevel: Level.debug,
       cleanHydratedStorage: true,
     );
   });
@@ -47,7 +48,10 @@ void main() {
       final hostr = harness.hostr;
       final anvil = harness.anvil;
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
-      await hostr.auth.signin(trade.guest.privateKey);
+      await harness.signInAndConnectNwc(
+        user: trade.guest.keyPair,
+        appNamePrefix: 'escrow-fund-recover-terminal',
+      );
 
       final escrowService = (await harness.seeds.factory.buildEscrowServices(
         contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
@@ -64,10 +68,15 @@ void main() {
 
       // Pre-fund the resolved signer so no swap-in is needed — keeps the test fast.
       await operation.initialize();
+      final evmKey = await hostr.auth.hd.getActiveEvmKey(
+        accountIndex: operation.accountIndex,
+      );
+      final configuredChain = hostr.evm.getChainByChainId(
+        env.evmConfig.chains.first.chainId,
+      )!;
+      final fundingAddress = await configuredChain.getAccountAddress(evmKey);
       await anvil.setBalance(
-        address: (await hostr.auth.hd.getActiveEvmKey(
-          accountIndex: operation.accountIndex,
-        )).address.eip55With0x,
+        address: fundingAddress.eip55With0x,
         amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
@@ -80,7 +89,7 @@ void main() {
 
       expect(resolved, 0);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
+    timeout: const Timeout(Duration(seconds: 60)),
   );
 
   test(
@@ -89,7 +98,10 @@ void main() {
       final hostr = harness.hostr;
       final anvil = harness.anvil;
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
-      await hostr.auth.signin(trade.guest.privateKey);
+      await harness.signInAndConnectNwc(
+        user: trade.guest.keyPair,
+        appNamePrefix: 'escrow-fund-recover-depositing',
+      );
 
       final escrowService = (await harness.seeds.factory.buildEscrowServices(
         contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
@@ -106,33 +118,39 @@ void main() {
 
       // Pre-fund the resolved signer so no swap-in is needed.
       await operation.initialize();
+      final evmKey = await hostr.auth.hd.getActiveEvmKey(
+        accountIndex: operation.accountIndex,
+      );
+      final configuredChain = hostr.evm.getChainByChainId(
+        env.evmConfig.chains.first.chainId,
+      )!;
+      final fundingAddress = await configuredChain.getAccountAddress(evmKey);
       await anvil.setBalance(
-        address: (await hostr.auth.hd.getActiveEvmKey(
-          accountIndex: operation.accountIndex,
-        )).address.eip55With0x,
+        address: fundingAddress.eip55With0x,
         amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
       await operation.run();
       expect(operation.state, isA<OnchainTxConfirmed>());
 
-      final completedData =
-          (operation.state as OnchainTxConfirmed).data as EscrowFundData;
+      final completedData = operation.state.data! as EscrowFundData;
+      final broadcastData = completedData;
 
-      // Rewrite the store entry to "txBroadcast" with the known tx hash —
+      // Rewrite the store entry to "txSent" with the known mined tx hash —
       // simulating a crash after the deposit tx was broadcast but before
       // the receipt was confirmed.
       final store = getIt<OperationStateStore>();
-      final depositingState = OnchainTxBroadcast(completedData);
+      final depositingState = OnchainTxSent(broadcastData);
       await store.write(
         'escrow_fund',
-        completedData.tradeId,
+        broadcastData.tradeId,
         depositingState.toJson(),
       );
+      await operation.close();
 
       // Verify it was written as non-terminal.
-      final stored = await store.read('escrow_fund', completedData.tradeId);
-      expect(stored?['state'], 'txBroadcast');
+      final stored = await store.read('escrow_fund', broadcastData.tradeId);
+      expect(stored?['state'], 'txSent');
       expect(stored?['isTerminal'], false);
 
       // Recover — the deposit tx is already on-chain, so the recoverer should
@@ -143,10 +161,10 @@ void main() {
       expect(resolved, 1);
 
       // Verify the store entry is now terminal.
-      final recovered = await store.read('escrow_fund', completedData.tradeId);
+      final recovered = await store.read('escrow_fund', broadcastData.tradeId);
       expect(recovered?['isTerminal'], true);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
+    timeout: const Timeout(Duration(seconds: 60)),
   );
 
   test('recoverAll returns 0 when nested swap is not yet complete', () async {

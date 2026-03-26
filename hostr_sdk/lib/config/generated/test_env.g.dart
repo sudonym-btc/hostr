@@ -46,6 +46,12 @@ const evmConfig = EvmConfig(
         ),
       },
     ),
+    EvmChainConfig(
+      id: 'rootstock-regtest',
+      chainId: 33,
+      rpcUrl: 'https://rsk.hostr.development',
+      boltzCurrency: 'RBTC',
+    ),
   ],
 );
 

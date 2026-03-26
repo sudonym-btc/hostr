@@ -48,6 +48,9 @@ services:
 
   anvil:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
+    environment:
+      - VIRTUAL_HOST=rsk.${DOMAIN}
+      - VIRTUAL_PORT=8545
 
   anvil-arbitrum:
     hostname: anvil-arbitrum

@@ -39,10 +39,14 @@ const evmConfig = EvmConfig(
         'tBTC': TokenConfig(
           address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40',
           decimals: 18,
+          balanceStorageSlot: 51,
+          allowanceStorageSlot: 52,
         ),
         'USDT': TokenConfig(
           address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
           decimals: 6,
+          balanceStorageSlot: 51,
+          allowanceStorageSlot: 52,
         ),
       },
     ),
