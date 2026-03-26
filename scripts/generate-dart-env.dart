@@ -169,16 +169,34 @@ String _generateDart(String target, Map<String, String> vars) {
     final aaAccountFactory = vars['${prefix}_AA_ACCOUNT_FACTORY_ADDRESS'] ?? '';
     final aaPaymaster = vars['${prefix}_AA_PAYMASTER_ADDRESS'] ?? '';
 
+    // Boltz native currency (e.g. 'RBTC') — per-chain
+    final boltzCurrency = vars['${prefix}_BOLTZ_CURRENCY'] ?? '';
+
     // Token addresses — per-chain only
     final tbtcAddr = vars['${prefix}_TBTC_ADDRESS'] ?? '';
     final tbtcDec = int.tryParse(vars['${prefix}_TBTC_DECIMALS'] ?? '') ?? 18;
+    final tbtcBalSlot = int.tryParse(
+      vars['${prefix}_TBTC_BALANCE_STORAGE_SLOT'] ?? '',
+    );
+    final tbtcAlwSlot = int.tryParse(
+      vars['${prefix}_TBTC_ALLOWANCE_STORAGE_SLOT'] ?? '',
+    );
     final usdtAddr = vars['${prefix}_USDT_ADDRESS'] ?? '';
     final usdtDec = int.tryParse(vars['${prefix}_USDT_DECIMALS'] ?? '') ?? 6;
+    final usdtBalSlot = int.tryParse(
+      vars['${prefix}_USDT_BALANCE_STORAGE_SLOT'] ?? '',
+    );
+    final usdtAlwSlot = int.tryParse(
+      vars['${prefix}_USDT_ALLOWANCE_STORAGE_SLOT'] ?? '',
+    );
 
     buf.writeln('    EvmChainConfig(');
     buf.writeln("      id: '${_escape(chainId)}',");
     buf.writeln('      chainId: $chainIdNum,');
     buf.writeln("      rpcUrl: '${_escape(rpcUrl)}',");
+    if (boltzCurrency.isNotEmpty) {
+      buf.writeln("      boltzCurrency: '${_escape(boltzCurrency)}',");
+    }
     final escrowAddr = vars['${prefix}_ESCROW_CONTRACT_ADDRESS'] ?? '';
 
     // AA — inline per-chain
@@ -210,12 +228,24 @@ String _generateDart(String target, Map<String, String> vars) {
         buf.writeln("        'tBTC': TokenConfig(");
         buf.writeln("          address: '${_escape(tbtcAddr)}',");
         buf.writeln('          decimals: $tbtcDec,');
+        if (tbtcBalSlot != null) {
+          buf.writeln('          balanceStorageSlot: $tbtcBalSlot,');
+        }
+        if (tbtcAlwSlot != null) {
+          buf.writeln('          allowanceStorageSlot: $tbtcAlwSlot,');
+        }
         buf.writeln('        ),');
       }
       if (usdtAddr.isNotEmpty) {
         buf.writeln("        'USDT': TokenConfig(");
         buf.writeln("          address: '${_escape(usdtAddr)}',");
         buf.writeln('          decimals: $usdtDec,');
+        if (usdtBalSlot != null) {
+          buf.writeln('          balanceStorageSlot: $usdtBalSlot,');
+        }
+        if (usdtAlwSlot != null) {
+          buf.writeln('          allowanceStorageSlot: $usdtAlwSlot,');
+        }
         buf.writeln('        ),');
       }
       buf.writeln('      },');

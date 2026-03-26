@@ -35,7 +35,10 @@ void main() {
       final hostr = harness.hostr;
       final anvil = harness.anvil;
       final trade = await harness.seeds.freshTrade(hostHasEvm: true);
-      await hostr.auth.signin(trade.guest.privateKey);
+      await harness.signInAndConnectNwc(
+        user: trade.guest.keyPair,
+        appNamePrefix: 'escrow-fund-it',
+      );
 
       final escrowService = (await harness.seeds.factory.buildEscrowServices(
         contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
@@ -53,10 +56,15 @@ void main() {
       );
 
       await operation.initialize();
+      final evmKey = await hostr.auth.hd.getActiveEvmKey(
+        accountIndex: operation.accountIndex,
+      );
+      final configuredChain = hostr.evm.getChainByChainId(
+        env.evmConfig.chains.first.chainId,
+      )!;
+      final fundingAddress = await configuredChain.getAccountAddress(evmKey);
       await anvil.setBalance(
-        address: (await hostr.auth.hd.getActiveEvmKey(
-          accountIndex: operation.accountIndex,
-        )).address.eip55With0x,
+        address: fundingAddress.eip55With0x,
         amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
       );
 
@@ -82,7 +90,7 @@ void main() {
       expect(_extractReceiptTxHash(receipt), equals(txHash));
       expect(_isReceiptSuccessful(receipt), isTrue);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
+    timeout: const Timeout(Duration(seconds: 120)),
   );
 }
 

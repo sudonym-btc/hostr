@@ -11,7 +11,7 @@
 ///   [ReservationPair.cancelled] when needed).
 ///
 /// Prerequisites:
-///   - Anvil running on https://anvil.hostr.development (chain-id 412346)
+///   - Anvil running on https://arbitrum.hostr.development (chain-id 412346)
 ///   - Nostr relay at wss://relay.hostr.development
 ///   - MultiEscrow contract deployed in escrow/contracts/contract-addresses.json
 /// Run: `cd hostr_sdk && dart test test/integration/reservation_pairs_test.dart`

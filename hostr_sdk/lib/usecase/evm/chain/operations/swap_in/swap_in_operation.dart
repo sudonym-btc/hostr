@@ -564,7 +564,7 @@ class EvmSwapInOperation extends SwapInOperation {
 
   @override
   Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
-    final gasEstimate = await configuredChain.aa!.estimateGasFee(params.evmKey);
+    final gasEstimate = await configuredChain.estimateGas(params.evmKey);
     final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
 
     // Compute actual Boltz reverse-swap fees from the pair data.
@@ -724,7 +724,7 @@ class EvmSwapInOperation extends SwapInOperation {
   ) => logger.span('generateSwapRequest', () async {
     final claimAddress =
         (params.claimAddress ??
-                await configuredChain.aa!.getSmartAccountAddress(params.evmKey))
+                await configuredChain.getAccountAddress(params.evmKey))
             .eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
     logger.i(
@@ -785,14 +785,16 @@ class EvmSwapInOperation extends SwapInOperation {
         '$onchainSats sats — invoice should always include Boltz fees.',
       );
     }
-    // Boltz fees are typically <1% + small miner fee. Cap at 10% to catch
-    // truly broken invoices without being brittle to fee changes.
-    final maxFeeFraction = onchainSats * BigInt.from(10) ~/ BigInt.from(100);
+    // Boltz fees are typically <1% + small miner fee. The miner fee is a
+    // fixed component that dominates at small swap amounts. Cap at 20%
+    // to catch truly broken invoices without being brittle to fee changes
+    // or small regtest amounts near the pair minimum.
+    final maxFeeFraction = onchainSats * BigInt.from(20) ~/ BigInt.from(100);
     if (invoiceSats - onchainSats > maxFeeFraction) {
       throw StateError(
         'Invoice fees too high: invoice=$invoiceSats sats, '
         'onchain=$onchainSats sats, '
-        'overhead=${invoiceSats - onchainSats} sats (>10%). '
+        'overhead=${invoiceSats - onchainSats} sats (>20%). '
         'Refusing to overpay.',
       );
     }
@@ -1064,7 +1066,7 @@ class EvmSwapInOperation extends SwapInOperation {
             methodName: 'EtherSwap.claim',
           );
         }
-        return configuredChain.aa!.sendUserOp(params.evmKey, [intent]);
+        return configuredChain.sendCalls(params.evmKey, [intent]);
       });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.

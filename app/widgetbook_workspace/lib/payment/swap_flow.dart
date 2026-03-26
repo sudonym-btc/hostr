@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/out/swap_out.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
-import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
 import 'package:models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
@@ -111,7 +109,14 @@ Widget swapOutPaymentProgress(BuildContext context) {
       paymentState: PayInFlight(
         params: PayParameters(
           to: 'satoshi@hostr.cc',
-          amount: BitcoinAmount.fromInt(BitcoinUnit.sat, 50000),
+          amount: TokenAmount.fromDenominated(
+            DenominatedAmount(
+              denomination: 'BTC',
+              value: BigInt.from(10000),
+              decimals: 8,
+            ),
+            Token.btcLightning,
+          ),
         ),
       ),
     ),

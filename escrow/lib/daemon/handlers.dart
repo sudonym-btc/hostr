@@ -244,8 +244,6 @@ class DaemonHandler {
                 contractAddress: s.contractAddress,
                 chainId: s.chainId,
                 feePercent: s.feePercent,
-                minAmount: s.minAmount,
-                maxAmount: s.maxAmount,
               ).toJson())
           .toList(),
     };
@@ -261,8 +259,6 @@ class DaemonHandler {
       'contractAddress': service.contractAddress,
       'chainId': service.chainId,
       'feePercent': service.feePercent,
-      'minAmount': service.minAmount,
-      'maxAmount': service.maxAmount,
       'maxDuration': service.maxDuration.inSeconds,
     };
   }
@@ -293,10 +289,6 @@ class DaemonHandler {
         maxDuration: old.maxDuration,
         type: old.type,
         feePercent: params['feePercent'].asNumOr(old.feePercent).toDouble(),
-        minAmount: params['minAmount'].asNumOr(old.minAmount).toInt(),
-        maxAmount: params['maxAmount'].valueOr(null) != null
-            ? params['maxAmount'].asNum.toInt()
-            : old.maxAmount,
       ),
     );
 

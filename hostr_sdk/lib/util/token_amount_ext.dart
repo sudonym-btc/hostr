@@ -87,11 +87,20 @@ final _satToWei = BigInt.from(10).pow(10);
 TokenAmount rbtcFromWei(BigInt wei) => TokenAmount(value: wei, token: rbtc);
 
 /// Construct an RBTC [TokenAmount] from a count of satoshis.
-TokenAmount rbtcFromSats(BigInt sats) =>
-    TokenAmount(value: sats * _satToWei, token: rbtc);
+///
+/// If [chainId] is provided, the token will use that chain ID instead of
+/// the default Rootstock mainnet (30).
+TokenAmount rbtcFromSats(BigInt sats, {int? chainId}) => TokenAmount(
+  value: sats * _satToWei,
+  token: chainId != null ? Token.rbtc(chainId) : rbtc,
+);
 
 /// Construct an RBTC [TokenAmount] from an integer count of satoshis.
-TokenAmount rbtcFromSatsInt(int sats) => rbtcFromSats(BigInt.from(sats));
+///
+/// If [chainId] is provided, the token will use that chain ID instead of
+/// the default Rootstock mainnet (30).
+TokenAmount rbtcFromSatsInt(int sats, {int? chainId}) =>
+    rbtcFromSats(BigInt.from(sats), chainId: chainId);
 
 /// Construct a [TokenAmount] from an on-chain EVM token address and raw value.
 ///

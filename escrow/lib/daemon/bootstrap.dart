@@ -1,10 +1,8 @@
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:escrow/injection.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:http/http.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
@@ -51,14 +49,6 @@ Future<DaemonContext> bootstrap() async {
   // Infrastructure config comes from generated constants (Option B).
   // Only PRIVATE_KEY and ENV remain as runtime env vars.
   final chain = env.evmConfig.chains.first;
-  final rpcUrl = chain.rpcUrl;
-  final contractAddress = chain.escrowContractAddress;
-  if (contractAddress == null || contractAddress.isEmpty) {
-    print('[daemon] escrowContractAddress is not set in generated env');
-    exit(1);
-  }
-
-  final Web3Client web3client = Web3Client(rpcUrl, Client());
 
   await setupInjection(environment: environment);
 
@@ -68,16 +58,16 @@ Future<DaemonContext> bootstrap() async {
   final escrowService = EscrowService(
     pubKey: hostr.auth.activeKeyPair!.publicKey,
     tags: EventTags([
-      ['d', contractAddress]
+      ['d', chain.escrowContractAddress!]
     ]),
     content: EscrowServiceContent(
       pubkey: hostr.auth.activeKeyPair!.publicKey,
       evmAddress: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-      contractAddress: contractAddress,
-      contractBytecodeHash: await _resolveMultiEscrowBytecodeHash(
-        web3client: web3client,
-        contractAddress: contractAddress,
-      ),
+      contractAddress: chain.escrowContractAddress!,
+      contractBytecodeHash:
+          await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+              hostr.evm.configuredChains.first.chain.client,
+              EthereumAddress.fromHex(chain.escrowContractAddress!)),
       chainId: hostr.evm.configuredChains.first.config.chainId,
       maxDuration: Duration(days: 365),
       type: EscrowType.EVM,
@@ -99,16 +89,6 @@ Future<DaemonContext> bootstrap() async {
     hostr: hostr,
     escrowService: escrowService,
     contract: contract,
-    web3client: web3client,
+    web3client: hostr.evm.configuredChains.first.chain.client,
   );
-}
-
-Future<String> _resolveMultiEscrowBytecodeHash({
-  required Web3Client web3client,
-  required String contractAddress,
-}) async {
-  final runtimeCode = await web3client.getCode(
-    EthereumAddress.fromHex(contractAddress),
-  );
-  return sha256.convert(runtimeCode).toString();
 }

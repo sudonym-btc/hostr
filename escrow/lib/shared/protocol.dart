@@ -190,16 +190,12 @@ class ServiceSummary {
   final String contractAddress;
   final int chainId;
   final double feePercent;
-  final int minAmount;
-  final int? maxAmount;
 
   ServiceSummary({
     required this.id,
     required this.contractAddress,
     required this.chainId,
     required this.feePercent,
-    required this.minAmount,
-    this.maxAmount,
   });
 
   Map<String, dynamic> toJson() => {
@@ -207,8 +203,6 @@ class ServiceSummary {
         'contractAddress': contractAddress,
         'chainId': chainId,
         'feePercent': feePercent,
-        'minAmount': minAmount,
-        if (maxAmount != null) 'maxAmount': maxAmount,
       };
 
   factory ServiceSummary.fromJson(Map<String, dynamic> json) => ServiceSummary(
@@ -216,7 +210,5 @@ class ServiceSummary {
         contractAddress: json['contractAddress'] as String,
         chainId: json['chainId'] as int,
         feePercent: (json['feePercent'] as num).toDouble(),
-        minAmount: (json['minAmount'] as num).toInt(),
-        maxAmount: (json['maxAmount'] as num?)?.toInt(),
       );
 }

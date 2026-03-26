@@ -45,13 +45,15 @@ cat > /tmp/tbtc/src/MockTBTC.sol << 'SOLEOF'
 pragma solidity ^0.8.19;
 
 contract MockTBTC {
+    // Storage layout matches OpenZeppelin ERC20:
+    //   slot 0 → balanceOf, slot 1 → allowance
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
     string public name     = "tBTC";
     string public symbol   = "tBTC";
     uint8  public decimals = 18;
     uint256 public totalSupply;
-
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -128,13 +130,15 @@ cat > /tmp/tbtc/src/MockUSDT.sol << 'SOLEOF'
 pragma solidity ^0.8.19;
 
 contract MockUSDT {
+    // Storage layout matches OpenZeppelin ERC20:
+    //   slot 0 → balanceOf, slot 1 → allowance
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
     string public name     = "Tether USD";
     string public symbol   = "USDT";
     uint8  public decimals = 6;
     uint256 public totalSupply;
-
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);

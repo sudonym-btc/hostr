@@ -1,5 +1,6 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
@@ -141,6 +142,47 @@ class EscrowFundOperation extends OnchainOperation {
     return [if (approveIntent != null) approveIntent, fundIntent];
   }
 
+  /// Provide ERC-20 state overrides so the bundler's
+  /// `eth_estimateUserOperationGas` can simulate `approve + createTrade`
+  /// even when the smart account has no tokens yet (they arrive via swap).
+  @override
+  Future<List<permissionless.StateOverride>?> buildGasEstimationStateOverrides(
+    List<CallIntent> intents,
+  ) async {
+    final params = this.params;
+    if (params == null) return null;
+
+    final token = _resolveFundingToken(params);
+    if (!token.isERC20) return null;
+
+    final tokenAddress = EthereumAddress.fromHex(token.address);
+    final signer = await _activeEthKey();
+    final smartAccount = await configuredChain.getAccountAddress(signer);
+    final escrowAddress = contract.address;
+
+    // Resolve storage slots from config (defaults to OpenZeppelin 0/1).
+    final tokenConfig = configuredChain.config.tokenByAddress(token.address);
+    final balanceSlot = BigInt.from(tokenConfig?.balanceStorageSlot ?? 0);
+    final allowanceSlot = BigInt.from(tokenConfig?.allowanceStorageSlot ?? 1);
+
+    final balanceOverride = permissionless.erc20BalanceOverride(
+      token: tokenAddress,
+      owner: smartAccount,
+      slot: balanceSlot,
+    );
+    final allowanceOverride = permissionless.erc20AllowanceOverride(
+      token: tokenAddress,
+      owner: smartAccount,
+      spender: escrowAddress,
+      slot: allowanceSlot,
+    );
+
+    return permissionless.mergeStateOverrides([
+      ...balanceOverride,
+      ...allowanceOverride,
+    ]);
+  }
+
   @override
   void onGasEstimated(TokenAmount gasFee) =>
       logger.spanSync('onGasEstimated', () {});
@@ -179,7 +221,9 @@ class EscrowFundOperation extends OnchainOperation {
 
         final gasUsed = receipt.gasUsed?.toInt();
         if (gasUsed != null) {
-          logger.d('Gas usage: actual=$gasUsed units for trade $tradeId');
+          logger.d(
+            'Gas usage: actual=$gasUsed units for trade ${data.operationId}',
+          );
         }
       });
 
@@ -202,9 +246,7 @@ class EscrowFundOperation extends OnchainOperation {
   Future<void> _ensureSwapClaimAddress() =>
       logger.span('ensureSwapClaimAddress', () async {
         final ethKey = await _activeEthKey();
-        _swapClaimAddress = await configuredChain.aa!.getSmartAccountAddress(
-          ethKey,
-        );
+        _swapClaimAddress = await configuredChain.getAccountAddress(ethKey);
       });
 
   // ── Swap-in support (fund-only) ───────────────────────────────────

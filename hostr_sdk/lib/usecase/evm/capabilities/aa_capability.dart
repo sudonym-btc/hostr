@@ -68,9 +68,10 @@ class AACapability {
   /// which is suitable for operations where the exact calldata isn't known
   /// yet (e.g. swap claim before lockup).
   Future<({BigInt gasCostWei, bool gasSponsored})> estimateGasFee(
-    EthPrivateKey signer, [
+    EthPrivateKey signer, {
     List<CallIntent>? intents,
-  ]) => _logger.span('AACapability.estimateGasFee', () async {
+    List<permissionless.StateOverride>? stateOverride,
+  }) => _logger.span('AACapability.estimateGasFee', () async {
     final publicClient = _initPublicClient();
     final bundler = _initPimlicoClient();
     final client = _initSmartAccountClient(
@@ -99,6 +100,7 @@ class AACapability {
         calls: calls,
         maxFeePerGas: feeQuote.maxFeePerGas,
         maxPriorityFeePerGas: feeQuote.maxPriorityFeePerGas,
+        stateOverride: stateOverride,
       );
 
       final gasCostWei = permissionless.getRequiredPrefund(userOp);

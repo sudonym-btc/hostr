@@ -122,16 +122,49 @@ class TokenConfig {
   /// Number of decimal places (e.g. 6 for USDT, 18 for tBTC).
   final int decimals;
 
-  const TokenConfig({required this.address, required this.decimals});
+  /// Solidity storage slot index for the `balanceOf` mapping.
+  ///
+  /// Used by [EscrowFundOperation] to build `eth_estimateUserOperationGas`
+  /// state overrides that simulate having a token balance before the swap
+  /// delivers it.
+  ///
+  /// Defaults to `0` (OpenZeppelin ERC-20).  Common alternatives:
+  ///   - `2` — USDT / DAI
+  ///   - `9` — USDC
+  ///
+  /// For custom contracts, inspect the storage layout (e.g. `forge inspect
+  /// MyToken storage-layout`).
+  final int balanceStorageSlot;
+
+  /// Solidity storage slot index for the `allowance` mapping.
+  ///
+  /// Defaults to `1` (OpenZeppelin ERC-20).  Common alternatives:
+  ///   - `4` — USDT
+  ///   - `10` — USDC
+  final int allowanceStorageSlot;
+
+  const TokenConfig({
+    required this.address,
+    required this.decimals,
+    this.balanceStorageSlot = 0,
+    this.allowanceStorageSlot = 1,
+  });
 
   factory TokenConfig.fromJson(Map<String, dynamic> json) {
     return TokenConfig(
       address: json['address'] as String,
       decimals: json['decimals'] as int,
+      balanceStorageSlot: json['balanceStorageSlot'] as int? ?? 0,
+      allowanceStorageSlot: json['allowanceStorageSlot'] as int? ?? 1,
     );
   }
 
-  Map<String, dynamic> toJson() => {'address': address, 'decimals': decimals};
+  Map<String, dynamic> toJson() => {
+    'address': address,
+    'decimals': decimals,
+    if (balanceStorageSlot != 0) 'balanceStorageSlot': balanceStorageSlot,
+    if (allowanceStorageSlot != 1) 'allowanceStorageSlot': allowanceStorageSlot,
+  };
 }
 
 /// Boltz API config — one per deployment.

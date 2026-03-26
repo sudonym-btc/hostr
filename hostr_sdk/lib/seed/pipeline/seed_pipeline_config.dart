@@ -216,7 +216,7 @@ class SeedPipelineConfig {
   factory SeedPipelineConfig.fromJson(Map<String, dynamic> json) {
     return SeedPipelineConfig(
       relayUrl: _str(json['relayUrl']) ?? 'wss://relay.hostr.development',
-      rpcUrl: _str(json['rpcUrl']) ?? 'https://anvil.hostr.development',
+      rpcUrl: _str(json['rpcUrl']) ?? 'https://arbitrum.hostr.development',
       fundProfiles: _bool(json['fundProfiles'], true),
       setupLnbits: _bool(json['setupLnbits'], false),
       fundAmountWei: _bigInt(json['fundAmountWei']),
