@@ -8,6 +8,7 @@ import '../../../datasources/contracts/escrow/MultiEscrow.g.dart';
 import '../../../util/main.dart';
 import '../../evm/chain/evm_chain.dart';
 import '../../payments/constants.dart';
+import 'escrow_eip712_signer.dart';
 import 'supported_escrow_contract.dart';
 
 class MultiEscrowContractException implements Exception {
@@ -65,6 +66,21 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
          contract: MultiEscrow(address: address, client: client),
        );
 
+  /// Lazy-initialised EIP-712 signer for claim / release / arbitrate.
+  EscrowEip712Signer get _signer {
+    final c = chain;
+    if (c == null) {
+      throw StateError(
+        'MultiEscrowWrapper requires an EvmChain to produce EIP-712 '
+        'signatures. Provide `chain` when constructing the wrapper.',
+      );
+    }
+    return EscrowEip712Signer(
+      chainId: c.config.chainId,
+      verifyingContract: address,
+    );
+  }
+
   @override
   CallIntent fund(FundArgs args) => logger.spanSync('fund', () {
     final isERC20 = args.token != null && args.token!.isERC20;
@@ -92,9 +108,14 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   @override
   CallIntent claim({required String tradeId, required EthPrivateKey ethKey}) =>
       logger.spanSync('claim', () {
+        final tradeIdBytes = getBytes32(tradeId);
+        final signature = _signer.signClaim(
+          tradeId: tradeIdBytes,
+          signer: ethKey,
+        );
         return buildIntent(
           functionName: 'claim',
-          args: [getBytes32(tradeId)],
+          args: [tradeIdBytes, signature],
           methodName: 'claim',
         );
       });
@@ -105,13 +126,17 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     required double forward,
     required EthPrivateKey ethKey,
   }) => logger.spanSync('arbitrate', () {
+    final tradeIdBytes = getBytes32(tradeId);
+    final factor = BigInt.from((forward * 1000).round());
+    final signature = _signer.signArbitrate(
+      tradeId: tradeIdBytes,
+      factor: factor,
+      signer: ethKey,
+    );
     final function = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'arbitrate',
     );
-    final data = function.encodeCall([
-      getBytes32(tradeId),
-      BigInt.from((forward * 1000).round()),
-    ]);
+    final data = function.encodeCall([tradeIdBytes, factor, signature]);
     return CallIntent(
       to: contract.self.address,
       data: data,
@@ -122,11 +147,47 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   CallIntent release(ReleaseArgs args) => logger.spanSync('release', () {
+    final actor = args.actor ?? args.ethKey.address;
+    final tradeIdBytes = getBytes32(args.tradeId);
+    final signature = _signer.signRelease(
+      tradeId: tradeIdBytes,
+      actor: actor,
+      signer: args.ethKey,
+    );
     return buildIntent(
       functionName: 'releaseToCounterparty',
-      args: [getBytes32(args.tradeId)],
+      args: [tradeIdBytes, actor, signature],
       methodName: 'releaseToCounterparty',
     );
+  });
+
+  @override
+  CallIntent withdraw(WithdrawArgs args) => logger.spanSync('withdraw', () {
+    final tradeIdBytes = getBytes32(args.tradeId);
+    final signature = _signer.signWithdraw(
+      tradeId: tradeIdBytes,
+      destination: args.destination,
+      signer: args.ethKey,
+    );
+    return buildIntent(
+      functionName: 'withdraw',
+      args: [tradeIdBytes, args.beneficiary, args.destination, signature],
+      methodName: 'withdraw',
+    );
+  });
+
+  @override
+  Future<BigInt> pendingWithdrawal({
+    required String tradeId,
+    required EthereumAddress beneficiary,
+  }) => logger.span('pendingWithdrawal', () async {
+    await ensureDeployed();
+    return _withDecodedCustomError(() {
+      return contract.pendingWithdrawals((
+        $param16: getBytes32(tradeId),
+        $param17: beneficiary,
+      ));
+    });
   });
 
   @override

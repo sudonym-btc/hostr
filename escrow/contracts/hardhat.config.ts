@@ -3,7 +3,12 @@ import { HardhatUserConfig, task } from "hardhat/config";
 import { deployEscrow } from "./task/deploy";
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.28",
+  solidity: {
+    version: "0.8.28",
+    settings: {
+      evmVersion: "cancun",
+    },
+  },
   networks: {
     localhost: {
       url: process.env.RPC_URL ?? "http://127.0.0.1:8545",

@@ -89,6 +89,7 @@ class RelaySeeder {
       sink = InfrastructureSink(
         rpcUrl: resolvedConfig.rpcUrl,
         contractAddress: contractAddress,
+        chainId: env.evmConfig.chains.first.chainId,
         broadcaster: broadcaster,
         lnbitsConfig: lnbitsConfig,
       );

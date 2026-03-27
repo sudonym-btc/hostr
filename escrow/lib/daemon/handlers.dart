@@ -144,11 +144,14 @@ class DaemonHandler {
       );
     }
 
-    final txHash = await contract.arbitrate(
+    final intent = await contract.arbitrate(
       tradeId: tradeId,
       forward: forward,
       ethKey: await hostr.auth.hd.getActiveEvmKey(accountIndex: accountIndex),
     );
+    final txHash = await ctx.hostr.evm.configuredChains.first.sendCalls(
+        await hostr.auth.hd.getActiveEvmKey(accountIndex: accountIndex),
+        [intent]);
     return {'txHash': '$txHash'};
   }
 

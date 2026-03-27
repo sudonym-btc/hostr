@@ -3,12 +3,11 @@ import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
+import 'package:crypto/crypto.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
-import 'package:web3dart/web3dart.dart' hide params;
 
-import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../../../datasources/swagger_generated/boltz.swagger.dart';
 import '../../../../../util/main.dart';
@@ -77,74 +76,32 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
         // ── 2a. Check if already locked on-chain (idempotent recovery) ──
         if (data.lockTxHash != null) {
-          // Already locked — fast-forward to Funded
           return SwapOutFunded(data);
         }
 
+        final intents = BoltzIntentBuilder(configuredChain.swaps!);
         final isErc20 = data.tokenAddress != null;
         final String tx;
 
         if (isErc20) {
-          final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
           final tokenAddr = EthereumAddress.fromHex(data.tokenAddress!);
-
-          // Build ERC-20 approve intent
-          final token = IERC20(
-            address: tokenAddr,
-            client: configuredChain.chain.client,
+          final lockIntents = intents.erc20Lock(
+            preimageHash: data.invoicePreimageHashBytes,
+            amountWei: data.lockedAmountWei,
+            tokenAddress: tokenAddr,
+            claimAddress: EthereumAddress.fromHex(data.claimAddress),
+            timeoutBlockHeight: data.timeoutBlockHeight,
           );
-          final approveFn = token.self.abi.functions.firstWhere(
-            (f) => f.name == 'approve',
-          );
-          final approveIntent = CallIntent(
-            to: tokenAddr,
-            data: approveFn.encodeCall([
-              erc20Swap.self.address,
-              data.lockedAmountWei,
-            ]),
-            value: EtherAmount.zero(),
-            methodName: 'ERC20.approve',
-          );
-
-          // Build ERC20Swap.lock intent (5 params, zero native value)
-          final lockFn = erc20Swap.self.abi.functions.firstWhere(
-            (f) => f.name == 'lock' && f.parameters.length == 5,
-          );
-          final lockIntent = CallIntent(
-            to: erc20Swap.self.address,
-            data: lockFn.encodeCall([
-              data.invoicePreimageHashBytes,
-              data.lockedAmountWei,
-              tokenAddr,
-              EthereumAddress.fromHex(data.claimAddress),
-              BigInt.from(data.timeoutBlockHeight),
-            ]),
-            value: EtherAmount.zero(),
-            methodName: 'ERC20Swap.lock',
-          );
-
-          // Send both as a single batched operation
-          tx = await configuredChain.sendCalls(params.evmKey, [
-            approveIntent,
-            lockIntent,
-          ]);
+          tx = await configuredChain.sendCalls(params.evmKey, lockIntents);
           logger.i('Locked funds in ERC20Swap (approve + lock): $tx');
         } else {
-          final swapContract = configuredChain.swaps!.getEtherSwapContract();
-          final lockFn = swapContract.self.abi.functions.firstWhere(
-            (f) => f.name == 'lock' && f.parameters.length == 3,
+          final lockIntent = intents.nativeLock(
+            preimageHash: data.invoicePreimageHashBytes,
+            amountWei: data.lockedAmountWei,
+            claimAddress: EthereumAddress.fromHex(data.claimAddress),
+            timeoutBlockHeight: data.timeoutBlockHeight,
           );
-          final intent = CallIntent(
-            to: swapContract.self.address,
-            data: lockFn.encodeCall([
-              data.invoicePreimageHashBytes,
-              EthereumAddress.fromHex(data.claimAddress),
-              BigInt.from(data.timeoutBlockHeight),
-            ]),
-            value: EtherAmount.inWei(data.lockedAmountWei),
-            methodName: 'EtherSwap.lock',
-          );
-          tx = await configuredChain.sendCalls(params.evmKey, [intent]);
+          tx = await configuredChain.sendCalls(params.evmKey, [lockIntent]);
           logger.i('Locked funds in EtherSwap: $tx');
         }
 
@@ -153,127 +110,223 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       });
 
-  // ── Step 3: Await Boltz payment or trigger refund ─────────────────────
+  // ── Step 3: Await Boltz invoice payment or trigger refund ─────────────
+  //
+  // NOTE: Boltz batches on-chain claim transactions (especially for ERC-20
+  // swaps), so waiting for an on-chain claim event can block indefinitely.
+  // Instead we treat Boltz reporting `invoice.paid` as the completion
+  // signal — the user has received their Lightning sats at that point.
+  //
+  // To prevent a spoofed WebSocket event from tricking us into marking a
+  // swap as complete, we cross-verify any WS `invoice.paid` against the
+  // Boltz HTTP API (canonical server state) before accepting it.
 
-  Future<SwapOutState> _stepAwaitResolution() => logger.span(
-    '_stepAwaitResolution',
-    () async {
-      final data = state.data!;
+  Future<SwapOutState> _stepAwaitResolution() =>
+      logger.span('_stepAwaitResolution', () async {
+        final data = state.data!;
+        final boltz = configuredChain.swaps!.boltzClient;
 
-      // ── 3a. Check chain for claim event (Boltz claimed = success) ──
-      final claimEvent = await _findClaimOnChain(data);
-      if (claimEvent != null) {
-        logger.i('Found claim on-chain for ${data.boltzId} — swap succeeded');
-        return SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid'));
-      }
-
-      // ── 3b. Check chain for existing refund event ──
-      final refundEvent = await _findRefundOnChain(data);
-      if (refundEvent != null) {
-        logger.i('Found refund on-chain for ${data.boltzId}');
-        return SwapOutRefunded(
-          data.copyWith(resolutionTxHash: refundEvent.event.transactionHash),
+        // ── 3a. Quick on-chain check for already-resolved swaps ──
+        // If Boltz has already claimed (or we already refunded), we can
+        // short-circuit without any network round-trips to Boltz.
+        final scanner = BoltzEventScanner(
+          swaps: configuredChain.swaps!,
+          chain: configuredChain.chain,
+          logger: logger,
         );
-      }
 
-      // ── 3c. Check Boltz HTTP status for terminal conditions ──
-      try {
-        final boltzResponse = await configuredChain.swaps!.boltzClient.getSwap(
-          id: data.boltzId,
+        final claimEvent = await scanner.findClaim(
+          preimageHash: data.invoicePreimageHashHex,
+          fromBlock: data.creationBlockHeight,
+          tokenAddress: data.tokenAddress,
         );
-        final status = boltzResponse.status;
-
-        // Boltz already paid the invoice — swap succeeded
-        if (status == 'invoice.paid' || status == 'transaction.claimed') {
-          logger.i('Boltz reports ${data.boltzId} completed ($status)');
-          return SwapOutCompleted(data.copyWith(lastBoltzStatus: status));
-        }
-
-        // Swap was created but we never locked funds — safe to abandon
-        if (data.lockTxHash == null &&
-            (status == 'swap.expired' || status == 'swap.created')) {
-          logger.i('Swap ${data.boltzId} never funded, safe to abandon');
-          return SwapOutFailed(
-            'Swap abandoned — funds were never locked.',
-            data: data.copyWith(lastBoltzStatus: status),
+        if (claimEvent != null) {
+          logger.i('Found claim on-chain for ${data.boltzId} — swap succeeded');
+          return SwapOutCompleted(
+            data.copyWith(lastBoltzStatus: 'transaction.claimed'),
           );
         }
 
-        // Boltz failed to pay — need to refund
-        if (status == 'invoice.failedToPay' ||
-            status == 'transaction.lockupFailed' ||
-            status == 'swap.expired') {
-          logger.w('Boltz reported $status for ${data.boltzId} — refunding');
-          return await _attemptRefund(data.copyWith(lastBoltzStatus: status));
+        final refundEvent = await scanner.findRefund(
+          preimageHash: data.invoicePreimageHashHex,
+          fromBlock: data.creationBlockHeight,
+          tokenAddress: data.tokenAddress,
+        );
+        if (refundEvent != null) {
+          logger.i('Found refund on-chain for ${data.boltzId}');
+          return SwapOutRefunded(
+            data.copyWith(resolutionTxHash: refundEvent.transactionHash),
+          );
         }
 
-        // Swap still in progress — subscribe to WebSocket for live updates
-        if (status == 'invoice.pending' ||
-            status == 'transaction.mempool' ||
-            status == 'transaction.confirmed') {
-          logger.d('Swap ${data.boltzId} in progress ($status) — waiting');
-          return await _waitForTerminalStatus(data);
+        // ── 3b. Check Boltz HTTP status for terminal conditions ──
+        try {
+          final boltzResponse = await boltz.getSwap(id: data.boltzId);
+          final status = boltzResponse.status;
+
+          // Boltz reports the invoice was paid — verify with preimage
+          // proof before trusting it. The on-chain claim tx may arrive
+          // later (batched), but the preimage proves the LN payment settled.
+          // `transaction.claim.pending` means Boltz paid the invoice and
+          // is queuing the batched on-chain claim — also needs verification.
+          if (status == 'invoice.paid' ||
+              status == 'transaction.claimed' ||
+              status == 'transaction.claim.pending') {
+            logger.i('Boltz reports ${data.boltzId} completed ($status)');
+            return await _verifyAndComplete(data, status);
+          }
+
+          // Swap was created but we never locked funds — safe to abandon
+          if (data.lockTxHash == null &&
+              (status == 'swap.expired' || status == 'swap.created')) {
+            logger.i('Swap ${data.boltzId} never funded, safe to abandon');
+            return SwapOutFailed(
+              'Swap abandoned — funds were never locked.',
+              data: data.copyWith(lastBoltzStatus: status),
+            );
+          }
+
+          // Boltz failed to pay — need to refund
+          if (status == 'invoice.failedToPay' ||
+              status == 'transaction.lockupFailed' ||
+              status == 'swap.expired') {
+            logger.w('Boltz reported $status for ${data.boltzId} — refunding');
+            return await _attemptRefund(data.copyWith(lastBoltzStatus: status));
+          }
+
+          // Swap still in progress — subscribe to WebSocket for live updates
+          if (status == 'invoice.pending' ||
+              status == 'transaction.mempool' ||
+              status == 'transaction.confirmed') {
+            logger.d('Swap ${data.boltzId} in progress ($status) — waiting');
+            return await _waitForTerminalStatus(data);
+          }
+
+          logger.d('Swap ${data.boltzId} in status $status — no action taken');
+        } catch (e) {
+          logger.w('Could not check Boltz status for ${data.boltzId}: $e');
         }
 
-        logger.d('Swap ${data.boltzId} in status $status — no action taken');
-      } catch (e) {
-        logger.w('Could not check Boltz status for ${data.boltzId}: $e');
-      }
-
-      // ── 3d. Fall back to WebSocket wait (fresh execute path) ──
-      return await _waitForTerminalStatus(data);
-    },
-  );
+        // ── 3c. Fall back to WebSocket wait (fresh execute path) ──
+        return await _waitForTerminalStatus(data);
+      });
 
   /// Subscribes to the Boltz WebSocket and waits for a terminal status,
   /// then either completes the swap or triggers a refund.
-  Future<SwapOutState> _waitForTerminalStatus(SwapOutData data) => logger.span(
-    '_waitForTerminalStatus',
-    () async {
-      final statusStream = _waitForSwapOnChain(data.boltzId);
+  ///
+  /// When the WS reports `invoice.paid` or `transaction.claimed`, we
+  /// cross-verify against the Boltz HTTP API before accepting it. This
+  /// prevents a spoofed or replayed WS event from tricking us into
+  /// marking the swap as complete when Boltz hasn't actually paid.
+  Future<SwapOutState> _waitForTerminalStatus(SwapOutData data) =>
+      logger.span('_waitForTerminalStatus', () async {
+        final statusStream = _waitForSwapOnChain(data.boltzId);
 
-      final terminalStatus = await statusStream
-          .where(
-            (s) =>
-                s.status == 'invoice.paid' ||
-                s.status == 'invoice.failedToPay' ||
-                s.status == 'transaction.lockupFailed' ||
-                s.status == 'swap.expired',
-          )
-          .timeout(
-            const Duration(minutes: 60),
-            onTimeout: (sink) {
-              sink.addError(
-                TimeoutException(
-                  'Timed out waiting for Boltz to pay invoice for swap '
-                  '${data.boltzId}. Funds are locked in EtherSwap contract. '
-                  'A refund can be attempted after block '
-                  '${data.timeoutBlockHeight}.',
-                ),
-              );
-            },
-          )
-          .first;
+        final terminalStatus = await statusStream
+            .where(
+              (s) =>
+                  s.status == 'invoice.paid' ||
+                  s.status == 'transaction.claimed' ||
+                  s.status == 'transaction.claim.pending' ||
+                  s.status == 'invoice.failedToPay' ||
+                  s.status == 'transaction.lockupFailed' ||
+                  s.status == 'swap.expired',
+            )
+            .timeout(
+              const Duration(minutes: 60),
+              onTimeout: (sink) {
+                sink.addError(
+                  TimeoutException(
+                    'Timed out waiting for Boltz to pay invoice for swap '
+                    '${data.boltzId}. Funds are locked in swap contract. '
+                    'A refund can be attempted after block '
+                    '${data.timeoutBlockHeight}.',
+                  ),
+                );
+              },
+            )
+            .first;
 
-      if (terminalStatus.status == 'invoice.paid') {
-        logger.i('Swap-out completed: invoice paid by Boltz');
-        return SwapOutCompleted(data.copyWith(lastBoltzStatus: 'invoice.paid'));
+        if (terminalStatus.status == 'invoice.paid' ||
+            terminalStatus.status == 'transaction.claimed' ||
+            terminalStatus.status == 'transaction.claim.pending') {
+          // ── Cross-verify against HTTP API ──
+          // The WS event could be spoofed or replayed. Confirm via the
+          // canonical Boltz HTTP endpoint before trusting it.
+          return await _verifyAndComplete(data, terminalStatus.status);
+        }
+
+        // ── FAILURE: attempt refund ──
+        logger.w(
+          'Swap-out failed with status: ${terminalStatus.status}. '
+          'Will attempt refund.',
+        );
+        return await _attemptRefund(
+          data.copyWith(
+            lastBoltzStatus: terminalStatus.status,
+            errorMessage:
+                'Boltz reported ${terminalStatus.status}. Refund required.',
+          ),
+        );
+      });
+
+  /// Fetches the preimage from Boltz and verifies that
+  /// `SHA-256(preimage) == data.invoicePreimageHashHex`.
+  ///
+  /// This is cryptographic proof that the Lightning invoice was actually
+  /// settled — only the payer (or a node along the payment route) can
+  /// reveal a preimage whose hash matches the invoice's payment_hash.
+  ///
+  /// If Boltz cannot provide a valid preimage, we refuse to mark the
+  /// swap as complete and fall back to waiting.
+  Future<SwapOutState> _verifyAndComplete(
+    SwapOutData data,
+    String reportedStatus,
+  ) => logger.span('_verifyAndComplete', () async {
+    logger.i(
+      'Status "$reportedStatus" for ${data.boltzId} — '
+      'fetching preimage for verification',
+    );
+
+    try {
+      final preimageHex = await configuredChain.swaps!.boltzClient
+          .getSubmarinePreimage(id: data.boltzId);
+
+      // Strip optional 0x prefix and decode.
+      final normalized = preimageHex.startsWith('0x')
+          ? preimageHex.substring(2)
+          : preimageHex;
+      final preimageBytes = hex.decode(normalized);
+
+      // SHA-256(preimage) must equal the payment_hash from the invoice.
+      final computedHash = sha256.convert(preimageBytes).toString();
+      final expectedHash = data.invoicePreimageHashHex.toLowerCase();
+
+      if (computedHash == expectedHash) {
+        logger.i(
+          'Preimage verified for ${data.boltzId}: '
+          'SHA-256($normalized) == $expectedHash ✓',
+        );
+        return SwapOutCompleted(data.copyWith(lastBoltzStatus: reportedStatus));
       }
 
-      // ── FAILURE: attempt refund ──
+      // Hash mismatch — Boltz provided an invalid preimage.
+      logger.e(
+        'Preimage verification FAILED for ${data.boltzId}: '
+        'SHA-256($normalized) = $computedHash, '
+        'expected $expectedHash. Refusing to mark as complete.',
+      );
+      return await _waitForTerminalStatus(data);
+    } catch (e) {
+      // Preimage not yet available (Boltz may not have revealed it yet)
+      // or network error. Fall back to waiting for the next status update.
       logger.w(
-        'Swap-out failed with status: ${terminalStatus.status}. '
-        'Will attempt refund.',
+        'Could not fetch/verify preimage for ${data.boltzId}: $e — '
+        'continuing to wait',
       );
-      return await _attemptRefund(
-        data.copyWith(
-          lastBoltzStatus: terminalStatus.status,
-          errorMessage:
-              'Boltz reported ${terminalStatus.status}. Refund required.',
-        ),
-      );
-    },
-  );
+      return await _waitForTerminalStatus(data);
+    }
+  });
 
   // ── Step 4: Confirm refund receipt ────────────────────────────────────
 
@@ -307,11 +360,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
     final tokenAddr = isErc20
         ? EthereumAddress.fromHex(data.tokenAddress!)
         : null;
-
-    // Select the correct swap contract
-    final swapContractSelf = isErc20
-        ? configuredChain.swaps!.getERC20SwapContract().self
-        : configuredChain.swaps!.getEtherSwapContract().self;
+    final intents = BoltzIntentBuilder(configuredChain.swaps!);
 
     // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
     try {
@@ -324,45 +373,14 @@ class EvmSwapOutOperation extends SwapOutOperation {
         logger.i('Got cooperative refund signature from Boltz');
         final sig = parseEvmSignature(sigResponse.signature);
 
-        final CallIntent intent;
-        if (isErc20) {
-          final coopRefundFn = swapContractSelf.abi.functions.firstWhere(
-            (f) => f.name == 'refundCooperative' && f.parameters.length == 8,
-          );
-          intent = CallIntent(
-            to: swapContractSelf.address,
-            data: coopRefundFn.encodeCall([
-              data.invoicePreimageHashBytes,
-              data.lockedAmountWei,
-              tokenAddr!,
-              claimAddress,
-              BigInt.from(data.timeoutBlockHeight),
-              sig.v,
-              sig.r,
-              sig.s,
-            ]),
-            value: EtherAmount.zero(),
-            methodName: 'ERC20Swap.refundCooperative',
-          );
-        } else {
-          final coopRefundFn = swapContractSelf.abi.functions.firstWhere(
-            (f) => f.name == 'refundCooperative' && f.parameters.length == 7,
-          );
-          intent = CallIntent(
-            to: swapContractSelf.address,
-            data: coopRefundFn.encodeCall([
-              data.invoicePreimageHashBytes,
-              data.lockedAmountWei,
-              claimAddress,
-              BigInt.from(data.timeoutBlockHeight),
-              sig.v,
-              sig.r,
-              sig.s,
-            ]),
-            value: EtherAmount.zero(),
-            methodName: 'EtherSwap.refundCooperative',
-          );
-        }
+        final intent = intents.cooperativeRefundIntent(
+          preimageHash: data.invoicePreimageHashBytes,
+          amountWei: data.lockedAmountWei,
+          claimAddress: claimAddress,
+          timeoutBlockHeight: data.timeoutBlockHeight,
+          sig: sig,
+          tokenAddress: tokenAddr,
+        );
 
         final refundTx = await configuredChain.sendCalls(params.evmKey, [
           intent,
@@ -377,9 +395,6 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
     // 2. Fall back to timelock refund (must wait for block height)
     try {
-      // Use getLocktimeBlockNumber() because on Arbitrum L2, Boltz returns
-      // Ethereum L1 block numbers for timeouts while eth_blockNumber returns
-      // the much-larger L2 sequencer block.
       final currentBlock = await configuredChain.chain.getLocktimeBlockNumber();
       if (currentBlock < data.timeoutBlockHeight) {
         logger.w(
@@ -396,39 +411,13 @@ class EvmSwapOutOperation extends SwapOutOperation {
         );
       }
 
-      final CallIntent intent;
-      if (isErc20) {
-        final refundFn = swapContractSelf.abi.functions.firstWhere(
-          (f) => f.name == 'refund' && f.parameters.length == 5,
-        );
-        intent = CallIntent(
-          to: swapContractSelf.address,
-          data: refundFn.encodeCall([
-            data.invoicePreimageHashBytes,
-            data.lockedAmountWei,
-            tokenAddr!,
-            claimAddress,
-            BigInt.from(data.timeoutBlockHeight),
-          ]),
-          value: EtherAmount.zero(),
-          methodName: 'ERC20Swap.refund',
-        );
-      } else {
-        final refundFn = swapContractSelf.abi.functions.firstWhere(
-          (f) => f.name == 'refund' && f.parameters.length == 4,
-        );
-        intent = CallIntent(
-          to: swapContractSelf.address,
-          data: refundFn.encodeCall([
-            data.invoicePreimageHashBytes,
-            data.lockedAmountWei,
-            claimAddress,
-            BigInt.from(data.timeoutBlockHeight),
-          ]),
-          value: EtherAmount.zero(),
-          methodName: 'EtherSwap.refund',
-        );
-      }
+      final intent = intents.refundIntent(
+        preimageHash: data.invoicePreimageHashBytes,
+        amountWei: data.lockedAmountWei,
+        claimAddress: claimAddress,
+        timeoutBlockHeight: data.timeoutBlockHeight,
+        tokenAddress: tokenAddr,
+      );
 
       final refundTx = await configuredChain.sendCalls(params.evmKey, [intent]);
 
@@ -474,80 +463,6 @@ class EvmSwapOutOperation extends SwapOutOperation {
       gasSponsored: gasEstimate.gasSponsored,
     );
   });
-
-  // ── On-chain event queries ────────────────────────────────────────────
-
-  /// Scans the chain for a Claim event matching [data.invoicePreimageHashHex].
-  Future<Claim?> _findClaimOnChain(SwapOutData data) => logger.span(
-    '_findClaimOnChain',
-    () async {
-      try {
-        final isErc20 = data.tokenAddress != null;
-        final contract = isErc20
-            ? configuredChain.swaps!.getERC20SwapContract().self
-            : configuredChain.swaps!.getEtherSwapContract().self;
-        final fromBlock = data.creationBlockHeight != null
-            ? BlockNum.exact(data.creationBlockHeight!)
-            : const BlockNum.exact(0);
-
-        final event = contract.event('Claim');
-        final filter = FilterOptions.events(
-          contract: contract,
-          event: event,
-          fromBlock: fromBlock,
-          toBlock: const BlockNum.current(),
-        );
-        final logs = await configuredChain.chain.client.getLogs(filter);
-        for (final log in logs) {
-          final decoded = event.decodeResults(log.topics!, log.data!);
-          final claim = Claim(decoded, log);
-          if (_bytesEqual(claim.preimageHash, data.invoicePreimageHashBytes)) {
-            return claim;
-          }
-        }
-        return null;
-      } catch (e) {
-        logger.w('Failed to query claim events: $e');
-        return null;
-      }
-    },
-  );
-
-  /// Scans the chain for a Refund event matching [data.invoicePreimageHashHex].
-  Future<Refund?> _findRefundOnChain(SwapOutData data) => logger.span(
-    '_findRefundOnChain',
-    () async {
-      try {
-        final isErc20 = data.tokenAddress != null;
-        final contract = isErc20
-            ? configuredChain.swaps!.getERC20SwapContract().self
-            : configuredChain.swaps!.getEtherSwapContract().self;
-        final fromBlock = data.creationBlockHeight != null
-            ? BlockNum.exact(data.creationBlockHeight!)
-            : const BlockNum.exact(0);
-
-        final event = contract.event('Refund');
-        final filter = FilterOptions.events(
-          contract: contract,
-          event: event,
-          fromBlock: fromBlock,
-          toBlock: const BlockNum.current(),
-        );
-        final logs = await configuredChain.chain.client.getLogs(filter);
-        for (final log in logs) {
-          final decoded = event.decodeResults(log.topics!, log.data!);
-          final refund = Refund(decoded, log);
-          if (_bytesEqual(refund.preimageHash, data.invoicePreimageHashBytes)) {
-            return refund;
-          }
-        }
-        return null;
-      } catch (e) {
-        logger.w('Failed to query refund events: $e');
-        return null;
-      }
-    },
-  );
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -595,24 +510,17 @@ class EvmSwapOutOperation extends SwapOutOperation {
     );
     logger.i('Submarine swap created: ${swap.toString()}');
 
-    final expectedLockAmount = rbtcFromSatsInt(swap.expectedAmount.ceil());
-    final expectedLockAmountRounded = expectedLockAmount.roundUpToSats();
-    final gasFeeRounded = TokenAmount.fromDenominated(
+    final gasFee = TokenAmount.fromDenominated(
       quote.estimatedGasFee,
-      quote.balance.token,
-    ).roundUpToSats();
-    final balanceRounded = quote.balance.roundDownToSats();
-
-    if (expectedLockAmountRounded + gasFeeRounded > balanceRounded) {
-      final requiredTotal = expectedLockAmountRounded + gasFeeRounded;
-      throw StateError(
-        'Insufficient balance to lock swap. '
-        'Need ${expectedLockAmountRounded.getInSats} sats + '
-        '${gasFeeRounded.getInSats} sats gas, '
-        'total of ${requiredTotal.getInSats} sats, '
-        'have ${balanceRounded.getInSats} sats.',
-      );
-    }
+      Token.rbtc(configuredChain.config.chainId),
+    );
+    final funding = SwapFundingRequirement.fromBoltzExpectedAmount(
+      expectedAmountSat: swap.expectedAmount.ceil(),
+      fundingToken: quote.balance.token,
+      balance: quote.balance,
+      gasFee: gasFee,
+    );
+    funding.validate();
 
     final lockClaimAddress = _resolveSubmarineClaimAddress(swap);
 
@@ -621,7 +529,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
       invoice: invoice,
       invoicePreimageHashHex: hex.encode(preimageHash),
       claimAddress: lockClaimAddress.with0x,
-      lockedAmountWeiHex: expectedLockAmountRounded.getInWei.toRadixString(16),
+      lockedAmountWeiHex: funding.lockAmountWei.toRadixString(16),
       lockerAddress: params.evmKey.address.with0x,
       timeoutBlockHeight: swap.timeoutBlockHeight!.toInt(),
       chainId: configuredChain.config.chainId,
@@ -709,14 +617,5 @@ class EvmSwapOutOperation extends SwapOutOperation {
     ) {
       logger.i('Swap status update: ${swapStatus.status}, $swapStatus');
     });
-  }
-
-  /// Constant-time-safe byte array comparison.
-  static bool _bytesEqual(Uint8List a, Uint8List b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 }

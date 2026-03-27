@@ -137,6 +137,24 @@ class BoltzClient {
         throw res.error!;
       });
 
+  /// Fetch the preimage for a completed submarine swap.
+  ///
+  /// Boltz reveals the preimage once it has paid the Lightning invoice.
+  /// The caller should verify `SHA-256(preimage) == paymentHash` to
+  /// cryptographically prove the invoice was actually settled.
+  Future<String> getSubmarinePreimage({required String id}) =>
+      logger.span('getSubmarinePreimage', () async {
+        logger.i('Fetching preimage for submarine swap $id');
+        final res = await gBoltzCli.swapSubmarineIdPreimageGet(id: id);
+        if (res.isSuccessful && res.body != null) {
+          return res.body!.preimage;
+        }
+        throw StateError(
+          'Failed to fetch preimage for swap $id: '
+          '${res.statusCode} ${res.error}',
+        );
+      });
+
   /// Request a cooperative refund EIP-712 signature from Boltz for a failed
   /// submarine swap. Returns `null` if Boltz refuses (e.g. swap not in a
   /// failed state yet). Throws on network errors.

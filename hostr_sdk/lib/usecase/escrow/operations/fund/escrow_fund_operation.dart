@@ -1,10 +1,9 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:permissionless/permissionless.dart' as permissionless;
-import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
@@ -139,7 +138,7 @@ class EscrowFundOperation extends OnchainOperation {
     final params = _requireParams();
     final fundIntent = contract.fund(await _buildFundArgs(params));
     final approveIntent = _buildApproveIntentIfNeeded(params);
-    return [if (approveIntent != null) approveIntent, fundIntent];
+    return [?approveIntent, fundIntent];
   }
 
   /// Provide ERC-20 state overrides so the bundler's
@@ -152,7 +151,7 @@ class EscrowFundOperation extends OnchainOperation {
     final params = this.params;
     if (params == null) return null;
 
-    final token = _resolveFundingToken(params);
+    final token = configuredChain.resolveBoltzFundingToken();
     if (!token.isERC20) return null;
 
     final tokenAddress = EthereumAddress.fromHex(token.address);
@@ -327,7 +326,9 @@ class EscrowFundOperation extends OnchainOperation {
     TokenAmount gasFee,
   ) => logger.span('computeRequiredSwapAmount', () async {
     final params = _requireParams();
-    final fundingAmount = _resolveFundingAmount(params);
+    final fundingAmount = configuredChain.resolveAmountInFundingToken(
+      params.amount,
+    );
     final gasComponent = fundingAmount.token.isERC20
         ? TokenAmount.zero(fundingAmount.token)
         : TokenAmount(value: gasFee.value, token: fundingAmount.token);
@@ -454,8 +455,10 @@ class EscrowFundOperation extends OnchainOperation {
     final quote = await estimateOperationFees();
 
     // ── Escrow fee ──
-    final fundingAmount = _resolveFundingAmount(params);
-    final fundingToken = _resolveFundingToken(params);
+    final fundingToken = configuredChain.resolveBoltzFundingToken();
+    final fundingAmount = configuredChain.resolveAmountInFundingToken(
+      params.amount,
+    );
     final tokenAddress = fundingToken.isERC20 ? fundingToken.address : 'native';
     final escrowFeeValue = params.escrowService.escrowFee(
       fundingAmount.value,
@@ -527,37 +530,25 @@ class EscrowFundOperation extends OnchainOperation {
   }
 
   CallIntent? _buildApproveIntentIfNeeded(EscrowFundParams params) {
-    final token = _resolveFundingToken(params);
+    final token = configuredChain.resolveBoltzFundingToken();
     if (!token.isERC20) return null;
 
-    // The ERC-20 approval must match the exact token-denominated amount that
-    // `createTrade` will pull via `transferFrom`. Using `params.amount.value`
-    // is wrong when the original reservation amount is expressed in sats and
-    // later remapped into an ERC-20 token with different decimals.
-    final fundingAmount = _resolveFundingAmount(params);
-
-    final tokenAddress = EthereumAddress.fromHex(token.address);
-    final erc20 = IERC20(
-      address: tokenAddress,
-      client: configuredChain.chain.client,
+    final fundingAmount = configuredChain.resolveAmountInFundingToken(
+      params.amount,
     );
-    final approveFn = erc20.self.abi.functions.firstWhere(
-      (f) => f.name == 'approve',
-    );
-
-    return CallIntent(
-      to: tokenAddress,
-      data: approveFn.encodeCall([contract.address, fundingAmount.value]),
-      value: EtherAmount.zero(),
-      methodName: 'ERC20.approve',
+    final builder = BoltzIntentBuilder(configuredChain.swaps!);
+    return builder.erc20Approve(
+      tokenAddress: EthereumAddress.fromHex(token.address),
+      spender: contract.address,
+      amount: fundingAmount.value,
     );
   }
 
   Future<FundArgs> _buildFundArgs(EscrowFundParams params) async {
-    final token = _resolveFundingToken(params);
+    final token = configuredChain.resolveBoltzFundingToken();
     final isERC20 = token.isERC20;
 
-    final amount = _resolveFundingAmount(params);
+    final amount = configuredChain.resolveAmountInFundingToken(params.amount);
 
     // Compute escrow fee using the unified escrowFee() API which works
     // in the token's smallest unit and applies tokenFeeHints.
@@ -584,51 +575,5 @@ class EscrowFundOperation extends OnchainOperation {
       ethKey: await _activeEthKey(),
       token: isERC20 ? token : null,
     );
-  }
-
-  Token _resolveFundingToken(EscrowFundParams params) {
-    // Resolve the concrete on-chain token from chain configuration.
-    // The EscrowFundParams.amount is a DenominatedAmount (e.g. "BTC" sats),
-    // so we look at the chain's Boltz chain info to determine the funding
-    // token. If Boltz has ERC-20 tokens on this chain, use the first one;
-    // otherwise fall back to the native asset.
-    final boltzTokens = configuredChain.swaps?.chainInfo.tokens ?? {};
-    if (boltzTokens.isNotEmpty) {
-      final boltzTokenAddress = boltzTokens.values.first;
-      var decimals = 18;
-      for (final tokenConfig in configuredChain.config.tokens.values) {
-        if (tokenConfig.address.toLowerCase() ==
-            boltzTokenAddress.eip55With0x.toLowerCase()) {
-          decimals = tokenConfig.decimals;
-          break;
-        }
-      }
-      return Token(
-        chainId: configuredChain.config.chainId,
-        address: boltzTokenAddress.eip55With0x,
-        decimals: decimals,
-      );
-    }
-
-    return Token.rbtc(configuredChain.config.chainId);
-  }
-
-  TokenAmount _resolveFundingAmount(EscrowFundParams params) {
-    final denominated = params.amount;
-    final resolvedToken = _resolveFundingToken(params);
-
-    // Scale from denomination decimals to token decimals.
-    final scale = resolvedToken.decimals - denominated.decimals;
-    final value = scale <= 0
-        ? denominated.value
-        : denominated.value * BigInt.from(10).pow(scale);
-
-    logger.i(
-      'Resolved escrow funding amount: '
-      '${denominated.denomination} ${denominated.value} '
-      '→ ${resolvedToken.tagId} $value for trade $tradeId',
-    );
-
-    return TokenAmount(value: value, token: resolvedToken);
   }
 }

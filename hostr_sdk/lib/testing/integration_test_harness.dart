@@ -270,6 +270,54 @@ class IntegrationTestHarness {
     }
   }
 
+  /// Trigger an immediate Boltz claim sweep for the given [symbol] (e.g.
+  /// `"tBTC"`, `"RBTC"`), or for **all** configured symbols when [symbol] is
+  /// omitted.
+  ///
+  /// Under the default regtest config, EVM symbols are no longer deferred
+  /// (they were removed from `deferredClaimSymbols`), so this helper is
+  /// mainly useful when a test intentionally re-enables deferred claiming or
+  /// as a debugging tool.
+  ///
+  /// Internally this calls the `boltzrpc.Boltz/SweepSwaps` gRPC endpoint
+  /// from inside the boltz-backend container using the compiled proto stubs
+  /// that ship with the image.
+  static Future<void> triggerBoltzClaimSweep({String? symbol}) async {
+    // The Node.js script must run from /boltz-backend so that local
+    // require() paths resolve (node_modules + compiled proto stubs).
+    final sym = symbol ?? '';
+    final script = '''
+const grpc = require('@grpc/grpc-js');
+const fs   = require('fs');
+const svc  = require('./dist/lib/proto/boltzrpc_grpc_pb');
+const msg  = require('./dist/lib/proto/boltzrpc_pb');
+
+const creds = grpc.credentials.createSsl(
+  fs.readFileSync('/boltz-data/certificates/ca.pem'),
+  fs.readFileSync('/boltz-data/certificates/client-key.pem'),
+  fs.readFileSync('/boltz-data/certificates/client.pem'),
+);
+const client = new svc.BoltzClient('127.0.0.1:9000', creds);
+const req = new msg.SweepSwapsRequest();
+if ('$sym') req.setSymbol('$sym');
+client.sweepSwaps(req, (err, resp) => {
+  if (err) { process.stderr.write(err.message); process.exit(1); }
+  process.stdout.write(JSON.stringify(resp.toObject()));
+  process.exit(0);
+});
+setTimeout(() => { process.stderr.write('timeout'); process.exit(1); }, 15000);
+''';
+    final result = await Process.run(
+      'docker',
+      ['exec', '-w', '/boltz-backend', 'boltz-backend', 'node', '-e', script],
+    );
+    if (result.exitCode != 0) {
+      throw StateError(
+        'triggerBoltzClaimSweep(${symbol ?? "all"}) failed: ${result.stderr}',
+      );
+    }
+  }
+
   Future<void> dispose({bool resetGetIt = true}) async {
     if (_ownsHostr) {
       await hostr.dispose();

@@ -61,11 +61,14 @@ class SeedFactory {
   Future<ProfileMetadata> buildEscrowProfile() =>
       stage_profiles.buildEscrowProfile(ctx: _ctx);
 
-  Future<List<EscrowService>> buildEscrowServices({String? contractAddress}) =>
-      stage_profiles.buildEscrowServices(
-        contractAddress: contractAddress ?? _ctx.contractAddress,
-        multiEscrowBytecodeHash: config.multiEscrowBytecodeHash,
-      );
+  Future<List<EscrowService>> buildEscrowServices({
+    String? contractAddress,
+    String? multiEscrowBytecodeHash,
+  }) => stage_profiles.buildEscrowServices(
+    contractAddress: contractAddress ?? _ctx.contractAddress,
+    multiEscrowBytecodeHash:
+        multiEscrowBytecodeHash ?? config.multiEscrowBytecodeHash,
+  );
 
   Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> users) =>
       stage_profiles.buildEscrowMethods(
