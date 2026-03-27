@@ -18,20 +18,17 @@ import '../../../../payments/payments.dart';
 import '../../../main.dart';
 
 class EvmSwapInOperation extends SwapInOperation {
-  final ConfiguredEvmChain configuredChain;
+  final EvmChain chain;
 
   EthereumAddress? get _requestedTokenAddress => params.amount.token.isERC20
       ? EthereumAddress.fromHex(params.amount.token.address)
       : null;
 
-  BoltzEventScanner get _scanner => BoltzEventScanner(
-    swaps: configuredChain.swaps!,
-    chain: configuredChain.chain,
-    logger: logger,
-  );
+  BoltzEventScanner get _scanner =>
+      BoltzEventScanner(swaps: chain.swaps!, chain: chain, logger: logger);
 
   EvmSwapInOperation({
-    required this.configuredChain,
+    required this.chain,
     required super.auth,
     required super.logger,
     required super.params,
@@ -42,15 +39,14 @@ class EvmSwapInOperation extends SwapInOperation {
   Future<({DenominatedAmount min, DenominatedAmount max})> getSwapLimits() =>
       logger.span(
         'getSwapLimits',
-        () => configuredChain.swaps!.getSwapInLimits(
-          tokenAddress: _requestedTokenAddress,
-        ),
+        () =>
+            chain.swaps!.getSwapInLimits(tokenAddress: _requestedTokenAddress),
       );
 
   @override
   Map<String, Object?> get telemetryAttributes => {
     ...super.telemetryAttributes,
-    'hostr.chain.id': configuredChain.config.chainId,
+    'hostr.chain.id': chain.config.chainId,
   };
 
   // ── State machine ─────────────────────────────────────────────────────
@@ -71,40 +67,38 @@ class EvmSwapInOperation extends SwapInOperation {
 
   // ── Step 1: Create the Boltz reverse-submarine swap ───────────────────
 
-  Future<SwapInState> _stepCreateSwap() => logger.span(
-    'stepCreateSwap',
-    () async {
-      final preimage = _newPreimage();
-      logger.i('Generated swap preimage material');
+  Future<SwapInState> _stepCreateSwap() =>
+      logger.span('stepCreateSwap', () async {
+        final preimage = _newPreimage();
+        logger.i('Generated swap preimage material');
 
-      final creationBlock = await configuredChain.chain.client.getBlockNumber();
+        final creationBlock = await chain.client.getBlockNumber();
 
-      /// Create a reverse submarine swap
-      final swap = await _generateSwapRequest(preimage);
+        /// Create a reverse submarine swap
+        final swap = await _generateSwapRequest(preimage);
 
-      // ── Persist recovery data immediately after swap creation ──
-      // Boltz may not echo back `onchainAmount` in the response for EVM
-      // reverse swaps — use the requested amount as fallback.
-      final onchainSat =
-          swap.onchainAmount?.toInt() ?? params.amount.getInSats.toInt();
-      final data = SwapInData(
-        boltzId: swap.id,
-        preimageHex: hex.encode(preimage.preimage),
-        preimageHash: preimage.hash,
-        onchainAmountSat: onchainSat,
-        timeoutBlockHeight: swap.timeoutBlockHeight!.toInt(),
-        chainId: configuredChain.config.chainId,
-        accountIndex: params.accountIndex,
-        creationBlockHeight: creationBlock,
-        invoiceString: swap.invoice,
-        parentOperationId: params.parentOperationId,
-        tokenAddress: _requestedTokenAddress?.eip55With0x,
-      );
-      logger.i('Swap created: ${swap.id}');
-      logger.d('Swap ${swap.toString()}');
-      return SwapInRequestCreated(data);
-    },
-  );
+        // ── Persist recovery data immediately after swap creation ──
+        // Boltz may not echo back `onchainAmount` in the response for EVM
+        // reverse swaps — use the requested amount as fallback.
+        final onchainSat =
+            swap.onchainAmount?.toInt() ?? params.amount.getInSats.toInt();
+        final data = SwapInData(
+          boltzId: swap.id,
+          preimageHex: hex.encode(preimage.preimage),
+          preimageHash: preimage.hash,
+          onchainAmountSat: onchainSat,
+          timeoutBlockHeight: swap.timeoutBlockHeight!.toInt(),
+          chainId: chain.config.chainId,
+          accountIndex: params.accountIndex,
+          creationBlockHeight: creationBlock,
+          invoiceString: swap.invoice,
+          parentOperationId: params.parentOperationId,
+          tokenAddress: _requestedTokenAddress?.eip55With0x,
+        );
+        logger.i('Swap created: ${swap.id}');
+        logger.d('Swap ${swap.toString()}');
+        return SwapInRequestCreated(data);
+      });
 
   // ── Step 2a: Dispatch payment + wait for lockup (foreground only) ─────
 
@@ -180,7 +174,7 @@ class EvmSwapInOperation extends SwapInOperation {
 
     // Wait for the lockup tx to be mined.
     logger.i('Waiting for lockup tx $lockupTxId to be mined…');
-    await configuredChain.chain.awaitReceipt(lockupTxId);
+    await chain.awaitReceipt(lockupTxId);
 
     return _verifyLockupOnChain(
       data: data,
@@ -247,7 +241,7 @@ class EvmSwapInOperation extends SwapInOperation {
     // Use getLocktimeBlockNumber() because on Arbitrum L2, Boltz returns
     // Ethereum L1 block numbers for timeouts while eth_blockNumber returns
     // the much-larger L2 sequencer block — causing false expiry detection.
-    final currentBlock = await configuredChain.chain.getLocktimeBlockNumber();
+    final currentBlock = await chain.getLocktimeBlockNumber();
     if (currentBlock >= data.timeoutBlockHeight) {
       logger.w(
         'Swap ${data.boltzId} expired (block $currentBlock >= ${data.timeoutBlockHeight})',
@@ -261,7 +255,7 @@ class EvmSwapInOperation extends SwapInOperation {
 
     // ── Check Boltz status for terminal conditions ──
     try {
-      final boltzStatus = await configuredChain.swaps!.boltzClient.getSwap(
+      final boltzStatus = await chain.swaps!.boltzClient.getSwap(
         id: data.boltzId,
       );
       final status = boltzStatus.status;
@@ -293,7 +287,7 @@ class EvmSwapInOperation extends SwapInOperation {
           logger.i(
             'Boltz reports lockup tx $txHash — verifying against preimage hash',
           );
-          await configuredChain.chain.awaitReceipt(txHash);
+          await chain.awaitReceipt(txHash);
 
           final lockup = await scanner.findLockup(
             preimageHash: data.preimageHash,
@@ -319,7 +313,7 @@ class EvmSwapInOperation extends SwapInOperation {
           logger.w(
             'Boltz reported lockup tx $txHash but no on-chain Lockup event '
             'matches preimage hash ${data.preimageHash} on '
-            'chain ${configuredChain.config.chainId} '
+            'chain ${chain.config.chainId} '
             '(isErc20=${data.tokenAddress != null}, '
             'tokenAddress=${data.tokenAddress}). Falling through.',
           );
@@ -357,7 +351,7 @@ class EvmSwapInOperation extends SwapInOperation {
     }
 
     logger.i('Recovery: waiting for lockup tx $lockupTxId to be mined…');
-    await configuredChain.chain.awaitReceipt(lockupTxId);
+    await chain.awaitReceipt(lockupTxId);
 
     return _verifyLockupOnChain(
       data: data,
@@ -386,7 +380,7 @@ class EvmSwapInOperation extends SwapInOperation {
     if (lockupOnChain == null) {
       logger.i(
         'No lockup found on first attempt for ${data.boltzId} on '
-        'chain ${configuredChain.config.chainId}. Retrying in 3s…',
+        'chain ${chain.config.chainId}. Retrying in 3s…',
       );
       await Future<void>.delayed(const Duration(seconds: 3));
       lockupOnChain = await scanner.findLockup(
@@ -406,7 +400,7 @@ class EvmSwapInOperation extends SwapInOperation {
       );
       throw StateError(
         'Boltz reported lockup tx $reportedTxId for swap ${data.boltzId} '
-        'on chain ${configuredChain.config.chainId} '
+        'on chain ${chain.config.chainId} '
         '(isErc20=${data.tokenAddress != null}, '
         'tokenAddress=${data.tokenAddress}), '
         'but no Lockup event matching preimage hash ${data.preimageHash} '
@@ -455,9 +449,7 @@ class EvmSwapInOperation extends SwapInOperation {
     // ── 3b. Resolve refund address if missing ──
     var claimData = data;
     if (claimData.refundAddress == null && claimData.lockupTxHash != null) {
-      final lockupTx = await configuredChain.chain.awaitTransaction(
-        claimData.lockupTxHash!,
-      );
+      final lockupTx = await chain.awaitTransaction(claimData.lockupTxHash!);
       claimData = claimData.copyWith(refundAddress: lockupTx.from.with0x);
     }
 
@@ -469,8 +461,8 @@ class EvmSwapInOperation extends SwapInOperation {
 
     // ── 3c. Build claim args and perform the claim ──
     final signer = BoltzClaimSigner(
-      swaps: configuredChain.swaps!,
-      chainId: configuredChain.config.chainId,
+      swaps: chain.swaps!,
+      chainId: chain.config.chainId,
       logger: logger,
     );
     final claimArgs = await signer.buildClaimArgs(
@@ -497,7 +489,7 @@ class EvmSwapInOperation extends SwapInOperation {
   Future<SwapInState> _stepCheckClaimInMempool() =>
       logger.span('stepCheckClaimInMempool', () async {
         final data = state.data!;
-        await configuredChain.chain.awaitTransaction(data.claimTxHash!);
+        await chain.awaitTransaction(data.claimTxHash!);
         logger.i('Claim tx ${data.claimTxHash} visible in mempool');
         return SwapInClaimTxInMempool(data);
       });
@@ -507,9 +499,7 @@ class EvmSwapInOperation extends SwapInOperation {
   Future<SwapInState> _stepConfirmClaim() =>
       logger.span('stepConfirmClaim', () async {
         final data = state.data!;
-        final receipt = await configuredChain.chain.awaitReceipt(
-          data.claimTxHash!,
-        );
+        final receipt = await chain.awaitReceipt(data.claimTxHash!);
         logger.i('Claim receipt for ${data.boltzId}: $receipt');
 
         if (receipt.status != true) {
@@ -532,12 +522,12 @@ class EvmSwapInOperation extends SwapInOperation {
 
   @override
   Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
-    final gasEstimate = await configuredChain.estimateGas(params.evmKey);
+    final gasEstimate = await chain.estimateGas(params.evmKey);
     final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
 
     // Compute actual Boltz reverse-swap fees from the pair data.
     // The fee overhead is paid via the Lightning invoice (not on-chain).
-    final swapProvider = configuredChain.swaps;
+    final swapProvider = chain.swaps;
     DenominatedAmount swapFeeSats = DenominatedAmount.zero('BTC', 8);
     if (swapProvider != null) {
       final estimate = await swapProvider.estimateSwapInFees(
@@ -567,14 +557,13 @@ class EvmSwapInOperation extends SwapInOperation {
     ({List<int> preimage, String hash}) preimage,
   ) => logger.span('generateSwapRequest', () async {
     final claimAddress =
-        (params.claimAddress ??
-                await configuredChain.getAccountAddress(params.evmKey))
+        (params.claimAddress ?? await chain.getAccountAddress(params.evmKey))
             .eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
     logger.i(
       'Using swap claim address: $claimAddress, ${params.amount.getInSats} sats',
     );
-    return configuredChain.swaps!.reverseSubmarine(
+    return chain.swaps!.reverseSubmarine(
       onchainAmount: params.amount.getInSats.toDouble(),
       claimAddress: claimAddress,
       preimageHash: preimage.hash,
@@ -660,7 +649,7 @@ class EvmSwapInOperation extends SwapInOperation {
           'timelock=${claimArgs.timelock}',
         );
 
-        final builder = BoltzIntentBuilder(configuredChain.swaps!);
+        final builder = BoltzIntentBuilder(chain.swaps!);
         final intent = builder.claimIntent(
           preimage: claimArgs.preimage,
           amount: claimArgs.amount,
@@ -668,7 +657,7 @@ class EvmSwapInOperation extends SwapInOperation {
           timelock: claimArgs.timelock,
           tokenAddress: claimArgs.tokenAddress,
         );
-        return configuredChain.sendCalls(params.evmKey, [intent]);
+        return chain.sendCalls(params.evmKey, [intent]);
       });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.
@@ -682,7 +671,7 @@ class EvmSwapInOperation extends SwapInOperation {
   Future<SwapStatus> _waitForSwapOnChain(
     String id,
   ) => logger.span('waitForSwapOnChain', () {
-    return configuredChain.swaps!.boltzClient
+    return chain.swaps!.boltzClient
         .subscribeToSwap(id: id)
         .doOnData((swapStatus) {
           logger.i('Swap status update: ${swapStatus.status}, $swapStatus');

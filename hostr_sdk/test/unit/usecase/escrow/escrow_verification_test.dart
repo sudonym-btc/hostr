@@ -3,8 +3,8 @@ library;
 
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import 'package:hostr_sdk/usecase/evm/capabilities/configured_evm_chain.dart';
 import 'package:hostr_sdk/usecase/evm/capabilities/escrow_capability.dart';
+import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -41,7 +41,7 @@ class _FakeEscrowCapability extends Fake implements EscrowCapability {
   ) => contract;
 }
 
-class _FakeConfiguredEvmChain extends Fake implements ConfiguredEvmChain {
+class _FakeConfiguredEvmChain extends Fake implements EvmChain {
   _FakeConfiguredEvmChain(this._escrow);
 
   final EscrowCapability _escrow;
@@ -53,11 +53,10 @@ class _FakeConfiguredEvmChain extends Fake implements ConfiguredEvmChain {
 class _FakeEvm extends Fake implements Evm {
   _FakeEvm(this._configured);
 
-  final ConfiguredEvmChain _configured;
+  final EvmChain _configured;
 
   @override
-  ConfiguredEvmChain getChainForEscrowService(EscrowService service) =>
-      _configured;
+  EvmChain getChainForEscrowService(EscrowService service) => _configured;
 }
 
 Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) {

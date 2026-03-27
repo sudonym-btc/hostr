@@ -72,7 +72,7 @@ void main() {
       final fundingAddress = await hostr.auth.hd.getEvmAddress(
         accountIndex: completedData.accountIndex,
       );
-      final balanceAfter = await hostr.evm.configuredChains.first.chain
+      final balanceAfter = await hostr.evm.configuredChains.first
           .getBalance(fundingAddress);
 
       expect(balanceAfter.getInSats.toInt(), equals(0));

@@ -188,7 +188,7 @@ void main() {
         await _waitForReceipt(web3, txHash);
 
         // Now test getERC20Balance.
-        final chain = hostr.evm.configuredChains.first.chain;
+        final chain = hostr.evm.configuredChains.first;
         final balance = await chain.getERC20Balance(
           userKey.address,
           tokenAddress,
@@ -227,7 +227,7 @@ void main() {
 
         // Do NOT transfer any tokens — balance should be zero.
         final userKey = await hostr.auth.hd.getActiveEvmKey();
-        final chain = hostr.evm.configuredChains.first.chain;
+        final chain = hostr.evm.configuredChains.first;
         final balance = await chain.getERC20Balance(
           userKey.address,
           tokenAddress,
@@ -282,7 +282,7 @@ void main() {
         );
 
         // Scan using the token map.
-        final chain = hostr.evm.configuredChains.first.chain;
+        final chain = hostr.evm.configuredChains.first;
         final results = await chain.getAddressesWithTokenBalances({
           'TBTC': tokenAddress,
         });
@@ -310,7 +310,7 @@ void main() {
         final hostr = harness.hostr;
         await hostr.auth.signin(harness.fundedKeys[0].privateKey!);
 
-        final chain = hostr.evm.configuredChains.first.chain;
+        final chain = hostr.evm.configuredChains.first;
         final results = await chain.getAddressesWithTokenBalances({});
 
         expect(results, isEmpty);

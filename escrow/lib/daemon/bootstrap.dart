@@ -66,7 +66,7 @@ Future<DaemonContext> bootstrap() async {
       contractAddress: chain.escrowContractAddress!,
       contractBytecodeHash:
           await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-              hostr.evm.configuredChains.first.chain.client,
+              hostr.evm.configuredChains.first.client,
               EthereumAddress.fromHex(chain.escrowContractAddress!)),
       chainId: hostr.evm.configuredChains.first.config.chainId,
       maxDuration: Duration(days: 365),
@@ -89,6 +89,6 @@ Future<DaemonContext> bootstrap() async {
     hostr: hostr,
     escrowService: escrowService,
     contract: contract,
-    web3client: hostr.evm.configuredChains.first.chain.client,
+    web3client: hostr.evm.configuredChains.first.client,
   );
 }

@@ -192,7 +192,7 @@ Future<void> _fundTradeWithoutSwap({
   );
   final multiEscrow = MultiEscrow(
     address: contract.address,
-    client: configuredChain.chain.client,
+    client: configuredChain.client,
   );
   final buyerAddress = (await deriveEvmKey(trade.guest.privateKey)).address;
   final sellerAddress = (await deriveEvmKey(trade.host.privateKey)).address;
@@ -214,7 +214,7 @@ Future<void> _fundTradeWithoutSwap({
     transaction: Transaction(value: amount.toEtherAmount()),
   );
 
-  final receipt = await _waitForReceipt(configuredChain.chain.client, txHash);
+  final receipt = await _waitForReceipt(configuredChain.client, txHash);
   expect(_isReceiptSuccessful(receipt), isTrue);
 }
 

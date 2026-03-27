@@ -68,7 +68,7 @@ void main() {
 
       final ops = await hostr.evm.swapOutAll();
       final swapOut = ops.firstWhere(
-        (op) => op.configuredChain.config.id == 'rootstock-regtest',
+        (op) => op.chain.config.id == 'rootstock-regtest',
       );
 
       final emittedStates = <SwapOutState>[swapOut.state];
@@ -108,7 +108,7 @@ void main() {
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
       final ops = await harness.hostr.evm.swapOutAll();
       final swapOut1 = ops.firstWhere(
-        (op) => op.configuredChain.config.id == 'rootstock-regtest',
+        (op) => op.chain.config.id == 'rootstock-regtest',
       );
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);

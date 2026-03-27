@@ -1,18 +1,16 @@
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 
 import '../../../../util/custom_logger.dart';
 import '../../../auth/auth.dart';
 import '../../../evm/main.dart';
 import '../../../trade_account_allocator/trade_account_allocator.dart';
-import '../onchain_operation.dart';
+import '../escrow_call.dart';
 import 'escrow_claim_models.dart';
 
 @injectable
-class EscrowClaimOperation extends OnchainOperation {
+class EscrowClaimOperation extends EscrowCall {
   final EscrowClaimParams params;
-
-  @override
-  String get tradeId => params.tradeId;
 
   EscrowClaimOperation(
     Auth auth,
@@ -20,30 +18,21 @@ class EscrowClaimOperation extends OnchainOperation {
     Evm evm,
     CustomLogger logger,
     @factoryParam this.params,
-  ) : super(
-        auth,
-        tradeAccountAllocator,
-        evm,
-        logger,
-        const OnchainInitialised(),
-      ) {
+  ) : super(auth, tradeAccountAllocator, evm, logger) {
     configuredChain = evm.getChainForEscrowService(params.escrowService!);
     contract = configuredChain.escrow.getSupportedEscrowContract(
       params.escrowService!,
     );
   }
 
-  // ── OnchainOperation overrides ────────────────────────────────────
+  @override
+  EscrowService get escrowService => params.escrowService!;
 
   @override
-  String get namespace => 'escrow_claim';
+  String get tradeId => params.tradeId;
 
   @override
-  OnchainOperationData dataFromJson(Map<String, dynamic> json) =>
-      OnchainCallData.fromJson(json);
-
-  @override
-  Future<void> preflight() => logger.span('preflight', () async {
+  Future<void> preflight() async {
     final canClaim = await contract.canClaim(tradeId: params.tradeId);
     if (!canClaim) {
       throw StateError(
@@ -51,24 +40,10 @@ class EscrowClaimOperation extends OnchainOperation {
         'current time must be after unlockAt.',
       );
     }
-  });
+  }
 
   @override
-  OnchainOperationData buildInitialData({
-    required List<CallIntent> callIntents,
-    required String transport,
-  }) => OnchainCallData(
-    operationIdValue: params.tradeId,
-    contractAddress: params.escrowService!.contractAddress,
-    chainId: params.escrowService!.chainId,
-    accountIndex: accountIndex,
-    callIntents: callIntents,
-    transport: transport,
-  );
-
-  @override
-  Future<List<CallIntent>> buildCallIntents() async => [contract.claim(
-    tradeId: params.tradeId,
-    ethKey: await auth.hd.getActiveEvmKey(accountIndex: accountIndex),
-  )];
+  List<CallIntent> buildCallIntents() => [
+    contract.claim(tradeId: params.tradeId, ethKey: signer),
+  ];
 }

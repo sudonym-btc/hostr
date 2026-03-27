@@ -24,7 +24,7 @@ class _RefundFlowWidgetState extends State<RefundFlowWidget> {
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: widget.cubit,
-      child: BlocBuilder<OnchainOperation, OnchainOperationState>(
+      child: BlocBuilder<EscrowReleaseOperation, OnchainOperationState>(
         builder: (context, state) {
           return OnchainOperationViewWidget(
             state,

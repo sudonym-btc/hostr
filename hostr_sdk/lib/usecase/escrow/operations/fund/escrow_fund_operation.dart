@@ -48,7 +48,7 @@ class EscrowFundOperation extends OnchainOperation {
     TradeAccountAllocator tradeAccountAllocator,
     Evm evm,
     CustomLogger logger, {
-    required ConfiguredEvmChain recoveryChain,
+    required EvmChain recoveryChain,
     required SupportedEscrowContract recoveryContract,
     required OnchainOperationState initialState,
   }) : params = null,
@@ -73,7 +73,7 @@ class EscrowFundOperation extends OnchainOperation {
   @override
   Future<void> initialize() async {
     await super.initialize();
-    await _ensureSwapClaimAddress();
+    _swapClaimAddress = await configuredChain.getAccountAddress(signer);
   }
 
   @override
@@ -94,6 +94,7 @@ class EscrowFundOperation extends OnchainOperation {
             '"${persistedState.stateName}" for trade $tradeId',
           );
           emit(persistedState);
+          await initialize();
           await run();
           return;
         }
@@ -136,7 +137,7 @@ class EscrowFundOperation extends OnchainOperation {
   @override
   Future<List<CallIntent>> buildCallIntents() async {
     final params = _requireParams();
-    final fundIntent = contract.fund(await _buildFundArgs(params));
+    final fundIntent = contract.fund(_buildFundArgs(params));
     final approveIntent = _buildApproveIntentIfNeeded(params);
     return [?approveIntent, fundIntent];
   }
@@ -155,7 +156,6 @@ class EscrowFundOperation extends OnchainOperation {
     if (!token.isERC20) return null;
 
     final tokenAddress = EthereumAddress.fromHex(token.address);
-    final signer = await _activeEthKey();
     final smartAccount = await configuredChain.getAccountAddress(signer);
     final escrowAddress = contract.address;
 
@@ -181,10 +181,6 @@ class EscrowFundOperation extends OnchainOperation {
       ...allowanceOverride,
     ]);
   }
-
-  @override
-  void onGasEstimated(TokenAmount gasFee) =>
-      logger.spanSync('onGasEstimated', () {});
 
   @override
   void validateConfirmedTransaction(
@@ -227,6 +223,10 @@ class EscrowFundOperation extends OnchainOperation {
       });
 
   /// Projects the nested swap's claim tx hash onto the parent operation data.
+  ///
+  /// Because claim + fund are executed as a single atomic UserOperation, the
+  /// claim tx hash IS the escrow fund tx hash. Setting it here lets
+  /// `_stepBroadcastTx` skip straight to confirm.
   OnchainOperationData _onNestedSwapFinished(
     OnchainOperationData data,
     SwapInState swapState,
@@ -236,17 +236,16 @@ class EscrowFundOperation extends OnchainOperation {
       return data;
     }
     logger.i(
-      'Nested swap claim confirmed in tx $claimTxHash for trade $tradeId; '
-      'continuing to escrow funding broadcast',
+      'Atomic claim+fund completed in tx $claimTxHash for trade $tradeId; '
+      'projecting as operation txHash',
     );
-    return data;
+    // The atomic UserOp's tx hash covers both claim and fund.
+    return data.copyWithTxHash(claimTxHash);
   }
 
-  Future<void> _ensureSwapClaimAddress() =>
-      logger.span('ensureSwapClaimAddress', () async {
-        final ethKey = await _activeEthKey();
-        _swapClaimAddress = await configuredChain.getAccountAddress(ethKey);
-      });
+  Future<void> _ensureSwapClaimAddress() async {
+    _swapClaimAddress ??= await configuredChain.getAccountAddress(signer);
+  }
 
   // ── Swap-in support (fund-only) ───────────────────────────────────
 
@@ -370,27 +369,50 @@ class EscrowFundOperation extends OnchainOperation {
   });
 
   /// Runs a nested swap-in for the full required on-chain amount.
+  ///
+  /// The swap claim and escrow fund are executed as a single atomic
+  /// UserOperation: `[claim, approve?, fund]`. If any intent reverts the
+  /// entire UserOp reverts — funds stay safe at the Boltz contract.
   Future<OnchainOperationData> _swapEntireRequiredAmount(
     OnchainOperationData data,
     TokenAmount gasFee,
   ) => logger.span('swapEntireRequiredAmount', () async {
     final swapAmount = await _computeRequiredSwapAmount(data, gasFee);
 
-    final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
+    // Reuse the intents already built and persisted in _stepInitialise.
+    final fundIntents = data.callIntents;
 
-    // Create a single nested swap op and reuse it for both fee estimation
-    // and execution. `estimateFees()` is side-effect free, so there is no
-    // need to allocate a throwaway operation instance first.
     SwapInOperation swap = configuredChain.swapIn(
       auth: auth,
       logger: logger,
       params: SwapInParams(
-        evmKey: evmKey,
+        evmKey: signer,
         accountIndex: accountIndex,
         amount: swapAmount,
         invoiceDescription: swapInvoiceDescription,
         claimAddress: swapClaimAddress,
         parentOperationId: data.operationId,
+        onClaim: (ClaimArgs claimArgs) async {
+          // Build the Boltz claim intent from the swap's claim args.
+          final builder = BoltzIntentBuilder(configuredChain.swaps!);
+          final claimIntent = builder.claimIntent(
+            preimage: claimArgs.preimage,
+            amount: claimArgs.amount,
+            refundAddress: claimArgs.refundAddress,
+            timelock: claimArgs.timelock,
+            tokenAddress: claimArgs.tokenAddress,
+          );
+
+          // Merge claim + fund intents into a single atomic UserOperation.
+          // All intents succeed or the entire UserOp reverts — if escrow.fund
+          // fails, the Boltz claim also reverts and funds stay safe.
+          final atomicIntents = [claimIntent, ...fundIntents];
+          logger.i(
+            'Atomic claim+fund: ${atomicIntents.length} intents '
+            '(${atomicIntents.map((i) => i.methodName).join(', ')})',
+          );
+          return configuredChain.sendCalls(signer, atomicIntents);
+        },
       ),
     );
     swap.onProgress = onProgress;
@@ -429,23 +451,6 @@ class EscrowFundOperation extends OnchainOperation {
     final updatedData = data.copyWithSwapId(swapId);
     return _onNestedSwapFinished(updatedData, swap.state);
   });
-
-  /// Override fee estimation to include swap-in fees computed directly
-  /// from Boltz pair data — no throwaway [SwapInOperation] needed.
-  @override
-  Future<OnchainFeeQuote> estimateOperationFees() =>
-      logger.span('estimateOperationFees', () async {
-        await initialize();
-        final intents = await buildCallIntents();
-        final gasEstimate = await estimateCallIntentsFee(intents);
-
-        return OnchainFeeQuote(
-          gasFee: gasEstimate.gasFee,
-          gasSponsored: gasEstimate.gasSponsored,
-          callIntents: intents,
-          transport: 'direct',
-        );
-      });
 
   // ── Fee estimation (public) ───────────────────────────────────────
 
@@ -500,9 +505,6 @@ class EscrowFundOperation extends OnchainOperation {
     return params;
   }
 
-  Future<EthPrivateKey> _activeEthKey() =>
-      auth.hd.getActiveEvmKey(accountIndex: accountIndex);
-
   Future<bool> _shouldDiscardPersistedState(
     OnchainOperationState persistedState,
   ) async {
@@ -511,9 +513,7 @@ class EscrowFundOperation extends OnchainOperation {
     final txHash = persistedState.data.txHash;
     if (txHash == null || txHash.isEmpty) return false;
 
-    final receipt = await configuredChain.chain.client.getTransactionReceipt(
-      txHash,
-    );
+    final receipt = await configuredChain.client.getTransactionReceipt(txHash);
     if (receipt == null) return false;
 
     final hasEscrowLog = receipt.logs.any(
@@ -544,7 +544,7 @@ class EscrowFundOperation extends OnchainOperation {
     );
   }
 
-  Future<FundArgs> _buildFundArgs(EscrowFundParams params) async {
+  FundArgs _buildFundArgs(EscrowFundParams params) {
     final token = configuredChain.resolveBoltzFundingToken();
     final isERC20 = token.isERC20;
 
@@ -572,7 +572,7 @@ class EscrowFundOperation extends OnchainOperation {
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
       escrowFee: escrowFee,
-      ethKey: await _activeEthKey(),
+      ethKey: signer,
       token: isERC20 ? token : null,
     );
   }
