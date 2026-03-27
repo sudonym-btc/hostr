@@ -446,7 +446,7 @@ void main() {
         reason: 'Should have at least one swap-out op',
       );
       final swapOut = swapOuts.firstWhere(
-        (op) => op.configuredChain.config.id == 'rootstock-regtest',
+        (op) => op.chain.config.id == 'rootstock-regtest',
       );
 
       // ── Fee estimation ──
@@ -654,7 +654,7 @@ void main() {
         final configured = hostr.evm.configuredChains.first;
         final realBytecodeHash =
             await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-              configured.chain.client,
+              configured.client,
               EthereumAddress.fromHex(
                 env.evmConfig.chains.first.escrowContractAddress!,
               ),

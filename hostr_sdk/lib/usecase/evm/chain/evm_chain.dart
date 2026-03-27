@@ -12,17 +12,45 @@ import '../../../util/http_client_factory.dart';
 import '../../../util/network_error.dart';
 import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
+import '../../nwc/nwc.dart';
+import '../../payments/payments.dart';
+import '../call_intent.dart';
+import '../capabilities/aa_capability.dart';
+import '../capabilities/boltz_swap_provider.dart';
+import '../capabilities/escrow_capability.dart';
 import '../config/evm_config.dart';
+import '../operations/swap_in/swap_in_models.dart';
+import '../operations/swap_in/swap_in_operation.dart' show SwapInOperation;
+import '../operations/swap_out/swap_out_models.dart';
+import '../operations/swap_out/swap_out_quote_service.dart';
+import '../operations/swap_out/swap_out_state.dart';
+import 'operations/swap_in/swap_in_operation.dart';
+import 'operations/swap_out/swap_out_operation.dart';
 
-/// Concrete EVM chain — the transport layer.
+/// Concrete EVM chain — transport layer plus assembled capabilities.
 ///
-/// Knows how to talk to an RPC node, poll blocks, manage HD keys, and
-/// track balances. Does NOT know about swaps, escrow, or account abstraction.
-/// Those are capabilities attached via [ConfiguredEvmChain].
+/// Knows how to talk to an RPC node, poll blocks, manage HD keys,
+/// track balances, send transactions (via AA or EOA), and interact
+/// with swap and escrow contracts.
 class EvmChain {
   final EvmChainConfig config;
   final CustomLogger logger;
   final Auth auth;
+
+  // ── Capabilities ──────────────────────────────────────────────────
+
+  /// ERC-4337 Account Abstraction — `null` if the chain has no AA config.
+  final AACapability? aa;
+
+  /// Boltz swap provider — `null` if Boltz doesn't support this chain.
+  /// Attached after Boltz discovery in [Evm.init].
+  BoltzSwapProvider? swaps;
+
+  /// Escrow contract lookup — always present.
+  late final EscrowCapability escrow;
+
+  /// Whether this chain uses ERC-4337 Account Abstraction.
+  bool get hasAA => aa != null;
 
   Web3Client _client;
 
@@ -51,8 +79,11 @@ class EvmChain {
     required this.config,
     required this.auth,
     required CustomLogger logger,
+    this.aa,
   }) : logger = logger.scope('evm-chain'),
-       _client = _buildWeb3Client(config.rpcUrl);
+       _client = _buildWeb3Client(config.rpcUrl) {
+    escrow = EscrowCapability(chain: this, logger: logger);
+  }
 
   static Web3Client _buildWeb3Client(String rpcUrl) =>
       Web3Client(rpcUrl, createPlatformHttpClient());
@@ -733,6 +764,195 @@ class EvmChain {
         params: params,
       ),
     );
+  }
+
+  // ── Account address resolution ────────────────────────────────────
+
+  /// Returns the address that should receive funds on this chain.
+  ///
+  /// When AA is configured, this is the counterfactual smart-account
+  /// address. Otherwise it is the plain EOA address derived from the key.
+  Future<EthereumAddress> getAccountAddress(EthPrivateKey signer) async {
+    if (aa != null) {
+      return aa!.getSmartAccountAddress(signer);
+    }
+    return signer.address;
+  }
+
+  // ── Transaction sending ───────────────────────────────────────────
+
+  /// Send one or more [CallIntent]s as a single atomic operation.
+  ///
+  /// When AA is configured, the intents are batched into a single
+  /// UserOperation. Otherwise each intent is sent as a plain EOA
+  /// transaction (sequentially).
+  ///
+  /// Returns the on-chain transaction hash.
+  Future<String> sendCalls(
+    EthPrivateKey signer,
+    List<CallIntent> intents,
+  ) async {
+    if (aa != null) {
+      return aa!.sendUserOp(signer, intents);
+    }
+    return _sendEoaCalls(signer, intents);
+  }
+
+  // ── Gas estimation ────────────────────────────────────────────────
+
+  /// Estimate gas fee for the given call intents (or a baseline if omitted).
+  ///
+  /// Delegates to AA when available; otherwise uses `eth_estimateGas`.
+  Future<({BigInt gasCostWei, bool gasSponsored})> estimateGas(
+    EthPrivateKey signer, {
+    List<CallIntent>? intents,
+  }) async {
+    if (aa != null) {
+      return aa!.estimateGasFee(signer, intents: intents);
+    }
+    return _estimateEoaGas(signer, intents: intents);
+  }
+
+  // ── EOA internals ─────────────────────────────────────────────────
+
+  Future<String> _sendEoaCalls(
+    EthPrivateKey signer,
+    List<CallIntent> intents,
+  ) async {
+    String? lastTxHash;
+    for (final intent in intents) {
+      final estimatedGas = await client.estimateGas(
+        sender: signer.address,
+        to: intent.to,
+        value: intent.value,
+        data: intent.data,
+      );
+      final bufferedGas =
+          (estimatedGas * BigInt.from(12) ~/ BigInt.from(10)) +
+          BigInt.from(10000);
+      final txHash = await client.sendTransaction(
+        signer,
+        Transaction(
+          from: signer.address,
+          to: intent.to,
+          value: intent.value,
+          data: intent.data,
+          maxGas: bufferedGas.toInt(),
+        ),
+        chainId: config.chainId,
+      );
+      lastTxHash = txHash;
+    }
+    return lastTxHash!;
+  }
+
+  Future<({BigInt gasCostWei, bool gasSponsored})> _estimateEoaGas(
+    EthPrivateKey signer, {
+    List<CallIntent>? intents,
+  }) async {
+    if (intents == null || intents.isEmpty) {
+      // Baseline estimate for contract interactions when the exact calldata is
+      // not known yet (for example during swap-out quoting before Boltz has
+      // returned the concrete lock parameters).
+      final gasPrice = await client.getGasPrice();
+      return (
+        gasCostWei: BigInt.from(150000) * gasPrice.getInWei,
+        gasSponsored: false,
+      );
+    }
+
+    BigInt totalGas = BigInt.zero;
+    final gasPrice = await client.getGasPrice();
+    for (final intent in intents) {
+      final gas = await client.estimateGas(
+        sender: signer.address,
+        to: intent.to,
+        value: intent.value,
+        data: intent.data,
+      );
+      totalGas += gas;
+    }
+    return (gasCostWei: totalGas * gasPrice.getInWei, gasSponsored: false);
+  }
+
+  // ── Swap factories ──────────────────────────────────────────────────
+
+  /// Create a swap-in (reverse submarine swap) operation for this chain.
+  SwapInOperation swapIn({
+    required SwapInParams params,
+    required Auth auth,
+    required CustomLogger logger,
+  }) {
+    return EvmSwapInOperation(
+      chain: this,
+      auth: auth,
+      logger: logger,
+      params: params,
+    );
+  }
+
+  /// Create a swap-out (submarine swap) operation for this chain.
+  EvmSwapOutOperation swapOut({
+    required SwapOutParams params,
+    required Auth auth,
+    required CustomLogger logger,
+    required Nwc nwc,
+    required Payments payments,
+    required SwapOutQuoteService quoteService,
+    SwapOutState? initialState,
+  }) {
+    return EvmSwapOutOperation(
+      chain: this,
+      auth: auth,
+      logger: logger,
+      nwc: nwc,
+      payments: payments,
+      quoteService: quoteService,
+      params: params,
+      initialState: initialState,
+    );
+  }
+
+  // ── Token resolution ────────────────────────────────────────────────
+
+  /// Resolve the concrete on-chain funding token from Boltz chain info.
+  ///
+  /// If Boltz has ERC-20 tokens configured for this chain, returns the first
+  /// one (with correct decimals from [config.tokens]). Otherwise returns the
+  /// chain's native asset.
+  Token resolveBoltzFundingToken() {
+    final boltzTokens = swaps?.chainInfo.tokens ?? {};
+    if (boltzTokens.isNotEmpty) {
+      final boltzTokenAddress = boltzTokens.values.first;
+      var decimals = 18;
+      for (final tokenConfig in config.tokens.values) {
+        if (tokenConfig.address.toLowerCase() ==
+            boltzTokenAddress.eip55With0x.toLowerCase()) {
+          decimals = tokenConfig.decimals;
+          break;
+        }
+      }
+      return Token(
+        chainId: config.chainId,
+        address: boltzTokenAddress.eip55With0x,
+        decimals: decimals,
+      );
+    }
+    return Token.rbtc(config.chainId);
+  }
+
+  /// Convert a [DenominatedAmount] (e.g. BTC sats) into a [TokenAmount]
+  /// denominated in the resolved Boltz funding token.
+  ///
+  /// Scales from the denomination's decimal precision to the token's
+  /// decimals.
+  TokenAmount resolveAmountInFundingToken(DenominatedAmount denominated) {
+    final token = resolveBoltzFundingToken();
+    final scale = token.decimals - denominated.decimals;
+    final value = scale <= 0
+        ? denominated.value
+        : denominated.value * BigInt.from(10).pow(scale);
+    return TokenAmount(value: value, token: token);
   }
 }
 

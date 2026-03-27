@@ -148,8 +148,7 @@ class AutoWithdrawService {
 
       try {
         // Get individual address balances for this chain.
-        final fundedAddresses = await configured.chain
-            .getAddressesWithBalance();
+        final fundedAddresses = await configured.getAddressesWithBalance();
 
         // Gate 4: Apply minimum balance per individual address.
         final qualifyingIndices = <int>{};

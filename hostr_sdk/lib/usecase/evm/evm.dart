@@ -15,8 +15,6 @@ import '../nwc/nwc.dart';
 import '../payments/payments.dart';
 import 'capabilities/aa_capability.dart';
 import 'capabilities/boltz_swap_provider.dart';
-import 'capabilities/configured_evm_chain.dart';
-import 'capabilities/escrow_capability.dart';
 import 'chain/evm_chain.dart';
 import 'chain/operations/swap_out/swap_out_operation.dart';
 import 'operations/swap_out/swap_out_models.dart';
@@ -34,7 +32,7 @@ class Evm {
   StreamSubscription<TokenAmount>? _balanceSubscription;
 
   /// All configured EVM chains, assembled with their capabilities.
-  late final List<ConfiguredEvmChain> configuredChains;
+  late final List<EvmChain> configuredChains;
 
   /// The shared Boltz client — `null` if no Boltz config is present.
   BoltzClient? _boltzClient;
@@ -47,7 +45,7 @@ class Evm {
     configuredChains = _buildChains();
   }
 
-  List<ConfiguredEvmChain> _buildChains() {
+  List<EvmChain> _buildChains() {
     final evmConfig = _config.evmConfig;
 
     // Create Boltz client if configured.
@@ -56,8 +54,6 @@ class Evm {
     }
 
     return evmConfig.chains.map((chainConfig) {
-      final chain = EvmChain(config: chainConfig, auth: _auth, logger: _logger);
-
       // AA capability — present if the chain config has AA fields.
       final aa = chainConfig.accountAbstraction != null
           ? AACapability(
@@ -68,14 +64,13 @@ class Evm {
             )
           : null;
 
-      // Escrow is always available.
-      final escrow = EscrowCapability(chain: chain, logger: _logger);
-
-      return ConfiguredEvmChain(
-        chain: chain,
+      // Chain owns transport + capabilities (escrow is auto-created).
+      // Swaps are attached later in [init] after Boltz discovery.
+      return EvmChain(
+        config: chainConfig,
+        auth: _auth,
+        logger: _logger,
         aa: aa,
-        escrow: escrow,
-        // Swaps are attached later in [init] after Boltz discovery.
       );
     }).toList();
   }
@@ -109,23 +104,15 @@ class Evm {
           continue;
         }
 
-        // Attach swap provider.
+        // Attach swap provider directly.
         final swaps = BoltzSwapProvider(
           boltzClient: _boltzClient!,
           chainInfo: info,
-          chain: match.chain,
+          chain: match,
           logger: _logger,
           nativeCurrency: match.config.boltzCurrency,
         );
-
-        // Replace the configured chain with one that includes swaps.
-        final idx = configuredChains.indexOf(match);
-        configuredChains[idx] = ConfiguredEvmChain(
-          chain: match.chain,
-          aa: match.aa,
-          swaps: swaps,
-          escrow: match.escrow,
-        );
+        match.swaps = swaps;
 
         _logger.i(
           'Attached Boltz swap provider for ${info.chainKey} '
@@ -142,7 +129,7 @@ class Evm {
         if (_balanceSubscription != null) return;
 
         final streams = configuredChains
-            .map((c) => c.chain.subscribeTotalBalance())
+            .map((c) => c.subscribeTotalBalance())
             .toList();
 
         final combined = Rx.combineLatestList<TokenAmount>(streams).map(
@@ -162,7 +149,7 @@ class Evm {
     TokenAmount totalBalance = TokenAmount.zero(rbtc);
     for (var c in configuredChains) {
       try {
-        final chainBalance = await c.chain.getTotalBalance();
+        final chainBalance = await c.getTotalBalance();
         totalBalance += chainBalance;
       } catch (e) {
         _logger.w('Failed to get balance from chain ${c.config.id}: $e');
@@ -171,7 +158,7 @@ class Evm {
     return totalBalance;
   });
 
-  ConfiguredEvmChain getChainForEscrowService(EscrowService service) =>
+  EvmChain getChainForEscrowService(EscrowService service) =>
       _logger.spanSync('getChainForEscrowService', () {
         // TODO: match by chain ID from escrow service metadata.
         // For now return the first chain.
@@ -184,14 +171,14 @@ class Evm {
       });
 
   /// Look up a configured chain by chain ID.
-  ConfiguredEvmChain? getChainByChainId(int chainId) {
+  EvmChain? getChainByChainId(int chainId) {
     return configuredChains
         .where((c) => c.config.chainId == chainId)
         .firstOrNull;
   }
 
   /// Look up a configured chain by config ID string.
-  ConfiguredEvmChain? getChainById(String id) {
+  EvmChain? getChainById(String id) {
     return configuredChains.where((c) => c.config.id == id).firstOrNull;
   }
 
@@ -220,7 +207,7 @@ class Evm {
     await _balanceSubscription?.cancel();
     _balanceSubscription = null;
     for (final c in configuredChains) {
-      await c.chain.dispose();
+      await c.dispose();
     }
     await _balanceSubject?.close();
     _balanceSubject = null;
@@ -243,7 +230,7 @@ class Evm {
           if (configured.swaps == null) continue;
 
           // ── Native-asset sweep ──────────────────────────────────────
-          final funded = await configured.chain.getAddressesWithBalance();
+          final funded = await configured.getAddressesWithBalance();
           for (final entry in funded) {
             if (minimumBalance != null &&
                 entry.balance.getInSats < minimumBalance.getInSats) {
@@ -272,8 +259,9 @@ class Evm {
           final boltzTokens = configured.swaps!.chainInfo.tokens;
           if (boltzTokens.isEmpty) continue;
 
-          final tokenFunded = await configured.chain
-              .getAddressesWithTokenBalances(boltzTokens);
+          final tokenFunded = await configured.getAddressesWithTokenBalances(
+            boltzTokens,
+          );
 
           for (final entry in tokenFunded) {
             if (minimumBalance != null &&

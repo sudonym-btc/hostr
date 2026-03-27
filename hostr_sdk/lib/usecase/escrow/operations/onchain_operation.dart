@@ -440,12 +440,18 @@ abstract class OnchainOperation
   final Auth auth;
   final TradeAccountAllocator tradeAccountAllocator;
   final Evm evm;
-  late final ConfiguredEvmChain configuredChain;
-  EvmChain get chain => configuredChain.chain;
+  late final EvmChain configuredChain;
   late final SupportedEscrowContract contract;
 
   /// HD account index. Defaults to 0; [resolveAddress] may update it.
   int accountIndex = 0;
+
+  /// The EVM signing key, resolved once during [initialize].
+  ///
+  /// Set after [resolveAddress] determines [accountIndex]. Every method that
+  /// needs the signer (gas estimation, intent building, broadcast) should use
+  /// this field instead of re-deriving via `auth.hd.getActiveEvmKey`.
+  late EthPrivateKey signer;
 
   /// Optional callback for emitting background progress notifications.
   ///
@@ -601,9 +607,14 @@ abstract class OnchainOperation
 
   /// Perform any up-front initialization required before the run loop starts.
   ///
-  /// Subclasses should prefer overriding this instead of `resolveAddress()` so
-  /// the setup phase is explicit from the outside.
-  Future<void> initialize() => resolveAddress();
+  /// Resolves the HD account index via [resolveAddress], then caches the
+  /// corresponding [signer] key. Subclasses that override this **must** call
+  /// `super.initialize()` first.
+  Future<void> initialize() async {
+    await resolveAddress();
+    signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
+    await contract.ensureDeployed();
+  }
 
   /// Build the list of call intents for this operation.
   ///
@@ -637,7 +648,6 @@ abstract class OnchainOperation
     return logger.span('estimateCallIntentsFee', () async {
       final effectiveOverrides =
           stateOverride ?? await buildGasEstimationStateOverrides(intents);
-      final signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
       final estimate = await configuredChain.aa!.estimateGasFee(
         signer,
         intents: intents,
@@ -650,26 +660,19 @@ abstract class OnchainOperation
     });
   }
 
-  /// Send the persisted call intents as a batched UserOperation.
-  Future<String> broadcastCallIntents(
-    List<CallIntent> intents,
-    EthPrivateKey credentials,
-  ) => logger.span('broadcastCallIntents', () async {
-    try {
-      await contract.ensureDeployed();
-      return await configuredChain.sendCalls(credentials, intents);
-    } catch (error) {
-      throw contract.decodeWriteError(error);
-    }
-  });
-
-  Future<TransactionInformation> submitCallIntents(
-    List<CallIntent> intents,
-    EthPrivateKey credentials,
-  ) => logger.span('submitCallIntents', () async {
-    final txHash = await broadcastCallIntents(intents, credentials);
-    return await chain.awaitTransaction(txHash);
-  });
+  /// Send the persisted call intents as a batched UserOperation and wait
+  /// for the transaction to appear in the mempool.
+  ///
+  /// Returns the [TransactionInformation] once the node acknowledges the tx.
+  Future<TransactionInformation> submitCallIntents(List<CallIntent> intents) =>
+      logger.span('submitCallIntents', () async {
+        try {
+          final txHash = await configuredChain.sendCalls(signer, intents);
+          return await configuredChain.awaitTransaction(txHash);
+        } catch (error) {
+          throw contract.decodeWriteError(error);
+        }
+      });
 
   /// Build the initial recovery data for this operation.
   OnchainOperationData buildInitialData({
@@ -733,6 +736,18 @@ abstract class OnchainOperation
     await run();
   }
 
+  /// Resume from a persisted (non-terminal) state.
+  ///
+  /// Ensures [signer] is available before the run loop begins.
+  /// In recovery the [accountIndex] is already set from persisted data,
+  /// so we only need to derive the key.
+  @override
+  Future<bool> recover({bool isBackground = false}) async {
+    signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
+    await contract.ensureDeployed();
+    return super.recover(isBackground: isBackground);
+  }
+
   // ── Step: initialise ──────────────────────────────────────────────
 
   /// Build initial data, estimate gas, then transition to [OnchainTxBroadcast].
@@ -782,10 +797,7 @@ abstract class OnchainOperation
         '$namespace cannot broadcast without persisted callIntents',
       );
     }
-    final tx = await submitCallIntents(
-      intents,
-      await auth.hd.getActiveEvmKey(accountIndex: data.accountIndex),
-    );
+    final tx = await submitCallIntents(intents);
     data = data.copyWithTransactionInformation(tx);
     final txHash = extractTxHash(tx);
     if (txHash != null) {
@@ -814,11 +826,12 @@ abstract class OnchainOperation
       var data = state.data!;
       final txHash = data.txHash!;
       final transactionInformation =
-          data.transactionInformation ?? await chain.awaitTransaction(txHash);
+          data.transactionInformation ??
+          await configuredChain.awaitTransaction(txHash);
       data = data.copyWithTransactionInformation(transactionInformation);
 
       final receipt =
-          data.transactionReceipt ?? await chain.awaitReceipt(txHash);
+          data.transactionReceipt ?? await configuredChain.awaitReceipt(txHash);
       logger.i(
         'Receipt received for $namespace tx $txHash: status=${receipt.status}',
       );
@@ -827,7 +840,7 @@ abstract class OnchainOperation
       }
       data = data.copyWithTransactionReceipt(receipt);
       validateConfirmedTransaction(data, receipt);
-      chain.notifyNewBlock();
+      configuredChain.notifyNewBlock();
       logger.d('$namespace transaction confirmed: $txHash');
       return OnchainTxConfirmed(data);
     },

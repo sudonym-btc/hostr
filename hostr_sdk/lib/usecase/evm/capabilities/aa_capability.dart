@@ -9,7 +9,7 @@ import '../config/evm_config.dart';
 
 /// Per-chain ERC-4337 Account Abstraction capability.
 ///
-/// Absorbed from the old singleton [UserOpService]. Each [ConfiguredEvmChain]
+/// Absorbed from the old singleton [UserOpService]. Each [EvmChain]
 /// with AA support holds its own [AACapability] instance parameterized by
 /// the chain-specific [AAConfig].
 class AACapability {

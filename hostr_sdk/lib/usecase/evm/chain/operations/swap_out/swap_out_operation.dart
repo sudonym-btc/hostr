@@ -16,7 +16,7 @@ import '../../../../payments/payments.dart';
 import '../../../main.dart';
 
 class EvmSwapOutOperation extends SwapOutOperation {
-  final ConfiguredEvmChain configuredChain;
+  final EvmChain chain;
   final Nwc nwc;
   final SwapOutQuoteService quoteService;
   final Payments payments;
@@ -28,7 +28,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
   }
 
   EvmSwapOutOperation({
-    required this.configuredChain,
+    required this.chain,
     required super.auth,
     required super.logger,
     required this.nwc,
@@ -53,20 +53,18 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
   // ── Step 1: Acquire invoice + create Boltz submarine swap ─────────────
 
-  Future<SwapOutState> _stepCreateSwap() => logger.span(
-    '_stepCreateSwap',
-    () async {
-      emit(SwapOutRequestCreated());
+  Future<SwapOutState> _stepCreateSwap() =>
+      logger.span('_stepCreateSwap', () async {
+        emit(SwapOutRequestCreated());
 
-      final quote = await _buildQuote();
-      final invoice = await _acquireInvoice(quote);
-      emit(SwapOutInvoiceCreated(invoice));
-      logger.i('Invoice created: $invoice');
+        final quote = await _buildQuote();
+        final invoice = await _acquireInvoice(quote);
+        emit(SwapOutInvoiceCreated(invoice));
+        logger.i('Invoice created: $invoice');
 
-      final creationBlock = await configuredChain.chain.client.getBlockNumber();
-      return await _prepareSwap(invoice, quote, creationBlock);
-    },
-  );
+        final creationBlock = await chain.client.getBlockNumber();
+        return await _prepareSwap(invoice, quote, creationBlock);
+      });
 
   // ── Step 2: Lock funds in swap contract ───────────────────────────────
 
@@ -79,31 +77,36 @@ class EvmSwapOutOperation extends SwapOutOperation {
           return SwapOutFunded(data);
         }
 
-        final intents = BoltzIntentBuilder(configuredChain.swaps!);
+        // ── 2b. Build lock intents ──
+        final builder = BoltzIntentBuilder(chain.swaps!);
         final isErc20 = data.tokenAddress != null;
-        final String tx;
+        final List<CallIntent> lockIntents;
 
         if (isErc20) {
           final tokenAddr = EthereumAddress.fromHex(data.tokenAddress!);
-          final lockIntents = intents.erc20Lock(
+          lockIntents = builder.erc20Lock(
             preimageHash: data.invoicePreimageHashBytes,
             amountWei: data.lockedAmountWei,
             tokenAddress: tokenAddr,
             claimAddress: EthereumAddress.fromHex(data.claimAddress),
             timeoutBlockHeight: data.timeoutBlockHeight,
           );
-          tx = await configuredChain.sendCalls(params.evmKey, lockIntents);
-          logger.i('Locked funds in ERC20Swap (approve + lock): $tx');
         } else {
-          final lockIntent = intents.nativeLock(
-            preimageHash: data.invoicePreimageHashBytes,
-            amountWei: data.lockedAmountWei,
-            claimAddress: EthereumAddress.fromHex(data.claimAddress),
-            timeoutBlockHeight: data.timeoutBlockHeight,
-          );
-          tx = await configuredChain.sendCalls(params.evmKey, [lockIntent]);
-          logger.i('Locked funds in EtherSwap: $tx');
+          lockIntents = [
+            builder.nativeLock(
+              preimageHash: data.invoicePreimageHashBytes,
+              amountWei: data.lockedAmountWei,
+              claimAddress: EthereumAddress.fromHex(data.claimAddress),
+              timeoutBlockHeight: data.timeoutBlockHeight,
+            ),
+          ];
         }
+
+        // ── 2c. Broadcast (delegate to onLock if set) ──
+        final tx =
+            await (params.onLock?.call(lockIntents) ??
+                chain.sendCalls(params.evmKey, lockIntents));
+        logger.i('Locked funds in ${isErc20 ? 'ERC20Swap' : 'EtherSwap'}: $tx');
 
         return SwapOutFunded(
           data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast'),
@@ -124,14 +127,14 @@ class EvmSwapOutOperation extends SwapOutOperation {
   Future<SwapOutState> _stepAwaitResolution() =>
       logger.span('_stepAwaitResolution', () async {
         final data = state.data!;
-        final boltz = configuredChain.swaps!.boltzClient;
+        final boltz = chain.swaps!.boltzClient;
 
         // ── 3a. Quick on-chain check for already-resolved swaps ──
         // If Boltz has already claimed (or we already refunded), we can
         // short-circuit without any network round-trips to Boltz.
         final scanner = BoltzEventScanner(
-          swaps: configuredChain.swaps!,
-          chain: configuredChain.chain,
+          swaps: chain.swaps!,
+          chain: chain,
           logger: logger,
         );
 
@@ -289,8 +292,9 @@ class EvmSwapOutOperation extends SwapOutOperation {
     );
 
     try {
-      final preimageHex = await configuredChain.swaps!.boltzClient
-          .getSubmarinePreimage(id: data.boltzId);
+      final preimageHex = await chain.swaps!.boltzClient.getSubmarinePreimage(
+        id: data.boltzId,
+      );
 
       // Strip optional 0x prefix and decode.
       final normalized = preimageHex.startsWith('0x')
@@ -337,9 +341,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
           // Shouldn't happen, but re-attempt refund
           return await _attemptRefund(data);
         }
-        final receipt = await configuredChain.chain.awaitReceipt(
-          data.resolutionTxHash!,
-        );
+        final receipt = await chain.awaitReceipt(data.resolutionTxHash!);
         logger.i('Refund receipt for ${data.boltzId}: $receipt');
         logger.i('Swap-out refunded: ${data.resolutionTxHash}');
         return SwapOutRefunded(data);
@@ -352,88 +354,87 @@ class EvmSwapOutOperation extends SwapOutOperation {
   /// Tries cooperative refund first (via EIP-712 signature from Boltz, available
   /// immediately when swap is in a failed state). Falls back to timelock refund
   /// if cooperative refund isn't available.
-  Future<SwapOutState> _attemptRefund(
-    SwapOutData data,
-  ) => logger.span('_attemptRefund', () async {
-    final claimAddress = EthereumAddress.fromHex(data.claimAddress);
-    final isErc20 = data.tokenAddress != null;
-    final tokenAddr = isErc20
-        ? EthereumAddress.fromHex(data.tokenAddress!)
-        : null;
-    final intents = BoltzIntentBuilder(configuredChain.swaps!);
+  Future<SwapOutState> _attemptRefund(SwapOutData data) => logger.span(
+    '_attemptRefund',
+    () async {
+      final claimAddress = EthereumAddress.fromHex(data.claimAddress);
+      final isErc20 = data.tokenAddress != null;
+      final tokenAddr = isErc20
+          ? EthereumAddress.fromHex(data.tokenAddress!)
+          : null;
+      final intents = BoltzIntentBuilder(chain.swaps!);
 
-    // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
-    try {
-      final boltz = configuredChain.swaps!.boltzClient;
-      final sigResponse = await boltz.getCooperativeRefundSignature(
-        id: data.boltzId,
-      );
+      // 1. Try cooperative refund (immediate, doesn't need timelock expiry)
+      try {
+        final boltz = chain.swaps!.boltzClient;
+        final sigResponse = await boltz.getCooperativeRefundSignature(
+          id: data.boltzId,
+        );
 
-      if (sigResponse != null) {
-        logger.i('Got cooperative refund signature from Boltz');
-        final sig = parseEvmSignature(sigResponse.signature);
+        if (sigResponse != null) {
+          logger.i('Got cooperative refund signature from Boltz');
+          final sig = parseEvmSignature(sigResponse.signature);
 
-        final intent = intents.cooperativeRefundIntent(
+          final intent = intents.cooperativeRefundIntent(
+            preimageHash: data.invoicePreimageHashBytes,
+            amountWei: data.lockedAmountWei,
+            claimAddress: claimAddress,
+            timeoutBlockHeight: data.timeoutBlockHeight,
+            sig: sig,
+            tokenAddress: tokenAddr,
+          );
+
+          final refundTx = await chain.sendCalls(params.evmKey, [intent]);
+
+          logger.i('Cooperative refund broadcast: $refundTx');
+          return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
+        }
+      } catch (e) {
+        logger.w('Cooperative refund failed: $e — will fall back to timelock');
+      }
+
+      // 2. Fall back to timelock refund (must wait for block height)
+      try {
+        final currentBlock = await chain.getLocktimeBlockNumber();
+        if (currentBlock < data.timeoutBlockHeight) {
+          logger.w(
+            'Timelock not expired yet (current: $currentBlock, '
+            'timelock: ${data.timeoutBlockHeight}). '
+            'Refund will be retried by SwapRecoverer.',
+          );
+          return SwapOutFunded(
+            data.copyWith(
+              errorMessage:
+                  'Waiting for timelock expiry at block '
+                  '${data.timeoutBlockHeight} (current: $currentBlock)',
+            ),
+          );
+        }
+
+        final intent = intents.refundIntent(
           preimageHash: data.invoicePreimageHashBytes,
           amountWei: data.lockedAmountWei,
           claimAddress: claimAddress,
           timeoutBlockHeight: data.timeoutBlockHeight,
-          sig: sig,
           tokenAddress: tokenAddr,
         );
 
-        final refundTx = await configuredChain.sendCalls(params.evmKey, [
-          intent,
-        ]);
+        final refundTx = await chain.sendCalls(params.evmKey, [intent]);
 
-        logger.i('Cooperative refund broadcast: $refundTx');
+        logger.i('Timelock refund broadcast: $refundTx');
         return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
+      } catch (e) {
+        logger.e('Timelock refund failed: $e');
+        return SwapOutFunded(data.copyWith(errorMessage: 'Refund failed: $e'));
       }
-    } catch (e) {
-      logger.w('Cooperative refund failed: $e — will fall back to timelock');
-    }
-
-    // 2. Fall back to timelock refund (must wait for block height)
-    try {
-      final currentBlock = await configuredChain.chain.getLocktimeBlockNumber();
-      if (currentBlock < data.timeoutBlockHeight) {
-        logger.w(
-          'Timelock not expired yet (current: $currentBlock, '
-          'timelock: ${data.timeoutBlockHeight}). '
-          'Refund will be retried by SwapRecoverer.',
-        );
-        return SwapOutFunded(
-          data.copyWith(
-            errorMessage:
-                'Waiting for timelock expiry at block '
-                '${data.timeoutBlockHeight} (current: $currentBlock)',
-          ),
-        );
-      }
-
-      final intent = intents.refundIntent(
-        preimageHash: data.invoicePreimageHashBytes,
-        amountWei: data.lockedAmountWei,
-        claimAddress: claimAddress,
-        timeoutBlockHeight: data.timeoutBlockHeight,
-        tokenAddress: tokenAddr,
-      );
-
-      final refundTx = await configuredChain.sendCalls(params.evmKey, [intent]);
-
-      logger.i('Timelock refund broadcast: $refundTx');
-      return SwapOutRefunding(data.copyWith(resolutionTxHash: refundTx));
-    } catch (e) {
-      logger.e('Timelock refund failed: $e');
-      return SwapOutFunded(data.copyWith(errorMessage: 'Refund failed: $e'));
-    }
-  });
+    },
+  );
 
   // ── Fee estimation ────────────────────────────────────────────────────
 
   @override
   Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
-    final gasEstimate = await configuredChain.estimateGas(params.evmKey);
+    final gasEstimate = await chain.estimateGas(params.evmKey);
     final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
 
     final chainBalance = await _getSwapBalance();
@@ -441,7 +442,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
       balance: chainBalance,
       estimatedGasFee: gasFee,
       requestedAmount: params.amount,
-      boltzCurrency: configuredChain.swaps!.currencyForTokenAddress(
+      boltzCurrency: chain.swaps!.currencyForTokenAddress(
         _requestedTokenAddress,
       ),
     );
@@ -504,7 +505,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
     int creationBlock,
   ) => logger.span('_prepareSwap', () async {
     final preimageHash = _extractPreimageHash(invoice);
-    final swap = await configuredChain.swaps!.submarine(
+    final swap = await chain.swaps!.submarine(
       invoice: invoice,
       tokenAddress: _requestedTokenAddress,
     );
@@ -512,7 +513,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
     final gasFee = TokenAmount.fromDenominated(
       quote.estimatedGasFee,
-      Token.rbtc(configuredChain.config.chainId),
+      Token.rbtc(chain.config.chainId),
     );
     final funding = SwapFundingRequirement.fromBoltzExpectedAmount(
       expectedAmountSat: swap.expectedAmount.ceil(),
@@ -532,7 +533,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
       lockedAmountWeiHex: funding.lockAmountWei.toRadixString(16),
       lockerAddress: params.evmKey.address.with0x,
       timeoutBlockHeight: swap.timeoutBlockHeight!.toInt(),
-      chainId: configuredChain.config.chainId,
+      chainId: chain.config.chainId,
       accountIndex: params.accountIndex,
       creationBlockHeight: creationBlock,
       tokenAddress: _requestedTokenAddress?.eip55With0x,
@@ -547,7 +548,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
       balance: balance,
       estimatedGasFee: await _estimateLockGasFee(),
       requestedAmount: params.amount,
-      boltzCurrency: configuredChain.swaps!.currencyForTokenAddress(
+      boltzCurrency: chain.swaps!.currencyForTokenAddress(
         _requestedTokenAddress,
       ),
     );
@@ -557,25 +558,22 @@ class EvmSwapOutOperation extends SwapOutOperation {
       logger.span('_getSwapBalance', () async {
         final tokenAddress = _requestedTokenAddress;
         if (tokenAddress == null) {
-          return configuredChain.chain.getBalance(params.evmKey.address);
+          return chain.getBalance(params.evmKey.address);
         }
 
-        final token = IERC20(
-          address: tokenAddress,
-          client: configuredChain.chain.client,
-        );
+        final token = IERC20(address: tokenAddress, client: chain.client);
         final raw = await token.balanceOf((account: params.evmKey.address));
         return tokenAmountFromEvm(
           tokenAddress.eip55With0x,
           raw,
-          chainId: configuredChain.config.chainId,
-          knownTokens: configuredChain.config.tokens,
+          chainId: chain.config.chainId,
+          knownTokens: chain.config.tokens,
         );
       });
 
   Future<TokenAmount> _estimateLockGasFee() =>
       logger.span('_estimateLockGasFee', () async {
-        final estimate = await configuredChain.estimateGas(params.evmKey);
+        final estimate = await chain.estimateGas(params.evmKey);
         return rbtcFromWei(estimate.gasCostWei);
       });
 
@@ -612,7 +610,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
   }
 
   Stream<SwapStatus> _waitForSwapOnChain(String id) {
-    return configuredChain.swaps!.boltzClient.subscribeToSwap(id: id).doOnData((
+    return chain.swaps!.boltzClient.subscribeToSwap(id: id).doOnData((
       swapStatus,
     ) {
       logger.i('Swap status update: ${swapStatus.status}, $swapStatus');

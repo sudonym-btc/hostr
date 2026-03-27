@@ -106,7 +106,7 @@ class SwapRecoverer {
     );
 
     final cubit = EvmSwapInOperation(
-      configuredChain: configuredChain,
+      chain: configuredChain,
       auth: _auth,
       logger: _logger,
       params: SwapInParams(
@@ -148,7 +148,7 @@ class SwapRecoverer {
     );
 
     final cubit = EvmSwapOutOperation(
-      configuredChain: configuredChain,
+      chain: configuredChain,
       auth: _auth,
       logger: _logger,
       nwc: getIt<Nwc>(),

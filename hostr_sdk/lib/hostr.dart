@@ -151,7 +151,7 @@ class Hostr {
           try {
             bytecodeHashes.add(
               await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-                chain.chain.client,
+                chain.client,
                 EthereumAddress.fromHex(addr),
               ),
             );

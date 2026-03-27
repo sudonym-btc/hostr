@@ -32,8 +32,7 @@ import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_esc
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i21;
 import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i37;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i22;
-import 'package:hostr_sdk/usecase/evm/capabilities/configured_evm_chain.dart'
-    as _i26;
+import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart' as _i26;
 import 'package:hostr_sdk/usecase/evm/chain/operations/swap_out/swap_out_operation.dart'
     as _i43;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i42;
@@ -334,9 +333,8 @@ class _FakeTokenAmount_44 extends _i1.SmartFake implements _i10.TokenAmount {
     : super(parent, parentInvocation);
 }
 
-class _FakeConfiguredEvmChain_45 extends _i1.SmartFake
-    implements _i26.ConfiguredEvmChain {
-  _FakeConfiguredEvmChain_45(Object parent, Invocation parentInvocation)
+class _FakeEvmChain_45 extends _i1.SmartFake implements _i26.EvmChain {
+  _FakeEvmChain_45(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -3345,19 +3343,18 @@ class MockEvm extends _i1.Mock implements _i42.Evm {
           as _i8.CustomLogger);
 
   @override
-  List<_i26.ConfiguredEvmChain> get configuredChains =>
+  List<_i26.EvmChain> get configuredChains =>
       (super.noSuchMethod(
             Invocation.getter(#configuredChains),
-            returnValue: <_i26.ConfiguredEvmChain>[],
+            returnValue: <_i26.EvmChain>[],
           )
-          as List<_i26.ConfiguredEvmChain>);
+          as List<_i26.EvmChain>);
 
   @override
-  set configuredChains(List<_i26.ConfiguredEvmChain>? value) =>
-      super.noSuchMethod(
-        Invocation.setter(#configuredChains, value),
-        returnValueForMissingStub: null,
-      );
+  set configuredChains(List<_i26.EvmChain>? value) => super.noSuchMethod(
+    Invocation.setter(#configuredChains, value),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i27.Future<void> init() =>
@@ -3379,27 +3376,25 @@ class MockEvm extends _i1.Mock implements _i42.Evm {
           as _i27.Future<_i10.TokenAmount>);
 
   @override
-  _i26.ConfiguredEvmChain getChainForEscrowService(
-    _i10.EscrowService? service,
-  ) =>
+  _i26.EvmChain getChainForEscrowService(_i10.EscrowService? service) =>
       (super.noSuchMethod(
             Invocation.method(#getChainForEscrowService, [service]),
-            returnValue: _FakeConfiguredEvmChain_45(
+            returnValue: _FakeEvmChain_45(
               this,
               Invocation.method(#getChainForEscrowService, [service]),
             ),
           )
-          as _i26.ConfiguredEvmChain);
+          as _i26.EvmChain);
 
   @override
-  _i26.ConfiguredEvmChain? getChainByChainId(int? chainId) =>
+  _i26.EvmChain? getChainByChainId(int? chainId) =>
       (super.noSuchMethod(Invocation.method(#getChainByChainId, [chainId]))
-          as _i26.ConfiguredEvmChain?);
+          as _i26.EvmChain?);
 
   @override
-  _i26.ConfiguredEvmChain? getChainById(String? id) =>
+  _i26.EvmChain? getChainById(String? id) =>
       (super.noSuchMethod(Invocation.method(#getChainById, [id]))
-          as _i26.ConfiguredEvmChain?);
+          as _i26.EvmChain?);
 
   @override
   _i4.ValueStream<_i10.TokenAmount> subscribeBalance() =>

@@ -67,7 +67,7 @@ class DiscoverEscrowServicesCubit extends Cubit<DiscoverEscrowServicesState> {
         return;
       }
 
-      final client = chains.first.chain.client;
+      final client = chains.first.client;
       final compatible = <EscrowService>[];
 
       for (final service in allServices) {
