@@ -58,6 +58,8 @@ class Hostr {
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
+  WithdrawalOrchestrator get withdrawalOrchestrator =>
+      getIt<WithdrawalOrchestrator>();
   Calendar get calendar => getIt<Calendar>();
 
   Trade trade(String tradeId) {
@@ -169,6 +171,7 @@ class Hostr {
         // are live before the orchestrator subscribes to them.
         await userSubscriptions.start();
         paymentProofOrchestrator.start();
+        withdrawalOrchestrator.start();
         // Ensure the user's profile has an EVM address tag.
         metadata.ensureEvmAddress();
         nwc.start();

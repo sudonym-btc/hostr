@@ -194,6 +194,10 @@ class BoltzSwapProvider {
   Future<SwapStatus> getSwap({required String id}) =>
       boltzClient.getSwap(id: id);
 
+  /// Fetch the preimage for a completed submarine swap.
+  Future<String> getSubmarinePreimage({required String id}) =>
+      boltzClient.getSubmarinePreimage(id: id);
+
   /// Request cooperative refund EIP-712 signature from Boltz.
   Future<SwapSubmarineIdRefundGet$Response?> getCooperativeRefundSignature({
     required String id,

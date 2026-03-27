@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
+
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
@@ -7,15 +11,16 @@ interface IERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
-contract MultiEscrow {
+contract MultiEscrow is EIP712, ReentrancyGuard {
     uint256 public constant FACTOR_SCALE = 1000; // 0.1% precision
-    string public constant NAME = "Hostr MultiEscrow";
-    string public constant VERSION = "4";
 
     address public owner;
 
+    // ── Errors ────────────────────────────────────────────────────────
+
     error OnlyOwner();
-    error OnlyArbiter();
+    error InvalidSignature();
+    error NotAContract();
     error TradeAlreadyActive();
     error TradeNotActive();
     error TradeIdAlreadyExists();
@@ -23,13 +28,16 @@ contract MultiEscrow {
     error NoFundsToRelease();
     error OnlyBuyerOrSeller();
     error InvalidFactor();
-    error OnlySeller();
     error ClaimPeriodNotStarted();
     error NoFundsToClaim();
     error EscrowFeeTooHigh();
     error NativeTransferFailed();
     error ERC20TransferFailed();
     error NativeNotExpected();
+    error InsufficientExcess();
+    error NothingToWithdraw();
+
+    // ── Types ─────────────────────────────────────────────────────────
 
     struct Trade {
         address buyer;
@@ -41,33 +49,73 @@ contract MultiEscrow {
         uint256 escrowFee;  // flat fee in token units
     }
 
+    // ── EIP-712 type hashes ───────────────────────────────────────────
+
+    bytes32 private constant RELEASE_TYPEHASH =
+        keccak256("Release(bytes32 tradeId,address actor)");
+
+    bytes32 private constant CLAIM_TYPEHASH =
+        keccak256("Claim(bytes32 tradeId)");
+
+    bytes32 private constant ARBITRATE_TYPEHASH =
+        keccak256("Arbitrate(bytes32 tradeId,uint256 factor)");
+
+    bytes32 private constant WITHDRAW_TYPEHASH =
+        keccak256("Withdraw(bytes32 tradeId,address destination)");
+
+    // ── State ─────────────────────────────────────────────────────────
+
     mapping(bytes32 => Trade) public trades;
     bytes32[] private _activeTradeIds;
     mapping(bytes32 => uint256) private _activeTradeIndexPlusOne;
+
+    /// @dev Sentinel address stored in _settledToken for native-currency trades
+    ///      (address(0) is the default for unmapped keys, so we need a non-zero marker).
+    address private constant NATIVE_SENTINEL = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    /// @dev tradeId => beneficiary => amount available to withdraw
+    mapping(bytes32 => mapping(address => uint256)) public pendingWithdrawals;
+
+    /// @dev tradeId => token used (NATIVE_SENTINEL for native). Non-zero after settlement.
+    mapping(bytes32 => address) private _settledToken;
+
+    /// @dev token => total pending withdrawal amount across all settled trades
+    mapping(address => uint256) public totalPending;
+
+    // ── Events ────────────────────────────────────────────────────────
 
     event TradeCreated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address indexed arbiter, uint256 amount, uint256 unlockAt, uint256 escrowFee);
     event Arbitrated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
     event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event Withdrawn(bytes32 indexed tradeId, address indexed beneficiary, address indexed token, address destination, uint256 amount);
 
-    constructor() {
+    // ── Constructor ───────────────────────────────────────────────────
+
+    constructor() EIP712("Hostr MultiEscrow", "5") {
         owner = msg.sender;
     }
 
     receive() external payable {}
+
+    // ── Modifiers ─────────────────────────────────────────────────────
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert OnlyOwner();
         _;
     }
 
-    modifier onlyArbiter(bytes32 tradeId) {
-        if (msg.sender != trades[tradeId].arbiter) revert OnlyArbiter();
-        _;
-    }
-
     // ── Internal helpers ──────────────────────────────────────────────
+
+    /// @dev Verify an EIP-712 typed-data signature. Works for both EOA
+    ///      (ecrecover) and smart-contract wallets (ERC-1271).
+    function _verifySigner(address signer, bytes32 structHash, bytes calldata signature) internal view {
+        bytes32 digest = _hashTypedDataV4(structHash);
+        if (!SignatureChecker.isValidSignatureNow(signer, digest, signature)) {
+            revert InvalidSignature();
+        }
+    }
 
     function _addActiveTrade(bytes32 tradeId) internal {
         if (_activeTradeIndexPlusOne[tradeId] != 0) revert TradeAlreadyActive();
@@ -104,6 +152,7 @@ contract MultiEscrow {
             (bool success,) = payable(recipient).call{value: amount}("");
             if (!success) revert NativeTransferFailed();
         } else {
+            if (token.code.length == 0) revert NotAContract();
             (bool success, bytes memory data) = token.call(
                 abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
             );
@@ -115,6 +164,7 @@ contract MultiEscrow {
 
     /// @dev Pull ERC20 tokens via transferFrom. Handles non-standard return values.
     function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
+        if (token.code.length == 0) revert NotAContract();
         (bool success, bytes memory data) = token.call(
             abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount)
         );
@@ -164,9 +214,24 @@ contract MultiEscrow {
         _removeActiveTrade(tradeId);
         delete trades[tradeId];
 
-        _transfer(token, trade.arbiter, fee);
-        _transfer(token, firstRecipient, firstAmount);
-        _transfer(token, secondRecipient, secondAmount);
+        // Store token for later withdrawal (NATIVE_SENTINEL for native)
+        _settledToken[tradeId] = token == address(0) ? NATIVE_SENTINEL : token;
+
+        // Record pending withdrawals instead of transferring
+        uint256 pendingTotal;
+        if (fee > 0) {
+            pendingWithdrawals[tradeId][trade.arbiter] += fee;
+            pendingTotal += fee;
+        }
+        if (firstAmount > 0) {
+            pendingWithdrawals[tradeId][firstRecipient] += firstAmount;
+            pendingTotal += firstAmount;
+        }
+        if (secondAmount > 0) {
+            pendingWithdrawals[tradeId][secondRecipient] += secondAmount;
+            pendingTotal += secondAmount;
+        }
+        totalPending[token] += pendingTotal;
     }
 
     function _claim(bytes32 tradeId) internal returns (uint256 amountAfterFees) {
@@ -261,7 +326,7 @@ contract MultiEscrow {
         uint256 _amount,
         uint256 _unlockAt,
         uint256 _escrowFee
-    ) external payable {
+    ) external payable nonReentrant {
         uint256 funded;
         if (_token == address(0)) {
             funded = msg.value;
@@ -276,33 +341,129 @@ contract MultiEscrow {
 
     // ── Release ───────────────────────────────────────────────────────
 
-    function releaseToCounterparty(bytes32 tradeId) external {
-        _releaseToCounterparty(tradeId, msg.sender);
+    /// @notice Release funds to the counterparty. `actor` must be the buyer or
+    ///         seller stored in the trade. `signature` is an EIP-712 signature
+    ///         from `actor` (EOA ecrecover or ERC-1271 smart account).
+    ///         Anyone can broadcast the transaction.
+    function releaseToCounterparty(
+        bytes32 tradeId,
+        address actor,
+        bytes calldata signature
+    ) external nonReentrant {
+        _verifySigner(
+            actor,
+            keccak256(abi.encode(RELEASE_TYPEHASH, tradeId, actor)),
+            signature
+        );
+        _releaseToCounterparty(tradeId, actor);
     }
 
     // ── Arbitrate ─────────────────────────────────────────────────────
 
-    function arbitrate(bytes32 tradeId, uint256 factor) external onlyArbiter(tradeId) {
-        Trade storage trade = trades[tradeId];
+    /// @notice Arbitrate a trade, splitting funds between buyer and seller.
+    ///         `signature` must be from the trade's arbiter.
+    ///         Anyone can broadcast the transaction.
+    function arbitrate(
+        bytes32 tradeId,
+        uint256 factor,
+        bytes calldata signature
+    ) external nonReentrant {
+        _verifySigner(
+            trades[tradeId].arbiter,
+            keccak256(abi.encode(ARBITRATE_TYPEHASH, tradeId, factor)),
+            signature
+        );
+
+        Trade memory trade = trades[tradeId];
         if (trade.amount == 0) revert NoFundsToRelease();
         if (factor > FACTOR_SCALE) revert InvalidFactor();
 
-        address seller = trade.seller;
-        address buyer = trade.buyer;
-        address token = trade.token;
-
         uint256 amountAfterFee = trade.amount - trade.escrowFee;
         uint256 forwardAmount = (amountAfterFee * factor) / FACTOR_SCALE;
-        uint256 remainingAmount = amountAfterFee - forwardAmount;
 
-        _settleTrade(tradeId, seller, forwardAmount, buyer, remainingAmount);
+        _settleTrade(tradeId, trade.seller, forwardAmount, trade.buyer, amountAfterFee - forwardAmount);
 
-        emit Arbitrated(tradeId, token, seller, buyer, amountAfterFee, factor);
+        emit Arbitrated(tradeId, trade.token, trade.seller, trade.buyer, amountAfterFee, factor);
     }
 
     // ── Claim ─────────────────────────────────────────────────────────
 
-    function claim(bytes32 tradeId) external {
+    /// @notice Claim funds after the unlock period. `signature` must be from
+    ///         the trade's seller. Anyone can broadcast the transaction.
+    function claim(
+        bytes32 tradeId,
+        bytes calldata signature
+    ) external nonReentrant {
+        address seller = trades[tradeId].seller;
+        _verifySigner(
+            seller,
+            keccak256(abi.encode(CLAIM_TYPEHASH, tradeId)),
+            signature
+        );
         _claim(tradeId);
+    }
+
+    // ── Withdraw ──────────────────────────────────────────────────────
+
+    /// @notice Withdraw settled funds. After a trade is settled (via claim,
+    ///         release, or arbitrate) the tokens are held in the contract.
+    ///         Each beneficiary can withdraw their share to any `destination`
+    ///         by providing an EIP-712 signature.
+    ///         `beneficiary` is the address that was awarded funds during
+    ///         settlement. `signature` must be from `beneficiary`.
+    ///         Anyone can broadcast the transaction (gas-sponsored relay).
+    function withdraw(
+        bytes32 tradeId,
+        address beneficiary,
+        address destination,
+        bytes calldata signature
+    ) external nonReentrant {
+        _verifySigner(
+            beneficiary,
+            keccak256(abi.encode(WITHDRAW_TYPEHASH, tradeId, destination)),
+            signature
+        );
+
+        uint256 amount = pendingWithdrawals[tradeId][beneficiary];
+        if (amount == 0) revert NothingToWithdraw();
+
+        // Resolve the token (NATIVE_SENTINEL -> address(0))
+        address stored = _settledToken[tradeId];
+        address token = stored == NATIVE_SENTINEL ? address(0) : stored;
+
+        // Clear before transfer (CEI)
+        delete pendingWithdrawals[tradeId][beneficiary];
+        totalPending[token] -= amount;
+
+        _transfer(token, destination, amount);
+
+        emit Withdrawn(tradeId, beneficiary, token, destination, amount);
+    }
+
+    // ── Rescue ────────────────────────────────────────────────────────
+
+    /// @notice Recover ERC-20 tokens sent directly to the contract that are
+    ///         not backing any active trade. Only callable by the owner.
+    function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
+        if (token == address(0)) revert NativeNotExpected();
+        if (token.code.length == 0) revert NotAContract();
+
+        uint256 committed;
+        uint256 len = _activeTradeIds.length;
+        for (uint256 i; i < len;) {
+            Trade storage t = trades[_activeTradeIds[i]];
+            if (t.token == token) {
+                committed += t.amount;
+            }
+            unchecked { ++i; }
+        }
+        // Include settled-but-unwithdrawn balances
+        committed += totalPending[token];
+
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 excess = balance - committed;
+        if (amount > excess) revert InsufficientExcess();
+
+        _transfer(token, to, amount);
     }
 }

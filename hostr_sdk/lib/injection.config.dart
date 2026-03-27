@@ -97,6 +97,7 @@ import 'package:hostr_sdk/usecase/trades/actions/review.dart' as _i558;
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart'
     as _i850;
 import 'package:hostr_sdk/usecase/trades/trade.dart' as _i981;
+import 'package:hostr_sdk/usecase/trades/withdrawal_orchestrator.dart' as _i518;
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart' as _i794;
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart'
     as _i576;
@@ -562,6 +563,16 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
         operationStore: gh<_i842.OperationStateStore>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i518.WithdrawalOrchestrator>(
+      () => _i518.WithdrawalOrchestrator(
+        userSubs: gh<_i576.UserSubscriptions>(),
+        threads: gh<_i768.Threads>(),
+        auth: gh<_i1000.Auth>(),
+        evm: gh<_i305.Evm>(),
+        tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );

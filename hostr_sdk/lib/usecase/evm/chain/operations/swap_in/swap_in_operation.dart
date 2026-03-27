@@ -1,17 +1,13 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
-import 'package:eip712/eip712.dart' as eip712;
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
-import 'package:web3dart/web3dart.dart' hide params;
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
-import '../../../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../../../datasources/swagger_generated/boltz.swagger.dart';
 import '../../../../../injection.dart';
 import '../../../../../util/main.dart';
@@ -27,6 +23,12 @@ class EvmSwapInOperation extends SwapInOperation {
   EthereumAddress? get _requestedTokenAddress => params.amount.token.isERC20
       ? EthereumAddress.fromHex(params.amount.token.address)
       : null;
+
+  BoltzEventScanner get _scanner => BoltzEventScanner(
+    swaps: configuredChain.swaps!,
+    chain: configuredChain.chain,
+    logger: logger,
+  );
 
   EvmSwapInOperation({
     required this.configuredChain,
@@ -209,10 +211,14 @@ class EvmSwapInOperation extends SwapInOperation {
   Future<SwapInState?> _checkExistingProgress(
     SwapInData data,
   ) => logger.span('checkExistingProgress', () async {
-    // final lockupTx = await configuredChain.chain.awaitTransaction(data.lockupTxHash!);
+    final scanner = _scanner;
 
     // ── Check chain for existing lockup (idempotent recovery) ──
-    final lockup = await _findLockupOnChain(data);
+    final lockup = await scanner.findLockup(
+      preimageHash: data.preimageHash,
+      fromBlock: data.creationBlockHeight,
+      tokenAddress: data.tokenAddress,
+    );
     if (lockup != null) {
       logger.i(
         'Found lockup on-chain for ${data.boltzId}: '
@@ -220,19 +226,21 @@ class EvmSwapInOperation extends SwapInOperation {
       );
       return SwapInFunded(
         data.copyWith(
-          lockupTxHash: lockup.event.transactionHash,
+          lockupTxHash: lockup.transactionHash,
           refundAddress: lockup.refundAddress.with0x,
         ),
       );
     }
 
     // ── Check if already claimed on-chain ──
-    final claim = await _findClaimOnChain(data);
+    final claim = await scanner.findClaim(
+      preimageHash: data.preimageHash,
+      fromBlock: data.creationBlockHeight,
+      tokenAddress: data.tokenAddress,
+    );
     if (claim != null) {
       logger.i('Swap ${data.boltzId} already claimed on-chain');
-      return SwapInCompleted(
-        data.copyWith(claimTxHash: claim.event.transactionHash),
-      );
+      return SwapInCompleted(data.copyWith(claimTxHash: claim.transactionHash));
     }
 
     // ── Check if expired ──
@@ -287,9 +295,13 @@ class EvmSwapInOperation extends SwapInOperation {
           );
           await configuredChain.chain.awaitReceipt(txHash);
 
-          final lockup = await _findLockupOnChain(data);
+          final lockup = await scanner.findLockup(
+            preimageHash: data.preimageHash,
+            fromBlock: data.creationBlockHeight,
+            tokenAddress: data.tokenAddress,
+          );
           if (lockup != null) {
-            final verifiedTxHash = lockup.event.transactionHash!;
+            final verifiedTxHash = lockup.transactionHash;
             if (verifiedTxHash != txHash) {
               logger.w(
                 'Boltz reported tx $txHash but on-chain lockup for '
@@ -362,7 +374,12 @@ class EvmSwapInOperation extends SwapInOperation {
     required String reportedTxId,
     required String? boltzStatus,
   }) => logger.span('verifyLockupOnChain', () async {
-    var lockupOnChain = await _findLockupOnChain(data);
+    final scanner = _scanner;
+    var lockupOnChain = await scanner.findLockup(
+      preimageHash: data.preimageHash,
+      fromBlock: data.creationBlockHeight,
+      tokenAddress: data.tokenAddress,
+    );
 
     // Retry once after a short delay — RPC nodes can lag behind receipt
     // confirmation, causing getLogs to return stale results.
@@ -372,11 +389,21 @@ class EvmSwapInOperation extends SwapInOperation {
         'chain ${configuredChain.config.chainId}. Retrying in 3s…',
       );
       await Future<void>.delayed(const Duration(seconds: 3));
-      lockupOnChain = await _findLockupOnChain(data);
+      lockupOnChain = await scanner.findLockup(
+        preimageHash: data.preimageHash,
+        fromBlock: data.creationBlockHeight,
+        tokenAddress: data.tokenAddress,
+      );
     }
 
     if (lockupOnChain == null) {
-      await _logLockupDiagnostics(data, reportedTxId);
+      await scanner.logLockupDiagnostics(
+        boltzId: data.boltzId,
+        txHash: reportedTxId,
+        preimageHash: data.preimageHash,
+        creationBlockHeight: data.creationBlockHeight,
+        tokenAddress: data.tokenAddress,
+      );
       throw StateError(
         'Boltz reported lockup tx $reportedTxId for swap ${data.boltzId} '
         'on chain ${configuredChain.config.chainId} '
@@ -387,7 +414,7 @@ class EvmSwapInOperation extends SwapInOperation {
       );
     }
 
-    final verifiedTxHash = lockupOnChain.event.transactionHash!;
+    final verifiedTxHash = lockupOnChain.transactionHash;
     if (verifiedTxHash != reportedTxId) {
       logger.w(
         'Boltz reported lockup tx $reportedTxId but on-chain lockup for '
@@ -407,95 +434,21 @@ class EvmSwapInOperation extends SwapInOperation {
     );
   });
 
-  /// Diagnostic: inspect the lockup tx receipt to help debug why no
-  /// matching Lockup event was found.  Logs contract addresses, receipt
-  /// logs, and checks whether the event was emitted by the other swap
-  /// contract (EtherSwap vs ERC20Swap mismatch).
-  Future<void> _logLockupDiagnostics(SwapInData data, String txHash) async {
-    try {
-      final swapProvider = configuredChain.swaps!;
-      final etherSwapAddr = swapProvider.getEtherSwapContract().self.address;
-      final erc20SwapAddr = swapProvider.getERC20SwapContract().self.address;
-      final isErc20 = data.tokenAddress != null;
-      final queriedAddr = isErc20 ? erc20SwapAddr : etherSwapAddr;
-
-      final receipt = await configuredChain.chain.client.getTransactionReceipt(
-        txHash,
-      );
-      if (receipt == null) {
-        logger.e(
-          '[lockup-diag] chain=${configuredChain.config.chainId} '
-          'tx=$txHash receipt=null (not yet mined?)',
-        );
-        return;
-      }
-
-      logger.e(
-        '[lockup-diag] chain=${configuredChain.config.chainId} '
-        'boltzId=${data.boltzId} tx=$txHash '
-        'receiptStatus=${receipt.status} '
-        'isErc20=$isErc20 tokenAddress=${data.tokenAddress} '
-        'queriedContract=${queriedAddr.eip55With0x} '
-        'etherSwap=${etherSwapAddr.eip55With0x} '
-        'erc20Swap=${erc20SwapAddr.eip55With0x} '
-        'boltzChainKey=${swapProvider.chainInfo.chainKey} '
-        'preimageHash=${data.preimageHash} '
-        'fromBlock=${data.creationBlockHeight} '
-        'receiptLogCount=${receipt.logs.length}',
-      );
-
-      for (var i = 0; i < receipt.logs.length; i++) {
-        final log = receipt.logs[i];
-        final logAddr = log.address?.eip55With0x ?? 'null';
-        final matchesQueried =
-            log.address?.eip55With0x == queriedAddr.eip55With0x;
-        final matchesEtherSwap =
-            log.address?.eip55With0x == etherSwapAddr.eip55With0x;
-        final matchesErc20Swap =
-            log.address?.eip55With0x == erc20SwapAddr.eip55With0x;
-        final topics = log.topics?.map((t) => t ?? 'null').join(', ') ?? 'none';
-        logger.e(
-          '[lockup-diag] log[$i] address=$logAddr '
-          'matchesQueried=$matchesQueried '
-          'matchesEtherSwap=$matchesEtherSwap '
-          'matchesERC20Swap=$matchesErc20Swap '
-          'topics=[$topics] '
-          'dataLen=${((log.data?.length ?? 2) - 2) ~/ 2} bytes',
-        );
-      }
-
-      // Check if the event was emitted by the OTHER contract
-      final otherAddr = isErc20 ? etherSwapAddr : erc20SwapAddr;
-      final otherName = isErc20 ? 'EtherSwap' : 'ERC20Swap';
-      if (receipt.logs.any(
-        (l) => l.address?.eip55With0x == otherAddr.eip55With0x,
-      )) {
-        logger.e(
-          '[lockup-diag] ⚠️  Event(s) found from $otherName '
-          '(${otherAddr.eip55With0x}) — we queried '
-          '${isErc20 ? "ERC20Swap" : "EtherSwap"} '
-          '(${queriedAddr.eip55With0x}). '
-          'isErc20=$isErc20 may be wrong for boltzChainKey='
-          '${swapProvider.chainInfo.chainKey}, '
-          'tokens=${swapProvider.chainInfo.tokens.keys.toList()}',
-        );
-      }
-    } catch (e) {
-      logger.e('[lockup-diag] Failed to fetch diagnostics: $e');
-    }
-  }
-
   // ── Step 3: Claim the locked funds ────────────────────────────────────
 
   Future<SwapInState> _stepClaim() => logger.span('stepClaim', () async {
     final data = state.data!;
 
     // ── 3a. Check if already claimed on-chain (idempotent) ──
-    final existingClaim = await _findClaimOnChain(data);
+    final existingClaim = await _scanner.findClaim(
+      preimageHash: data.preimageHash,
+      fromBlock: data.creationBlockHeight,
+      tokenAddress: data.tokenAddress,
+    );
     if (existingClaim != null) {
       logger.i('Swap ${data.boltzId} already claimed on-chain');
       return SwapInClaimed(
-        data.copyWith(claimTxHash: existingClaim.event.transactionHash),
+        data.copyWith(claimTxHash: existingClaim.transactionHash),
       );
     }
 
@@ -514,8 +467,23 @@ class EvmSwapInOperation extends SwapInOperation {
       );
     }
 
-    // ── 3c. Perform the claim via RIF Relay ──
-    final claimArgs = await _claimArgsFromData(claimData);
+    // ── 3c. Build claim args and perform the claim ──
+    final signer = BoltzClaimSigner(
+      swaps: configuredChain.swaps!,
+      chainId: configuredChain.config.chainId,
+      logger: logger,
+    );
+    final claimArgs = await signer.buildClaimArgs(
+      preimage: claimData.preimageBytes,
+      preimageHash: claimData.preimageHash,
+      onchainAmountSat: claimData.onchainAmountSat,
+      refundAddress: EthereumAddress.fromHex(claimData.refundAddress!),
+      timeoutBlockHeight: claimData.timeoutBlockHeight,
+      signer: params.evmKey,
+      tokenAddress: claimData.tokenAddress,
+      destination: params.claimDestination,
+      expectedClaimAddress: params.claimAddress ?? params.evmKey.address,
+    );
     logger.i('Claiming swap ${claimData.boltzId} through relay');
 
     final tx =
@@ -592,130 +560,6 @@ class EvmSwapInOperation extends SwapInOperation {
       gasSponsored: gasEstimate.gasSponsored,
     );
   });
-
-  // ── On-chain event queries ────────────────────────────────────────────
-
-  /// Scans the chain for a Lockup event matching [data.preimageHash].
-  Future<Lockup?> _findLockupOnChain(SwapInData data) =>
-      logger.span('findLockupOnChain', () async {
-        try {
-          final isErc20 = data.tokenAddress != null;
-          final contract = isErc20
-              ? configuredChain.swaps!.getERC20SwapContract().self
-              : configuredChain.swaps!.getEtherSwapContract().self;
-          final fromBlock = data.creationBlockHeight != null
-              ? BlockNum.exact(data.creationBlockHeight!)
-              : const BlockNum.exact(0);
-          final preimageHashBytes = Uint8List.fromList(
-            hex.decode(data.preimageHash),
-          );
-
-          logger.d(
-            'findLockupOnChain: chain=${configuredChain.config.chainId} '
-            'contract=${contract.address.eip55With0x} '
-            'isErc20=$isErc20 tokenAddress=${data.tokenAddress} '
-            'preimageHash=${data.preimageHash} '
-            'fromBlock=${data.creationBlockHeight ?? "genesis"}',
-          );
-
-          // One-shot getLogs query — the streaming API (client.events) never
-          // closes, so .toList() on it would hang forever.
-          final event = contract.event('Lockup');
-          final filter = FilterOptions.events(
-            contract: contract,
-            event: event,
-            fromBlock: fromBlock,
-            toBlock: const BlockNum.current(),
-          );
-          final logs = await configuredChain.chain.client.getLogs(filter);
-          logger.d(
-            'findLockupOnChain: ${logs.length} Lockup log(s) from '
-            '${contract.address.eip55With0x} since block '
-            '${data.creationBlockHeight ?? "genesis"}',
-          );
-          for (final log in logs) {
-            // Pre-filter: match preimageHash from the first indexed topic
-            // before calling decodeResults. The deployed contract may have
-            // fewer indexed params than the generated ABI expects (e.g.
-            // contract v3 vs ABI v6), causing a RangeError in decodeResults.
-            final topics = log.topics;
-            if (topics == null || topics.length < 2) continue;
-            final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
-            if (topicHex != data.preimageHash.toLowerCase()) continue;
-
-            // Found our lockup — standard decode with manual fallback.
-            try {
-              final decoded = event.decodeResults(topics, log.data!);
-              return Lockup(decoded, log);
-            } catch (e) {
-              logger.d('Standard Lockup decode failed, manual parse: $e');
-              return _decodeLockupManually(log, preimageHashBytes);
-            }
-          }
-          if (logs.isNotEmpty) {
-            logger.w(
-              'findLockupOnChain: ${logs.length} Lockup log(s) found but '
-              'none matched preimageHash=${data.preimageHash} on '
-              'chain ${configuredChain.config.chainId}',
-            );
-          }
-          return null;
-        } catch (e, st) {
-          logger.w(
-            'Failed to query lockup events on '
-            'chain ${configuredChain.config.chainId}: $e',
-          );
-          logger.d('findLockupOnChain stack trace: $st');
-          return null;
-        }
-      });
-
-  /// Scans the chain for a Claim event matching [data.preimageHash].
-  Future<Claim?> _findClaimOnChain(SwapInData data) =>
-      logger.span('findClaimOnChain', () async {
-        try {
-          final isErc20 = data.tokenAddress != null;
-          final contract = isErc20
-              ? configuredChain.swaps!.getERC20SwapContract().self
-              : configuredChain.swaps!.getEtherSwapContract().self;
-          final fromBlock = data.creationBlockHeight != null
-              ? BlockNum.exact(data.creationBlockHeight!)
-              : const BlockNum.exact(0);
-          final preimageHashBytes = Uint8List.fromList(
-            hex.decode(data.preimageHash),
-          );
-
-          // One-shot getLogs query — the streaming API (client.events) never
-          // closes, so .toList() on it would hang forever.
-          final event = contract.event('Claim');
-          final filter = FilterOptions.events(
-            contract: contract,
-            event: event,
-            fromBlock: fromBlock,
-            toBlock: const BlockNum.current(),
-          );
-          final logs = await configuredChain.chain.client.getLogs(filter);
-          for (final log in logs) {
-            // Pre-filter by preimageHash from the first indexed topic.
-            final topics = log.topics;
-            if (topics == null || topics.length < 2) continue;
-            final topicHex = topics[1]!.replaceFirst('0x', '').toLowerCase();
-            if (topicHex != data.preimageHash.toLowerCase()) continue;
-
-            try {
-              final decoded = event.decodeResults(topics, log.data!);
-              return Claim(decoded, log);
-            } catch (e) {
-              logger.d('Standard Claim decode failed, manual parse: $e');
-              return _decodeClaimManually(log, preimageHashBytes);
-            }
-          }
-          return null;
-        } catch (e) {
-          logger.w('Failed to query claim events: $e');
-          return null;
-        }
-      });
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -804,226 +648,11 @@ class EvmSwapInOperation extends SwapInOperation {
     );
   });
 
-  /// Builds [ClaimArgs] purely from persisted [SwapInData] — no Boltz
-  /// dependency. All parameters needed for the on-chain claim are stored
-  /// in the data object.
-  Future<ClaimArgs> _claimArgsFromData(SwapInData data) async {
-    final isErc20 = data.tokenAddress != null;
-    final amount = rbtcFromSats(BigInt.from(data.onchainAmountSat)).getInWei;
-    final refundAddress = EthereumAddress.fromHex(data.refundAddress!);
-    final timelock = BigInt.from(data.timeoutBlockHeight);
-    final tokenAddr = isErc20
-        ? EthereumAddress.fromHex(data.tokenAddress!)
-        : null;
-    final signature = params.claimDestination != null
-        ? await _signClaimAuthorization(
-            preimage: data.preimageBytes,
-            amount: amount,
-            refundAddress: refundAddress,
-            timelock: timelock,
-            destination: params.claimDestination!,
-            isErc20: isErc20,
-            tokenAddress: tokenAddr,
-          )
-        : null;
-
-    if (signature != null) {
-      final preimageHash = Uint8List.fromList(
-        sha256.convert(data.preimageBytes).bytes,
-      );
-      final expectedClaimAddress = params.claimAddress ?? params.evmKey.address;
-
-      if (isErc20) {
-        final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
-        final expectedSwapKey = await erc20Swap.hashValues((
-          preimageHash: preimageHash,
-          amount: amount,
-          tokenAddress: tokenAddr!,
-          claimAddress: expectedClaimAddress,
-          refundAddress: refundAddress,
-          timelock: timelock,
-        ));
-        final expectedExists = await erc20Swap.swaps((
-          $param94: expectedSwapKey,
-        ));
-
-        final recoveredSwapKey = await erc20Swap.hashValues((
-          preimageHash: preimageHash,
-          amount: amount,
-          tokenAddress: tokenAddr,
-          claimAddress: signature.recoveredAddress,
-          refundAddress: refundAddress,
-          timelock: timelock,
-        ));
-        final recoveredExists = await erc20Swap.swaps((
-          $param94: recoveredSwapKey,
-        ));
-
-        logger.i(
-          'ERC20Swap lockup lookup: '
-          'expectedClaimAddress=${expectedClaimAddress.eip55With0x} '
-          'exists=$expectedExists, '
-          'recoveredClaimAddress=${signature.recoveredAddress.eip55With0x} '
-          'exists=$recoveredExists, '
-          'preimageHash=${bytesToHex(preimageHash, include0x: true)}',
-        );
-      } else {
-        final etherSwap = configuredChain.swaps!.getEtherSwapContract();
-        final expectedSwapKey = await etherSwap.hashValues((
-          preimageHash: preimageHash,
-          amount: amount,
-          claimAddress: expectedClaimAddress,
-          refundAddress: refundAddress,
-          timelock: timelock,
-        ));
-        final expectedExists = await etherSwap.swaps((
-          $param77: expectedSwapKey,
-        ));
-
-        final recoveredSwapKey = await etherSwap.hashValues((
-          preimageHash: preimageHash,
-          amount: amount,
-          claimAddress: signature.recoveredAddress,
-          refundAddress: refundAddress,
-          timelock: timelock,
-        ));
-        final recoveredExists = await etherSwap.swaps((
-          $param77: recoveredSwapKey,
-        ));
-
-        logger.i(
-          'EtherSwap lockup lookup: '
-          'expectedClaimAddress=${expectedClaimAddress.eip55With0x} '
-          'exists=$expectedExists, '
-          'recoveredClaimAddress=${signature.recoveredAddress.eip55With0x} '
-          'exists=$recoveredExists, '
-          'preimageHash=${bytesToHex(preimageHash, include0x: true)}',
-        );
-      }
-    }
-
-    return (
-      amount: amount,
-      preimage: data.preimageBytes,
-      refundAddress: refundAddress,
-      timelock: timelock,
-      tokenAddress: tokenAddr,
-      v: signature?.v ?? BigInt.zero,
-      r: signature?.r ?? Uint8List(32),
-      s: signature?.s ?? Uint8List(32),
-    );
-  }
-
-  Future<
-    ({BigInt v, Uint8List r, Uint8List s, EthereumAddress recoveredAddress})
-  >
-  _signClaimAuthorization({
-    required Uint8List preimage,
-    required BigInt amount,
-    required EthereumAddress refundAddress,
-    required BigInt timelock,
-    required EthereumAddress destination,
-    required bool isErc20,
-    EthereumAddress? tokenAddress,
-  }) async {
-    final String contractName;
-    final BigInt contractVersion;
-    final EthereumAddress contractAddress;
-
-    if (isErc20) {
-      final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
-      contractName = 'ERC20Swap';
-      contractVersion = await erc20Swap.version();
-      contractAddress = erc20Swap.self.address;
-    } else {
-      final etherSwap = configuredChain.swaps!.getEtherSwapContract();
-      contractName = 'EtherSwap';
-      contractVersion = await etherSwap.version();
-      contractAddress = etherSwap.self.address;
-    }
-
-    logger.i(
-      '$contractName contract version: $contractVersion '
-      'at ${contractAddress.eip55With0x}',
-    );
-
-    final claimTypeFields = <eip712.MessageTypeProperty>[
-      const eip712.MessageTypeProperty(name: 'preimage', type: 'bytes32'),
-      const eip712.MessageTypeProperty(name: 'amount', type: 'uint256'),
-      if (isErc20)
-        const eip712.MessageTypeProperty(name: 'tokenAddress', type: 'address'),
-      const eip712.MessageTypeProperty(name: 'refundAddress', type: 'address'),
-      const eip712.MessageTypeProperty(name: 'timelock', type: 'uint256'),
-      const eip712.MessageTypeProperty(name: 'destination', type: 'address'),
-    ];
-
-    final message = <String, dynamic>{
-      'preimage': bytesToHex(preimage, include0x: true),
-      'amount': amount,
-      if (isErc20) 'tokenAddress': tokenAddress!.eip55With0x,
-      'refundAddress': refundAddress.eip55With0x,
-      'timelock': timelock,
-      'destination': destination.eip55With0x,
-    };
-
-    final typedData = eip712.TypedMessage(
-      types: {
-        eip712.EIP712Domain.type: [
-          const eip712.MessageTypeProperty(name: 'name', type: 'string'),
-          const eip712.MessageTypeProperty(name: 'version', type: 'string'),
-          const eip712.MessageTypeProperty(name: 'chainId', type: 'uint256'),
-          const eip712.MessageTypeProperty(
-            name: 'verifyingContract',
-            type: 'address',
-          ),
-        ],
-        'Claim': claimTypeFields,
-      },
-      primaryType: 'Claim',
-      domain: eip712.EIP712Domain(
-        name: contractName,
-        version: '$contractVersion',
-        chainId: BigInt.from(configuredChain.config.chainId),
-        verifyingContract: contractAddress,
-        salt: null,
-      ),
-      message: message,
-    );
-
-    final hash = eip712.hashTypedData(
-      typedData: typedData,
-      version: eip712.TypedDataVersion.v4,
-    );
-    final sig = sign(hash, params.evmKey.privateKey);
-    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
-    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
-    final recoveredPubKey = ecRecover(hash, MsgSignature(sig.r, sig.s, sig.v));
-    final recoveredAddress = EthereumAddress(
-      publicKeyToAddress(recoveredPubKey),
-    );
-
-    logger.i(
-      'Prepared $contractName claim signature from ${params.evmKey.address.eip55With0x} '
-      'to destination ${destination.eip55With0x} '
-      '(recovered=${recoveredAddress.eip55With0x}, '
-      'expectedClaimAddress=${params.claimAddress?.eip55With0x ?? params.evmKey.address.eip55With0x})',
-    );
-
-    return (
-      v: BigInt.from(sig.v),
-      r: r,
-      s: s,
-      recoveredAddress: recoveredAddress,
-    );
-  }
-
   Future<String> _claim({required ClaimArgs claimArgs}) =>
       logger.span('claim', () async {
-        final isErc20 = claimArgs.tokenAddress != null;
         final preimageHash = sha256.convert(claimArgs.preimage).toString();
-
         logger.i(
-          'claim: isErc20=$isErc20, '
+          'claim: isErc20=${claimArgs.tokenAddress != null}, '
           'preimageHash=0x$preimageHash, '
           'amount=${claimArgs.amount}, '
           'tokenAddress=${claimArgs.tokenAddress?.eip55With0x}, '
@@ -1031,41 +660,14 @@ class EvmSwapInOperation extends SwapInOperation {
           'timelock=${claimArgs.timelock}',
         );
 
-        final CallIntent intent;
-        if (isErc20) {
-          final erc20Swap = configuredChain.swaps!.getERC20SwapContract();
-          final claimFn = erc20Swap.self.abi.functions.firstWhere(
-            (f) => f.name == 'claim' && f.parameters.length == 5,
-          );
-          intent = CallIntent(
-            to: erc20Swap.self.address,
-            data: claimFn.encodeCall([
-              claimArgs.preimage,
-              claimArgs.amount,
-              claimArgs.tokenAddress!,
-              claimArgs.refundAddress,
-              claimArgs.timelock,
-            ]),
-            value: EtherAmount.zero(),
-            methodName: 'ERC20Swap.claim',
-          );
-        } else {
-          final etherSwap = configuredChain.swaps!.getEtherSwapContract();
-          final claimFn = etherSwap.self.abi.functions.firstWhere(
-            (f) => f.name == 'claim' && f.parameters.length == 4,
-          );
-          intent = CallIntent(
-            to: etherSwap.self.address,
-            data: claimFn.encodeCall([
-              claimArgs.preimage,
-              claimArgs.amount,
-              claimArgs.refundAddress,
-              claimArgs.timelock,
-            ]),
-            value: EtherAmount.zero(),
-            methodName: 'EtherSwap.claim',
-          );
-        }
+        final builder = BoltzIntentBuilder(configuredChain.swaps!);
+        final intent = builder.claimIntent(
+          preimage: claimArgs.preimage,
+          amount: claimArgs.amount,
+          refundAddress: claimArgs.refundAddress,
+          timelock: claimArgs.timelock,
+          tokenAddress: claimArgs.tokenAddress,
+        );
         return configuredChain.sendCalls(params.evmKey, [intent]);
       });
 
@@ -1124,90 +726,4 @@ class EvmSwapInOperation extends SwapInOperation {
         })
         .first;
   });
-
-  // ── Manual event decoders (ABI-version-agnostic) ──────────────────────
-
-  /// Decodes a Lockup event from raw log data when [decodeResults] fails
-  /// (e.g. deployed contract indexes fewer params than the generated ABI).
-  Lockup _decodeLockupManually(FilterEvent log, Uint8List preimageHash) =>
-      logger.spanSync('decodeLockupManually', () {
-        final topics = log.topics!;
-        final dataBytes = _hexToBytes(log.data!);
-        final wordCount = dataBytes.length ~/ 32;
-        final topicCount = topics.length; // includes event-signature topic
-
-        BigInt amount = BigInt.zero;
-        EthereumAddress claimAddress = EthereumAddress(Uint8List(20));
-        EthereumAddress refundAddress = EthereumAddress(Uint8List(20));
-        BigInt timelock = BigInt.zero;
-
-        if (topicCount >= 4 && wordCount >= 2) {
-          // 3 indexed (preimageHash, claimAddress, refundAddress)
-          // data: [amount, timelock]
-          claimAddress = _addressFromTopic(topics[2]!);
-          refundAddress = _addressFromTopic(topics[3]!);
-          amount = _bigIntFromWord(dataBytes, 0);
-          timelock = _bigIntFromWord(dataBytes, 1);
-        } else if (topicCount >= 3 && wordCount >= 3) {
-          // 2 indexed (preimageHash, claimAddress)
-          // data: [amount, refundAddress, timelock]
-          claimAddress = _addressFromTopic(topics[2]!);
-          amount = _bigIntFromWord(dataBytes, 0);
-          refundAddress = _addressFromDataWord(dataBytes, 1);
-          timelock = _bigIntFromWord(dataBytes, 2);
-        } else if (topicCount >= 3 && wordCount >= 2) {
-          // 2 indexed, 2 data words — no refundAddress in event
-          claimAddress = _addressFromTopic(topics[2]!);
-          amount = _bigIntFromWord(dataBytes, 0);
-          timelock = _bigIntFromWord(dataBytes, 1);
-          // refundAddress stays zero — caller resolves from tx sender
-        } else if (topicCount >= 2 && wordCount >= 4) {
-          // 1 indexed (preimageHash only)
-          // data: [amount, claimAddress, refundAddress, timelock]
-          amount = _bigIntFromWord(dataBytes, 0);
-          claimAddress = _addressFromDataWord(dataBytes, 1);
-          refundAddress = _addressFromDataWord(dataBytes, 2);
-          timelock = _bigIntFromWord(dataBytes, 3);
-        }
-
-        return Lockup([
-          preimageHash,
-          amount,
-          claimAddress,
-          refundAddress,
-          timelock,
-        ], log);
-      });
-
-  /// Decodes a Claim event from raw log data.
-  Claim _decodeClaimManually(FilterEvent log, Uint8List preimageHash) {
-    final dataBytes = _hexToBytes(log.data!);
-    // preimage is always the first (and only) non-indexed param
-    final preimage = Uint8List.fromList(dataBytes.sublist(0, 32));
-    return Claim([preimageHash, preimage], log);
-  }
-
-  // ── Low-level ABI helpers ─────────────────────────────────────────────
-
-  static Uint8List _hexToBytes(String hexStr) {
-    return Uint8List.fromList(hex.decode(hexStr.replaceFirst('0x', '')));
-  }
-
-  static BigInt _bigIntFromWord(Uint8List data, int wordIndex) {
-    final start = wordIndex * 32;
-    return BigInt.parse(hex.encode(data.sublist(start, start + 32)), radix: 16);
-  }
-
-  static EthereumAddress _addressFromTopic(String topicHex) {
-    final bytes = hex.decode(topicHex.replaceFirst('0x', ''));
-    // Address occupies the last 20 bytes of the 32-byte topic
-    return EthereumAddress(Uint8List.fromList(bytes.sublist(12, 32)));
-  }
-
-  static EthereumAddress _addressFromDataWord(Uint8List data, int wordIndex) {
-    final start = wordIndex * 32;
-    return EthereumAddress(
-      Uint8List.fromList(data.sublist(start + 12, start + 32)),
-    );
-  }
 }

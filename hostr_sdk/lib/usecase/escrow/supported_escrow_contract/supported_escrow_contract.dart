@@ -68,7 +68,31 @@ class ReleaseArgs {
   final String tradeId;
   final EthPrivateKey ethKey;
 
-  const ReleaseArgs({required this.tradeId, required this.ethKey});
+  /// The EVM address of the actor performing the release (buyer or seller).
+  /// Used as the `actor` parameter in the EIP-712 signed release.
+  final EthereumAddress? actor;
+
+  const ReleaseArgs({required this.tradeId, required this.ethKey, this.actor});
+}
+
+class WithdrawArgs {
+  final String tradeId;
+  final EthPrivateKey ethKey;
+
+  /// The address that was awarded funds during settlement (buyer, seller, or
+  /// arbiter). Must match a non-zero entry in `pendingWithdrawals[tradeId]`.
+  final EthereumAddress beneficiary;
+
+  /// Where to send the tokens. Can differ from [beneficiary] — this is what
+  /// makes the pull pattern flexible (e.g. withdraw to an exchange address).
+  final EthereumAddress destination;
+
+  const WithdrawArgs({
+    required this.tradeId,
+    required this.ethKey,
+    required this.beneficiary,
+    required this.destination,
+  });
 }
 
 abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
@@ -97,6 +121,14 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     required String tradeId,
     required double forward,
     required EthPrivateKey ethKey,
+  });
+  CallIntent withdraw(WithdrawArgs args);
+
+  /// Read the amount a [beneficiary] can still withdraw from a settled trade.
+  /// Returns `BigInt.zero` if nothing is pending.
+  Future<BigInt> pendingWithdrawal({
+    required String tradeId,
+    required EthereumAddress beneficiary,
   });
 
   Object decodeWriteError(Object error) => error;

@@ -13,6 +13,7 @@ import 'package:web3dart/web3dart.dart';
 import '../../../datasources/anvil/anvil.dart';
 import '../../../datasources/contracts/escrow/MultiEscrow.g.dart';
 import '../../../datasources/lnbits/lnbits.dart';
+import '../../../usecase/escrow/supported_escrow_contract/escrow_eip712_signer.dart';
 import '../../../usecase/payments/constants.dart';
 import '../../broadcast_isolate.dart';
 import '../seed_pipeline_models.dart';
@@ -29,6 +30,7 @@ import 'seed_sink.dart';
 class InfrastructureSink implements SeedSink {
   final String rpcUrl;
   final String contractAddress;
+  final int chainId;
   final BroadcastIsolate? _broadcaster;
   final LnbitsSetupConfig? _lnbitsConfig;
 
@@ -50,6 +52,7 @@ class InfrastructureSink implements SeedSink {
   InfrastructureSink({
     required this.rpcUrl,
     required this.contractAddress,
+    required this.chainId,
     BroadcastIsolate? broadcaster,
     LnbitsSetupConfig? lnbitsConfig,
   }) : _broadcaster = broadcaster,
@@ -146,13 +149,23 @@ class InfrastructureSink implements SeedSink {
 
     final tradeIdBytes = getBytes32(intent.tradeId);
     final gasPrice = await _retryChainCall((c) => c.getGasPrice());
+    final signer = EscrowEip712Signer(
+      chainId: chainId,
+      verifyingContract: EthereumAddress.fromHex(contractAddress),
+    );
 
     String txHash;
     if (intent.outcome == EscrowOutcome.arbitrated) {
       final credentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
       final nonce = await _nextNonce(credentials.address);
+      final factor = BigInt.from(700);
+      final signature = signer.signArbitrate(
+        tradeId: tradeIdBytes,
+        factor: factor,
+        signer: credentials,
+      );
       txHash = await _escrow().arbitrate(
-        (tradeId: tradeIdBytes, factor: BigInt.from(700)),
+        (tradeId: tradeIdBytes, factor: factor, signature: signature),
         credentials: credentials,
         transaction: Transaction(
           nonce: nonce,
@@ -163,8 +176,12 @@ class InfrastructureSink implements SeedSink {
     } else if (intent.outcome == EscrowOutcome.claimedByHost) {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
       final nonce = await _nextNonce(credentials.address);
+      final signature = signer.signClaim(
+        tradeId: tradeIdBytes,
+        signer: credentials,
+      );
       txHash = await _escrow().claim(
-        (tradeId: tradeIdBytes),
+        (tradeId: tradeIdBytes, signature: signature),
         credentials: credentials,
         transaction: Transaction(
           nonce: nonce,
@@ -175,8 +192,17 @@ class InfrastructureSink implements SeedSink {
     } else {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
       final nonce = await _nextNonce(credentials.address);
+      final signature = signer.signRelease(
+        tradeId: tradeIdBytes,
+        actor: credentials.address,
+        signer: credentials,
+      );
       txHash = await _escrow().releaseToCounterparty(
-        (tradeId: tradeIdBytes),
+        (
+          tradeId: tradeIdBytes,
+          actor: credentials.address,
+          signature: signature,
+        ),
         credentials: credentials,
         transaction: Transaction(
           nonce: nonce,

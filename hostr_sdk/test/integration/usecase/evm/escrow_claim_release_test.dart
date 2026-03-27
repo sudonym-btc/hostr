@@ -2,13 +2,22 @@
 library;
 
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
+import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/seed/seed.dart';
+import 'package:hostr_sdk/usecase/payments/constants.dart';
+import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:logger/logger.dart';
 import 'package:models/main.dart';
 import 'package:test/test.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../../support/integration_test_harness.dart';
+
+final _deployerKey = EthPrivateKey.fromHex(
+  'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+);
 
 void main() {
   late IntegrationTestHarness harness;
@@ -17,7 +26,7 @@ void main() {
     harness = await IntegrationTestHarness.create(
       name: 'hostr_escrow_claim_release_it',
       seed: DateTime.now().microsecondsSinceEpoch,
-      logLevel: Level.warning,
+      logLevel: Level.debug,
       cleanHydratedStorage: true,
     );
   });
@@ -165,28 +174,60 @@ Future<EscrowService> _resolveEscrowService(
 Future<void> _fundTradeWithoutSwap({
   required IntegrationTestHarness harness,
   required Hostr hostr,
-  required dynamic trade,
+  required TestTrade trade,
   required EscrowService escrowService,
 }) async {
-  final operation = hostr.escrow.fund(
-    EscrowFundParams(
-      escrowService: escrowService,
-      negotiateReservation: trade.negotiateReservation,
-      sellerProfile: trade.sellerProfile,
-      amount: trade.negotiateReservation.amount!,
+  final configuredChain = hostr.evm.getChainForEscrowService(escrowService);
+  final contract = configuredChain.escrow.getSupportedEscrowContract(
+    escrowService,
+  );
+
+  final amount = configuredChain.resolveAmountInFundingToken(
+    trade.negotiateReservation.amount!,
+  );
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
+  final feeValue = escrowService.escrowFee(
+    amount.value,
+    tokenAddress: 'native',
+  );
+  final multiEscrow = MultiEscrow(
+    address: contract.address,
+    client: configuredChain.chain.client,
+  );
+  final buyerAddress = (await deriveEvmKey(trade.guest.privateKey)).address;
+  final sellerAddress = (await deriveEvmKey(trade.host.privateKey)).address;
+
+  final txHash = await multiEscrow.createTrade(
+    (
+      tradeId: getBytes32(trade.negotiateReservation.getDtag()!),
+      buyer: buyerAddress,
+      seller: sellerAddress,
+      arbiter: EthereumAddress.fromHex(escrowService.evmAddress),
+      token: EthereumAddress.fromHex(zeroAddress),
+      amount: amount.value,
+      unlockAt: BigInt.from(
+        trade.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
+      ),
+      escrowFee: feeValue,
     ),
+    credentials: _deployerKey,
+    transaction: Transaction(value: amount.toEtherAmount()),
   );
 
-  await operation.initialize();
-  await harness.anvil.setBalance(
-    address: (await hostr.auth.hd.getActiveEvmKey(
-      accountIndex: operation.accountIndex,
-    )).address.eip55With0x,
-    amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
-  );
+  final receipt = await _waitForReceipt(configuredChain.chain.client, txHash);
+  expect(_isReceiptSuccessful(receipt), isTrue);
+}
 
-  await operation.run();
-  expect(operation.state, isA<OnchainTxConfirmed>());
+Future<TransactionReceipt> _waitForReceipt(
+  Web3Client web3,
+  String txHash,
+) async {
+  for (var i = 0; i < 30; i++) {
+    final receipt = await web3.getTransactionReceipt(txHash);
+    if (receipt != null) return receipt;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+  fail('Timed out waiting for transaction receipt: $txHash');
 }
 
 String? _extractTxHash(TransactionInformation tx) {

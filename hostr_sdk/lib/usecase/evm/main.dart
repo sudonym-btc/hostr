@@ -1,8 +1,12 @@
 export 'call_intent.dart';
 export 'capabilities/aa_capability.dart';
+export 'capabilities/boltz_claim_signer.dart';
+export 'capabilities/boltz_event_scanner.dart';
+export 'capabilities/boltz_intent_builder.dart';
 export 'capabilities/boltz_swap_provider.dart';
 export 'capabilities/configured_evm_chain.dart';
 export 'capabilities/escrow_capability.dart';
+export 'capabilities/swap_funding_requirement.dart';
 export 'chain/evm_chain.dart';
 export 'config/evm_config.dart';
 export 'evm.dart';

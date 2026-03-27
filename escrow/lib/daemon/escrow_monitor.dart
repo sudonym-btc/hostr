@@ -138,7 +138,7 @@ class EscrowMonitor {
         status: TradeStatus.funded,
         amountSats: event.amount.getInSats.toInt(),
         lastTxHash: event.transactionHash,
-        updatedAt: now,
+        updatedAt: event.block.timestamp,
       );
     } else if (event is EscrowArbitratedEvent) {
       print('[monitor] Trade arbitrated: ${event.tradeId}  '
@@ -148,7 +148,7 @@ class EscrowMonitor {
         _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.arbitrated,
           lastTxHash: event.transactionHash,
-          updatedAt: now,
+          updatedAt: event.block.timestamp,
         );
       }
     } else if (event is EscrowReleasedEvent) {
@@ -158,7 +158,7 @@ class EscrowMonitor {
         _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.released,
           lastTxHash: event.transactionHash,
-          updatedAt: now,
+          updatedAt: event.block.timestamp,
         );
       }
     } else if (event is EscrowClaimedEvent) {
@@ -168,7 +168,7 @@ class EscrowMonitor {
         _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.claimed,
           lastTxHash: event.transactionHash,
-          updatedAt: now,
+          updatedAt: event.block.timestamp,
         );
       }
     }

@@ -1,3 +1,4 @@
+import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' show EthPrivateKey, Transaction;
 
@@ -195,5 +196,50 @@ class ConfiguredEvmChain {
       params: params,
       initialState: initialState,
     );
+  }
+
+  // ── Token resolution ────────────────────────────────────────────────
+
+  /// Resolve the concrete on-chain funding token from Boltz chain info.
+  ///
+  /// If Boltz has ERC-20 tokens configured for this chain, returns the first
+  /// one (with correct decimals from [config.tokens]). Otherwise returns the
+  /// chain's native asset.
+  ///
+  /// Extracted from `EscrowFundOperation._resolveFundingToken` so it can be
+  /// reused by any operation that needs to know the funding denomination.
+  Token resolveBoltzFundingToken() {
+    final boltzTokens = swaps?.chainInfo.tokens ?? {};
+    if (boltzTokens.isNotEmpty) {
+      final boltzTokenAddress = boltzTokens.values.first;
+      var decimals = 18;
+      for (final tokenConfig in config.tokens.values) {
+        if (tokenConfig.address.toLowerCase() ==
+            boltzTokenAddress.eip55With0x.toLowerCase()) {
+          decimals = tokenConfig.decimals;
+          break;
+        }
+      }
+      return Token(
+        chainId: config.chainId,
+        address: boltzTokenAddress.eip55With0x,
+        decimals: decimals,
+      );
+    }
+    return Token.rbtc(config.chainId);
+  }
+
+  /// Convert a [DenominatedAmount] (e.g. BTC sats) into a [TokenAmount]
+  /// denominated in the resolved Boltz funding token.
+  ///
+  /// Scales from the denomination's decimal precision to the token's
+  /// decimals.
+  TokenAmount resolveAmountInFundingToken(DenominatedAmount denominated) {
+    final token = resolveBoltzFundingToken();
+    final scale = token.decimals - denominated.decimals;
+    final value = scale <= 0
+        ? denominated.value
+        : denominated.value * BigInt.from(10).pow(scale);
+    return TokenAmount(value: value, token: token);
   }
 }

@@ -18,10 +18,9 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
@@ -121,99 +120,6 @@ void _expectEscrowFees(FeeBreakdown fees) {
   print('  FeeBreakdown: $fees');
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  ERC-20 deploy helpers (same as swap_out_erc20_test / escrow_fund_erc20_test)
-// ═══════════════════════════════════════════════════════════════════════════
-
-Future<EthereumAddress> _deployTestERC20(
-  Web3Client web3,
-  EthPrivateKey deployer, {
-  required String name,
-  required String symbol,
-  required int decimals,
-  required BigInt initialSupply,
-}) async {
-  final abiJsonFile = File(
-    'lib/datasources/contracts/boltz/TestERC20.abi.json',
-  );
-  final artifact =
-      jsonDecode(await abiJsonFile.readAsString()) as Map<String, dynamic>;
-  final bytecodeHex = (artifact['bytecode']['object'] as String).replaceFirst(
-    '0x',
-    '',
-  );
-  final bytecode = hexToBytes(bytecodeHex);
-  final constructorArgs = _abiEncodeConstructor(
-    name,
-    symbol,
-    decimals,
-    initialSupply,
-  );
-  final deployData = Uint8List.fromList([...bytecode, ...constructorArgs]);
-
-  final txHash = await web3.sendTransaction(
-    deployer,
-    Transaction(data: deployData),
-    chainId: 412346,
-  );
-
-  TransactionReceipt? receipt;
-  for (int i = 0; i < 15; i++) {
-    receipt = await web3.getTransactionReceipt(txHash);
-    if (receipt != null) break;
-    await Future.delayed(const Duration(seconds: 1));
-  }
-  if (receipt == null || receipt.contractAddress == null) {
-    throw StateError('TestERC20 deployment failed — no contract address');
-  }
-  return receipt.contractAddress!;
-}
-
-Uint8List _abiEncodeConstructor(
-  String name,
-  String symbol,
-  int decimals,
-  BigInt initialSupply,
-) {
-  final nameBytes = utf8.encode(name);
-  final symbolBytes = utf8.encode(symbol);
-  int pad32(int len) => ((len + 31) ~/ 32) * 32;
-
-  final headSize = 4 * 32;
-  final nameDataOffset = headSize;
-  final symbolDataOffset = nameDataOffset + 32 + pad32(nameBytes.length);
-  final totalLen = symbolDataOffset + 32 + pad32(symbolBytes.length);
-
-  final buf = Uint8List(totalLen);
-  _putUint256(buf, 0, BigInt.from(nameDataOffset));
-  _putUint256(buf, 32, BigInt.from(symbolDataOffset));
-  _putUint256(buf, 64, BigInt.from(decimals));
-  _putUint256(buf, 96, initialSupply);
-
-  _putUint256(buf, nameDataOffset, BigInt.from(nameBytes.length));
-  buf.setRange(
-    nameDataOffset + 32,
-    nameDataOffset + 32 + nameBytes.length,
-    nameBytes,
-  );
-
-  _putUint256(buf, symbolDataOffset, BigInt.from(symbolBytes.length));
-  buf.setRange(
-    symbolDataOffset + 32,
-    symbolDataOffset + 32 + symbolBytes.length,
-    symbolBytes,
-  );
-
-  return buf;
-}
-
-void _putUint256(Uint8List buf, int offset, BigInt value) {
-  final hex = value.toRadixString(16).padLeft(64, '0');
-  for (int i = 0; i < 32; i++) {
-    buf[offset + i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
-  }
-}
-
 Future<TransactionReceipt> _waitForReceipt(
   Web3Client web3,
   String txHash,
@@ -234,12 +140,17 @@ Future<TransactionReceipt> _waitForReceipt(
 /// - escrow type (`evm`)
 /// - contract bytecode hash from [escrowService]
 /// - trusted escrow pubkey from [escrowService]
-/// - accepted payment form for the [token]
+/// - accepted payment forms for the host
 EscrowMethod _buildSignedEscrowMethod({
   required KeyPair host,
   required EscrowService escrowService,
-  required Token token,
+  required List<AcceptedPaymentForm> acceptedPaymentForms,
+  String? contractBytecodeHashOverride,
+  List<String>? trustedEscrowPubkeys,
 }) {
+  final bytecodeHash =
+      contractBytecodeHashOverride ?? escrowService.contractBytecodeHash;
+  final trustedPubkeys = trustedEscrowPubkeys ?? [escrowService.pubKey];
   final event = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(
       pubKey: host.publicKey,
@@ -247,9 +158,9 @@ EscrowMethod _buildSignedEscrowMethod({
       tags: [
         ['d', 'escrow-method'],
         ['t', 'evm'],
-        ['c', escrowService.contractBytecodeHash],
-        ['p', escrowService.pubKey],
-        ['a', 'BTC', token.tagId],
+        ['c', bytecodeHash],
+        for (final pubkey in trustedPubkeys) ['p', pubkey],
+        for (final form in acceptedPaymentForms) form.toTag(),
       ],
       content: '',
       createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
@@ -307,35 +218,6 @@ Listing _buildListing({required KeyPair host, BigInt? pricePerNight}) {
     requiresEscrow: true,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   ).signAs(host, Listing.fromNostrEvent);
-}
-
-/// Builds a negotiate reservation for [buyer] on [listing].
-Reservation _buildNegotiate({
-  required Listing listing,
-  required KeyPair buyer,
-  required String salt,
-  BigInt? customAmount,
-}) {
-  final start = DateTime(2026, 3, 1);
-  final end = DateTime(2026, 3, 5);
-  final nonce = 'trade-$salt';
-
-  return Reservation.create(
-    pubKey: buyer.publicKey,
-    dTag: nonce,
-    listingAnchor: listing.anchor!,
-    start: start,
-    end: end,
-    stage: ReservationStage.negotiate,
-    quantity: 1,
-    amount: DenominatedAmount(
-      value: customAmount ?? listing.cost(start, end).value,
-      denomination: 'BTC',
-      decimals: 8,
-    ),
-    tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
-    createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(buyer, Reservation.fromNostrEvent);
 }
 
 /// Builds a self-signed commit reservation with a [PaymentProof].
@@ -405,50 +287,46 @@ void main() {
       IntegrationTestHarness.resetLogLevel();
     });
 
-    test(
-      'swap in RBTC estimates sane fees and completes',
-      () async {
-        final hostr = harness.hostr;
-        final evm = hostr.evm;
-        await harness.signInAndConnectNwc(
-          user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
-          appNamePrefix: 'swap-in-rbtc-fee-it',
-        );
+    test('swap in RBTC estimates sane fees and completes', () async {
+      final hostr = harness.hostr;
+      final evm = hostr.evm;
+      await harness.signInAndConnectNwc(
+        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+        appNamePrefix: 'swap-in-rbtc-fee-it',
+      );
 
-        final configured = evm.getChainById('rootstock-regtest')!;
-        final evmKey = await hostr.auth.hd.getActiveEvmKey();
-        await harness.anvilRootstock.setBalance(
-          address: evmKey.address.eip55With0x,
-          amountWei: rbtcFromSatsInt(1000000).getInWei,
-        );
-        final swapLimits = await configured.swaps!.getSwapInLimits();
-        final amount =
-            TokenAmount.fromDenominated(
-              swapLimits.min,
-              Token.rbtc(configured.config.chainId),
-            ) +
-            rbtcFromSatsInt(1000, chainId: configured.config.chainId);
+      final configured = evm.getChainById('rootstock-regtest')!;
+      final evmKey = await hostr.auth.hd.getActiveEvmKey();
+      await harness.anvilRootstock.setBalance(
+        address: evmKey.address.eip55With0x,
+        amountWei: rbtcFromSatsInt(1000000).getInWei,
+      );
+      final swapLimits = await configured.swaps!.getSwapInLimits();
+      final amount =
+          TokenAmount.fromDenominated(
+            swapLimits.min,
+            Token.rbtc(configured.config.chainId),
+          ) +
+          rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
-        final swapIn = configured.swapIn(
-          params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
-          auth: hostr.auth,
-          logger: CustomLogger(),
-        );
+      final swapIn = configured.swapIn(
+        params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
+        auth: hostr.auth,
+        logger: CustomLogger(),
+      );
 
-        // ── Fee estimation ──
-        final fees = await swapIn.estimateFees();
-        _expectSwapFees(fees);
+      // ── Fee estimation ──
+      final fees = await swapIn.estimateFees();
+      _expectSwapFees(fees);
 
-        // ── Execute and verify completion ──
-        final emittedStates = <SwapInState>[swapIn.state];
-        final sub = swapIn.stream.listen(emittedStates.add);
-        await swapIn.execute();
-        await sub.cancel();
+      // ── Execute and verify completion ──
+      final emittedStates = <SwapInState>[swapIn.state];
+      final sub = swapIn.stream.listen(emittedStates.add);
+      await swapIn.execute();
+      await sub.cancel();
 
-        expect(swapIn.state, isA<SwapInCompleted>());
-      },
-      timeout: const Timeout(Duration(seconds: 60)),
-    );
+      expect(swapIn.state, isA<SwapInCompleted>());
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -470,68 +348,64 @@ void main() {
       IntegrationTestHarness.resetLogLevel();
     });
 
-    test(
-      'swap in tBTC estimates sane fees and completes',
-      () async {
-        final hostr = harness.hostr;
-        final evm = hostr.evm;
-        await harness.signInAndConnectNwc(
-          user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
-          appNamePrefix: 'swap-in-tbtc-fee-it',
-        );
+    test('swap in tBTC estimates sane fees and completes', () async {
+      final hostr = harness.hostr;
+      final evm = hostr.evm;
+      await harness.signInAndConnectNwc(
+        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+        appNamePrefix: 'swap-in-tbtc-fee-it',
+      );
 
-        final configured = evm.configuredChains.first;
-        final boltzTokens = configured.swaps!.chainInfo.tokens;
+      final configured = evm.configuredChains.first;
+      final boltzTokens = configured.swaps!.chainInfo.tokens;
 
-        // Use the first Boltz-discovered ERC-20 token (typically tBTC).
-        final tokenEntry = boltzTokens.entries.first;
-        final tokenAddress = tokenEntry.value;
-        final tokenName = tokenEntry.key;
-        print('Using Boltz ERC-20 token: $tokenName at $tokenAddress');
+      // Use the first Boltz-discovered ERC-20 token (typically tBTC).
+      final tokenEntry = boltzTokens.entries.first;
+      final tokenAddress = tokenEntry.value;
+      final tokenName = tokenEntry.key;
+      print('Using Boltz ERC-20 token: $tokenName at $tokenAddress');
 
-        final swapLimits = await configured.swaps!.getSwapInLimits(
-          tokenAddress: tokenAddress,
-        );
+      final swapLimits = await configured.swaps!.getSwapInLimits(
+        tokenAddress: tokenAddress,
+      );
 
-        // Build a Token with 18 decimals (tBTC uses 18).
-        final tbtcToken = Token(
-          chainId: configured.config.chainId,
-          address: tokenAddress.eip55With0x,
-          decimals: 18,
-        );
-        expect(tbtcToken.isERC20, isTrue);
+      // Build a Token with 18 decimals (tBTC uses 18).
+      final tbtcToken = Token(
+        chainId: configured.config.chainId,
+        address: tokenAddress.eip55With0x,
+        decimals: 18,
+      );
+      expect(tbtcToken.isERC20, isTrue);
 
-        final amount =
-            TokenAmount.fromDenominated(swapLimits.min, tbtcToken) +
-            TokenAmount(
-              value: BigInt.from(1000) * BigInt.from(10).pow(10),
-              token: tbtcToken,
-            );
+      final amount =
+          TokenAmount.fromDenominated(swapLimits.min, tbtcToken) +
+          TokenAmount(
+            value: BigInt.from(1000) * BigInt.from(10).pow(10),
+            token: tbtcToken,
+          );
 
-        final swapIn = configured.swapIn(
-          params: SwapInParams(
-            evmKey: await hostr.auth.hd.getActiveEvmKey(),
-            accountIndex: 0,
-            amount: amount,
-          ),
-          auth: hostr.auth,
-          logger: CustomLogger(),
-        );
+      final swapIn = configured.swapIn(
+        params: SwapInParams(
+          evmKey: await hostr.auth.hd.getActiveEvmKey(),
+          accountIndex: 0,
+          amount: amount,
+        ),
+        auth: hostr.auth,
+        logger: CustomLogger(),
+      );
 
-        // ── Fee estimation ──
-        final fees = await swapIn.estimateFees();
-        _expectSwapFees(fees);
+      // ── Fee estimation ──
+      final fees = await swapIn.estimateFees();
+      _expectSwapFees(fees);
 
-        // ── Execute and verify completion ──
-        final emittedStates = <SwapInState>[swapIn.state];
-        final sub = swapIn.stream.listen(emittedStates.add);
-        await swapIn.execute();
-        await sub.cancel();
+      // ── Execute and verify completion ──
+      final emittedStates = <SwapInState>[swapIn.state];
+      final sub = swapIn.stream.listen(emittedStates.add);
+      await swapIn.execute();
+      await sub.cancel();
 
-        expect(swapIn.state, isA<SwapInCompleted>());
-      },
-      timeout: const Timeout(Duration(seconds: 30)),
-    );
+      expect(swapIn.state, isA<SwapInCompleted>());
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -553,60 +427,56 @@ void main() {
       IntegrationTestHarness.resetLogLevel();
     });
 
-    test(
-      'swap out RBTC estimates sane fees and completes',
-      () async {
-        final hostr = harness.hostr;
-        await harness.signInAndConnectNwc(
-          user: harness.fundedKeys[0],
-          appNamePrefix: 'swap-out-rbtc-fee-it',
-        );
+    test('swap out RBTC estimates sane fees and completes', () async {
+      final hostr = harness.hostr;
+      await harness.signInAndConnectNwc(
+        user: harness.fundedKeys[0],
+        appNamePrefix: 'swap-out-rbtc-fee-it',
+      );
 
-        await harness.anvilRootstock.setBalance(
-          address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-          amountWei: rbtcFromSatsInt(500000).getInWei,
-        );
+      await harness.anvilRootstock.setBalance(
+        address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
+        amountWei: rbtcFromSatsInt(500000).getInWei,
+      );
 
-        final swapOuts = await hostr.evm.swapOutAll();
-        expect(
-          swapOuts,
-          isNotEmpty,
-          reason: 'Should have at least one swap-out op',
-        );
-        final swapOut = swapOuts.firstWhere(
-          (op) => op.configuredChain.config.id == 'rootstock-regtest',
-        );
+      final swapOuts = await hostr.evm.swapOutAll();
+      expect(
+        swapOuts,
+        isNotEmpty,
+        reason: 'Should have at least one swap-out op',
+      );
+      final swapOut = swapOuts.firstWhere(
+        (op) => op.configuredChain.config.id == 'rootstock-regtest',
+      );
 
-        // ── Fee estimation ──
-        final fees = await swapOut.estimateFees();
-        _expectSwapFees(fees);
+      // ── Fee estimation ──
+      final fees = await swapOut.estimateFees();
+      _expectSwapFees(fees);
 
-        // Verify balance and invoiceAmount are populated after estimateFees
-        expect(
-          swapOut.balance,
-          isNotNull,
-          reason: 'balance should be cached after estimateFees',
-        );
-        expect(swapOut.balance!.value, greaterThan(BigInt.zero));
-        expect(
-          swapOut.invoiceAmount,
-          isNotNull,
-          reason: 'invoiceAmount should be cached after estimateFees',
-        );
-        expect(swapOut.invoiceAmount!.value, greaterThan(BigInt.zero));
-        print('  balance: ${swapOut.balance}');
-        print('  invoiceAmount: ${swapOut.invoiceAmount}');
+      // Verify balance and invoiceAmount are populated after estimateFees
+      expect(
+        swapOut.balance,
+        isNotNull,
+        reason: 'balance should be cached after estimateFees',
+      );
+      expect(swapOut.balance!.value, greaterThan(BigInt.zero));
+      expect(
+        swapOut.invoiceAmount,
+        isNotNull,
+        reason: 'invoiceAmount should be cached after estimateFees',
+      );
+      expect(swapOut.invoiceAmount!.value, greaterThan(BigInt.zero));
+      print('  balance: ${swapOut.balance}');
+      print('  invoiceAmount: ${swapOut.invoiceAmount}');
 
-        // ── Execute and verify completion ──
-        final emittedStates = <SwapOutState>[swapOut.state];
-        final sub = swapOut.stream.listen(emittedStates.add);
-        await swapOut.execute();
-        await sub.cancel();
+      // ── Execute and verify completion ──
+      final emittedStates = <SwapOutState>[swapOut.state];
+      final sub = swapOut.stream.listen(emittedStates.add);
+      await swapOut.execute();
+      await sub.cancel();
 
-        expect(swapOut.state, isA<SwapOutCompleted>());
-      },
-      timeout: const Timeout(Duration(seconds: 30)),
-    );
+      expect(swapOut.state, isA<SwapOutCompleted>());
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -620,7 +490,7 @@ void main() {
       harness = await IntegrationTestHarness.create(
         name: 'hostr_swap_out_tbtc_fees_it',
         seed: DateTime.now().microsecondsSinceEpoch,
-        logLevel: Level.warning,
+        logLevel: Level.debug,
         cleanHydratedStorage: true,
       );
       web3 = Web3Client(IntegrationTestHarness.anvilRpc, http.Client());
@@ -632,99 +502,112 @@ void main() {
       IntegrationTestHarness.resetLogLevel();
     });
 
-    test(
-      'swap out tBTC estimates sane fees and completes',
-      () async {
-        final hostr = harness.hostr;
-        final anvil = harness.anvil;
+    test('swap out tBTC estimates sane fees and completes', () async {
+      final hostr = harness.hostr;
+      final anvil = harness.anvil;
 
-        await harness.signInAndConnectNwc(
-          user: harness.fundedKeys[0],
-          appNamePrefix: 'swap-out-tbtc-fee-it',
-        );
-        await hostr.evm.init();
+      await harness.signInAndConnectNwc(
+        user: harness.fundedKeys[0],
+        appNamePrefix: 'swap-out-tbtc-fee-it',
+      );
+      await hostr.evm.init();
 
-        final configured = hostr.evm.configuredChains.first;
-        final boltzTokens = configured.swaps!.chainInfo.tokens;
-        // Fund HD #0 with native gas + ERC-20 tokens.
-        final userKey = await hostr.auth.hd.getActiveEvmKey();
-        await anvil.setBalance(
-          address: userKey.address.eip55With0x,
-          amountWei: rbtcFromSatsInt(500000).getInWei,
-        );
+      final configured = hostr.evm.configuredChains.first;
+      final boltzTokens = configured.swaps!.chainInfo.tokens;
+      // Fund HD #0 with native gas + ERC-20 tokens.
+      final userKey = await hostr.auth.hd.getActiveEvmKey();
+      // Resolve the smart-account address (differs from EOA when AA is
+      // configured, which is the case on arbitrum-regtest).
+      final smartAccountAddr = await configured.getAccountAddress(userKey);
+      await anvil.setBalance(
+        address: userKey.address.eip55With0x,
+        amountWei: rbtcFromSatsInt(500000).getInWei,
+      );
+      // The AA UserOp sender is the smart account — fund it with native
+      // gas as well so the EntryPoint can pre-fund execution.
+      await anvil.setBalance(
+        address: smartAccountAddr.eip55With0x,
+        amountWei: rbtcFromSatsInt(500000).getInWei,
+      );
 
-        await anvil.setBalance(
-          address: _deployerKey.address.eip55With0x,
-          amountWei: BigInt.from(10).pow(18),
-        );
+      await anvil.setBalance(
+        address: _deployerKey.address.eip55With0x,
+        amountWei: BigInt.from(10).pow(18),
+      );
 
-        final tokenEntry = boltzTokens.entries.first;
-        final tokenContract = TestERC20(
-          address: tokenEntry.value,
-          client: web3,
-        );
-        final mintAmount = BigInt.from(200000) * BigInt.from(10).pow(10);
-        await _waitForReceipt(
-          web3,
-          await tokenContract.transfer((
-            to: userKey.address,
-            value: mintAmount,
-          ), credentials: _deployerKey),
-        );
+      final tokenEntry = boltzTokens.entries.first;
+      final tokenContract = TestERC20(address: tokenEntry.value, client: web3);
+      final mintAmount = BigInt.from(200000) * BigInt.from(10).pow(10);
+      // Fund the EOA so _getSwapBalance (used by estimateFees) sees tokens.
+      await _waitForReceipt(
+        web3,
+        await tokenContract.transfer((
+          to: userKey.address,
+          value: mintAmount,
+        ), credentials: _deployerKey),
+      );
+      // Fund the smart account so the AA UserOp can transferFrom during
+      // the ERC20Swap.lock step.
+      await _waitForReceipt(
+        web3,
+        await tokenContract.transfer((
+          to: smartAccountAddr,
+          value: mintAmount,
+        ), credentials: _deployerKey),
+      );
 
-        final tbtcToken = Token(
-          chainId: configured.config.chainId,
-          address: tokenEntry.value.eip55With0x,
-          decimals: 18,
-        );
-        final requestedAmount = TokenAmount(
-          value: BigInt.from(50000) * BigInt.from(10).pow(10),
-          token: tbtcToken,
-        );
+      final tbtcToken = Token(
+        chainId: configured.config.chainId,
+        address: tokenEntry.value.eip55With0x,
+        decimals: 18,
+      );
+      final requestedAmount = TokenAmount(
+        value: BigInt.from(50000) * BigInt.from(10).pow(10),
+        token: tbtcToken,
+      );
 
-        final erc20Op = configured.swapOut(
-          params: SwapOutParams(
-            evmKey: userKey,
-            accountIndex: 0,
-            amount: requestedAmount,
-          ),
-          auth: hostr.auth,
-          logger: CustomLogger(),
-          nwc: hostr.nwc,
-          payments: hostr.payments,
-          quoteService: SwapOutQuoteService(),
-        );
+      final erc20Op = configured.swapOut(
+        params: SwapOutParams(
+          evmKey: userKey,
+          accountIndex: 0,
+          amount: requestedAmount,
+        ),
+        auth: hostr.auth,
+        logger: CustomLogger(),
+        nwc: hostr.nwc,
+        payments: hostr.payments,
+        quoteService: SwapOutQuoteService(),
+      );
 
-        // ── Fee estimation ──
-        final fees = await erc20Op.estimateFees();
-        _expectSwapFees(fees);
+      // ── Fee estimation ──
+      final fees = await erc20Op.estimateFees();
+      _expectSwapFees(fees);
 
-        // Verify balance and invoiceAmount are populated
-        expect(
-          erc20Op.balance,
-          isNotNull,
-          reason: 'balance should be cached after estimateFees',
-        );
-        expect(erc20Op.balance!.value, greaterThan(BigInt.zero));
-        expect(
-          erc20Op.invoiceAmount,
-          isNotNull,
-          reason: 'invoiceAmount should be cached after estimateFees',
-        );
-        expect(erc20Op.invoiceAmount!.value, greaterThan(BigInt.zero));
-        print('  ERC-20 balance: ${erc20Op.balance}');
-        print('  ERC-20 invoiceAmount: ${erc20Op.invoiceAmount}');
+      // Verify balance and invoiceAmount are populated
+      expect(
+        erc20Op.balance,
+        isNotNull,
+        reason: 'balance should be cached after estimateFees',
+      );
+      expect(erc20Op.balance!.value, greaterThan(BigInt.zero));
+      expect(
+        erc20Op.invoiceAmount,
+        isNotNull,
+        reason: 'invoiceAmount should be cached after estimateFees',
+      );
+      expect(erc20Op.invoiceAmount!.value, greaterThan(BigInt.zero));
+      print('  ERC-20 balance: ${erc20Op.balance}');
+      print('  ERC-20 invoiceAmount: ${erc20Op.invoiceAmount}');
 
-        // ── Execute and verify completion ──
-        final emittedStates = <SwapOutState>[erc20Op.state];
-        final sub = erc20Op.stream.listen(emittedStates.add);
-        await erc20Op.execute();
-        await sub.cancel();
+      // ── Execute and verify completion ──
+      final emittedStates = <SwapOutState>[erc20Op.state];
+      final sub = erc20Op.stream.listen(emittedStates.add);
+      await erc20Op.execute();
 
-        expect(erc20Op.state, isA<SwapOutCompleted>());
-      },
-      timeout: const Timeout(Duration(seconds: 45)),
-    );
+      await sub.cancel();
+
+      expect(erc20Op.state, isA<SwapOutCompleted>());
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -732,20 +615,17 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────────
   group('escrow fund ERC-20 (tBTC) with fee sanity + verification', () {
     late IntegrationTestHarness harness;
-    late Web3Client web3;
 
     setUpAll(() async {
       harness = await IntegrationTestHarness.create(
         name: 'hostr_escrow_fund_tbtc_fees_it',
         seed: DateTime.now().microsecondsSinceEpoch,
-        logLevel: Level.warning,
+        logLevel: Level.debug,
         cleanHydratedStorage: true,
       );
-      web3 = Web3Client(IntegrationTestHarness.anvilRpc, http.Client());
     });
 
     tearDownAll(() async {
-      web3.dispose();
       await harness.dispose();
       IntegrationTestHarness.resetLogLevel();
     });
@@ -756,80 +636,42 @@ void main() {
         final hostr = harness.hostr;
         final anvil = harness.anvil;
 
-        // ── 1. Create trade fixtures ──
+        // ── 1. Create trade fixtures + sign in with NWC ──
+        // NWC is required because the escrow fund operation performs an
+        // internal swap-in (reverse submarine swap via Boltz) which needs
+        // the buyer's wallet to settle a Lightning invoice.
         final trade = await harness.seeds.freshTrade(hostHasEvm: true);
-        await hostr.auth.signin(trade.guest.privateKey);
+        await harness.signInAndConnectNwc(
+          user: trade.guest.keyPair,
+          appNamePrefix: 'escrow-fund-tbtc-fee-it',
+        );
 
         // ── 2. Resolve escrow contract + service ──
+        // Compute the real bytecode hash of the deployed MultiEscrow
+        // contract so both the EscrowService and the host's EscrowMethod
+        // carry the correct value for EscrowVerification.
+        await hostr.evm.init();
+        final configured = hostr.evm.configuredChains.first;
+        final realBytecodeHash =
+            await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+              configured.chain.client,
+              EthereumAddress.fromHex(
+                env.evmConfig.chains.first.escrowContractAddress!,
+              ),
+            );
+        print('  Real contract bytecode hash: $realBytecodeHash');
+
         final escrowService = (await harness.seeds.factory.buildEscrowServices(
           contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
+          multiEscrowBytecodeHash: realBytecodeHash,
         )).first;
 
         final negotiateReservation = trade.negotiateReservation;
         final sellerProfile = trade.sellerProfile;
 
-        // ── 3. Deploy a TestERC20 (tBTC) token on Anvil ──
-        await anvil.setBalance(
-          address: _deployerKey.address.eip55With0x,
-          amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
-        );
-        final tbtcAddress = await _deployTestERC20(
-          web3,
-          _deployerKey,
-          name: 'Test TBTC',
-          symbol: 'TBTC',
-          decimals: 18,
-          initialSupply: BigInt.from(10).pow(24),
-        );
-
-        final tbtcToken = Token(
-          chainId: 412346,
-          address: tbtcAddress.with0x,
-          decimals: 18,
-        );
-        expect(tbtcToken.isERC20, isTrue);
-
-        // ── 4. Compute trade + escrow fee amounts ──
-        // 0.001 BTC = 100_000 sats → in tBTC (18 decimals) = 100_000 × 10^10
-        final tradeAmount = BigInt.from(100000) * BigInt.from(10).pow(10);
-        final tbtcAmount = TokenAmount(value: tradeAmount, token: tbtcToken);
-
-        final tokenAddress = tbtcToken.isERC20 ? tbtcToken.address : 'native';
-        final escrowFeeValue = escrowService.escrowFee(
-          tbtcAmount.value,
-          tokenAddress: tokenAddress,
-        );
-        final totalTokenCost = tradeAmount + escrowFeeValue;
-
-        // ── 5. Fund buyer with RBTC (gas) + tBTC ──
-        final buyerKey = await hostr.auth.hd.getActiveEvmKey();
-        await anvil.setBalance(
-          address: buyerKey.address.eip55With0x,
-          amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
-        );
-
-        final tokenContract = TestERC20(address: tbtcAddress, client: web3);
-        await _waitForReceipt(
-          web3,
-          await tokenContract.transfer((
-            to: buyerKey.address,
-            value: totalTokenCost * BigInt.two,
-          ), credentials: _deployerKey),
-        );
-
-        // ── 6. Approve MultiEscrow to spend buyer's tBTC ──
-        final escrowContractAddr = EthereumAddress.fromHex(
-          env.evmConfig.chains.first.escrowContractAddress!,
-        );
-        await _waitForReceipt(
-          web3,
-          await tokenContract.approve((
-            spender: escrowContractAddr,
-            value: totalTokenCost * BigInt.two,
-          ), credentials: buyerKey),
-        );
-
-        // ── 7. Estimate fees before executing ──
+        // ── 3. Estimate fees before executing ──
+        // No manual ERC-20 funding is needed — the operation conducts a
+        // swap-in via Boltz to bring the required tBTC amount on-chain.
         final operation = hostr.escrow.fund(
           EscrowFundParams(
             escrowService: escrowService,
@@ -842,7 +684,7 @@ void main() {
         final fees = await operation.estimateFees();
         _expectEscrowFees(fees);
 
-        // ── 8. Initialize, fund the account, and run the operation ──
+        // ── 4. Initialize, fund the derived account with gas, and run ──
         await operation.initialize();
         final fundingKey = await hostr.auth.hd.getActiveEvmKey(
           accountIndex: operation.accountIndex,
@@ -859,7 +701,7 @@ void main() {
         emittedStates.add(operation.state);
         await sub.cancel();
 
-        // ── 9. Verify state flow ──
+        // ── 5. Verify state flow ──
         expect(emittedStates.first, isA<OnchainInitialised>());
         expect(operation.state, isA<OnchainTxConfirmed>());
 
@@ -871,7 +713,7 @@ void main() {
         expect(completedData.transactionReceipt, isNotNull);
         expect(_isReceiptSuccessful(completedData.transactionReceipt!), isTrue);
 
-        // ── 10. Build self-signed reservation with escrow proof ──
+        // ── 6. Build self-signed reservation with escrow proof ──
         final hostKeyPair = trade.host.keyPair;
         final hostEvmAddress = (await deriveEvmKey(
           hostKeyPair.privateKey!,
@@ -882,19 +724,26 @@ void main() {
           key: hostKeyPair,
           evmAddress: hostEvmAddress,
         );
+        final fundingToken = configured.resolveBoltzFundingToken();
+        final acceptedPaymentForms = <AcceptedPaymentForm>[
+          AcceptedPaymentForm(
+            denomination: 'BTC',
+            tokenTagId: Token.rbtc(configured.config.chainId).tagId,
+          ),
+          AcceptedPaymentForm(
+            denomination: 'BTC',
+            tokenTagId: fundingToken.tagId,
+          ),
+        ];
         final escrowMethod = _buildSignedEscrowMethod(
           host: hostKeyPair,
           escrowService: escrowService,
-          token: Token.rbtc(412346),
+          acceptedPaymentForms: acceptedPaymentForms,
         );
 
-        final salt = 'escrow-verify-${DateTime.now().microsecondsSinceEpoch}';
-        final negotiate = _buildNegotiate(
-          listing: listing,
-          buyer: trade.guest.keyPair,
-          salt: salt,
-        );
-
+        // Use the actual trade's negotiate reservation for the commit —
+        // its dTag is the trade ID that was funded on-chain. Building a
+        // new reservation with a different dTag would not match.
         final proof = PaymentProof(
           hoster: hosterProfile,
           listing: listing,
@@ -907,13 +756,13 @@ void main() {
         );
 
         final commit = _buildSelfSignedCommit(
-          negotiate: negotiate,
+          negotiate: negotiateReservation,
           listing: listing,
           buyer: trade.guest.keyPair,
           proof: proof,
         );
 
-        // ── 11. Run EscrowVerification.verify ──
+        // ── 7. Run EscrowVerification.verify ──
         final verification = EscrowVerification(
           evm: hostr.evm,
           logger: CustomLogger(),
@@ -930,7 +779,6 @@ void main() {
         );
         expect(result.fundedEvent, isNotNull);
       },
-      timeout: const Timeout(Duration(seconds: 60)),
     );
   });
 }
