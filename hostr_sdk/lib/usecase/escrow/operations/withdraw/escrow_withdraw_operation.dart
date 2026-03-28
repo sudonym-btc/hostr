@@ -16,17 +16,14 @@ import 'escrow_withdraw_models.dart';
 /// This is **not** a state machine or an [OnchainOperation]. It is a factory
 /// that:
 /// 1. Resolves the HD account, reads the pending withdrawal amount.
-/// 2. Builds the escrow `withdraw` [CallIntent].
-/// 3. Creates a [SwapOutOperation] with an [onLock] callback that prepends
-///    the withdraw intent to the Boltz lock intents, broadcasting them as
-///    a single atomic UserOperation.
+/// 2. Builds the escrow `withdraw` [Call].
+/// 3. Creates a [SwapOutOperation] with `preLockCalls` containing the
+///    withdraw call. The swap merges these before the Boltz lock calls,
+///    broadcasting everything as a single atomic UserOperation.
 ///
 /// Once [prepare] returns, the caller owns the [SwapOutOperation] and drives
 /// it (`execute()`, `stream`, etc.). The escrow withdraw operation has no
 /// further role — no persistence, no recovery, no state machine.
-///
-/// This is the swap-out counterpart of [EscrowFundOperation]'s atomic
-/// `onClaim` pattern.
 class EscrowWithdrawOperation {
   final Auth auth;
   final TradeAccountAllocator tradeAccountAllocator;
@@ -87,7 +84,7 @@ class EscrowWithdrawOperation {
       }
 
       // ── Resolve withdrawn amount as TokenAmount ──
-      final fundingToken = configuredChain.resolveBoltzFundingToken();
+      final fundingToken = await configuredChain.resolveBoltzFundingToken();
       final withdrawAmount = TokenAmount(
         value: pendingAmountWei,
         token: fundingToken,
@@ -108,7 +105,7 @@ class EscrowWithdrawOperation {
         ),
       );
 
-      // ── Create swap-out with atomic onLock ──
+      // ── Create swap-out with preLockCalls ──
       return configuredChain.swapOut(
         auth: auth,
         logger: logger,
@@ -119,16 +116,7 @@ class EscrowWithdrawOperation {
           evmKey: evmKey,
           accountIndex: accountIndex,
           amount: withdrawAmount,
-          onLock: (List<CallIntent> lockIntents) async {
-            // Atomic: [withdraw, ...lockIntents]
-            // lockIntents already includes approve for ERC-20.
-            final atomicIntents = [withdrawIntent, ...lockIntents];
-            logger.i(
-              'Atomic withdraw+lock: ${atomicIntents.length} intents '
-              '(${atomicIntents.map((i) => i.methodName).join(', ')})',
-            );
-            return configuredChain.sendCalls(evmKey, atomicIntents);
-          },
+          preLockCalls: {'withdraw': withdrawIntent},
         ),
       );
     },

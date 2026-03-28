@@ -33,12 +33,8 @@ import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_operation
     as _i654;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_models.dart'
     as _i560;
-import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.dart'
-    as _i832;
-import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_recoverer.dart'
-    as _i787;
-import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_registry.dart'
-    as _i608;
+import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_preparer.dart'
+    as _i743;
 import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_models.dart'
     as _i526;
 import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_operation.dart'
@@ -48,13 +44,16 @@ import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
-import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart'
-    as _i503;
+import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart'
+    as _i1016;
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart'
     as _i842;
+import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_quote_service.dart'
+    as _i686;
 import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_quote_service.dart'
     as _i148;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
+import 'package:hostr_sdk/usecase/evm/operations/swap_registry.dart' as _i679;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
@@ -97,7 +96,6 @@ import 'package:hostr_sdk/usecase/trades/actions/review.dart' as _i558;
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart'
     as _i850;
 import 'package:hostr_sdk/usecase/trades/trade.dart' as _i981;
-import 'package:hostr_sdk/usecase/trades/withdrawal_orchestrator.dart' as _i518;
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart' as _i794;
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart'
     as _i576;
@@ -124,6 +122,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final hostrSdkModule = _$HostrSdkModule();
+    gh.factory<_i686.SwapInQuoteService>(() => _i686.SwapInQuoteService());
     gh.factory<_i148.SwapOutQuoteService>(() => _i148.SwapOutQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
@@ -182,8 +181,8 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i608.EscrowFundRegistry>(
-      () => _i608.EscrowFundRegistry(gh<_i331.CustomLogger>()),
+    gh.singleton<_i679.SwapRegistry>(
+      () => _i679.SwapRegistry(gh<_i331.CustomLogger>()),
     );
     gh.singleton<_i1014.Requests>(
       () => _i1014.Requests(
@@ -315,15 +314,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1000.Auth>(),
       ),
     );
-    gh.singleton<_i503.AutoWithdrawService>(
-      () => _i503.AutoWithdrawService(
-        gh<_i305.Evm>(),
-        gh<_i842.OperationStateStore>(),
-        gh<_i794.UserConfigStore>(),
-        gh<_i910.HostrConfig>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i1019.Messaging>(
       () => _i1019.Messaging(
         gh<_i857.Ndk>(),
@@ -339,13 +329,6 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i376.EscrowUseCase>(
-      () => _i376.EscrowUseCase(
-        logger: gh<_i372.CustomLogger>(),
-        evm: gh<_i305.Evm>(),
-        escrowFundRegistry: gh<_i608.EscrowFundRegistry>(),
-      ),
-    );
     gh.factory<_i613.NwcCubit>(
       () => _i613.NwcCubit(
         nwc: gh<_i588.Nwc>(),
@@ -359,6 +342,12 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i376.EscrowUseCase>(
+      () => _i376.EscrowUseCase(
+        logger: gh<_i372.CustomLogger>(),
+        evm: gh<_i305.Evm>(),
       ),
     );
     gh.factoryParam<
@@ -412,16 +401,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i331.CustomLogger>(),
       ),
     );
-    gh.factory<_i787.EscrowFundRecoverer>(
-      () => _i787.EscrowFundRecoverer(
-        gh<_i842.OperationStateStore>(),
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i305.Evm>(),
-        gh<_i372.CustomLogger>(),
-        gh<_i608.EscrowFundRegistry>(),
-      ),
-    );
     gh.factoryParam<
       _i654.EscrowClaimOperation,
       _i676.EscrowClaimParams,
@@ -446,12 +425,8 @@ extension GetItInjectableX on _i174.GetIt {
         config: gh<_i910.HostrConfig>(),
       ),
     );
-    gh.factoryParam<
-      _i832.EscrowFundOperation,
-      _i560.EscrowFundParams?,
-      dynamic
-    >(
-      (params, _) => _i832.EscrowFundOperation(
+    gh.factoryParam<_i743.EscrowFundPreparer, _i560.EscrowFundParams?, dynamic>(
+      (params, _) => _i743.EscrowFundPreparer(
         gh<_i1000.Auth>(),
         gh<_i1068.TradeAccountAllocator>(),
         gh<_i785.Evm>(),
@@ -518,6 +493,19 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
+    gh.singleton<_i1016.FundsMonitorService>(
+      () => _i1016.FundsMonitorService(
+        gh<_i305.Evm>(),
+        gh<_i576.UserSubscriptions>(),
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i842.OperationStateStore>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i910.HostrConfig>(),
+        gh<_i148.SwapOutQuoteService>(),
+        gh<_i331.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i768.Threads>(
       () => _i768.Threads(
         userSubscriptions: gh<_i576.UserSubscriptions>(),
@@ -531,6 +519,19 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         messaging: gh<_i1019.Messaging>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
+      ),
+    );
+    gh.singleton<_i843.BackgroundWorker>(
+      () => _i843.BackgroundWorker(
+        auth: gh<_i1000.Auth>(),
+        userSubscriptions: gh<_i576.UserSubscriptions>(),
+        heartbeats: gh<_i175.Heartbeats>(),
+        evm: gh<_i305.Evm>(),
+        fundsMonitor: gh<_i1016.FundsMonitorService>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        operationStore: gh<_i842.OperationStateStore>(),
+        logger: gh<_i372.CustomLogger>(),
       ),
     );
     gh.singleton<_i733.Calendar>(
@@ -550,29 +551,6 @@ extension GetItInjectableX on _i174.GetIt {
         reservations: gh<_i326.Reservations>(),
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i843.BackgroundWorker>(
-      () => _i843.BackgroundWorker(
-        auth: gh<_i1000.Auth>(),
-        userSubscriptions: gh<_i576.UserSubscriptions>(),
-        heartbeats: gh<_i175.Heartbeats>(),
-        evm: gh<_i305.Evm>(),
-        autoWithdraw: gh<_i503.AutoWithdrawService>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-        operationStore: gh<_i842.OperationStateStore>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i518.WithdrawalOrchestrator>(
-      () => _i518.WithdrawalOrchestrator(
-        userSubs: gh<_i576.UserSubscriptions>(),
-        threads: gh<_i768.Threads>(),
-        auth: gh<_i1000.Auth>(),
-        evm: gh<_i305.Evm>(),
-        tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );

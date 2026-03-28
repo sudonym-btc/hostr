@@ -21,7 +21,7 @@ import 'package:hostr_sdk/usecase/escrow/operations/claim/escrow_claim_operation
     as _i19;
 import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_models.dart'
     as _i33;
-import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_operation.dart'
+import 'package:hostr_sdk/usecase/escrow/operations/fund/escrow_fund_preparer.dart'
     as _i18;
 import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_models.dart'
     as _i35;
@@ -242,9 +242,9 @@ class _FakeValidation_29<T> extends _i1.SmartFake implements _i8.Validation<T> {
     : super(parent, parentInvocation);
 }
 
-class _FakeEscrowFundOperation_30 extends _i1.SmartFake
-    implements _i18.EscrowFundOperation {
-  _FakeEscrowFundOperation_30(Object parent, Invocation parentInvocation)
+class _FakeEscrowFundPreparer_30 extends _i1.SmartFake
+    implements _i18.EscrowFundPreparer {
+  _FakeEscrowFundPreparer_30(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -328,18 +328,13 @@ class _FakePayOperation_43<
     : super(parent, parentInvocation);
 }
 
-class _FakeTokenAmount_44 extends _i1.SmartFake implements _i10.TokenAmount {
-  _FakeTokenAmount_44(Object parent, Invocation parentInvocation)
+class _FakeEvmChain_44 extends _i1.SmartFake implements _i26.EvmChain {
+  _FakeEvmChain_44(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEvmChain_45 extends _i1.SmartFake implements _i26.EvmChain {
-  _FakeEvmChain_45(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakeRelayStorage_46 extends _i1.SmartFake implements _i3.RelayStorage {
-  _FakeRelayStorage_46(Object parent, Invocation parentInvocation)
+class _FakeRelayStorage_45 extends _i1.SmartFake implements _i3.RelayStorage {
+  _FakeRelayStorage_45(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -1851,15 +1846,15 @@ class MockEscrowUseCase extends _i1.Mock implements _i32.EscrowUseCase {
   }
 
   @override
-  _i18.EscrowFundOperation fund(_i33.EscrowFundParams? params) =>
+  _i18.EscrowFundPreparer fund(_i33.EscrowFundParams? params) =>
       (super.noSuchMethod(
             Invocation.method(#fund, [params]),
-            returnValue: _FakeEscrowFundOperation_30(
+            returnValue: _FakeEscrowFundPreparer_30(
               this,
               Invocation.method(#fund, [params]),
             ),
           )
-          as _i18.EscrowFundOperation);
+          as _i18.EscrowFundPreparer);
 
   @override
   _i19.EscrowClaimOperation claim(_i34.EscrowClaimParams? params) =>
@@ -3366,20 +3361,10 @@ class MockEvm extends _i1.Mock implements _i42.Evm {
           as _i27.Future<void>);
 
   @override
-  _i27.Future<_i10.TokenAmount> getBalance() =>
-      (super.noSuchMethod(
-            Invocation.method(#getBalance, []),
-            returnValue: _i27.Future<_i10.TokenAmount>.value(
-              _FakeTokenAmount_44(this, Invocation.method(#getBalance, [])),
-            ),
-          )
-          as _i27.Future<_i10.TokenAmount>);
-
-  @override
   _i26.EvmChain getChainForEscrowService(_i10.EscrowService? service) =>
       (super.noSuchMethod(
             Invocation.method(#getChainForEscrowService, [service]),
-            returnValue: _FakeEvmChain_45(
+            returnValue: _FakeEvmChain_44(
               this,
               Invocation.method(#getChainForEscrowService, [service]),
             ),
@@ -3395,23 +3380,6 @@ class MockEvm extends _i1.Mock implements _i42.Evm {
   _i26.EvmChain? getChainById(String? id) =>
       (super.noSuchMethod(Invocation.method(#getChainById, [id]))
           as _i26.EvmChain?);
-
-  @override
-  _i4.ValueStream<_i10.TokenAmount> subscribeBalance() =>
-      (super.noSuchMethod(
-            Invocation.method(#subscribeBalance, []),
-            returnValue: _FakeValueStream_2<_i10.TokenAmount>(
-              this,
-              Invocation.method(#subscribeBalance, []),
-            ),
-          )
-          as _i4.ValueStream<_i10.TokenAmount>);
-
-  @override
-  void resetBalance() => super.noSuchMethod(
-    Invocation.method(#resetBalance, []),
-    returnValueForMissingStub: null,
-  );
 
   @override
   _i27.Future<void> reset() =>
@@ -3488,7 +3456,7 @@ class MockRelays extends _i1.Mock implements _i45.Relays {
   _i3.RelayStorage get relayStorage =>
       (super.noSuchMethod(
             Invocation.getter(#relayStorage),
-            returnValue: _FakeRelayStorage_46(
+            returnValue: _FakeRelayStorage_45(
               this,
               Invocation.getter(#relayStorage),
             ),

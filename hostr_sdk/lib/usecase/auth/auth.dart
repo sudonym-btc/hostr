@@ -14,6 +14,7 @@ import 'package:wallet/wallet.dart' as bip;
 
 import '../../config.dart' show CoinlibEventSigner;
 import '../../injection.dart';
+import '../../util/coinlib_gift_wrap.dart' show clearNip44ConvKeyCache;
 import '../../util/main.dart';
 import '../deterministic_keys/deterministic_keys.dart';
 import '../storage/storage.dart';
@@ -89,6 +90,7 @@ class Auth {
   /// Wipes key storage and secure storage.
   Future<void> logout() => _logger.span('logout', () async {
     _logger.i('AuthService.logout');
+    clearNip44ConvKeyCache();
     await authStorage.wipe();
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();

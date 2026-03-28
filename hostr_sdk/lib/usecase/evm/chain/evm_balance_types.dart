@@ -56,27 +56,6 @@ class TrackedAddress {
   int get hashCode => address.eip55With0x.toLowerCase().hashCode;
 }
 
-/// Identifies a tracked ERC-20 token contract.
-class TrackedToken {
-  /// Human-readable name (e.g. the Boltz currency name: `"USDT"`, `"tBTC"`).
-  final String name;
-
-  /// The on-chain contract address.
-  final EthereumAddress contractAddress;
-
-  const TrackedToken({required this.name, required this.contractAddress});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is TrackedToken &&
-          contractAddress.eip55With0x.toLowerCase() ==
-              other.contractAddress.eip55With0x.toLowerCase();
-
-  @override
-  int get hashCode => contractAddress.eip55With0x.toLowerCase().hashCode;
-}
-
 /// The status of the monitor's connection / processing state.
 enum MonitorMode {
   /// Idle — nothing being tracked.

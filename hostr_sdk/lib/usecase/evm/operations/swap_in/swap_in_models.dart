@@ -1,10 +1,9 @@
 import 'package:models/main.dart';
+import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../userop/claim_args.dart';
-
-typedef SwapInClaimCallback = Future<String> Function(ClaimArgs claimArgs);
+import '../../evm_call.dart';
 
 class SwapInParams {
   final EthPrivateKey evmKey;
@@ -21,13 +20,23 @@ class SwapInParams {
   /// update the same OS notification as the parent.
   final String? parentOperationId;
 
-  /// Optional override for the swap claim execution.
+  /// Additional calls to append after the claim call, broadcast atomically
+  /// as a single UserOperation.
   ///
-  /// When set, the swap operation will call this callback during the claim
-  /// step instead of using the default RIF relay EtherSwap claim flow. The
-  /// callback receives the fully prepared [ClaimArgs] and must return the
-  /// broadcast transaction hash.
-  final SwapInClaimCallback? onClaim;
+  /// For escrow-fund this holds the `{approve?, createTrade}` calls so that
+  /// `[claim, ...postClaimCalls]` executes in one UserOp. The calls are
+  /// persisted on [SwapInData] so recovery is automatic — no callback
+  /// reconstruction needed.
+  final Map<String, Call>? postClaimCalls;
+
+  /// ERC-4337 state overrides applied when estimating gas for the
+  /// `[claim, ...postClaimCalls]` UserOperation.
+  ///
+  /// The representative claim call and fund calls reference token balances
+  /// and allowances that don't exist yet (the Boltz lockup hasn't happened
+  /// and the smart account has no tokens). These overrides fake enough
+  /// balance/allowance so the bundler simulation succeeds.
+  final List<permissionless.StateOverride>? postClaimStateOverrides;
 
   SwapInParams({
     required this.evmKey,
@@ -39,6 +48,7 @@ class SwapInParams {
     this.claimAddress,
     this.claimDestination,
     this.parentOperationId,
-    this.onClaim,
+    this.postClaimCalls,
+    this.postClaimStateOverrides,
   });
 }

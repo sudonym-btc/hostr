@@ -256,7 +256,7 @@ Future<List<EscrowMethod>> buildEscrowMethods({
     // Native chain token (e.g. ETH on Arbitrum).
     AcceptedPaymentForm(
       denomination: 'BTC',
-      tokenTagId: Token.rbtc(chainId).tagId,
+      tokenTagId: Token.native(chainId).tagId,
     ),
     // tBTC ERC-20 (if deployed).
     if (tbtcAddress != null && tbtcAddress.isNotEmpty)

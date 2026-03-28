@@ -31,6 +31,7 @@ class MockConfig extends Config {
         id: 'arbitrum-regtest',
         chainId: 412346,
         rpcUrl: 'http://localhost:8545',
+        nativeDenomination: 'ETH',
         accountAbstraction: AAConfig(
           bundlerUrl: 'http://localhost:3010/rpc',
           entryPointAddress: '0x0000000000000000000000000000000000000000',

@@ -3,7 +3,6 @@ import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import '../../../datasources/boltz/boltz.dart';
 import '../../../datasources/boltz/boltz_chain_info.dart';
-import '../../../datasources/boltz/boltz_fee_estimate.dart';
 import '../../../datasources/contracts/boltz/ERC20Swap.g.dart';
 import '../../../datasources/contracts/boltz/EtherSwap.g.dart';
 import '../../../datasources/swagger_generated/boltz.swagger.dart';
@@ -120,40 +119,6 @@ class BoltzSwapProvider {
       max: _swapAmountFromSats(pair.limits.maximal.floor()),
     );
   });
-
-  /// Estimate reverse-swap (swap-in) fees for a given on-chain amount.
-  ///
-  /// Returns `null` if the reverse pair is not available for this token
-  /// on the current chain (e.g. TBTC on production Boltz).
-  Future<BoltzFeeEstimate?> estimateSwapInFees({
-    required int onchainAmountSat,
-    EthereumAddress? tokenAddress,
-  }) async {
-    try {
-      final pair = await getReversePair(tokenAddress: tokenAddress);
-      return BoltzFeeEstimate.reverseSwap(pair, onchainAmountSat);
-    } catch (e) {
-      _logger.w('Could not estimate swap-in fees: $e');
-      return null;
-    }
-  }
-
-  /// Estimate submarine-swap (swap-out) fees for a given invoice amount.
-  ///
-  /// Returns `null` if the submarine pair is not available for this token
-  /// on the current chain.
-  Future<BoltzFeeEstimate?> estimateSwapOutFees({
-    required int invoiceAmountSat,
-    EthereumAddress? tokenAddress,
-  }) async {
-    try {
-      final pair = await getSubmarinePair(tokenAddress: tokenAddress);
-      return BoltzFeeEstimate.submarineSwap(pair, invoiceAmountSat);
-    } catch (e) {
-      _logger.w('Could not estimate swap-out fees: $e');
-      return null;
-    }
-  }
 
   /// Create a submarine (swap-out) swap.
   Future<SubmarineResponse> submarine({

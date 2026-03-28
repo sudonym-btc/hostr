@@ -42,20 +42,26 @@ class CoinlibVerifier implements EventVerifier {
 /// Fast secp256k1-backed BIP-340 event signer.
 ///
 /// Uses the shared `models` secp256k1 engine (native/WASM via coinlib)
-/// for Schnorr signing instead of the pure-Dart `bip340` package.
+/// for Schnorr signing **and NIP-44 encryption/decryption** instead of the
+/// pure-Dart `bip340` + `elliptic` packages.
 ///
-/// NIP-04 and NIP-44 encrypt/decrypt are delegated to the default NDK
-/// [Bip340EventSigner] because they are not on the hot path.
+/// NIP-44 conversation-key derivation uses [coinlibEncryptNip44] /
+/// [coinlibDecryptNip44] which call `secp256k1_ec_pubkey_tweak_mul` via WASM
+/// on web — significantly faster than `elliptic` for giftwrap operations.
+///
+/// NIP-04 legacy encrypt/decrypt are still delegated to [Bip340EventSigner]
+/// as NIP-04 is deprecated and not on the hot path.
 class CoinlibEventSigner implements EventSigner {
   CoinlibEventSigner({required this.privateKey, required this.publicKey})
-    : _delegate = Bip340EventSigner(
+    : _nip04Delegate = Bip340EventSigner(
         privateKey: privateKey,
         publicKey: publicKey,
       );
 
   final String? privateKey;
   final String publicKey;
-  final Bip340EventSigner _delegate;
+  // Only kept for legacy NIP-04 encrypt/decrypt.
+  final Bip340EventSigner _nip04Delegate;
 
   @override
   Future<Nip01Event> sign(Nip01Event event) async {
@@ -74,17 +80,17 @@ class CoinlibEventSigner implements EventSigner {
 
   @override
   Future<String?> decrypt(String msg, String destPubKey, {String? id}) =>
-      _delegate.decrypt(msg, destPubKey, id: id);
+      _nip04Delegate.decrypt(msg, destPubKey, id: id);
 
   @override
   Future<String?> encrypt(String msg, String destPubKey, {String? id}) =>
-      _delegate.encrypt(msg, destPubKey, id: id);
+      _nip04Delegate.encrypt(msg, destPubKey, id: id);
 
   @override
   Future<String?> encryptNip44({
     required String plaintext,
     required String recipientPubKey,
-  }) => _delegate.encryptNip44(
+  }) => _nip04Delegate.encryptNip44(
     plaintext: plaintext,
     recipientPubKey: recipientPubKey,
   );
@@ -93,7 +99,7 @@ class CoinlibEventSigner implements EventSigner {
   Future<String?> decryptNip44({
     required String ciphertext,
     required String senderPubKey,
-  }) => _delegate.decryptNip44(
+  }) => _nip04Delegate.decryptNip44(
     ciphertext: ciphertext,
     senderPubKey: senderPubKey,
   );
@@ -113,7 +119,7 @@ class CoinlibEventSigner implements EventSigner {
 
   @override
   Future<void> dispose() async {
-    await _delegate.dispose();
+    await _nip04Delegate.dispose();
     await _pendingRequestsController.close();
   }
 }

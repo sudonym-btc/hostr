@@ -43,7 +43,7 @@ class EscrowClaimOperation extends EscrowCall {
   }
 
   @override
-  List<CallIntent> buildCallIntents() => [
-    contract.claim(tradeId: params.tradeId, ethKey: signer),
-  ];
+  Map<String, Call> buildCalls() => {
+    'claim': contract.claim(tradeId: params.tradeId, ethKey: signer),
+  };
 }

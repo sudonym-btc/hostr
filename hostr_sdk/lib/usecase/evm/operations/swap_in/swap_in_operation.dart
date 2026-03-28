@@ -5,7 +5,7 @@ import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
-import '../../models/fee_breakdown.dart';
+import '../../chain/evm_chain.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
 import 'swap_in_models.dart';
@@ -203,7 +203,8 @@ abstract class SwapInOperation
 
   // ── Abstract: chain-specific ──────────────────────────────────────
 
-  Future<FeeBreakdown> estimateFees();
+  /// The EVM chain this operation runs on.
+  EvmChain get chain;
 
   /// Fetches the chain's minimum and maximum swap-in amounts.
   Future<({DenominatedAmount min, DenominatedAmount max})> getSwapLimits();
@@ -248,7 +249,10 @@ abstract class SwapInOperation
       );
 
       // Use super.emit to avoid persisting an Initialised state.
-      super.emit(const SwapInInitialised());
+      // Guard: don't clobber a state that's already progressing.
+      if (state is SwapInInitialised) {
+        super.emit(const SwapInInitialised());
+      }
     } catch (e) {
       logger.w('Failed to fetch swap limits: $e');
     }

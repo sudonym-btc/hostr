@@ -18,6 +18,7 @@ import '../../../../payments/payments.dart';
 import '../../../main.dart';
 
 class EvmSwapInOperation extends SwapInOperation {
+  @override
   final EvmChain chain;
 
   EthereumAddress? get _requestedTokenAddress => params.amount.token.isERC20
@@ -94,6 +95,7 @@ class EvmSwapInOperation extends SwapInOperation {
           invoiceString: swap.invoice,
           parentOperationId: params.parentOperationId,
           tokenAddress: _requestedTokenAddress?.eip55With0x,
+          postClaimCalls: params.postClaimCalls,
         );
         logger.i('Swap created: ${swap.id}');
         logger.d('Swap ${swap.toString()}');
@@ -478,8 +480,27 @@ class EvmSwapInOperation extends SwapInOperation {
     );
     logger.i('Claiming swap ${claimData.boltzId} through relay');
 
-    final tx =
-        await (params.onClaim?.call(claimArgs) ?? _claim(claimArgs: claimArgs));
+    final postCalls = claimData.postClaimCalls;
+    final String tx;
+    if (postCalls != null && postCalls.isNotEmpty) {
+      // Atomic claim + post-claim calls (e.g. escrow fund).
+      final builder = BoltzCallBuilder(chain.swaps!);
+      final claimCall = builder.claim(
+        preimage: claimArgs.preimage,
+        amount: claimArgs.amount,
+        refundAddress: claimArgs.refundAddress,
+        timelock: claimArgs.timelock,
+        tokenAddress: claimArgs.tokenAddress,
+      );
+      final atomicCalls = {'claim': claimCall, ...postCalls};
+      logger.i(
+        'Atomic claim + ${postCalls.length} post-claim calls: '
+        '${atomicCalls.keys.join(', ')}',
+      );
+      tx = await chain.sendCalls(params.evmKey, atomicCalls);
+    } else {
+      tx = await _claim(claimArgs: claimArgs);
+    }
     logger.i('Claim broadcast for ${claimData.boltzId}: $tx');
     return SwapInClaimed(claimData.copyWith(claimTxHash: tx));
   });
@@ -517,39 +538,6 @@ class EvmSwapInOperation extends SwapInOperation {
         logger.i('Swap-in completed: ${data.claimTxHash}');
         return SwapInCompleted(data);
       });
-
-  // ── Fee estimation ────────────────────────────────────────────────────
-
-  @override
-  Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
-    final gasEstimate = await chain.estimateGas(params.evmKey);
-    final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
-
-    // Compute actual Boltz reverse-swap fees from the pair data.
-    // The fee overhead is paid via the Lightning invoice (not on-chain).
-    final swapProvider = chain.swaps;
-    DenominatedAmount swapFeeSats = DenominatedAmount.zero('BTC', 8);
-    if (swapProvider != null) {
-      final estimate = await swapProvider.estimateSwapInFees(
-        onchainAmountSat: params.amount.getInSats.toInt(),
-        tokenAddress: _requestedTokenAddress,
-      );
-      if (estimate != null) {
-        swapFeeSats = estimate.feesAsDenominated;
-        logger.i(
-          'Swap-in fee estimate: $estimate '
-          'for ${params.amount.getInSats} sats on-chain',
-        );
-      }
-    }
-
-    return FeeBreakdown(
-      escrowFee: TokenAmount.zero(params.amount.token),
-      swapFee: TokenAmount.fromDenominated(swapFeeSats, Token.btcLightning),
-      gasFee: gasFee,
-      gasSponsored: gasEstimate.gasSponsored,
-    );
-  });
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -649,15 +637,15 @@ class EvmSwapInOperation extends SwapInOperation {
           'timelock=${claimArgs.timelock}',
         );
 
-        final builder = BoltzIntentBuilder(chain.swaps!);
-        final intent = builder.claimIntent(
+        final builder = BoltzCallBuilder(chain.swaps!);
+        final intent = builder.claim(
           preimage: claimArgs.preimage,
           amount: claimArgs.amount,
           refundAddress: claimArgs.refundAddress,
           timelock: claimArgs.timelock,
           tokenAddress: claimArgs.tokenAddress,
         );
-        return chain.sendCalls(params.evmKey, [intent]);
+        return chain.sendCalls(params.evmKey, {'claim': intent});
       });
 
   /// Generate a cryptographically secure 32-byte preimage and its SHA-256 hash.

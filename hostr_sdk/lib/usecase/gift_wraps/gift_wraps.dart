@@ -4,6 +4,8 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 
+import '../../config.dart' show CoinlibEventSigner;
+import '../../util/coinlib_gift_wrap.dart';
 import '../../util/main.dart';
 import '../crud.usecase.dart';
 
@@ -20,10 +22,25 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
       super(kind: kNostrKindGiftWrap);
 
   /// Wraps a rumor/event for [recipientPubkey] without broadcasting it.
+  ///
+  /// Uses [coinlibToGiftWrap] (WASM-backed ECDH on web) when a
+  /// [CoinlibEventSigner] is the active account. Falls back to NDK's
+  /// pure-Dart path otherwise.
   Future<Nip01Event> wrap({
     required Nip01Event rumor,
     required String recipientPubkey,
   }) => logger.span('wrap', () async {
+    final rawSigner = _ndk.accounts.getLoggedAccount()?.signer;
+    final signer = rawSigner is CoinlibEventSigner ? rawSigner : null;
+    if (signer?.privateKey != null) {
+      return coinlibToGiftWrap(
+        rumor: rumor,
+        recipientPubkey: recipientPubkey,
+        senderPrivKey: signer!.privateKey!,
+        senderPubKey: signer.getPublicKey(),
+      );
+    }
+    // Fallback for non-coinlib signers (e.g. hardware wallet / NIP-46).
     return _ndk.giftWrap.toGiftWrap(
       rumor: rumor,
       recipientPubkey: recipientPubkey,

@@ -76,7 +76,7 @@ extension TokenAmountEvmExt on TokenAmount {
 // ── Convenience constants ──────────────────────────────────────────────
 
 /// The RBTC token for Rootstock mainnet (chainId 30).
-final rbtc = Token.rbtc(30);
+final rbtc = Token.native(30);
 
 /// 1 sat = 10^10 wei on RBTC (18 - 8 = 10 decimal difference).
 final _satToWei = BigInt.from(10).pow(10);
@@ -92,7 +92,7 @@ TokenAmount rbtcFromWei(BigInt wei) => TokenAmount(value: wei, token: rbtc);
 /// the default Rootstock mainnet (30).
 TokenAmount rbtcFromSats(BigInt sats, {int? chainId}) => TokenAmount(
   value: sats * _satToWei,
-  token: chainId != null ? Token.rbtc(chainId) : rbtc,
+  token: chainId != null ? Token.native(chainId) : rbtc,
 );
 
 /// Construct an RBTC [TokenAmount] from an integer count of satoshis.
@@ -107,24 +107,22 @@ TokenAmount rbtcFromSatsInt(int sats, {int? chainId}) =>
 /// If [tokenAddress] is the zero address, this returns a native-token amount
 /// for the given [chainId].
 ///
-/// For ERC-20 tokens, decimals are resolved from [knownTokens] (typically
-/// sourced from `EvmChainConfig.tokens`). Falls back to 18 if the token
-/// is not in the map.
+/// For ERC-20 tokens, decimals are resolved from [tokenDecimals] when
+/// provided, otherwise from [knownTokens] denomination heuristics, or
+/// falling back to 18.
 TokenAmount tokenAmountFromEvm(
   String tokenAddress,
   BigInt value, {
   required int chainId,
+  int? tokenDecimals,
   Map<String, TokenConfig> knownTokens = const {},
 }) {
   final normalized = tokenAddress.toLowerCase();
   if (normalized == '0x0000000000000000000000000000000000000000') {
-    return TokenAmount(value: value, token: Token.rbtc(chainId));
+    return TokenAmount(value: value, token: Token.native(chainId));
   }
-  // Look up decimals from the config-provided known-token map.
-  final match = knownTokens.values
-      .where((t) => t.address.toLowerCase() == normalized)
-      .firstOrNull;
-  final decimals = match?.decimals ?? 18;
+  // Prefer explicitly provided decimals, then fall back to 18.
+  final decimals = tokenDecimals ?? 18;
   final token = Token(
     chainId: chainId,
     address: tokenAddress,

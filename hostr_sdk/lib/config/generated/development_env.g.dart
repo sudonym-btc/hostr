@@ -10,8 +10,7 @@ const blossomUrl = 'https://blossom.hostr.development';
 const tipsAddress = 'tips@lnbits.hostr.development';
 const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
 
-const bootstrapRelays = <String>[
-];
+const bootstrapRelays = <String>[];
 
 const bootstrapEscrowPubkeys = <String>[
   'c51b0c80ab4ec70cee8746fa0175ea439152bb8cf2d37ef84d13eaa095112f0c',
@@ -28,6 +27,7 @@ const evmConfig = EvmConfig(
       id: 'arbitrum-regtest',
       chainId: 412346,
       rpcUrl: 'https://arbitrum.hostr.development',
+      nativeDenomination: 'ETH',
       accountAbstraction: AAConfig(
         bundlerUrl: 'https://paymaster.hostr.development',
         entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
@@ -38,11 +38,11 @@ const evmConfig = EvmConfig(
       tokens: {
         'tBTC': TokenConfig(
           address: '0x948B3c65b89DF0B4894ABE91E6D02FE579834F8F',
-          decimals: 18,
+          denomination: 'BTC',
         ),
         'USDT': TokenConfig(
           address: '0x712516e61C8B383dF4A63CFe83d7701Bce54B03e',
-          decimals: 6,
+          denomination: 'USD',
         ),
       },
     ),
@@ -50,8 +50,8 @@ const evmConfig = EvmConfig(
       id: 'rootstock-regtest',
       chainId: 33,
       rpcUrl: 'https://rsk.hostr.development',
+      nativeDenomination: 'BTC',
       boltzCurrency: 'RBTC',
     ),
   ],
 );
-

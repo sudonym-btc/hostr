@@ -82,13 +82,13 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }
 
   @override
-  CallIntent fund(FundArgs args) => logger.spanSync('fund', () {
+  Call fund(FundArgs args) => logger.spanSync('fund', () {
     final isERC20 = args.token != null && args.token!.isERC20;
     final tokenAddress = isERC20
         ? EthereumAddress.fromHex(args.token!.address)
         : SupportedEscrowContract.zeroAddress;
 
-    return buildIntent(
+    return buildCall(
       functionName: 'createTrade',
       args: [
         getBytes32(args.tradeId),
@@ -100,28 +100,22 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         BigInt.from(args.unlockAt),
         args.escrowFee?.asEvm ?? BigInt.zero,
       ],
-      methodName: 'createTrade',
-      value: isERC20 ? EtherAmount.zero() : args.amount.toEtherAmount(),
+      value: isERC20 ? null : args.amount.asEvm,
     );
   });
 
   @override
-  CallIntent claim({required String tradeId, required EthPrivateKey ethKey}) =>
-      logger.spanSync('claim', () {
-        final tradeIdBytes = getBytes32(tradeId);
-        final signature = _signer.signClaim(
-          tradeId: tradeIdBytes,
-          signer: ethKey,
-        );
-        return buildIntent(
-          functionName: 'claim',
-          args: [tradeIdBytes, signature],
-          methodName: 'claim',
-        );
-      });
+  Call claim({
+    required String tradeId,
+    required EthPrivateKey ethKey,
+  }) => logger.spanSync('claim', () {
+    final tradeIdBytes = getBytes32(tradeId);
+    final signature = _signer.signClaim(tradeId: tradeIdBytes, signer: ethKey);
+    return buildCall(functionName: 'claim', args: [tradeIdBytes, signature]);
+  });
 
   @override
-  CallIntent arbitrate({
+  Call arbitrate({
     required String tradeId,
     required double forward,
     required EthPrivateKey ethKey,
@@ -136,17 +130,14 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     final function = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'arbitrate',
     );
-    final data = function.encodeCall([tradeIdBytes, factor, signature]);
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
-      data: data,
-      value: EtherAmount.zero(),
-      methodName: 'arbitrate',
+      data: function.encodeCall([tradeIdBytes, factor, signature]),
     );
   });
 
   @override
-  CallIntent release(ReleaseArgs args) => logger.spanSync('release', () {
+  Call release(ReleaseArgs args) => logger.spanSync('release', () {
     final actor = args.actor ?? args.ethKey.address;
     final tradeIdBytes = getBytes32(args.tradeId);
     final signature = _signer.signRelease(
@@ -154,25 +145,23 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
       actor: actor,
       signer: args.ethKey,
     );
-    return buildIntent(
+    return buildCall(
       functionName: 'releaseToCounterparty',
       args: [tradeIdBytes, actor, signature],
-      methodName: 'releaseToCounterparty',
     );
   });
 
   @override
-  CallIntent withdraw(WithdrawArgs args) => logger.spanSync('withdraw', () {
+  Call withdraw(WithdrawArgs args) => logger.spanSync('withdraw', () {
     final tradeIdBytes = getBytes32(args.tradeId);
     final signature = _signer.signWithdraw(
       tradeId: tradeIdBytes,
       destination: args.destination,
       signer: args.ethKey,
     );
-    return buildIntent(
+    return buildCall(
       functionName: 'withdraw',
       args: [tradeIdBytes, args.beneficiary, args.destination, signature],
-      methodName: 'withdraw',
     );
   });
 
@@ -480,8 +469,10 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           tradeId: bytesToHex(tradeCreated.tradeId),
           block: block,
           escrowService: selectedEscrow,
+          chain: chain,
+          contract: this,
           transactionHash: txHash,
-          amount: _tokenAmountFromEvent(
+          amount: await _tokenAmountFromEvent(
             tradeCreated.token,
             tradeCreated.amount,
           ),
@@ -493,6 +484,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           tradeId: bytesToHex(arb.tradeId),
           block: block,
           escrowService: selectedEscrow,
+          chain: chain,
+          contract: this,
           transactionHash: txHash,
           forwarded: arb.fractionForwarded.toInt() / 1000,
         );
@@ -505,6 +498,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           tradeId: bytesToHex(released.tradeId),
           block: block,
           escrowService: selectedEscrow,
+          chain: chain,
+          contract: this,
           transactionHash: txHash,
         );
       case 'Claimed':
@@ -513,6 +508,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           tradeId: bytesToHex(claimed.tradeId),
           block: block,
           escrowService: selectedEscrow,
+          chain: chain,
+          contract: this,
           transactionHash: txHash,
         );
       default:
@@ -523,6 +520,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           tradeId: '',
           block: block,
           escrowService: selectedEscrow,
+          chain: chain,
+          contract: this,
         );
     }
   }
@@ -643,19 +642,23 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     return null;
   });
 
-  TokenAmount _tokenAmountFromEvent(EthereumAddress token, BigInt amount) {
+  Future<TokenAmount> _tokenAmountFromEvent(
+    EthereumAddress token,
+    BigInt amount,
+  ) async {
     final isNative =
         token.eip55With0x.toLowerCase() ==
         SupportedEscrowContract.zeroAddress.eip55With0x.toLowerCase();
     if (isNative) {
       return rbtcFromWei(amount);
     }
-    // ERC-20: look up the token to get decimals from chain config.
+    // ERC-20: resolve decimals on-chain via the chain's cached lookup.
+    final decimals = await chain?.resolveTokenDecimals(token.eip55With0x);
     return tokenAmountFromEvm(
       token.eip55With0x,
       amount,
       chainId: chain?.config.chainId ?? 30,
-      knownTokens: chain?.config.tokens ?? const {},
+      tokenDecimals: decimals,
     );
   }
 

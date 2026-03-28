@@ -305,7 +305,7 @@ void main() {
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,
-            Token.rbtc(configured.config.chainId),
+            Token.native(configured.config.chainId),
           ) +
           rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
@@ -724,11 +724,11 @@ void main() {
           key: hostKeyPair,
           evmAddress: hostEvmAddress,
         );
-        final fundingToken = configured.resolveBoltzFundingToken();
+        final fundingToken = await configured.resolveBoltzFundingToken();
         final acceptedPaymentForms = <AcceptedPaymentForm>[
           AcceptedPaymentForm(
             denomination: 'BTC',
-            tokenTagId: Token.rbtc(configured.config.chainId).tagId,
+            tokenTagId: Token.native(configured.config.chainId).tagId,
           ),
           AcceptedPaymentForm(
             denomination: 'BTC',

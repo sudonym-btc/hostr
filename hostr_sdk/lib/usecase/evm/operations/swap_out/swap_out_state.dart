@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:models/main.dart';
 
+import '../../../evm/evm_call.dart';
 import '../../../payments/operations/pay_state.dart';
 import '../operation_machine.dart';
 
@@ -33,6 +34,10 @@ class SwapOutData {
   /// with the given token address. When null, the swap uses EtherSwap.
   final String? tokenAddress;
 
+  /// Extra [Call]s to prepend before lock (e.g. escrow withdraw).
+  /// Persisted for crash recovery.
+  final Map<String, Call>? preLockCalls;
+
   const SwapOutData({
     required this.boltzId,
     required this.invoice,
@@ -49,6 +54,7 @@ class SwapOutData {
     this.lastBoltzStatus,
     this.errorMessage,
     this.tokenAddress,
+    this.preLockCalls,
   });
 
   /// Recover the invoice preimage hash bytes from stored hex.
@@ -80,6 +86,7 @@ class SwapOutData {
     lastBoltzStatus: lastBoltzStatus ?? this.lastBoltzStatus,
     errorMessage: errorMessage ?? this.errorMessage,
     tokenAddress: tokenAddress,
+    preLockCalls: preLockCalls,
   );
 
   Map<String, dynamic> toJson() => {
@@ -98,6 +105,8 @@ class SwapOutData {
     if (lastBoltzStatus != null) 'lastBoltzStatus': lastBoltzStatus,
     if (errorMessage != null) 'errorMessage': errorMessage,
     if (tokenAddress != null) 'tokenAddress': tokenAddress,
+    if (preLockCalls != null)
+      'preLockCalls': serializeNamedCalls(preLockCalls!),
   };
 
   factory SwapOutData.fromJson(Map<String, dynamic> json) => SwapOutData(
@@ -116,6 +125,9 @@ class SwapOutData {
     lastBoltzStatus: json['lastBoltzStatus'] as String?,
     errorMessage: json['errorMessage'] as String?,
     tokenAddress: json['tokenAddress'] as String?,
+    preLockCalls: json['preLockCalls'] != null
+        ? deserializeNamedCalls(json['preLockCalls'] as List)
+        : null,
   );
 
   @override

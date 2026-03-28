@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 
+import '../../../evm/evm_call.dart';
 import '../../../payments/operations/pay_state.dart';
 import '../operation_machine.dart';
 
@@ -37,6 +38,10 @@ class SwapInData {
   /// notifications update the same OS notification.
   final String? parentOperationId;
 
+  /// Additional calls appended after the claim, broadcast atomically as a
+  /// single UserOperation. Persisted so recovery picks them up automatically.
+  final Map<String, Call>? postClaimCalls;
+
   const SwapInData({
     required this.boltzId,
     required this.preimageHex,
@@ -54,6 +59,7 @@ class SwapInData {
     this.errorMessage,
     this.parentOperationId,
     this.tokenAddress,
+    this.postClaimCalls,
   });
 
   /// Recover the preimage bytes from the stored hex.
@@ -84,6 +90,7 @@ class SwapInData {
     errorMessage: errorMessage ?? this.errorMessage,
     parentOperationId: parentOperationId,
     tokenAddress: tokenAddress,
+    postClaimCalls: postClaimCalls,
   );
 
   Map<String, dynamic> toJson() => {
@@ -103,6 +110,8 @@ class SwapInData {
     if (errorMessage != null) 'errorMessage': errorMessage,
     if (parentOperationId != null) 'parentOperationId': parentOperationId,
     if (tokenAddress != null) 'tokenAddress': tokenAddress,
+    if (postClaimCalls != null && postClaimCalls!.isNotEmpty)
+      'postClaimCalls': serializeNamedCalls(postClaimCalls!),
   };
 
   factory SwapInData.fromJson(Map<String, dynamic> json) => SwapInData(
@@ -122,6 +131,9 @@ class SwapInData {
     errorMessage: json['errorMessage'] as String?,
     parentOperationId: json['parentOperationId'] as String?,
     tokenAddress: json['tokenAddress'] as String?,
+    postClaimCalls: json['postClaimCalls'] != null
+        ? deserializeNamedCalls(json['postClaimCalls'] as List)
+        : null,
   );
 
   @override

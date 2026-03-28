@@ -6,6 +6,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
@@ -25,7 +26,7 @@ class NegotiationWidget extends StatelessWidget {
     final hasCounter = tradeState.actions.contains(TradeAction.counter);
     final hasPay = tradeState.actions.contains(TradeAction.pay);
     final hasAccept = tradeState.actions.contains(TradeAction.accept);
-    final registry = getIt<Hostr>().escrowFundRegistry;
+    final registry = getIt<Hostr>().swapRegistry;
     return CustomPadding(
       top: 0,
       bottom: 0.5,
@@ -49,13 +50,10 @@ class NegotiationWidget extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: constraints.maxWidth * 0.6,
                     ),
-                    child: StreamBuilder<EscrowFundOperation?>(
-                      stream: registry.watchTrade(tradeState.tradeId),
-                      initialData: registry.hasActiveFund(tradeState.tradeId)
-                          ? null
-                          : null,
+                    child: StreamBuilder<SwapInOperation?>(
+                      stream: registry.watchSwapInForParent(tradeState.tradeId),
                       builder: (context, snapshot) {
-                        final activeOp = snapshot.data;
+                        final activeSwap = snapshot.data;
                         return Wrap(
                           spacing: kSpace2,
                           runSpacing: kSpace2,
@@ -64,10 +62,10 @@ class NegotiationWidget extends StatelessWidget {
                             if (_statusMessage != null)
                               _statusChip(context, message: _statusMessage!),
                             if (hasCancel) _cancelButton(context),
-                            if (hasCounter && activeOp == null)
+                            if (hasCounter && activeSwap == null)
                               _counterButton(context),
                             if (hasPay)
-                              _payButton(context, activeOp: activeOp)
+                              _payButton(context, activeSwap: activeSwap)
                             else if (hasAccept)
                               _acceptButton(context),
                           ],
@@ -174,15 +172,15 @@ class NegotiationWidget extends StatelessWidget {
 
   Widget _payButton(
     BuildContext context, {
-    required EscrowFundOperation? activeOp,
+    required SwapInOperation? activeSwap,
   }) {
-    if (activeOp != null) {
+    if (activeSwap != null) {
       return FilledButton(
         key: const ValueKey('trade_action_pay'),
         onPressed: () {
           showAppModal(
             context,
-            builder: (_) => EscrowFundFlowWidget(cubit: activeOp),
+            builder: (_) => SwapInFlowWidget(cubit: activeSwap),
           );
         },
         child: SizedBox(

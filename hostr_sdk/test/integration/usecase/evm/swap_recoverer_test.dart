@@ -64,7 +64,7 @@ void main() {
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,
-            Token.rbtc(configured.config.chainId),
+            Token.native(configured.config.chainId),
           ) +
           rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 
@@ -107,7 +107,7 @@ void main() {
       final amount =
           TokenAmount.fromDenominated(
             swapLimits.min,
-            Token.rbtc(configured.config.chainId),
+            Token.native(configured.config.chainId),
           ) +
           rbtcFromSatsInt(1000, chainId: configured.config.chainId);
 

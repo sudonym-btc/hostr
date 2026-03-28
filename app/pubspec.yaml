@@ -107,6 +107,11 @@ flutter:
           style: italic
 
 dependency_overrides:
+  ndk:
+    git:
+      url: https://github.com/sudonym-btc/ndk.git
+      ref: fix/websocket-tostring
+      path: packages/ndk
   intl: ^0.20.2
   pointycastle: ^4.0.0
   js: ^0.7.2

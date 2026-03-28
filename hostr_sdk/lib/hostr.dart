@@ -50,16 +50,14 @@ class Hostr {
   Verification get verification => getIt<Verification>();
   BlossomUseCase get blossom => getIt<BlossomUseCase>();
   UserConfigStore get userConfig => getIt<UserConfigStore>();
-  AutoWithdrawService get autoWithdraw => getIt<AutoWithdrawService>();
+  FundsMonitorService get fundsMonitor => getIt<FundsMonitorService>();
   OperationStateStore get operationStateStore => getIt<OperationStateStore>();
-  EscrowFundRegistry get escrowFundRegistry => getIt<EscrowFundRegistry>();
+  SwapRegistry get swapRegistry => getIt<SwapRegistry>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
   Heartbeats get heartbeats => getIt<Heartbeats>();
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
-  WithdrawalOrchestrator get withdrawalOrchestrator =>
-      getIt<WithdrawalOrchestrator>();
   Calendar get calendar => getIt<Calendar>();
 
   Trade trade(String tradeId) {
@@ -171,7 +169,7 @@ class Hostr {
         // are live before the orchestrator subscribes to them.
         await userSubscriptions.start();
         paymentProofOrchestrator.start();
-        withdrawalOrchestrator.start();
+        fundsMonitor.start();
         // Ensure the user's profile has an EVM address tag.
         metadata.ensureEvmAddress();
         nwc.start();
@@ -182,15 +180,12 @@ class Hostr {
         await blossom.ensureBlossomServer(pubkey);
         await backgroundWorker.watch(onProgress: _onProgressFromConfig());
 
-        // Reset the EVM balance subscription for the new user's address.
-        evm.resetBalance();
-
         await calendar.start();
       } else {
         logger.i('User logged out');
         await backgroundWorker.stop();
         await calendar.stop();
-        autoWithdraw.stop();
+        await fundsMonitor.stop();
         await paymentProofOrchestrator.reset();
         await userSubscriptions.reset();
         messaging.threads.reset();
@@ -238,7 +233,7 @@ class Hostr {
     await _stopAuthListener();
     await backgroundWorker.stop();
     await calendar.stop();
-    await autoWithdraw.stop();
+    await fundsMonitor.stop();
     await paymentProofOrchestrator.reset();
     await userSubscriptions.reset();
     await messaging.threads.close();

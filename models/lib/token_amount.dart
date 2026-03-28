@@ -64,11 +64,13 @@ class TokenAmount {
 
   /// Convert to a chain-agnostic [DenominatedAmount].
   ///
-  /// Uses `"BTC"` for Lightning/native BTC tokens, otherwise the token's
-  /// [Token.tagId] as denomination.
-  DenominatedAmount toDenominated() => DenominatedAmount(
+  /// When [denomination] is provided it is used directly (e.g. `"BTC"` for
+  /// tBTC, `"USD"` for USDT).  Otherwise Lightning/native tokens default to
+  /// `"BTC"` and ERC-20 tokens fall back to the token's [Token.tagId].
+  DenominatedAmount toDenominated({String? denomination}) => DenominatedAmount(
         value: value,
-        denomination: (token.isLightning || token.isNative) ? 'BTC' : token.tagId,
+        denomination: denomination ??
+            ((token.isLightning || token.isNative) ? 'BTC' : token.tagId),
         decimals: token.decimals,
       );
 
@@ -147,16 +149,13 @@ class TokenAmount {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TokenAmount &&
-          token == other.token &&
-          value == other.value;
+      other is TokenAmount && token == other.token && value == other.value;
 
   @override
   int get hashCode => token.hashCode ^ value.hashCode;
 
   @override
-  String toString() =>
-      'TokenAmount(${toDecimalString()} ${token.tagId})';
+  String toString() => 'TokenAmount(${toDecimalString()} ${token.tagId})';
 
   // ── Private helpers ───────────────────────────────────────────────
 

@@ -30,8 +30,8 @@ class Token {
     decimals: 8,
   );
 
-  /// Native RBTC on a given EVM chain. 18 decimals (wei).
-  static Token rbtc(int chainId) => Token(
+  /// Native token on a given EVM chain. 18 decimals (wei).
+  static Token native(int chainId) => Token(
         chainId: chainId,
         address: _zeroAddress,
         decimals: 18,

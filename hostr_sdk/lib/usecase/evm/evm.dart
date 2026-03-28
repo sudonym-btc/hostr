@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:rxdart/rxdart.dart';
 
 import '../../config.dart';
 import '../../datasources/boltz/boltz.dart';
@@ -10,13 +9,13 @@ import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../background_worker/background_worker.dart';
-import '../escrow/operations/fund/escrow_fund_recoverer.dart';
 import '../nwc/nwc.dart';
 import '../payments/payments.dart';
 import 'capabilities/aa_capability.dart';
 import 'capabilities/boltz_swap_provider.dart';
 import 'chain/evm_chain.dart';
 import 'chain/operations/swap_out/swap_out_operation.dart';
+import 'operations/swap_in/swap_in_quote_service.dart';
 import 'operations/swap_out/swap_out_models.dart';
 import 'operations/swap_out/swap_out_quote_service.dart';
 import 'operations/swap_recoverer.dart';
@@ -27,9 +26,6 @@ class Evm {
   final HostrConfig _config;
   final Auth _auth;
   CustomLogger get logger => _logger;
-
-  BehaviorSubject<TokenAmount>? _balanceSubject;
-  StreamSubscription<TokenAmount>? _balanceSubscription;
 
   /// All configured EVM chains, assembled with their capabilities.
   late final List<EvmChain> configuredChains;
@@ -71,6 +67,8 @@ class Evm {
         auth: _auth,
         logger: _logger,
         aa: aa,
+        swapInQuoteService: getIt<SwapInQuoteService>(),
+        swapOutQuoteService: getIt<SwapOutQuoteService>(),
       );
     }).toList();
   }
@@ -114,6 +112,13 @@ class Evm {
         );
         match.swaps = swaps;
 
+        // Register Boltz ERC-20 tokens in the balance monitor.
+        // Resolves decimals on-chain and caches them in the token registry.
+        for (final entry in info.tokens.entries) {
+          final token = await match.resolveToken(entry.value.eip55With0x);
+          match.balanceMonitor.trackToken(token);
+        }
+
         _logger.i(
           'Attached Boltz swap provider for ${info.chainKey} '
           'to chain ${match.config.id}',
@@ -122,40 +127,11 @@ class Evm {
     } catch (e) {
       _logger.e('Boltz discovery failed (chains remain swap-less): $e');
     }
-  });
 
-  void _ensureBalanceSubscription() =>
-      _logger.spanSync('_ensureBalanceSubscription', () {
-        if (_balanceSubscription != null) return;
-
-        final streams = configuredChains
-            .map((c) => c.subscribeTotalBalance())
-            .toList();
-
-        final combined = Rx.combineLatestList<TokenAmount>(streams).map(
-          (balances) => balances.fold<TokenAmount>(
-            TokenAmount.zero(rbtc),
-            (sum, value) => sum + value,
-          ),
-        );
-
-        _balanceSubscription = combined.distinct().listen(
-          (total) => _balanceSubject?.add(total),
-          onError: (error) => _logger.w('Balance subscription error: $error'),
-        );
-      });
-
-  Future<TokenAmount> getBalance() => _logger.span('getBalance', () async {
-    TokenAmount totalBalance = TokenAmount.zero(rbtc);
-    for (var c in configuredChains) {
-      try {
-        final chainBalance = await c.getTotalBalance();
-        totalBalance += chainBalance;
-      } catch (e) {
-        _logger.w('Failed to get balance from chain ${c.config.id}: $e');
-      }
+    // Start each chain's balance monitor after Boltz tokens are registered.
+    for (final chain in configuredChains) {
+      chain.balanceMonitor.start();
     }
-    return totalBalance;
   });
 
   EvmChain getChainForEscrowService(EscrowService service) =>
@@ -182,35 +158,16 @@ class Evm {
     return configuredChains.where((c) => c.config.id == id).firstOrNull;
   }
 
-  ValueStream<TokenAmount> subscribeBalance() {
-    _balanceSubject ??= BehaviorSubject<TokenAmount>(
-      onListen: _ensureBalanceSubscription,
-    );
-    return _balanceSubject!.stream;
-  }
-
-  void resetBalance() => _logger.spanSync('resetBalance', () {
-    _balanceSubscription?.cancel();
-    _balanceSubscription = null;
-    if (_balanceSubject?.hasListener ?? false) {
-      _ensureBalanceSubscription();
-    }
-  });
-
   Future<void> reset() => _logger.span('reset', () async {
-    await _balanceSubscription?.cancel();
-    _balanceSubscription = null;
-    _balanceSubject = null;
+    for (final c in configuredChains) {
+      await c.balanceMonitor.stop();
+    }
   });
 
   Future<void> dispose() => _logger.span('dispose', () async {
-    await _balanceSubscription?.cancel();
-    _balanceSubscription = null;
     for (final c in configuredChains) {
       await c.dispose();
     }
-    await _balanceSubject?.close();
-    _balanceSubject = null;
   });
 
   bool _isRecovering = false;
@@ -223,74 +180,121 @@ class Evm {
   ///
   /// Scans both **native** balances and **ERC-20 token** balances for every
   /// token listed in the chain's Boltz discovery (`chainInfo.tokens`).
+  ///
+  /// Uses the [EvmBalanceMonitor] cache where available to avoid redundant RPC
+  /// calls; falls back to [getAddressesWithBalance] for chains with no tracked
+  /// addresses yet.
   Future<List<EvmSwapOutOperation>> swapOutAll({TokenAmount? minimumBalance}) =>
       _logger.span('swapOutAll', () async {
         final ops = <EvmSwapOutOperation>[];
         for (final configured in configuredChains) {
           if (configured.swaps == null) continue;
 
-          // ── Native-asset sweep ──────────────────────────────────────
-          final funded = await configured.getAddressesWithBalance();
-          for (final entry in funded) {
-            if (minimumBalance != null &&
-                entry.balance.getInSats < minimumBalance.getInSats) {
-              continue;
+          // Collect funded (address, accountIndex, balance) entries from the
+          // monitor cache. Fall back to a live RPC scan if the monitor has not
+          // yet seeded any addresses.
+          final monitorAddresses = configured.balanceMonitor.trackedAddresses;
+          if (monitorAddresses.isNotEmpty) {
+            for (final tracked in monitorAddresses) {
+              final addr = tracked.address;
+              // Native balance from cache.
+              final native = configured.balanceMonitor.balanceOf(
+                addr,
+                Token.native(configured.config.chainId),
+              );
+              if (native != null && native.value > BigInt.zero) {
+                if (minimumBalance == null ||
+                    native.getInSats >= minimumBalance.getInSats) {
+                  // Derive the account index from the reason tag if present.
+                  final accountIndex =
+                      _accountIndexFromReason(tracked.reason) ?? 0;
+                  final evmKey = await _auth.hd.getActiveEvmKey(
+                    accountIndex: accountIndex,
+                  );
+                  ops.add(
+                    configured.swapOut(
+                      params: SwapOutParams(
+                        evmKey: evmKey,
+                        accountIndex: accountIndex,
+                        amount: null,
+                      ),
+                      auth: _auth,
+                      logger: _logger,
+                      nwc: getIt<Nwc>(),
+                      payments: getIt<Payments>(),
+                      quoteService: getIt<SwapOutQuoteService>(),
+                    ),
+                  );
+                }
+              }
+
+              // ERC-20 balances from cache.
+              for (final token in configured.balanceMonitor.trackedTokens) {
+                final erc20 = configured.balanceMonitor.balanceOf(addr, token);
+                if (erc20 != null && erc20.value > BigInt.zero) {
+                  if (minimumBalance == null ||
+                      erc20.getInSats >= minimumBalance.getInSats) {
+                    final accountIndex =
+                        _accountIndexFromReason(tracked.reason) ?? 0;
+                    final evmKey = await _auth.hd.getActiveEvmKey(
+                      accountIndex: accountIndex,
+                    );
+                    ops.add(
+                      configured.swapOut(
+                        params: SwapOutParams(
+                          evmKey: evmKey,
+                          accountIndex: accountIndex,
+                          amount: erc20,
+                        ),
+                        auth: _auth,
+                        logger: _logger,
+                        nwc: getIt<Nwc>(),
+                        payments: getIt<Payments>(),
+                        quoteService: getIt<SwapOutQuoteService>(),
+                      ),
+                    );
+                  }
+                }
+              }
             }
-            final evmKey = await _auth.hd.getActiveEvmKey(
-              accountIndex: entry.accountIndex,
-            );
-            ops.add(
-              configured.swapOut(
-                params: SwapOutParams(
-                  evmKey: evmKey,
-                  accountIndex: entry.accountIndex,
-                  amount: null,
+          } else {
+            // Fallback: live RPC scan (no monitor data yet).
+            final funded = await configured.getAddressesWithBalance();
+            for (final entry in funded) {
+              if (minimumBalance != null &&
+                  entry.balance.getInSats < minimumBalance.getInSats) {
+                continue;
+              }
+              final evmKey = await _auth.hd.getActiveEvmKey(
+                accountIndex: entry.accountIndex,
+              );
+              ops.add(
+                configured.swapOut(
+                  params: SwapOutParams(
+                    evmKey: evmKey,
+                    accountIndex: entry.accountIndex,
+                    amount: null,
+                  ),
+                  auth: _auth,
+                  logger: _logger,
+                  nwc: getIt<Nwc>(),
+                  payments: getIt<Payments>(),
+                  quoteService: getIt<SwapOutQuoteService>(),
                 ),
-                auth: _auth,
-                logger: _logger,
-                nwc: getIt<Nwc>(),
-                payments: getIt<Payments>(),
-                quoteService: getIt<SwapOutQuoteService>(),
-              ),
-            );
-          }
-
-          // ── ERC-20 token sweep ──────────────────────────────────────
-          final boltzTokens = configured.swaps!.chainInfo.tokens;
-          if (boltzTokens.isEmpty) continue;
-
-          final tokenFunded = await configured.getAddressesWithTokenBalances(
-            boltzTokens,
-          );
-
-          for (final entry in tokenFunded) {
-            if (minimumBalance != null &&
-                entry.balance.getInSats < minimumBalance.getInSats) {
-              continue;
+              );
             }
-            final evmKey = await _auth.hd.getActiveEvmKey(
-              accountIndex: entry.accountIndex,
-            );
-            // Pass the full ERC-20 balance as `amount` so the swap-out
-            // operation knows which token to lock (via amount.token).
-            ops.add(
-              configured.swapOut(
-                params: SwapOutParams(
-                  evmKey: evmKey,
-                  accountIndex: entry.accountIndex,
-                  amount: entry.balance,
-                ),
-                auth: _auth,
-                logger: _logger,
-                nwc: getIt<Nwc>(),
-                payments: getIt<Payments>(),
-                quoteService: getIt<SwapOutQuoteService>(),
-              ),
-            );
           }
         }
         return ops;
       });
+
+  /// Parse a `seed:index` or similar reason tag back to an account index.
+  static int? _accountIndexFromReason(String? reason) {
+    if (reason == null) return null;
+    final parts = reason.split(':');
+    if (parts.length >= 2) return int.tryParse(parts.last);
+    return null;
+  }
 
   Future<int> recoverStaleOperations({
     bool isBackground = false,
@@ -303,16 +307,12 @@ class Evm {
     _isRecovering = true;
     try {
       final swapRecoverer = getIt<SwapRecoverer>();
-      final escrowRecoverer = getIt<EscrowFundRecoverer>();
-      final swapsResolved = await swapRecoverer.recoverAll(
+      // SwapRecoverer handles both plain swaps AND escrow fund swaps
+      // (via postClaimCalls on SwapInData).
+      return await swapRecoverer.recoverAll(
         isBackground: isBackground,
         onProgress: onProgress,
       );
-      final escrowsResolved = await escrowRecoverer.recoverAll(
-        isBackground: isBackground,
-        onProgress: onProgress,
-      );
-      return swapsResolved + escrowsResolved;
     } catch (e) {
       _logger.e('Evm.recoverStaleOperations failed: $e');
       return 0;

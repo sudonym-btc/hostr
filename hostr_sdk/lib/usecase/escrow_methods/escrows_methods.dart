@@ -58,7 +58,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         forms.add(
           AcceptedPaymentForm(
             denomination: 'BTC',
-            tokenTagId: Token.rbtc(chain.config.chainId).tagId,
+            tokenTagId: Token.native(chain.config.chainId).tagId,
           ),
         );
 
@@ -67,12 +67,8 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
             swaps.supportsTokenAddress(EthereumAddress.fromHex(tbtc.address))) {
           forms.add(
             AcceptedPaymentForm(
-              denomination: 'BTC',
-              tokenTagId: Token(
-                chainId: chain.config.chainId,
-                address: tbtc.address,
-                decimals: tbtc.decimals,
-              ).tagId,
+              denomination: tbtc.denomination,
+              tokenTagId: '${chain.config.chainId}:${tbtc.address}',
             ),
           );
         }
@@ -82,12 +78,8 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       if (usdt != null) {
         forms.add(
           AcceptedPaymentForm(
-            denomination: 'USD',
-            tokenTagId: Token(
-              chainId: chain.config.chainId,
-              address: usdt.address,
-              decimals: usdt.decimals,
-            ).tagId,
+            denomination: usdt.denomination,
+            tokenTagId: '${chain.config.chainId}:${usdt.address}',
           ),
         );
       }

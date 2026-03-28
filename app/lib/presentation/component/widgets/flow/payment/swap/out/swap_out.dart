@@ -108,12 +108,13 @@ class SwapOutConfirmWidget extends StatefulWidget {
 }
 
 class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
-  late final Future<FeeBreakdown> _feesFuture;
+  late final Future<SwapOutQuote> _quoteFuture;
 
   @override
   void initState() {
     super.initState();
-    _feesFuture = context.read<SwapOutOperation>().estimateFees();
+    final op = context.read<SwapOutOperation>();
+    _quoteFuture = op.chain.swapOutQuote(params: op.params);
   }
 
   @override
@@ -121,8 +122,8 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       title: AppLocalizations.of(context)!.withdrawFundsTitle,
-      content: FutureBuilder<FeeBreakdown>(
-        future: _feesFuture,
+      content: FutureBuilder<SwapOutQuote>(
+        future: _quoteFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: AppLoadingIndicator.large());
@@ -142,8 +143,8 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
             );
           }
 
-          final fees = snapshot.data!;
-          final op = context.read<SwapOutOperation>();
+          final quote = snapshot.data!;
+          final fees = quote.feeBreakdown;
           final baseStyle = Theme.of(context).textTheme.bodySmall!;
           final subtleStyle = baseStyle.copyWith(
             fontWeight: FontWeight.w400,
@@ -151,7 +152,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
           );
 
           return AmountWidget(
-            amount: op.invoiceAmount!.toDenominated(),
+            amount: quote.invoiceAmount.toDenominated(),
             feeWidget: Text(
               "+ ${formatAmount(fees.networkFees)} in network fees${fees.gasSponsored ? ' (gas sponsored)' : ''}",
               style: subtleStyle,

@@ -8,7 +8,7 @@ import 'package:models/main.dart';
 import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
-import '../../models/fee_breakdown.dart';
+import '../../chain/evm_chain.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
 import 'swap_out_models.dart';
@@ -21,14 +21,6 @@ abstract class SwapOutOperation
     extends OperationMachine<SwapOutState, SwapOutStep> {
   final Auth auth;
   final SwapOutParams params;
-
-  /// On-chain balance computed during the last [estimateFees] call.
-  /// Available after [estimateFees] completes.
-  TokenAmount? balance;
-
-  /// Invoice amount computed during the last [estimateFees] call.
-  /// Available after [estimateFees] completes.
-  TokenAmount? invoiceAmount;
 
   /// Completer used to wait for an externally-provided invoice when no NWC
   /// connection is available.
@@ -157,5 +149,6 @@ abstract class SwapOutOperation
 
   // ── Abstract: chain-specific ──────────────────────────────────────
 
-  Future<FeeBreakdown> estimateFees();
+  /// The EVM chain this operation runs on.
+  EvmChain get chain;
 }

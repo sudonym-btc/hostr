@@ -51,6 +51,13 @@ class EvmChainConfig {
   /// escrow-method Nostr event.
   final String? escrowContractAddress;
 
+  /// Denomination for the chain's native currency.
+  ///
+  /// E.g. `"ETH"` for Arbitrum/Ethereum, `"BTC"` for Rootstock.
+  /// Used by [TokenDisplayResolver] and format functions to display gas fees
+  /// with the correct currency symbol.
+  final String nativeDenomination;
+
   /// Well-known ERC-20 tokens on this chain (symbol → config).
   ///
   /// These are tokens the app needs to know about operationally — e.g. for
@@ -62,6 +69,7 @@ class EvmChainConfig {
     required this.id,
     required this.chainId,
     required this.rpcUrl,
+    required this.nativeDenomination,
     this.boltzCurrency,
     this.accountAbstraction,
     this.escrowContractAddress,
@@ -82,6 +90,7 @@ class EvmChainConfig {
       id: json['id'] as String,
       chainId: json['chainId'] as int,
       rpcUrl: json['rpcUrl'] as String,
+      nativeDenomination: json['nativeDenomination'] as String? ?? 'BTC',
       boltzCurrency: json['boltzCurrency'] as String?,
       accountAbstraction: json['accountAbstraction'] != null
           ? AAConfig.fromJson(
@@ -104,6 +113,7 @@ class EvmChainConfig {
     'id': id,
     'chainId': chainId,
     'rpcUrl': rpcUrl,
+    'nativeDenomination': nativeDenomination,
     if (boltzCurrency != null) 'boltzCurrency': boltzCurrency,
     if (accountAbstraction != null)
       'accountAbstraction': accountAbstraction!.toJson(),
@@ -115,16 +125,22 @@ class EvmChainConfig {
 }
 
 /// Config for a well-known ERC-20 token on a specific chain.
+///
+/// Does **not** carry `decimals` — those are resolved on-chain via
+/// `IERC20Metadata.decimals()` and cached by [EvmChain].
 class TokenConfig {
   /// Checksummed EIP-55 contract address.
   final String address;
 
-  /// Number of decimal places (e.g. 6 for USDT, 18 for tBTC).
-  final int decimals;
+  /// Unit-of-account denomination, e.g. `"BTC"` for tBTC, `"USD"` for USDT.
+  ///
+  /// Used by [TokenDisplayResolver] to decide how to format amounts and
+  /// by [EscrowMethods] to build `AcceptedPaymentForm` entries.
+  final String denomination;
 
   /// Solidity storage slot index for the `balanceOf` mapping.
   ///
-  /// Used by [EscrowFundOperation] to build `eth_estimateUserOperationGas`
+  /// Used by [EscrowFundPreparer] to build `eth_estimateUserOperationGas`
   /// state overrides that simulate having a token balance before the swap
   /// delivers it.
   ///
@@ -145,7 +161,7 @@ class TokenConfig {
 
   const TokenConfig({
     required this.address,
-    required this.decimals,
+    required this.denomination,
     this.balanceStorageSlot = 0,
     this.allowanceStorageSlot = 1,
   });
@@ -153,7 +169,7 @@ class TokenConfig {
   factory TokenConfig.fromJson(Map<String, dynamic> json) {
     return TokenConfig(
       address: json['address'] as String,
-      decimals: json['decimals'] as int,
+      denomination: json['denomination'] as String,
       balanceStorageSlot: json['balanceStorageSlot'] as int? ?? 0,
       allowanceStorageSlot: json['allowanceStorageSlot'] as int? ?? 1,
     );
@@ -161,7 +177,7 @@ class TokenConfig {
 
   Map<String, dynamic> toJson() => {
     'address': address,
-    'decimals': decimals,
+    'denomination': denomination,
     if (balanceStorageSlot != 0) 'balanceStorageSlot': balanceStorageSlot,
     if (allowanceStorageSlot != 1) 'allowanceStorageSlot': allowanceStorageSlot,
   };

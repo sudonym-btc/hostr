@@ -7,8 +7,7 @@ import '../evm/evm.dart';
 import 'operations/claim/escrow_claim_models.dart';
 import 'operations/claim/escrow_claim_operation.dart';
 import 'operations/fund/escrow_fund_models.dart';
-import 'operations/fund/escrow_fund_operation.dart';
-import 'operations/fund/escrow_fund_registry.dart';
+import 'operations/fund/escrow_fund_preparer.dart';
 import 'operations/release/escrow_release_models.dart';
 import 'operations/release/escrow_release_operation.dart';
 import 'supported_escrow_contract/supported_escrow_contract.dart';
@@ -17,24 +16,14 @@ import 'supported_escrow_contract/supported_escrow_contract.dart';
 class EscrowUseCase {
   final CustomLogger _logger;
   final Evm _evm;
-  final EscrowFundRegistry _escrowFundRegistry;
 
-  EscrowUseCase({
-    required CustomLogger logger,
-    required Evm evm,
-    required EscrowFundRegistry escrowFundRegistry,
-  }) : _evm = evm,
-       _escrowFundRegistry = escrowFundRegistry,
-       _logger = logger.scope('escrow');
+  EscrowUseCase({required CustomLogger logger, required Evm evm})
+    : _evm = evm,
+      _logger = logger.scope('escrow');
 
-  EscrowFundOperation fund(EscrowFundParams params) =>
+  EscrowFundPreparer fund(EscrowFundParams params) =>
       _logger.spanSync('fund', () {
-        final operation = getIt<EscrowFundOperation>(param1: params);
-        final tradeId = params.negotiateReservation.getDtag();
-        if (tradeId != null) {
-          _escrowFundRegistry.register(tradeId, operation);
-        }
-        return operation;
+        return getIt<EscrowFundPreparer>(param1: params);
       });
 
   EscrowClaimOperation claim(EscrowClaimParams params) =>
@@ -55,7 +44,8 @@ class EscrowUseCase {
 
     final contract = _evm
         .getChainForEscrowService(selectedEscrow.service)
-        .escrow.getSupportedEscrowContract(selectedEscrow.service);
+        .escrow
+        .getSupportedEscrowContract(selectedEscrow.service);
 
     final source = contract.allEvents(
       ContractEventsParams(tradeId: tradeId),

@@ -40,4 +40,12 @@ class FlutterCryptoProvider implements CryptoProvider {
     );
     return Uint8List.fromList(derived);
   }
+
+  /// Web Crypto API has no secp256k1 support.
+  /// The SDK will compute the key via NDK's pure-Dart ECDH and cache it.
+  @override
+  Future<Uint8List?> nip44ConversationKey(
+    String privKeyHex,
+    String xOnlyPubKeyHex,
+  ) async => null;
 }

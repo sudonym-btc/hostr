@@ -33,7 +33,9 @@ class EscrowReleaseOperation extends EscrowCall {
   String get tradeId => params.tradeId;
 
   @override
-  List<CallIntent> buildCallIntents() => [
-    contract.release(ReleaseArgs(tradeId: params.tradeId, ethKey: signer)),
-  ];
+  Map<String, Call> buildCalls() => {
+    'releaseToCounterparty': contract.release(
+      ReleaseArgs(tradeId: params.tradeId, ethKey: signer),
+    ),
+  };
 }

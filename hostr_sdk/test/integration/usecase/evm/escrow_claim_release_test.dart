@@ -182,7 +182,7 @@ Future<void> _fundTradeWithoutSwap({
     escrowService,
   );
 
-  final amount = configuredChain.resolveAmountInFundingToken(
+  final amount = await configuredChain.resolveAmountInFundingToken(
     trade.negotiateReservation.amount!,
   );
   const zeroAddress = '0x0000000000000000000000000000000000000000';

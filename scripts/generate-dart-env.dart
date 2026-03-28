@@ -172,9 +172,12 @@ String _generateDart(String target, Map<String, String> vars) {
     // Boltz native currency (e.g. 'RBTC') — per-chain
     final boltzCurrency = vars['${prefix}_BOLTZ_CURRENCY'] ?? '';
 
+    // Native currency denomination (e.g. 'ETH', 'BTC') — per-chain
+    final nativeDenomination = vars['${prefix}_NATIVE_DENOMINATION'] ?? 'BTC';
+
     // Token addresses — per-chain only
     final tbtcAddr = vars['${prefix}_TBTC_ADDRESS'] ?? '';
-    final tbtcDec = int.tryParse(vars['${prefix}_TBTC_DECIMALS'] ?? '') ?? 18;
+    // tBTC is always denominated in BTC (satoshis). Decimals resolved on-chain.
     final tbtcBalSlot = int.tryParse(
       vars['${prefix}_TBTC_BALANCE_STORAGE_SLOT'] ?? '',
     );
@@ -182,7 +185,7 @@ String _generateDart(String target, Map<String, String> vars) {
       vars['${prefix}_TBTC_ALLOWANCE_STORAGE_SLOT'] ?? '',
     );
     final usdtAddr = vars['${prefix}_USDT_ADDRESS'] ?? '';
-    final usdtDec = int.tryParse(vars['${prefix}_USDT_DECIMALS'] ?? '') ?? 6;
+    // USDT is always denominated in USD. Decimals resolved on-chain.
     final usdtBalSlot = int.tryParse(
       vars['${prefix}_USDT_BALANCE_STORAGE_SLOT'] ?? '',
     );
@@ -194,6 +197,7 @@ String _generateDart(String target, Map<String, String> vars) {
     buf.writeln("      id: '${_escape(chainId)}',");
     buf.writeln('      chainId: $chainIdNum,');
     buf.writeln("      rpcUrl: '${_escape(rpcUrl)}',");
+    buf.writeln("      nativeDenomination: '${_escape(nativeDenomination)}',");
     if (boltzCurrency.isNotEmpty) {
       buf.writeln("      boltzCurrency: '${_escape(boltzCurrency)}',");
     }
@@ -227,7 +231,7 @@ String _generateDart(String target, Map<String, String> vars) {
       if (tbtcAddr.isNotEmpty) {
         buf.writeln("        'tBTC': TokenConfig(");
         buf.writeln("          address: '${_escape(tbtcAddr)}',");
-        buf.writeln('          decimals: $tbtcDec,');
+        buf.writeln("          denomination: 'BTC',");
         if (tbtcBalSlot != null) {
           buf.writeln('          balanceStorageSlot: $tbtcBalSlot,');
         }
@@ -239,7 +243,7 @@ String _generateDart(String target, Map<String, String> vars) {
       if (usdtAddr.isNotEmpty) {
         buf.writeln("        'USDT': TokenConfig(");
         buf.writeln("          address: '${_escape(usdtAddr)}',");
-        buf.writeln('          decimals: $usdtDec,');
+        buf.writeln("          denomination: 'USD',");
         if (usdtBalSlot != null) {
           buf.writeln('          balanceStorageSlot: $usdtBalSlot,');
         }

@@ -4,8 +4,8 @@ import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
 import '../../../util/custom_logger.dart';
-import '../call_intent.dart';
 import '../config/evm_config.dart';
+import '../evm_call.dart';
 
 /// Per-chain ERC-4337 Account Abstraction capability.
 ///
@@ -40,18 +40,16 @@ class AACapability {
 
   /// Send one or more contract calls as a single batched UserOperation.
   ///
-  /// For a single call, pass a one-element list. For atomic multi-step flows
-  /// (e.g. ERC-20 approve + lock), pass multiple intents.
+  /// For a single call, pass a one-element map. For atomic multi-step flows
+  /// (e.g. ERC-20 approve + lock), pass multiple entries.
   /// Returns the on-chain transaction hash.
-  Future<String> sendUserOp(
-    EthPrivateKey signer,
-    List<CallIntent> intents,
-  ) => _logger.span(
-    'AACapability.sendUserOp(${intents.map((i) => i.methodName).join(", ")})',
-    () async {
-      return _sendCalls(signer, intents);
-    },
-  );
+  Future<String> sendUserOp(EthPrivateKey signer, Map<String, Call> calls) =>
+      _logger.span(
+        'AACapability.sendUserOp(${calls.keys.join(", ")})',
+        () async {
+          return _sendCalls(signer, calls);
+        },
+      );
 
   /// Estimate the gas fee for a set of [intents] as a single batched
   /// UserOperation.
@@ -69,7 +67,7 @@ class AACapability {
   /// yet (e.g. swap claim before lockup).
   Future<({BigInt gasCostWei, bool gasSponsored})> estimateGasFee(
     EthPrivateKey signer, {
-    List<CallIntent>? intents,
+    required Map<String, Call> calls,
     List<permissionless.StateOverride>? stateOverride,
   }) => _logger.span('AACapability.estimateGasFee', () async {
     final publicClient = _initPublicClient();
@@ -80,59 +78,35 @@ class AACapability {
       bundler: bundler,
     );
 
-    try {
-      final feeQuote = await _getFeeQuote(bundler, publicClient);
-      final calls = intents != null
-          ? intents.map(_toPermissionlessCall).toList()
-          : [
-              // Dummy no-op call for baseline overhead estimation.
-              permissionless.Call(
-                to: await _initSimpleAccount(
-                  signer,
-                  publicClient: publicClient,
-                ).getAddress(),
-                value: BigInt.zero,
-                data: '0x',
-              ),
-            ];
+    final feeQuote = await _getFeeQuote(bundler, publicClient);
+    final callList = calls.values.toList();
 
-      final userOp = await client.prepareUserOperation(
-        calls: calls,
-        maxFeePerGas: feeQuote.maxFeePerGas,
-        maxPriorityFeePerGas: feeQuote.maxPriorityFeePerGas,
-        stateOverride: stateOverride,
-      );
+    final userOp = await client.prepareUserOperation(
+      calls: callList,
+      maxFeePerGas: feeQuote.maxFeePerGas,
+      maxPriorityFeePerGas: feeQuote.maxPriorityFeePerGas,
+      stateOverride: stateOverride,
+    );
 
-      final gasCostWei = permissionless.getRequiredPrefund(userOp);
+    final gasCostWei = permissionless.getRequiredPrefund(userOp);
 
-      _logger.d(
-        'estimateGasFee: prefund=$gasCostWei wei, '
-        'maxFeePerGas=${feeQuote.maxFeePerGas}',
-      );
+    _logger.d(
+      'estimateGasFee: prefund=$gasCostWei wei, '
+      'maxFeePerGas=${feeQuote.maxFeePerGas}',
+    );
+    client.close();
 
-      return (
-        gasCostWei: gasCostWei,
-        gasSponsored: _aaConfig.paymasterAddress.isNotEmpty,
-      );
-    } catch (e) {
-      _logger.w('UserOp gas estimation failed, falling back to heuristic: $e');
-      // Conservative fallback: 500k gas at current fee quote.
-      final feeQuote = await _getFeeQuote(bundler, publicClient);
-      final fallbackGas = BigInt.from(500000) * feeQuote.maxFeePerGas;
-      return (
-        gasCostWei: fallbackGas,
-        gasSponsored: _aaConfig.paymasterAddress.isNotEmpty,
-      );
-    } finally {
-      client.close();
-    }
+    return (
+      gasCostWei: gasCostWei,
+      gasSponsored: _aaConfig.paymasterAddress.isNotEmpty,
+    );
   });
 
   // ── Internals ─────────────────────────────────────────────────────
 
   Future<String> _sendCalls(
     EthPrivateKey signer,
-    List<CallIntent> intents,
+    Map<String, Call> namedCalls,
   ) async {
     final publicClient = _initPublicClient();
     final bundler = _initPimlicoClient();
@@ -143,7 +117,7 @@ class AACapability {
     _logger.i(
       'sendUserOp: smartAccount=${smartAccountAddress.hex}, '
       'deployed=$isDeployed, chainId=$_chainId, '
-      'calls=[${intents.map((i) => '${i.methodName}→${i.to.hex}').join(', ')}]',
+      'calls=[${namedCalls.entries.map((e) => '${e.key}→${e.value.to.hex}').join(', ')}]',
     );
 
     final client = _initSmartAccountClient(
@@ -152,7 +126,7 @@ class AACapability {
       bundler: bundler,
     );
     final feeQuote = await _getFeeQuote(bundler, publicClient);
-    final calls = intents.map(_toPermissionlessCall).toList();
+    final calls = namedCalls.values.toList();
 
     _logger.d(
       'sendUserOp fee: maxFeePerGas=${feeQuote.maxFeePerGas}, '
@@ -177,13 +151,6 @@ class AACapability {
       client.close();
     }
   }
-
-  permissionless.Call _toPermissionlessCall(CallIntent intent) =>
-      permissionless.Call(
-        to: intent.to,
-        value: intent.value.getInWei,
-        data: '0x${hex.encode(intent.data)}',
-      );
 
   permissionless.SmartAccountClient _initSmartAccountClient(
     EthPrivateKey signer, {
