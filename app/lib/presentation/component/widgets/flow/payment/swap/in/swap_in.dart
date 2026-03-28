@@ -139,8 +139,8 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                     }
                   }
                 : null,
-            feeWidget: FutureBuilder(
-              future: operation.estimateFees(),
+            feeWidget: FutureBuilder<SwapInQuote>(
+              future: operation.chain.swapInQuote(params: operation.params),
               builder: (context, snapshot) {
                 final baseStyle = Theme.of(context).textTheme.bodySmall!;
                 final subtleStyle = baseStyle.copyWith(
@@ -164,7 +164,7 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                   );
                 }
 
-                final fees = snapshot.data!;
+                final fees = snapshot.data!.feeBreakdown;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -173,6 +173,12 @@ class DenominatedAmount {
   /// Whether this denomination represents the BTC family (Lightning, RBTC).
   bool get isBtc => denomination == 'BTC';
 
+  /// Whether this denomination represents US-dollar stablecoins (USDT, etc.).
+  bool get isUsd => denomination == 'USD';
+
+  /// Whether this denomination represents the ETH family (Arbitrum, Ethereum).
+  bool get isEth => denomination == 'ETH';
+
   // ── Equality ──────────────────────────────────────────────────────
 
   @override

@@ -19,17 +19,12 @@ class MoneyInFlightWidget extends StatefulWidget {
 }
 
 class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
-  late final Stream<TokenAmount> _balanceStream;
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
+  late final Stream<List<TokenAmount>> _balanceStream;
 
   @override
   void initState() {
     super.initState();
-    _balanceStream = getIt<Hostr>().evm.subscribeBalance();
+    _balanceStream = getIt<Hostr>().fundsMonitor.displayBalance$;
   }
 
   @override
@@ -41,7 +36,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
         children: [
           Gap.vertical.md(),
 
-          StreamBuilder(
+          StreamBuilder<List<TokenAmount>>(
             stream: _balanceStream,
             builder: (context, snapshot) {
               return AnimatedSwitcher(
@@ -50,45 +45,68 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
                 switchOutCurve: kAnimationCurve,
                 child: !snapshot.hasData
                     ? const AppLoadingIndicator.medium(key: ValueKey('loading'))
-                    : Row(
+                    : _BalanceList(
                         key: const ValueKey('ready'),
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          Text(
-                            style: Theme.of(context).textTheme.displayMedium!
-                                .copyWith(fontWeight: FontWeight.bold),
-                            formatAmount(
-                              snapshot.data!.toDenominated(),
-                              exact: false,
-                            ),
-                          ),
-                          if (snapshot.data!.value > BigInt.zero)
-                            FilledButton.tonal(
-                              onPressed: () async {
-                                final ops = await getIt<Hostr>().evm
-                                    .swapOutAll();
-                                if (!mounted) return;
-                                if (ops.isNotEmpty) {
-                                  showAppModal(
-                                    context,
-                                    builder: (_) =>
-                                        SwapOutFlowWidget(cubit: ops.first),
-                                  );
-                                }
-                              },
-                              child: Text(
-                                AppLocalizations.of(context)!.withdraw,
-                              ),
-                            ),
-                        ],
+                        balances: snapshot.data!,
                       ),
               );
             },
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BalanceList extends StatelessWidget {
+  final List<TokenAmount> balances;
+
+  const _BalanceList({super.key, required this.balances});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAnyBalance = balances.any((b) => b.value > BigInt.zero);
+
+    if (balances.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final balance in balances)
+          if (balance.value > BigInt.zero)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Text(
+                    style: Theme.of(context).textTheme.displayMedium!.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    formatAmount(balance.toDenominated(), exact: false),
+                  ),
+                  if (hasAnyBalance)
+                    FilledButton.tonal(
+                      onPressed: () async {
+                        final ops = await getIt<Hostr>().evm.swapOutAll();
+                        if (!context.mounted) return;
+                        if (ops.isNotEmpty) {
+                          showAppModal(
+                            context,
+                            builder: (_) => SwapOutFlowWidget(cubit: ops.first),
+                          );
+                        }
+                      },
+                      child: Text(AppLocalizations.of(context)!.withdraw),
+                    ),
+                ],
+              ),
+            ),
+      ],
     );
   }
 }

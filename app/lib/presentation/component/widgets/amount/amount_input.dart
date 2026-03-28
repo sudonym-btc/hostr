@@ -29,18 +29,40 @@ BigInt _toSats(TokenAmount amount) {
   return amount.value ~/ factor;
 }
 
-/// Whether this token should be displayed as integer satoshis.
-bool _isBtcFamily(Token token) => token.isLightning || token.isNative;
-
 /// Format a [DenominatedAmount] for display (listing prices, negotiation amounts).
+///
+/// - BTC → `"₿ 50,000"` (integer sats)
+/// - USD → `"$ 12.50"` (2-decimal fiat)
+/// - Unknown → decimal string with no prefix
 String formatAmount(DenominatedAmount amount, {bool exact = true}) {
   if (amount.isBtc) {
     const prefix = '₿ ';
-    final sats = amount.value.toInt();
+    // Rescale to sats (8 decimals) — tBTC has 18 decimals, Lightning has 8.
+    final sats = amount.decimals <= 8
+        ? amount.value
+        : amount.value ~/ BigInt.from(10).pow(amount.decimals - 8);
     final value = exact
-        ? _commaFormat.format(sats)
-        : compactFormat(false).format(sats);
+        ? _commaFormat.format(sats.toInt())
+        : compactFormat(false).format(sats.toInt());
     return '$prefix$value';
+  }
+
+  if (amount.isUsd) {
+    final amountAsDouble = amount.value / BigInt.from(10).pow(amount.decimals);
+    if (!exact) {
+      return '\$ ${compactFormat(true).format(amountAsDouble)}';
+    }
+    return '\$ ${format(true).format(amountAsDouble)}';
+  }
+
+  if (amount.isEth) {
+    const prefix = 'Ξ ';
+    final amountAsDouble = amount.value / BigInt.from(10).pow(amount.decimals);
+    if (!exact) {
+      return '$prefix${compactFormat(true).format(amountAsDouble)}';
+    }
+    final formatted = trimTrailingZeros(amountAsDouble.toStringAsFixed(8));
+    return '$prefix$formatted';
   }
 
   var amountAsDouble = amount.value / BigInt.from(10).pow(amount.decimals);
@@ -54,9 +76,26 @@ String formatAmount(DenominatedAmount amount, {bool exact = true}) {
   return '$value';
 }
 
-/// Format a [TokenAmount] for display (on-chain amounts like escrow funded events).
-String formatTokenAmount(TokenAmount amount, {bool exact = true}) {
-  if (_isBtcFamily(amount.token)) {
+/// Format a [TokenAmount] for display (on-chain amounts like escrow events).
+///
+/// When [denomination] is provided (e.g. `"BTC"`, `"USD"`), the amount is
+/// converted to a [DenominatedAmount] and formatted with the proper symbol.
+/// Otherwise falls back to BTC display for Lightning/native tokens and a
+/// raw decimal string for ERC-20s.
+String formatTokenAmount(
+  TokenAmount amount, {
+  bool exact = true,
+  String? denomination,
+}) {
+  if (denomination != null) {
+    return formatAmount(
+      amount.toDenominated(denomination: denomination),
+      exact: exact,
+    );
+  }
+
+  // Fallback: no denomination provided — use token type heuristics.
+  if (amount.token.isLightning || amount.token.isNative) {
     const prefix = '₿ ';
     final sats = _toSats(amount).toInt();
     final value = exact

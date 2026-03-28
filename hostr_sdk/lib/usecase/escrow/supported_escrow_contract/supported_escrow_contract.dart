@@ -4,9 +4,10 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../util/main.dart';
-import '../../evm/call_intent.dart';
+import '../../evm/chain/evm_chain.dart';
+import '../../evm/evm_call.dart';
 
-export '../../evm/call_intent.dart';
+export '../../evm/evm_call.dart';
 
 /// On-chain trade data returned by [SupportedEscrowContract.getTrade].
 class OnChainTrade {
@@ -114,15 +115,15 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<bool> canClaim({required String tradeId});
   Future<bool> canRelease(ReleaseArgs args);
 
-  CallIntent fund(FundArgs args);
-  CallIntent claim({required String tradeId, required EthPrivateKey ethKey});
-  CallIntent release(ReleaseArgs args);
-  CallIntent arbitrate({
+  Call fund(FundArgs args);
+  Call claim({required String tradeId, required EthPrivateKey ethKey});
+  Call release(ReleaseArgs args);
+  Call arbitrate({
     required String tradeId,
     required double forward,
     required EthPrivateKey ethKey,
   });
-  CallIntent withdraw(WithdrawArgs args);
+  Call withdraw(WithdrawArgs args);
 
   /// Read the amount a [beneficiary] can still withdraw from a settled trade.
   /// Returns `BigInt.zero` if nothing is pending.
@@ -156,21 +157,18 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     }
   }
 
-  CallIntent buildIntent({
+  Call buildCall({
     required String functionName,
     required List<dynamic> args,
-    required String methodName,
-    EtherAmount? value,
+    BigInt? value,
   }) {
     final function = contract.self.abi.functions.firstWhere(
       (f) => f.name == functionName && f.parameters.length == args.length,
     );
-    final data = function.encodeCall(args);
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
-      data: data,
-      value: value ?? EtherAmount.zero(),
-      methodName: methodName,
+      data: function.encodeCall(args),
+      value: value,
     );
   }
 }
@@ -266,10 +264,21 @@ class ZapReleasedEvent extends PaymentReleasedEvent implements ZapEvent {
 sealed class EscrowEvent extends PaymentEvent {
   final EscrowServiceSelected? escrowService;
   final BlockInformation block;
+
+  /// The EVM chain this event was emitted on.
+  /// Non-null when the event was sourced from an [EvmChain]-backed escrow.
+  final EvmChain? chain;
+
+  /// The escrow contract that emitted this event.
+  /// Non-null when the event was sourced from a known [SupportedEscrowContract].
+  final SupportedEscrowContract? contract;
+
   EscrowEvent({
     required super.tradeId,
     required this.block,
     this.escrowService,
+    this.chain,
+    this.contract,
   });
 }
 
@@ -278,6 +287,8 @@ class UnknownEscrowEvent extends EscrowEvent {
     required super.tradeId,
     required super.block,
     super.escrowService,
+    super.chain,
+    super.contract,
   });
 }
 
@@ -293,6 +304,8 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
     required super.tradeId,
     required super.block,
     super.escrowService,
+    super.chain,
+    super.contract,
     required this.transactionHash,
     required this.amount,
     required this.unlockAt,
@@ -306,6 +319,8 @@ class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
     required super.tradeId,
     required super.block,
     super.escrowService,
+    super.chain,
+    super.contract,
     required this.transactionHash,
   });
 }
@@ -318,6 +333,8 @@ class EscrowArbitratedEvent extends EscrowEvent
     required super.tradeId,
     required super.block,
     super.escrowService,
+    super.chain,
+    super.contract,
     required this.transactionHash,
     required this.forwarded,
   });
@@ -329,6 +346,8 @@ class EscrowClaimedEvent extends EscrowEvent implements PaymentClaimedEvent {
     required super.tradeId,
     required super.block,
     super.escrowService,
+    super.chain,
+    super.contract,
     required this.transactionHash,
   });
 }

@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:convert/convert.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/main.dart';
+import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../datasources/contracts/boltz/IERC20.g.dart';
+import '../../../datasources/contracts/boltz/IERC20Metadata.g.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/http_client_factory.dart';
 import '../../../util/network_error.dart';
@@ -14,16 +18,18 @@ import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../nwc/nwc.dart';
 import '../../payments/payments.dart';
-import '../call_intent.dart';
 import '../capabilities/aa_capability.dart';
 import '../capabilities/boltz_swap_provider.dart';
 import '../capabilities/escrow_capability.dart';
 import '../config/evm_config.dart';
+import '../evm_call.dart';
 import '../operations/swap_in/swap_in_models.dart';
 import '../operations/swap_in/swap_in_operation.dart' show SwapInOperation;
+import '../operations/swap_in/swap_in_quote_service.dart';
 import '../operations/swap_out/swap_out_models.dart';
 import '../operations/swap_out/swap_out_quote_service.dart';
 import '../operations/swap_out/swap_out_state.dart';
+import 'evm_balance_monitor.dart';
 import 'operations/swap_in/swap_in_operation.dart';
 import 'operations/swap_out/swap_out_operation.dart';
 
@@ -52,6 +58,15 @@ class EvmChain {
   /// Whether this chain uses ERC-4337 Account Abstraction.
   bool get hasAA => aa != null;
 
+  /// Quote services — injected so callers can get fee estimates without
+  /// building a full operation.
+  final SwapInQuoteService swapInQuoteService;
+  final SwapOutQuoteService swapOutQuoteService;
+
+  /// Balance monitor — tracks a dynamic set of addresses and tokens,
+  /// emitting [BalanceUpdate]s on each block tick.
+  late final EvmBalanceMonitor balanceMonitor;
+
   Web3Client _client;
 
   /// The current [Web3Client] instance.
@@ -75,14 +90,23 @@ class EvmChain {
   final Map<String, Timer?> _getLogsTimers = {};
   final StreamController<void> _pollNow = StreamController<void>.broadcast();
 
+  /// ERC-20 token registry — keyed by lower-case checksummed address.
+  ///
+  /// Populated lazily via [resolveToken]. Native tokens are also stored here
+  /// on first access so all token lookups share a single cache.
+  final Map<String, Token> _tokenRegistry = {};
+
   EvmChain({
     required this.config,
     required this.auth,
     required CustomLogger logger,
+    required this.swapInQuoteService,
+    required this.swapOutQuoteService,
     this.aa,
   }) : logger = logger.scope('evm-chain'),
        _client = _buildWeb3Client(config.rpcUrl) {
     escrow = EscrowCapability(chain: this, logger: logger);
+    balanceMonitor = EvmBalanceMonitor(chain: this, logger: logger);
   }
 
   static Web3Client _buildWeb3Client(String rpcUrl) =>
@@ -134,6 +158,7 @@ class EvmChain {
   });
 
   Future<void> dispose() async {
+    await balanceMonitor.dispose();
     for (final timer in _getLogsTimers.values) {
       timer?.cancel();
     }
@@ -447,22 +472,6 @@ class EvmChain {
     if (!_pollNow.isClosed) _pollNow.add(null);
   }
 
-  Stream<TokenAmount> subscribeBalance(EthereumAddress address) async* {
-    try {
-      yield await getBalance(address);
-    } catch (e) {
-      logger.w('Failed initial balance fetch: $e');
-    }
-
-    await for (final _ in _newBlocks()) {
-      try {
-        yield await getBalance(address);
-      } catch (e) {
-        logger.w('Failed to fetch balance on new block: $e');
-      }
-    }
-  }
-
   Future<TransactionInformation?> getTransaction(
     String txHash,
   ) => logger.span('getTransaction', () async {
@@ -635,22 +644,18 @@ class EvmChain {
   ///
   /// Uses the generated [IERC20] binding to call `balanceOf` and wraps
   /// the result in a [TokenAmount] with the correct [Token] metadata
-  /// resolved from [config.tokens] (falls back to 18 decimals).
+  /// resolved via [resolveToken] (cached in [_tokenRegistry]).
   Future<TokenAmount> getERC20Balance(
     EthereumAddress owner,
     EthereumAddress tokenAddress,
   ) => logger.span('getERC20Balance', () async {
-    final token = IERC20(address: tokenAddress, client: client);
+    final contract = IERC20(address: tokenAddress, client: client);
     final raw = await _callRpcWithRetry(
       'balanceOf(${tokenAddress.eip55With0x}, ${owner.eip55With0x})',
-      (_) => token.balanceOf((account: owner)),
+      (_) => contract.balanceOf((account: owner)),
     );
-    return tokenAmountFromEvm(
-      tokenAddress.eip55With0x,
-      raw,
-      chainId: config.chainId,
-      knownTokens: config.tokens,
-    );
+    final token = await resolveToken(tokenAddress.eip55With0x);
+    return TokenAmount(value: raw, token: token);
   });
 
   /// Scans all HD-derived addresses for non-zero ERC-20 balances across
@@ -722,34 +727,6 @@ class EvmChain {
         return funded;
       });
 
-  /// Returns the total balance across all HD-derived addresses that hold
-  /// funds, scanning up to [_maxScanIndex] indices.
-  Future<TokenAmount> getTotalBalance() =>
-      logger.span('getTotalBalance', () async {
-        final addresses = await getAddressesWithBalance();
-        return addresses.fold<TokenAmount>(
-          TokenAmount.zero(rbtc),
-          (sum, entry) => sum + entry.balance,
-        );
-      });
-
-  /// Emits the total balance across all used addresses on each new block.
-  Stream<TokenAmount> subscribeTotalBalance() async* {
-    try {
-      yield await getTotalBalance();
-    } catch (e) {
-      logger.w('Failed initial total balance fetch: $e');
-    }
-
-    await for (final _ in _newBlocks()) {
-      try {
-        yield await getTotalBalance();
-      } catch (e) {
-        logger.w('Failed to fetch total balance on new block: $e');
-      }
-    }
-  }
-
   Future<List<dynamic>> call(
     ContractAbi abi,
     EthereumAddress address,
@@ -781,51 +758,59 @@ class EvmChain {
 
   // ── Transaction sending ───────────────────────────────────────────
 
-  /// Send one or more [CallIntent]s as a single atomic operation.
+  /// Send one or more [Call]s as a single atomic operation.
   ///
-  /// When AA is configured, the intents are batched into a single
-  /// UserOperation. Otherwise each intent is sent as a plain EOA
+  /// When AA is configured, the calls are batched into a single
+  /// UserOperation. Otherwise each call is sent as a plain EOA
   /// transaction (sequentially).
   ///
   /// Returns the on-chain transaction hash.
   Future<String> sendCalls(
     EthPrivateKey signer,
-    List<CallIntent> intents,
+    Map<String, Call> calls,
   ) async {
     if (aa != null) {
-      return aa!.sendUserOp(signer, intents);
+      return aa!.sendUserOp(signer, calls);
     }
-    return _sendEoaCalls(signer, intents);
+    return _sendEoaCalls(signer, calls);
   }
 
   // ── Gas estimation ────────────────────────────────────────────────
 
-  /// Estimate gas fee for the given call intents (or a baseline if omitted).
+  /// Estimate gas fee for the given calls (or a baseline if omitted).
   ///
   /// Delegates to AA when available; otherwise uses `eth_estimateGas`.
   Future<({BigInt gasCostWei, bool gasSponsored})> estimateGas(
     EthPrivateKey signer, {
-    List<CallIntent>? intents,
+    required Map<String, Call> calls,
+    List<permissionless.StateOverride>? stateOverride,
   }) async {
     if (aa != null) {
-      return aa!.estimateGasFee(signer, intents: intents);
+      return aa!.estimateGasFee(
+        signer,
+        calls: calls,
+        stateOverride: stateOverride,
+      );
     }
-    return _estimateEoaGas(signer, intents: intents);
+    return _estimateEoaGas(signer, calls: calls);
   }
 
   // ── EOA internals ─────────────────────────────────────────────────
 
   Future<String> _sendEoaCalls(
     EthPrivateKey signer,
-    List<CallIntent> intents,
+    Map<String, Call> calls,
   ) async {
     String? lastTxHash;
-    for (final intent in intents) {
+    for (final entry in calls.entries) {
+      final call = entry.value;
+      final value = EtherAmount.inWei(call.value);
+      final data = _hexToBytes(call.data);
       final estimatedGas = await client.estimateGas(
         sender: signer.address,
-        to: intent.to,
-        value: intent.value,
-        data: intent.data,
+        to: call.to,
+        value: value,
+        data: data,
       );
       final bufferedGas =
           (estimatedGas * BigInt.from(12) ~/ BigInt.from(10)) +
@@ -834,9 +819,9 @@ class EvmChain {
         signer,
         Transaction(
           from: signer.address,
-          to: intent.to,
-          value: intent.value,
-          data: intent.data,
+          to: call.to,
+          value: value,
+          data: data,
           maxGas: bufferedGas.toInt(),
         ),
         chainId: config.chainId,
@@ -846,11 +831,16 @@ class EvmChain {
     return lastTxHash!;
   }
 
+  static Uint8List _hexToBytes(String hexStr) {
+    final clean = hexStr.startsWith('0x') ? hexStr.substring(2) : hexStr;
+    return Uint8List.fromList(hex.decode(clean));
+  }
+
   Future<({BigInt gasCostWei, bool gasSponsored})> _estimateEoaGas(
     EthPrivateKey signer, {
-    List<CallIntent>? intents,
+    Map<String, Call>? calls,
   }) async {
-    if (intents == null || intents.isEmpty) {
+    if (calls == null || calls.isEmpty) {
       // Baseline estimate for contract interactions when the exact calldata is
       // not known yet (for example during swap-out quoting before Boltz has
       // returned the concrete lock parameters).
@@ -863,12 +853,13 @@ class EvmChain {
 
     BigInt totalGas = BigInt.zero;
     final gasPrice = await client.getGasPrice();
-    for (final intent in intents) {
+    for (final entry in calls.entries) {
+      final call = entry.value;
       final gas = await client.estimateGas(
         sender: signer.address,
-        to: intent.to,
-        value: intent.value,
-        data: intent.data,
+        to: call.to,
+        value: EtherAmount.inWei(call.value),
+        data: _hexToBytes(call.data),
       );
       totalGas += gas;
     }
@@ -890,6 +881,25 @@ class EvmChain {
       params: params,
     );
   }
+
+  // ── Quote factories ─────────────────────────────────────────────────────
+
+  /// Build a [SwapInQuote] for [params] on this chain.
+  ///
+  /// [escrowFee] is forwarded to [SwapInQuoteService.buildQuote] and should
+  /// only be set by [EscrowFundPreparer]; plain swap-in callers omit it.
+  Future<SwapInQuote> swapInQuote({
+    required SwapInParams params,
+    TokenAmount? escrowFee,
+  }) => swapInQuoteService.buildQuote(
+    chain: this,
+    params: params,
+    escrowFee: escrowFee,
+  );
+
+  /// Build a [SwapOutQuote] for [params] on this chain.
+  Future<SwapOutQuote> swapOutQuote({required SwapOutParams params}) =>
+      swapOutQuoteService.buildQuote(chain: this, params: params);
 
   /// Create a swap-out (submarine swap) operation for this chain.
   EvmSwapOutOperation swapOut({
@@ -915,30 +925,62 @@ class EvmChain {
 
   // ── Token resolution ────────────────────────────────────────────────
 
+  /// Resolve the full [Token] for an ERC-20 or native [address].
+  ///
+  /// Checks [_tokenRegistry] first; on a miss makes an on-chain
+  /// `IERC20Metadata.decimals()` call and writes the result back.
+  ///
+  /// This is the canonical one-stop resolver — callers should prefer this
+  /// over the lower-level [resolveTokenDecimals].
+  Future<Token> resolveToken(String address) async {
+    final key = address.toLowerCase();
+    final cached = _tokenRegistry[key];
+    if (cached != null) return cached;
+
+    // Native token — no on-chain call needed.
+    if (key == '0x0000000000000000000000000000000000000000') {
+      final token = Token.native(config.chainId);
+      _tokenRegistry[key] = token;
+      return token;
+    }
+
+    final contract = IERC20Metadata(
+      address: EthereumAddress.fromHex(address),
+      client: client,
+    );
+    final decimals = (await contract.decimals()).toInt();
+    final token = Token(
+      chainId: config.chainId,
+      address: EthereumAddress.fromHex(address).eip55With0x,
+      decimals: decimals,
+    );
+    _tokenRegistry[key] = token;
+    return token;
+  }
+
+  /// Synchronous read of the token registry.
+  ///
+  /// Returns `null` if the token has not yet been resolved via [resolveToken].
+  Token? tokenByAddress(String address) =>
+      _tokenRegistry[address.toLowerCase()];
+
+  /// Resolve the ERC-20 `decimals()` for [address].
+  ///
+  /// Delegates to [resolveToken] — results are cached in [_tokenRegistry].
+  Future<int> resolveTokenDecimals(String address) async =>
+      (await resolveToken(address)).decimals;
+
   /// Resolve the concrete on-chain funding token from Boltz chain info.
   ///
   /// If Boltz has ERC-20 tokens configured for this chain, returns the first
-  /// one (with correct decimals from [config.tokens]). Otherwise returns the
-  /// chain's native asset.
-  Token resolveBoltzFundingToken() {
+  /// one (with decimals resolved on-chain and cached in [_tokenRegistry]).
+  /// Otherwise returns the chain's native asset.
+  Future<Token> resolveBoltzFundingToken() async {
     final boltzTokens = swaps?.chainInfo.tokens ?? {};
     if (boltzTokens.isNotEmpty) {
-      final boltzTokenAddress = boltzTokens.values.first;
-      var decimals = 18;
-      for (final tokenConfig in config.tokens.values) {
-        if (tokenConfig.address.toLowerCase() ==
-            boltzTokenAddress.eip55With0x.toLowerCase()) {
-          decimals = tokenConfig.decimals;
-          break;
-        }
-      }
-      return Token(
-        chainId: config.chainId,
-        address: boltzTokenAddress.eip55With0x,
-        decimals: decimals,
-      );
+      return resolveToken(boltzTokens.values.first.eip55With0x);
     }
-    return Token.rbtc(config.chainId);
+    return Token.native(config.chainId);
   }
 
   /// Convert a [DenominatedAmount] (e.g. BTC sats) into a [TokenAmount]
@@ -946,8 +988,10 @@ class EvmChain {
   ///
   /// Scales from the denomination's decimal precision to the token's
   /// decimals.
-  TokenAmount resolveAmountInFundingToken(DenominatedAmount denominated) {
-    final token = resolveBoltzFundingToken();
+  Future<TokenAmount> resolveAmountInFundingToken(
+    DenominatedAmount denominated,
+  ) async {
+    final token = await resolveBoltzFundingToken();
     final scale = token.decimals - denominated.decimals;
     final value = scale <= 0
         ? denominated.value

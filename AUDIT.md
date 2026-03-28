@@ -1,836 +1,664 @@
-# Hostr App — Visual & Logic Audit
+# Code Readability Audit — EVM / Swap / Escrow / Wallet / Token Stack
 
-> Full audit of the Hostr Flutter app, hostr_sdk, and models layer.
-> Date: 2026-02-23. **No code changes — findings and execution plan only.**
-
----
-
-# Table of Contents
-
-- [Part A — Visual](#part-a--visual)
-  - [V1. Spacing & Padding](#v1-spacing--padding)
-  - [V2. Typography & Font Sizes](#v2-typography--font-sizes)
-  - [V3. Buttons — Types, Roles, Icons](#v3-buttons--types-roles-icons)
-  - [V4. Icon Sizes](#v4-icon-sizes)
-  - [V5. Animations](#v5-animations)
-  - [V6. Modals & Bottom Sheets](#v6-modals--bottom-sheets)
-  - [V7. Image Loading & Placeholders](#v7-image-loading--placeholders)
-  - [V8. Loading Indicators](#v8-loading-indicators)
-  - [V9. Translations / l10n](#v9-translations--l10n)
-- [Part B — Logic](#part-b--logic)
-  - [L1. Error Handling](#l1-error-handling)
-  - [L2. Stream & Listener Lifecycle](#l2-stream--listener-lifecycle)
-  - [L3. Caching, Batching & Use Cases](#l3-caching-batching--use-cases)
-  - [L4. Load & Performance Hotspots](#l4-load--performance-hotspots)
-  - [L5. Nostr Protocol Future-Proofing](#l5-nostr-protocol-future-proofing)
-  - [L6. Test Infrastructure & Automation](#l6-test-infrastructure--automation)
-- [Execution Plan](#execution-plan)
+> **Goal**: Decrease cognitive load, eliminate mixed concerns, enforce DRY,
+> and **reduce LOC by ≈ 30 %** across the audited subsystems.
+>
+> **Constraint**: No backward compatibility required — any interface or data
+> shape can change.
 
 ---
 
-# Part A — Visual
+## Table of Contents
 
-## V1. Spacing & Padding
+1. [Executive Summary](#1-executive-summary)
+2. [Finding 1 — God Class `EvmChain`](#2-finding-1--god-class-evmchain-700-loc)
+3. [Finding 2 — Duplicated Decimal Parsing](#3-finding-2--duplicated-decimal-parsing-in-tokenamount--denominatedamount)
+4. [Finding 3 — State-Class Boilerplate Explosion](#4-finding-3--state-class-boilerplate-explosion)
+5. [Finding 4 — SwapIn / SwapOut Structural Duplication](#5-finding-4--swapin--swapout-structural-duplication)
+6. [Finding 5 — Three Escrow Directories](#6-finding-5--three-escrow-directories-with-confusing-naming)
+7. [Finding 6 — `MultiEscrowWrapper` Does Too Much](#7-finding-6--multiescrowwrapper-does-too-much-500-loc)
+8. [Finding 7 — `OnchainOperationData` Overengineered copyWith](#8-finding-7--onchainoperationdata-overengineered-copywith)
+9. [Finding 8 — SwapRegistry Copy-Paste](#9-finding-8--swapregistry-copy-paste)
+10. [Finding 9 — Scattered Token-Amount Conversions](#10-finding-9--scattered-token-amount-conversions)
+11. [Finding 10 — Misplaced Free Functions in evm_chain.dart](#11-finding-10--misplaced-free-functions-in-evm_chaindart)
+12. [Refactoring Roadmap](#12-refactoring-roadmap)
+13. [LOC Reduction Estimate](#13-loc-reduction-estimate)
 
-### Current State
+---
 
-A `kDefaultPadding = 32` constant exists in `app/lib/config/constants.dart`, and a `CustomPadding` widget wraps `Padding` with multipliers of `kDefaultPadding`. This is a good foundation, but **~75% of spacing in the app bypasses it**.
+## 1. Executive Summary
 
-**SizedBox hardcoded values found across presentation files:**
+| Smell                                   | Where                                                                 | Estimated LOC saved     |
+| --------------------------------------- | --------------------------------------------------------------------- | ----------------------- |
+| God class                               | `evm_chain.dart`                                                      | 200                     |
+| Duplicated parsing                      | `token_amount.dart` + `denominated_amount.dart`                       | 60                      |
+| State-class `toJson` boilerplate        | `swap_in_state.dart`, `swap_out_state.dart`, `onchain_operation.dart` | 250                     |
+| SwapIn ↔ SwapOut structural duplication | `swap_in_*` vs `swap_out_*`                                           | 350                     |
+| Three escrow directories                | `escrow/`, `escrows/`, `escrow_methods/`                              | 40 (cognitive, not LOC) |
+| MultiEscrowWrapper mixed concerns       | `multi_escrow.dart`                                                   | 150                     |
+| OnchainOperationData copyWith methods   | `onchain_operation.dart`                                              | 60                      |
+| SwapRegistry copy-paste                 | `swap_registry.dart`                                                  | 80                      |
+| Scattered conversion helpers            | `token_amount_ext.dart` + `evm_chain.dart`                            | 30                      |
+| Misplaced free functions                | `evm_chain.dart` bottom                                               | 10                      |
+| **Total**                               |                                                                       | **≈ 1 230 LOC**         |
 
-| Value (px) | Approx. uses | Equivalent `kDefaultPadding` fraction |
-| :--------: | :----------: | :-----------------------------------: |
-|     4      |     ~12      |                  1/8                  |
-|     6      |      ~5      |        _(non-standard — 3/16)_        |
-|     8      |     ~20      |                  1/4                  |
-|     10     |      ~3      |        _(non-standard — 5/16)_        |
-|     12     |      ~8      |                  3/8                  |
-|     15     |      1       |           _(non-standard)_            |
-|     16     |     ~18      |                  1/2                  |
-|     24     |      ~9      |                  3/4                  |
-|     32     |      ~1      |                  1×                   |
-|     40     |      ~1      |                  5/4                  |
+Current combined LOC across audited files: **≈ 4 100**. Target: **≈ 2 870** (−30 %).
 
-That's **10 distinct spacing values**, of which 3 (6, 10, 15) don't align to any clean fraction of the base grid.
+---
 
-Raw `EdgeInsets` with hardcoded values appear ~65 times across the presentation layer, duplicating values that `CustomPadding` already provides (e.g. `EdgeInsets.symmetric(horizontal: 32)` literally equals `kDefaultPadding`).
+## 2. Finding 1 — God Class `EvmChain` (700+ LOC)
 
-### Recommendation
+### Problem
 
-Adopt a **4px base grid** spacing scale (industry standard, used by Material 3):
+`EvmChain` is a single class responsible for:
 
-```
-kSpace0  =  0
-kSpace1  =  4   (kDefaultPadding / 8)
-kSpace2  =  8   (kDefaultPadding / 4)
-kSpace3  = 12   (kDefaultPadding * 3/8)
-kSpace4  = 16   (kDefaultPadding / 2)
-kSpace5  = 24   (kDefaultPadding * 3/4)
-kSpace6  = 32   (kDefaultPadding)
-kSpace7  = 48   (kDefaultPadding * 1.5)
-kSpace8  = 64   (kDefaultPadding * 2)
-```
+1. **RPC transport** — Web3Client lifecycle, retry logic, exponential backoff
+2. **Block polling** — `_newBlocks` stream, `notifyNewBlock()`
+3. **Log batching** — `getLogs`, debounced queue merging, topic deduplication
+4. **HD address scanning** — `getNextUnusedAddress`, `getAddressesWithBalance`
+5. **Balance queries** — native balance, ERC-20 balance
+6. **Token registry** — `resolveToken`, `resolveTokenDecimals`, `resolveBoltzFundingToken`
+7. **Swap/quote factories** — `swapIn()`, `swapOut()`, `swapInQuote()`, `swapOutQuote()`
+8. **Transaction sending** — AA vs EOA dispatch, `sendCalls()`, EOA gas estimation
+9. **Gas estimation** — `estimateGas()` dispatching to AA or EOA
+10. **Utility** — `convertWeiToSatoshi`, `convertWeiToBTC` (standalone)
 
-Create a `Spacer` (or `Gap`) widget:
+This means every developer touching _any_ EVM concern must load the
+entire 700-line file into their head.
+
+### Current (messy)
 
 ```dart
-class Gap extends StatelessWidget {
-  final double size;
-  const Gap(this.size, {super.key});
-  const Gap.xs({super.key}) : size = kSpace1;   //  4
-  const Gap.sm({super.key}) : size = kSpace2;   //  8
-  const Gap.md({super.key}) : size = kSpace4;   // 16
-  const Gap.lg({super.key}) : size = kSpace6;   // 32
-  const Gap.xl({super.key}) : size = kSpace7;   // 48
+class EvmChain {
+  // ... transport fields ...
+  // ... capability fields ...
+  // ... balance monitor ...
+  // ... block polling ...
+  // ... getLogs batching + queue + timers ...
+  // ... HD scanning ...
+  // ... balance queries ...
+  // ... token registry ...
+  // ... swap factories ...
+  // ... quote factories ...
+  // ... sendCalls / estimateGas / EOA internals ...
+}
+
+double convertWeiToSatoshi(BigInt wei) { ... } // why is this here?
+double convertWeiToBTC(BigInt wei) { ... }     // and this?
+```
+
+### Ideal (clean)
+
+```dart
+/// Pure RPC transport with retry + client lifecycle.
+class EvmRpcTransport {
+  Web3Client get client => ...;
+  int get clientGeneration => ...;
+  Future<T> callWithRetry<T>(String op, Future<T> Function(Web3Client) fn);
+  Stream<int> newBlocks({Duration interval});
+  void notifyNewBlock();
+  Future<void> dispose();
+}
+
+/// Batched getLogs with debounce and topic merging.
+class EvmLogsBatcher {
+  EvmLogsBatcher(this._transport);
+  Future<List<FilterEvent>> getLogs(FilterOptions filter, {EvmLogsBatchHint? hint});
+}
+
+/// Lazily resolved token registry.
+class EvmTokenRegistry {
+  EvmTokenRegistry(this._transport, this._config);
+  Future<Token> resolve(String address);
+  Token? cached(String address);
+  Future<int> resolveDecimals(String address);
+}
+
+/// HD address scanning.
+class EvmAddressScanner {
+  EvmAddressScanner(this._transport, this._auth);
+  Future<({EthereumAddress address, int accountIndex})> nextUnused();
+  Future<List<...>> addressesWithBalance();
+}
+
+/// Thin facade — composes the above.
+class EvmChain {
+  final EvmChainConfig config;
+  final EvmRpcTransport transport;
+  final EvmLogsBatcher logs;
+  final EvmTokenRegistry tokens;
+  final EvmAddressScanner scanner;
+  final AACapability? aa;
+  BoltzSwapProvider? swaps;
+  late final EscrowCapability escrow;
+  late final EvmBalanceMonitor balanceMonitor;
+
+  // Only delegation — no business logic here
+  Future<String> sendCalls(EthPrivateKey signer, Map<String, Call> calls) =>
+      aa != null
+          ? aa!.sendUserOp(signer, calls)
+          : _sendEoaCalls(signer, calls);
+}
+```
+
+Each extracted class: **80–150 LOC**, easy to test in isolation.
+
+---
+
+## 3. Finding 2 — Duplicated Decimal Parsing in `TokenAmount` & `DenominatedAmount`
+
+### Problem
+
+Both `models/lib/token_amount.dart` and `models/lib/denominated_amount.dart`
+contain **identical** private functions:
+
+```dart
+// token_amount.dart
+BigInt _parseDecimalToBigInt(String input, int decimals) { ... }
+String _formatDecimal(BigInt value, int decimals, {int? maxDecimals}) { ... }
+
+// denominated_amount.dart — EXACT SAME CODE
+BigInt _parseDecimalToBigInt(String input, int decimals) { ... }
+String _formatDecimal(BigInt value, int decimals, {int? maxDecimals}) { ... }
+```
+
+That's **≈ 60 duplicated lines**.
+
+### Ideal (clean)
+
+```dart
+// models/lib/src/decimal_math.dart
+BigInt parseDecimalToBigInt(String input, int decimals) { ... }
+String formatDecimal(BigInt value, int decimals, {int? maxDecimals}) { ... }
+
+// token_amount.dart
+import 'src/decimal_math.dart' as decimal;
+factory TokenAmount.fromDecimal(String s, Token t) =>
+    TokenAmount(value: decimal.parseDecimalToBigInt(s, t.decimals), token: t);
+
+// denominated_amount.dart
+import 'src/decimal_math.dart' as decimal;
+factory DenominatedAmount.fromDecimal(String s, String denom, int dec) =>
+    DenominatedAmount(value: decimal.parseDecimalToBigInt(s, dec), ...);
+```
+
+---
+
+## 4. Finding 3 — State-Class Boilerplate Explosion
+
+### Problem
+
+Each state hierarchy (`SwapInState`, `SwapOutState`, `OnchainOperationState`)
+contains 10–13 `final class` variants. Every data-bearing variant repeats
+nearly identical `toJson()` boilerplate:
+
+```dart
+final class SwapInRequestCreated extends SwapInState {
+  @override final SwapInData data;
+  const SwapInRequestCreated(this.data);
+  @override String get stateName => 'requestCreated';
+  @override Map<String, dynamic> toJson() => {
+    'state': 'requestCreated',
+    'id': data.boltzId,
+    'isTerminal': false,
+    'updatedAt': DateTime.now().toIso8601String(),
+    ...data.toJson(),
+  };
+}
+
+// × 12 variants for SwapIn
+// × 12 variants for SwapOut
+// × 7 variants for Onchain
+// ≈ 250 lines of pure boilerplate
+```
+
+### Ideal (clean)
+
+Add a **shared base mixin or intermediate class** for data-bearing states:
+
+```dart
+/// Mixin for any state that carries recovery data and uses standard
+/// JSON envelope { state, id, isTerminal, updatedAt, ...data }.
+mixin DataBearingState<D> on MachineState {
+  D get data;
+  String get dataId;
+  Map<String, dynamic> dataToJson();
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size);
+  Map<String, dynamic> toJson() => {
+    'state': stateName,
+    'id': dataId,
+    'isTerminal': isTerminal,
+    'updatedAt': DateTime.now().toIso8601String(),
+    ...dataToJson(),
+  };
+}
+
+// Now each variant is ONE LINE of real logic:
+final class SwapInRequestCreated extends SwapInState with DataBearingState<SwapInData> {
+  @override final SwapInData data;
+  const SwapInRequestCreated(this.data);
+  @override String get stateName => 'requestCreated';
+  @override String get dataId => data.boltzId;
+  @override Map<String, dynamic> dataToJson() => data.toJson();
 }
 ```
 
-Then replace all `SizedBox(height: 16)` with `Gap.md()`, etc. This eliminates magic numbers and makes spacing auditable via search.
-
-### Files to Change (top offenders)
-
-- `presentation/component/widgets/reservation/trade_header.dart` — 8+ SizedBoxes
-- `presentation/component/widgets/flow/payment/payment.dart` — 6+ SizedBoxes
-- `presentation/component/widgets/inbox/thread/thread_header.dart` — 5+ SizedBoxes
-- `presentation/component/widgets/listing/listing_list_item.dart` — 4 SizedBoxes
-- `presentation/screens/shared/listing/listing_view.dart` — mixed SizedBox + EdgeInsets
-- `presentation/screens/shared/profile/` — multiple files
-
----
-
-## V2. Typography & Font Sizes
-
-### Current State
-
-The app uses Flutter's `textTheme` tokens in **most** places (good), but 7 distinct hardcoded `fontSize` values leak through:
-
-| Hardcoded size | Files                                                                              | Should be                             |
-| :------------: | ---------------------------------------------------------------------------------- | ------------------------------------- |
-|       11       | `trade_header.dart`                                                                | `labelSmall` (11)                     |
-|       12       | `trade_header.dart`, `listing_list_item.dart`, `price_tag.dart`, `inbox_item.dart` | `bodySmall` (12)                      |
-|       14       | `trade_header.dart`                                                                | `bodyMedium` (14)                     |
-|       16       | `trade_header.dart`                                                                | `bodyLarge` (16) or `titleSmall` (14) |
-|       20       | `price.dart`                                                                       | `titleLarge` (22)                     |
-|       24       | `review_list_item.dart` (star icon context)                                        | `headlineSmall` (24)                  |
-|       28       | `price_marker.dart`                                                                | `headlineMedium` (28)                 |
-
-### Best Practice — Type Scale
-
-Material 3 defines exactly 15 text styles in 5 roles × 3 sizes. For a mobile accommodation app, you realistically need **5–7 distinct sizes** to minimize cognitive load:
-
-| Role         | Token           | Typical size | Use in Hostr                         |
-| ------------ | --------------- | :----------: | ------------------------------------ |
-| **Display**  | `displayMedium` |      45      | Splash screen, hero numbers          |
-| **Headline** | `headlineSmall` |      24      | Section headers on detail pages      |
-| **Title**    | `titleLarge`    |      22      | Screen/section titles, form labels   |
-| **Title**    | `titleMedium`   |      16      | Card titles, list item primary text  |
-| **Body**     | `bodyMedium`    |      14      | Descriptions, message text           |
-| **Body**     | `bodySmall`     |      12      | Captions, timestamps, secondary info |
-| **Label**    | `labelSmall`    |      11      | Badges, chips, minimal annotations   |
-
-**Rule:** Never use a raw `fontSize:` in widget code. Always use `Theme.of(context).textTheme.bodySmall` (with optional `.copyWith(fontWeight: ...)` for emphasis). This keeps the scale consistent and lets theme changes propagate everywhere.
-
-### Files to Change
-
-- `presentation/component/widgets/reservation/trade_header.dart` — **worst offender**, 5 hardcoded sizes (11, 12, 14, 16)
-- `presentation/component/widgets/listing/price_tag.dart` — hardcoded 12
-- `presentation/component/widgets/listing/price.dart` — hardcoded 20
-- `presentation/component/widgets/search/price_marker.dart` — hardcoded 28
-- `presentation/component/widgets/listing/listing_list_item.dart` — hardcoded 12
-
----
-
-## V3. Buttons — Types, Roles, Icons
-
-### Current State
-
-Four button types are used across the app:
-
-| Type                                | Count | Primary use                      |
-| ----------------------------------- | :---: | -------------------------------- |
-| `FilledButton` / `.tonal` / `.icon` |  ~32  | CTAs, confirmations              |
-| `ElevatedButton`                    |  ~7   | Swap flows, some CTAs            |
-| `TextButton`                        |  ~8   | Cancel, clear, secondary actions |
-| `OutlinedButton`                    |  ~2   | Tertiary/toggles                 |
-| `IconButton`                        |  ~10  | Navigation, copy, close          |
-
-**Problem:** `ElevatedButton` and `FilledButton` are used interchangeably for primary CTAs. The swap flow screens (`swap_in.dart`, `swap_out.dart`) and `dev.dart` use `ElevatedButton`, while everything else uses `FilledButton`. This creates a visual inconsistency — `ElevatedButton` has elevation/shadow, `FilledButton` is flat.
-
-### Best Practice — Button Hierarchy
-
-| Role            | Widget                                 | When to use                                                | Icon?                                                  |
-| --------------- | -------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
-| **Primary CTA** | `FilledButton`                         | One per screen max. The main action (Pay, Reserve, Submit) | Only if icon adds clarity (e.g. send ✈, not generic ✓) |
-| **Secondary**   | `FilledButton.tonal`                   | Supporting actions (Use Escrow, Edit)                      | Optional                                               |
-| **Tertiary**    | `TextButton`                           | Cancel, Clear, Skip — low-commitment actions               | Rarely                                                 |
-| **Destructive** | `FilledButton` + red `backgroundColor` | Delete, Refund, Block                                      | Icon for emphasis (⚠)                                  |
-| **Icon-only**   | `IconButton`                           | Toolbar actions, close, copy, navigation                   | Always                                                 |
-
-**When to use icons on buttons:**
-
-- ✅ When the action has a universally recognized symbol (copy 📋, send ✈, close ✕)
-- ✅ When used alongside other icon-only buttons in a row (toolbar)
-- ❌ When the button already has clear text ("Pay" doesn't need a 💰 icon)
-- ❌ When the icon is decorative rather than communicative
-
-### Action Items
-
-1. Replace all `ElevatedButton` with `FilledButton` across `swap_in.dart`, `swap_out.dart`, `dev.dart`
-2. Define button presets in theme (or a `AppButton` wrapper) so primary/secondary/destructive styling is centralized
-3. Audit icon usage on `FilledButton.icon` — ensure icons are communicative, not decorative
-
----
-
-## V4. Icon Sizes
-
-### Current State
-
-**10 distinct icon sizes** are hardcoded across the app:
-
-| Size | Where                 | Role                 |
-| :--: | --------------------- | -------------------- |
-|  12  | Copy icon, comment    | Detail actions       |
-|  14  | Key icon, chips       | Inline indicators    |
-|  16  | 6+ files              | Default small icons  |
-|  18  | Amount input          | Field icons          |
-|  20  | Multiple              | Standard interactive |
-|  30  | Search nav            | Navigation           |
-|  32  | Detail view           | Section icons        |
-|  40  | CircleAvatar fallback | Profile              |
-|  48  | Error icons           | Status               |
-|  80  | Verified badge detail | Hero icon            |
-
-The same icon (`Icons.copy`) appears at sizes 12, 16, and 18 in different files.
-
-### Recommendation
-
-Define an icon size scale mirroring the spacing scale:
+Better yet, **generate them**. Since each variant only differs by `stateName`
+and `isTerminal`, a factory + enum is even leaner:
 
 ```dart
-const kIconXs  = 14.0;  // Chips, inline labels
-const kIconSm  = 16.0;  // List item trailing, copy actions
-const kIconMd  = 20.0;  // Standard interactive icons
-const kIconLg  = 24.0;  // Navigation bar, section headers (Material default)
-const kIconXl  = 32.0;  // Empty states, feature icons
-const kIconHero = 48.0; // Error/success status, onboarding
-```
-
-Standardize: all copy icons → `kIconSm`, all nav icons → `kIconLg`, etc.
-
----
-
-## V5. Animations
-
-### Current State
-
-Animation constants are well-defined in `config/constants.dart`:
-
-```dart
-const kAnimationDuration = Duration(milliseconds: 300);
-const kAnimationCurve = Curves.easeInOut;
-const kStaggerDelay = Duration(milliseconds: 60);
-```
-
-The `AnimatedListItem` widget correctly defaults to these. Most `AnimatedSwitcher` usages reference `kAnimationDuration`.
-
-**Deviations:**
-
-| File                          | Duration              | Curve                            | Issue                        |
-| ----------------------------- | --------------------- | -------------------------------- | ---------------------------- |
-| `listing_carousel.dart`       | `300ms` _(hardcoded)_ | `Curves.easeInOut` _(hardcoded)_ | Should reference constants   |
-| `money_in_flight.dart`        | `400ms`               | `Curves.easeInOut`               | Non-standard duration        |
-| `trade_timeline.dart`         | `200ms`               | `Curves.easeOut`                 | Different curve              |
-| `trade_header.dart` (shimmer) | `1500ms`              | —                                | Correct for shimmer          |
-| `search_box.dart`             | `1000ms`              | —                                | Debounce, not animation (OK) |
-
-### Recommendation
-
-1. Replace hardcoded `Duration(milliseconds: 300)` in `listing_carousel.dart` with `kAnimationDuration`
-2. Decide: is `400ms` intentional for `money_in_flight.dart`? If not, use `kAnimationDuration`. If yes, define `kAnimationDurationSlow = Duration(milliseconds: 400)`
-3. Consider adding `kAnimationDurationFast = Duration(milliseconds: 150)` for micro-interactions (button press feedback, chip toggles)
-4. Standardize on one curve family. `easeInOut` is correct for most transitions. `easeOut` is appropriate for elements entering the screen (quick start, gentle stop)
-
-### Preloading & Perceived Performance
-
-**Can filter screens be preloaded?** Yes — create the filter bottom sheet widget eagerly in the parent and show/hide it rather than constructing on tap. The `SearchFilterCubit` state should already be warm. In practice, if the bottom sheet construction is < 16ms (one frame), preloading isn't necessary. Profile first with DevTools timeline.
-
-**Preloading images / placeholders:**
-
-- Currently `BlossomImage` shows `CircularProgressIndicator` while loading and Flutter's `Placeholder()` (a colored cross) on error — both are jarring
-- Add `FadeInImage`-style crossfade from a shimmer/skeleton placeholder to the loaded image
-- Consider adding `precacheImage()` calls for above-the-fold listing images when the list screen initializes
-- Implement `CachedNetworkImage` (or equivalent) to avoid re-downloading on every screen revisit
-
----
-
-## V6. Modals & Bottom Sheets
-
-### Current State
-
-15 `showModalBottomSheet` callsites exist. A `ModalBottomSheet` wrapper widget provides consistent internal layout. But:
-
-| Issue                                                                | Affected files                                              |
-| -------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `isScrollControlled` inconsistently set                              | 7 of 15 don't set it                                        |
-| `useSafeArea` only set in 1 of 15 callsites                          | All except `listing_view.dart`                              |
-| Several callsites bypass `ModalBottomSheet` and build custom layouts | `listing_view.dart`, `trade_header.dart`, `search_box.dart` |
-| No shared `showAppModalBottomSheet()` helper                         | Each callsite configures independently                      |
-
-### Recommendation
-
-Create a single entry point:
-
-```dart
-Future<T?> showAppModal<T>(BuildContext context, {
-  required Widget child,
-  bool isScrollControlled = true,
-  bool useSafeArea = true,
-  bool isDismissible = true,
-}) => showModalBottomSheet<T>(
-  context: context,
-  isScrollControlled: isScrollControlled,
-  useSafeArea: useSafeArea,
-  isDismissible: isDismissible,
-  builder: (_) => child,
-);
-```
-
-Then replace all 15 callsites. This ensures consistent `isScrollControlled` and `useSafeArea` defaults.
-
----
-
-## V7. Image Loading & Placeholders
-
-### Current State
-
-- `BlossomImage` is the standard image widget — resolves SHA-256 hashes via Blossom server, falls back to `Image.network`
-- **No disk caching** — no `CachedNetworkImage` or equivalent anywhere in the codebase
-- Error state shows Flutter's `Placeholder()` widget (a colored diagonal cross) — not production-ready
-- Loading state shows a raw `CircularProgressIndicator`
-- Some files bypass `BlossomImage` and use raw `Image.network` (relay favicons, badge images)
-
-### Recommendation
-
-1. **Add `cached_network_image` package** — provides disk + memory caching, placeholder builders, and error builders out of the box
-2. **Replace `Placeholder()` with a branded error widget** — e.g. a subtle grey rectangle with a broken-image icon
-3. **Replace loading `CircularProgressIndicator` with a shimmer skeleton** matching the image's aspect ratio. This prevents layout shift when images load.
-4. **Wrap `BlossomImage` to use caching internally** — so every `BlossomImage` benefits without changing callsites
-5. **Precache hero images** — call `precacheImage()` for the first N listing images visible on the home/search screen
-
----
-
-## V8. Loading Indicators
-
-### Current State
-
-27 `CircularProgressIndicator` instances across the app with **4 different `strokeWidth` values** (default ~4.0, 4, 2, 1.5). Additionally:
-
-- Some use `.adaptive()`, others don't
-- A custom `AsymptoticProgressBar` exists (nice!) but is used in only one place
-- A private `_ShimmerSurface` in `trade_header.dart` is not reusable
-
-### Recommendation
-
-1. Create a shared `AppLoadingIndicator` widget with size presets:
-   - `.small()` — `strokeWidth: 2`, 16x16, for inline/list contexts
-   - `.medium()` — `strokeWidth: 3`, 24x24, default
-   - `.large()` — `strokeWidth: 4`, 48x48, for full-page loading
-2. Extract `_ShimmerSurface` into a reusable `ShimmerPlaceholder` widget
-3. Create `ShimmerListItem`, `ShimmerCard` skeleton widgets for list/card loading states (prevents layout shift)
-4. Use `CircularProgressIndicator.adaptive()` everywhere for platform-native feel on iOS
-
----
-
-## V9. Translations / l10n
-
-### Current State
-
-- **~51 strings** use `AppLocalizations.of(context)!` (translated)
-- **~70 strings** are hardcoded English `Text('...')` literals (not translated)
-- Only English ARB file exists (`app_en.arb` with ~68 keys)
-- No pluralization rules, no parameterized messages beyond simple string interpolation
-
-**Hardcoded string hotspots:**
-
-- `dev.dart` (debug screen — acceptable)
-- `payment.dart`, `payment_method.dart` — "Pay directly", "Use Escrow", "Copy", "Open wallet"
-- `swap_in.dart`, `swap_out.dart` — "Confirm", "Continue"
-- `listing_view.dart` — "Blocked Dates", "Block Dates", "Retry"
-- `background_tasks.dart` — all debug strings (acceptable)
-- `edit_review.dart` — "Save"
-- Various error messages — "Error:", "Unknown message type", "No wallet connected"
-
-### Recommendation
-
-1. **Immediate:** Extract all user-facing hardcoded strings to `app_en.arb`. Debug-only strings (dev.dart, background_tasks.dart) can stay hardcoded
-2. **Naming convention:** Use `camelCase` keys matching the semantic role: `payDirectly`, `useEscrow`, `blockedDates`, `retryButton`, `noWalletConnected`
-3. **Error messages:** Create parameterized ARB entries: `"errorGeneric": "Something went wrong: {details}"` with `@errorGeneric` metadata for placeholders
-4. **Plurals:** Add plural rules for counts: `"reviewCount": "{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}"`
-5. **When ready for multi-language:** add `app_es.arb`, `app_fr.arb`, etc. The Flutter l10n tooling will generate all delegates automatically
-
----
-
-# Part B — Logic
-
-## L1. Error Handling
-
-### Current State — 5+ Inconsistent Patterns
-
-| Pattern                                     | Cubits                                                   | Severity          |
-| ------------------------------------------- | -------------------------------------------------------- | ----------------- |
-| `EntityCubitStateError(dynamic error)`      | `EntityCubit`, `ProfileCubit`                            | ⚠️ `dynamic` type |
-| Status enum + `String? error` field         | `ReservationCubit`, `ThreadReplyCubit`                   | OK                |
-| Sealed class with error subclass            | `OnboardingCubit`, `AvailabilityCubit`                   | ✅ Best           |
-| No error state at all                       | `ListCubit`, `CountCubit`                                | ⛔ Critical       |
-| SDK operations with typed failure + rethrow | `PayOperation`, `SwapInOperation`, `EscrowFundOperation` | ⚠️ Double-report  |
-
-### Critical Issues
-
-#### 1. `ListCubit` has NO error handling
-
-The `next()` method has a `try/finally` with **no `catch`**. The `sync()` subscription listener has **no `onError`**. This is the core data-fetching cubit — any relay failure crashes the stream silently.
-
-#### 2. `CountCubit.count()` has no `try/catch`
-
-`CountCubitStateError` is defined but **never emitted** — dead code. Exceptions from `nostrService.requests.count()` propagate unhandled.
-
-#### 3. `PayOperation` double-reports errors
-
-Each stage (`resolve`, `finalize`, `complete`) emits `PayFailed` AND rethrows the exception. If the caller also catches, the error surfaces twice. Additionally, `complete()` closes the cubit in a `finally` block — so `PayFailed` is emitted, then the cubit immediately closes, potentially causing a race condition in `BlocBuilder`.
-
-#### 4. Swap failures discard error details
-
-The UI renders `SwapInFailed` / `SwapOutFailed` as hardcoded `"Swap failed."` strings, ignoring the `error` field that contains actionable information (e.g. "insufficient inbound liquidity", "invoice expired").
-
-#### 5. No global error boundary
-
-`runZonedGuarded` only calls `debugPrint`. No crash reporting (Sentry, Crashlytics). No `FlutterError.onError`. No `BlocObserver` for cubit error monitoring.
-
-#### 6. Raw error strings shown to users
-
-`PayFailed` and auth errors show `e.toString()` directly in the UI — exposing internal stack traces, exception class names, or cryptic relay errors to users.
-
-### Recommendations
-
-1. **Standardize on sealed error states.** Every cubit should use:
-   ```dart
-   sealed class MyState { ... }
-   class MyError extends MyState { final String userMessage; final Object? cause; }
-   ```
-2. **Add `try/catch` to `ListCubit.next()`** — emit an error state, enable retry
-3. **Wire up `CountCubitStateError`** — emit it in the `catch` block
-4. **Remove rethrow from `PayOperation`** — emit `PayFailed` only, don't rethrow. Let UI handle via `BlocListener`
-5. **Don't close the cubit in `PayOperation.complete()` on failure** — let the UI decide when to dismiss
-6. **Map errors to user-friendly messages** — create an `ErrorMapper` that converts known exceptions to localized strings. Unknown errors → generic "Something went wrong. Please try again."
-7. **Add global `BlocObserver`** for logging all cubit transitions and errors
-8. **Add Sentry/Crashlytics** in `runZonedGuarded` and `FlutterError.onError`
-9. **Use `BlocListener` for transient error toasts** — complement `BlocBuilder` error rendering with snackbar notifications for errors the user should know about but that don't replace the screen
-
----
-
-## L2. Stream & Listener Lifecycle
-
-### Current State — ✅ Generally Well-Managed
-
-All cubits with subscriptions properly override `close()` and cancel subscriptions:
-
-- `ThreadCubit` — cancels all subs, closes participant cubits, deactivates trade
-- `ListCubit` — cancels 5 subscriptions, closes `itemStream` and nostr response
-- `NwcConnectivityCubit` — cancels connections subscription + per-cubit map
-- `OnboardingCubit` — cancels threads subscription, has `reset()`
-
-All widgets with subscriptions cancel in `dispose()`:
-
-- `ListingListItemWidget` — cancels reservation subscription, closes stream and cubits
-- `SearchMapWidget` — cancels list subscription
-- `EscrowFundWidget` — cancels selector subscription, closes operation and cubit
-
-### Best Practice: `_subscriptions` list vs `takeUntil` vs individual fields
-
-| Approach                                      | When to use                                                                                                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Individual fields** (`_sub1`, `_sub2`)      | When you have 1–3 named subscriptions with distinct lifecycle                                                                   |
-| **`List<StreamSubscription> _subscriptions`** | When subscriptions are dynamic or numerous (e.g. `ThreadCubit`)                                                                 |
-| **`takeUntil(dispose$)`** with RxDart         | When using RxDart extensively and want declarative cleanup. Requires a `PublishSubject<void> _dispose$` that emits in `close()` |
-| **`CompositeSubscription`** (RxDart)          | Alternative to list — `composite.add(stream.listen(...))`, then `composite.dispose()`                                           |
-
-The current codebase uses approach 1 and 2, which is fine. No change required unless you adopt RxDart more heavily.
-
-### One Risk Found
-
-`ProfileCubit` doesn't override `close()` and holds no subscriptions — but it's created dynamically by `ThreadCubit` which is responsible for closing it. This delegation pattern is correct but **fragile**: if any other code creates a `ProfileCubit` without closing it, it will leak. Consider documenting this ownership convention.
-
----
-
-## L3. Caching, Batching & Use Cases
-
-### CRUD UseCase Architecture
-
-`CrudUseCase<T>` is the backbone. Key behaviors:
-
-| Feature                        | Status | Notes                                                                                         |
-| ------------------------------ | ------ | --------------------------------------------------------------------------------------------- |
-| **In-flight query dedup**      | ✅     | `_inFlightQueries` keyed by serialized filter — identical concurrent queries share one stream |
-| **`getOne` batching**          | ✅     | 500ms debounce window, combines filters, matches results back to callers                      |
-| **`findByTag` batching**       | ✅     | 500ms debounce, merges tag values into one relay query                                        |
-| **NDK cache (subscribe)**      | ✅     | Initial query uses `cacheRead: true`, live uses `cacheWrite: true`                            |
-| **NDK cache (one-shot query)** | ❌     | `cacheRead: false` — every `getOne`/`list` hits the relay                                     |
-| **Application-level cache**    | ❌     | No in-memory or disk cache for domain objects                                                 |
-| **Retry on failure**           | ❌     | No retry logic anywhere in the SDK                                                            |
-| **`count()` efficiency**       | ❌     | Fetches ALL events and calls `.length` — no relay-side COUNT support                          |
-
-### Caching Strategy Recommendations
-
-1. **Enable `cacheRead: true` for `query()`** — the NDK's `MemCacheManager` already supports this; flipping the flag would give free in-memory caching for repeated queries (e.g. viewing the same listing twice)
-2. **Add a TTL-based invalidation** — cached items should expire after N minutes. Stale-while-revalidate pattern: return cached immediately, refetch in background, update if changed
-3. **Profile-level caching** — user profiles (`kind: 0`) are fetched repeatedly; add a `ProfileCache` keyed by pubkey with a 5-minute TTL
-4. **Listing image caching** — adopt `cached_network_image` for disk-level image caching (see V7)
-5. **Relay-side COUNT** — NIP-45 defines `COUNT` messages. If your relays support it, implement a proper `count()` that doesn't download all events. The NDK may already support this — check `Ndk.requests.count()`
-
-### Batching Tuning
-
-The 500ms debounce window is a trade-off:
-
-- **Pro:** Maximizes batching — more calls coalesce into fewer relay queries
-- **Con:** Adds 500ms latency to every first request in a batch window
-
-Consider **adaptive debounce**: start at 50ms, extend to 500ms only when under high load (>5 pending requests). For UI-triggered fetches (user taps a listing), 50ms is imperceptible; for background syncs, 500ms is fine.
-
----
-
-## L4. Load & Performance Hotspots
-
-### 🔴 Critical
-
-#### 1. Subscription Explosion per Active Trade
-
-Each `ThreadTrade` opens **3–4 concurrent Nostr subscriptions** (all reservations, filtered reservations, reviews, zaps, escrow events). A user with 10 active trades = **30–50 concurrent relay subscriptions**. Most relays cap at 10–20 concurrent subscriptions and will start closing older ones.
-
-**Fix:** Multiplex trade subscriptions. Instead of per-trade subscriptions, open ONE subscription per kind that covers all active trades using combined filters, then dispatch events to the appropriate trade in-memory.
-
-#### 2. N+1 Query in `subscribeToMyReservations()`
-
-For each reservation request message in the thread stream, a full `getListingReservations()` relay query fires. 20 messages = 20 queries.
-
-**Fix:** Batch listing IDs from all messages, then fire a single `findByTag` query covering all listings at once.
-
-#### 3. `count()` Downloads Everything
-
-`CrudUseCase.count()` fetches all matching events and calls `.toList().length`. For listings with hundreds of reservations, this is hugely wasteful.
-
-**Fix:** Implement NIP-45 `COUNT` if relays support it, or cache counts locally with invalidation on new events.
-
-### 🟡 Moderate
-
-#### 4. Thread Rebuild on Every `sync()`
-
-`Threads._rebuildThreadsFromMessages()` clears all threads and re-processes every persisted message on each login. With 500+ messages, this is O(n) on startup.
-
-**Fix:** Incremental thread updates — only process new messages since last sync timestamp.
-
-#### 5. Gift-wrap Fan-out
-
-Each DM creates N+1 gift-wraps (one per recipient + self). A message to 3 participants = 4 broadcasts. This is inherent to NIP-17 and can't be avoided, but it's worth monitoring.
-
-#### 6. No Query-level Caching for `query()`
-
-Since `query()` uses `cacheRead: false`, the same listing/metadata is fetched repeatedly when navigating between screens.
-
----
-
-## L5. Nostr Protocol Future-Proofing
-
-### Event Versioning — Currently None
-
-There is **zero versioning infrastructure**:
-
-- No `version` field in any event content JSON
-- No version tag on events
-- `fromJson` methods have no fallback for missing fields
-- Adding a required field to `ListingContent` would crash parsing of every existing listing on relays
-
-**Impact scenario:** You add `cancellationPolicy` to `ListingContent`. Every old listing on relays fails to parse → `fromJson` throws → parser rethrows → stream crashes.
-
-### Recommendations
-
-#### 1. Add a Content Version Field
-
-```json
-{ "v": 1, "title": "...", "description": "...", ... }
-```
-
-Add `"v"` to all custom event content. Start at `1`. Increment on breaking changes.
-
-#### 2. Make `fromJson` Tolerant
-
-Use `json["field"] ?? defaultValue` for all fields. `Amenities.fromJSON` already does this correctly — propagate the pattern to `ListingContent`, `ReservationContent`, `ReviewContent`, etc.
-
-#### 3. Add a Version Tag to Events
-
-```
-["v", "1"]
-```
-
-This allows relay-side filtering by version if needed, and lets clients ignore events they can't parse.
-
-#### 4. Implement a Migrator
-
-When the app starts, query for own events with outdated versions, re-sign with updated content, and republish. Since Nostr events are immutable (signed), migration requires publishing new replaceable events (same `d`-tag, newer `created_at`).
-
-```dart
-class EventMigrator {
-  Future<void> migrate(List<Nip01Event> myEvents) async {
-    for (final event in myEvents) {
-      final version = event.getTagValue('v') ?? '0';
-      if (int.parse(version) < currentVersion) {
-        final migrated = migrateContent(event, from: version, to: currentVersion);
-        await broadcast(migrated); // replaceable: same d-tag overwrites
-      }
-    }
-  }
+enum SwapInStateName {
+  requestCreated(terminal: false),
+  funded(terminal: false),
+  claimed(terminal: false),
+  completed(terminal: true),
+  // ...
+  ;
+  final bool terminal;
+  const SwapInStateName({required this.terminal});
+}
+
+// One generic state class replaces 10 boilerplate classes:
+class SwapInDataState extends SwapInState with DataBearingState<SwapInData> {
+  final SwapInStateName name;
+  @override final SwapInData data;
+  @override String get stateName => name.name;
+  @override bool get isTerminal => name.terminal;
+  // ... done
 }
 ```
 
-#### 5. Parser Error Resilience
+This eliminates **≈ 200 LOC** of copy-paste.
 
-The parser currently rethrows on malformed events, crashing the entire stream. Change to:
+---
+
+## 5. Finding 4 — SwapIn / SwapOut Structural Duplication
+
+### Problem
+
+`SwapInData` and `SwapOutData` share **>50 % identical structure**:
+boltzId, chainId, accountIndex, creationBlockHeight, lastBoltzStatus,
+errorMessage, tokenAddress, toJson, fromJson, copyWith.
+
+The state hierarchies (`SwapInState`, `SwapOutState`) are nearly
+isomorphic — both have: Initialised, RequestCreated, AwaitingOnChain,
+Funded, Completed, Failed, plus busy-lock variants.
+
+The operation classes (`SwapInOperation`, `SwapOutOperation`) both extend
+`OperationMachine`, define nearly identical `steps`, `busyStateFor`,
+`emitError`, and `telemetryAttributes`.
+
+**Estimated structural duplication: 350+ LOC.**
+
+### Ideal (clean)
+
+Extract a shared `SwapData` base:
 
 ```dart
-T? safeParser<T>(Nip01Event event) {
-  try {
-    return parser<T>(event);
-  } catch (e, st) {
-    logger.warning('Skipping malformed event ${event.id}: $e');
-    return null;  // Skip, don't crash
-  }
+/// Fields shared by every Boltz swap (in or out).
+abstract class BoltzSwapData {
+  String get boltzId;
+  int get chainId;
+  int get accountIndex;
+  int? get creationBlockHeight;
+  String? get lastBoltzStatus;
+  String? get errorMessage;
+  String? get tokenAddress;
+  Map<String, dynamic> baseToJson();
+}
+
+class SwapInData extends BoltzSwapData { ... } // only in-specific fields
+class SwapOutData extends BoltzSwapData { ... } // only out-specific fields
+```
+
+For states, use the `DataBearingState` mixin from Finding 3 to eliminate
+the duplicate `toJson()` scaffolding. The shared set of state names
+(initialised, awaitingOnChain, funded, completed, failed) can live in a
+common enum.
+
+For operations, extract shared `OperationMachine` setup into a
+`BoltzSwapMixin`:
+
+```dart
+mixin BoltzSwapMixin<S extends MachineState, E extends Enum>
+    on OperationMachine<S, E> {
+  Auth get auth;
+  EvmChain get chain;
+
+  @override Map<String, Object?> get telemetryAttributes => {
+    ...super.telemetryAttributes,
+    'hostr.swap.chain_id': chain.config.chainId,
+    // ...
+  };
 }
 ```
 
-Then filter nulls from the stream. This is critical for forward-compatibility — a newer client might publish events that an older client can't parse.
+---
 
-#### 6. Kind Number Issue
+## 6. Finding 5 — Three Escrow Directories with Confusing Naming
 
-`kNostrKindEscrowService = 40021` is in the ephemeral range (≥40000). Relays are not expected to store ephemeral events. Move to 30000–39999 range (parameterized replaceable).
+### Problem
 
-#### 7. Tag Collision Risk
+```
+usecase/
+  escrow/           → EscrowUseCase (facade) + operations/ + supported_escrow_contract/
+  escrows/          → Escrows extends CrudUseCase<EscrowService>  (Nostr CRUD)
+  escrow_methods/   → EscrowMethods extends CrudUseCase<EscrowMethod> (Nostr CRUD)
+```
 
-Single-letter tags `l`, `r`, `t`, `h` may collide with future NIP standardizations (NIP-32 already uses `l` for labels). Options:
+A developer looking for "escrow logic" has to check three directories.
+The naming collision (`escrow/` vs `escrows/`) is particularly confusing.
+`Escrows` is a CRUD class for Nostr `kind:30300` events — it has nothing
+to do with on-chain escrow operations.
 
-- Formally propose these tag usages in a NIP
-- Switch to multi-character tags (e.g., `listing`, `reservation`)
-- Accept the collision risk and handle it in the parser by checking `event.kind` before interpreting tags
+### Ideal (clean)
 
-### Nostr Best Practices for Schema Evolution
+```
+usecase/
+  escrow/
+    escrow.dart                     → EscrowUseCase (facade)
+    escrow_verification.dart
+    operations/                     → claim/, fund/, release/, withdraw/
+    contract/                       → multi_escrow.dart, registry, bytecodes, eip712
+    nostr/                          → escrow_service_crud.dart, escrow_method_crud.dart
+```
 
-1. **Replaceable events are your friend** — same `pubkey + kind + d-tag` naturally supersedes old versions
-2. **Content is opaque to relays** — you can change JSON structure freely; relays only index tags
-3. **Tags are the public API** — treat tag names and semantics as stable; content JSON as internal
-4. **Backwards-compatible additions** — new optional fields with defaults are always safe
-5. **Breaking changes** — require a new kind number or a version tag that old clients can filter out
+Rename classes:
+
+- `Escrows` → `EscrowServiceCrud` or `EscrowServiceRepository`
+- `EscrowMethods` → `EscrowMethodCrud` or `EscrowMethodRepository`
+
+This is a **cognitive-load** fix — LOC savings are small, but the mental
+model simplification is significant.
 
 ---
 
-## L6. Test Infrastructure & Automation
+## 7. Finding 6 — `MultiEscrowWrapper` Does Too Much (500+ LOC)
 
-### Current State
+### Problem
 
-| Area                  | Status          | Notes                                             |
-| --------------------- | --------------- | ------------------------------------------------- |
-| SDK unit tests        | ✅ 11 files     | Good coverage of core logic                       |
-| SDK integration tests | ✅ 3 files      | Real Docker stack, escrow + swap flows            |
-| App unit tests        | ❌ Nearly empty | Only 1 smoke test (2+3=5) and 1 cubit test        |
-| App widget tests      | ❌ Empty        | Directory scaffolded but no tests                 |
-| App integration tests | ⚠️ Minimal      | 1 screenshot test with 6 screens                  |
-| Widgetbook            | ✅              | Well-structured, multi-device frames              |
-| Shared test helpers   | ⚠️              | `_Fake*` classes duplicated across SDK test files |
-| Visual regression     | ❌              | No golden test comparison                         |
+`MultiEscrowWrapper` handles:
 
-### Seed Data Architecture — Two Systems
+1. **Contract method building** — `fund()`, `claim()`, `release()`, `arbitrate()`, `withdraw()`
+2. **On-chain queries** — `getTrade()`, `canClaim()`, `canRelease()`, `pendingWithdrawal()`
+3. **Event log scanning + caching** — `allEvents()`, `_liveEvents()`, `_mapEscrowEvent()`, `_recordTradeEvent()`, `_mergeEvents()`
+4. **Custom error decoding** — `_decodeCustomError()`, `_withDecodedCustomError()`
+5. **EIP-712 signer initialisation** — `_signer` getter
 
-**System 1: Static Stubs** (`models/lib/stubs/`) — Hardcoded mock data with 3 fixed keypairs. Used for `Env.mock` quick startup.
+The event scanning + caching alone is **≈ 200 LOC** and is a completely
+separate concern from contract-method building.
 
-**System 2: SeedPipeline** (`hostr_sdk/lib/seed/`) — Sophisticated deterministic seed generation with configurable user count, host ratio, thread progression stages, per-user overrides. This is excellent but **only used in SDK tests**, not in app integration tests.
+### Ideal (clean)
 
-### What's Missing for Desired Workflows
+```dart
+/// Pure ABI encoding — no RPC calls.
+class MultiEscrowCallBuilder {
+  Call fund(FundArgs args);
+  Call claim({required String tradeId, required EthPrivateKey ethKey});
+  Call release(ReleaseArgs args);
+  Call withdraw(WithdrawArgs args);
+  Call arbitrate({...});
+}
 
-#### Flutter Drive to Specific Pages
+/// Read-only queries.
+class MultiEscrowReader {
+  Future<OnChainTrade?> getTrade(String tradeId);
+  Future<bool> canClaim({required String tradeId});
+  Future<BigInt> pendingWithdrawal({...});
+}
 
-The current integration test uses `appRouter.navigate()` which works but requires full app bootstrap. For surgical page testing:
+/// Event log scanning with caching.
+class EscrowEventScanner {
+  StreamWithStatus<EscrowEvent> allEvents(ContractEventsParams params, ...);
+  // Contains _liveEvents, _mapEscrowEvent, _recordTradeEvent, _mergeEvents
+}
 
-1. **Create a `TestScenario` class:**
-
-   ```dart
-   class TestScenario {
-     final SeedPipelineConfig seedConfig;
-     final List<PageRouteInfo> pages;  // auto_route page definitions
-     final String name;
-   }
-   ```
-
-2. **Define scenarios:**
-
-   ```dart
-   final hostWithBookings = TestScenario(
-     name: 'host-with-bookings',
-     seedConfig: SeedPipelineConfig(
-       seed: 42,
-       userCount: 5,
-       hostRatio: 0.5,
-       threadStageSpec: ThreadStageSpec.allCompleted(),
-     ),
-     pages: [HostBookingsRoute()],
-   );
-   ```
-
-3. **Run per-scenario:** `flutter test integration_test/scenarios/host_with_bookings_test.dart`
-
-#### App Store Screenshot Pipeline
-
-1. **Device matrix:** Run against multiple simulators/emulators — define in a shell script:
-
-   ```bash
-   DEVICES=("iPhone 16 Pro Max" "iPhone SE" "iPad Pro 12.9")
-   for device in "${DEVICES[@]}"; do
-     flutter test integration_test/ -d "$device"
-   done
-   ```
-
-2. **Locale matrix:** Before each screenshot set, switch locale:
-
-   ```dart
-   await tester.binding.setLocale('es', 'ES');
-   ```
-
-3. **Framing:** Use `screenshots` or `device_frame` package to add device bezels, then composite with Fastlane's `frameit` or a custom script.
-
-4. **CI integration:** On tagged commits, run the screenshot pipeline and upload to an artifact store. Fastlane `deliver` can submit to App Store Connect directly.
-
-#### Shared Test Setup/Teardown
-
-1. **Extract `_Fake*` classes** from SDK test files into `hostr_sdk/test/helpers/`:
-
-   ```
-   test/helpers/
-     fake_requests.dart
-     fake_auth.dart
-     fake_messaging.dart
-     test_fixtures.dart
-   ```
-
-2. **Create app-level test helpers** in `app/test/helpers/`:
-
-   ```
-   test/helpers/
-     pump_app.dart         — wraps MaterialApp + providers + router
-     scenario_runner.dart  — seeds data + navigates to page
-     mock_providers.dart   — pre-configured BlocProviders for widget tests
-   ```
-
-3. **Use `SeedPipeline` in app tests** — bridge the SDK's seed system into the app's `TestRequests`:
-   ```dart
-   final pipeline = SeedPipeline(config);
-   final events = await pipeline.build();
-   final requests = TestRequests();
-   requests.seedEvents(events);
-   ```
-
-#### Mock Relay vs Real Relay Strategy
-
-| Test type              | Data source                               | Speed     | Reliability              | Use for                             |
-| ---------------------- | ----------------------------------------- | --------- | ------------------------ | ----------------------------------- |
-| **Unit tests**         | `TestRequests` (in-memory)                | ⚡ Fast   | 100% deterministic       | Business logic, cubits, parsers     |
-| **Widget tests**       | `TestRequests` (in-memory)                | ⚡ Fast   | 100% deterministic       | UI rendering, interaction           |
-| **Integration (mock)** | `MockRelay` (local WebSocket)             | 🔶 Medium | ~99% deterministic       | Full relay protocol, gift-wrap flow |
-| **Integration (real)** | Docker stack (`./scripts/start_local.sh`) | 🐌 Slow   | ~95% (depends on Docker) | Escrow, swaps, on-chain, end-to-end |
-
-**Strategy:**
-
-1. Default to `TestRequests` for all app tests (fast, deterministic)
-2. Use `MockRelay` only when testing relay-specific behavior (subscription management, auth, reconnection)
-3. Use real Docker stack only for escrow/swap integration tests and manual QA
-4. Tag tests: `@Tags(['unit'])`, `@Tags(['integration'])`, `@Tags(['e2e'])` — run subsets in CI
+/// Thin façade combining the above.
+class MultiEscrowContract extends SupportedEscrowContract<MultiEscrow> {
+  final MultiEscrowCallBuilder calls;
+  final MultiEscrowReader reader;
+  final EscrowEventScanner events;
+  // Delegates everything
+}
+```
 
 ---
 
-# Execution Plan
+## 8. Finding 7 — `OnchainOperationData` Overengineered copyWith
 
-## Phase 1 — Foundation (Week 1)
+### Problem
 
-_No visible UI changes, but enables everything else._
+`OnchainOperationData` declares **six** abstract `copyWith*` methods for
+individual fields:
 
-|  #  | Task                                                                   | Priority | Estimated Effort |
-| :-: | ---------------------------------------------------------------------- | :------: | :--------------: |
-| 1.1 | Define spacing scale constants (`kSpace0`–`kSpace8`) + `Gap` widget    |    🔴    |        2h        |
-| 1.2 | Define icon size constants (`kIconXs`–`kIconHero`)                     |    🔴    |       30m        |
-| 1.3 | Add `kAnimationDurationFast` constant                                  |    🟢    |       15m        |
-| 1.4 | Create `showAppModal()` helper with standard defaults                  |    🟠    |        1h        |
-| 1.5 | Create `AppLoadingIndicator` widget with `.small()/.medium()/.large()` |    🟠    |        1h        |
-| 1.6 | Extract `_ShimmerSurface` into reusable `ShimmerPlaceholder`           |    🟠    |        1h        |
-| 1.7 | Create `AppErrorWidget` (replaces `Placeholder()` for image errors)    |    🟠    |       30m        |
-| 1.8 | Create `ErrorMapper` service (exceptions → user-friendly strings)      |    🔴    |        2h        |
+```dart
+abstract class OnchainOperationData {
+  OnchainOperationData copyWithSwapId(String? swapId);
+  OnchainOperationData copyWithTxHash(String? txHash);
+  OnchainOperationData copyWithTransactionInformation(TransactionInformation?);
+  OnchainOperationData copyWithTransactionReceipt(TransactionReceipt?);
+  OnchainOperationData copyWithCalls(Map<String, Call> calls);
+  OnchainOperationData copyWithTransport(String? transport);
+}
+```
 
-## Phase 2 — Visual Consistency (Week 2)
+`OnchainCallData` then implements all six by delegating to a single
+`copyWith(...)`. The abstract base adds **≈ 60 lines** of ceremony
+for no real polymorphic benefit.
 
-_Systematic sweep across all presentation files._
+### Ideal (clean)
 
-|  #   | Task                                                               | Priority | Estimated Effort |
-| :--: | ------------------------------------------------------------------ | :------: | :--------------: |
-| 2.1  | Replace all hardcoded `SizedBox` spacing with `Gap.*`              |    🔴    |        4h        |
-| 2.2  | Replace all hardcoded `fontSize:` with `textTheme.*`               |    🔴    |        2h        |
-| 2.3  | Replace all `ElevatedButton` with `FilledButton` for primary CTAs  |    🟠    |        1h        |
-| 2.4  | Replace all hardcoded icon sizes with `kIcon*` constants           |    🟠    |        2h        |
-| 2.5  | Replace hardcoded animation durations/curves with constants        |    🟢    |       30m        |
-| 2.6  | Replace all `showModalBottomSheet` with `showAppModal()`           |    🟠    |        2h        |
-| 2.7  | Replace all `CircularProgressIndicator` with `AppLoadingIndicator` |    🟠    |        1h        |
-| 2.8  | Add `cached_network_image`, wire into `BlossomImage`               |    🟠    |        2h        |
-| 2.9  | Add shimmer placeholders to image loading and list loading         |    🟠    |        3h        |
-| 2.10 | Extract remaining hardcoded strings to `app_en.arb`                |    🟡    |        2h        |
+Drop the abstract base entirely. Use a single concrete data class:
 
-## Phase 3 — Error Handling (Week 3)
+```dart
+class OnchainCallData {
+  // ... fields ...
+  OnchainCallData copyWith({
+    Map<String, Call>? calls,
+    String? transport,
+    String? swapId,
+    String? txHash,
+    TransactionInformation? transactionInformation,
+    TransactionReceipt? transactionReceipt,
+    String? errorMessage,
+  }) => OnchainCallData(...);
+}
+```
 
-|  #  | Task                                                                       | Priority | Estimated Effort |
-| :-: | -------------------------------------------------------------------------- | :------: | :--------------: |
-| 3.1 | Add `try/catch` + error state to `ListCubit`                               |    ⛔    |        2h        |
-| 3.2 | Wire `CountCubitStateError` emission                                       |    🔴    |       30m        |
-| 3.3 | Fix `PayOperation` — remove rethrow, don't close on failure                |    🔴    |        2h        |
-| 3.4 | Show actual error details in swap failure UI                               |    🟠    |        1h        |
-| 3.5 | Standardize all cubit error states to sealed classes                       |    🟠    |        4h        |
-| 3.6 | Add `BlocObserver` for global error/transition logging                     |    🟠    |        1h        |
-| 3.7 | Integrate Sentry/Crashlytics in `runZonedGuarded` + `FlutterError.onError` |    🟠    |        2h        |
-| 3.8 | Add `BlocListener`-based error snackbars for transient errors              |    🟡    |        3h        |
-
-## Phase 4 — Performance & Protocol (Week 4)
-
-|  #  | Task                                                                    | Priority | Estimated Effort |
-| :-: | ----------------------------------------------------------------------- | :------: | :--------------: |
-| 4.1 | Make parser error-resilient (skip malformed events, don't crash stream) |    ⛔    |        2h        |
-| 4.2 | Add `"v": 1` to all custom event content JSON                           |    🔴    |        3h        |
-| 4.3 | Make all `fromJson` tolerant with `?? default` fallbacks                |    🔴    |        3h        |
-| 4.4 | Enable `cacheRead: true` for `query()` in `CrudUseCase`                 |    🟠    |        1h        |
-| 4.5 | Fix N+1 in `subscribeToMyReservations()` — batch listing IDs            |    🟠    |        3h        |
-| 4.6 | Multiplex trade subscriptions to reduce subscription count              |    🟠    |        6h        |
-| 4.7 | Fix `kNostrKindEscrowService` kind number (40021 → 3xxxx)               |    🟠    |        1h        |
-| 4.8 | Implement NIP-45 COUNT if relays support it                             |    🟡    |        2h        |
-
-## Phase 5 — Test Infrastructure (Week 5)
-
-|  #  | Task                                                                  | Priority | Estimated Effort |
-| :-: | --------------------------------------------------------------------- | :------: | :--------------: |
-| 5.1 | Extract shared `_Fake*` classes to `hostr_sdk/test/helpers/`          |    🟠    |        2h        |
-| 5.2 | Create `app/test/helpers/pump_app.dart` for widget test bootstrapping |    🟠    |        2h        |
-| 5.3 | Bridge `SeedPipeline` into app integration tests via `TestRequests`   |    🟠    |        3h        |
-| 5.4 | Create `TestScenario` framework for page-specific flutter drive tests |    🟠    |        4h        |
-| 5.5 | Implement device × locale screenshot matrix script                    |    🟡    |        3h        |
-| 5.6 | Add golden image tests for key widgets                                |    🟡    |        4h        |
-| 5.7 | Add test tags (`unit`, `integration`, `e2e`) + CI configuration       |    🟡    |        2h        |
-| 5.8 | Build `EventMigrator` for versioned event migration on app start      |    🟡    |        4h        |
+If you ever need a second data variant, add it then — not before.
 
 ---
 
-> **Total estimated effort:** ~85 hours across 5 phases.
-> Phases 1–2 are visual and can be done in parallel with Phase 3 (error handling).
-> Phase 4 (performance/protocol) should come after Phase 3 since error resilience is a prerequisite.
-> Phase 5 (testing) can begin any time but benefits from having Phases 1–4 complete.
+## 9. Finding 8 — SwapRegistry Copy-Paste
+
+### Problem
+
+`SwapRegistry` has nearly identical tracking code for swap-in and
+swap-out operations:
+
+```dart
+// Swap-In tracking (≈ 80 LOC)
+final BehaviorSubject<Map<String, SwapInOperation>> _swapIns$ = ...;
+final Map<String, StreamSubscription> _swapInWatchers = {};
+void registerSwapIn(SwapInOperation operation) { ... }
+void _registerSwapInByKey(String key, SwapInOperation operation) { ... }
+void _unregisterSwapIn(String boltzId) { ... }
+Stream<SwapInOperation?> watchSwapInForParent(String parentOperationId) { ... }
+
+// Swap-Out tracking (≈ 50 LOC) — structurally identical
+final BehaviorSubject<Map<String, SwapOutOperation>> _swapOuts$ = ...;
+final Map<String, StreamSubscription> _swapOutWatchers = {};
+void registerSwapOut(SwapOutOperation operation) { ... }
+void _unregisterSwapOut(String boltzId) { ... }
+```
+
+### Ideal (clean)
+
+Extract a generic `OperationTracker<T>`:
+
+```dart
+class OperationTracker<T extends Cubit> {
+  final BehaviorSubject<Map<String, T>> _ops$ = BehaviorSubject.seeded({});
+  final Map<String, StreamSubscription> _watchers = {};
+
+  void register(String key, T operation, {bool Function(dynamic)? isTerminal});
+  void unregister(String key);
+  T? findByPredicate(bool Function(T) predicate);
+  Stream<T?> watchByPredicate(bool Function(T) predicate);
+  void dispose();
+}
+
+@singleton
+class SwapRegistry {
+  late final OperationTracker<SwapInOperation> swapIns;
+  late final OperationTracker<SwapOutOperation> swapOuts;
+  // registerSwapIn becomes swapIns.register(...)
+  // Done — 130 LOC → 50 LOC
+}
+```
+
+---
+
+## 10. Finding 9 — Scattered Token-Amount Conversions
+
+### Problem
+
+Token ↔ denomination conversion helpers are spread across **four
+locations** with overlapping responsibility:
+
+| Function                           | Location                  | Purpose                         |
+| ---------------------------------- | ------------------------- | ------------------------------- |
+| `rbtcFromWei(BigInt)`              | `token_amount_ext.dart`   | wei → RBTC TokenAmount          |
+| `rbtcFromSats(BigInt)`             | `token_amount_ext.dart`   | sats → RBTC TokenAmount         |
+| `rbtcFromSatsInt(int)`             | `token_amount_ext.dart`   | int sats → RBTC TokenAmount     |
+| `tokenAmountFromEvm(...)`          | `token_amount_ext.dart`   | address+wei → TokenAmount       |
+| `convertWeiToSatoshi(BigInt)`      | `evm_chain.dart` (bottom) | wei → `double` sats             |
+| `convertWeiToBTC(BigInt)`          | `evm_chain.dart` (bottom) | wei → `double` BTC              |
+| `_amountFromSats(Token, int)`      | `SwapOutQuoteService`     | int sats → TokenAmount          |
+| `TokenAmount.fromDenominated(...)` | `token_amount.dart`       | DenominatedAmount → TokenAmount |
+
+`convertWeiToSatoshi` and `convertWeiToBTC` return **`double`**, which
+is a precision footgun for financial calculations. They are also
+redundant with `TokenAmountEvmExt.inSats`.
+
+### Ideal (clean)
+
+Consolidate into `TokenAmount` and `TokenAmountEvmExt`:
+
+```dart
+// On TokenAmount itself (models package, EVM-agnostic):
+extension TokenAmountConversions on TokenAmount {
+  BigInt get inSats { ... }          // existing
+  TokenAmount roundUpToSats();       // existing
+  TokenAmount roundDownToSats();     // existing
+}
+
+// On the SDK side (EVM-aware):
+extension TokenAmountEvmFactory on TokenAmount {
+  static TokenAmount nativeFromWei(BigInt wei, {int chainId = 30}) => ...;
+  static TokenAmount fromEvmAddress(String addr, BigInt val, {required int chainId}) => ...;
+}
+
+// DELETE: convertWeiToSatoshi, convertWeiToBTC, _amountFromSats
+// DELETE: rbtcFromSatsInt (just use rbtcFromSats(BigInt.from(n)))
+```
+
+---
+
+## 11. Finding 10 — Misplaced Free Functions in evm_chain.dart
+
+### Problem
+
+```dart
+// At the very bottom of evm_chain.dart, outside the class:
+double convertWeiToSatoshi(BigInt wei) {
+  return wei.toDouble() / pow(10, 18 - 8);
+}
+
+double convertWeiToBTC(BigInt wei) {
+  return wei.toDouble() / pow(10, 18);
+}
+```
+
+These are:
+
+1. **Misplaced** — they have nothing to do with `EvmChain`
+2. **Redundant** — `TokenAmountEvmExt.inSats` does the same thing safely
+3. **Precision-unsafe** — `BigInt.toDouble()` loses precision for large values
+
+### Action
+
+Delete them. Replace any call sites with `TokenAmount` methods.
+
+---
+
+## 12. Refactoring Roadmap
+
+### Phase 1 — Quick Wins (≈ 400 LOC saved, 1–2 days)
+
+| #   | Task                                                                                       | Files                                                                 | LOC saved |
+| --- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | --------- |
+| 1.1 | Extract `_parseDecimalToBigInt` / `_formatDecimal` into `models/lib/src/decimal_math.dart` | `token_amount.dart`, `denominated_amount.dart`                        | 60        |
+| 1.2 | Delete `convertWeiToSatoshi` / `convertWeiToBTC` from `evm_chain.dart`                     | `evm_chain.dart` + call sites                                         | 10        |
+| 1.3 | Add `DataBearingState` mixin; collapse boilerplate state classes                           | `swap_in_state.dart`, `swap_out_state.dart`, `onchain_operation.dart` | 250       |
+| 1.4 | Flatten `OnchainOperationData` → single `OnchainCallData` with one `copyWith`              | `onchain_operation.dart`                                              | 60        |
+
+### Phase 2 — Structural Deduplication (≈ 430 LOC saved, 2–3 days)
+
+| #   | Task                                                                                               | Files                                                     | LOC saved                  |
+| --- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | -------------------------- |
+| 2.1 | Extract `BoltzSwapData` base from `SwapInData` / `SwapOutData`                                     | `swap_in_state.dart`, `swap_out_state.dart`               | 100                        |
+| 2.2 | Extract generic `OperationTracker<T>` from `SwapRegistry`                                          | `swap_registry.dart`                                      | 80                         |
+| 2.3 | Split `EvmChain` into `EvmRpcTransport`, `EvmLogsBatcher`, `EvmTokenRegistry`, `EvmAddressScanner` | `evm_chain.dart`                                          | 200 (net, after new files) |
+| 2.4 | Consolidate token-amount factories                                                                 | `token_amount_ext.dart`, `evm_chain.dart`, quote services | 50                         |
+
+### Phase 3 — Escrow Refactoring (≈ 200 LOC saved, 2 days)
+
+| #   | Task                                                                                                | Files                      | LOC saved     |
+| --- | --------------------------------------------------------------------------------------------------- | -------------------------- | ------------- |
+| 3.1 | Merge `escrows/` and `escrow_methods/` into `escrow/nostr/`                                         | directory restructure      | 0 (cognitive) |
+| 3.2 | Split `MultiEscrowWrapper` into `MultiEscrowCallBuilder`, `MultiEscrowReader`, `EscrowEventScanner` | `multi_escrow.dart`        | 150           |
+| 3.3 | Simplify `EscrowVerification.verify()` into smaller private methods                                 | `escrow_verification.dart` | 50            |
+
+### Phase 4 — Optional Deep Cleanup (≈ 200 LOC saved, 1–2 days)
+
+| #   | Task                                                                                                    | Files                                                       | LOC saved |
+| --- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------- |
+| 4.1 | Extract `BoltzSwapMixin` for shared `OperationMachine` setup                                            | `swap_in_operation.dart`, `swap_out_operation.dart`         | 80        |
+| 4.2 | Unify swap quote pattern (shared `SwapQuote` base, common fee calculation)                              | `swap_in_quote_service.dart`, `swap_out_quote_service.dart` | 60        |
+| 4.3 | Extract `EscrowMethods._buildAcceptedPaymentForms` into a standalone function                           | `escrows_methods.dart`                                      | 30        |
+| 4.4 | Use `freezed` or codegen for `SwapInData` / `SwapOutData` to kill manual `toJson`/`fromJson`/`copyWith` | state files                                                 | 100+      |
+
+---
+
+## 13. LOC Reduction Estimate
+
+| Phase                      | LOC saved   |
+| -------------------------- | ----------- |
+| Phase 1 — Quick Wins       | 380         |
+| Phase 2 — Structural Dedup | 430         |
+| Phase 3 — Escrow Refactor  | 200         |
+| Phase 4 — Deep Cleanup     | 270         |
+| **Total**                  | **≈ 1 280** |
+
+Against ≈ 4 100 LOC currently in scope → **≈ 31 % reduction**.
+
+---
+
+## Appendix — What NOT to Change
+
+The following are already **well-designed** and should be left alone:
+
+- **`OperationMachine`** — Excellent CAS-based state machine with clear
+  contracts, good documentation, and proper cross-isolate safety.
+- **`AACapability`** — Clean encapsulation of ERC-4337 logic.
+- **`BoltzSwapProvider`** — Clean wrapper around `BoltzClient`.
+- **`BoltzCallBuilder`** — Good separation of ABI encoding from orchestration.
+- **`EvmBalanceMonitor`** — Well-factored reactive balance tracker.
+- **`Token` / `TokenAmount` / `DenominatedAmount` core API** — The type
+  design is sound; only the duplicated parsing utils and scattered factory
+  functions need cleanup.
+- **`EscrowCapability`** — Thin, cache-aware, correctly invalidates on
+  client rebuild.
+- **`SwapFundingRequirement`** — Clear validation model with good error messages.

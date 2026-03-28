@@ -33,7 +33,7 @@ class DevWidget extends StatelessWidget {
                   ),
                   auth: getIt<Hostr>().auth,
                   logger: CustomLogger(),
-                )..estimateFees(),
+                ),
               ),
             );
           },

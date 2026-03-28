@@ -1,26 +1,26 @@
 import 'dart:typed_data';
 
-import 'package:wallet/wallet.dart' show EtherAmount, EthereumAddress;
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import '../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../util/evm_signature.dart';
-import '../call_intent.dart';
+import '../evm_call.dart';
 import 'boltz_swap_provider.dart';
 
-/// Builds [CallIntent]s for Boltz swap contract interactions.
+/// Builds [Call]s for Boltz swap contract interactions.
 ///
 /// Centralises all ABI-level encoding so operation classes can focus on
-/// orchestration. Every method returns one or more [CallIntent]s — the
+/// orchestration. Every method returns one or more [Call]s — the
 /// caller decides how to broadcast them (AA batched or EOA sequential).
-class BoltzIntentBuilder {
+class BoltzCallBuilder {
   final BoltzSwapProvider swaps;
 
-  const BoltzIntentBuilder(this.swaps);
+  const BoltzCallBuilder(this.swaps);
 
   // ── Lock ────────────────────────────────────────────────────────────
 
-  /// Build a native EtherSwap.lock intent (payable).
-  CallIntent nativeLock({
+  /// Build a native EtherSwap.lock call (payable).
+  Call nativeLock({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress claimAddress,
@@ -30,20 +30,19 @@ class BoltzIntentBuilder {
     final lockFn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'lock' && f.parameters.length == 3,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: lockFn.encodeCall([
         preimageHash,
         claimAddress,
         BigInt.from(timeoutBlockHeight),
       ]),
-      value: EtherAmount.inWei(amountWei),
-      methodName: 'EtherSwap.lock',
+      value: amountWei,
     );
   }
 
-  /// Build ERC-20 approve + ERC20Swap.lock intents.
-  List<CallIntent> erc20Lock({
+  /// Build ERC-20 approve + ERC20Swap.lock calls.
+  Map<String, Call> erc20Lock({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress tokenAddress,
@@ -52,7 +51,7 @@ class BoltzIntentBuilder {
   }) {
     final erc20Swap = swaps.getERC20SwapContract();
 
-    final approveIntent = erc20Approve(
+    final approveCall = erc20Approve(
       tokenAddress: tokenAddress,
       spender: erc20Swap.self.address,
       amount: amountWei,
@@ -61,7 +60,7 @@ class BoltzIntentBuilder {
     final lockFn = erc20Swap.self.abi.functions.firstWhere(
       (f) => f.name == 'lock' && f.parameters.length == 5,
     );
-    final lockIntent = CallIntent(
+    final lockCall = callFromEncoded(
       to: erc20Swap.self.address,
       data: lockFn.encodeCall([
         preimageHash,
@@ -70,17 +69,15 @@ class BoltzIntentBuilder {
         claimAddress,
         BigInt.from(timeoutBlockHeight),
       ]),
-      value: EtherAmount.zero(),
-      methodName: 'ERC20Swap.lock',
     );
 
-    return [approveIntent, lockIntent];
+    return {'ERC20.approve': approveCall, 'ERC20Swap.lock': lockCall};
   }
 
   // ── Claim ───────────────────────────────────────────────────────────
 
-  /// Build a native EtherSwap.claim intent.
-  CallIntent nativeClaim({
+  /// Build a native EtherSwap.claim call.
+  Call nativeClaim({
     required Uint8List preimage,
     required BigInt amount,
     required EthereumAddress refundAddress,
@@ -90,16 +87,14 @@ class BoltzIntentBuilder {
     final claimFn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'claim' && f.parameters.length == 4,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: claimFn.encodeCall([preimage, amount, refundAddress, timelock]),
-      value: EtherAmount.zero(),
-      methodName: 'EtherSwap.claim',
     );
   }
 
-  /// Build an ERC20Swap.claim intent.
-  CallIntent erc20Claim({
+  /// Build an ERC20Swap.claim call.
+  Call erc20Claim({
     required Uint8List preimage,
     required BigInt amount,
     required EthereumAddress tokenAddress,
@@ -110,7 +105,7 @@ class BoltzIntentBuilder {
     final claimFn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'claim' && f.parameters.length == 5,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: claimFn.encodeCall([
         preimage,
@@ -119,13 +114,11 @@ class BoltzIntentBuilder {
         refundAddress,
         timelock,
       ]),
-      value: EtherAmount.zero(),
-      methodName: 'ERC20Swap.claim',
     );
   }
 
-  /// Build a claim intent for either native or ERC-20.
-  CallIntent claimIntent({
+  /// Build a claim call for either native or ERC-20.
+  Call claim({
     required Uint8List preimage,
     required BigInt amount,
     required EthereumAddress refundAddress,
@@ -151,8 +144,8 @@ class BoltzIntentBuilder {
 
   // ── Refund ──────────────────────────────────────────────────────────
 
-  /// Build a native EtherSwap.refund intent (timelock-based).
-  CallIntent nativeRefund({
+  /// Build a native EtherSwap.refund call (timelock-based).
+  Call nativeRefund({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress claimAddress,
@@ -162,7 +155,7 @@ class BoltzIntentBuilder {
     final refundFn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'refund' && f.parameters.length == 4,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: refundFn.encodeCall([
         preimageHash,
@@ -170,13 +163,11 @@ class BoltzIntentBuilder {
         claimAddress,
         BigInt.from(timeoutBlockHeight),
       ]),
-      value: EtherAmount.zero(),
-      methodName: 'EtherSwap.refund',
     );
   }
 
-  /// Build an ERC20Swap.refund intent (timelock-based).
-  CallIntent erc20Refund({
+  /// Build an ERC20Swap.refund call (timelock-based).
+  Call erc20Refund({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress tokenAddress,
@@ -187,7 +178,7 @@ class BoltzIntentBuilder {
     final refundFn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'refund' && f.parameters.length == 5,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: refundFn.encodeCall([
         preimageHash,
@@ -196,13 +187,11 @@ class BoltzIntentBuilder {
         claimAddress,
         BigInt.from(timeoutBlockHeight),
       ]),
-      value: EtherAmount.zero(),
-      methodName: 'ERC20Swap.refund',
     );
   }
 
-  /// Build a timelock refund intent for either native or ERC-20.
-  CallIntent refundIntent({
+  /// Build a timelock refund call for either native or ERC-20.
+  Call refund({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress claimAddress,
@@ -228,8 +217,8 @@ class BoltzIntentBuilder {
 
   // ── Cooperative Refund ──────────────────────────────────────────────
 
-  /// Build a native EtherSwap.refundCooperative intent.
-  CallIntent nativeCooperativeRefund({
+  /// Build a native EtherSwap.refundCooperative call.
+  Call nativeCooperativeRefund({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress claimAddress,
@@ -240,7 +229,7 @@ class BoltzIntentBuilder {
     final fn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'refundCooperative' && f.parameters.length == 7,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: fn.encodeCall([
         preimageHash,
@@ -251,13 +240,11 @@ class BoltzIntentBuilder {
         sig.r,
         sig.s,
       ]),
-      value: EtherAmount.zero(),
-      methodName: 'EtherSwap.refundCooperative',
     );
   }
 
-  /// Build an ERC20Swap.refundCooperative intent.
-  CallIntent erc20CooperativeRefund({
+  /// Build an ERC20Swap.refundCooperative call.
+  Call erc20CooperativeRefund({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress tokenAddress,
@@ -269,7 +256,7 @@ class BoltzIntentBuilder {
     final fn = contract.self.abi.functions.firstWhere(
       (f) => f.name == 'refundCooperative' && f.parameters.length == 8,
     );
-    return CallIntent(
+    return callFromEncoded(
       to: contract.self.address,
       data: fn.encodeCall([
         preimageHash,
@@ -281,13 +268,11 @@ class BoltzIntentBuilder {
         sig.r,
         sig.s,
       ]),
-      value: EtherAmount.zero(),
-      methodName: 'ERC20Swap.refundCooperative',
     );
   }
 
-  /// Build a cooperative refund intent for either native or ERC-20.
-  CallIntent cooperativeRefundIntent({
+  /// Build a cooperative refund call for either native or ERC-20.
+  Call cooperativeRefund({
     required Uint8List preimageHash,
     required BigInt amountWei,
     required EthereumAddress claimAddress,
@@ -316,8 +301,8 @@ class BoltzIntentBuilder {
 
   // ── ERC-20 Approve ──────────────────────────────────────────────────
 
-  /// Build an ERC-20 approve intent.
-  CallIntent erc20Approve({
+  /// Build an ERC-20 approve call.
+  Call erc20Approve({
     required EthereumAddress tokenAddress,
     required EthereumAddress spender,
     required BigInt amount,
@@ -326,11 +311,9 @@ class BoltzIntentBuilder {
     final approveFn = token.self.abi.functions.firstWhere(
       (f) => f.name == 'approve',
     );
-    return CallIntent(
+    return callFromEncoded(
       to: tokenAddress,
       data: approveFn.encodeCall([spender, amount]),
-      value: EtherAmount.zero(),
-      methodName: 'ERC20.approve',
     );
   }
 }

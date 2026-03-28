@@ -1,36 +1,28 @@
 import 'package:models/main.dart';
 import 'package:web3dart/web3dart.dart';
 
-import '../../call_intent.dart';
-
-/// Callback that overrides the default lock broadcast.
-///
-/// Receives the pre-built lock [CallIntent]s (for ERC-20: `[approve, lock]`,
-/// for native: `[lock]`). The implementer can prepend its own intents
-/// (e.g. an escrow withdraw) and broadcast the combined list atomically.
-/// Must return the on-chain transaction hash.
-typedef SwapOutLockCallback =
-    Future<String> Function(List<CallIntent> lockIntents);
+import '../../evm_call.dart';
 
 class SwapOutParams {
   final EthPrivateKey evmKey;
   final int accountIndex;
   final TokenAmount? amount;
 
-  /// Optional override for the swap lock execution.
+  /// Extra [Call]s to prepend before the lock calls in a single UserOp.
   ///
-  /// When set, the swap operation will call this callback during the lock
-  /// step instead of broadcasting the lock intents directly. The callback
-  /// receives the fully prepared lock [CallIntent]s and must return the
-  /// broadcast transaction hash.
+  /// When non-null the swap operation merges these calls ahead of the
+  /// built lock calls (approve + lock) and broadcasts atomically.
+  /// For example, an escrow withdraw call is prepended so that
+  /// withdraw + lock happen in one transaction.
   ///
-  /// This is the swap-out counterpart of [SwapInParams.onClaim].
-  final SwapOutLockCallback? onLock;
+  /// Persisted on [SwapOutData] for crash recovery — no callback
+  /// reconstruction needed.
+  final Map<String, Call>? preLockCalls;
 
   SwapOutParams({
     required this.evmKey,
     required this.accountIndex,
     required this.amount,
-    this.onLock,
+    this.preLockCalls,
   });
 }

@@ -242,7 +242,7 @@ EscrowMethod _buildEscrowMethod({required KeyPair host}) {
         ['d', 'escrow-method'],
         ['t', 'evm'],
         ['c', 'MultiEscrow'],
-        ['a', 'BTC', Token.rbtc(30).tagId],
+        ['a', 'BTC', Token.native(30).tagId],
       ],
       content: '',
       createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,

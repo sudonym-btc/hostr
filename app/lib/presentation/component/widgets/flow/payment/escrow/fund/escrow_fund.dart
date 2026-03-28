@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
+import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -15,11 +18,15 @@ import '../../payment_method/escrow_selector/escrow_selector.dart';
 
 // ── EscrowFundWidget ────────────────────────────────────────────────────
 //
-// Thin lifecycle manager: owns the [EscrowSelectorCubit] and the current
-// [EscrowFundOperation].  When the user picks a different escrow the
-// operation is torn down and recreated, then passed to
-// [EscrowFundFlowWidget] which renders every state — including the confirm
-// step — via [OnchainOperationFlowWidget.initialisedBuilder].
+// Manages the [EscrowSelectorCubit] and the current [EscrowFundPreparer].
+// When the user picks a different escrow, the preparer is recreated.
+//
+// Flow:
+// 1. User selects escrow → [EscrowFundPreparer] is created
+// 2. Confirm screen shows fees → user taps "Confirm"
+// 3. [EscrowFundPreparer.prepare()] builds [SwapInParams]
+// 4. A [SwapInOperation] is created and registered in [SwapRegistry]
+// 5. The widget transitions to [SwapInFlowWidget]
 
 class EscrowFundWidget extends StatefulWidget {
   final ProfileMetadata counterparty;
@@ -39,7 +46,10 @@ class EscrowFundWidget extends StatefulWidget {
 
 class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   late final EscrowSelectorCubit _selectorCubit;
-  EscrowFundOperation? _fundOperation;
+  EscrowFundPreparer? _preparer;
+
+  /// Once the user confirms, this holds the live swap operation.
+  SwapInOperation? _swapOperation;
 
   @override
   void initState() {
@@ -50,9 +60,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     )..load();
   }
 
-  void _createFundOperation(EscrowService escrow) {
-    _fundOperation?.close();
-    _fundOperation = getIt<Hostr>().escrow.fund(
+  void _createPreparer(EscrowService escrow) {
+    _preparer = getIt<Hostr>().escrow.fund(
       EscrowFundParams(
         negotiateReservation: widget.negotiateReservation,
         amount: widget.negotiateReservation.amount!,
@@ -63,21 +72,56 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     );
   }
 
+  Future<void> _onConfirm() async {
+    final preparer = _preparer;
+    if (preparer == null) return;
+
+    await _selectorCubit.select();
+
+    // Build the SwapInParams (resolves signer, estimates gas, etc.).
+    final swapParams = await preparer.prepare();
+
+    // Create the swap operation.
+    final swapOp = preparer.configuredChain.swapIn(
+      auth: getIt<Hostr>().auth,
+      logger: preparer.logger,
+      params: swapParams,
+    );
+
+    // Register in SwapRegistry so the negotiation UI can pick it up.
+    getIt<Hostr>().swapRegistry.registerSwapIn(swapOp);
+
+    // Transition to swap flow and auto-execute — the user already confirmed
+    // in EscrowFundConfirmWidget so there is no need to show the
+    // SwapInConfirmWidget again.
+    if (mounted) {
+      setState(() => _swapOperation = swapOp);
+      unawaited(swapOp.execute());
+    }
+  }
+
   @override
   void dispose() {
     _selectorCubit.close();
-    _fundOperation?.detach();
+    // If there's a live swap, let it continue (the registry holds it).
+    // detachOrClose is handled by SwapInFlowWidget.
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Once a swap has been created, show the swap-in flow.
+    final swap = _swapOperation;
+    if (swap != null) {
+      return SwapInFlowWidget(cubit: swap);
+    }
+
     return BlocProvider.value(
       value: _selectorCubit,
       child: BlocConsumer<EscrowSelectorCubit, EscrowSelectorState>(
         listener: (context, state) {
           if (state is EscrowSelectorLoaded && state.selectedEscrow != null) {
-            setState(() => _createFundOperation(state.selectedEscrow!));
+            setState(() => _createPreparer(state.selectedEscrow!));
           }
         },
         builder: (context, selectorState) {
@@ -89,21 +133,15 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
             );
           }
 
-          final op = _fundOperation;
-          if (selectorState is! EscrowSelectorLoaded || op == null) {
+          final preparer = _preparer;
+          if (selectorState is! EscrowSelectorLoaded || preparer == null) {
             return OnchainTransactionSheet.loading(title: 'Deposit Funds');
           }
 
-          return BlocProvider<EscrowFundOperation>.value(
-            value: op,
-            child: EscrowFundFlowWidget(
-              key: ObjectKey(op),
-              cubit: op,
-              onConfirm: () async {
-                await _selectorCubit.select();
-                op.execute();
-              },
-            ),
+          return EscrowFundConfirmWidget(
+            key: ObjectKey(preparer),
+            preparer: preparer,
+            onConfirm: _onConfirm,
           );
         },
       ),
@@ -112,8 +150,13 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
 }
 
 class EscrowFundConfirmWidget extends StatefulWidget {
+  final EscrowFundPreparer preparer;
   final Future<void> Function() onConfirm;
-  const EscrowFundConfirmWidget({required this.onConfirm, super.key});
+  const EscrowFundConfirmWidget({
+    required this.preparer,
+    required this.onConfirm,
+    super.key,
+  });
 
   @override
   State<EscrowFundConfirmWidget> createState() =>
@@ -127,7 +170,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
   @override
   void initState() {
     super.initState();
-    _feeEstimate = context.read<EscrowFundOperation>().estimateFees();
+    _feeEstimate = widget.preparer.estimateFees();
   }
 
   Future<void> _handleConfirm() async {
@@ -152,7 +195,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
           EscrowSelectorWidget(),
           Gap.vertical.md(),
           AmountWidget(
-            amount: context.read<EscrowFundOperation>().params!.amount,
+            amount: widget.preparer.params!.amount,
             loading: _loading,
             feeWidget: FutureBuilder<FeeBreakdown>(
               future: _feeEstimate,
@@ -175,16 +218,24 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                 }
 
                 final fees = snapshot.data!;
+                final chainConfig = widget.preparer.configuredChain.config;
+                final escrowDenom = chainConfig
+                    .tokenByAddress(fees.escrowFee.token.address)
+                    ?.denomination;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "+ ${formatAmount(fees.networkFees)} in network fees"
+                      "+ ${formatTokenAmount(fees.gasFee, denomination: chainConfig.nativeDenomination)} in network fees"
                       "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatAmount(fees.escrowFee.toDenominated())} in escrow fees",
+                      "+ ${formatTokenAmount(fees.swapFee, denomination: 'BTC')} in swap fees",
+                      style: subtleStyle,
+                    ),
+                    Text(
+                      "+ ${formatTokenAmount(fees.escrowFee, denomination: escrowDenom)} in escrow fees",
                       style: subtleStyle,
                     ),
                   ],
@@ -210,47 +261,5 @@ class EscrowFundProgressWidget extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     return OnchainTransactionSheet.swapProgress(progress);
-  }
-}
-
-/// Renders the full state machine of an [EscrowFundOperation] through
-/// [OnchainOperationFlowWidget].
-///
-/// • **Fresh operation** (launched from [EscrowFundWidget]):
-///   Pass [onConfirm] so the [OnchainInitialised] state renders a confirm
-///   screen with the escrow selector and amount summary.
-///
-/// • **Reattach** (e.g. from [EscrowFundRegistry]):
-///   Omit [onConfirm] — the initialised state is suppressed and only
-///   in-progress / success / failure UI is shown.
-class EscrowFundFlowWidget extends StatelessWidget {
-  final EscrowFundOperation cubit;
-
-  /// When non-null the [OnchainInitialised] state renders a confirm screen.
-  /// Omit for the reattach (already-running) path.
-  final Future<void> Function()? onConfirm;
-
-  const EscrowFundFlowWidget({super.key, required this.cubit, this.onConfirm});
-
-  @override
-  Widget build(BuildContext context) {
-    return OnchainOperationFlowWidget(
-      cubit: cubit,
-      initialisedBuilder: onConfirm != null
-          ? (_) => EscrowFundConfirmWidget(onConfirm: onConfirm!)
-          : null,
-      broadcastBuilder: (s) => OnchainTransactionSheet.broadcast(
-        title: 'Depositing Funds',
-        subtitle: s.data.txHash != null
-            ? 'Waiting for on-chain confirmation...'
-            : 'Submitting deposit transaction...',
-      ),
-      confirmedBuilder: (_) => OnchainTransactionSheet.success(
-        title: 'Deposit Success',
-        subtitle: 'Funds have been deposited into the escrow.',
-      ),
-      errorBuilder: (s) =>
-          OnchainTransactionSheet.error(s, title: 'Escrow Failed'),
-    );
   }
 }

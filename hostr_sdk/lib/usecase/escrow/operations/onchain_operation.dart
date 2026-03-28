@@ -1,16 +1,6 @@
-import 'package:models/main.dart';
-import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:web3dart/web3dart.dart';
 
-import '../../../config.dart';
-import '../../../injection.dart';
-import '../../../util/bloc_x.dart';
-import '../../../util/custom_logger.dart';
-import '../../../util/token_amount_ext.dart';
-import '../../auth/auth.dart';
 import '../../evm/main.dart';
-import '../../trade_account_allocator/trade_account_allocator.dart';
-import '../supported_escrow_contract/supported_escrow_contract.dart';
 
 // ── Data base class ─────────────────────────────────────────────────────
 
@@ -25,12 +15,12 @@ abstract class OnchainOperationData {
   final String contractAddress;
   final int chainId;
 
-  /// Ordered list of calls this operation intends to execute as a single
-  /// batched UserOperation. For example, an ERC-20 escrow fund would be
-  /// `[approve, createTrade]`.
-  final List<CallIntent> callIntents;
+  /// Ordered map of calls this operation intends to execute as a single
+  /// batched UserOperation. Keys are human-readable method names (for logging),
+  /// values are the `permissionless.Call` instances.
+  final Map<String, Call> calls;
 
-  /// Chosen execution transport for [callIntents].
+  /// Chosen execution transport for [calls].
   ///
   /// `relay` is only used for zero-value calls when the contract has a
   /// configured RIF relay. `direct` means the sender EOA will broadcast the
@@ -53,7 +43,7 @@ abstract class OnchainOperationData {
     required this.accountIndex,
     required this.contractAddress,
     required this.chainId,
-    this.callIntents = const [],
+    this.calls = const {},
     this.transport,
     this.swapId,
     this.txHash,
@@ -72,7 +62,7 @@ abstract class OnchainOperationData {
   OnchainOperationData copyWithTransactionReceipt(
     TransactionReceipt? transactionReceipt,
   );
-  OnchainOperationData copyWithCallIntents(List<CallIntent> callIntents);
+  OnchainOperationData copyWithCalls(Map<String, Call> calls);
   OnchainOperationData copyWithTransport(String? transport);
 
   /// Serialise common fields.  Subclasses should spread this into
@@ -81,8 +71,7 @@ abstract class OnchainOperationData {
     'accountIndex': accountIndex,
     'contractAddress': contractAddress,
     'chainId': chainId,
-    if (callIntents.isNotEmpty)
-      'callIntents': callIntents.map((i) => i.toJson()).toList(),
+    if (calls.isNotEmpty) 'callIntents': serializeNamedCalls(calls),
     if (transport != null) 'transport': transport,
     if (swapId != null) 'swapId': swapId,
     if (txHash != null) 'txHash': txHash,
@@ -106,7 +95,7 @@ class OnchainCallData extends OnchainOperationData {
     required super.contractAddress,
     required super.chainId,
     required super.accountIndex,
-    super.callIntents,
+    super.calls,
     super.transport,
     super.swapId,
     super.txHash,
@@ -135,15 +124,15 @@ class OnchainCallData extends OnchainOperationData {
   ) => copyWith(transactionReceipt: transactionReceipt);
 
   @override
-  OnchainCallData copyWithCallIntents(List<CallIntent> callIntents) =>
-      copyWith(callIntents: callIntents);
+  OnchainCallData copyWithCalls(Map<String, Call> calls) =>
+      copyWith(calls: calls);
 
   @override
   OnchainCallData copyWithTransport(String? transport) =>
       copyWith(transport: transport);
 
   OnchainCallData copyWith({
-    List<CallIntent>? callIntents,
+    Map<String, Call>? calls,
     String? transport,
     String? swapId,
     String? txHash,
@@ -155,7 +144,7 @@ class OnchainCallData extends OnchainOperationData {
     contractAddress: contractAddress,
     chainId: chainId,
     accountIndex: accountIndex,
-    callIntents: callIntents ?? this.callIntents,
+    calls: calls ?? this.calls,
     transport: transport ?? this.transport,
     swapId: swapId ?? this.swapId,
     txHash: txHash ?? this.txHash,
@@ -173,14 +162,14 @@ class OnchainCallData extends OnchainOperationData {
   };
 
   factory OnchainCallData.fromJson(Map<String, dynamic> json) {
-    final callIntents = parseCallIntents(json);
+    final calls = parseCalls(json);
     return OnchainCallData(
       operationIdValue:
           (json['operationId'] ?? json['tradeId'] ?? json['id']) as String,
       contractAddress: json['contractAddress'] as String,
       chainId: json['chainId'] as int,
       accountIndex: json['accountIndex'] as int? ?? 0,
-      callIntents: callIntents,
+      calls: calls,
       transport: json['transport'] as String?,
       swapId: json['swapId'] as String?,
       txHash: json['txHash'] as String?,
@@ -195,14 +184,12 @@ class OnchainCallData extends OnchainOperationData {
   }
 }
 
-/// Parse callIntents from JSON.
-List<CallIntent> parseCallIntents(Map<String, dynamic> json) {
+/// Parse calls from persisted JSON.
+Map<String, Call> parseCalls(Map<String, dynamic> json) {
   if (json['callIntents'] is List) {
-    return (json['callIntents'] as List)
-        .map((e) => CallIntent.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return deserializeNamedCalls(json['callIntents'] as List);
   }
-  return const [];
+  return const {};
 }
 
 // ── State hierarchy ─────────────────────────────────────────────────────
@@ -239,7 +226,7 @@ sealed class OnchainOperationState implements MachineState {
   /// Deserialise from persisted JSON.
   ///
   /// [dataFromJson] is the concrete [OnchainOperationData] factory
-  /// (e.g. [EscrowFundData.fromJson]).
+  /// (e.g. [OnchainCallData.fromJson]).
   static OnchainOperationState fromJson(
     Map<String, dynamic> json,
     OnchainOperationData Function(Map<String, dynamic>) dataFromJson,
@@ -397,517 +384,7 @@ class OnchainError extends OnchainOperationState {
   };
 }
 
-// ── Step enum ───────────────────────────────────────────────────────────
-
-/// All steps in the on-chain operation lifecycle.
-enum OnchainStep { initialise, checkSwap, broadcastTx, confirmTx }
-
-class OnchainFeeQuote {
-  final TokenAmount gasFee;
-  final bool gasSponsored;
-  final List<CallIntent> callIntents;
-  final String transport;
-
-  const OnchainFeeQuote({
-    required this.gasFee,
-    required this.gasSponsored,
-    required this.callIntents,
-    required this.transport,
-  });
-}
-
-// ── Base class ──────────────────────────────────────────────────────────
-
-/// Abstract base for any operation that needs to send an on-chain
-/// transaction via ERC-4337 Account Abstraction.
-///
-/// Provides:
-/// - State persistence via [OperationMachine] (CAS, run loop)
-/// - HD address resolution ([resolveAddress])
-/// - Receipt confirmation helpers
-///
-/// Subclasses implement the handful of abstract members that vary per
-/// operation (gas estimation, the contract call, state wrappers, etc.).
-///
-/// **Swap-in is not handled here.** Only [EscrowFundOperation] performs
-/// a nested swap-in (via its [beforeBroadcast] override) when the
-/// on-chain balance is insufficient to cover the funding transaction.
-/// All other operations (claim, release) go directly to broadcast.
-abstract class OnchainOperation
-    extends OperationMachine<OnchainOperationState, OnchainStep> {
-  // ── Dependencies ────────────────────────────────────────────────────
-
-  final Auth auth;
-  final TradeAccountAllocator tradeAccountAllocator;
-  final Evm evm;
-  late final EvmChain configuredChain;
-  late final SupportedEscrowContract contract;
-
-  /// HD account index. Defaults to 0; [resolveAddress] may update it.
-  int accountIndex = 0;
-
-  /// The EVM signing key, resolved once during [initialize].
-  ///
-  /// Set after [resolveAddress] determines [accountIndex]. Every method that
-  /// needs the signer (gas estimation, intent building, broadcast) should use
-  /// this field instead of re-deriving via `auth.hd.getActiveEvmKey`.
-  late EthPrivateKey signer;
-
-  /// Optional callback for emitting background progress notifications.
-  ///
-  /// Called with `(notificationId, message)` at key state transitions.
-  /// Set this before calling [execute] or [recover] to receive
-  /// notifications (e.g. for OS notification updates in background tasks).
-  void Function(String notificationId, String message)? onProgress;
-
-  OnchainOperation(
-    this.auth,
-    this.tradeAccountAllocator,
-    this.evm,
-    CustomLogger logger,
-    OnchainOperationState initialState,
-  ) : super(
-        store: getIt<OperationStateStore>(),
-        logger: logger,
-        initialState: initialState,
-      ) {
-    _autoWireNotifications();
-  }
-
-  /// Auto-wires [onProgress] from [HostrConfig.showNotification] so that
-  /// every operation — foreground or background — gets OS notifications
-  /// without the caller having to set it manually.
-  void _autoWireNotifications() {
-    final show = getIt<HostrConfig>().showNotification;
-    if (show == null) return;
-    onProgress = (id, message) =>
-        show(id: id.hashCode, title: 'Hostr', body: message);
-  }
-
-  /// Maps an [OnchainOperationState] to a notification message.
-  /// Returns `null` for states that should not trigger a notification.
-  String? _notificationMessage(OnchainOperationState s) => switch (s) {
-    // OnchainTxBroadcast() => 'Broadcasting deposit transaction\u2026',
-    // OnchainTxSent() => 'Deposit transaction sent, awaiting confirmation\u2026',
-    // OnchainTxConfirmed() => 'Deposit completed',
-    // OnchainError() => 'Deposit failed',
-    _ => null,
-  };
-
-  @override
-  void emit(OnchainOperationState state) {
-    super.emit(state);
-    _fireNotification(state);
-  }
-
-  void _fireNotification(OnchainOperationState s) {
-    final cb = onProgress;
-    if (cb == null) {
-      logger.d(
-        '_fireNotification: onProgress is null — skipping (${s.runtimeType})',
-      );
-      return;
-    }
-    final id = s.data?.operationId;
-    if (id == null) {
-      logger.d(
-        '_fireNotification: operationId is null — skipping (${s.runtimeType})',
-      );
-      return;
-    }
-    final message = _notificationMessage(s);
-    if (message == null) return; // expected for non-notifiable states
-    logger.i('_fireNotification: id=$id message="$message"');
-    cb(id, message);
-  }
-
-  /// Safely tear down when a widget disposes.
-  void detach() =>
-      detachOrClose((s) => s.isTerminal || s is OnchainInitialised);
-
-  // ── OperationMachine contract ──────────────────────────────────────
-
-  /// A short label used as the [OperationStateStore] namespace
-  /// (e.g. `'escrow_fund'`, `'escrow_claim'`).
-  @override
-  String get namespace;
-
-  @override
-  List<StepGuard<OnchainStep>> get steps => const [
-    StepGuard(
-      step: OnchainStep.initialise,
-      allowedFrom: {'initialised'},
-      backgroundAllowed: false,
-    ),
-    StepGuard(
-      step: OnchainStep.broadcastTx,
-      allowedFrom: {'txBroadcast', 'txBroadcasting'},
-      staleTimeout: Duration(minutes: 10),
-      backgroundAllowed: true,
-    ),
-    StepGuard(
-      step: OnchainStep.confirmTx,
-      allowedFrom: {'txSent'},
-      backgroundAllowed: true,
-    ),
-  ];
-
-  @override
-  OnchainOperationState stateFromJson(Map<String, dynamic> json) {
-    return OnchainOperationState.fromJson(json, dataFromJson);
-  }
-
-  @override
-  OnchainOperationState? busyStateFor(
-    OnchainStep step,
-    OnchainOperationState current,
-  ) {
-    final data = current.data;
-    if (data == null) return null;
-    return switch (step) {
-      OnchainStep.broadcastTx => OnchainTxBroadcasting(data),
-      _ => null,
-    };
-  }
-
-  @override
-  Future<OnchainOperationState> executeStep(OnchainStep step) =>
-      logger.span('executeStep', () async {
-        return switch (step) {
-          OnchainStep.initialise => await _stepInitialise(),
-          OnchainStep.checkSwap => throw StateError(
-            'checkSwap is only supported by EscrowFundOperation',
-          ),
-          OnchainStep.broadcastTx => await _stepBroadcastTx(),
-          OnchainStep.confirmTx => await _stepConfirmTx(),
-        };
-      });
-
-  @override
-  void emitError(
-    Object error,
-    OnchainOperationState fromState,
-    StackTrace? st, {
-    String? stepName,
-  }) => logger.spanSync('emitError', () {
-    logger.e('Error in step "$stepName": $error', error: error, stackTrace: st);
-    if (error is SwapNotReadyException) {
-      // Not a real error — the nested swap isn't done yet.
-      // Don't emit an error state; the run loop will stop naturally.
-      logger.d('Nested swap not ready for ${fromState.data?.operationId}');
-      return;
-    }
-    emit(OnchainError(error, data: fromState.data, stackTrace: st));
-  });
-
-  // ── Abstract: subclasses must implement ─────────────────────────────
-
-  /// Optional pre-flight checks (e.g. `canClaim()`).
-  Future<void> preflight() async {}
-
-  /// Perform any up-front initialization required before the run loop starts.
-  ///
-  /// Resolves the HD account index via [resolveAddress], then caches the
-  /// corresponding [signer] key. Subclasses that override this **must** call
-  /// `super.initialize()` first.
-  Future<void> initialize() async {
-    await resolveAddress();
-    signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
-    await contract.ensureDeployed();
-  }
-
-  /// Build the list of call intents for this operation.
-  ///
-  /// For single-call operations (claim, release), returns a one-element list.
-  /// For multi-call operations (ERC-20 fund = approve + createTrade), returns
-  /// multiple intents that will be batched into a single UserOperation.
-  Future<List<CallIntent>> buildCallIntents();
-
-  /// Build state overrides for gas estimation.
-  ///
-  /// Override in subclasses that need to simulate token balances during
-  /// `eth_estimateUserOperationGas` — e.g. escrow funding where the ERC-20
-  /// tokens arrive via swap *after* the gas estimate.
-  ///
-  /// Returns `null` by default (no overrides).
-  Future<List<permissionless.StateOverride>?> buildGasEstimationStateOverrides(
-    List<CallIntent> intents,
-  ) async => null;
-
-  /// Estimate gas for a list of call intents via ERC-4337.
-  ///
-  /// Returns the gas fee as a [TokenAmount] in the chain's native token,
-  /// plus whether the gas is currently sponsored by a paymaster.
-  ///
-  /// If [stateOverride] is not provided, [buildGasEstimationStateOverrides]
-  /// is called to allow subclasses to inject simulated token balances.
-  Future<({TokenAmount gasFee, bool gasSponsored})> estimateCallIntentsFee(
-    List<CallIntent> intents, {
-    List<permissionless.StateOverride>? stateOverride,
-  }) {
-    return logger.span('estimateCallIntentsFee', () async {
-      final effectiveOverrides =
-          stateOverride ?? await buildGasEstimationStateOverrides(intents);
-      final estimate = await configuredChain.aa!.estimateGasFee(
-        signer,
-        intents: intents,
-        stateOverride: effectiveOverrides,
-      );
-      return (
-        gasFee: rbtcFromWei(estimate.gasCostWei),
-        gasSponsored: estimate.gasSponsored,
-      );
-    });
-  }
-
-  /// Send the persisted call intents as a batched UserOperation and wait
-  /// for the transaction to appear in the mempool.
-  ///
-  /// Returns the [TransactionInformation] once the node acknowledges the tx.
-  Future<TransactionInformation> submitCallIntents(List<CallIntent> intents) =>
-      logger.span('submitCallIntents', () async {
-        try {
-          final txHash = await configuredChain.sendCalls(signer, intents);
-          return await configuredChain.awaitTransaction(txHash);
-        } catch (error) {
-          throw contract.decodeWriteError(error);
-        }
-      });
-
-  /// Build the initial recovery data for this operation.
-  OnchainOperationData buildInitialData({
-    required List<CallIntent> callIntents,
-    required String transport,
-  });
-
-  /// Deserialise the concrete [OnchainOperationData] subclass from JSON.
-  ///
-  /// Subclasses must override to provide their specific factory
-  /// (e.g. `EscrowFundData.fromJson`). Used by [stateFromJson].
-  OnchainOperationData dataFromJson(Map<String, dynamic> json);
-
-  // ── Hooks ─────────────────────────────────────────────────────────
-
-  /// Called before sending the transaction so subclasses can rebuild
-  /// contract params from persisted data. Default is a no-op.
-  void onBeforeTransaction(OnchainOperationData data) {}
-
-  /// Called inside [_stepConfirmTx] **before** persisting [OnchainTxConfirmed].
-  ///
-  /// Runs exactly once (the CAS-winning process). If this throws, the
-  /// run-loop catch block converts it into [OnchainError].
-  ///
-  /// Use this for validations that must gate success (e.g. verifying
-  /// that the receipt contains the expected contract logs).
-  void validateConfirmedTransaction(
-    OnchainOperationData data,
-    TransactionReceipt receipt,
-  ) {}
-
-  /// Called when the run loop reaches a terminal state, in **every**
-  /// process (foreground, background, recovery).
-  ///
-  /// Implementations **must** be idempotent and should not throw.
-  /// The state and its persisted data (including the receipt) are
-  /// available for logging / metrics.
-  @override
-  void onRunComplete(OnchainOperationState state) {}
-
-  Future<OnchainFeeQuote> estimateOperationFees() =>
-      logger.span('estimateOperationFees', () async {
-        await initialize();
-        final intents = await buildCallIntents();
-        final gasEstimate = await estimateCallIntentsFee(intents);
-
-        return OnchainFeeQuote(
-          gasFee: gasEstimate.gasFee,
-          gasSponsored: gasEstimate.gasSponsored,
-          callIntents: intents,
-          transport: 'direct',
-        );
-      });
-
-  // ── Entry points ──────────────────────────────────────────────────
-
-  /// Start a new operation (resolves address, then runs the loop).
-  @override
-  Future<void> execute() async {
-    await initialize();
-    await run();
-  }
-
-  /// Resume from a persisted (non-terminal) state.
-  ///
-  /// Ensures [signer] is available before the run loop begins.
-  /// In recovery the [accountIndex] is already set from persisted data,
-  /// so we only need to derive the key.
-  @override
-  Future<bool> recover({bool isBackground = false}) async {
-    signer = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
-    await contract.ensureDeployed();
-    return super.recover(isBackground: isBackground);
-  }
-
-  // ── Step: initialise ──────────────────────────────────────────────
-
-  /// Build initial data, estimate gas, then transition to [OnchainTxBroadcast].
-  ///
-  /// Subclasses that need pre-broadcast work (e.g. swap-in) should override
-  /// [beforeBroadcast] rather than this method.
-  Future<OnchainOperationState> _stepInitialise() =>
-      logger.span('stepInitialise', () async {
-        await preflight();
-        final intents = await buildCallIntents();
-        final gasEstimate = await estimateCallIntentsFee(intents);
-        onGasEstimated(gasEstimate.gasFee);
-        var data = buildInitialData(callIntents: intents, transport: 'direct');
-        logger.i(
-          '$namespace: initialising ${data.operationId} '
-          '(accountIndex: $accountIndex)',
-        );
-        data = await beforeBroadcast(data, gasEstimate.gasFee);
-        return OnchainTxBroadcast(data);
-      });
-
-  // ── Step: broadcast tx (side-effect — busy-guarded) ────────────────
-
-  /// Send the on-chain transaction and persist the txHash.
-  ///
-  /// This step is protected by the `txBroadcasting` busy guard so only
-  /// one process ever submits the transaction.  It does NOT wait for
-  /// the receipt — that's the job of [_stepConfirmTx], which any
-  /// process can pick up immediately.
-  Future<OnchainOperationState>
-  _stepBroadcastTx() => logger.span('stepBroadcastTx', () async {
-    var data = state.data!;
-    onBeforeTransaction(data);
-
-    // Already broadcast — skip straight to confirm.
-    if (data.txHash != null) {
-      logger.i(
-        '$namespace: txHash already set (${data.txHash}), skipping to confirm',
-      );
-      return OnchainTxSent(data);
-    }
-
-    // Send the transaction.
-    final intents = data.callIntents;
-    if (intents.isEmpty) {
-      throw StateError(
-        '$namespace cannot broadcast without persisted callIntents',
-      );
-    }
-    final tx = await submitCallIntents(intents);
-    data = data.copyWithTransactionInformation(tx);
-    final txHash = extractTxHash(tx);
-    if (txHash != null) {
-      data = data.copyWithTxHash(txHash);
-      logger.i('$namespace: transaction broadcast: $txHash');
-      return OnchainTxSent(data);
-    } else {
-      logger.w(
-        'Could not extract tx hash from TransactionInformation, '
-        'skipping receipt status check',
-      );
-      return OnchainTxConfirmed(data);
-    }
-  });
-
-  // ── Step: confirm tx (idempotent — no busy guard) ─────────────────
-
-  /// Wait for the on-chain transaction receipt.
-  ///
-  /// This step has no busy guard — any process (foreground or
-  /// background) can pick it up.  It's purely a read: wait for the
-  /// receipt and check success.
-  Future<OnchainOperationState> _stepConfirmTx() => logger.span(
-    'stepConfirmTx',
-    () async {
-      var data = state.data!;
-      final txHash = data.txHash!;
-      final transactionInformation =
-          data.transactionInformation ??
-          await configuredChain.awaitTransaction(txHash);
-      data = data.copyWithTransactionInformation(transactionInformation);
-
-      final receipt =
-          data.transactionReceipt ?? await configuredChain.awaitReceipt(txHash);
-      logger.i(
-        'Receipt received for $namespace tx $txHash: status=${receipt.status}',
-      );
-      if (!isReceiptSuccessful(receipt)) {
-        return OnchainError('Transaction reverted: $txHash', data: data);
-      }
-      data = data.copyWithTransactionReceipt(receipt);
-      validateConfirmedTransaction(data, receipt);
-      configuredChain.notifyNewBlock();
-      logger.d('$namespace transaction confirmed: $txHash');
-      return OnchainTxConfirmed(data);
-    },
-  );
-
-  // ── Address resolution ────────────────────────────────────────────
-
-  /// Pick the best HD address for this operation.
-  ///
-  /// Picks the trade-bound deterministic account if available, else falls
-  /// back to account index 0.
-  Future<void> resolveAddress() => logger.span('resolveAddress', () async {
-    final accountIndex =
-        (await tradeAccountAllocator.tryFindTradeAccountIndexByTradeId(
-          tradeId,
-        )) ??
-        0;
-    logger.i(
-      'Using trade signer account index $accountIndex for trade $tradeId',
-    );
-    this.accountIndex = accountIndex;
-    onAddressResolved(accountIndex);
-  });
-
-  String get tradeId;
-
-  /// Called after [resolveAddress] picks an account index so subclasses
-  /// can update their contract params with the resolved key.
-  void onAddressResolved(int resolvedAccountIndex) {}
-
-  // ── Pre-broadcast hook ─────────────────────────────────────────────
-
-  /// Called after gas estimation and initial data construction, before
-  /// transitioning to broadcast.
-  ///
-  /// Override in subclasses to add pre-broadcast logic (e.g. swap-in
-  /// for funding). The default is a pass-through.
-  Future<OnchainOperationData> beforeBroadcast(
-    OnchainOperationData data,
-    TokenAmount gasFee,
-  ) async => data;
-
-  /// Called after gas estimation so subclasses can pin the estimate onto
-  /// their contract params. Default is a no-op.
-  void onGasEstimated(TokenAmount gasFee) {}
-
-  // ── Tx helpers ────────────────────────────────────────────────────
-
-  String? extractTxHash(TransactionInformation tx) =>
-      logger.spanSync('extractTxHash', () {
-        final dynamic d = tx;
-        final hash = d.hash?.toString() ?? d.id?.toString();
-        if (hash == null || hash.isEmpty) return null;
-        return hash;
-      });
-
-  bool isReceiptSuccessful(TransactionReceipt receipt) =>
-      logger.spanSync('isReceiptSuccessful', () {
-        final dynamic status = (receipt as dynamic).status;
-        if (status == null) return true;
-        if (status is bool) return status;
-        if (status is int) return status == 1;
-        if (status is BigInt) return status == BigInt.one;
-        final normalized = status.toString().toLowerCase();
-        return normalized == '1' || normalized == '0x1' || normalized == 'true';
-      });
-}
+// ── Transaction serialisation helpers ────────────────────────────────────
 
 Map<String, dynamic> serializeTransactionInformation(
   TransactionInformation tx,
@@ -976,11 +453,4 @@ String toHexQuantity(Object value) {
     _ => throw ArgumentError('Unsupported quantity type: ${value.runtimeType}'),
   };
   return '0x${bigint.toRadixString(16)}';
-}
-
-/// Signal that [stepCheckSwap] cannot make progress because the nested
-/// swap-in has not completed yet. Caught by [recover] to return `false`.
-class SwapNotReadyException implements Exception {
-  @override
-  String toString() => 'Nested swap not yet complete';
 }

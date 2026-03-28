@@ -69,7 +69,7 @@ class EvmBalanceMonitor {
   // ── Tracked sets ────────────────────────────────────────────────────
 
   final Set<TrackedAddress> _trackedAddresses = {};
-  final Set<TrackedToken> _trackedTokens = {};
+  final Set<Token> _trackedTokens = {};
 
   // ── Caches ──────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ class EvmBalanceMonitor {
 
   Timer? _expansionTimer;
   final Set<TrackedAddress> _pendingAddresses = {};
-  final Set<TrackedToken> _pendingTokens = {};
+  final Set<Token> _pendingTokens = {};
 
   // ── Processing lock ─────────────────────────────────────────────────
 
@@ -140,12 +140,11 @@ class EvmBalanceMonitor {
   /// All currently-tracked addresses will get an initial `balanceOf` snapshot
   /// for this token (debounced), and subsequent block ticks will include
   /// Transfer log scanning for the token's contract.
-  void trackToken(String name, EthereumAddress contractAddress) {
-    final tracked = TrackedToken(name: name, contractAddress: contractAddress);
-    if (!_trackedTokens.add(tracked)) return; // already tracked
+  void trackToken(Token token) {
+    if (!_trackedTokens.add(token)) return; // already tracked
 
-    _logger.d('trackToken($name, ${contractAddress.eip55With0x})');
-    _pendingTokens.add(tracked);
+    _logger.d('trackToken(${token.tagId})');
+    _pendingTokens.add(token);
     _scheduleExpansionFlush();
   }
 
@@ -167,21 +166,20 @@ class EvmBalanceMonitor {
   /// Stop tracking an ERC-20 [token].
   ///
   /// Cached balances are evicted for all addresses × this token.
-  void untrackToken(EthereumAddress contractAddress) {
-    final tracked = TrackedToken(name: '', contractAddress: contractAddress);
-    if (!_trackedTokens.remove(tracked)) return;
+  void untrackToken(Token token) {
+    if (!_trackedTokens.remove(token)) return;
 
-    _logger.d('untrackToken(${contractAddress.eip55With0x})');
-    _pendingTokens.remove(tracked);
+    _logger.d('untrackToken(${token.address})');
+    _pendingTokens.remove(token);
 
-    final tokenLower = contractAddress.eip55With0x.toLowerCase();
+    final tokenLower = token.address.toLowerCase();
     _balanceCache.removeWhere((key, _) => key.$2 == tokenLower);
   }
 
   /// Read the latest cached balance for an (address, token) pair.
   ///
   /// Returns `null` if the pair hasn't been fetched yet or isn't tracked.
-  /// For native balance, pass [Token.rbtc] (or the chain's native token).
+  /// For native balance, pass [Token.native] (or the chain's native token).
   TokenAmount? balanceOf(EthereumAddress address, Token token) {
     final key = (
       address.eip55With0x.toLowerCase(),
@@ -195,7 +193,7 @@ class EvmBalanceMonitor {
       Set.unmodifiable(_trackedAddresses);
 
   /// The current set of tracked tokens (read-only copy).
-  Set<TrackedToken> get trackedTokens => Set.unmodifiable(_trackedTokens);
+  Set<Token> get trackedTokens => Set.unmodifiable(_trackedTokens);
 
   /// Whether the monitor is actively processing blocks.
   bool get isRunning => _blockSub != null;
@@ -251,7 +249,7 @@ class EvmBalanceMonitor {
     if (_disposed) return;
 
     final newAddresses = Set<TrackedAddress>.of(_pendingAddresses);
-    final newTokens = Set<TrackedToken>.of(_pendingTokens);
+    final newTokens = Set<Token>.of(_pendingTokens);
     _pendingAddresses.clear();
     _pendingTokens.clear();
 
@@ -274,7 +272,7 @@ class EvmBalanceMonitor {
       final addressesToSnapshot = <EthereumAddress>{
         ...newAddresses.map((a) => a.address),
       };
-      final tokensToSnapshot = <TrackedToken>{
+      final tokensToSnapshot = <Token>{
         ..._trackedTokens, // includes newly added ones
       };
 
@@ -290,7 +288,7 @@ class EvmBalanceMonitor {
           // Only snapshot if this is a new combination.
           final key = (
             addr.eip55With0x.toLowerCase(),
-            token.contractAddress.eip55With0x.toLowerCase(),
+            token.address.toLowerCase(),
           );
           if (_balanceCache.containsKey(key) &&
               !newAddresses.any(
@@ -465,10 +463,10 @@ class EvmBalanceMonitor {
       }
 
       final tokenContracts = _trackedTokens
-          .map((t) => t.contractAddress)
+          .map((t) => EthereumAddress.fromHex(t.address))
           .toList(growable: false);
 
-      final dirtyPairs = <(EthereumAddress, TrackedToken)>{};
+      final dirtyPairs = <(EthereumAddress, Token)>{};
 
       // We need two log queries per range:
       // 1. topics[1] (from) matches tracked addresses
@@ -509,7 +507,7 @@ class EvmBalanceMonitor {
             // Identify dirty addresses from the logs.
             final token = _trackedTokens.firstWhere(
               (t) =>
-                  t.contractAddress.eip55With0x.toLowerCase() ==
+                  t.address.toLowerCase() ==
                   tokenContract.eip55With0x.toLowerCase(),
             );
 
@@ -567,7 +565,7 @@ class EvmBalanceMonitor {
   ) async {
     try {
       final balance = await _chain.getBalance(address);
-      final nativeToken = Token.rbtc(_chain.config.chainId);
+      final nativeToken = Token.native(_chain.config.chainId);
       final key = (
         address.eip55With0x.toLowerCase(),
         nativeToken.address.toLowerCase(),
@@ -596,17 +594,17 @@ class EvmBalanceMonitor {
 
   Future<void> _fetchAndEmitErc20Balance(
     EthereumAddress address,
-    TrackedToken token,
+    Token token,
     int blockNumber,
   ) async {
     try {
       final balance = await _chain.getERC20Balance(
         address,
-        token.contractAddress,
+        EthereumAddress.fromHex(token.address),
       );
       final key = (
         address.eip55With0x.toLowerCase(),
-        token.contractAddress.eip55With0x.toLowerCase(),
+        token.address.toLowerCase(),
       );
       final previous = _balanceCache[key];
 
@@ -625,7 +623,7 @@ class EvmBalanceMonitor {
     } catch (e) {
       _logger.w(
         'Failed to fetch ERC20 balance for '
-        '${address.eip55With0x}/${token.name}: $e',
+        '${address.eip55With0x}/${token.tagId}: $e',
       );
     }
   }

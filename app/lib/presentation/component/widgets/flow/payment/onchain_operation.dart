@@ -207,7 +207,7 @@ class OnchainOperationViewWidget extends StatelessWidget {
 // ── OnchainOperationFlowWidget ──────────────────────────────────────────
 
 class OnchainOperationFlowWidget extends StatefulWidget {
-  final OnchainOperation cubit;
+  final Cubit<OnchainOperationState> cubit;
 
   /// Optional per-state builder overrides forwarded to
   /// [OnchainOperationViewWidget].
@@ -236,8 +236,8 @@ class _OnchainOperationFlowWidgetState
     extends State<OnchainOperationFlowWidget> {
   @override
   void dispose() {
-    // Allow in-flight swaps to complete before closing the cubit.
-    widget.cubit.detach();
+    // Allow in-flight operations to complete before closing the cubit.
+    widget.cubit.detachOrClose((s) => s.isTerminal || s is OnchainInitialised);
     super.dispose();
   }
 
@@ -245,7 +245,7 @@ class _OnchainOperationFlowWidgetState
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: widget.cubit,
-      child: BlocBuilder<OnchainOperation, OnchainOperationState>(
+      child: BlocBuilder<Cubit<OnchainOperationState>, OnchainOperationState>(
         // Suppress intermediate swap states (e.g. SwapInInitialised,
         // SwapInRequestCreated) that flash briefly before the
         // payment-required UI is ready.  Claiming / confirmation phases

@@ -105,7 +105,7 @@ EscrowMethod _escrowMethod({
   final tags = <List<String>>[
     ['d', 'escrow-method'],
     ['t', chosenEscrowType],
-    if (includeAcceptedToken) ['a', 'BTC', Token.rbtc(30).tagId],
+    if (includeAcceptedToken) ['a', 'BTC', Token.native(30).tagId],
   ];
   final event = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(

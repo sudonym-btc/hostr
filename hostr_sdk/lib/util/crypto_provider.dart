@@ -23,6 +23,20 @@ abstract class CryptoProvider {
     required int iterations,
     required int bits,
   });
+
+  /// Compute the NIP-44 conversation key for the given keypair.
+  ///
+  /// NIP-44 defines:
+  ///   `conv_key = HKDF-extract(salt="nip44-v2", ikm=x_coord(privKey × pubKey))`
+  ///
+  /// Return `null` if this provider has no secp256k1 implementation —
+  /// callers fall back to NDK's pure-Dart path and cache the result
+  /// themselves. Override in platform-specific providers (e.g. a
+  /// `noble-secp256k1` JS-interop provider on web) for a faster path.
+  Future<Uint8List?> nip44ConversationKey(
+    String privKeyHex,
+    String xOnlyPubKeyHex,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -101,4 +115,12 @@ class DartCryptoProvider implements CryptoProvider {
 
     return Uint8List.fromList(result.sublist(0, length));
   }
+
+  /// secp256k1 is not available in the pure-Dart provider.
+  /// [coinlib_gift_wrap] will compute and cache the key via NDK internally.
+  @override
+  Future<Uint8List?> nip44ConversationKey(
+    String privKeyHex,
+    String xOnlyPubKeyHex,
+  ) async => null;
 }

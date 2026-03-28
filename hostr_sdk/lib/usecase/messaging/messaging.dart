@@ -3,7 +3,9 @@ import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
+import '../../config.dart' show CoinlibEventSigner;
 import '../../injection.dart';
+import '../../util/coinlib_gift_wrap.dart';
 import '../../util/custom_logger.dart';
 import '../requests/requests.dart';
 import 'threads.dart';
@@ -42,16 +44,24 @@ class Messaging {
     List<String> recipientPubkeys,
   ) => _logger.span('_broadcastRumour', () async {
     final pubkeys = {...recipientPubkeys, _ndk.accounts.getPublicKey()!};
+    final rawSigner = _ndk.accounts.getLoggedAccount()?.signer;
+    final signer = rawSigner is CoinlibEventSigner ? rawSigner : null;
+
+    Future<Nip01Event> wrap(String pubkey) {
+      if (signer?.privateKey != null) {
+        return coinlibToGiftWrap(
+          rumor: rumor,
+          recipientPubkey: pubkey,
+          senderPrivKey: signer!.privateKey!,
+          senderPubKey: signer.getPublicKey(),
+        );
+      }
+      // Fallback for non-coinlib signers (e.g. hardware wallet / NIP-46).
+      return _ndk.giftWrap.toGiftWrap(rumor: rumor, recipientPubkey: pubkey);
+    }
 
     return pubkeys
-        .map(
-          (pubkey) async => _requests.broadcast(
-            event: await _ndk.giftWrap.toGiftWrap(
-              rumor: rumor,
-              recipientPubkey: pubkey,
-            ),
-          ),
-        )
+        .map((pubkey) async => _requests.broadcast(event: await wrap(pubkey)))
         .toList();
   });
 

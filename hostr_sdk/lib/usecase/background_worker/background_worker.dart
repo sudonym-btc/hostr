@@ -8,7 +8,7 @@ import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../evm/evm.dart';
-import '../evm/operations/auto_withdraw/auto_withdraw_service.dart';
+import '../evm/operations/funds_monitor/funds_monitor_service.dart';
 import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
@@ -78,7 +78,7 @@ class BackgroundWorker {
   final UserSubscriptions _userSubscriptions;
   final Heartbeats _heartbeats;
   final Evm _evm;
-  final AutoWithdrawService _autoWithdraw;
+  final FundsMonitorService _fundsMonitor;
   final Listings _listings;
   final MetadataUseCase _metadata;
   final OperationStateStore _operationStore;
@@ -87,7 +87,7 @@ class BackgroundWorker {
   UserSubscriptions get userSubscriptions => _userSubscriptions;
   Heartbeats get heartbeats => _heartbeats;
   Evm get evm => _evm;
-  AutoWithdrawService get autoWithdraw => _autoWithdraw;
+  FundsMonitorService get fundsMonitor => _fundsMonitor;
   Listings get listings => _listings;
   MetadataUseCase get metadata => _metadata;
   OperationStateStore get operationStore => _operationStore;
@@ -126,7 +126,7 @@ class BackgroundWorker {
     required UserSubscriptions userSubscriptions,
     required Heartbeats heartbeats,
     required Evm evm,
-    required AutoWithdrawService autoWithdraw,
+    required FundsMonitorService fundsMonitor,
     required Listings listings,
     required MetadataUseCase metadata,
     required OperationStateStore operationStore,
@@ -135,7 +135,7 @@ class BackgroundWorker {
        _userSubscriptions = userSubscriptions,
        _heartbeats = heartbeats,
        _evm = evm,
-       _autoWithdraw = autoWithdraw,
+       _fundsMonitor = fundsMonitor,
        _listings = listings,
        _metadata = metadata,
        _operationStore = operationStore,
@@ -217,7 +217,7 @@ class BackgroundWorker {
     await onchainOperationsRecoveryProcessor$.reset();
     await _notifications.reset();
 
-    await autoWithdraw.stop();
+    await fundsMonitor.stop();
   });
 
   Future<void> _start({
@@ -374,10 +374,10 @@ class BackgroundWorker {
       logger.span('_runAutoWithdrawProcessor', () async {
         autoWithdrawProcessor$.addStatus(StreamStatusQuerying());
         if (mode == _BackgroundWorkerMode.watch) {
-          autoWithdraw.start();
+          fundsMonitor.start();
         } else {
           await _runSafe('autoWithdraw', () async {
-            await autoWithdraw.checkNow();
+            await fundsMonitor.checkNow();
           });
         }
         autoWithdrawProcessor$.addStatus(StreamStatusLive());
@@ -589,7 +589,7 @@ class BackgroundWorker {
     });
 
     await _runSafe('autoWithdraw', () async {
-      await autoWithdraw.checkNow();
+      await fundsMonitor.checkNow();
     });
 
     logger.i(

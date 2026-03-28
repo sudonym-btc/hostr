@@ -43,9 +43,9 @@ abstract class EscrowCall extends Cubit<OnchainOperationState> {
   /// Optional pre-flight check (e.g. `canClaim`). Throws to abort.
   Future<void> preflight() async {}
 
-  /// Build the call intents for this operation.
+  /// Build the named calls for this operation.
   /// Called after [signer] is resolved.
-  List<CallIntent> buildCallIntents();
+  Map<String, Call> buildCalls();
 
   /// Safely tear down when a widget disposes.
   void detach() =>
@@ -64,22 +64,22 @@ abstract class EscrowCall extends Cubit<OnchainOperationState> {
       await contract.ensureDeployed();
       await preflight();
 
-      // ── Build intents ──
-      final intents = buildCallIntents();
+      // ── Build calls ──
+      final calls = buildCalls();
 
       // ── Broadcast ──
-      emit(OnchainTxBroadcast(_data(intents: intents)));
-      final txHash = await configuredChain.sendCalls(signer, intents);
+      emit(OnchainTxBroadcast(_data(calls: calls)));
+      final txHash = await configuredChain.sendCalls(signer, calls);
 
       // ── Confirm ──
-      emit(OnchainTxSent(_data(intents: intents, txHash: txHash)));
+      emit(OnchainTxSent(_data(calls: calls, txHash: txHash)));
       final receipt = await configuredChain.awaitReceipt(txHash);
 
       if (!_isReceiptSuccessful(receipt)) {
         emit(
           OnchainError(
             'Transaction reverted: $txHash',
-            data: _data(intents: intents, txHash: txHash),
+            data: _data(calls: calls, txHash: txHash),
           ),
         );
         return;
@@ -88,7 +88,7 @@ abstract class EscrowCall extends Cubit<OnchainOperationState> {
       configuredChain.notifyNewBlock();
       emit(
         OnchainTxConfirmed(
-          _data(intents: intents, txHash: txHash, receipt: receipt),
+          _data(calls: calls, txHash: txHash, receipt: receipt),
         ),
       );
     } catch (e, st) {
@@ -98,7 +98,7 @@ abstract class EscrowCall extends Cubit<OnchainOperationState> {
   }
 
   OnchainCallData _data({
-    required List<CallIntent> intents,
+    required Map<String, Call> calls,
     String? txHash,
     TransactionReceipt? receipt,
   }) => OnchainCallData(
@@ -106,7 +106,7 @@ abstract class EscrowCall extends Cubit<OnchainOperationState> {
     contractAddress: escrowService.contractAddress,
     chainId: escrowService.chainId,
     accountIndex: accountIndex,
-    callIntents: intents,
+    calls: calls,
     transport: 'direct',
     txHash: txHash,
     transactionReceipt: receipt,

@@ -13,7 +13,7 @@ dependencies:
   get_it: ^9.2.0
   models:
     path: ../models
-  ndk: ^0.7.1-dev.19
+  ndk: ^0.7.1
   # ndk_rust_verifier: requires Flutter SDK
   injectable: ^2.7.1+4
   rxdart: ^0.28.0
@@ -52,7 +52,11 @@ dev_dependencies:
 
 dependency_overrides:
   # Keep other overrides
-  web3dart: ^3.0.2
+  ndk:
+    git:
+      url: https://github.com/sudonym-btc/ndk.git
+      ref: fix/websocket-tostring
+      path: packages/ndk
   freezed_annotation: ^3.1.0
   web3dart_builders: 
     git:

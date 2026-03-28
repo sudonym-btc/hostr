@@ -97,6 +97,7 @@ class SwapRecoverer {
     OnBackgroundProgress? onProgress,
   }) => _logger.span('_recoverSwapIn', () async {
     final data = state.data!;
+
     final configuredChain = getIt<Evm>().getChainByChainId(data.chainId);
     if (configuredChain == null) {
       throw StateError('No configured EVM chain for chainId ${data.chainId}');
@@ -113,13 +114,18 @@ class SwapRecoverer {
         evmKey: evmKey,
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
-        amount: TokenAmount.zero(Token.rbtc(data.chainId)),
+        amount: TokenAmount.zero(Token.native(data.chainId)),
         // Restore parent link from persisted data so notifications
         // update the same OS notification as the parent operation.
         parentOperationId: data.parentOperationId,
+        // postClaimCalls are already persisted on SwapInData and
+        // restored via initialState — no need to pass again.
       ),
       initialState: state,
     );
+
+    // Register in SwapRegistry so UI can pick it up.
+    getIt<SwapRegistry>().registerSwapIn(cubit);
 
     // Let the swap operation itself fire progress notifications.
     if (onProgress != null) {
@@ -130,7 +136,9 @@ class SwapRecoverer {
     try {
       return await cubit.recover(isBackground: isBackground);
     } finally {
-      await cubit.close();
+      // Don't close — the registry holds a reference and unregisters
+      // on terminal state. If already terminal, closing is safe.
+      if (cubit.state.isTerminal) await cubit.close();
     }
   });
 
@@ -163,10 +171,13 @@ class SwapRecoverer {
       initialState: state,
     );
 
+    // Register in SwapRegistry so UI can pick it up.
+    getIt<SwapRegistry>().registerSwapOut(cubit);
+
     try {
       return await cubit.recover(isBackground: isBackground);
     } finally {
-      await cubit.close();
+      if (cubit.state.isTerminal) await cubit.close();
     }
   });
 }

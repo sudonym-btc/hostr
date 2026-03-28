@@ -1,9 +1,16 @@
+import 'dart:typed_data';
+
+import 'package:hostr_sdk/usecase/evm/evm_call.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
-import '../../../../datasources/boltz/boltz.dart';
-import '../../../../injection.dart';
+import '../../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../../util/token_amount_ext.dart';
+import '../../capabilities/boltz_call_builder.dart';
+import '../../chain/evm_chain.dart';
+import '../../models/fee_breakdown.dart';
+import 'swap_out_models.dart';
 
 /// Immutable quote describing a swap-out (RBTC → BTC).
 class SwapOutQuote {
@@ -12,18 +19,34 @@ class SwapOutQuote {
   final DenominatedAmount estimatedGasFee;
   final DenominatedAmount estimatedSwapFee;
 
+  /// Whether the gas fee is covered by a paymaster.
+  final bool gasSponsored;
+
   const SwapOutQuote({
     required this.balance,
     required this.invoiceAmount,
     required this.estimatedGasFee,
     required this.estimatedSwapFee,
+    required this.gasSponsored,
   });
+
+  /// Unified fee breakdown for UI display.
+  FeeBreakdown get feeBreakdown => FeeBreakdown(
+    escrowFee: TokenAmount.zero(balance.token),
+    swapFee: TokenAmount.fromDenominated(estimatedSwapFee, Token.btcLightning),
+    gasFee: TokenAmount.fromDenominated(
+      estimatedGasFee,
+      Token.native(balance.token.chainId),
+    ),
+    gasSponsored: gasSponsored,
+  );
 }
 
 /// Encapsulates the Boltz pair-fee maths for submarine (swap-out) quoting.
 ///
-/// Stateless — safe to share across operations. Depends only on [BoltzClient]
-/// for pair info; callers supply the chain-specific balance and gas estimate.
+/// Owns gas estimation and balance fetch. Accepts the same [EvmChain] +
+/// [SwapOutParams] that the swap operation uses, so callers get fee quotes
+/// without executing the swap.
 @injectable
 class SwapOutQuoteService {
   TokenAmount _amountFromSats(Token token, int sats) {
@@ -37,26 +60,30 @@ class SwapOutQuoteService {
     );
   }
 
-  /// Build a [SwapOutQuote] for the given balance, gas estimate, and
-  /// optional desired amount.
+  /// Build a [SwapOutQuote] for the given chain and swap params.
   ///
-  /// [boltzCurrency] is the Boltz pair currency for the chain (e.g. 'RBTC',
-  /// 'tBTC'). Defaults to 'RBTC' for backwards compatibility.
+  /// [chain]  — EVM chain to fetch balance and estimate gas on.
+  /// [params] — swap-out parameters (keys, optional requested amount).
   ///
   /// Throws [StateError] when balance is insufficient or the requested amount
   /// falls outside Boltz limits.
   Future<SwapOutQuote> buildQuote({
-    required TokenAmount balance,
-    required TokenAmount estimatedGasFee,
-    TokenAmount? requestedAmount,
-    String boltzCurrency = 'RBTC',
+    required EvmChain chain,
+    required SwapOutParams params,
   }) async {
-    final balanceRounded = TokenAmountEvmExt(balance).roundDownToSats();
-    final gasFeeRounded = TokenAmountEvmExt(estimatedGasFee).roundUpToSats();
+    final tokenAddress = params.amount?.token.isERC20 == true
+        ? EthereumAddress.fromHex(params.amount!.token.address)
+        : null;
 
-    final pair = await getIt<BoltzClient>().getSubmarinePair(
-      from: boltzCurrency,
-      to: 'BTC',
+    final balance = await _getSwapBalance(chain, params, tokenAddress);
+    final gasEstimate = await _estimateLockGasFee(chain, params, tokenAddress);
+    final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
+
+    final balanceRounded = TokenAmountEvmExt(balance).roundDownToSats();
+    final gasFeeRounded = TokenAmountEvmExt(gasFee).roundUpToSats();
+
+    final pair = await chain.swaps!.getSubmarinePair(
+      tokenAddress: tokenAddress,
     );
 
     final minInvoice = _amountFromSats(
@@ -77,7 +104,7 @@ class SwapOutQuoteService {
     if (spendableAfterGasSats <= 0) {
       throw StateError(
         'Balance ${TokenAmountEvmExt(balance).getInSats} sats is not enough to cover estimated gas '
-        '${TokenAmountEvmExt(estimatedGasFee).getInSats} sats.',
+        '${TokenAmountEvmExt(gasFee).getInSats} sats.',
       );
     }
 
@@ -105,7 +132,7 @@ class SwapOutQuoteService {
     );
 
     final invoiceAmount = TokenAmountEvmExt(
-      requestedAmount ?? maxInvoice,
+      params.amount ?? maxInvoice,
     ).roundDownToSats();
 
     if (invoiceAmount < minInvoice) {
@@ -144,6 +171,73 @@ class SwapOutQuoteService {
         value: BigInt.from(estimatedSwapFeeSats.ceil()),
         decimals: 8,
       ),
+      gasSponsored: gasEstimate.gasSponsored,
     );
+  }
+
+  // ── Helpers (moved from EvmSwapOutOperation) ─────────────────────
+
+  Future<TokenAmount> _getSwapBalance(
+    EvmChain chain,
+    SwapOutParams params,
+    EthereumAddress? tokenAddress,
+  ) async {
+    if (tokenAddress == null) {
+      return chain.getBalance(params.evmKey.address);
+    }
+    final token = IERC20(address: tokenAddress, client: chain.client);
+    final raw = await token.balanceOf((account: params.evmKey.address));
+    final decimals = await chain.resolveTokenDecimals(tokenAddress.eip55With0x);
+    return tokenAmountFromEvm(
+      tokenAddress.eip55With0x,
+      raw,
+      chainId: chain.config.chainId,
+      tokenDecimals: decimals,
+    );
+  }
+
+  Future<({BigInt gasCostWei, bool gasSponsored})> _estimateLockGasFee(
+    EvmChain chain,
+    SwapOutParams params,
+    EthereumAddress? tokenAddress,
+  ) {
+    return chain.estimateGas(
+      params.evmKey,
+      calls: _buildEstimationLockCalls(chain, params, tokenAddress),
+    );
+  }
+
+  /// Build representative lock calls for gas estimation.
+  ///
+  /// Values are dummies — only the ABI signature and target contract
+  /// matter for gas estimation.
+  Map<String, Call> _buildEstimationLockCalls(
+    EvmChain chain,
+    SwapOutParams params,
+    EthereumAddress? tokenAddress,
+  ) {
+    final builder = BoltzCallBuilder(chain.swaps!);
+    final dummyHash = Uint8List(32);
+    final dummyAddress = params.evmKey.address;
+    final Map<String, Call> lockCalls;
+    if (tokenAddress != null) {
+      lockCalls = builder.erc20Lock(
+        preimageHash: dummyHash,
+        amountWei: BigInt.one,
+        tokenAddress: tokenAddress,
+        claimAddress: dummyAddress,
+        timeoutBlockHeight: 1,
+      );
+    } else {
+      lockCalls = {
+        'EtherSwap.lock': builder.nativeLock(
+          preimageHash: dummyHash,
+          amountWei: BigInt.one,
+          claimAddress: dummyAddress,
+          timeoutBlockHeight: 1,
+        ),
+      };
+    }
+    return {...?params.preLockCalls, ...lockCalls};
   }
 }
