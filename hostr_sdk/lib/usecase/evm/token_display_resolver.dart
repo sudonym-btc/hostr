@@ -66,8 +66,6 @@ class TokenDisplayResolver {
   /// 2. Config-based denomination lookup (by chain ID + address)
   /// 3. Fallback: unknown token with empty symbol
   TokenDisplayInfo resolve(Token token) {
-    if (token.isLightning) return TokenDisplayInfo.btc;
-
     if (token.isNative) {
       for (final config in _configs) {
         if (config.chainId == token.chainId) {

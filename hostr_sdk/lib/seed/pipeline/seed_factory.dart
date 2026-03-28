@@ -2,6 +2,7 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+import 'entity_factory.dart';
 import 'seed_context.dart';
 import 'seed_pipeline_config.dart';
 import 'seed_pipeline_models.dart';
@@ -36,6 +37,7 @@ import 'stages/build_users.dart' as stage_users;
 class SeedFactory {
   final SeedPipelineConfig config;
   final SeedContext _ctx;
+  late final EntityFactory _entities;
 
   SeedFactory({
     required this.config,
@@ -45,10 +47,15 @@ class SeedFactory {
          contractAddress: contractAddress,
          userCount: config.userCount + config.userOverrides.length,
          reservationRequestsPerGuest: config.reservationRequestsPerGuest,
-       );
+       ) {
+    _entities = EntityFactory(ctx: _ctx);
+  }
 
   /// Expose the context for advanced callers (key derivation, timestamps).
   SeedContext get context => _ctx;
+
+  /// Atomic entity builder — use this in unit tests for one-off events.
+  EntityFactory get entities => _entities;
 
   // ── Individual stages ─────────────────────────────────────────────────────
 
@@ -56,10 +63,10 @@ class SeedFactory {
       stage_users.buildUsers(ctx: _ctx, config: config);
 
   Future<List<ProfileMetadata>> buildProfiles(List<SeedUser> users) =>
-      stage_profiles.buildProfiles(ctx: _ctx, users: users);
+      stage_profiles.buildProfiles(ctx: _ctx, users: users, factory: _entities);
 
   Future<ProfileMetadata> buildEscrowProfile() =>
-      stage_profiles.buildEscrowProfile(ctx: _ctx);
+      stage_profiles.buildEscrowProfile(ctx: _ctx, factory: _entities);
 
   Future<List<EscrowService>> buildEscrowServices({
     String? contractAddress,
@@ -68,6 +75,7 @@ class SeedFactory {
     contractAddress: contractAddress ?? _ctx.contractAddress,
     multiEscrowBytecodeHash:
         multiEscrowBytecodeHash ?? config.multiEscrowBytecodeHash,
+    factory: _entities,
   );
 
   Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> users) =>
@@ -77,13 +85,17 @@ class SeedFactory {
         multiEscrowBytecodeHash: config.multiEscrowBytecodeHash,
         chainId: config.chainId,
         tbtcAddress: config.tbtcAddress,
-        tbtcDecimals: config.tbtcDecimals,
         usdtAddress: config.usdtAddress,
-        usdtDecimals: config.usdtDecimals,
+        factory: _entities,
       );
 
   List<Listing> buildListings(List<SeedUser> hosts) =>
-      stage_listings.buildListings(ctx: _ctx, config: config, hosts: hosts);
+      stage_listings.buildListings(
+        ctx: _ctx,
+        config: config,
+        hosts: hosts,
+        factory: _entities,
+      );
 
   /// Build threads in "pending" state (reservation request, no outcome).
   ///
@@ -101,6 +113,7 @@ class SeedFactory {
     guests: guests,
     listings: listings,
     now: now ?? DateTime.now().toUtc(),
+    factory: _entities,
   );
 
   Future<List<Nip01Event>> buildMessages(List<SeedThread> threads) =>
@@ -108,14 +121,21 @@ class SeedFactory {
 
   Future<List<Nip01Event>> buildEscrowSelectedMessages(
     List<SeedThread> threads,
-  ) => stage_messages.buildEscrowSelectedMessages(ctx: _ctx, threads: threads);
+  ) => stage_messages.buildEscrowSelectedMessages(
+    ctx: _ctx,
+    threads: threads,
+    factory: _entities,
+  );
 
   List<ReservationTransition> buildReservationTransitions(
     List<SeedThread> threads,
-  ) => stage_transitions.buildReservationTransitions(threads: threads);
+  ) => stage_transitions.buildReservationTransitions(
+    threads: threads,
+    factory: _entities,
+  );
 
-  List<Review> buildReviews(List<SeedThread> threads) =>
-      stage_reviews.buildReviews(ctx: _ctx, threads: threads);
+  List<Review> buildReviews(List<SeedThread> threads) => stage_reviews
+      .buildReviews(ctx: _ctx, threads: threads, factory: _entities);
 
   /// Derive a deterministic key pair from an index.
   KeyPair deriveKeyPair(int index) => _ctx.deriveKeyPair(index);

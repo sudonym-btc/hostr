@@ -1,10 +1,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -15,6 +11,7 @@ import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
+import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
 
 void main() {
@@ -66,7 +63,7 @@ void main() {
         // Anvil default account #0
         'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       );
-      final usdtAddress = await _deployTestERC20(
+      final usdtAddress = await deployTestERC20(
         web3,
         deployerKey,
         name: 'Test USDT',
@@ -112,7 +109,7 @@ void main() {
         to: buyerAddress,
         value: totalTokenCost * BigInt.two,
       ), credentials: deployerKey);
-      await _waitForReceipt(web3, transferTxHash);
+      await waitForReceipt(web3, transferTxHash);
 
       // Verify balance was set
       final buyerBalance = await tokenContract.balanceOf((
@@ -135,7 +132,7 @@ void main() {
         spender: escrowAddress,
         value: totalTokenCost * BigInt.two,
       ), credentials: buyerKey);
-      await _waitForReceipt(web3, approveTxHash);
+      await waitForReceipt(web3, approveTxHash);
 
       // ── 9. Build FundArgs and get ContractCallIntent ──────────────────
       final negotiation = trade.negotiateReservation;
@@ -208,128 +205,5 @@ void main() {
         reason: 'Escrow contract should hold the funded USDT',
       );
     },
-    timeout: const Timeout(Duration(seconds: 60)),
   );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/// Deploy a TestERC20 token contract on Anvil.
-///
-/// Returns the deployed contract address. The [deployer] receives the
-/// [initialSupply] of tokens.
-Future<EthereumAddress> _deployTestERC20(
-  Web3Client web3,
-  EthPrivateKey deployer, {
-  required String name,
-  required String symbol,
-  required int decimals,
-  required BigInt initialSupply,
-}) async {
-  // Read bytecode from the bundled ABI JSON artifact.
-  final abiJsonFile = File(
-    'lib/datasources/contracts/boltz/TestERC20.abi.json',
-  );
-  final artifact =
-      jsonDecode(await abiJsonFile.readAsString()) as Map<String, dynamic>;
-  final bytecodeHex = (artifact['bytecode']['object'] as String).replaceFirst(
-    '0x',
-    '',
-  );
-  final bytecode = hexToBytes(bytecodeHex);
-
-  // ABI-encode constructor args: (string, string, uint8, uint256)
-  final constructorArgs = _abiEncodeConstructor(
-    name,
-    symbol,
-    decimals,
-    initialSupply,
-  );
-
-  final deployData = Uint8List.fromList([...bytecode, ...constructorArgs]);
-
-  final txHash = await web3.sendTransaction(
-    deployer,
-    Transaction(data: deployData),
-    chainId: 412346,
-  );
-
-  // Wait for receipt
-  TransactionReceipt? receipt;
-  for (int i = 0; i < 15; i++) {
-    receipt = await web3.getTransactionReceipt(txHash);
-    if (receipt != null) break;
-    await Future.delayed(const Duration(seconds: 1));
-  }
-  if (receipt == null || receipt.contractAddress == null) {
-    throw StateError('TestERC20 deployment failed — no contract address');
-  }
-  return receipt.contractAddress!;
-}
-
-/// ABI-encode the TestERC20 constructor parameters:
-///   `constructor(string name, string symbol, uint8 initialDecimals, uint256 initialSupply)`
-Uint8List _abiEncodeConstructor(
-  String name,
-  String symbol,
-  int decimals,
-  BigInt initialSupply,
-) {
-  final nameBytes = utf8.encode(name);
-  final symbolBytes = utf8.encode(symbol);
-
-  // Padded length for string data (round up to 32-byte boundary).
-  int pad32(int len) => ((len + 31) ~/ 32) * 32;
-
-  final headSize = 4 * 32; // 4 params × 32 bytes each
-  final nameDataOffset = headSize;
-  final symbolDataOffset = nameDataOffset + 32 + pad32(nameBytes.length);
-  final totalLen = symbolDataOffset + 32 + pad32(symbolBytes.length);
-
-  final buf = Uint8List(totalLen);
-
-  // Head section
-  _putUint256(buf, 0, BigInt.from(nameDataOffset)); // offset → name
-  _putUint256(buf, 32, BigInt.from(symbolDataOffset)); // offset → symbol
-  _putUint256(buf, 64, BigInt.from(decimals)); // uint8 (padded)
-  _putUint256(buf, 96, initialSupply); // uint256
-
-  // Name data
-  _putUint256(buf, nameDataOffset, BigInt.from(nameBytes.length));
-  buf.setRange(
-    nameDataOffset + 32,
-    nameDataOffset + 32 + nameBytes.length,
-    nameBytes,
-  );
-
-  // Symbol data
-  _putUint256(buf, symbolDataOffset, BigInt.from(symbolBytes.length));
-  buf.setRange(
-    symbolDataOffset + 32,
-    symbolDataOffset + 32 + symbolBytes.length,
-    symbolBytes,
-  );
-
-  return buf;
-}
-
-/// Write a uint256 into [buf] at the given byte [offset].
-void _putUint256(Uint8List buf, int offset, BigInt value) {
-  final hex = value.toRadixString(16).padLeft(64, '0');
-  for (int i = 0; i < 32; i++) {
-    buf[offset + i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
-  }
-}
-
-/// Poll until a transaction receipt is available.
-Future<TransactionReceipt> _waitForReceipt(
-  Web3Client web3,
-  String txHash,
-) async {
-  for (int i = 0; i < 15; i++) {
-    final receipt = await web3.getTransactionReceipt(txHash);
-    if (receipt != null) return receipt;
-    await Future.delayed(const Duration(seconds: 1));
-  }
-  throw StateError('Transaction $txHash was not mined within timeout');
 }

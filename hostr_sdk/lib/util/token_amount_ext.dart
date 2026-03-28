@@ -95,12 +95,16 @@ TokenAmount rbtcFromSats(BigInt sats, {int? chainId}) => TokenAmount(
   token: chainId != null ? Token.native(chainId) : rbtc,
 );
 
-/// Construct an RBTC [TokenAmount] from an integer count of satoshis.
+/// Construct a [TokenAmount] for any token from a count of satoshis (8 decimals).
 ///
-/// If [chainId] is provided, the token will use that chain ID instead of
-/// the default Rootstock mainnet (30).
-TokenAmount rbtcFromSatsInt(int sats, {int? chainId}) =>
-    rbtcFromSats(BigInt.from(sats), chainId: chainId);
+/// Properly scales from sats to the token's native precision.
+/// Use this instead of local `_amountFromSats` helpers.
+TokenAmount tokenAmountFromSats(Token token, BigInt sats) {
+  return TokenAmount.fromDenominated(
+    DenominatedAmount(denomination: 'BTC', value: sats, decimals: 8),
+    token,
+  );
+}
 
 /// Construct a [TokenAmount] from an on-chain EVM token address and raw value.
 ///

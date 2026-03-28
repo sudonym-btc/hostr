@@ -1,5 +1,6 @@
 import 'package:models/main.dart';
 
+import '../entity_factory.dart';
 import '../seed_pipeline_models.dart';
 
 /// Build deterministic [ReservationTransition] events for seeded threads.
@@ -10,7 +11,9 @@ import '../seed_pipeline_models.dart';
 /// - cancellation updates (host/guest, * -> cancel)
 List<ReservationTransition> buildReservationTransitions({
   required List<SeedThread> threads,
+  EntityFactory? factory,
 }) {
+  final f = factory ?? EntityFactory();
   final transitions = <ReservationTransition>[];
 
   for (final thread in threads) {
@@ -19,21 +22,17 @@ List<ReservationTransition> buildReservationTransitions({
 
     final request = thread.request;
 
-    final requestTransition = ReservationTransition(
-      pubKey: thread.guest.keyPair.publicKey,
+    final requestTransition = f.reservationTransition(
+      signer: thread.guest.keyPair,
+      tradeId: tradeId,
+      eventId: request.id,
+      listingAnchor: request.parsedTags.listingAnchor,
+      transitionType: ReservationTransitionType.counterOffer,
+      fromStage: ReservationStage.negotiate,
+      toStage: ReservationStage.negotiate,
+      commitTermsHash: request.commitHash(),
       createdAt: request.createdAt,
-      tags: ReservationTransitionTags([
-        ['t', tradeId],
-        ['e', request.id],
-        [kListingRefTag, request.parsedTags.listingAnchor],
-      ]),
-      content: ReservationTransitionContent(
-        transitionType: ReservationTransitionType.counterOffer,
-        fromStage: ReservationStage.negotiate,
-        toStage: ReservationStage.negotiate,
-        commitTermsHash: request.commitHash(),
-      ),
-    ).signAs(thread.guest.keyPair, ReservationTransition.fromNostrEvent);
+    );
 
     transitions.add(requestTransition);
 
@@ -53,22 +52,18 @@ List<ReservationTransition> buildReservationTransitions({
         ? ReservationStage.cancel
         : ReservationStage.commit;
 
-    final reservationTransition = ReservationTransition(
-      pubKey: actor.publicKey,
+    final reservationTransition = f.reservationTransition(
+      signer: actor,
+      tradeId: tradeId,
+      eventId: reservation.id,
+      listingAnchor: reservation.parsedTags.listingAnchor,
+      transitionType: transitionType,
+      fromStage: ReservationStage.negotiate,
+      toStage: toStage,
+      commitTermsHash: reservation.commitHash(),
+      previousTransitionId: requestTransition.id,
       createdAt: reservation.createdAt,
-      tags: ReservationTransitionTags([
-        ['t', tradeId],
-        ['e', reservation.id],
-        ['prev', requestTransition.id],
-        [kListingRefTag, reservation.parsedTags.listingAnchor],
-      ]),
-      content: ReservationTransitionContent(
-        transitionType: transitionType,
-        fromStage: ReservationStage.negotiate,
-        toStage: toStage,
-        commitTermsHash: reservation.commitHash(),
-      ),
-    ).signAs(actor, ReservationTransition.fromNostrEvent);
+    );
 
     transitions.add(reservationTransition);
   }

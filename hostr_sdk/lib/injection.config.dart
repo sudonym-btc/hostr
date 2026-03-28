@@ -50,10 +50,13 @@ import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart'
     as _i842;
 import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_quote_service.dart'
     as _i686;
+import 'package:hostr_sdk/usecase/evm/operations/swap_in_tracker.dart'
+    as _i1058;
 import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_quote_service.dart'
     as _i148;
+import 'package:hostr_sdk/usecase/evm/operations/swap_out_tracker.dart'
+    as _i673;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
-import 'package:hostr_sdk/usecase/evm/operations/swap_registry.dart' as _i679;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
@@ -181,8 +184,11 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i679.SwapRegistry>(
-      () => _i679.SwapRegistry(gh<_i331.CustomLogger>()),
+    gh.singleton<_i1058.SwapInTracker>(
+      () => _i1058.SwapInTracker(gh<_i331.CustomLogger>()),
+    );
+    gh.singleton<_i673.SwapOutTracker>(
+      () => _i673.SwapOutTracker(gh<_i331.CustomLogger>()),
     );
     gh.singleton<_i1014.Requests>(
       () => _i1014.Requests(

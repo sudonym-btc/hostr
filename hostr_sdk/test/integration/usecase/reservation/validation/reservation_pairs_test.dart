@@ -636,183 +636,174 @@ void main() {
         web3.dispose();
       });
 
-      test(
-        'self-signed commit with real escrow deposit → Valid',
-        () async {
-          // Fund buyer's EVM address
-          final buyerEvm = await deriveEvmKey(buyer.privateKey!);
-          await harness.anvil.setBalance(
-            address: buyerEvm.address.eip55With0x,
-            amountWei: _twoEthWei,
-          );
+      test('self-signed commit with real escrow deposit → Valid', () async {
+        // Fund buyer's EVM address
+        final buyerEvm = await deriveEvmKey(buyer.privateKey!);
+        await harness.anvil.setBalance(
+          address: buyerEvm.address.eip55With0x,
+          amountWei: _twoEthWei,
+        );
 
-          // Create negotiate reservation
-          final salt = 'escrow-it-${DateTime.now().microsecondsSinceEpoch}';
-          final nego = _buildNegotiate(
-            listing: listing,
-            buyer: buyer,
-            salt: salt,
-          );
+        // Create negotiate reservation
+        final salt = 'escrow-it-${DateTime.now().microsecondsSinceEpoch}';
+        final nego = _buildNegotiate(
+          listing: listing,
+          buyer: buyer,
+          salt: salt,
+        );
 
-          // Derive a unique trade ID
-          final tradeId = nego.getDtag()!;
-          final tradeIdBytes = _hexToBytes32(
-            sha256.convert(utf8.encode(tradeId)).toString(),
-          );
+        // Derive a unique trade ID
+        final tradeId = nego.getDtag()!;
+        final tradeIdBytes = _hexToBytes32(
+          sha256.convert(utf8.encode(tradeId)).toString(),
+        );
 
-          // Real on-chain deposit
-          final contract = DeployedContract(
-            ContractAbi.fromJson(
-              '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
-              'MultiEscrow',
-            ),
-            EthereumAddress.fromHex(_contractAddress),
-          );
+        // Real on-chain deposit
+        final contract = DeployedContract(
+          ContractAbi.fromJson(
+            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
+            'MultiEscrow',
+          ),
+          EthereumAddress.fromHex(_contractAddress),
+        );
 
-          final sellerEvm = await deriveEvmKey(host.privateKey!);
-          final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
-          final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
+        final sellerEvm = await deriveEvmKey(host.privateKey!);
+        final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
+        final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
-          final depositAmount = EtherAmount.fromBigInt(
-            EtherUnit.wei,
-            BigInt.from(100000),
-          );
+        final depositAmount = EtherAmount.fromBigInt(
+          EtherUnit.wei,
+          BigInt.from(100000),
+        );
 
-          final txHash = await web3.sendTransaction(
-            buyerEvm,
-            Transaction.callContract(
-              contract: contract,
-              function: contract.function('createTrade'),
-              parameters: [
-                tradeIdBytes,
-                buyerEvm.address,
-                sellerEvm.address,
-                arbiterEvm.address,
-                unlockAt,
-                BigInt.zero,
-              ],
-              value: depositAmount,
-            ),
-            chainId: 412346,
-          );
+        final txHash = await web3.sendTransaction(
+          buyerEvm,
+          Transaction.callContract(
+            contract: contract,
+            function: contract.function('createTrade'),
+            parameters: [
+              tradeIdBytes,
+              buyerEvm.address,
+              sellerEvm.address,
+              arbiterEvm.address,
+              unlockAt,
+              BigInt.zero,
+            ],
+            value: depositAmount,
+          ),
+          chainId: 412346,
+        );
 
-          // Wait for the tx to be mined
-          TransactionReceipt? receipt;
-          for (var i = 0; i < 20; i++) {
-            receipt = await web3.getTransactionReceipt(txHash);
-            if (receipt != null) break;
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-          }
-          expect(receipt, isNotNull, reason: 'Deposit tx should be mined');
+        // Wait for the tx to be mined
+        TransactionReceipt? receipt;
+        for (var i = 0; i < 20; i++) {
+          receipt = await web3.getTransactionReceipt(txHash);
+          if (receipt != null) break;
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        expect(receipt, isNotNull, reason: 'Deposit tx should be mined');
 
-          // Build escrow proof with the real tx hash
-          final proof = _buildEscrowPaymentProof(
-            listing: listing,
-            hosterProfile: hosterProfile,
-            txHash: txHash,
-            escrowService: escrowService,
-            escrowTrust: escrowTrust,
-            escrowMethod: escrowMethod,
-          );
+        // Build escrow proof with the real tx hash
+        final proof = _buildEscrowPaymentProof(
+          listing: listing,
+          hosterProfile: hosterProfile,
+          txHash: txHash,
+          escrowService: escrowService,
+          escrowTrust: escrowTrust,
+          escrowMethod: escrowMethod,
+        );
 
-          // Build self-signed commit with proof
-          final commit = _buildSelfSignedCommit(
-            negotiate: nego,
-            listing: listing,
-            buyer: buyer,
-            proof: proof,
-          );
+        // Build self-signed commit with proof
+        final commit = _buildSelfSignedCommit(
+          negotiate: nego,
+          listing: listing,
+          buyer: buyer,
+          proof: proof,
+        );
 
-          final pair = ReservationPair(buyerReservation: commit);
-          final result = ReservationPairs.verifyPair(pair);
-          expect(result, isA<Valid<ReservationPair>>());
-        },
-        timeout: const Timeout(Duration(seconds: 30)),
-      );
+        final pair = ReservationPair(buyerReservation: commit);
+        final result = ReservationPairs.verifyPair(pair);
+        expect(result, isA<Valid<ReservationPair>>());
+      });
 
-      test(
-        'EscrowProof.validate checks tx exists on chain',
-        () async {
-          final buyerEvm = await deriveEvmKey(buyer.privateKey!);
-          await harness.anvil.setBalance(
-            address: buyerEvm.address.eip55With0x,
-            amountWei: _twoEthWei,
-          );
+      test('EscrowProof.validate checks tx exists on chain', () async {
+        final buyerEvm = await deriveEvmKey(buyer.privateKey!);
+        await harness.anvil.setBalance(
+          address: buyerEvm.address.eip55With0x,
+          amountWei: _twoEthWei,
+        );
 
-          final salt =
-              'escrow-validate-${DateTime.now().microsecondsSinceEpoch}';
-          final nego = _buildNegotiate(
-            listing: listing,
-            buyer: buyer,
-            salt: salt,
-          );
+        final salt = 'escrow-validate-${DateTime.now().microsecondsSinceEpoch}';
+        final nego = _buildNegotiate(
+          listing: listing,
+          buyer: buyer,
+          salt: salt,
+        );
 
-          final tradeId = nego.getDtag()!;
-          final tradeIdBytes = _hexToBytes32(
-            sha256.convert(utf8.encode(tradeId)).toString(),
-          );
+        final tradeId = nego.getDtag()!;
+        final tradeIdBytes = _hexToBytes32(
+          sha256.convert(utf8.encode(tradeId)).toString(),
+        );
 
-          final contract = DeployedContract(
-            ContractAbi.fromJson(
-              '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
-              'MultiEscrow',
-            ),
-            EthereumAddress.fromHex(_contractAddress),
-          );
+        final contract = DeployedContract(
+          ContractAbi.fromJson(
+            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
+            'MultiEscrow',
+          ),
+          EthereumAddress.fromHex(_contractAddress),
+        );
 
-          final sellerEvm = await deriveEvmKey(host.privateKey!);
-          final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
-          final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
+        final sellerEvm = await deriveEvmKey(host.privateKey!);
+        final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
+        final unlockAt = BigInt.from(nego.end.millisecondsSinceEpoch ~/ 1000);
 
-          final depositAmount = EtherAmount.fromBigInt(
-            EtherUnit.wei,
-            BigInt.from(50000),
-          );
+        final depositAmount = EtherAmount.fromBigInt(
+          EtherUnit.wei,
+          BigInt.from(50000),
+        );
 
-          final txHash = await web3.sendTransaction(
-            buyerEvm,
-            Transaction.callContract(
-              contract: contract,
-              function: contract.function('createTrade'),
-              parameters: [
-                tradeIdBytes,
-                buyerEvm.address,
-                sellerEvm.address,
-                arbiterEvm.address,
-                unlockAt,
-                BigInt.zero,
-              ],
-              value: depositAmount,
-            ),
-            chainId: 412346,
-          );
+        final txHash = await web3.sendTransaction(
+          buyerEvm,
+          Transaction.callContract(
+            contract: contract,
+            function: contract.function('createTrade'),
+            parameters: [
+              tradeIdBytes,
+              buyerEvm.address,
+              sellerEvm.address,
+              arbiterEvm.address,
+              unlockAt,
+              BigInt.zero,
+            ],
+            value: depositAmount,
+          ),
+          chainId: 412346,
+        );
 
-          TransactionReceipt? receipt;
-          for (var i = 0; i < 20; i++) {
-            receipt = await web3.getTransactionReceipt(txHash);
-            if (receipt != null) break;
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-          }
-          expect(receipt, isNotNull);
+        TransactionReceipt? receipt;
+        for (var i = 0; i < 20; i++) {
+          receipt = await web3.getTransactionReceipt(txHash);
+          if (receipt != null) break;
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        expect(receipt, isNotNull);
 
-          // Build escrow proof (validates the EscrowProof construction path)
-          // ignore: unused_local_variable
-          final proof = EscrowProof(
-            txHash: txHash,
-            escrowService: escrowService,
-            hostsEscrowMethods: escrowMethod,
-          );
+        // Build escrow proof (validates the EscrowProof construction path)
+        // ignore: unused_local_variable
+        final proof = EscrowProof(
+          txHash: txHash,
+          escrowService: escrowService,
+          hostsEscrowMethods: escrowMethod,
+        );
 
-          // Validate against the chain — checks tx exists + receipt
-          // Note: EscrowProof.validate currently always returns false
-          // (implementation is a TODO with asserts). We verify the
-          // transaction information is readable from the chain.
-          final txInfo = await web3.getTransactionByHash(txHash);
-          expect(txInfo, isNotNull, reason: 'TX should be readable on chain');
-          expect(txInfo!.value.getInWei, equals(BigInt.from(50000)));
-        },
-        timeout: const Timeout(Duration(seconds: 30)),
-      );
+        // Validate against the chain — checks tx exists + receipt
+        // Note: EscrowProof.validate currently always returns false
+        // (implementation is a TODO with asserts). We verify the
+        // transaction information is readable from the chain.
+        final txInfo = await web3.getTransactionByHash(txHash);
+        expect(txInfo, isNotNull, reason: 'TX should be readable on chain');
+        expect(txInfo!.value.getInWei, equals(BigInt.from(50000)));
+      });
 
       test(
         'escrow deposit with wrong amount — tx exists but amount mismatch',
@@ -887,7 +878,6 @@ void main() {
           );
           expect(txInfo.value.getInWei, equals(BigInt.one));
         },
-        timeout: const Timeout(Duration(seconds: 30)),
       );
     },
     // Skip if Anvil is not available

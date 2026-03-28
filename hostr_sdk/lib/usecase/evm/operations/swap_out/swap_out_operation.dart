@@ -11,6 +11,7 @@ import '../../../auth/auth.dart';
 import '../../chain/evm_chain.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
+import '../swap_out_tracker.dart';
 import 'swap_out_models.dart';
 import 'swap_out_state.dart';
 
@@ -36,7 +37,9 @@ abstract class SwapOutOperation
          store: getIt<OperationStateStore>(),
          logger: logger.scope('swap-out'),
          initialState: initialState ?? const SwapOutInitialised(),
-       );
+       ) {
+    getIt<SwapOutTracker>().registerSwapOut(this);
+  }
 
   // ── OperationMachine contract ──────────────────────────────────────
 

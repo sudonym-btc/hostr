@@ -45,11 +45,8 @@ class SwapInQuote {
     required this.resolvedSwapAmount,
   });
 
-  /// Boltz swap fee as a [TokenAmount] in BTC-Lightning denomination.
-  TokenAmount get swapFee => TokenAmount.fromDenominated(
-    boltzEstimate.feesAsDenominated,
-    Token.btcLightning,
-  );
+  /// Boltz swap fee as a [DenominatedAmount] in BTC denomination.
+  DenominatedAmount get swapFee => boltzEstimate.feesAsDenominated;
 
   /// Boltz swap limits as [TokenAmount] in the swap token.
   ({TokenAmount min, TokenAmount max}) limitsIn(Token token) => (

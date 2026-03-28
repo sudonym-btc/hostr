@@ -18,7 +18,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -35,102 +34,8 @@ import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
+import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Shared constants
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Anvil default account #0 — has unlimited ETH, used to deploy + fund.
-final _deployerKey = EthPrivateKey.fromHex(
-  'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-);
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Fee sanity helpers
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Asserts that a [FeeBreakdown] has sane values for a swap operation.
-///
-/// - Gas fee must be non-negative (and > 0 when not sponsored).
-/// - Swap fee must be > 0 for operations that involve a Boltz swap.
-/// - Escrow fee must be zero for pure swap operations.
-void _expectSwapFees(FeeBreakdown fees, {bool expectSwapFee = true}) {
-  expect(
-    fees.gasFee.value >= BigInt.zero,
-    isTrue,
-    reason: 'Gas fee should be non-negative, got ${fees.gasFee.value}',
-  );
-  if (!fees.gasSponsored) {
-    expect(
-      fees.gasFee.value > BigInt.zero,
-      isTrue,
-      reason: 'Unsponsored gas fee should be > 0, got ${fees.gasFee.value}',
-    );
-  }
-  if (expectSwapFee) {
-    expect(
-      fees.swapFee.value > BigInt.zero,
-      isTrue,
-      reason: 'Swap fee should be > 0, got ${fees.swapFee.value}',
-    );
-  }
-  expect(
-    fees.escrowFee.value,
-    equals(BigInt.zero),
-    reason: 'Pure swap should have zero escrow fee',
-  );
-  expect(
-    fees.networkFees.value > BigInt.zero,
-    isTrue,
-    reason:
-        'networkFees (gas + swap) should be > 0, got ${fees.networkFees.value}',
-  );
-  print('  FeeBreakdown: $fees');
-}
-
-/// Asserts that a [FeeBreakdown] has sane values for an escrow-fund operation.
-///
-/// - Gas fee must be non-negative (and > 0 when not sponsored).
-/// - Swap fee must be > 0 (escrow fund triggers a swap-in).
-/// - Escrow fee must be > 0.
-void _expectEscrowFees(FeeBreakdown fees) {
-  expect(
-    fees.gasFee.value >= BigInt.zero,
-    isTrue,
-    reason: 'Gas fee should be non-negative, got ${fees.gasFee.value}',
-  );
-  if (!fees.gasSponsored) {
-    expect(
-      fees.gasFee.value > BigInt.zero,
-      isTrue,
-      reason: 'Unsponsored gas fee should be > 0, got ${fees.gasFee.value}',
-    );
-  }
-  expect(
-    fees.swapFee.value > BigInt.zero,
-    isTrue,
-    reason: 'Escrow fund swap fee should be > 0, got ${fees.swapFee.value}',
-  );
-  expect(
-    fees.escrowFee.value > BigInt.zero,
-    isTrue,
-    reason: 'Escrow fee should be > 0, got ${fees.escrowFee.value}',
-  );
-  print('  FeeBreakdown: $fees');
-}
-
-Future<TransactionReceipt> _waitForReceipt(
-  Web3Client web3,
-  String txHash,
-) async {
-  for (int i = 0; i < 15; i++) {
-    final receipt = await web3.getTransactionReceipt(txHash);
-    if (receipt != null) return receipt;
-    await Future.delayed(const Duration(seconds: 1));
-  }
-  throw StateError('Transaction $txHash was not mined within timeout');
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Escrow proof builders (for self-signed reservation)
@@ -243,27 +148,6 @@ Reservation _buildSelfSignedCommit({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Tx receipt helpers
-// ═══════════════════════════════════════════════════════════════════════════
-
-String? _extractTxHash(TransactionInformation tx) {
-  final dynamic d = tx;
-  final hash = d.hash?.toString() ?? d.id?.toString();
-  if (hash == null || hash.isEmpty) return null;
-  return hash;
-}
-
-bool _isReceiptSuccessful(TransactionReceipt receipt) {
-  final dynamic status = (receipt as dynamic).status;
-  if (status == null) return true;
-  if (status is bool) return status;
-  if (status is int) return status == 1;
-  if (status is BigInt) return status == BigInt.one;
-  final normalized = status.toString().toLowerCase();
-  return normalized == '1' || normalized == '0x1' || normalized == 'true';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 //  Tests
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -299,7 +183,7 @@ void main() {
       final evmKey = await hostr.auth.hd.getActiveEvmKey();
       await harness.anvilRootstock.setBalance(
         address: evmKey.address.eip55With0x,
-        amountWei: rbtcFromSatsInt(1000000).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
       );
       final swapLimits = await configured.swaps!.getSwapInLimits();
       final amount =
@@ -307,7 +191,7 @@ void main() {
             swapLimits.min,
             Token.native(configured.config.chainId),
           ) +
-          rbtcFromSatsInt(1000, chainId: configured.config.chainId);
+          rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
       final swapIn = configured.swapIn(
         params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
@@ -317,7 +201,7 @@ void main() {
 
       // ── Fee estimation ──
       final fees = await swapIn.estimateFees();
-      _expectSwapFees(fees);
+      expectSwapFees(fees);
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapInState>[swapIn.state];
@@ -396,7 +280,7 @@ void main() {
 
       // ── Fee estimation ──
       final fees = await swapIn.estimateFees();
-      _expectSwapFees(fees);
+      expectSwapFees(fees);
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapInState>[swapIn.state];
@@ -436,7 +320,7 @@ void main() {
 
       await harness.anvilRootstock.setBalance(
         address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSatsInt(500000).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(500000)).getInWei,
       );
 
       final swapOuts = await hostr.evm.swapOutAll();
@@ -451,7 +335,7 @@ void main() {
 
       // ── Fee estimation ──
       final fees = await swapOut.estimateFees();
-      _expectSwapFees(fees);
+      expectSwapFees(fees);
 
       // Verify balance and invoiceAmount are populated after estimateFees
       expect(
@@ -521,17 +405,17 @@ void main() {
       final smartAccountAddr = await configured.getAccountAddress(userKey);
       await anvil.setBalance(
         address: userKey.address.eip55With0x,
-        amountWei: rbtcFromSatsInt(500000).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(500000)).getInWei,
       );
       // The AA UserOp sender is the smart account — fund it with native
       // gas as well so the EntryPoint can pre-fund execution.
       await anvil.setBalance(
         address: smartAccountAddr.eip55With0x,
-        amountWei: rbtcFromSatsInt(500000).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(500000)).getInWei,
       );
 
       await anvil.setBalance(
-        address: _deployerKey.address.eip55With0x,
+        address: anvilDeployerKey.address.eip55With0x,
         amountWei: BigInt.from(10).pow(18),
       );
 
@@ -539,21 +423,21 @@ void main() {
       final tokenContract = TestERC20(address: tokenEntry.value, client: web3);
       final mintAmount = BigInt.from(200000) * BigInt.from(10).pow(10);
       // Fund the EOA so _getSwapBalance (used by estimateFees) sees tokens.
-      await _waitForReceipt(
+      await waitForReceipt(
         web3,
         await tokenContract.transfer((
           to: userKey.address,
           value: mintAmount,
-        ), credentials: _deployerKey),
+        ), credentials: anvilDeployerKey),
       );
       // Fund the smart account so the AA UserOp can transferFrom during
       // the ERC20Swap.lock step.
-      await _waitForReceipt(
+      await waitForReceipt(
         web3,
         await tokenContract.transfer((
           to: smartAccountAddr,
           value: mintAmount,
-        ), credentials: _deployerKey),
+        ), credentials: anvilDeployerKey),
       );
 
       final tbtcToken = Token(
@@ -581,7 +465,7 @@ void main() {
 
       // ── Fee estimation ──
       final fees = await erc20Op.estimateFees();
-      _expectSwapFees(fees);
+      expectSwapFees(fees);
 
       // Verify balance and invoiceAmount are populated
       expect(
@@ -682,7 +566,7 @@ void main() {
         );
 
         final fees = await operation.estimateFees();
-        _expectEscrowFees(fees);
+        expectEscrowFees(fees);
 
         // ── 4. Initialize, fund the derived account with gas, and run ──
         await operation.initialize();
@@ -708,10 +592,10 @@ void main() {
         final confirmed = operation.state as OnchainTxConfirmed;
         final completedData = confirmed.data;
         expect(completedData.transactionInformation, isNotNull);
-        final txHash = _extractTxHash(completedData.transactionInformation!);
+        final txHash = extractTxHash(completedData.transactionInformation!);
         expect(txHash, isNotNull);
         expect(completedData.transactionReceipt, isNotNull);
-        expect(_isReceiptSuccessful(completedData.transactionReceipt!), isTrue);
+        expect(isReceiptSuccessful(completedData.transactionReceipt!), isTrue);
 
         // ── 6. Build self-signed reservation with escrow proof ──
         final hostKeyPair = trade.host.keyPair;

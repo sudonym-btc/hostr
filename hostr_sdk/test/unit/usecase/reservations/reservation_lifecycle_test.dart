@@ -12,11 +12,14 @@
 @Tags(['unit'])
 library;
 
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
+
+final _f = EntityFactory();
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Helpers
@@ -31,22 +34,13 @@ Listing _listing({
   int pricePerNightSats = 100000,
 }) {
   final key = signer ?? MockKeys.hoster;
-  return Listing.create(
-    pubKey: key.publicKey,
+  return _f.listing(
+    signer: key,
     dTag: 'listing-${key.publicKey.substring(0, 8)}',
     title: 'Test Cottage',
     description: 'A lovely place',
-    images: ['https://picsum.photos/seed/1/800/600'],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: BigInt.from(pricePerNightSats),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
+    images: const ['https://picsum.photos/seed/1/800/600'],
+    priceSats: pricePerNightSats,
     location: 'test-location',
     type: ListingType.house,
     amenities: Amenities(),
@@ -54,11 +48,11 @@ Listing _listing({
     allowSelfSignedReservation: allowSelfSignedReservation,
     requiresEscrow: requiresEscrow,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(key, Listing.fromNostrEvent);
+  );
 }
 
 /// Build a negotiate-stage reservation "DM payload" from the buyer.
-Reservation _negotiateReservation({
+Future<Reservation> _negotiateReservation({
   required Listing listing,
   required KeyPair buyer,
   required String salt,
@@ -66,87 +60,73 @@ Reservation _negotiateReservation({
   DateTime? end,
   int quantity = 1,
   DenominatedAmount? amount,
-}) {
-  final s = start ?? DateTime(2026, 3, 1);
-  final e = end ?? DateTime(2026, 3, 5);
-  final nonce = 'trade-$salt';
-  const tweakParity = false;
-
-  return Reservation.create(
-    pubKey: buyer.publicKey,
-    dTag: nonce,
-    listingAnchor: listing.anchor!,
-    start: s,
-    end: e,
-    stage: ReservationStage.negotiate,
-    quantity: quantity,
-    amount: amount,
-    tweakMaterial: ReservationTweakMaterial(salt: salt, parity: tweakParity),
-    createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(buyer, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing,
+  dTag: 'trade-$salt',
+  signerOverride: buyer,
+  stage: ReservationStage.negotiate,
+  start: start ?? DateTime(2026, 3, 1),
+  end: end ?? DateTime(2026, 3, 5),
+  quantity: quantity,
+  amount: amount,
+  tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
+  createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
+);
 
 /// Build a commit-stage reservation (self-signed by the buyer).
-Reservation _commitReservation({
+Future<Reservation> _commitReservation({
   required Reservation negotiate,
   required Listing listing,
   required KeyPair buyer,
   PaymentProof? proof,
   Map<String, String>? signatures,
-}) {
-  return Reservation.create(
-    pubKey: buyer.publicKey,
-    dTag: negotiate.getDtag()!,
-    listingAnchor: listing.anchor!,
-    start: negotiate.start,
-    end: negotiate.end,
-    stage: ReservationStage.commit,
-    quantity: negotiate.quantity,
-    amount: negotiate.amount,
-    proof: proof,
-    signatures: signatures ?? const {},
-    createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(buyer, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing,
+  dTag: negotiate.getDtag()!,
+  signerOverride: buyer,
+  stage: ReservationStage.commit,
+  start: negotiate.start,
+  end: negotiate.end,
+  quantity: negotiate.quantity,
+  amount: negotiate.amount,
+  proof: proof,
+  signatures: signatures,
+  createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+);
 
 /// Build a seller acknowledgement reservation (host confirms).
-Reservation _sellerAckReservation({
+Future<Reservation> _sellerAckReservation({
   required Reservation negotiate,
   required Listing listing,
   required KeyPair seller,
-}) {
-  return Reservation.create(
-    pubKey: seller.publicKey,
-    dTag: negotiate.getDtag()!,
-    listingAnchor: listing.anchor!,
-    start: negotiate.start,
-    end: negotiate.end,
-    stage: ReservationStage.commit,
-    createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(seller, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing,
+  dTag: negotiate.getDtag()!,
+  signerOverride: seller,
+  stage: ReservationStage.commit,
+  start: negotiate.start,
+  end: negotiate.end,
+  createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+);
 
 /// Build a cancelled reservation from either party.
-Reservation _cancelReservation({
+Future<Reservation> _cancelReservation({
   required Reservation source,
   required Listing listing,
   required KeyPair signer,
-}) {
-  return Reservation.create(
-    pubKey: signer.publicKey,
-    dTag: source.getDtag()!,
-    listingAnchor: listing.anchor!,
-    start: source.start,
-    end: source.end,
-    stage: ReservationStage.cancel,
-    quantity: source.quantity,
-    amount: source.amount,
-    recipient: source.recipient,
-    tweakMaterial: source.tweakMaterial,
-    signatures: source.signatures,
-    createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(signer, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing,
+  dTag: source.getDtag()!,
+  signerOverride: signer,
+  stage: ReservationStage.cancel,
+  start: source.start,
+  end: source.end,
+  quantity: source.quantity,
+  amount: source.amount,
+  recipient: source.recipient,
+  tweakMaterial: source.tweakMaterial,
+  createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
+);
 
 /// Build a [ReservationTransition] event for testing transition validation.
 ReservationTransition _transition({
@@ -226,7 +206,7 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
 //  Tests
 // ═══════════════════════════════════════════════════════════════════════
 
-void main() {
+void main() async {
   final buyer = MockKeys.guest;
   final seller = MockKeys.hoster;
 
@@ -257,10 +237,10 @@ void main() {
   // ── 2. Negotiate reservation via DM ────────────────────────────────
 
   group('Negotiate reservation creation', () {
-    test('negotiate reservation has correct stage and salt', () {
+    test('negotiate reservation has correct stage and salt', () async {
       final listing = _listing();
       const salt = 'buyer-secret-salt-123';
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: salt,
@@ -272,10 +252,10 @@ void main() {
       expect(negotiate.isCommit, isFalse);
     });
 
-    test('trade id (d-tag) is deterministic from salt', () {
+    test('trade id (d-tag) is deterministic from salt', () async {
       final listing = _listing();
       const salt = 'my-secret';
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: salt,
@@ -284,11 +264,11 @@ void main() {
       expect(negotiate.getDtag(), 'trade-$salt');
     });
 
-    test('commitHash is computed correctly', () {
+    test('commitHash is computed correctly', () async {
       final listing = _listing();
       final start = DateTime(2026, 4, 1);
       final end = DateTime(2026, 4, 5);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt',
@@ -297,14 +277,19 @@ void main() {
         quantity: 2,
       );
 
-      final expected = ReservationContent(start: start, end: end, quantity: 2);
+      final expected = ReservationContent(
+        start: start,
+        end: end,
+        quantity: 2,
+        amount: listing.cost(start, end),
+      );
 
       expect(negotiate.commitHash(), expected.commitHash());
     });
 
-    test('negotiate reservation references listing anchor', () {
+    test('negotiate reservation references listing anchor', () async {
       final listing = _listing();
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt',
@@ -355,16 +340,16 @@ void main() {
       expect(h1, isNot(equals(h2)));
     });
 
-    test('salt is not carried into published commit transition', () {
+    test('salt is not carried into published commit transition', () async {
       final listing = _listing(allowSelfSignedReservation: true);
       const salt = 'buyer-keeps-this';
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: salt,
       );
 
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -385,15 +370,15 @@ void main() {
   // ── 4. Self-signed commit with escrow proof ────────────────────────
 
   group('Self-signed commit (allowSelfSignedReservation=true)', () {
-    test('buyer can self-sign commit when listing allows it', () {
+    test('buyer can self-sign commit when listing allows it', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-self',
       );
       final proof = _escrowPaymentProof(listing: listing);
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -406,14 +391,14 @@ void main() {
       expect(commit.proof!.escrowProof, isNotNull);
     });
 
-    test('commit preserves commitTermsHash from negotiate', () {
+    test('commit preserves commitTermsHash from negotiate', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-hash',
       );
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -423,43 +408,46 @@ void main() {
       expect(commit.commitHash(), negotiate.commitHash());
     });
 
-    test('commit with altered terms produces different commitTermsHash', () {
-      final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
-        listing: listing,
-        buyer: buyer,
-        salt: 'salt-tamper',
-        start: DateTime(2026, 5, 1),
-        end: DateTime(2026, 5, 5),
-        quantity: 1,
-      );
+    test(
+      'commit with altered terms produces different commitTermsHash',
+      () async {
+        final listing = _listing(allowSelfSignedReservation: true);
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'salt-tamper',
+          start: DateTime(2026, 5, 1),
+          end: DateTime(2026, 5, 5),
+          quantity: 1,
+        );
 
-      // Tampered commit with different dates
-      final tamperedHash = ReservationContent(
-        start: DateTime(2026, 5, 1),
-        end: DateTime(2026, 5, 10), // extended!
-        quantity: 1,
-      ).commitHash();
+        // Tampered commit with different dates
+        final tamperedHash = ReservationContent(
+          start: DateTime(2026, 5, 1),
+          end: DateTime(2026, 5, 10), // extended!
+          quantity: 1,
+        ).commitHash();
 
-      expect(
-        tamperedHash,
-        isNot(equals(negotiate.commitHash())),
-        reason: 'Altered terms must produce a different hash',
-      );
-    });
+        expect(
+          tamperedHash,
+          isNot(equals(negotiate.commitHash())),
+          reason: 'Altered terms must produce a different hash',
+        );
+      },
+    );
   });
 
   // ── 5. Seller-ack flow (allowSelfSignedReservation=false) ──────────
 
   group('Seller-ack flow (allowSelfSignedReservation=false)', () {
-    test('seller ack reservation references same trade id (d-tag)', () {
+    test('seller ack reservation references same trade id (d-tag)', () async {
       final listing = _listing(allowSelfSignedReservation: false);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-ack',
       );
-      final sellerAck = _sellerAckReservation(
+      final sellerAck = await _sellerAckReservation(
         negotiate: negotiate,
         listing: listing,
         seller: seller,
@@ -470,38 +458,41 @@ void main() {
       expect(sellerAck.getDtag(), negotiate.getDtag());
     });
 
-    test('Reservation.validate accepts host reservation without proof', () {
-      final listing = _listing(allowSelfSignedReservation: false);
-      final negotiate = _negotiateReservation(
-        listing: listing,
-        buyer: buyer,
-        salt: 'salt-host',
-      );
-      final sellerAck = _sellerAckReservation(
-        negotiate: negotiate,
-        listing: listing,
-        seller: seller,
-      );
+    test(
+      'Reservation.validate accepts host reservation without proof',
+      () async {
+        final listing = _listing(allowSelfSignedReservation: false);
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'salt-host',
+        );
+        final sellerAck = await _sellerAckReservation(
+          negotiate: negotiate,
+          listing: listing,
+          seller: seller,
+        );
 
-      final result = Reservation.validate(sellerAck);
-      expect(
-        result.isValid,
-        isTrue,
-        reason: 'Host published reservation is always valid',
-      );
-    });
+        final result = Reservation.validate(sellerAck);
+        expect(
+          result.isValid,
+          isTrue,
+          reason: 'Host published reservation is always valid',
+        );
+      },
+    );
 
     test('Reservation.validate rejects buyer commit without proof when listing '
-        'does not allow self-signed', () {
+        'does not allow self-signed', () async {
       final listing = _listing(allowSelfSignedReservation: false);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-noself',
       );
 
       // Buyer publishes commit WITHOUT a proof
-      final commitNoProof = _commitReservation(
+      final commitNoProof = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -530,48 +521,54 @@ void main() {
       }
     }
 
-    test('buyer self-signed commit accepted when allowSelfSigned=true', () {
-      final listing = _listing(
-        allowBarter: false,
-        allowSelfSignedReservation: true,
-      );
-      final negotiate = _negotiateReservation(
-        listing: listing,
-        buyer: buyer,
-        salt: 'salt-matrix1',
-      );
-      final commit = _commitReservation(
-        negotiate: negotiate,
-        listing: listing,
-        buyer: buyer,
-        proof: _escrowPaymentProof(listing: listing),
-      );
+    test(
+      'buyer self-signed commit accepted when allowSelfSigned=true',
+      () async {
+        final listing = _listing(
+          allowBarter: false,
+          allowSelfSignedReservation: true,
+        );
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'salt-matrix1',
+        );
+        final commit = await _commitReservation(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: buyer,
+          proof: _escrowPaymentProof(listing: listing),
+        );
 
-      // With escrow proof, Reservation.validate should accept
-      final result = Reservation.validate(commit);
-      expect(result.isValid, isTrue);
-    });
+        // With escrow proof, Reservation.validate should accept
+        final result = Reservation.validate(commit);
+        expect(result.isValid, isTrue);
+      },
+    );
 
-    test('buyer commit without proof rejected regardless of allowBarter', () {
-      final listing = _listing(
-        allowBarter: true,
-        allowSelfSignedReservation: false,
-      );
-      final negotiate = _negotiateReservation(
-        listing: listing,
-        buyer: buyer,
-        salt: 'salt-matrix2',
-      );
-      final commit = _commitReservation(
-        negotiate: negotiate,
-        listing: listing,
-        buyer: buyer,
-        proof: null,
-      );
+    test(
+      'buyer commit without proof rejected regardless of allowBarter',
+      () async {
+        final listing = _listing(
+          allowBarter: true,
+          allowSelfSignedReservation: false,
+        );
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'salt-matrix2',
+        );
+        final commit = await _commitReservation(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: buyer,
+          proof: null,
+        );
 
-      final result = Reservation.validate(commit);
-      expect(result.isValid, isFalse);
-    });
+        final result = Reservation.validate(commit);
+        expect(result.isValid, isFalse);
+      },
+    );
   });
 
   // ── 7. Commit-terms validation ─────────────────────────────────────
@@ -632,9 +629,9 @@ void main() {
       expect(t1.commitHash(), isNot(equals(t2.commitHash())));
     });
 
-    test('committed reservation matches negotiated terms hash', () {
+    test('committed reservation matches negotiated terms hash', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-terms',
@@ -642,7 +639,7 @@ void main() {
         end: DateTime(2026, 6, 5),
         quantity: 2,
       );
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -655,6 +652,7 @@ void main() {
         start: DateTime(2026, 6, 1),
         end: DateTime(2026, 6, 5),
         quantity: 2,
+        amount: listing.cost(DateTime(2026, 6, 1), DateTime(2026, 6, 5)),
       ).commitHash();
       expect(commit.commitHash(), reDerived);
     });
@@ -663,9 +661,9 @@ void main() {
   // ── 7b. Seller-signature verification ──────────────────────────────
 
   group('Seller-signature verification', () {
-    test('seller signs negotiate terms → buyer commit verifies', () {
+    test('seller signs negotiate terms → buyer commit verifies', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'sig-ok',
@@ -678,7 +676,7 @@ void main() {
       final sellerSig = negotiate.signCommit(seller);
 
       // Buyer builds a matching commit carrying the seller signature.
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -690,9 +688,9 @@ void main() {
       expect(commit.verifyCommit(seller.publicKey), isTrue);
     });
 
-    test('buyer alters dates → seller signature fails verification', () {
+    test('buyer alters dates → seller signature fails verification', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'sig-tamper-dates',
@@ -724,39 +722,42 @@ void main() {
       expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
-    test('buyer alters quantity → seller signature fails verification', () {
+    test(
+      'buyer alters quantity → seller signature fails verification',
+      () async {
+        final listing = _listing(allowSelfSignedReservation: true);
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'sig-tamper-qty',
+          start: DateTime(2026, 8, 1),
+          end: DateTime(2026, 8, 5),
+          quantity: 1,
+        );
+
+        final sellerSig = negotiate.signCommit(seller);
+
+        // Buyer tampers: doubles the quantity.
+        final tampered = Reservation.create(
+          pubKey: buyer.publicKey,
+          dTag: negotiate.getDtag()!,
+          listingAnchor: listing.anchor!,
+          start: DateTime(2026, 8, 1),
+          end: DateTime(2026, 8, 5),
+          stage: ReservationStage.commit,
+          quantity: 2, // tampered!
+          proof: _escrowPaymentProof(listing: listing),
+          signatures: {seller.publicKey: sellerSig},
+          createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+        ).signAs(buyer, Reservation.fromNostrEvent);
+
+        expect(tampered.verifyCommit(seller.publicKey), isFalse);
+      },
+    );
+
+    test('buyer alters amount → seller signature fails verification', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
-        listing: listing,
-        buyer: buyer,
-        salt: 'sig-tamper-qty',
-        start: DateTime(2026, 8, 1),
-        end: DateTime(2026, 8, 5),
-        quantity: 1,
-      );
-
-      final sellerSig = negotiate.signCommit(seller);
-
-      // Buyer tampers: doubles the quantity.
-      final tampered = Reservation.create(
-        pubKey: buyer.publicKey,
-        dTag: negotiate.getDtag()!,
-        listingAnchor: listing.anchor!,
-        start: DateTime(2026, 8, 1),
-        end: DateTime(2026, 8, 5),
-        stage: ReservationStage.commit,
-        quantity: 2, // tampered!
-        proof: _escrowPaymentProof(listing: listing),
-        signatures: {seller.publicKey: sellerSig},
-        createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-      ).signAs(buyer, Reservation.fromNostrEvent);
-
-      expect(tampered.verifyCommit(seller.publicKey), isFalse);
-    });
-
-    test('buyer alters amount → seller signature fails verification', () {
-      final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'sig-tamper-amount',
@@ -794,40 +795,43 @@ void main() {
       expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
-    test('buyer changes recipient → seller signature fails verification', () {
-      final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
-        listing: listing,
-        buyer: buyer,
-        salt: 'sig-tamper-recipient',
-        start: DateTime(2026, 10, 1),
-        end: DateTime(2026, 10, 5),
-        quantity: 1,
-      );
+    test(
+      'buyer changes recipient → seller signature fails verification',
+      () async {
+        final listing = _listing(allowSelfSignedReservation: true);
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'sig-tamper-recipient',
+          start: DateTime(2026, 10, 1),
+          end: DateTime(2026, 10, 5),
+          quantity: 1,
+        );
 
-      // Explicitly set a recipient, then sign.
-      final withRecipient = negotiate.parsedContent.copyWith(
-        recipient: buyer.publicKey,
-      );
-      final sellerSig = withRecipient.signCommit(seller);
+        // Explicitly set a recipient, then sign.
+        final withRecipient = negotiate.parsedContent.copyWith(
+          recipient: buyer.publicKey,
+        );
+        final sellerSig = withRecipient.signCommit(seller);
 
-      // Buyer tampers: swaps in a different recipient.
-      final tampered = Reservation.create(
-        pubKey: buyer.publicKey,
-        dTag: negotiate.getDtag()!,
-        listingAnchor: listing.anchor!,
-        start: DateTime(2026, 10, 1),
-        end: DateTime(2026, 10, 5),
-        stage: ReservationStage.commit,
-        quantity: 1,
-        recipient: seller.publicKey, // tampered — different pubkey
-        proof: _escrowPaymentProof(listing: listing),
-        signatures: {seller.publicKey: sellerSig},
-        createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-      ).signAs(buyer, Reservation.fromNostrEvent);
+        // Buyer tampers: swaps in a different recipient.
+        final tampered = Reservation.create(
+          pubKey: buyer.publicKey,
+          dTag: negotiate.getDtag()!,
+          listingAnchor: listing.anchor!,
+          start: DateTime(2026, 10, 1),
+          end: DateTime(2026, 10, 5),
+          stage: ReservationStage.commit,
+          quantity: 1,
+          recipient: seller.publicKey, // tampered — different pubkey
+          proof: _escrowPaymentProof(listing: listing),
+          signatures: {seller.publicKey: sellerSig},
+          createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+        ).signAs(buyer, Reservation.fromNostrEvent);
 
-      expect(tampered.verifyCommit(seller.publicKey), isFalse);
-    });
+        expect(tampered.verifyCommit(seller.publicKey), isFalse);
+      },
+    );
 
     test('no seller signature present → verifyCommit returns false', () {
       final content = ReservationContent(
@@ -843,9 +847,9 @@ void main() {
 
     test(
       'forged signature (wrong private key) → verifyCommit returns false',
-      () {
+      () async {
         final listing = _listing(allowSelfSignedReservation: true);
-        final negotiate = _negotiateReservation(
+        final negotiate = await _negotiateReservation(
           listing: listing,
           buyer: buyer,
           salt: 'sig-forged',
@@ -859,7 +863,7 @@ void main() {
         final imposterSig = negotiate.signCommit(imposter);
 
         // Buyer attaches the imposter's sig but claims it's from the seller.
-        final commit = _commitReservation(
+        final commit = await _commitReservation(
           negotiate: negotiate,
           listing: listing,
           buyer: buyer,
@@ -902,14 +906,14 @@ void main() {
   // ── 8. Buyer / Seller cancel → ReservationPairStatus ───────────────
 
   group('ReservationPairStatus after cancel', () {
-    test('buyer cancels negotiate → pair shows cancelled', () {
+    test('buyer cancels negotiate → pair shows cancelled', () async {
       final listing = _listing();
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-cancel1',
       );
-      final buyerCancel = _cancelReservation(
+      final buyerCancel = await _cancelReservation(
         source: negotiate,
         listing: listing,
         signer: buyer,
@@ -924,20 +928,20 @@ void main() {
       expect(status.isActive, isFalse);
     });
 
-    test('seller cancels committed → pair shows cancelled', () {
+    test('seller cancels committed → pair shows cancelled', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-cancel2',
       );
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
         proof: _escrowPaymentProof(listing: listing),
       );
-      final sellerCancel = _cancelReservation(
+      final sellerCancel = await _cancelReservation(
         source: commit,
         listing: listing,
         signer: seller,
@@ -955,19 +959,19 @@ void main() {
       expect(status.isActive, isFalse);
     });
 
-    test('both cancel → pair shows cancelled, both sides', () {
+    test('both cancel → pair shows cancelled, both sides', () async {
       final listing = _listing();
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-cancel3',
       );
-      final buyerCancel = _cancelReservation(
+      final buyerCancel = await _cancelReservation(
         source: negotiate,
         listing: listing,
         signer: buyer,
       );
-      final sellerCancel = _cancelReservation(
+      final sellerCancel = await _cancelReservation(
         source: negotiate,
         listing: listing,
         signer: seller,
@@ -983,20 +987,20 @@ void main() {
       expect(status.sellerCancelled, isTrue);
     });
 
-    test('active pair (committed, not cancelled)', () {
+    test('active pair (committed, not cancelled)', () async {
       final listing = _listing(allowSelfSignedReservation: true);
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-active',
       );
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
         proof: _escrowPaymentProof(listing: listing),
       );
-      final sellerAck = _sellerAckReservation(
+      final sellerAck = await _sellerAckReservation(
         negotiate: negotiate,
         listing: listing,
         seller: seller,
@@ -1014,9 +1018,9 @@ void main() {
       expect(status.end, negotiate.end);
     });
 
-    test('negotiate only → not active', () {
+    test('negotiate only → not active', () async {
       final listing = _listing();
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: 'salt-neg-only',
@@ -1200,7 +1204,7 @@ void main() {
   // ── 10. End-to-end lifecycle scenario ──────────────────────────────
 
   group('End-to-end reservation lifecycle', () {
-    test('self-signed: negotiate → pay → commit → seller cancel', () {
+    test('self-signed: negotiate → pay → commit → seller cancel', () async {
       final listing = _listing(
         allowSelfSignedReservation: true,
         allowBarter: false,
@@ -1208,7 +1212,7 @@ void main() {
       const salt = 'e2e-self-signed-salt';
 
       // Step 1: Buyer creates negotiate reservation (DM to seller)
-      final negotiate = _negotiateReservation(
+      final negotiate = await _negotiateReservation(
         listing: listing,
         buyer: buyer,
         salt: salt,
@@ -1220,7 +1224,7 @@ void main() {
       expect(proof.escrowProof, isNotNull);
 
       // Step 3: Buyer broadcasts commit with proof
-      final commit = _commitReservation(
+      final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
@@ -1239,7 +1243,7 @@ void main() {
       expect(status.stage, ReservationStage.commit);
 
       // Step 4: Seller cancels
-      final sellerCancel = _cancelReservation(
+      final sellerCancel = await _cancelReservation(
         source: commit,
         listing: listing,
         signer: seller,
@@ -1280,7 +1284,7 @@ void main() {
 
     test(
       'seller-ack: negotiate → counter-offers → sellerAck → buyer cancel',
-      () {
+      () async {
         final listing = _listing(
           allowSelfSignedReservation: false,
           allowBarter: true,
@@ -1288,7 +1292,7 @@ void main() {
         const salt = 'e2e-seller-ack-salt';
 
         // Step 1: Buyer proposes
-        final negotiate = _negotiateReservation(
+        final negotiate = await _negotiateReservation(
           listing: listing,
           buyer: buyer,
           salt: salt,
@@ -1301,7 +1305,7 @@ void main() {
         expect(negotiate.amount!.value, BigInt.from(80000));
 
         // Step 2: Seller acks (agrees to barter price)
-        final sellerAck = _sellerAckReservation(
+        final sellerAck = await _sellerAckReservation(
           negotiate: negotiate,
           listing: listing,
           seller: seller,
@@ -1320,7 +1324,7 @@ void main() {
         expect(status.stage, ReservationStage.commit);
 
         // Step 3: Buyer cancels
-        final buyerCancel = _cancelReservation(
+        final buyerCancel = await _cancelReservation(
           source: negotiate,
           listing: listing,
           signer: buyer,

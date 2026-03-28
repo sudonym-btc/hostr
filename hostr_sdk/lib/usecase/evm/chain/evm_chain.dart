@@ -1025,11 +1025,3 @@ class _GetLogsRequest {
     required this.topicValues,
   });
 }
-
-double convertWeiToSatoshi(BigInt wei) {
-  return wei.toDouble() / pow(10, 18 - 8);
-}
-
-double convertWeiToBTC(BigInt wei) {
-  return wei.toDouble() / pow(10, 18);
-}

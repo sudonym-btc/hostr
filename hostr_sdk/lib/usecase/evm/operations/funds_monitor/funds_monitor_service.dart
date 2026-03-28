@@ -427,8 +427,8 @@ class FundsMonitorService {
       return false;
     }
 
-    final minimumBalance = rbtcFromSatsInt(
-      _hostrConfig.autoWithdrawMinimumSats,
+    final minimumBalance = rbtcFromSats(
+      BigInt.from(_hostrConfig.autoWithdrawMinimumSats),
     );
 
     // Gate 4: minimum balance?

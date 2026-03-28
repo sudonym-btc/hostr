@@ -23,13 +23,6 @@ class Token {
 
   // ── Well-known constants ──────────────────────────────────────────
 
-  /// BTC over Lightning Network (off-chain). 8 decimals (satoshis).
-  static const btcLightning = Token(
-    chainId: 0,
-    address: 'lightning',
-    decimals: 8,
-  );
-
   /// Native token on a given EVM chain. 18 decimals (wei).
   static Token native(int chainId) => Token(
         chainId: chainId,
@@ -41,24 +34,21 @@ class Token {
 
   // ── Predicates ────────────────────────────────────────────────────
 
-  bool get isLightning => address == 'lightning';
-  bool get isNative => !isLightning && address.toLowerCase() == _zeroAddress;
-  bool get isERC20 => !isLightning && !isNative;
+  bool get isNative => address.toLowerCase() == _zeroAddress;
+  bool get isERC20 => !isNative;
 
   // ── Serialization ─────────────────────────────────────────────────
 
   /// Compact string used in Nostr tags.
   ///
-  /// - `"BTC"` for Lightning
   /// - `"30:0xdAC17..."` for on-chain tokens (chainId:address)
-  String get tagId => isLightning ? 'BTC' : '$chainId:$address';
+  String get tagId => '$chainId:$address';
 
   /// Parse a [tagId] string back into a [Token].
   ///
   /// Requires [decimals] because tag IDs don't carry precision info.
   /// Use the known-token registry or an on-chain call to resolve decimals.
   static Token fromTagId(String tagId, {required int decimals}) {
-    if (tagId == 'BTC') return btcLightning;
     final sep = tagId.indexOf(':');
     if (sep == -1) {
       throw FormatException('Invalid token tag ID: $tagId');

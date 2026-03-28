@@ -3,10 +3,9 @@ library;
 
 import 'dart:async';
 
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
-import 'package:hostr_sdk/usecase/listings/listings.dart';
-import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart';
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
@@ -20,6 +19,10 @@ import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
+
+import '../../../support/fakes.dart';
+
+final _f = EntityFactory();
 
 class _FakeRequests extends Fake implements Requests {
   final List<Nip01Event> broadcastedEvents = [];
@@ -77,10 +80,6 @@ class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
   Future<int> reserveNextTradeIndex() async => 7;
 }
 
-class _FakeMessaging extends Fake implements Messaging {}
-
-class _FakeListings extends Fake implements Listings {}
-
 class _FakeReservationTransitions extends Fake
     implements ReservationTransitions {
   int recordCalls = 0;
@@ -122,49 +121,19 @@ class _FakeReservationTransitions extends Fake
   }
 }
 
-Listing _listing() {
-  return Listing.create(
-    pubKey: MockKeys.hoster.publicKey,
-    dTag: 'listing-trade-identity',
-    title: 'Trade Identity Test Listing',
-    description: 'Listing used for trade identity regression tests',
-    images: const ['https://picsum.photos/seed/trade/800/600'],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: BigInt.from(100000),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
-    location: 'test-location',
-    type: ListingType.house,
-    amenities: Amenities(),
-    allowBarter: true,
-    allowSelfSignedReservation: true,
-  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
-}
-
-PaymentProof _paymentProof(Listing listing) {
-  final hoster = Nip01Utils.signWithPrivateKey(
-    event: Nip01Event(
-      kind: 0,
-      pubKey: listing.pubKey,
-      tags: const [],
-      content: '',
-    ),
-    privateKey: MockKeys.hoster.privateKey!,
-  );
-
-  return PaymentProof(
-    hoster: hoster,
-    listing: listing,
-    zapProof: null,
-    escrowProof: null,
-  );
-}
+Listing _listing() => _f.listing(
+  signer: MockKeys.hoster,
+  dTag: 'listing-trade-identity',
+  title: 'Trade Identity Test Listing',
+  description: 'Listing used for trade identity regression tests',
+  images: const ['https://picsum.photos/seed/trade/800/600'],
+  priceSats: 100000,
+  location: 'test-location',
+  type: ListingType.house,
+  amenities: Amenities(),
+  allowBarter: true,
+  allowSelfSignedReservation: true,
+);
 
 void main() {
   late _FakeRequests requests;
@@ -190,10 +159,10 @@ void main() {
     reservations = Reservations(
       requests: requests,
       logger: CustomLogger(),
-      messaging: _FakeMessaging(),
+      messaging: FakeMessaging(),
       auth: auth,
       transitions: transitions,
-      listings: _FakeListings(),
+      listings: FakeListings(),
     );
   });
 
@@ -201,6 +170,8 @@ void main() {
     'counter-offers and self-signed commits preserve the original trade identity',
     () async {
       final listing = _listing();
+
+      final hostProfile = await _f.profile(signer: MockKeys.hoster);
 
       final initialRequest = await reservationRequests.createReservationRequest(
         listing: listing,
@@ -227,7 +198,7 @@ void main() {
       final commit = await reservations.createSelfSigned(
         activeKeyPair: guestTradeKey.keyPair,
         negotiateReservation: hostCounter,
-        proof: _paymentProof(listing),
+        proof: _f.zapPaymentProof(hostProfile: hostProfile, listing: listing),
       );
 
       expect(initialRequest.getDtag(), 'trade-id-7');

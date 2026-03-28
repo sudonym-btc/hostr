@@ -13,11 +13,8 @@ import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
+import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
-
-final _deployerKey = EthPrivateKey.fromHex(
-  'ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-);
 
 void main() {
   late IntegrationTestHarness harness;
@@ -92,18 +89,17 @@ void main() {
       final completed = operation.state as OnchainTxConfirmed;
       final completedData = completed.data;
       expect(completedData.transactionInformation, isNotNull);
-      final txHash = _extractTxHash(completedData.transactionInformation!);
+      final txHash = extractTxHash(completedData.transactionInformation!);
       expect(txHash, isNotNull);
 
       expect(completedData.transactionReceipt, isNotNull);
       final receipt = completedData.transactionReceipt!;
-      expect(_extractReceiptTxHash(receipt), equals(txHash));
-      expect(_isReceiptSuccessful(receipt), isTrue);
+      expect(extractReceiptTxHash(receipt), equals(txHash));
+      expect(isReceiptSuccessful(receipt), isTrue);
 
       final claimedTrade = await contract.getTrade(tradeId);
       expect(claimedTrade, isNull);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
   );
 
   test(
@@ -148,18 +144,17 @@ void main() {
       final completed = operation.state as OnchainTxConfirmed;
       final completedData = completed.data;
       expect(completedData.transactionInformation, isNotNull);
-      final txHash = _extractTxHash(completedData.transactionInformation!);
+      final txHash = extractTxHash(completedData.transactionInformation!);
       expect(txHash, isNotNull);
 
       expect(completedData.transactionReceipt, isNotNull);
       final receipt = completedData.transactionReceipt!;
-      expect(_extractReceiptTxHash(receipt), equals(txHash));
-      expect(_isReceiptSuccessful(receipt), isTrue);
+      expect(extractReceiptTxHash(receipt), equals(txHash));
+      expect(isReceiptSuccessful(receipt), isTrue);
 
       final releasedTrade = await contract.getTrade(tradeId);
       expect(releasedTrade, isNull);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
   );
 }
 
@@ -210,49 +205,10 @@ Future<void> _fundTradeWithoutSwap({
       ),
       escrowFee: feeValue,
     ),
-    credentials: _deployerKey,
+    credentials: anvilDeployerKey,
     transaction: Transaction(value: amount.toEtherAmount()),
   );
 
-  final receipt = await _waitForReceipt(configuredChain.client, txHash);
-  expect(_isReceiptSuccessful(receipt), isTrue);
-}
-
-Future<TransactionReceipt> _waitForReceipt(
-  Web3Client web3,
-  String txHash,
-) async {
-  for (var i = 0; i < 30; i++) {
-    final receipt = await web3.getTransactionReceipt(txHash);
-    if (receipt != null) return receipt;
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-  }
-  fail('Timed out waiting for transaction receipt: $txHash');
-}
-
-String? _extractTxHash(TransactionInformation tx) {
-  final dynamic d = tx;
-  final hash = d.hash?.toString() ?? d.id?.toString();
-  if (hash == null || hash.isEmpty) return null;
-  return hash;
-}
-
-String? _extractReceiptTxHash(TransactionReceipt receipt) {
-  final dynamic hash = (receipt as dynamic).transactionHash;
-  if (hash == null) return null;
-  if (hash is String) return hash;
-  if (hash is List<int>) return bytesToHex(hash, include0x: true);
-  final normalized = hash.toString();
-  if (normalized.isEmpty) return null;
-  return normalized;
-}
-
-bool _isReceiptSuccessful(TransactionReceipt receipt) {
-  final dynamic status = (receipt as dynamic).status;
-  if (status == null) return true;
-  if (status is bool) return status;
-  if (status is int) return status == 1;
-  if (status is BigInt) return status == BigInt.one;
-  final normalized = status.toString().toLowerCase();
-  return normalized == '1' || normalized == '0x1' || normalized == 'true';
+  final receipt = await waitForReceipt(configuredChain.client, txHash);
+  expect(isReceiptSuccessful(receipt), isTrue);
 }

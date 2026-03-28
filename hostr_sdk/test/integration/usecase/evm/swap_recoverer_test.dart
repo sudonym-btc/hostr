@@ -43,112 +43,104 @@ void main() {
     expect(resolved, 0);
   });
 
-  test(
-    'recoverAll skips already-terminal swap-in',
-    () async {
-      final hostr = harness.hostr;
+  test('recoverAll skips already-terminal swap-in', () async {
+    final hostr = harness.hostr;
 
-      await harness.signInAndConnectNwc(
-        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
-        appNamePrefix: 'swap-recover-terminal',
-      );
+    await harness.signInAndConnectNwc(
+      user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+      appNamePrefix: 'swap-recover-terminal',
+    );
 
-      // Run a full swap-in to completion so the store has a terminal entry.
-      final configured = hostr.evm.getChainById('rootstock-regtest')!;
-      final evmKey = await hostr.auth.hd.getActiveEvmKey();
-      await harness.anvilRootstock.setBalance(
-        address: evmKey.address.eip55With0x,
-        amountWei: rbtcFromSatsInt(100000).getInWei,
-      );
-      final swapLimits = await configured.swaps!.getSwapInLimits();
-      final amount =
-          TokenAmount.fromDenominated(
-            swapLimits.min,
-            Token.native(configured.config.chainId),
-          ) +
-          rbtcFromSatsInt(1000, chainId: configured.config.chainId);
+    // Run a full swap-in to completion so the store has a terminal entry.
+    final configured = hostr.evm.getChainById('rootstock-regtest')!;
+    final evmKey = await hostr.auth.hd.getActiveEvmKey();
+    await harness.anvilRootstock.setBalance(
+      address: evmKey.address.eip55With0x,
+      amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+    );
+    final swapLimits = await configured.swaps!.getSwapInLimits();
+    final amount =
+        TokenAmount.fromDenominated(
+          swapLimits.min,
+          Token.native(configured.config.chainId),
+        ) +
+        rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
-      final swapIn = configured.swapIn(
-        params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
-        auth: hostr.auth,
-        logger: CustomLogger(),
-      );
+    final swapIn = configured.swapIn(
+      params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
+      auth: hostr.auth,
+      logger: CustomLogger(),
+    );
 
-      await swapIn.execute();
-      expect(swapIn.state, isA<SwapInCompleted>());
+    await swapIn.execute();
+    expect(swapIn.state, isA<SwapInCompleted>());
 
-      // Now recover — should find the terminal entry and skip it.
-      final recoverer = getIt<SwapRecoverer>();
-      final resolved = await recoverer.recoverAll();
+    // Now recover — should find the terminal entry and skip it.
+    final recoverer = getIt<SwapRecoverer>();
+    final resolved = await recoverer.recoverAll();
 
-      expect(resolved, 0);
-    },
-    timeout: const Timeout(Duration(seconds: 20)),
-  );
+    expect(resolved, 0);
+  });
 
-  test(
-    'recoverAll recovers swap-in from funded state',
-    () async {
-      final hostr = harness.hostr;
+  test('recoverAll recovers swap-in from funded state', () async {
+    final hostr = harness.hostr;
 
-      await harness.signInAndConnectNwc(
-        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
-        appNamePrefix: 'swap-recover-funded',
-      );
+    await harness.signInAndConnectNwc(
+      user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+      appNamePrefix: 'swap-recover-funded',
+    );
 
-      // 1. Run a full swap-in to completion.
-      final configured = hostr.evm.getChainById('rootstock-regtest')!;
-      final evmKey = await hostr.auth.hd.getActiveEvmKey();
-      await harness.anvilRootstock.setBalance(
-        address: evmKey.address.eip55With0x,
-        amountWei: rbtcFromSatsInt(100000).getInWei,
-      );
-      final swapLimits = await configured.swaps!.getSwapInLimits();
-      final amount =
-          TokenAmount.fromDenominated(
-            swapLimits.min,
-            Token.native(configured.config.chainId),
-          ) +
-          rbtcFromSatsInt(1000, chainId: configured.config.chainId);
+    // 1. Run a full swap-in to completion.
+    final configured = hostr.evm.getChainById('rootstock-regtest')!;
+    final evmKey = await hostr.auth.hd.getActiveEvmKey();
+    await harness.anvilRootstock.setBalance(
+      address: evmKey.address.eip55With0x,
+      amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+    );
+    final swapLimits = await configured.swaps!.getSwapInLimits();
+    final amount =
+        TokenAmount.fromDenominated(
+          swapLimits.min,
+          Token.native(configured.config.chainId),
+        ) +
+        rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
-      final swapIn = configured.swapIn(
-        params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
-        auth: hostr.auth,
-        logger: CustomLogger(),
-      );
+    final swapIn = configured.swapIn(
+      params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
+      auth: hostr.auth,
+      logger: CustomLogger(),
+    );
 
-      await swapIn.execute();
-      expect(swapIn.state, isA<SwapInCompleted>());
+    await swapIn.execute();
+    expect(swapIn.state, isA<SwapInCompleted>());
 
-      final completedData = (swapIn.state as SwapInCompleted).data;
+    final completedData = (swapIn.state as SwapInCompleted).data;
 
-      // 2. Rewrite the store entry to "funded" — simulating a crash after
-      //    Boltz locked on-chain but before we claimed.
-      final store = getIt<OperationStateStore>();
-      final fundedState = SwapInFunded(
-        completedData.copyWith(
-          claimTxHash: null,
-          lastBoltzStatus: 'transaction.confirmed',
-        ),
-      );
-      await store.write('swap_in', completedData.boltzId, fundedState.toJson());
+    // 2. Rewrite the store entry to "funded" — simulating a crash after
+    //    Boltz locked on-chain but before we claimed.
+    final store = getIt<OperationStateStore>();
+    final fundedState = SwapInFunded(
+      completedData.copyWith(
+        claimTxHash: null,
+        lastBoltzStatus: 'transaction.confirmed',
+      ),
+    );
+    await store.write('swap_in', completedData.boltzId, fundedState.toJson());
 
-      // Verify it was written as non-terminal.
-      final stored = await store.read('swap_in', completedData.boltzId);
-      expect(stored?['state'], 'funded');
-      expect(stored?['isTerminal'], false);
+    // Verify it was written as non-terminal.
+    final stored = await store.read('swap_in', completedData.boltzId);
+    expect(stored?['state'], 'funded');
+    expect(stored?['isTerminal'], false);
 
-      // 3. Recover — the claim event is already on-chain, so recovery should
-      //    find it and advance to completed.
-      final recoverer = getIt<SwapRecoverer>();
-      final resolved = await recoverer.recoverAll();
+    // 3. Recover — the claim event is already on-chain, so recovery should
+    //    find it and advance to completed.
+    final recoverer = getIt<SwapRecoverer>();
+    final resolved = await recoverer.recoverAll();
 
-      expect(resolved, 1);
+    expect(resolved, 1);
 
-      // Verify the store entry is now terminal.
-      final recovered = await store.read('swap_in', completedData.boltzId);
-      expect(recovered?['isTerminal'], true);
-    },
-    timeout: const Timeout(Duration(seconds: 20)),
-  );
+    // Verify the store entry is now terminal.
+    final recovered = await store.read('swap_in', completedData.boltzId);
+    expect(recovered?['isTerminal'], true);
+  });
 }

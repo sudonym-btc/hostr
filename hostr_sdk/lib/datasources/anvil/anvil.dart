@@ -41,6 +41,23 @@ class AnvilClient {
     await rpcCall(method: 'evm_mine', params: const []);
   }
 
+  /// Take a state snapshot and return its ID.
+  ///
+  /// The returned hex string can be passed to [revert] to restore the chain
+  /// state at this point.  Uses the Anvil/Hardhat `evm_snapshot` JSON-RPC
+  /// method.
+  Future<String?> snapshot() async {
+    final result = await rpcCallWithResult(method: 'evm_snapshot');
+    return result?.toString();
+  }
+
+  /// Revert chain state to a previously taken [snapshotId].
+  ///
+  /// Returns `true` on success. After reverting, the snapshot is consumed —
+  /// call [snapshot] again if you need another restore point.
+  Future<bool> revert(String snapshotId) =>
+      rpcCall(method: 'evm_revert', params: [snapshotId]);
+
   /// Enable or disable auto-mining (a block per transaction).
   Future<bool> setAutomine(bool enabled) =>
       rpcCall(method: 'evm_setAutomine', params: [enabled]);

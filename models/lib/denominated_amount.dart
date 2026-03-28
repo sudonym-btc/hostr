@@ -1,3 +1,5 @@
+import 'src/decimal_math.dart';
+
 /// A monetary value expressed in a named denomination (e.g. "BTC", "USD"),
 /// without any chain-specific binding.
 ///
@@ -46,7 +48,7 @@ class DenominatedAmount {
   ) {
     return DenominatedAmount(
       denomination: denomination,
-      value: _parseDecimalToBigInt(decimal, decimals),
+      value: parseDecimalToBigInt(decimal, decimals),
       decimals: decimals,
     );
   }
@@ -62,9 +64,9 @@ class DenominatedAmount {
     } else if (raw is int) {
       parsedValue = BigInt.from(raw);
     } else if (raw is String) {
-      parsedValue = _parseDecimalToBigInt(raw, decimals);
+      parsedValue = parseDecimalToBigInt(raw, decimals);
     } else if (raw is num) {
-      parsedValue = _parseDecimalToBigInt(raw.toString(), decimals);
+      parsedValue = parseDecimalToBigInt(raw.toString(), decimals);
     } else {
       throw ArgumentError('Invalid denominated amount value: $raw');
     }
@@ -86,7 +88,7 @@ class DenominatedAmount {
   /// Format as a decimal string using the denomination's native precision.
   /// e.g. `50000000` sats → `"0.50000000"` for 8-decimal BTC.
   String toDecimalString({int? maxDecimals}) {
-    return _formatDecimal(value, decimals, maxDecimals: maxDecimals);
+    return formatDecimal(value, decimals, maxDecimals: maxDecimals);
   }
 
   // ── Arithmetic ────────────────────────────────────────────────────
@@ -212,47 +214,4 @@ class DenominatedAmount {
       );
     }
   }
-}
-
-// ── Shared decimal parsing / formatting ───────────────────────────────
-
-BigInt _parseDecimalToBigInt(String input, int decimals) {
-  final trimmed = input.trim();
-  if (trimmed.isEmpty) return BigInt.zero;
-
-  final isNegative = trimmed.startsWith('-');
-  final normalized = isNegative ? trimmed.substring(1) : trimmed;
-
-  final parts = normalized.split('.');
-  final wholePart = parts[0].isEmpty ? '0' : parts[0];
-  final fracPart = parts.length > 1 ? parts[1] : '';
-
-  final fracPadded = (fracPart.length >= decimals)
-      ? fracPart.substring(0, decimals)
-      : fracPart.padRight(decimals, '0');
-
-  final whole = BigInt.parse(wholePart);
-  final frac = fracPadded.isEmpty ? BigInt.zero : BigInt.parse(fracPadded);
-  final factor = BigInt.from(10).pow(decimals);
-  final value = (whole * factor) + frac;
-  return isNegative ? -value : value;
-}
-
-String _formatDecimal(
-  BigInt value,
-  int decimals, {
-  int? maxDecimals,
-}) {
-  final isNegative = value.isNegative;
-  final absValue = value.abs();
-  final factor = BigInt.from(10).pow(decimals);
-  final whole = absValue ~/ factor;
-  var frac = (absValue % factor).toString().padLeft(decimals, '0');
-
-  if (maxDecimals != null && maxDecimals < decimals) {
-    frac = frac.substring(0, maxDecimals);
-  }
-
-  final result = frac.isEmpty ? whole.toString() : '${whole.toString()}.$frac';
-  return isNegative ? '-$result' : result;
 }

@@ -9,25 +9,22 @@ import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_ser
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/user_config/hostr_user_config.dart';
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart';
-import 'package:models/main.dart';
-import 'package:hostr_sdk/util/token_amount_ext.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:hostr_sdk/util/token_amount_ext.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/bip340.dart';
+import 'package:models/main.dart';
 import 'package:sqlite3/common.dart';
 import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:test/test.dart';
 
 // ── Test harness ──────────────────────────────────────────────────────────
 
-/// Exercises the same gate logic as [AutoWithdrawService._onBalanceChanged]
-/// using a real [OperationStateStore] and [UserConfigStore] backed by
-/// [InMemoryKeyValueStorage].
+/// Exercises the auto-withdraw gate logic using a real [OperationStateStore]
+/// and [UserConfigStore] backed by in-memory storage.
 ///
-/// We don't construct the real service because it depends on [Evm] (which
-/// needs a live RPC client). Instead we replicate the gate checks to verify
-/// the logic is correct — and separately verify that the service compiles and
-/// can be registered via DI.
+/// **TODO**: When [AutoWithdrawService] is fully implemented with a testable
+/// `shouldWithdraw()` method, replace [GateHarness.runCheck] with a call to
+/// the real service method so these tests verify production code directly.
 class GateHarness {
   late final CommonDatabase db;
   late final InMemoryKeyValueStorage kvStorage;
@@ -87,11 +84,11 @@ class GateHarness {
     }
 
     // Gate 4: Minimum balance?
-    final minimumBalance = rbtcFromSatsInt(minimumSats);
+    final minimumBalance = rbtcFromSats(BigInt.from(minimumSats));
     if (balance < minimumBalance) return false;
 
     // Gate 5: Fee ratio?
-    final totalFees = rbtcFromSatsInt(fakeFeeSats);
+    final totalFees = rbtcFromSats(BigInt.from(fakeFeeSats));
     final netAmount = balance - totalFees;
     if (netAmount <= TokenAmount.zero(rbtc)) return false;
 
@@ -155,7 +152,7 @@ void main() {
     test('skips when auto-withdraw is disabled', () async {
       await h.setUp(
         initialConfig: const HostrUserConfig(autoWithdrawEnabled: false),
-        initialBalance: rbtcFromSatsInt(50000),
+        initialBalance: rbtcFromSats(BigInt.from(50000)),
       );
 
       expect(await h.runCheck(), isFalse);
@@ -165,7 +162,7 @@ void main() {
     test('proceeds when enabled (all else passing)', () async {
       await h.setUp(
         initialConfig: const HostrUserConfig(autoWithdrawEnabled: true),
-        initialBalance: rbtcFromSatsInt(50000),
+        initialBalance: rbtcFromSats(BigInt.from(50000)),
       );
 
       expect(await h.runCheck(), isTrue);
@@ -174,7 +171,7 @@ void main() {
 
   group('Gate 2: escrow fund operations', () {
     test('skips when escrow fund operation is in flight', () async {
-      await h.setUp(initialBalance: rbtcFromSatsInt(50000));
+      await h.setUp(initialBalance: rbtcFromSats(BigInt.from(50000)));
 
       await h.stateStore.write(
         'escrow_fund',
@@ -187,7 +184,7 @@ void main() {
     });
 
     test('proceeds after escrow fund reaches terminal state', () async {
-      await h.setUp(initialBalance: rbtcFromSatsInt(50000));
+      await h.setUp(initialBalance: rbtcFromSats(BigInt.from(50000)));
 
       await h.stateStore.write(
         'escrow_fund',
@@ -208,7 +205,7 @@ void main() {
     test(
       'skips when multiple escrow operations in flight, proceeds when all done',
       () async {
-        await h.setUp(initialBalance: rbtcFromSatsInt(50000));
+        await h.setUp(initialBalance: rbtcFromSats(BigInt.from(50000)));
 
         await h.stateStore.write(
           'escrow_fund',
@@ -244,7 +241,7 @@ void main() {
 
   group('Gate 3: active swaps', () {
     test('skips when non-terminal swap_out exists', () async {
-      await h.setUp(initialBalance: rbtcFromSatsInt(50000));
+      await h.setUp(initialBalance: rbtcFromSats(BigInt.from(50000)));
 
       await h.stateStore.write(
         'swap_out',
@@ -256,7 +253,7 @@ void main() {
     });
 
     test('skips when non-terminal swap_in exists', () async {
-      await h.setUp(initialBalance: rbtcFromSatsInt(50000));
+      await h.setUp(initialBalance: rbtcFromSats(BigInt.from(50000)));
 
       await h.stateStore.write('swap_in', 'swap-1', _activeSwapEntry('swap-1'));
 
@@ -264,7 +261,7 @@ void main() {
     });
 
     test('proceeds after swap reaches terminal state', () async {
-      await h.setUp(initialBalance: rbtcFromSatsInt(50000));
+      await h.setUp(initialBalance: rbtcFromSats(BigInt.from(50000)));
 
       await h.stateStore.write(
         'swap_out',
@@ -290,13 +287,19 @@ void main() {
     });
 
     test('skips when balance is below minimum', () async {
-      await h.setUp(minimumSats: 10000, initialBalance: rbtcFromSatsInt(5000));
+      await h.setUp(
+        minimumSats: 10000,
+        initialBalance: rbtcFromSats(BigInt.from(5000)),
+      );
 
       expect(await h.runCheck(), isFalse);
     });
 
     test('proceeds with exact minimum balance', () async {
-      await h.setUp(minimumSats: 10000, initialBalance: rbtcFromSatsInt(10000));
+      await h.setUp(
+        minimumSats: 10000,
+        initialBalance: rbtcFromSats(BigInt.from(10000)),
+      );
 
       expect(await h.runCheck(), isTrue);
     });
@@ -304,7 +307,7 @@ void main() {
     test('proceeds when well above minimum', () async {
       await h.setUp(
         minimumSats: 10000,
-        initialBalance: rbtcFromSatsInt(100000),
+        initialBalance: rbtcFromSats(BigInt.from(100000)),
       );
 
       expect(await h.runCheck(), isTrue);
@@ -313,42 +316,60 @@ void main() {
 
   group('Gate 5: fee ratio', () {
     test('skips when fees exceed balance (net zero)', () async {
-      await h.setUp(minimumSats: 500, initialBalance: rbtcFromSatsInt(1000));
+      await h.setUp(
+        minimumSats: 500,
+        initialBalance: rbtcFromSats(BigInt.from(1000)),
+      );
       h.fakeFeeSats = 1000; // fees == balance
 
       expect(await h.runCheck(), isFalse);
     });
 
     test('skips when fees exceed balance (net negative)', () async {
-      await h.setUp(minimumSats: 500, initialBalance: rbtcFromSatsInt(800));
+      await h.setUp(
+        minimumSats: 500,
+        initialBalance: rbtcFromSats(BigInt.from(800)),
+      );
       h.fakeFeeSats = 1000;
 
       expect(await h.runCheck(), isFalse);
     });
 
     test('skips when fee ratio exceeds max', () async {
-      await h.setUp(minimumSats: 1000, initialBalance: rbtcFromSatsInt(5000));
+      await h.setUp(
+        minimumSats: 1000,
+        initialBalance: rbtcFromSats(BigInt.from(5000)),
+      );
       h.fakeFeeSats = 1000; // 1000/5000 = 20% > 10%
 
       expect(await h.runCheck(), isFalse);
     });
 
     test('proceeds when fee ratio is at the limit', () async {
-      await h.setUp(minimumSats: 1000, initialBalance: rbtcFromSatsInt(10000));
+      await h.setUp(
+        minimumSats: 1000,
+        initialBalance: rbtcFromSats(BigInt.from(10000)),
+      );
       h.fakeFeeSats = 1000; // 1000/10000 = 10% == 10%
 
       expect(await h.runCheck(), isTrue);
     });
 
     test('proceeds when fee ratio is below max', () async {
-      await h.setUp(minimumSats: 1000, initialBalance: rbtcFromSatsInt(50000));
+      await h.setUp(
+        minimumSats: 1000,
+        initialBalance: rbtcFromSats(BigInt.from(50000)),
+      );
       h.fakeFeeSats = 1000; // 1000/50000 = 2%
 
       expect(await h.runCheck(), isTrue);
     });
 
     test('proceeds with low fee ratio', () async {
-      await h.setUp(minimumSats: 1000, initialBalance: rbtcFromSatsInt(20000));
+      await h.setUp(
+        minimumSats: 1000,
+        initialBalance: rbtcFromSats(BigInt.from(20000)),
+      );
       h.fakeFeeSats = 1000; // 1000/20000 = 5% < 10%
 
       expect(await h.runCheck(), isTrue);
@@ -359,7 +380,7 @@ void main() {
     test('respects config changes between checks', () async {
       await h.setUp(
         initialConfig: const HostrUserConfig(autoWithdrawEnabled: true),
-        initialBalance: rbtcFromSatsInt(50000),
+        initialBalance: rbtcFromSats(BigInt.from(50000)),
       );
 
       expect(await h.runCheck(), isTrue);
@@ -376,7 +397,10 @@ void main() {
     });
 
     test('respects minimum sats change', () async {
-      await h.setUp(minimumSats: 10000, initialBalance: rbtcFromSatsInt(15000));
+      await h.setUp(
+        minimumSats: 10000,
+        initialBalance: rbtcFromSats(BigInt.from(15000)),
+      );
 
       expect(await h.runCheck(), isTrue);
 
@@ -392,7 +416,7 @@ void main() {
       await h.setUp(
         initialConfig: const HostrUserConfig(autoWithdrawEnabled: false),
         minimumSats: 100000,
-        initialBalance: rbtcFromSatsInt(100),
+        initialBalance: rbtcFromSats(BigInt.from(100)),
       );
 
       await h.stateStore.write(
@@ -413,7 +437,7 @@ void main() {
       await h.setUp(
         initialConfig: const HostrUserConfig(autoWithdrawEnabled: false),
         minimumSats: 10000,
-        initialBalance: rbtcFromSatsInt(5000),
+        initialBalance: rbtcFromSats(BigInt.from(5000)),
       );
 
       await h.stateStore.write(
@@ -443,16 +467,20 @@ void main() {
         'swap-1',
         _terminalSwapEntry('swap-1'),
       );
-      h.balance = rbtcFromSatsInt(50000);
+      h.balance = rbtcFromSats(BigInt.from(50000));
 
       expect(await h.runCheck(), isTrue);
     });
   });
 
-  group('AutoWithdrawService class', () {
-    test('exists and is importable', () {
-      // Verifies the class compiles and is exported correctly.
-      expect(AutoWithdrawService, isNotNull);
+  group('AutoWithdrawService constants', () {
+    test('maxFeeRatio is 10%', () {
+      expect(AutoWithdrawService.maxFeeRatio, 0.10);
+    });
+
+    test('debounce and cooldown durations are positive', () {
+      expect(AutoWithdrawService.debounceDuration.inSeconds, greaterThan(0));
+      expect(AutoWithdrawService.cooldownDuration.inSeconds, greaterThan(0));
     });
   });
 }

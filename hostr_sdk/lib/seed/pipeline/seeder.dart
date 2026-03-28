@@ -245,6 +245,7 @@ class Seeder {
         host: plan.thread.host,
         guest: plan.thread.guest,
         hostProfile: profileByPubkey[plan.thread.host.keyPair.publicKey],
+        factory: factory.entities,
       );
     }
 
@@ -265,7 +266,7 @@ class Seeder {
 
     // Phase 4: Build reservation events (pure).
     for (final plan in plans) {
-      stage_outcomes.buildReservationForPlan(
+      await stage_outcomes.buildReservationForPlan(
         ctx: ctx,
         plan: plan,
         profileByPubkey: profileByPubkey,
@@ -288,6 +289,7 @@ class Seeder {
             ),
         methodByPubkey: methodByPubkey,
         invalidReservationRate: config.invalidReservationRate,
+        factory: factory.entities,
       );
     }
   }

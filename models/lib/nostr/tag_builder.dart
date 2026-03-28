@@ -34,11 +34,6 @@ class TagBuilder {
     return this;
   }
 
-  TagBuilder addAmount(String key, TokenAmount amount) {
-    _tags.add([key, '${amount.toDecimalString()}:${amount.token.tagId}']);
-    return this;
-  }
-
   /// Only adds the tag if [value] is non-null.
   TagBuilder addOptional(String key, String? value) {
     if (value != null) _tags.add([key, value]);

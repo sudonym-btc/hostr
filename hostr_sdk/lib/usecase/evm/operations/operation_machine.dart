@@ -372,6 +372,7 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
   /// state is still written to disk, so a second process will see it
   /// and back off (or reclaim it after [StepGuard.staleTimeout]).
   @protected
+  @visibleForTesting
   Future<ClaimResult> claimTransition(StepGuard<E> guard, S currentState) =>
       logger.span('claimTransition', () async {
         applyTelemetry({'hostr.operation.step': guard.step.name});

@@ -1,6 +1,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/trades/actions/reservation_request.dart';
 import 'package:hostr_sdk/usecase/trades/actions/trade_action_resolver.dart';
 import 'package:hostr_sdk/usecase/trades/trade.dart';
@@ -8,29 +9,21 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 
-Listing _listing({int pricePerNightSats = 100000, bool allowBarter = true}) {
-  return Listing.create(
-    pubKey: MockKeys.hoster.publicKey,
-    dTag: 'listing-barter-policy',
-    title: 'Test Listing',
-    description: 'Test Description',
-    images: const [],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: BigInt.from(pricePerNightSats),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
-    location: 'test-location',
-    type: ListingType.house,
-    amenities: Amenities(),
-    allowBarter: allowBarter,
-  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
-}
+final _f = EntityFactory();
+
+Listing _listing({int pricePerNightSats = 100000, bool allowBarter = true}) =>
+    _f.listing(
+      signer: MockKeys.hoster,
+      dTag: 'listing-barter-policy',
+      title: 'Test Listing',
+      description: 'Test Description',
+      images: const [],
+      priceSats: pricePerNightSats,
+      location: 'test-location',
+      type: ListingType.house,
+      amenities: Amenities(),
+      allowBarter: allowBarter,
+    );
 
 Reservation _request({
   required String pubKey,

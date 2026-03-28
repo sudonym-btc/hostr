@@ -1,5 +1,7 @@
 import 'denominated_amount.dart';
+import 'src/decimal_math.dart';
 import 'token.dart';
+import 'token_unit.dart';
 
 /// A monetary value denominated in a specific [Token].
 ///
@@ -19,11 +21,38 @@ class TokenAmount {
   factory TokenAmount.zero(Token token) =>
       TokenAmount(value: BigInt.zero, token: token);
 
+  /// Construct from an [int] amount in the given [unit], scaled to [token]'s
+  /// native precision.
+  ///
+  /// Follows the `EtherAmount.fromInt(EtherUnit, int)` pattern.
+  ///
+  /// ```dart
+  /// // 200 000 sats → RBTC wei (18 decimals)
+  /// TokenAmount.fromInt(TokenUnit.sat, 200000, rbtcToken);
+  /// ```
+  factory TokenAmount.fromInt(TokenUnit unit, int amount, Token token) =>
+      TokenAmount(
+        value: _scaleToSmallest(BigInt.from(amount), unit, token),
+        token: token,
+      );
+
+  /// Construct from a [BigInt] amount in the given [unit], scaled to [token]'s
+  /// native precision.
+  ///
+  /// Follows the `EtherAmount.fromBigInt(EtherUnit, BigInt)` pattern.
+  ///
+  /// ```dart
+  /// // Raw wei value, no scaling
+  /// TokenAmount.fromBigInt(TokenUnit.wei, weiValue, rbtcToken);
+  /// ```
+  factory TokenAmount.fromBigInt(TokenUnit unit, BigInt amount, Token token) =>
+      TokenAmount(value: _scaleToSmallest(amount, unit, token), token: token);
+
   /// Parse a human-readable decimal string (e.g. `"0.005"`) into a
   /// [TokenAmount] using the token's [Token.decimals].
   factory TokenAmount.fromDecimal(String decimal, Token token) {
     return TokenAmount(
-      value: _parseDecimalToBigInt(decimal, token.decimals),
+      value: parseDecimalToBigInt(decimal, token.decimals),
       token: token,
     );
   }
@@ -38,9 +67,9 @@ class TokenAmount {
     } else if (raw is int) {
       parsedValue = BigInt.from(raw);
     } else if (raw is String) {
-      parsedValue = _parseDecimalToBigInt(raw, token.decimals);
+      parsedValue = parseDecimalToBigInt(raw, token.decimals);
     } else if (raw is num) {
-      parsedValue = _parseDecimalToBigInt(raw.toString(), token.decimals);
+      parsedValue = parseDecimalToBigInt(raw.toString(), token.decimals);
     } else {
       throw ArgumentError('Invalid token amount value: $raw');
     }
@@ -57,7 +86,7 @@ class TokenAmount {
   /// Format as a decimal string using the token's native precision.
   /// e.g. `50000000` sats → `"0.50000000"` for 8-decimal BTC.
   String toDecimalString({int? maxDecimals}) {
-    return _formatDecimal(value, token.decimals, maxDecimals: maxDecimals);
+    return formatDecimal(value, token.decimals, maxDecimals: maxDecimals);
   }
 
   // ── EVM helpers ───────────────────────────────────────────────────
@@ -65,12 +94,11 @@ class TokenAmount {
   /// Convert to a chain-agnostic [DenominatedAmount].
   ///
   /// When [denomination] is provided it is used directly (e.g. `"BTC"` for
-  /// tBTC, `"USD"` for USDT).  Otherwise Lightning/native tokens default to
-  /// `"BTC"` and ERC-20 tokens fall back to the token's [Token.tagId].
+  /// tBTC, `"USD"` for USDT).  Otherwise native tokens default to `"BTC"`
+  /// and ERC-20 tokens fall back to the token's [Token.tagId].
   DenominatedAmount toDenominated({String? denomination}) => DenominatedAmount(
         value: value,
-        denomination: denomination ??
-            ((token.isLightning || token.isNative) ? 'BTC' : token.tagId),
+        denomination: denomination ?? (token.isNative ? 'BTC' : token.tagId),
         decimals: token.decimals,
       );
 
@@ -93,15 +121,7 @@ class TokenAmount {
   ///
   /// For native RBTC and ERC-20 tokens the [value] is already in the
   /// on-chain smallest unit (wei or token-specific smallest unit).
-  /// Throws for Lightning BTC since it has no on-chain representation.
-  BigInt get asEvm {
-    if (token.isLightning) {
-      throw UnsupportedError(
-        'Lightning BTC has no on-chain representation',
-      );
-    }
-    return value;
-  }
+  BigInt get asEvm => value;
 
   // ── Arithmetic ────────────────────────────────────────────────────
 
@@ -167,47 +187,19 @@ class TokenAmount {
       );
     }
   }
-}
 
-// ── Shared decimal parsing / formatting ───────────────────────────────
-
-BigInt _parseDecimalToBigInt(String input, int decimals) {
-  final trimmed = input.trim();
-  if (trimmed.isEmpty) return BigInt.zero;
-
-  final isNegative = trimmed.startsWith('-');
-  final normalized = isNegative ? trimmed.substring(1) : trimmed;
-
-  final parts = normalized.split('.');
-  final wholePart = parts[0].isEmpty ? '0' : parts[0];
-  final fracPart = parts.length > 1 ? parts[1] : '';
-
-  final fracPadded = (fracPart.length >= decimals)
-      ? fracPart.substring(0, decimals)
-      : fracPart.padRight(decimals, '0');
-
-  final whole = BigInt.parse(wholePart);
-  final frac = fracPadded.isEmpty ? BigInt.zero : BigInt.parse(fracPadded);
-  final factor = BigInt.from(10).pow(decimals);
-  final value = (whole * factor) + frac;
-  return isNegative ? -value : value;
-}
-
-String _formatDecimal(
-  BigInt value,
-  int decimals, {
-  int? maxDecimals,
-}) {
-  final isNegative = value.isNegative;
-  final absValue = value.abs();
-  final factor = BigInt.from(10).pow(decimals);
-  final whole = absValue ~/ factor;
-  var frac = (absValue % factor).toString().padLeft(decimals, '0');
-
-  if (maxDecimals != null && maxDecimals < decimals) {
-    frac = frac.substring(0, maxDecimals);
+  /// Scale [amount] from [unit]'s decimal precision to [token]'s.
+  ///
+  /// - `TokenUnit.wei` (decimals = 0): no scaling — input is already in the
+  ///   token's smallest unit.
+  /// - `TokenUnit.sat` (decimals = 8): scales from 8-decimal sats to the
+  ///   token's actual precision (e.g. ×10¹⁰ for 18-decimal RBTC).
+  static BigInt _scaleToSmallest(BigInt amount, TokenUnit unit, Token token) {
+    if (unit.decimals == 0) return amount; // wei — no conversion
+    final diff = token.decimals - unit.decimals;
+    if (diff == 0) return amount;
+    return diff > 0
+        ? amount * BigInt.from(10).pow(diff)
+        : amount ~/ BigInt.from(10).pow(-diff);
   }
-
-  final result = frac.isEmpty ? whole.toString() : '${whole.toString()}.$frac';
-  return isNegative ? '-$result' : result;
 }

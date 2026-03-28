@@ -5,8 +5,8 @@ import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
-import 'package:web3dart/web3dart.dart';
 
+import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
 
 void main() {
@@ -72,8 +72,9 @@ void main() {
       final fundingAddress = await hostr.auth.hd.getEvmAddress(
         accountIndex: completedData.accountIndex,
       );
-      final balanceAfter = await hostr.evm.configuredChains.first
-          .getBalance(fundingAddress);
+      final balanceAfter = await hostr.evm.configuredChains.first.getBalance(
+        fundingAddress,
+      );
 
       expect(balanceAfter.getInSats.toInt(), equals(0));
 
@@ -94,41 +95,13 @@ void main() {
       final completed = operation.state as OnchainTxConfirmed;
       final confirmedData = completed.data;
       expect(confirmedData.transactionInformation, isNotNull);
-      final txHash = _extractTxHash(confirmedData.transactionInformation!);
+      final txHash = extractTxHash(confirmedData.transactionInformation!);
       expect(txHash, isNotNull);
 
       expect(confirmedData.transactionReceipt, isNotNull);
       final receipt = confirmedData.transactionReceipt!;
-      expect(_extractReceiptTxHash(receipt), equals(txHash));
-      expect(_isReceiptSuccessful(receipt), isTrue);
+      expect(extractReceiptTxHash(receipt), equals(txHash));
+      expect(isReceiptSuccessful(receipt), isTrue);
     },
-    timeout: const Timeout(Duration(seconds: 60)),
   );
-}
-
-String? _extractTxHash(TransactionInformation tx) {
-  final dynamic d = tx;
-  final hash = d.hash?.toString() ?? d.id?.toString();
-  if (hash == null || hash.isEmpty) return null;
-  return hash;
-}
-
-String? _extractReceiptTxHash(TransactionReceipt receipt) {
-  final dynamic hash = (receipt as dynamic).transactionHash;
-  if (hash == null) return null;
-  if (hash is String) return hash;
-  if (hash is List<int>) return bytesToHex(hash, include0x: true);
-  final normalized = hash.toString();
-  if (normalized.isEmpty) return null;
-  return normalized;
-}
-
-bool _isReceiptSuccessful(TransactionReceipt receipt) {
-  final dynamic status = (receipt as dynamic).status;
-  if (status == null) return true;
-  if (status is bool) return status;
-  if (status is int) return status == 1;
-  if (status is BigInt) return status == BigInt.one;
-  final normalized = status.toString().toLowerCase();
-  return normalized == '1' || normalized == '0x1' || normalized == 'true';
 }

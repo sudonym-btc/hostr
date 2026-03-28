@@ -13,9 +13,9 @@ class FeeBreakdown {
   /// Zero for non-escrow operations (swap-in, swap-out).
   final TokenAmount escrowFee;
 
-  /// Boltz swap overhead (always in BTC sats / 8 decimals).
+  /// Boltz swap overhead as a chain-agnostic denomination (BTC sats).
   /// Zero when no swap is involved.
-  final TokenAmount swapFee;
+  final DenominatedAmount swapFee;
 
   /// EVM gas cost (in the chain's native token, e.g. RBTC).
   /// This is the **real** gas cost even when sponsored.
@@ -41,8 +41,7 @@ class FeeBreakdown {
   DenominatedAmount get networkFees {
     final gasDA = gasFee.toDenominated();
     final gasNormalized = gasDA.decimals != 8 ? gasDA.rescale(8) : gasDA;
-    final swapDA = swapFee.toDenominated();
-    final swapNormalized = swapDA.decimals != 8 ? swapDA.rescale(8) : swapDA;
+    final swapNormalized = swapFee.decimals != 8 ? swapFee.rescale(8) : swapFee;
     return gasNormalized + swapNormalized;
   }
 

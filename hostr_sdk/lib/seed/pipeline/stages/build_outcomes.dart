@@ -2,6 +2,7 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 
+import '../entity_factory.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
@@ -78,48 +79,21 @@ Nip01Event buildZapReceipt({
   required SeedUser host,
   required SeedUser guest,
   required ProfileMetadata? hostProfile,
+  EntityFactory? factory,
 }) {
-  final amountMsats = request.amount!.value * BigInt.from(1000);
+  final f = factory ?? EntityFactory(ctx: ctx);
   final lnurl = hostProfile != null
       ? Metadata.fromEvent(hostProfile).lud16
       : null;
 
-  final zapRequest = Nip01Utils.signWithPrivateKey(
-    privateKey: guest.keyPair.privateKey!,
-    event: Nip01Event(
-      pubKey: guest.keyPair.publicKey,
-      kind: kNostrKindZapRequest,
-      tags: [
-        ['p', host.keyPair.publicKey],
-        ['amount', amountMsats.toString()],
-        ['e', tradeId],
-        ['l', listing.anchor!],
-        if (lnurl != null) ['lnurl', lnurl],
-      ],
-      content: 'Seed zap request',
-      createdAt: ctx.timestampDaysAfter(31 + threadIndex),
-    ),
-  );
-
-  return Nip01Utils.signWithPrivateKey(
-    privateKey: host.keyPair.privateKey!,
-    event: Nip01Event(
-      pubKey: host.keyPair.publicKey,
-      kind: kNostrKindZapReceipt,
-      tags: [
-        ['bolt11', 'lnbc-seed-$threadIndex'],
-        ['preimage', 'seed-preimage-$threadIndex'],
-        ['amount', amountMsats.toString()],
-        ['p', host.keyPair.publicKey],
-        ['P', guest.keyPair.publicKey],
-        ['e', zapRequest.getEId()!],
-        ['l', listing.anchor!],
-        if (lnurl != null) ['lnurl', lnurl],
-        ['description', Nip01EventModel.fromEntity(zapRequest).toJsonString()],
-      ],
-      content: 'Seed zap payment',
-      createdAt: ctx.timestampDaysAfter(32 + threadIndex),
-    ),
+  return f.zapReceipt(
+    hostSigner: host.keyPair,
+    guestSigner: guest.keyPair,
+    request: request,
+    listing: listing,
+    lnurl: lnurl,
+    threadIndex: threadIndex,
+    createdAt: ctx.timestampDaysAfter(31 + threadIndex),
   );
 }
 
@@ -130,14 +104,16 @@ Nip01Event buildZapReceipt({
 /// Call after `SeedSink.submitTrade()` / `SeedSink.settleTrade()` have
 /// populated [SeedOutcomePlan.createTxHash].  This function is pure —
 /// it never touches the chain.
-Reservation buildReservationForPlan({
+Future<Reservation> buildReservationForPlan({
   required SeedContext ctx,
   required SeedOutcomePlan plan,
   required Map<String, ProfileMetadata> profileByPubkey,
   required EscrowService escrowService,
   required Map<String, EscrowMethod> methodByPubkey,
   required double invalidReservationRate,
-}) {
+  EntityFactory? factory,
+}) async {
+  final f = factory ?? EntityFactory(ctx: ctx);
   final thread = plan.thread;
   final hostProfile = profileByPubkey[thread.host.keyPair.publicKey];
   PaymentProof? proof;
@@ -145,15 +121,12 @@ Reservation buildReservationForPlan({
   if (plan.useEscrow && plan.createTxHash != null) {
     final method = plan.method ?? methodByPubkey[thread.host.keyPair.publicKey];
     if (method != null) {
-      proof = PaymentProof(
-        hoster: hostProfile!,
+      proof = f.escrowPaymentProof(
+        hostProfile: hostProfile!,
         listing: thread.listing,
-        zapProof: null,
-        escrowProof: EscrowProof(
-          txHash: plan.createTxHash!,
-          escrowService: escrowService,
-          hostsEscrowMethods: method,
-        ),
+        txHash: plan.createTxHash!,
+        escrowService: escrowService,
+        hostsEscrowMethod: method,
       );
     } else {
       print(
@@ -170,13 +143,10 @@ Reservation buildReservationForPlan({
       '(method=${plan.method != null})',
     );
   } else if (!plan.useEscrow) {
-    proof = PaymentProof(
-      hoster: hostProfile!,
+    proof = f.zapPaymentProof(
+      hostProfile: hostProfile!,
       listing: thread.listing,
-      zapProof: thread.zapReceipt != null
-          ? ZapProof(receipt: Nip01EventModel.fromEntity(thread.zapReceipt!))
-          : null,
-      escrowProof: null,
+      zapReceiptEvent: thread.zapReceipt,
     );
   }
 
@@ -201,11 +171,10 @@ Reservation buildReservationForPlan({
     onInvalid: (reason) => invalidReason = reason,
   );
 
-  final reservation = Reservation.create(
-    pubKey: reservationSigner.publicKey,
+  final reservation = await f.reservation(
+    guestKeyPair: thread.guest.keyPair,
     dTag: thread.request.getDtag()!,
-    listingAnchor: thread.listing.anchor!,
-    threadAnchor: thread.request.getDtag()!,
+    listing: thread.listing,
     start: thread.start,
     end: thread.end,
     stage: ReservationStage.commit,
@@ -213,13 +182,14 @@ Reservation buildReservationForPlan({
     amount: thread.request.amount,
     recipient: thread.request.recipient,
     proof: mutatedProof,
+    signerOverride: reservationSigner,
     extraTags: [
       if (plan.escrowOutcome != null)
         ['escrowOutcome', plan.escrowOutcome!.name],
       if (plan.selfSigned) ['selfSigned', 'true'],
     ],
     createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
-  ).signAs(reservationSigner, Reservation.fromNostrEvent);
+  );
 
   thread.reservation = reservation;
   thread.invalidReservationReason = invalidReason;

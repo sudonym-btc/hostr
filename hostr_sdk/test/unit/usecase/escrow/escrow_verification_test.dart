@@ -1,6 +1,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr_sdk/usecase/evm/capabilities/escrow_capability.dart';
@@ -14,6 +15,8 @@ import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show BlockInformation;
 import 'package:web3dart/web3dart.dart' show GeneratedContract;
+
+final _f = EntityFactory();
 
 class _FakeSupportedEscrowContract extends Fake
     implements SupportedEscrowContract<GeneratedContract> {
@@ -59,32 +62,22 @@ class _FakeEvm extends Fake implements Evm {
   EvmChain getChainForEscrowService(EscrowService service) => _configured;
 }
 
-Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) {
-  return Listing.create(
-    pubKey: MockKeys.hoster.publicKey,
-    dTag: 'listing-escrow-verify',
-    title: 'Escrow Verify Listing',
-    description: 'Test listing',
-    images: const ['https://picsum.photos/seed/escrow/800/600'],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: BigInt.from(pricePerNightSats),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
-    location: 'test-location',
-    type: ListingType.house,
-    amenities: Amenities(),
-    allowBarter: allowBarter,
-    allowSelfSignedReservation: true,
-    requiresEscrow: true,
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
-}
+Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) =>
+    _f.listing(
+      signer: MockKeys.hoster,
+      dTag: 'listing-escrow-verify',
+      title: 'Escrow Verify Listing',
+      description: 'Test listing',
+      images: const ['https://picsum.photos/seed/escrow/800/600'],
+      priceSats: pricePerNightSats,
+      location: 'test-location',
+      type: ListingType.house,
+      amenities: Amenities(),
+      allowBarter: allowBarter,
+      allowSelfSignedReservation: true,
+      requiresEscrow: true,
+      createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
+    );
 
 EscrowService _escrowService() {
   return MOCK_ESCROWS(
@@ -192,7 +185,7 @@ EscrowFundedEvent _fundedEvent({
     tradeId: tradeId,
     block: BlockInformation(baseFeePerGas: null, timestamp: DateTime.utc(2026)),
     transactionHash: txHash,
-    amount: rbtcFromSatsInt(amountSats),
+    amount: rbtcFromSats(BigInt.from(amountSats)),
     unlockAt: 0,
   );
 }

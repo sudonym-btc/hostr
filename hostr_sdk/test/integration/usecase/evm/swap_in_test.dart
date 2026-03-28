@@ -26,69 +26,65 @@ void main() {
     IntegrationTestHarness.resetLogLevel();
   });
 
-  test(
-    'swap in emits expected state flow when NWC is connected',
-    () async {
-      try {
-        final hostr = harness.hostr;
-        final evm = hostr.evm;
-        await harness.signInAndConnectNwc(
-          user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
-          appNamePrefix: 'swap-in-it',
-        );
-        final configured = evm.getChainById('rootstock-regtest')!;
+  test('swap in emits expected state flow when NWC is connected', () async {
+    try {
+      final hostr = harness.hostr;
+      final evm = hostr.evm;
+      await harness.signInAndConnectNwc(
+        user: harness.seeds.deriveKeyPair(Random().nextInt(1000000)),
+        appNamePrefix: 'swap-in-it',
+      );
+      final configured = evm.getChainById('rootstock-regtest')!;
 
-        // Fund the EOA on rootstock so it can pay gas for the claim tx.
-        final evmKey = await hostr.auth.hd.getActiveEvmKey();
-        await harness.anvilRootstock.setBalance(
-          address: evmKey.address.eip55With0x,
-          amountWei: rbtcFromSatsInt(100000).getInWei,
-        );
+      // Fund the EOA on rootstock so it can pay gas for the claim tx.
+      final evmKey = await hostr.auth.hd.getActiveEvmKey();
+      await harness.anvilRootstock.setBalance(
+        address: evmKey.address.eip55With0x,
+        amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+      );
 
-        final swapLimits = await configured.swaps!.getSwapInLimits();
-        final amount =
-            TokenAmount.fromDenominated(
-              swapLimits.min,
-              Token.native(configured.config.chainId),
-            ) +
-            rbtcFromSatsInt(1000, chainId: configured.config.chainId);
+      final swapLimits = await configured.swaps!.getSwapInLimits();
+      final amount =
+          TokenAmount.fromDenominated(
+            swapLimits.min,
+            Token.native(configured.config.chainId),
+          ) +
+          rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
-        final swapIn = configured.swapIn(
-          params: SwapInParams(
-            evmKey: await hostr.auth.hd.getActiveEvmKey(),
-            accountIndex: 0,
-            amount: amount,
-          ),
-          auth: hostr.auth,
-          logger: CustomLogger(),
-        );
+      final swapIn = configured.swapIn(
+        params: SwapInParams(
+          evmKey: await hostr.auth.hd.getActiveEvmKey(),
+          accountIndex: 0,
+          amount: amount,
+        ),
+        auth: hostr.auth,
+        logger: CustomLogger(),
+      );
 
-        final emittedStates = <SwapInState>[swapIn.state];
-        final sub = swapIn.stream.listen(emittedStates.add);
+      final emittedStates = <SwapInState>[swapIn.state];
+      final sub = swapIn.stream.listen(emittedStates.add);
 
-        await swapIn.execute();
-        await sub.cancel();
+      await swapIn.execute();
+      await sub.cancel();
 
-        expect(emittedStates.first, isA<SwapInInitialised>());
-        expect(
-          emittedStates.any((state) => state is SwapInRequestCreated),
-          isTrue,
-        );
-        expect(
-          emittedStates.any((state) => state is SwapInAwaitingOnChain),
-          isTrue,
-        );
+      expect(emittedStates.first, isA<SwapInInitialised>());
+      expect(
+        emittedStates.any((state) => state is SwapInRequestCreated),
+        isTrue,
+      );
+      expect(
+        emittedStates.any((state) => state is SwapInAwaitingOnChain),
+        isTrue,
+      );
 
-        final externalPaymentRequested = emittedStates
-            .whereType<SwapInPaymentProgress>()
-            .any((state) => state.paymentState is PayExternalRequired);
-        expect(externalPaymentRequested, isFalse);
+      final externalPaymentRequested = emittedStates
+          .whereType<SwapInPaymentProgress>()
+          .any((state) => state.paymentState is PayExternalRequired);
+      expect(externalPaymentRequested, isFalse);
 
-        expect(swapIn.state, isA<SwapInCompleted>());
-      } finally {
-        // no-op: closed by harness in tearDown
-      }
-    },
-    timeout: const Timeout(Duration(seconds: 15)),
-  );
+      expect(swapIn.state, isA<SwapInCompleted>());
+    } finally {
+      // no-op: closed by harness in tearDown
+    }
+  });
 }

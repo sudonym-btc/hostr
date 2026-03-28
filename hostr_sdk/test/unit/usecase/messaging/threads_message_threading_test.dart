@@ -94,9 +94,8 @@ Message _textMessage({
   );
 }
 
-Future<void> _pump() async {
-  await Future<void>.delayed(const Duration(milliseconds: 20));
-}
+/// Flush the event loop so stream listeners have a chance to process events.
+Future<void> _pump() => Future<void>.delayed(Duration.zero);
 
 void main() {
   late Threads threads;

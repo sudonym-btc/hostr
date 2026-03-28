@@ -8,6 +8,7 @@ import '../../../auth/auth.dart';
 import '../../chain/evm_chain.dart';
 import '../operation_machine.dart';
 import '../operation_state_store.dart';
+import '../swap_in_tracker.dart';
 import 'swap_in_models.dart';
 import 'swap_in_state.dart';
 
@@ -49,6 +50,7 @@ abstract class SwapInOperation
          initialState: initialState ?? const SwapInInitialised(),
        ) {
     _autoWireNotifications();
+    getIt<SwapInTracker>().registerSwapIn(this);
   }
 
   /// Auto-wires [onProgress] from [HostrConfig.showNotification] so that

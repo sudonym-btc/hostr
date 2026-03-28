@@ -24,9 +24,12 @@ class Bolt11PayOperation
   Future<ResolvedDetails> resolver() async {
     Bolt11PaymentRequest pr = Bolt11PaymentRequest(params.to);
 
+    // pr.amount is in BTC (Decimal). Convert to satoshis for internal use.
+    final amountSats = (double.parse(pr.amount.toString()) * 1e8).round();
+
     return ResolvedDetails(
-      minAmount: pr.amount.toBigInt().toInt(),
-      maxAmount: pr.amount.toBigInt().toInt(),
+      minAmount: amountSats,
+      maxAmount: amountSats,
       commentAllowed: 0,
     );
   }

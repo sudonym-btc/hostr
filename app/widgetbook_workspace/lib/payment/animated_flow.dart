@@ -85,7 +85,7 @@ class _StateCyclerWidgetState<T> extends State<_StateCyclerWidget<T>> {
 
 PayParameters get _mockPayParams => PayParameters(
   to: 'satoshi@hostr.cc',
-  amount: TokenAmount(value: BigInt.from(50000), token: Token.btcLightning),
+  amount: TokenAmount.fromInt(TokenUnit.sat, 50000, Token.native(30)),
 );
 
 const _mockSwapInData = SwapInData(
@@ -180,7 +180,7 @@ Widget swapOutAnimatedFlow(BuildContext context) {
       (
         'External invoice required',
         SwapOutExternalInvoiceRequired(
-          TokenAmount(value: BigInt.from(45000), token: Token.btcLightning),
+          TokenAmount.fromInt(TokenUnit.sat, 45000, Token.native(30)),
         ),
       ),
       ('Invoice created', const SwapOutInvoiceCreated('lnbc450u1p...')),
@@ -268,8 +268,8 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
       (
         'Completed',
         OnchainTxConfirmed(
-          _mockEscrowFundData.copyWithTransactionInformation(
-            TransactionInformation.fromMap({
+          _mockEscrowFundData.copyWith(
+            transactionInformation: TransactionInformation.fromMap({
               'blockHash':
                   '0x0000000000000000000000000000000000000000000000000000000000000000',
               'blockNumber': '0x3039',
