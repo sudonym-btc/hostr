@@ -2,15 +2,14 @@ import 'package:web3dart/web3dart.dart';
 
 import '../../evm/main.dart';
 
-// ── Data base class ─────────────────────────────────────────────────────
+// ── Data class ──────────────────────────────────────────────────────────
 
-/// Common recovery data that every on-chain operation must carry.
+/// Recovery data that every on-chain operation carries.
 ///
 /// Holds the fields shared across all operations (account index, encoded call
 /// intent, swap ID, chain/contract identifiers, tx hash).
-/// Most operations now use [OnchainCallData] directly; only specialized flows
-/// like escrow funding need extra persisted fields.
-abstract class OnchainOperationData {
+class OnchainCallData {
+  final String operationIdValue;
   final int accountIndex;
   final String contractAddress;
   final int chainId;
@@ -21,10 +20,6 @@ abstract class OnchainOperationData {
   final Map<String, Call> calls;
 
   /// Chosen execution transport for [calls].
-  ///
-  /// `relay` is only used for zero-value calls when the contract has a
-  /// configured RIF relay. `direct` means the sender EOA will broadcast the
-  /// transaction after any required swap-in.
   final String? transport;
 
   /// The Boltz swap ID of the nested swap-in, if a swap was required.
@@ -39,97 +34,24 @@ abstract class OnchainOperationData {
   /// Full transaction receipt, persisted once confirmation completes.
   final TransactionReceipt? transactionReceipt;
 
-  const OnchainOperationData({
-    required this.accountIndex,
+  final String? errorMessage;
+
+  const OnchainCallData({
+    required this.operationIdValue,
     required this.contractAddress,
     required this.chainId,
+    required this.accountIndex,
     this.calls = const {},
     this.transport,
     this.swapId,
     this.txHash,
     this.transactionInformation,
     this.transactionReceipt,
-  });
-
-  /// Unique identifier for this operation (e.g. tradeId).
-  String get operationId;
-
-  OnchainOperationData copyWithSwapId(String? swapId);
-  OnchainOperationData copyWithTxHash(String? txHash);
-  OnchainOperationData copyWithTransactionInformation(
-    TransactionInformation? transactionInformation,
-  );
-  OnchainOperationData copyWithTransactionReceipt(
-    TransactionReceipt? transactionReceipt,
-  );
-  OnchainOperationData copyWithCalls(Map<String, Call> calls);
-  OnchainOperationData copyWithTransport(String? transport);
-
-  /// Serialise common fields.  Subclasses should spread this into
-  /// their own [toJson] via `...super.baseToJson()`.
-  Map<String, dynamic> baseToJson() => {
-    'accountIndex': accountIndex,
-    'contractAddress': contractAddress,
-    'chainId': chainId,
-    if (calls.isNotEmpty) 'callIntents': serializeNamedCalls(calls),
-    if (transport != null) 'transport': transport,
-    if (swapId != null) 'swapId': swapId,
-    if (txHash != null) 'txHash': txHash,
-    if (transactionInformation != null)
-      'transactionInformation': serializeTransactionInformation(
-        transactionInformation!,
-      ),
-    if (transactionReceipt != null)
-      'transactionReceipt': serializeTransactionReceipt(transactionReceipt!),
-  };
-
-  Map<String, dynamic> toJson();
-}
-
-class OnchainCallData extends OnchainOperationData {
-  final String operationIdValue;
-  final String? errorMessage;
-
-  const OnchainCallData({
-    required this.operationIdValue,
-    required super.contractAddress,
-    required super.chainId,
-    required super.accountIndex,
-    super.calls,
-    super.transport,
-    super.swapId,
-    super.txHash,
-    super.transactionInformation,
-    super.transactionReceipt,
     this.errorMessage,
   });
 
-  @override
+  /// Unique identifier for this operation (e.g. tradeId).
   String get operationId => operationIdValue;
-
-  @override
-  OnchainCallData copyWithSwapId(String? swapId) => copyWith(swapId: swapId);
-
-  @override
-  OnchainCallData copyWithTxHash(String? txHash) => copyWith(txHash: txHash);
-
-  @override
-  OnchainCallData copyWithTransactionInformation(
-    TransactionInformation? transactionInformation,
-  ) => copyWith(transactionInformation: transactionInformation);
-
-  @override
-  OnchainCallData copyWithTransactionReceipt(
-    TransactionReceipt? transactionReceipt,
-  ) => copyWith(transactionReceipt: transactionReceipt);
-
-  @override
-  OnchainCallData copyWithCalls(Map<String, Call> calls) =>
-      copyWith(calls: calls);
-
-  @override
-  OnchainCallData copyWithTransport(String? transport) =>
-      copyWith(transport: transport);
 
   OnchainCallData copyWith({
     Map<String, Call>? calls,
@@ -154,10 +76,21 @@ class OnchainCallData extends OnchainOperationData {
     errorMessage: errorMessage ?? this.errorMessage,
   );
 
-  @override
   Map<String, dynamic> toJson() => {
     'operationId': operationIdValue,
-    ...baseToJson(),
+    'accountIndex': accountIndex,
+    'contractAddress': contractAddress,
+    'chainId': chainId,
+    if (calls.isNotEmpty) 'callIntents': serializeNamedCalls(calls),
+    if (transport != null) 'transport': transport,
+    if (swapId != null) 'swapId': swapId,
+    if (txHash != null) 'txHash': txHash,
+    if (transactionInformation != null)
+      'transactionInformation': serializeTransactionInformation(
+        transactionInformation!,
+      ),
+    if (transactionReceipt != null)
+      'transactionReceipt': serializeTransactionReceipt(transactionReceipt!),
     if (errorMessage != null) 'errorMessage': errorMessage,
   };
 
@@ -201,7 +134,7 @@ sealed class OnchainOperationState implements MachineState {
   const OnchainOperationState();
 
   /// The recovery data, non-null once the operation has started.
-  OnchainOperationData? get data => null;
+  OnchainCallData? get data => null;
 
   /// Unique operation ID for persistence.
   @override
@@ -225,11 +158,11 @@ sealed class OnchainOperationState implements MachineState {
 
   /// Deserialise from persisted JSON.
   ///
-  /// [dataFromJson] is the concrete [OnchainOperationData] factory
+  /// [dataFromJson] is the concrete [OnchainCallData] factory
   /// (e.g. [OnchainCallData.fromJson]).
   static OnchainOperationState fromJson(
     Map<String, dynamic> json,
-    OnchainOperationData Function(Map<String, dynamic>) dataFromJson,
+    OnchainCallData Function(Map<String, dynamic>) dataFromJson,
   ) {
     final stateName = json['state'] as String;
     return switch (stateName) {
@@ -260,7 +193,7 @@ class OnchainInitialised extends OnchainOperationState {
 /// A swap-in is in progress to fund the on-chain address.
 class OnchainSwapProgress extends OnchainOperationState {
   @override
-  final OnchainOperationData data;
+  final OnchainCallData data;
 
   /// Live swap state for UI. Null when restored from persisted JSON.
   final SwapInState? swapState;
@@ -281,7 +214,7 @@ class OnchainSwapProgress extends OnchainOperationState {
 /// The on-chain transaction has been (or is about to be) broadcast.
 class OnchainTxBroadcast extends OnchainOperationState {
   @override
-  final OnchainOperationData data;
+  final OnchainCallData data;
   OnchainTxBroadcast(this.data);
 
   @override
@@ -303,7 +236,7 @@ class OnchainTxBroadcast extends OnchainOperationState {
 /// will back off (or reclaim it after `staleTimeout`).
 class OnchainTxBroadcasting extends OnchainOperationState {
   @override
-  final OnchainOperationData data;
+  final OnchainCallData data;
   OnchainTxBroadcasting(this.data);
 
   @override
@@ -324,7 +257,7 @@ class OnchainTxBroadcasting extends OnchainOperationState {
 /// `confirmTx` step picks up from here — any process can run it.
 class OnchainTxSent extends OnchainOperationState {
   @override
-  final OnchainOperationData data;
+  final OnchainCallData data;
   OnchainTxSent(this.data);
 
   @override
@@ -342,7 +275,7 @@ class OnchainTxSent extends OnchainOperationState {
 /// The on-chain transaction has been confirmed.
 class OnchainTxConfirmed extends OnchainOperationState {
   @override
-  final OnchainOperationData data;
+  final OnchainCallData data;
   OnchainTxConfirmed(this.data);
 
   @override
@@ -363,7 +296,7 @@ class OnchainTxConfirmed extends OnchainOperationState {
 /// The operation has failed.
 class OnchainError extends OnchainOperationState {
   @override
-  final OnchainOperationData? data;
+  final OnchainCallData? data;
   final dynamic error;
   final StackTrace? stackTrace;
   OnchainError(this.error, {this.data, this.stackTrace});

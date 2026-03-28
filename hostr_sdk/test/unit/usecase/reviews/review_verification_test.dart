@@ -4,11 +4,9 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/datasources/nostr/mock.relay.dart' show matchEvent;
-import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
-import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/reviews/reviews.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -20,13 +18,11 @@ import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
+import '../../../support/fakes.dart';
+
+final _f = EntityFactory();
+
 // ── Fakes ───────────────────────────────────────────────────────────
-
-class _FakeMessaging extends Fake implements Messaging {}
-
-class _FakeAuth extends Fake implements Auth {}
-
-class _FakeTransitions extends Fake implements ReservationTransitions {}
 
 /// Fake requests that supports both `subscribe` (returning a manually-
 /// controlled StreamWithStatus) and `query` (returning filter-matched
@@ -93,7 +89,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-Reservation _reservation({
+Future<Reservation> _reservation({
   required Listing listing,
   required KeyPair signer,
   required String tradeId,
@@ -104,22 +100,20 @@ Reservation _reservation({
   int createdAtOffsetSeconds = 0,
   String? recipient,
   ReservationTweakMaterial? tweakMaterial,
-}) {
-  return Reservation.create(
-    pubKey: signer.publicKey,
-    dTag: tradeId,
-    listingAnchor: listing.anchor!,
-    start: start,
-    end: end,
-    proof: proof,
-    stage: stage,
-    recipient: recipient,
-    tweakMaterial: tweakMaterial,
-    createdAt:
-        DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
-        createdAtOffsetSeconds,
-  ).signAs(signer, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing,
+  dTag: tradeId,
+  signerOverride: signer,
+  start: start,
+  end: end,
+  proof: proof,
+  stage: stage,
+  recipient: recipient,
+  tweakMaterial: tweakMaterial,
+  createdAt:
+      DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
+      createdAtOffsetSeconds,
+);
 
 Review _review({
   required KeyPair signer,
@@ -140,28 +134,17 @@ Review _review({
   ).signAs(signer, Review.fromNostrEvent);
 }
 
-Listing _fixtureListing() {
-  return Listing.create(
-    pubKey: MockKeys.hoster.publicKey,
-    dTag: 'review-listing',
-    title: 'Review Listing',
-    description: 'Fixture',
-    images: const [],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: BigInt.from(100000),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
-    location: 'Test',
-    type: ListingType.house,
-    amenities: Amenities(),
-  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
-}
+Listing _fixtureListing() => _f.listing(
+  signer: MockKeys.hoster,
+  dTag: 'review-listing',
+  title: 'Review Listing',
+  description: 'Fixture',
+  images: const [],
+  priceSats: 100000,
+  location: 'Test',
+  type: ListingType.house,
+  amenities: Amenities(),
+);
 
 void main() {
   group('Reviews.subscribeVerified', () {
@@ -179,9 +162,9 @@ void main() {
       reservations = Reservations(
         requests: fakeRequests,
         logger: logger,
-        messaging: _FakeMessaging(),
-        auth: _FakeAuth(),
-        transitions: _FakeTransitions(),
+        messaging: FakeMessaging(),
+        auth: FakeAuth(),
+        transitions: FakeTransitions(),
         listings: listings,
       );
       reviews = Reviews(
@@ -209,7 +192,7 @@ void main() {
         privateKey: MockKeys.guest.privateKey!,
         salt: salt,
       );
-      final hostReservation = _reservation(
+      final hostReservation = await _reservation(
         listing: listing,
         signer: MockKeys.hoster,
         tradeId: 'trade-host-confirmed',
@@ -236,10 +219,10 @@ void main() {
         debounce: Duration.zero,
       );
 
-      // Wait for subscribe to emit + resolve + verify.
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      final snapshot = verified.items;
+      // Wait for the verification pipeline to process all items.
+      final snapshot = await verified.itemsStream.firstWhere(
+        (items) => items.isNotEmpty,
+      );
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Valid<Review>>());
 
@@ -266,9 +249,9 @@ void main() {
         debounce: Duration.zero,
       );
 
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      final snapshot = verified.items;
+      final snapshot = await verified.itemsStream.firstWhere(
+        (items) => items.isNotEmpty,
+      );
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Invalid<Review>>());
       expect(
@@ -289,7 +272,7 @@ void main() {
         reservationSalt,
       );
 
-      final hostReservation = _reservation(
+      final hostReservation = await _reservation(
         listing: listing,
         signer: MockKeys.hoster,
         tradeId: commitment,
@@ -320,9 +303,9 @@ void main() {
         debounce: Duration.zero,
       );
 
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      final snapshot = verified.items;
+      final snapshot = await verified.itemsStream.firstWhere(
+        (items) => items.isNotEmpty,
+      );
       expect(snapshot, hasLength(1));
       expect(snapshot.first, isA<Invalid<Review>>());
 
@@ -342,7 +325,7 @@ void main() {
           salt: salt,
         );
         fakeRequests.events.add(
-          _reservation(
+          await _reservation(
             listing: listing,
             signer: MockKeys.hoster,
             tradeId: commitment,
@@ -376,9 +359,9 @@ void main() {
         debounce: Duration.zero,
       );
 
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      final snapshot = verified.items;
+      final snapshot = await verified.itemsStream.firstWhere(
+        (items) => items.length >= 3,
+      );
       expect(snapshot, hasLength(3));
       expect(snapshot.every((v) => v is Valid<Review>), isTrue);
 
@@ -394,7 +377,7 @@ void main() {
 
       // Host reservation that was cancelled.
       fakeRequests.events.add(
-        _reservation(
+        await _reservation(
           listing: listing,
           signer: MockKeys.hoster,
           tradeId: commitment,
@@ -422,9 +405,9 @@ void main() {
         debounce: Duration.zero,
       );
 
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      final snapshot = verified.items;
+      final snapshot = await verified.itemsStream.firstWhere(
+        (items) => items.isNotEmpty,
+      );
       expect(snapshot, hasLength(1));
       // The host reservation is cancelled, so validation should
       // report the review based on the senior reservation result.

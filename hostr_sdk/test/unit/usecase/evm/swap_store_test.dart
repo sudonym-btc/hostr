@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
+import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_state.dart';
+import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_state.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
@@ -78,10 +80,10 @@ void main() {
         // Mutate directly in database (simulating another isolate)
         final newEntry = _entry(id: 'first');
         newEntry['extra'] = 'updated';
-        db.execute(
-          'UPDATE operations SET data = ? WHERE id = ?',
-          [jsonEncode(newEntry), 'first'],
-        );
+        db.execute('UPDATE operations SET data = ? WHERE id = ?', [
+          jsonEncode(newEntry),
+          'first',
+        ]);
 
         final retrieved = await store.read('swap_in', 'first');
         expect(retrieved, isNotNull);
@@ -110,10 +112,9 @@ void main() {
         expect(retrieved!['id'], 'item-1');
 
         // Verify it's in the underlying database
-        final rows = db.select(
-          'SELECT data FROM operations WHERE id = ?',
-          ['item-1'],
-        );
+        final rows = db.select('SELECT data FROM operations WHERE id = ?', [
+          'item-1',
+        ]);
         expect(rows, hasLength(1));
       });
 
@@ -454,11 +455,7 @@ void main() {
           namespace: 'swap_in',
           id: 'op1',
           expectedState: 'claimRelaying',
-          json: {
-            'id': 'op1',
-            'state': 'newState',
-            'isTerminal': false,
-          },
+          json: {'id': 'op1', 'state': 'newState', 'isTerminal': false},
         );
 
         expect(result.written, isFalse);
@@ -475,14 +472,79 @@ void main() {
           namespace: 'swap_in',
           id: 'new-op',
           expectedState: 'anything',
-          json: {
-            'id': 'new-op',
-            'state': 'funded',
-            'isTerminal': false,
-          },
+          json: {'id': 'new-op', 'state': 'funded', 'isTerminal': false},
         );
 
         expect(result.written, isTrue);
+      });
+    });
+
+    // ── Swap state deserialization ───────────────────────────────────────
+    //
+    // Merged from swap_recovery_service_test.dart — verifies that the JSON
+    // produced by swap state objects round-trips through OperationStateStore
+    // and deserializes back to typed SwapInState / SwapOutState instances.
+
+    group('swap state deserialization', () {
+      Map<String, dynamic> swapInJson({
+        String boltzId = 'swap-in-1',
+        bool terminal = false,
+      }) => {
+        'state': 'requestCreated',
+        'id': boltzId,
+        'isTerminal': terminal,
+        'updatedAt': DateTime.now().toIso8601String(),
+        'boltzId': boltzId,
+        'preimageHex': 'aa' * 32,
+        'preimageHash': 'hh',
+        'onchainAmountSat': 50000,
+        'timeoutBlockHeight': 800000,
+        'chainId': 31,
+        'accountIndex': 0,
+      };
+
+      Map<String, dynamic> swapOutJson({
+        String boltzId = 'swap-out-1',
+        bool terminal = false,
+      }) => {
+        'state': 'awaitingOnChain',
+        'id': boltzId,
+        'isTerminal': terminal,
+        'updatedAt': DateTime.now().toIso8601String(),
+        'boltzId': boltzId,
+        'invoice': 'lnbc50000...',
+        'invoicePreimageHashHex': 'deadbeef',
+        'claimAddress': '0xclaimaddr',
+        'lockedAmountWeiHex': 'b5e620f48000',
+        'lockerAddress': '0xlockeraddr',
+        'timeoutBlockHeight': 900000,
+        'chainId': 31,
+        'accountIndex': 0,
+      };
+
+      test('swap-in state round-trips through store', () async {
+        final json = swapInJson(boltzId: 'in-1');
+        await store.write('swap_in', 'in-1', json);
+
+        final loaded = await store.read('swap_in', 'in-1');
+        expect(loaded, isNotNull);
+        expect(loaded!['id'], 'in-1');
+
+        final state = SwapInState.fromJson(loaded);
+        expect(state, isA<SwapInRequestCreated>());
+        expect(state.data?.boltzId, 'in-1');
+      });
+
+      test('swap-out state round-trips through store', () async {
+        final json = swapOutJson(boltzId: 'out-1');
+        await store.write('swap_out', 'out-1', json);
+
+        final loaded = await store.read('swap_out', 'out-1');
+        expect(loaded, isNotNull);
+
+        final state = SwapOutState.fromJson(loaded!);
+        expect(state, isA<SwapOutAwaitingOnChain>());
+        expect(state.data?.boltzId, 'out-1');
       });
     });
   });

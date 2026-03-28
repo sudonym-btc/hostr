@@ -5,6 +5,7 @@ import 'package:models/main.dart';
 
 import '../../../evm/evm_call.dart';
 import '../../../payments/operations/pay_state.dart';
+import '../boltz_swap_data.dart';
 import '../operation_machine.dart';
 
 // ── Swap-Out recovery data ────────────────────────────────────────────────
@@ -14,24 +15,32 @@ import '../operation_machine.dart';
 /// Created when the Boltz swap is submitted and funds are about to be locked.
 /// Threaded through every [SwapOutState] variant from [SwapOutAwaitingOnChain]
 /// onward.
-class SwapOutData {
+class SwapOutData with BoltzSwapData {
+  @override
   final String boltzId;
   final String invoice;
   final String invoicePreimageHashHex;
   final String claimAddress;
   final String lockedAmountWeiHex;
   final String lockerAddress;
+  @override
   final int timeoutBlockHeight;
+  @override
   final int chainId;
+  @override
   final int accountIndex;
+  @override
   final int? creationBlockHeight;
   final String? lockTxHash;
   final String? resolutionTxHash;
+  @override
   final String? lastBoltzStatus;
+  @override
   final String? errorMessage;
 
   /// When non-null, indicates this swap targets the ERC20Swap contract
   /// with the given token address. When null, the swap uses EtherSwap.
+  @override
   final String? tokenAddress;
 
   /// Extra [Call]s to prepend before lock (e.g. escrow withdraw).

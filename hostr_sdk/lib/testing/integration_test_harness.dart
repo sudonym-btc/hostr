@@ -7,6 +7,7 @@ import 'package:models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart' hide ConsoleOutput;
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
 import '../config.dart';
 import '../config/generated/test_env.g.dart' as env;
@@ -55,6 +56,11 @@ class IntegrationTestHarness {
   /// Pubkeys of NWC app connections created during this harness lifetime.
   /// Used by [dispose] to tear them down and free relay subscription slots.
   final List<String> _createdAppPubkeys = [];
+
+  /// Anvil snapshot IDs captured after the initial setup.  Used by
+  /// [resetToCleanState] to cheaply revert chain state between tests.
+  String? _snapshotId;
+  String? _rootstockSnapshotId;
 
   IntegrationTestHarness({
     required this.hostr,
@@ -146,7 +152,7 @@ class IntegrationTestHarness {
     final fundFutures = <Future>[];
     for (final key in fundKeys) {
       final address = (await deriveEvmKey(key.privateKey!)).address.eip55With0x;
-      final amount = rbtcFromSatsInt(1000000).getInWei;
+      final amount = rbtcFromSats(BigInt.from(1000000)).getInWei;
       fundFutures.add(anvil.setBalance(address: address, amountWei: amount));
       fundFutures.add(
         anvilRootstock.setBalance(address: address, amountWei: amount),
@@ -167,7 +173,7 @@ class IntegrationTestHarness {
     // without the relay/auth subscription side-effects.
     await resolvedHostr.evm.init();
 
-    return IntegrationTestHarness(
+    final harness = IntegrationTestHarness(
       hostr: resolvedHostr,
       anvil: anvil,
       anvilRootstock: anvilRootstock,
@@ -177,6 +183,36 @@ class IntegrationTestHarness {
       fundedKeys: fundKeys,
       ownsHostr: hostr == null,
     );
+
+    // Capture chain state so resetToCleanState() can cheaply revert.
+    harness._snapshotId = await anvil.snapshot();
+    harness._rootstockSnapshotId = await anvilRootstock.snapshot();
+
+    return harness;
+  }
+
+  /// Revert both Anvil chains to their post-setup snapshots and clear Boltz
+  /// pending transactions.
+  ///
+  /// Call from `setUp` to get per-test isolation without the cost of full
+  /// harness re-creation:
+  ///
+  /// ```dart
+  /// late IntegrationTestHarness harness;
+  /// setUpAll(() async => harness = await IntegrationTestHarness.create(name: 'my-test'));
+  /// setUp(() => harness.resetToCleanState());
+  /// tearDownAll(() => harness.dispose());
+  /// ```
+  Future<void> resetToCleanState() async {
+    if (_snapshotId != null) {
+      await anvil.revert(_snapshotId!);
+      _snapshotId = await anvil.snapshot();
+    }
+    if (_rootstockSnapshotId != null) {
+      await anvilRootstock.revert(_rootstockSnapshotId!);
+      _rootstockSnapshotId = await anvilRootstock.snapshot();
+    }
+    await clearBoltzPendingEvmTransactions();
   }
 
   Future<void> signInAndConnectNwc({
@@ -286,7 +322,8 @@ class IntegrationTestHarness {
     // The Node.js script must run from /boltz-backend so that local
     // require() paths resolve (node_modules + compiled proto stubs).
     final sym = symbol ?? '';
-    final script = '''
+    final script =
+        '''
 const grpc = require('@grpc/grpc-js');
 const fs   = require('fs');
 const svc  = require('./dist/lib/proto/boltzrpc_grpc_pb');
@@ -307,10 +344,15 @@ client.sweepSwaps(req, (err, resp) => {
 });
 setTimeout(() => { process.stderr.write('timeout'); process.exit(1); }, 15000);
 ''';
-    final result = await Process.run(
-      'docker',
-      ['exec', '-w', '/boltz-backend', 'boltz-backend', 'node', '-e', script],
-    );
+    final result = await Process.run('docker', [
+      'exec',
+      '-w',
+      '/boltz-backend',
+      'boltz-backend',
+      'node',
+      '-e',
+      script,
+    ]);
     if (result.exitCode != 0) {
       throw StateError(
         'triggerBoltzClaimSweep(${symbol ?? "all"}) failed: ${result.stderr}',
@@ -347,4 +389,47 @@ setTimeout(() => { process.stderr.write('timeout'); process.exit(1); }, 15000);
   static void resetLogLevel() {
     CustomLogger.configure(level: Level.trace);
   }
+
+  /// Shorthand for the arrange phase common to most EVM integration tests.
+  ///
+  /// 1. Creates a fresh trade (with EVM escrow service).
+  /// 2. Signs in as the guest and pairs NWC.
+  /// 3. Funds the guest's EVM address on both Anvil chains.
+  ///
+  /// Returns an [ArrangedEvmTest] with everything pre-wired.
+  Future<ArrangedEvmTest> arrangeEvmTest({
+    String appNamePrefix = 'evm-test',
+    BigInt? fundAmountWei,
+  }) async {
+    final trade = await seeds.freshTrade(hostHasEvm: true);
+    await signInAndConnectNwc(
+      user: trade.guest.keyPair,
+      appNamePrefix: appNamePrefix,
+    );
+    final evmKey = await hostr.auth.hd.getActiveEvmKey();
+    final evmAddress = evmKey.address.eip55With0x;
+    final amount = fundAmountWei ?? rbtcFromSats(BigInt.from(1000000)).getInWei;
+    await Future.wait([
+      anvil.setBalance(address: evmAddress, amountWei: amount),
+      anvilRootstock.setBalance(address: evmAddress, amountWei: amount),
+    ]);
+    return ArrangedEvmTest(
+      trade: trade,
+      evmKey: evmKey,
+      evmAddress: evmAddress,
+    );
+  }
+}
+
+/// Result of [IntegrationTestHarness.arrangeEvmTest].
+class ArrangedEvmTest {
+  final TestTrade trade;
+  final EthPrivateKey evmKey;
+  final String evmAddress;
+
+  ArrangedEvmTest({
+    required this.trade,
+    required this.evmKey,
+    required this.evmAddress,
+  });
 }

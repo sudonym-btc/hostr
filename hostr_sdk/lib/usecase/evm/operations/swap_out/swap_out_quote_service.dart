@@ -33,7 +33,7 @@ class SwapOutQuote {
   /// Unified fee breakdown for UI display.
   FeeBreakdown get feeBreakdown => FeeBreakdown(
     escrowFee: TokenAmount.zero(balance.token),
-    swapFee: TokenAmount.fromDenominated(estimatedSwapFee, Token.btcLightning),
+    swapFee: estimatedSwapFee,
     gasFee: TokenAmount.fromDenominated(
       estimatedGasFee,
       Token.native(balance.token.chainId),
@@ -49,17 +49,6 @@ class SwapOutQuote {
 /// without executing the swap.
 @injectable
 class SwapOutQuoteService {
-  TokenAmount _amountFromSats(Token token, int sats) {
-    return TokenAmount.fromDenominated(
-      DenominatedAmount(
-        denomination: 'BTC',
-        value: BigInt.from(sats),
-        decimals: 8,
-      ),
-      token,
-    );
-  }
-
   /// Build a [SwapOutQuote] for the given chain and swap params.
   ///
   /// [chain]  — EVM chain to fetch balance and estimate gas on.
@@ -86,13 +75,13 @@ class SwapOutQuoteService {
       tokenAddress: tokenAddress,
     );
 
-    final minInvoice = _amountFromSats(
+    final minInvoice = tokenAmountFromSats(
       balance.token,
-      pair.limits.minimal.ceil(),
+      BigInt.from(pair.limits.minimal.ceil()),
     );
-    final maxInvoiceByPair = _amountFromSats(
+    final maxInvoiceByPair = tokenAmountFromSats(
       balance.token,
-      pair.limits.maximal.floor(),
+      BigInt.from(pair.limits.maximal.floor()),
     );
 
     final percentage = pair.fees.percentage;
@@ -120,9 +109,9 @@ class SwapOutQuoteService {
       );
     }
 
-    final maxInvoiceByBalance = _amountFromSats(
+    final maxInvoiceByBalance = tokenAmountFromSats(
       balance.token,
-      maxInvoiceByBalanceSats,
+      BigInt.from(maxInvoiceByBalanceSats),
     );
     final maxInvoice = TokenAmount.max(
       TokenAmount.zero(balance.token),

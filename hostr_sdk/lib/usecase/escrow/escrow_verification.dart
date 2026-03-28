@@ -53,24 +53,58 @@ class EscrowVerification {
   ///
   /// Returns [EscrowVerificationResult.invalid] with a reason string when
   /// any check fails or no escrow proof is present.
-  Future<EscrowVerificationResult> verify({
-    required Reservation reservation,
-  }) => logger.span('verify', () async {
-    final proof = reservation.proof;
-    if (proof == null) {
-      return const EscrowVerificationResult.invalid(
-        'No payment proof attached',
-      );
-    }
+  Future<EscrowVerificationResult> verify({required Reservation reservation}) =>
+      logger.span('verify', () async {
+        final proof = reservation.proof;
+        if (proof == null) {
+          return const EscrowVerificationResult.invalid(
+            'No payment proof attached',
+          );
+        }
 
-    final escrowProof = proof.escrowProof;
-    if (escrowProof == null) {
-      // Not an escrow-backed reservation — skip on-chain check.
-      return const EscrowVerificationResult.invalid(
-        'No escrow proof in payment proof',
-      );
-    }
+        final escrowProof = proof.escrowProof;
+        if (escrowProof == null) {
+          return const EscrowVerificationResult.invalid(
+            'No escrow proof in payment proof',
+          );
+        }
 
+        final proofError = _validateEscrowProof(escrowProof, reservation);
+        if (proofError != null) return proofError;
+
+        final contract = _resolveContract(escrowProof);
+
+        final tradeId = reservation.getDtag();
+        if (tradeId == null || tradeId.isEmpty) {
+          return const EscrowVerificationResult.invalid(
+            'Reservation has no trade id (d-tag)',
+          );
+        }
+
+        final fundedOrError = await _queryFundedEvent(
+          contract,
+          tradeId,
+          escrowProof.txHash,
+        );
+        if (fundedOrError is EscrowVerificationResult) return fundedOrError;
+        final fundedEvent = fundedOrError as EscrowFundedEvent;
+
+        return _verifyAmount(
+          fundedEvent: fundedEvent,
+          reservation: reservation,
+          proof: proof,
+          escrowProof: escrowProof,
+        );
+      });
+
+  // ── Private helpers ─────────────────────────────────────────────
+
+  /// Validates the escrow proof structure: pubkey match, signature, contract
+  /// and service inclusion in the host's escrow methods.
+  EscrowVerificationResult? _validateEscrowProof(
+    EscrowProof escrowProof,
+    Reservation reservation,
+  ) {
     if (escrowProof.hostsEscrowMethods.pubKey !=
         getPubKeyFromAnchor(reservation.parsedTags.listingAnchor)) {
       return const EscrowVerificationResult.invalid(
@@ -84,12 +118,7 @@ class EscrowVerification {
       );
     }
 
-    // Resolve the chain and contract from the escrow service.
     final escrowService = escrowProof.escrowService;
-    final configuredChain = evm.getChainForEscrowService(escrowService);
-    final contract = configuredChain.escrow.getSupportedEscrowContract(
-      escrowService,
-    );
 
     if (escrowProof.hostsEscrowMethods
         .getTags('c')
@@ -109,16 +138,24 @@ class EscrowVerification {
       );
     }
 
-    // Use the trade id (d-tag) as the on-chain trade identifier.
-    final tradeId = reservation.getDtag();
-    if (tradeId == null || tradeId.isEmpty) {
-      return const EscrowVerificationResult.invalid(
-        'Reservation has no trade id (d-tag)',
-      );
-    }
-    logger.d(
-      'Verifying escrow for trade $tradeId on chain ${configuredChain.config.id} with contract ${contract}',
-    );
+    return null; // valid
+  }
+
+  /// Resolves the on-chain contract from the escrow proof's service selection.
+  SupportedEscrowContract _resolveContract(EscrowProof escrowProof) {
+    final escrowService = escrowProof.escrowService;
+    final configuredChain = evm.getChainForEscrowService(escrowService);
+    return configuredChain.escrow.getSupportedEscrowContract(escrowService);
+  }
+
+  /// Queries on-chain events for [tradeId] and returns the
+  /// [EscrowFundedEvent] matching [txHash], or an invalid result.
+  Future<Object> _queryFundedEvent(
+    SupportedEscrowContract contract,
+    String tradeId,
+    String txHash,
+  ) async {
+    logger.d('Verifying escrow for trade $tradeId with contract $contract');
 
     final events = contract.allEvents(
       ContractEventsParams(tradeId: tradeId),
@@ -140,73 +177,79 @@ class EscrowVerification {
 
       EscrowFundedEvent? fundedEvent;
       for (final event in events.items) {
-        if (event is EscrowFundedEvent &&
-            event.transactionHash == escrowProof.txHash) {
+        if (event is EscrowFundedEvent && event.transactionHash == txHash) {
           fundedEvent = event;
           break;
         }
       }
       if (fundedEvent == null) {
         return EscrowVerificationResult.invalid(
-          'Escrow logs do not contain a funding event for trade $tradeId in ${escrowProof.txHash}',
+          'Escrow logs do not contain a funding event for trade $tradeId in $txHash',
         );
       }
 
-      final expectedAmount = reservation.resolveExpectedAmount(
-        listing: proof.listing,
-      );
-
-      // The expected amount is a DenominatedAmount (e.g. "BTC" with 8 decimals
-      // for satoshis). The on-chain amount is a TokenAmount bound to a concrete
-      // token. We scale the expected amount to the on-chain token's decimal
-      // precision for comparison.
-      final onChainAmount = fundedEvent.amount;
-      final expected = expectedAmount.expectedAmount;
-      final denomination = expected.denomination;
-
-      // Verify the host accepts this on-chain token for the denomination.
-      if (!escrowProof.hostsEscrowMethods.acceptsToken(
-        denomination,
-        onChainAmount.token.tagId,
-      )) {
-        return EscrowVerificationResult.invalid(
-          'Host does not accept token ${onChainAmount.token.tagId} '
-          'for $denomination-denominated payments',
-        );
-      }
-
-      // Scale the expected value from the denomination's decimals to the
-      // on-chain token's decimals.
-      final decimalDiff = onChainAmount.token.decimals - expected.decimals;
-      final scaledExpectedValue = decimalDiff <= 0
-          ? expected.value
-          : expected.value * BigInt.from(10).pow(decimalDiff);
-      final comparableExpected = TokenAmount(
-        value: scaledExpectedValue,
-        token: onChainAmount.token,
-      );
-
-      if (onChainAmount < comparableExpected) {
-        final expectedAmountLabel = expectedAmount.usesNegotiatedAmount
-            ? 'negotiated'
-            : 'listing';
-        final overrideReason = expectedAmount.overrideFailureReason;
-        return EscrowVerificationResult.invalid(
-          'Onchain escrowed amount (${onChainAmount.value}) is less than expected '
-          '$expectedAmountLabel amount (${comparableExpected.value}) for '
-          '${reservation.start} – ${reservation.end}'
-          '${overrideReason != null ? ' ($overrideReason)' : ''}',
-        );
-      }
-
-      logger.d(
-        'Escrow verified for trade $tradeId: funded event ${fundedEvent.transactionHash}, '
-        'on-chain=${onChainAmount.value}, expected=${comparableExpected.value}',
-      );
-
-      return EscrowVerificationResult.valid(fundedEvent: fundedEvent);
+      return fundedEvent;
     } finally {
       await events.close();
     }
-  });
+  }
+
+  /// Compares the on-chain funded amount to the expected reservation cost.
+  EscrowVerificationResult _verifyAmount({
+    required EscrowFundedEvent fundedEvent,
+    required Reservation reservation,
+    required PaymentProof proof,
+    required EscrowProof escrowProof,
+  }) {
+    final expectedAmount = reservation.resolveExpectedAmount(
+      listing: proof.listing,
+    );
+
+    final onChainAmount = fundedEvent.amount;
+    final expected = expectedAmount.expectedAmount;
+    final denomination = expected.denomination;
+
+    // Verify the host accepts this on-chain token for the denomination.
+    if (!escrowProof.hostsEscrowMethods.acceptsToken(
+      denomination,
+      onChainAmount.token.tagId,
+    )) {
+      return EscrowVerificationResult.invalid(
+        'Host does not accept token ${onChainAmount.token.tagId} '
+        'for $denomination-denominated payments',
+      );
+    }
+
+    // Scale the expected value from the denomination's decimals to the
+    // on-chain token's decimals.
+    final decimalDiff = onChainAmount.token.decimals - expected.decimals;
+    final scaledExpectedValue = decimalDiff <= 0
+        ? expected.value
+        : expected.value * BigInt.from(10).pow(decimalDiff);
+    final comparableExpected = TokenAmount(
+      value: scaledExpectedValue,
+      token: onChainAmount.token,
+    );
+
+    if (onChainAmount < comparableExpected) {
+      final expectedAmountLabel = expectedAmount.usesNegotiatedAmount
+          ? 'negotiated'
+          : 'listing';
+      final overrideReason = expectedAmount.overrideFailureReason;
+      return EscrowVerificationResult.invalid(
+        'Onchain escrowed amount (${onChainAmount.value}) is less than expected '
+        '$expectedAmountLabel amount (${comparableExpected.value}) for '
+        '${reservation.start} – ${reservation.end}'
+        '${overrideReason != null ? ' ($overrideReason)' : ''}',
+      );
+    }
+
+    logger.d(
+      'Escrow verified for trade ${reservation.getDtag()}: '
+      'funded event ${fundedEvent.transactionHash}, '
+      'on-chain=${onChainAmount.value}, expected=${comparableExpected.value}',
+    );
+
+    return EscrowVerificationResult.valid(fundedEvent: fundedEvent);
+  }
 }

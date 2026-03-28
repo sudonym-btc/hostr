@@ -1,7 +1,7 @@
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 
-import '../../../util/deterministic_key_derivation.dart';
+import '../entity_factory.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
@@ -24,7 +24,9 @@ Future<List<SeedThread>> buildThreads({
   required List<SeedUser> guests,
   required List<Listing> listings,
   required DateTime now,
+  EntityFactory? factory,
 }) async {
+  final f = factory ?? EntityFactory(ctx: ctx);
   final threads = <SeedThread>[];
   var threadIndex = 0;
 
@@ -53,17 +55,6 @@ Future<List<SeedThread>> buildThreads({
         continue;
       }
 
-      final privateKey = guest.keyPair.privateKey!;
-      final tradeId = await deriveTradeId(
-        privateKey,
-        accountIndex: guestTradeIndex,
-      );
-      final tradeSalt = await deriveTradeSalt(
-        privateKey,
-        accountIndex: guestTradeIndex,
-      );
-      guestTradeIndex++;
-
       final isFutureReservation = ctx.pickByRatio(0.5);
       final stayDays = 1 + ctx.random.nextInt(6);
       late final DateTime start;
@@ -76,27 +67,17 @@ Future<List<SeedThread>> buildThreads({
         start = end.subtract(Duration(days: stayDays));
       }
 
-      final tweakedGuestKey = tweakKeyPair(
-        privateKey: privateKey,
-        salt: tradeSalt,
-      );
-
-      final request = Reservation.create(
-        pubKey: tweakedGuestKey.publicKey,
-        dTag: tradeId,
-        listingAnchor: listing.anchor!,
+      final request = await f.reservation(
+        guestKeyPair: guest.keyPair,
+        listing: listing,
         start: start,
         end: end,
         stage: ReservationStage.negotiate,
-        quantity: 1,
-        amount: listing.cost(start, end),
-        recipient: tweakedGuestKey.publicKey,
-        tweakMaterial: ReservationTweakMaterial(
-          salt: tradeSalt,
-          parity: tweakedGuestKey.parity,
-        ),
+        accountIndex: guestTradeIndex,
         createdAt: ctx.timestampDaysAfter(30 + threadIndex),
-      ).signAs(tweakedGuestKey.keyPair, Reservation.fromNostrEvent);
+      );
+      final tradeId = request.getDtag()!;
+      guestTradeIndex++;
 
       threads.add(
         SeedThread(

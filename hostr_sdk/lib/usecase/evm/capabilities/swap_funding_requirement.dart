@@ -5,10 +5,6 @@ import '../../../util/token_amount_ext.dart';
 /// Token-aware lock-amount computation and affordability validation for
 /// submarine (swap-out) swaps.
 ///
-/// Fixes the bug where `rbtcFromSatsInt` was used for all swaps — including
-/// ERC-20 tokens — producing an RBTC TokenAmount that could never match the
-/// actual token balance.
-///
 /// Usage:
 /// ```dart
 /// final req = SwapFundingRequirement.fromBoltzExpectedAmount(

@@ -25,6 +25,7 @@ export 'operations/swap_out/swap_out_operation.dart';
 export 'operations/swap_out/swap_out_quote_service.dart';
 export 'operations/swap_out/swap_out_state.dart';
 export 'operations/swap_recoverer.dart';
-export 'operations/swap_registry.dart';
+export 'operations/swap_in_tracker.dart';
+export 'operations/swap_out_tracker.dart';
 export 'token_display_resolver.dart';
 export 'userop/claim_args.dart';

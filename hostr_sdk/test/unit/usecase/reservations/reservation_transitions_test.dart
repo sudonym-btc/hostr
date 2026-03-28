@@ -1,6 +1,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -73,22 +74,25 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-Reservation _makeReservation({
+final _f = EntityFactory();
+final _testListing = EntityFactory().listing(
+  dTag: 'test-listing',
+  signer: MockKeys.hoster,
+);
+
+Future<Reservation> _makeReservation({
   String dTag = 'trade-1',
-  String listingAnchor = 'listing-anchor',
+  Listing? listing,
   KeyPair? signer,
-}) {
-  final key = signer ?? MockKeys.guest;
-  return Reservation.create(
-    pubKey: key.publicKey,
-    dTag: dTag,
-    listingAnchor: listingAnchor,
-    start: DateTime(2026, 2, 1),
-    end: DateTime(2026, 2, 3),
-    stage: ReservationStage.negotiate,
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(key, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing ?? _testListing,
+  dTag: dTag,
+  signerOverride: signer ?? MockKeys.guest,
+  stage: ReservationStage.negotiate,
+  start: DateTime(2026, 2, 1),
+  end: DateTime(2026, 2, 3),
+  createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
+);
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
@@ -112,7 +116,7 @@ void main() {
   group('ReservationTransitions', () {
     group('record()', () {
       test('broadcasts a transition event with correct kind', () async {
-        final reservation = _makeReservation(dTag: 'trade-1');
+        final reservation = await _makeReservation(dTag: 'trade-1');
 
         final result = await usecase.record(
           reservation: reservation,
@@ -128,7 +132,7 @@ void main() {
       });
 
       test('transition content round-trips correctly', () async {
-        final reservation = _makeReservation(dTag: 'trade-2');
+        final reservation = await _makeReservation(dTag: 'trade-2');
 
         final result = await usecase.record(
           reservation: reservation,
@@ -145,9 +149,13 @@ void main() {
       });
 
       test('includes d-tag, e-tag, listing-ref tags', () async {
-        final reservation = _makeReservation(
+        final myListing = _f.listing(
+          dTag: 'my-listing',
+          signer: MockKeys.hoster,
+        );
+        final reservation = await _makeReservation(
           dTag: 'trade-3',
-          listingAnchor: 'my-listing',
+          listing: myListing,
         );
 
         final result = await usecase.record(
@@ -159,11 +167,11 @@ void main() {
 
         expect(result.parsedTags.tradeId, 'trade-3');
         expect(result.parsedTags.reservationEventId, reservation.id);
-        expect(result.parsedTags.listingAnchor, 'my-listing');
+        expect(result.parsedTags.listingAnchor, myListing.anchor);
       });
 
       test('includes prev tag when prevTransitionId is provided', () async {
-        final reservation = _makeReservation(dTag: 'trade-4');
+        final reservation = await _makeReservation(dTag: 'trade-4');
 
         final result = await usecase.record(
           reservation: reservation,
@@ -177,7 +185,7 @@ void main() {
       });
 
       test('omits prev tag when prevTransitionId is null', () async {
-        final reservation = _makeReservation(dTag: 'trade-5');
+        final reservation = await _makeReservation(dTag: 'trade-5');
 
         final result = await usecase.record(
           reservation: reservation,
@@ -190,7 +198,7 @@ void main() {
       });
 
       test('includes updatedFields for counter-offers', () async {
-        final reservation = _makeReservation(dTag: 'trade-6');
+        final reservation = await _makeReservation(dTag: 'trade-6');
         final updates = {'start': '2026-03-01', 'quantity': 2};
 
         final result = await usecase.record(

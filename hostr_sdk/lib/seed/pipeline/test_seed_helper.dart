@@ -1,6 +1,7 @@
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+import 'entity_factory.dart';
 import 'seed_context.dart';
 import 'seed_factory.dart';
 import 'seed_pipeline_config.dart';
@@ -48,6 +49,18 @@ class TestSeedHelper {
 
   /// The underlying factory, for direct access to stages.
   SeedFactory get factory => _factory;
+
+  /// Atomic entity builder — create individual signed events without a
+  /// full pipeline run.
+  ///
+  /// ```dart
+  /// final listing = await helper.entities.listing(signer: host.keyPair);
+  /// final reservation = await helper.entities.reservation(
+  ///   guestKeyPair: guest.keyPair,
+  ///   listing: listing,
+  /// );
+  /// ```
+  EntityFactory get entities => _factory.entities;
 
   /// Create a fresh guest with profile, optionally with a thread
   /// against [listing].

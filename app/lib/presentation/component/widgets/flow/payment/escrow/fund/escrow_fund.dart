@@ -25,7 +25,7 @@ import '../../payment_method/escrow_selector/escrow_selector.dart';
 // 1. User selects escrow → [EscrowFundPreparer] is created
 // 2. Confirm screen shows fees → user taps "Confirm"
 // 3. [EscrowFundPreparer.prepare()] builds [SwapInParams]
-// 4. A [SwapInOperation] is created and registered in [SwapRegistry]
+// 4. A [SwapInOperation] is created (self-registers in [SwapInTracker])
 // 5. The widget transitions to [SwapInFlowWidget]
 
 class EscrowFundWidget extends StatefulWidget {
@@ -81,15 +81,12 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     // Build the SwapInParams (resolves signer, estimates gas, etc.).
     final swapParams = await preparer.prepare();
 
-    // Create the swap operation.
+    // Create the swap operation (self-registers in SwapInTracker).
     final swapOp = preparer.configuredChain.swapIn(
       auth: getIt<Hostr>().auth,
       logger: preparer.logger,
       params: swapParams,
     );
-
-    // Register in SwapRegistry so the negotiation UI can pick it up.
-    getIt<Hostr>().swapRegistry.registerSwapIn(swapOp);
 
     // Transition to swap flow and auto-execute — the user already confirmed
     // in EscrowFundConfirmWidget so there is no need to show the
@@ -231,7 +228,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatTokenAmount(fees.swapFee, denomination: 'BTC')} in swap fees",
+                      "+ ${formatAmount(fees.swapFee)} in swap fees",
                       style: subtleStyle,
                     ),
                     Text(

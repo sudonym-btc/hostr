@@ -4,6 +4,7 @@ import 'package:convert/convert.dart';
 
 import '../../../evm/evm_call.dart';
 import '../../../payments/operations/pay_state.dart';
+import '../boltz_swap_data.dart';
 import '../operation_machine.dart';
 
 // ── Swap-In recovery data ─────────────────────────────────────────────────
@@ -13,24 +14,32 @@ import '../operation_machine.dart';
 /// Created when the Boltz swap is submitted and grows (via [copyWith]) as the
 /// swap progresses. Threaded through every [SwapInState] variant after
 /// [SwapInInitialised].
-class SwapInData {
+class SwapInData with BoltzSwapData {
+  @override
   final String boltzId;
   final String preimageHex;
   final String preimageHash;
   final int onchainAmountSat;
+  @override
   final int timeoutBlockHeight;
+  @override
   final int chainId;
+  @override
   final int accountIndex;
+  @override
   final int? creationBlockHeight;
   final String? invoiceString;
   final String? lockupTxHash;
   final String? refundAddress;
   final String? claimTxHash;
+  @override
   final String? lastBoltzStatus;
+  @override
   final String? errorMessage;
 
   /// When non-null, indicates this swap targets the ERC20Swap contract
   /// with the given token address. When null, the swap uses EtherSwap.
+  @override
   final String? tokenAddress;
 
   /// When this swap is nested inside a parent operation (e.g. escrow-fund),

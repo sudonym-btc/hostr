@@ -95,7 +95,7 @@ String formatTokenAmount(
   }
 
   // Fallback: no denomination provided — use token type heuristics.
-  if (amount.token.isLightning || amount.token.isNative) {
+  if (amount.token.isNative) {
     const prefix = '₿ ';
     final sats = _toSats(amount).toInt();
     final value = exact

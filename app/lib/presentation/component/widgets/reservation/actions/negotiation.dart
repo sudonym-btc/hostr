@@ -26,7 +26,7 @@ class NegotiationWidget extends StatelessWidget {
     final hasCounter = tradeState.actions.contains(TradeAction.counter);
     final hasPay = tradeState.actions.contains(TradeAction.pay);
     final hasAccept = tradeState.actions.contains(TradeAction.accept);
-    final registry = getIt<Hostr>().swapRegistry;
+    final registry = getIt<SwapInTracker>();
     return CustomPadding(
       top: 0,
       bottom: 0.5,
@@ -51,7 +51,7 @@ class NegotiationWidget extends StatelessWidget {
                       maxWidth: constraints.maxWidth * 0.6,
                     ),
                     child: StreamBuilder<SwapInOperation?>(
-                      stream: registry.watchSwapInForParent(tradeState.tradeId),
+                      stream: registry.watchForParent(tradeState.tradeId),
                       builder: (context, snapshot) {
                         final activeSwap = snapshot.data;
                         return Wrap(

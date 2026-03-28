@@ -52,7 +52,8 @@ class Hostr {
   UserConfigStore get userConfig => getIt<UserConfigStore>();
   FundsMonitorService get fundsMonitor => getIt<FundsMonitorService>();
   OperationStateStore get operationStateStore => getIt<OperationStateStore>();
-  SwapRegistry get swapRegistry => getIt<SwapRegistry>();
+  SwapInTracker get swapInTracker => getIt<SwapInTracker>();
+  SwapOutTracker get swapOutTracker => getIt<SwapOutTracker>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
   Heartbeats get heartbeats => getIt<Heartbeats>();
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();

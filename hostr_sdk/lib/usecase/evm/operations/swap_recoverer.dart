@@ -124,9 +124,6 @@ class SwapRecoverer {
       initialState: state,
     );
 
-    // Register in SwapRegistry so UI can pick it up.
-    getIt<SwapRegistry>().registerSwapIn(cubit);
-
     // Let the swap operation itself fire progress notifications.
     if (onProgress != null) {
       cubit.onProgress = (id, msg) =>
@@ -136,7 +133,7 @@ class SwapRecoverer {
     try {
       return await cubit.recover(isBackground: isBackground);
     } finally {
-      // Don't close — the registry holds a reference and unregisters
+      // Don't close — the tracker holds a reference and unregisters
       // on terminal state. If already terminal, closing is safe.
       if (cubit.state.isTerminal) await cubit.close();
     }
@@ -170,9 +167,6 @@ class SwapRecoverer {
       ),
       initialState: state,
     );
-
-    // Register in SwapRegistry so UI can pick it up.
-    getIt<SwapRegistry>().registerSwapOut(cubit);
 
     try {
       return await cubit.recover(isBackground: isBackground);

@@ -1,57 +1,20 @@
-// ignore_for_file: unused_element, unused_local_variable
-
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
-import 'package:hostr_sdk/usecase/messaging/messaging.dart';
-import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
-import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/ndk.dart'
-    show Filter, Nip01Event, Nip01EventModel, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
-class _FakeMessaging extends Fake implements Messaging {}
+import '../../../support/fakes.dart';
 
-class _FakeAuth extends Fake implements Auth {}
+final _f = EntityFactory();
 
-class _FakeTransitions extends Fake implements ReservationTransitions {}
-
-/// In-memory fake relay source for reservation subscriptions.
-class _FakeRelayRequests extends Fake implements hostr_requests.Requests {
-  final StreamWithStatus<Reservation> _source = StreamWithStatus<Reservation>();
-
-  @override
-  StreamWithStatus<T> subscribe<T extends Nip01Event>({
-    required Filter filter,
-    List<String>? relays,
-    String? name,
-  }) {
-    return _source as StreamWithStatus<T>;
-  }
-
-  void emit(Reservation event) => _source.add(event);
-
-  void emitStatus(StreamStatus status) => _source.addStatus(status);
-
-  Future<void> close() => _source.close();
-}
-
-/// Placeholder fake RPC client shape for escrow validation scenarios.
-class _FakeEscrowRpc {
-  final Map<String, ({BigInt amount, String to, bool ok})> txByHash;
-
-  _FakeEscrowRpc(this.txByHash);
-}
-
-Reservation _reservation({
+Future<Reservation> _reservation({
   required Listing listing,
   required KeyPair signer,
   required String tradeId,
@@ -60,102 +23,47 @@ Reservation _reservation({
   PaymentProof? proof,
   ReservationStage stage = ReservationStage.negotiate,
   int createdAtOffsetSeconds = 0,
-}) {
-  return Reservation.create(
-    pubKey: signer.publicKey,
-    dTag: tradeId,
-    listingAnchor: listing.anchor!,
-    start: start,
-    end: end,
-    proof: proof,
-    stage: stage,
-    createdAt:
-        DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
-        createdAtOffsetSeconds,
-  ).signAs(signer, Reservation.fromNostrEvent);
-}
+}) => _f.reservation(
+  listing: listing,
+  dTag: tradeId,
+  signerOverride: signer,
+  start: start,
+  end: end,
+  proof: proof,
+  stage: stage,
+  createdAt:
+      DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
+      createdAtOffsetSeconds,
+);
 
-Listing _fixtureListing() {
-  return Listing.create(
-    pubKey: MockKeys.hoster.publicKey,
-    dTag: 'unit-listing',
-    title: 'Unit Listing',
-    description: 'Fixture',
-    images: const [],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: BigInt.from(100000),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
-    location: 'Test',
-    type: ListingType.house,
-    amenities: Amenities(),
-  ).signAs(MockKeys.hoster, Listing.fromNostrEvent);
-}
-
-Nip01Event _fixtureHostProfile() {
-  return Nip01Utils.signWithPrivateKey(
-    event: Nip01Event(
-      kind: kNostrKindProfile,
-      pubKey: MockKeys.hoster.publicKey,
-      tags: const [],
-      content: '{"name":"host","lud16":"host@hostr.development"}',
-    ),
-    privateKey: MockKeys.hoster.privateKey!,
-  );
-}
-
-Nip01Event _fixtureZapReceipt() {
-  return Nip01Utils.signWithPrivateKey(
-    event: Nip01Event(
-      kind: kNostrKindZapReceipt,
-      pubKey: MockKeys.hoster.publicKey,
-      tags: [
-        ['p', MockKeys.hoster.publicKey],
-        ['bolt11', 'lnbc1000n1punit'],
-        [
-          'description',
-          '{"tags":[["amount","1000"],["lnurl","host@hostr.development"]]}',
-        ],
-      ],
-      content: '',
-    ),
-    privateKey: MockKeys.hoster.privateKey!,
-  );
-}
-
-PaymentProof _zapProofFromStubReceipt({required Listing listing}) {
-  return PaymentProof(
-    hoster: _fixtureHostProfile(),
-    listing: listing,
-    zapProof: ZapProof(
-      receipt: Nip01EventModel.fromEntity(_fixtureZapReceipt()),
-    ),
-    escrowProof: null,
-  );
-}
+Listing _fixtureListing() => _f.listing(
+  signer: MockKeys.hoster,
+  dTag: 'unit-listing',
+  title: 'Unit Listing',
+  description: 'Fixture',
+  images: const [],
+  priceSats: 100000,
+  location: 'Test',
+  type: ListingType.house,
+  amenities: Amenities(),
+);
 
 void main() {
   group('Listing availability with mock data', () {
-    late _FakeRelayRequests relay;
+    late FakeRelayRequests relay;
     late Reservations usecase;
     late Listing listing;
     late DateTime start;
     late DateTime end;
 
     setUp(() {
-      relay = _FakeRelayRequests();
+      relay = FakeRelayRequests();
       usecase = Reservations(
         requests: relay,
         logger: CustomLogger(),
-        messaging: _FakeMessaging(),
-        auth: _FakeAuth(),
-        transitions: _FakeTransitions(),
+        messaging: FakeMessaging(),
+        auth: FakeAuth(),
+        transitions: FakeTransitions(),
         listings: Listings(requests: relay, logger: CustomLogger()),
       );
       listing = _fixtureListing();
@@ -168,10 +76,66 @@ void main() {
     });
 
     test(
-      'zap proof: validates when amount and recipient are correct',
-      () async {},
-      skip:
-          'Sketch pending: needs deterministic, parser-compatible fully valid zap receipt fixture',
+      'cancelled commitment hash is skipped by subscribeUncancelledReservations',
+      () async {
+        final keepCommitment = ParticipationProof.computeCommitmentHash(
+          MockKeys.guest.publicKey,
+          'salt-keep',
+        );
+        final dropCommitment = ParticipationProof.computeCommitmentHash(
+          MockKeys.guest.publicKey,
+          'salt-drop',
+        );
+
+        final keep = await _reservation(
+          listing: listing,
+          signer: MockKeys.hoster,
+          tradeId: keepCommitment,
+          start: start,
+          end: end,
+          proof: null,
+        );
+
+        final droppedOriginal = await _reservation(
+          listing: listing,
+          signer: MockKeys.guest,
+          tradeId: dropCommitment,
+          start: start,
+          end: end,
+          proof: null,
+        );
+
+        final droppedCancelled = await _reservation(
+          listing: listing,
+          signer: MockKeys.hoster,
+          tradeId: dropCommitment,
+          start: start,
+          end: end,
+          stage: ReservationStage.cancel,
+        );
+
+        final validated = usecase.subscribeUncancelledReservations(
+          listing: listing,
+          debounce: Duration.zero,
+        );
+
+        relay.emitStatus(StreamStatusLive());
+        relay.emit(keep);
+        relay.emit(droppedOriginal);
+        relay.emit(droppedCancelled);
+
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        final snapshot = validated.items;
+
+        final survivingCommitments = snapshot
+            .map((v) => v.event.getDtag())
+            .toSet();
+
+        expect(survivingCommitments.contains(keepCommitment), isTrue);
+        expect(survivingCommitments.contains(dropCommitment), isFalse);
+
+        await validated.close();
+      },
     );
   });
 }

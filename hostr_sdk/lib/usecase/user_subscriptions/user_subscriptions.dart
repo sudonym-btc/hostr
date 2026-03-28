@@ -484,7 +484,7 @@ class UserSubscriptions {
         tradeId: receipt.eventId!,
         event: Nip01EventModel.fromEntity(event),
         zapReceipt: receipt,
-        amount: rbtcFromSatsInt(amountSats),
+        amount: rbtcFromSats(BigInt.from(amountSats)),
       );
     });
     mapped.onClose = () => zapSource.close();

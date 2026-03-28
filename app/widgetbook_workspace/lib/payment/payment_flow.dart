@@ -7,7 +7,7 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 PayParameters get _mockParams => PayParameters(
   to: 'satoshi@hostr.cc',
-  amount: TokenAmount(value: BigInt.from(50000), token: Token.btcLightning),
+  amount: TokenAmount.fromInt(TokenUnit.sat, 50000, Token.native(30)),
 );
 
 // -- Confirm -----------------------------------------------------------

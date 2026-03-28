@@ -45,47 +45,8 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
   ///   - tBTC denominated as `BTC` when live Boltz support exists for the
   ///     configured tBTC token.
   ///   - USDT (if configured) denominated as `USD`.
-  List<AcceptedPaymentForm> _buildAcceptedPaymentForms() {
-    final forms = <AcceptedPaymentForm>[];
-    for (final chain in _evm.configuredChains) {
-      final swaps = chain.swaps;
-
-      if (swaps != null) {
-        // Native asset swaps are available when Boltz has no tokens on
-        // this chain (e.g. Rootstock with RBTC) OR the chain has tokens
-        // but also supports native (determined by pair availability at
-        // swap-time). For now, always advertise the native token.
-        forms.add(
-          AcceptedPaymentForm(
-            denomination: 'BTC',
-            tokenTagId: Token.native(chain.config.chainId).tagId,
-          ),
-        );
-
-        final tbtc = chain.config.tokens['tBTC'];
-        if (tbtc != null &&
-            swaps.supportsTokenAddress(EthereumAddress.fromHex(tbtc.address))) {
-          forms.add(
-            AcceptedPaymentForm(
-              denomination: tbtc.denomination,
-              tokenTagId: '${chain.config.chainId}:${tbtc.address}',
-            ),
-          );
-        }
-      }
-
-      final usdt = chain.config.tokens['USDT'];
-      if (usdt != null) {
-        forms.add(
-          AcceptedPaymentForm(
-            denomination: usdt.denomination,
-            tokenTagId: '${chain.config.chainId}:${usdt.address}',
-          ),
-        );
-      }
-    }
-    return forms;
-  }
+  List<AcceptedPaymentForm> _buildAcceptedPaymentForms() =>
+      buildAcceptedPaymentForms(_evm);
 
   Future<void> ensureEscrowMethod({
     Set<String> bytecodeHashes = const {},
@@ -219,4 +180,50 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     }
     logger.i('Ensured escrow method for $pubkey');
   }
+}
+
+/// Build [AcceptedPaymentForm] entries from discovered EVM swap capabilities
+/// plus configured stablecoins.
+///
+/// For each chain, includes:
+///   - The native token denominated as `BTC` when live Boltz support exists.
+///   - tBTC denominated as `BTC` when live Boltz support exists for the
+///     configured tBTC token.
+///   - USDT (if configured) denominated as `USD`.
+List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
+  final forms = <AcceptedPaymentForm>[];
+  for (final chain in evm.configuredChains) {
+    final swaps = chain.swaps;
+
+    if (swaps != null) {
+      forms.add(
+        AcceptedPaymentForm(
+          denomination: 'BTC',
+          tokenTagId: Token.native(chain.config.chainId).tagId,
+        ),
+      );
+
+      final tbtc = chain.config.tokens['tBTC'];
+      if (tbtc != null &&
+          swaps.supportsTokenAddress(EthereumAddress.fromHex(tbtc.address))) {
+        forms.add(
+          AcceptedPaymentForm(
+            denomination: tbtc.denomination,
+            tokenTagId: '${chain.config.chainId}:${tbtc.address}',
+          ),
+        );
+      }
+    }
+
+    final usdt = chain.config.tokens['USDT'];
+    if (usdt != null) {
+      forms.add(
+        AcceptedPaymentForm(
+          denomination: usdt.denomination,
+          tokenTagId: '${chain.config.chainId}:${usdt.address}',
+        ),
+      );
+    }
+  }
+  return forms;
 }

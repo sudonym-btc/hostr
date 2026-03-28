@@ -7,6 +7,7 @@
 /// Use [InfrastructureSink] for real infrastructure (CLI relay-seeder).
 library;
 
+export 'pipeline/entity_factory.dart';
 export 'pipeline/fake/fake_escrow_ledger.dart';
 export 'pipeline/fake/fake_identity_registry.dart';
 export 'pipeline/seed_context.dart';

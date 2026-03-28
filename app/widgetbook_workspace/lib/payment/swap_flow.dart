@@ -67,10 +67,7 @@ Widget swapInPaymentProgress(BuildContext context) {
       paymentState: PayInFlight(
         params: PayParameters(
           to: 'satoshi@hostr.cc',
-          amount: TokenAmount(
-            value: BigInt.from(50000),
-            token: Token.btcLightning,
-          ),
+          amount: TokenAmount.fromInt(TokenUnit.sat, 50000, Token.native(30)),
         ),
       ),
     ),
@@ -109,14 +106,7 @@ Widget swapOutPaymentProgress(BuildContext context) {
       paymentState: PayInFlight(
         params: PayParameters(
           to: 'satoshi@hostr.cc',
-          amount: TokenAmount.fromDenominated(
-            DenominatedAmount(
-              denomination: 'BTC',
-              value: BigInt.from(10000),
-              decimals: 8,
-            ),
-            Token.btcLightning,
-          ),
+          amount: TokenAmount.fromInt(TokenUnit.sat, 10000, Token.native(30)),
         ),
       ),
     ),

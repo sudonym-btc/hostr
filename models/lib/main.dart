@@ -8,4 +8,5 @@ export 'price.dart';
 export 'secp256k1.dart';
 export 'token.dart';
 export 'token_amount.dart';
+export 'token_unit.dart';
 export 'util/main.dart';

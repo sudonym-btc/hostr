@@ -5,8 +5,8 @@ import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
-import 'package:web3dart/web3dart.dart';
 
+import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
 
 void main() {
@@ -82,41 +82,13 @@ void main() {
       final completed = operation.state as OnchainTxConfirmed;
       final completedData = completed.data;
       expect(completedData.transactionInformation, isNotNull);
-      final txHash = _extractTxHash(completedData.transactionInformation!);
+      final txHash = extractTxHash(completedData.transactionInformation!);
       expect(txHash, isNotNull);
 
       expect(completedData.transactionReceipt, isNotNull);
       final receipt = completedData.transactionReceipt!;
-      expect(_extractReceiptTxHash(receipt), equals(txHash));
-      expect(_isReceiptSuccessful(receipt), isTrue);
+      expect(extractReceiptTxHash(receipt), equals(txHash));
+      expect(isReceiptSuccessful(receipt), isTrue);
     },
-    timeout: const Timeout(Duration(seconds: 120)),
   );
-}
-
-String? _extractTxHash(TransactionInformation tx) {
-  final dynamic d = tx;
-  final hash = d.hash?.toString() ?? d.id?.toString();
-  if (hash == null || hash.isEmpty) return null;
-  return hash;
-}
-
-String? _extractReceiptTxHash(TransactionReceipt receipt) {
-  final dynamic hash = (receipt as dynamic).transactionHash;
-  if (hash == null) return null;
-  if (hash is String) return hash;
-  if (hash is List<int>) return bytesToHex(hash, include0x: true);
-  final normalized = hash.toString();
-  if (normalized.isEmpty) return null;
-  return normalized;
-}
-
-bool _isReceiptSuccessful(TransactionReceipt receipt) {
-  final dynamic status = (receipt as dynamic).status;
-  if (status == null) return true;
-  if (status is bool) return status;
-  if (status is int) return status == 1;
-  if (status is BigInt) return status == BigInt.one;
-  final normalized = status.toString().toLowerCase();
-  return normalized == '1' || normalized == '0x1' || normalized == 'true';
 }

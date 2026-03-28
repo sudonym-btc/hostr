@@ -4,6 +4,7 @@ import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
+import '../entity_factory.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_models.dart';
 
@@ -200,7 +201,9 @@ Future<List<Nip01Event>> buildMessages({
 Future<List<Nip01Event>> buildEscrowSelectedMessages({
   required SeedContext ctx,
   required List<SeedThread> threads,
+  EntityFactory? factory,
 }) async {
+  final f = factory ?? EntityFactory(ctx: ctx);
   final messages = <Nip01Event>[];
   var wrapCount = 0;
   var lastLoggedPct = -1;
@@ -238,20 +241,16 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
 
       final threadAnchor = thread.request.getDtag()!;
 
-      final selectedEscrow = EscrowServiceSelected(
-        pubKey: thread.guest.keyPair.publicKey,
-        tags: EscrowServiceSelectedTags([
-          [kListingRefTag, thread.listing.anchor!],
-          [kThreadRefTag, threadAnchor],
-          ['p', thread.host.keyPair.publicKey],
-          ['d', 'seed-escrow-selected-${i + 1}'],
-        ]),
+      final selectedEscrow = f.escrowServiceSelected(
+        signer: thread.guest.keyPair,
+        listingAnchor: thread.listing.anchor!,
+        threadAnchor: threadAnchor,
+        hostPubKey: thread.host.keyPair.publicKey,
+        service: escrowProof.escrowService,
+        sellerMethods: escrowProof.hostsEscrowMethods,
+        dTag: 'seed-escrow-selected-${i + 1}',
         createdAt: ctx.timestampDaysAfter(40 + i),
-        content: EscrowServiceSelectedContent(
-          service: escrowProof.escrowService,
-          sellerMethods: escrowProof.hostsEscrowMethods,
-        ),
-      ).signAs(thread.guest.keyPair, EscrowServiceSelected.fromNostrEvent);
+      );
 
       final wraps = await _giftWrapDmForParticipants(
         ndk: giftWrapNdk,

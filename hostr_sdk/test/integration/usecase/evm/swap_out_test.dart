@@ -50,47 +50,43 @@ void main() {
     await harness.dispose();
   });
 
-  test(
-    'swap out emits expected state flow when NWC is connected',
-    () async {
-      final hostr = harness.hostr;
+  test('swap out emits expected state flow when NWC is connected', () async {
+    final hostr = harness.hostr;
 
-      await harness.signInAndConnectNwc(
-        user: harness.fundedKeys[0],
-        appNamePrefix: 'swap-out-it',
-      );
+    await harness.signInAndConnectNwc(
+      user: harness.fundedKeys[0],
+      appNamePrefix: 'swap-out-it',
+    );
 
-      // Fund on the Rootstock chain — native swaps use RSK.
-      await harness.anvilRootstock.setBalance(
-        address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSatsInt(1000000).getInWei,
-      );
+    // Fund on the Rootstock chain — native swaps use RSK.
+    await harness.anvilRootstock.setBalance(
+      address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
+      amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
+    );
 
-      final ops = await hostr.evm.swapOutAll();
-      final swapOut = ops.firstWhere(
-        (op) => op.chain.config.id == 'rootstock-regtest',
-      );
+    final ops = await hostr.evm.swapOutAll();
+    final swapOut = ops.firstWhere(
+      (op) => op.chain.config.id == 'rootstock-regtest',
+    );
 
-      final emittedStates = <SwapOutState>[swapOut.state];
-      final sub = swapOut.stream.listen(emittedStates.add);
+    final emittedStates = <SwapOutState>[swapOut.state];
+    final sub = swapOut.stream.listen(emittedStates.add);
 
-      await swapOut.execute();
-      await sub.cancel();
+    await swapOut.execute();
+    await sub.cancel();
 
-      expect(emittedStates.first, isA<SwapOutInitialised>());
-      expect(
-        emittedStates.any((state) => state is SwapOutAwaitingOnChain),
-        isTrue,
-      );
-      expect(emittedStates.any((state) => state is SwapOutFunded), isTrue);
-      // Use the synchronous state getter for the terminal check — the Cubit
-      // updates `state` synchronously in emit(), but the broadcast
-      // StreamController (sync: false in Bloc 9) delivers stream events via
-      // microtasks, so `emittedStates.last` may lag behind.
-      expect(swapOut.state, isA<SwapOutCompleted>());
-    },
-    timeout: const Timeout(Duration(seconds: 25)),
-  );
+    expect(emittedStates.first, isA<SwapOutInitialised>());
+    expect(
+      emittedStates.any((state) => state is SwapOutAwaitingOnChain),
+      isTrue,
+    );
+    expect(emittedStates.any((state) => state is SwapOutFunded), isTrue);
+    // Use the synchronous state getter for the terminal check — the Cubit
+    // updates `state` synchronously in emit(), but the broadcast
+    // StreamController (sync: false in Bloc 9) delivers stream events via
+    // microtasks, so `emittedStates.last` may lag behind.
+    expect(swapOut.state, isA<SwapOutCompleted>());
+  });
 
   test(
     'submitExternalInvoice rejects invalid invoice then accepts valid one',
@@ -102,7 +98,7 @@ void main() {
       await harness.anvilRootstock.setBalance(
         address:
             (await harness.hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSatsInt(1000000).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
@@ -147,6 +143,5 @@ void main() {
       expect(states1.any((s) => s is SwapOutFunded), isTrue);
       _printElapsed('test: external invoice flow', sw);
     },
-    timeout: const Timeout(Duration(seconds: 30)),
   );
 }

@@ -7,6 +7,7 @@ tags:
     description: Cross-component tests that exercise real integration paths.
   docker:
     description: Tests that require the local docker-compose stack.
+    timeout: 5m
 
 # Usage: dart test -P ci test/integration -t docker
 # Shows only failures on console; full expanded output goes to test-results.txt.
