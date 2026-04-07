@@ -6,7 +6,6 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
 
-import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
 
 void main() {
@@ -30,78 +29,74 @@ void main() {
     await harness.dispose();
   });
 
-  test(
-    'escrow fund with swap-in emits expected state flow and confirms transaction',
-    () async {
-      final hostr = harness.hostr;
-      final trade = await harness.seeds.freshTrade(hostHasEvm: true);
-      await harness.anvil.setAutomine(true);
-      await harness.signInAndConnectNwc(
-        user: trade.guest.keyPair,
-        appNamePrefix: 'escrow-fund-swap-it',
-      );
+  test('escrow fund with swap-in executes and completes', () async {
+    final hostr = harness.hostr;
+    final trade = await harness.seeds.freshTrade(hostHasEvm: true);
+    await harness.anvil.setAutomine(true);
+    await harness.signInAndConnectNwc(
+      user: trade.guest.keyPair,
+      appNamePrefix: 'escrow-fund-swap-it',
+    );
 
-      // Do NOT pre-fund the EVM address — the operation must detect
-      // insufficient balance and trigger a swap-in (Lightning → Boltz →
-      // RIF Relay → EVM) before depositing to the escrow contract.
+    // EscrowFundPreparer is stateless — it always builds SwapInParams with
+    // postClaimCalls (approve + createTrade) for the escrow deposit.
+    // The EVM address is NOT pre-funded; funds arrive via the Boltz swap-in.
 
-      final escrowService = (await harness.seeds.factory.buildEscrowServices(
-        contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
-      )).first;
-      final negotiateReservation = trade.negotiateReservation;
-      final sellerProfile = trade.sellerProfile;
+    final escrowService = (await harness.seeds.factory.buildEscrowServices(
+      contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
+    )).first;
+    final negotiateReservation = trade.negotiateReservation;
+    final sellerProfile = trade.sellerProfile;
 
-      final operation = hostr.escrow.fund(
-        EscrowFundParams(
-          escrowService: escrowService,
-          negotiateReservation: negotiateReservation,
-          sellerProfile: sellerProfile,
-          amount: negotiateReservation.amount!,
-        ),
-      );
+    final preparer = hostr.escrow.fund(
+      EscrowFundParams(
+        escrowService: escrowService,
+        negotiateReservation: negotiateReservation,
+        sellerProfile: sellerProfile,
+        amount: negotiateReservation.amount!,
+      ),
+    );
 
-      final emittedStates = <OnchainOperationState>[operation.state];
-      final sub = operation.stream.listen(emittedStates.add);
+    // prepare() resolves the signer and returns SwapInParams with
+    // postClaimCalls set to the escrow deposit calls.
+    final swapInParams = await preparer.prepare();
+    final configured = preparer.configuredChain;
 
-      await operation.execute();
-      emittedStates.add(operation.state);
-      await sub.cancel();
+    final swapIn = configured.swapIn(
+      params: swapInParams,
+      auth: hostr.auth,
+      logger: CustomLogger(),
+    );
 
-      // --- Log the balance of the funding address after the operation ---
-      final completedData = operation.state.data!;
-      final fundingAddress = await hostr.auth.hd.getEvmAddress(
-        accountIndex: completedData.accountIndex,
-      );
-      final balanceAfter = await hostr.evm.configuredChains.first.getBalance(
-        fundingAddress,
-      );
+    final emittedStates = <SwapInState>[swapIn.state];
+    final sub = swapIn.stream.listen(emittedStates.add);
 
-      expect(balanceAfter.getInSats.toInt(), equals(0));
+    await swapIn.execute();
+    emittedStates.add(swapIn.state);
+    await sub.cancel();
 
-      // --- State flow assertions ---
-      expect(emittedStates.first, isA<OnchainInitialised>());
+    // --- Balance of the funding address after the operation ---
+    // All swapped funds are forwarded to the escrow contract via
+    // postClaimCalls, so the EVM address ends up with zero balance.
+    final fundingAddress = await hostr.auth.hd.getEvmAddress(
+      accountIndex: preparer.accountIndex,
+    );
+    final balanceAfter = await configured.getBalance(fundingAddress);
 
-      // A swap-in must have been triggered because we started with zero EVM
-      // balance. Verify at least one EscrowFundSwapProgress state appeared.
-      expect(
-        emittedStates.whereType<OnchainSwapProgress>(),
-        isNotEmpty,
-        reason: 'Expected swap-in to be triggered (zero EVM balance)',
-      );
+    expect(balanceAfter.getInSats.toInt(), equals(0));
 
-      expect(operation.state, isA<OnchainTxConfirmed>());
-      expect(emittedStates.whereType<OnchainTxConfirmed>(), isNotEmpty);
+    // --- State flow assertions ---
+    expect(emittedStates.first, isA<SwapInInitialised>());
 
-      final completed = operation.state as OnchainTxConfirmed;
-      final confirmedData = completed.data;
-      expect(confirmedData.transactionInformation, isNotNull);
-      final txHash = extractTxHash(confirmedData.transactionInformation!);
-      expect(txHash, isNotNull);
+    // The Lightning invoice must have been paid as part of the swap-in.
+    expect(
+      emittedStates.whereType<SwapInInvoicePaid>(),
+      isNotEmpty,
+      reason: 'Expected Lightning invoice to be paid during swap-in',
+    );
 
-      expect(confirmedData.transactionReceipt, isNotNull);
-      final receipt = confirmedData.transactionReceipt!;
-      expect(extractReceiptTxHash(receipt), equals(txHash));
-      expect(isReceiptSuccessful(receipt), isTrue);
-    },
-  );
+    expect(swapIn.state, isA<SwapInCompleted>());
+    final claimTxHash = (swapIn.state as SwapInCompleted).data.claimTxHash;
+    expect(claimTxHash, isNotNull);
+  });
 }

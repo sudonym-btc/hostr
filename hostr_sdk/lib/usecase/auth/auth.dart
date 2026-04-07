@@ -29,8 +29,6 @@ class Auth {
   final CustomLogger _logger;
   final AuthStorage _authStorage;
   final AuthIdentityResolver _identityResolver;
-  Ndk get ndk => _ndk;
-  AuthStorage get authStorage => _authStorage;
   final BehaviorSubject<AuthState> _authStateContoller =
       BehaviorSubject<AuthState>.seeded(AuthInitial());
   ValueStream<AuthState> get authState => _authStateContoller;
@@ -71,7 +69,7 @@ class Auth {
   Future<void> signin(String input) => _logger.span('signin', () async {
     _logger.i('AuthService.signin');
     final record = await _identityResolver.prepareIdentity(input);
-    await authStorage.set([jsonEncode(record.toJson())]);
+    await _authStorage.set([jsonEncode(record.toJson())]);
     _setAuthenticated(record);
     ensureNdkAccountsMatch();
     _syncAuthState();
@@ -91,7 +89,7 @@ class Auth {
   Future<void> logout() => _logger.span('logout', () async {
     _logger.i('AuthService.logout');
     clearNip44ConvKeyCache();
-    await authStorage.wipe();
+    await _authStorage.wipe();
     await _loadActiveKeyPair();
     ensureNdkAccountsMatch();
     _syncAuthState();
@@ -115,20 +113,20 @@ class Auth {
     'ensureNdkAccountsMatch',
     () {
       if (activeKeyPair == null) {
-        final pubkeys = ndk.accounts.accounts.keys.toList(growable: false);
+        final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
         for (final pubkey in pubkeys) {
-          ndk.accounts.removeAccount(pubkey: pubkey);
+          _ndk.accounts.removeAccount(pubkey: pubkey);
         }
       } else {
         final pubkey = activeKeyPair!.publicKey;
         final privkey = activeKeyPair!.privateKey!;
         final alreadyLoggedIn =
-            ndk.accounts.accounts.containsKey(pubkey) ||
-            ndk.accounts.getPublicKey() == pubkey;
+            _ndk.accounts.accounts.containsKey(pubkey) ||
+            _ndk.accounts.getPublicKey() == pubkey;
 
         if (!alreadyLoggedIn) {
           _logger.i('Restoring NDK account for stored key');
-          ndk.accounts.loginExternalSigner(
+          _ndk.accounts.loginExternalSigner(
             signer: CoinlibEventSigner(privateKey: privkey, publicKey: pubkey),
           );
         }
@@ -140,7 +138,7 @@ class Auth {
 
   Future<void> _loadActiveKeyPair() =>
       _logger.span('_loadActiveKeyPair', () async {
-        final stored = await authStorage.get();
+        final stored = await _authStorage.get();
         final record = AuthRecord.fromStorage(stored);
         _authRecord = record;
         if (record == null) {
@@ -178,7 +176,7 @@ class Auth {
     }
 
     final updated = record.copyWith(maxAccountIndex: maxAccountIndex);
-    await authStorage.set([jsonEncode(updated.toJson())]);
+    await _authStorage.set([jsonEncode(updated.toJson())]);
     _authRecord = updated;
   }
 

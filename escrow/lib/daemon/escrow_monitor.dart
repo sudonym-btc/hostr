@@ -128,8 +128,6 @@ class EscrowMonitor {
   }
 
   void _onEscrowEvent(EscrowEvent event) {
-    final now = DateTime.now();
-
     if (event is EscrowFundedEvent) {
       print('[monitor] Trade funded: ${event.tradeId}  '
           '${event.amount.getInSats} sats');

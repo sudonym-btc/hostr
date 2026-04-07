@@ -78,8 +78,9 @@ class SwapRecoverer {
       try {
         final state = SwapOutState.fromJson(json);
         if (state.isTerminal || state is SwapOutInitialised) continue;
-        if (await _recoverSwapOut(state, isBackground: isBackground))
+        if (await _recoverSwapOut(state, isBackground: isBackground)) {
           resolved++;
+        }
       } catch (e) {
         _logger.e('swap-out recovery error: $e');
       }

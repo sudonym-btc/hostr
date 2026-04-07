@@ -40,7 +40,6 @@ import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_model
 import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_operation.dart'
     as _i460;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
-import 'package:hostr_sdk/usecase/escrow_trusts/escrow_trusts.dart' as _i943;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
@@ -275,13 +274,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
         evm: gh<_i305.Evm>(),
-      ),
-    );
-    gh.singleton<_i943.EscrowTrusts>(
-      () => _i943.EscrowTrusts(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i331.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
       ),
     );
     gh.singleton<_i175.Heartbeats>(

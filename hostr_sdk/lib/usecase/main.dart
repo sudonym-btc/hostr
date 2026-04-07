@@ -9,7 +9,6 @@ export 'crud.usecase.dart';
 export 'deterministic_keys/deterministic_keys.dart';
 export 'escrow/main.dart';
 export 'escrow_methods/escrows_methods.dart';
-export 'escrow_trusts/escrow_trusts.dart';
 export 'escrows/escrows.dart';
 export 'evm/main.dart';
 export 'gift_wraps/main.dart';

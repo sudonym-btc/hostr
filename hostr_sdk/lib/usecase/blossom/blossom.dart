@@ -15,7 +15,6 @@ class BlossomUseCase {
   final Ndk _ndk;
   final HostrConfig _config;
   final CustomLogger _logger;
-  CustomLogger get logger => _logger;
 
   BlossomUseCase({
     required Ndk ndk,
@@ -76,7 +75,7 @@ class BlossomUseCase {
     String? contentType,
     UploadStrategy strategy = UploadStrategy.mirrorAfterSuccess,
     bool serverMediaOptimisation = false,
-  }) => logger.span('uploadBlob', () async {
+  }) => _logger.span('uploadBlob', () async {
     final fallbackBootstrap = _config.bootstrapBlossom
         .where((url) => url.trim().isNotEmpty)
         .toSet()

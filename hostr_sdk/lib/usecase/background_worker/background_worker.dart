@@ -83,26 +83,17 @@ class BackgroundWorker {
   final MetadataUseCase _metadata;
   final OperationStateStore _operationStore;
   final CustomLogger _logger;
-  Auth get auth => _auth;
-  UserSubscriptions get userSubscriptions => _userSubscriptions;
-  Heartbeats get heartbeats => _heartbeats;
-  Evm get evm => _evm;
-  FundsMonitorService get fundsMonitor => _fundsMonitor;
-  Listings get listings => _listings;
-  MetadataUseCase get metadata => _metadata;
-  OperationStateStore get operationStore => _operationStore;
-  CustomLogger get logger => _logger;
 
-  final StreamWithStatus<_BackgroundSignal> messagesProcessor$ =
+  final StreamWithStatus<_BackgroundSignal> _messagesProcessor$ =
       StreamWithStatus<_BackgroundSignal>();
-  final StreamWithStatus<_BackgroundSignal> myHostingsProcessor$ =
+  final StreamWithStatus<_BackgroundSignal> _myHostingsProcessor$ =
       StreamWithStatus<_BackgroundSignal>();
-  final StreamWithStatus<_BackgroundSignal> myTripsProcessor$ =
+  final StreamWithStatus<_BackgroundSignal> _myTripsProcessor$ =
       StreamWithStatus<_BackgroundSignal>();
-  final StreamWithStatus<_BackgroundSignal> autoWithdrawProcessor$ =
+  final StreamWithStatus<_BackgroundSignal> _autoWithdrawProcessor$ =
       StreamWithStatus<_BackgroundSignal>();
   final StreamWithStatus<_BackgroundSignal>
-  onchainOperationsRecoveryProcessor$ = StreamWithStatus<_BackgroundSignal>();
+  _onchainOperationsRecoveryProcessor$ = StreamWithStatus<_BackgroundSignal>();
 
   final StreamWithStatus<BackgroundNotification> _notifications =
       StreamWithStatus<BackgroundNotification>();
@@ -142,9 +133,9 @@ class BackgroundWorker {
        _logger = logger.scope('bg-worker');
 
   Future<void> watch({OnBackgroundProgress? onProgress}) =>
-      logger.span('watch', () async {
-        if (auth.activeKeyPair == null) {
-          logger.d('no active key pair, skipping watch');
+      _logger.span('watch', () async {
+        if (_auth.activeKeyPair == null) {
+          _logger.d('no active key pair, skipping watch');
           return;
         }
 
@@ -158,9 +149,9 @@ class BackgroundWorker {
       });
 
   Future<BackgroundWorkerResult> run({OnBackgroundProgress? onProgress}) =>
-      logger.span('run', () async {
-        if (auth.activeKeyPair == null) {
-          logger.d('no active key pair, skipping');
+      _logger.span('run', () async {
+        if (_auth.activeKeyPair == null) {
+          _logger.d('no active key pair, skipping');
           return const BackgroundWorkerResult();
         }
 
@@ -188,7 +179,7 @@ class BackgroundWorker {
         }
       });
 
-  Future<void> stop() => logger.span('stop', () async {
+  Future<void> stop() => _logger.span('stop', () async {
     if (!_started) return;
 
     _started = false;
@@ -210,20 +201,20 @@ class BackgroundWorker {
     await _heartbeatSubscription?.close();
     _heartbeatSubscription = null;
 
-    await messagesProcessor$.reset();
-    await myHostingsProcessor$.reset();
-    await myTripsProcessor$.reset();
-    await autoWithdrawProcessor$.reset();
-    await onchainOperationsRecoveryProcessor$.reset();
+    await _messagesProcessor$.reset();
+    await _myHostingsProcessor$.reset();
+    await _myTripsProcessor$.reset();
+    await _autoWithdrawProcessor$.reset();
+    await _onchainOperationsRecoveryProcessor$.reset();
     await _notifications.reset();
 
-    await fundsMonitor.stop();
+    await _fundsMonitor.stop();
   });
 
   Future<void> _start({
     required _BackgroundWorkerMode mode,
     OnBackgroundProgress? onProgress,
-  }) => logger.span('_start', () async {
+  }) => _logger.span('_start', () async {
     if (_started) return;
     _started = true;
     _mode = mode;
@@ -232,7 +223,7 @@ class BackgroundWorker {
     _emittedNotificationIds.clear();
     _listingTitleCache.clear();
 
-    await userSubscriptions.start();
+    await _userSubscriptions.start();
     await _bootstrapHeartbeatBoundary(mode);
     _wireProcessors();
 
@@ -246,14 +237,14 @@ class BackgroundWorker {
   });
 
   Future<void> _bootstrapHeartbeatBoundary(_BackgroundWorkerMode mode) =>
-      logger.span('_bootstrapHeartbeatBoundary', () async {
-        final myPubkey = auth.getActiveKey().publicKey;
+      _logger.span('_bootstrapHeartbeatBoundary', () async {
+        final myPubkey = _auth.getActiveKey().publicKey;
 
         _heartbeatSubscription = mode == _BackgroundWorkerMode.watch
-            ? heartbeats.subscribeUsers([
+            ? _heartbeats.subscribeUsers([
                 myPubkey,
               ], name: 'background-worker-heartbeat-watch')
-            : heartbeats.queryUsers([
+            : _heartbeats.queryUsers([
                 myPubkey,
               ], name: 'background-worker-heartbeat-run');
 
@@ -269,7 +260,7 @@ class BackgroundWorker {
               }
             },
             onError: (Object e, StackTrace st) {
-              logger.e(
+              _logger.e(
                 'BackgroundWorker heartbeat stream failed',
                 error: e,
                 stackTrace: st,
@@ -288,15 +279,15 @@ class BackgroundWorker {
     _bindReadinessBarrier();
 
     for (final processor in <StreamWithStatus<_BackgroundSignal>>[
-      messagesProcessor$,
-      myHostingsProcessor$,
-      myTripsProcessor$,
+      _messagesProcessor$,
+      _myHostingsProcessor$,
+      _myTripsProcessor$,
     ]) {
       _sessionSubscriptions.add(
         processor.replayStream.listen(
           _emitSignal,
           onError: (Object e, StackTrace st) {
-            logger.e(
+            _logger.e(
               'BackgroundWorker processor failed',
               error: e,
               stackTrace: st,
@@ -308,47 +299,50 @@ class BackgroundWorker {
   }
 
   void _bindMessagesProcessor() {
-    _mirrorStatus(userSubscriptions.messages$, messagesProcessor$);
-    messagesProcessor$.addSubscription(
-      userSubscriptions.messages$.replayStream
+    _mirrorStatus(_userSubscriptions.messages$, _messagesProcessor$);
+    _messagesProcessor$.addSubscription(
+      _userSubscriptions.messages$.replayStream
           .asyncMap(_signalFromMessage)
           .where((signal) => signal != null)
           .cast<_BackgroundSignal>()
-          .listen(messagesProcessor$.add, onError: messagesProcessor$.addError),
+          .listen(
+            _messagesProcessor$.add,
+            onError: _messagesProcessor$.addError,
+          ),
     );
   }
 
   void _bindHostingsProcessor() {
-    _mirrorStatus(userSubscriptions.myHostings$, myHostingsProcessor$);
-    myHostingsProcessor$.addSubscription(
-      userSubscriptions.myHostings$.replayStream
+    _mirrorStatus(_userSubscriptions.myHostings$, _myHostingsProcessor$);
+    _myHostingsProcessor$.addSubscription(
+      _userSubscriptions.myHostings$.replayStream
           .asyncMap(_signalFromHosting)
           .where((signal) => signal != null)
           .cast<_BackgroundSignal>()
           .listen(
-            myHostingsProcessor$.add,
-            onError: myHostingsProcessor$.addError,
+            _myHostingsProcessor$.add,
+            onError: _myHostingsProcessor$.addError,
           ),
     );
   }
 
   void _bindTripsProcessor() {
-    _mirrorStatus(userSubscriptions.myTrips$, myTripsProcessor$);
-    myTripsProcessor$.addSubscription(
-      userSubscriptions.myTrips$.replayStream
+    _mirrorStatus(_userSubscriptions.myTrips$, _myTripsProcessor$);
+    _myTripsProcessor$.addSubscription(
+      _userSubscriptions.myTrips$.replayStream
           .asyncMap(_signalFromTrip)
           .where((signal) => signal != null)
           .cast<_BackgroundSignal>()
-          .listen(myTripsProcessor$.add, onError: myTripsProcessor$.addError),
+          .listen(_myTripsProcessor$.add, onError: _myTripsProcessor$.addError),
     );
   }
 
   void _bindReadinessBarrier() {
     _sessionSubscriptions.add(
       Rx.combineLatestList<StreamStatus>([
-        messagesProcessor$.status,
-        myHostingsProcessor$.status,
-        myTripsProcessor$.status,
+        _messagesProcessor$.status,
+        _myHostingsProcessor$.status,
+        _myTripsProcessor$.status,
       ]).listen((statuses) async {
         if (_heartbeatPublished) return;
         if (!statuses.every(_isReadyStatus)) return;
@@ -363,7 +357,7 @@ class BackgroundWorker {
   Future<void> _startMaintenanceProcessors({
     required _BackgroundWorkerMode mode,
     OnBackgroundProgress? onProgress,
-  }) => logger.span('_startMaintenanceProcessors', () async {
+  }) => _logger.span('_startMaintenanceProcessors', () async {
     await Future.wait([
       _runAutoWithdrawProcessor(mode),
       _runOnchainRecoveryProcessor(mode, onProgress: onProgress),
@@ -371,34 +365,34 @@ class BackgroundWorker {
   });
 
   Future<void> _runAutoWithdrawProcessor(_BackgroundWorkerMode mode) =>
-      logger.span('_runAutoWithdrawProcessor', () async {
-        autoWithdrawProcessor$.addStatus(StreamStatusQuerying());
+      _logger.span('_runAutoWithdrawProcessor', () async {
+        _autoWithdrawProcessor$.addStatus(StreamStatusQuerying());
         if (mode == _BackgroundWorkerMode.watch) {
-          fundsMonitor.start();
+          _fundsMonitor.start();
         } else {
           await _runSafe('autoWithdraw', () async {
-            await fundsMonitor.checkNow();
+            await _fundsMonitor.checkNow();
           });
         }
-        autoWithdrawProcessor$.addStatus(StreamStatusLive());
+        _autoWithdrawProcessor$.addStatus(StreamStatusLive());
       });
 
   Future<void> _runOnchainRecoveryProcessor(
     _BackgroundWorkerMode mode, {
     OnBackgroundProgress? onProgress,
-  }) => logger.span('_runOnchainRecoveryProcessor', () async {
-    onchainOperationsRecoveryProcessor$.addStatus(StreamStatusQuerying());
+  }) => _logger.span('_runOnchainRecoveryProcessor', () async {
+    _onchainOperationsRecoveryProcessor$.addStatus(StreamStatusQuerying());
     await _runSafe('recoverOnchainOps', () async {
-      await evm.recoverStaleOperations(
+      await _evm.recoverStaleOperations(
         isBackground: mode == _BackgroundWorkerMode.run,
         onProgress: onProgress,
       );
     });
-    onchainOperationsRecoveryProcessor$.addStatus(StreamStatusLive());
+    _onchainOperationsRecoveryProcessor$.addStatus(StreamStatusLive());
   });
 
   Future<_BackgroundSignal?> _signalFromMessage(Message message) async {
-    final myPubkey = auth.getActiveKey().publicKey;
+    final myPubkey = _auth.getActiveKey().publicKey;
     if (message.pubKey == myPubkey) return null;
     if (message.child is EscrowServiceSelected) return null;
     if (!_isAfterHeartbeatBoundary(message.createdAt)) return null;
@@ -417,7 +411,7 @@ class BackgroundWorker {
   Future<_BackgroundSignal?> _signalFromHosting(
     Validation<ReservationPair> validation,
   ) async {
-    final myPubkey = auth.getActiveKey().publicKey;
+    final myPubkey = _auth.getActiveKey().publicKey;
     final pair = validation.event;
     final guestReservation = pair.buyerReservation;
     if (guestReservation == null) return null;
@@ -470,7 +464,7 @@ class BackgroundWorker {
   Future<_BackgroundSignal?> _signalFromTrip(
     Validation<ReservationPair> validation,
   ) async {
-    final myPubkey = auth.getActiveKey().publicKey;
+    final myPubkey = _auth.getActiveKey().publicKey;
     final pair = validation.event;
     final sellerReservation = pair.sellerReservation;
     if (sellerReservation == null) return null;
@@ -530,9 +524,9 @@ class BackgroundWorker {
   }
 
   Future<void> _publishHeartbeat() =>
-      logger.span('_publishHeartbeat', () async {
+      _logger.span('_publishHeartbeat', () async {
         await _runSafe('upsertHeartbeat', () async {
-          final heartbeat = await heartbeats.upsertCurrent();
+          final heartbeat = await _heartbeats.upsertCurrent();
           if (heartbeat.createdAt > _latestHeartbeatCreatedAt) {
             _latestHeartbeatCreatedAt = heartbeat.createdAt;
           }
@@ -558,7 +552,7 @@ class BackgroundWorker {
     if (cached != null) return cached;
 
     try {
-      final listing = await listings.getOneByAnchor(listingAnchor);
+      final listing = await _listings.getOneByAnchor(listingAnchor);
       final title = listing?.title ?? fallback;
       _listingTitleCache[listingAnchor] = title;
       return title;
@@ -569,17 +563,17 @@ class BackgroundWorker {
 
   Future<BackgroundWorkerResult> recoverOnchainOperations({
     OnBackgroundProgress? onProgress,
-  }) => logger.span('recoverOnchainOperations', () async {
-    logger.i('starting onchain recovery');
+  }) => _logger.span('recoverOnchainOperations', () async {
+    _logger.i('starting onchain recovery');
     final notifications = <BackgroundNotification>[];
 
-    if (auth.activeKeyPair == null) {
-      logger.d('no active key pair, skipping');
+    if (_auth.activeKeyPair == null) {
+      _logger.d('no active key pair, skipping');
       return const BackgroundWorkerResult();
     }
 
     await _runSafe('recoverOnchainOps', () async {
-      await evm.recoverStaleOperations(
+      await _evm.recoverStaleOperations(
         isBackground: true,
         onProgress: (notification) {
           notifications.add(notification);
@@ -589,10 +583,10 @@ class BackgroundWorker {
     });
 
     await _runSafe('autoWithdraw', () async {
-      await fundsMonitor.checkNow();
+      await _fundsMonitor.checkNow();
     });
 
-    logger.i(
+    _logger.i(
       'onchain recovery completed '
       'with ${notifications.length} notifications',
     );
@@ -605,9 +599,9 @@ class BackgroundWorker {
   static const _onchainNamespaces = ['swap_in', 'swap_out', 'escrow_fund'];
 
   Future<bool> hasActiveOnchainOperations() =>
-      logger.span('hasActiveOnchainOperations', () async {
+      _logger.span('hasActiveOnchainOperations', () async {
         for (final ns in _onchainNamespaces) {
-          final hasNonTerminal = await operationStore.hasNonTerminal(ns);
+          final hasNonTerminal = await _operationStore.hasNonTerminal(ns);
           if (hasNonTerminal) return true;
         }
         return false;
@@ -615,7 +609,7 @@ class BackgroundWorker {
 
   Future<String> _resolveDisplayName(String pubkey) async {
     try {
-      final profile = await metadata.loadMetadata(pubkey);
+      final profile = await _metadata.loadMetadata(pubkey);
       if (profile != null) {
         final m = profile.metadata;
         if (m.name != null && m.name!.isNotEmpty) return m.name!;
@@ -630,11 +624,11 @@ class BackgroundWorker {
   }
 
   Future<void> _runSafe(String name, Future<void> Function() task) async {
-    await logger.span('task.$name', () async {
+    await _logger.span('task.$name', () async {
       try {
         await task();
       } catch (e, st) {
-        logger.e('BackgroundWorker[$name] failed', error: e, stackTrace: st);
+        _logger.e('BackgroundWorker[$name] failed', error: e, stackTrace: st);
       }
     });
   }

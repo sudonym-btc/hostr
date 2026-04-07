@@ -20,8 +20,8 @@ const _mockSwapInData = SwapInData(
   accountIndex: 0,
 );
 
-const _mockEscrowFundData = EscrowFundData(
-  tradeId: 'mock-trade-001',
+const _mockOnchainData = OnchainCallData(
+  operationIdValue: 'mock-trade-001',
   contractAddress: '0x0000000000000000000000000000000000000003',
   chainId: 31,
   accountIndex: 0,
@@ -79,7 +79,7 @@ Widget escrowFundConfirm(BuildContext context) {
 Widget escrowFundSwapProgress(BuildContext context) {
   return EscrowFundProgressWidget(
     OnchainSwapProgress(
-      _mockEscrowFundData,
+      _mockOnchainData,
       swapState: SwapInPaymentProgress(
         _mockSwapInData,
         paymentState: PayInFlight(
@@ -100,7 +100,7 @@ Widget escrowFundSwapProgress(BuildContext context) {
 Widget escrowFundOnChainProgress(BuildContext context) {
   return EscrowFundProgressWidget(
     OnchainSwapProgress(
-      _mockEscrowFundData,
+      _mockOnchainData,
       swapState: const SwapInAwaitingOnChain(_mockSwapInData),
     ),
   );

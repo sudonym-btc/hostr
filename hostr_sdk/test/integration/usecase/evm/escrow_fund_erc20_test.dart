@@ -1,6 +1,9 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'dart:typed_data';
+
+import 'package:convert/convert.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -8,7 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:models/main.dart';
 import 'package:test/test.dart';
-import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../support/evm_test_helpers.dart';
@@ -152,7 +155,7 @@ void main() {
 
       // ERC-20 fund must be zero-value (tokens pulled via transferFrom)
       expect(
-        intent.isZeroValue,
+        intent.value == BigInt.zero,
         isTrue,
         reason: 'ERC-20 createTrade should send 0 native value',
       );
@@ -161,7 +164,11 @@ void main() {
       final chainId = chain.config.chainId;
       final txHash = await web3.sendTransaction(
         buyerKey,
-        Transaction(to: intent.to, data: intent.data, value: intent.value),
+        Transaction(
+          to: intent.to,
+          data: Uint8List.fromList(hex.decode(intent.data.substring(2))),
+          value: EtherAmount.fromBigInt(EtherUnit.wei, intent.value),
+        ),
         chainId: chainId,
       );
 

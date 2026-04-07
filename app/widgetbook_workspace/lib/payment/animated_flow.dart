@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
@@ -113,8 +114,8 @@ const _mockSwapOutData = SwapOutData(
   accountIndex: 0,
 );
 
-const _mockEscrowFundData = EscrowFundData(
-  tradeId: 'mock-trade-001',
+const _mockOnchainData = OnchainCallData(
+  operationIdValue: 'mock-trade-001',
   contractAddress: '0x0000000000000000000000000000000000000003',
   chainId: 31,
   accountIndex: 0,
@@ -237,7 +238,7 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
       (
         'Swap progress – paying',
         OnchainSwapProgress(
-          _mockEscrowFundData,
+          _mockOnchainData,
           swapState: SwapInPaymentProgress(
             _mockSwapInData,
             paymentState: PayInFlight(params: _mockPayParams),
@@ -247,28 +248,28 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
       (
         'Swap progress – awaiting on-chain',
         OnchainSwapProgress(
-          _mockEscrowFundData,
+          _mockOnchainData,
           swapState: const SwapInAwaitingOnChain(_mockSwapInData),
         ),
       ),
       (
         'Swap progress – funded',
         OnchainSwapProgress(
-          _mockEscrowFundData,
+          _mockOnchainData,
           swapState: const SwapInFunded(_mockSwapInData),
         ),
       ),
       (
         'Swap progress – completed',
         OnchainSwapProgress(
-          _mockEscrowFundData,
+          _mockOnchainData,
           swapState: const SwapInCompleted(_mockSwapInData),
         ),
       ),
       (
         'Completed',
         OnchainTxConfirmed(
-          _mockEscrowFundData.copyWith(
+          _mockOnchainData.copyWith(
             transactionInformation: TransactionInformation.fromMap({
               'blockHash':
                   '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -295,7 +296,12 @@ Widget escrowFundAnimatedFlow(BuildContext context) {
     builder: (context, state) {
       switch (state) {
         case OnchainInitialised():
-          return EscrowFundConfirmWidget(onConfirm: () async {});
+          return const ModalBottomSheet(
+            type: ModalBottomSheetType.normal,
+            title: 'Deposit Funds',
+            subtitle: 'Estimate fees and confirm the escrow deposit.',
+            content: SizedBox.shrink(),
+          );
         case OnchainTxBroadcast():
           return OnchainTransactionSheet.broadcast(
             title: 'Depositing Funds',

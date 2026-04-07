@@ -178,7 +178,7 @@ class _AppShellScreenState extends State<AppShellScreen>
                 onTap: () => onDestinationSelected(index),
               );
             },
-            separatorBuilder: (_, __) => const SizedBox(height: kSpace2),
+            separatorBuilder: (_, _) => const SizedBox(height: kSpace2),
           ),
         ),
       ],

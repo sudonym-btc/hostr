@@ -25,7 +25,7 @@ void main() {
   final userA = Bip340.fromPrivateKey('1' * 64);
   final userB = Bip340.fromPrivateKey('2' * 64);
 
-  Map<String, dynamic> _entry({
+  Map<String, dynamic> entry0({
     required String id,
     bool isTerminal = false,
     String? updatedAt,
@@ -53,7 +53,7 @@ void main() {
       });
 
       test('reads entries inserted directly into database', () async {
-        final entry = _entry(id: 'preloaded');
+        final entry = entry0(id: 'preloaded');
         db.execute(
           '''INSERT INTO operations
              (pubkey, namespace, id, state, is_terminal, updated_at, data)
@@ -75,10 +75,10 @@ void main() {
       });
 
       test('always reads fresh from database (no stale cache)', () async {
-        await store.write('swap_in', 'first', _entry(id: 'first'));
+        await store.write('swap_in', 'first', entry0(id: 'first'));
 
         // Mutate directly in database (simulating another isolate)
-        final newEntry = _entry(id: 'first');
+        final newEntry = entry0(id: 'first');
         newEntry['extra'] = 'updated';
         db.execute('UPDATE operations SET data = ? WHERE id = ?', [
           jsonEncode(newEntry),
@@ -104,7 +104,7 @@ void main() {
 
     group('write / read', () {
       test('persists an entry and reads it back', () async {
-        final entry = _entry(id: 'item-1');
+        final entry = entry0(id: 'item-1');
         await store.write('swap_in', 'item-1', entry);
 
         final retrieved = await store.read('swap_in', 'item-1');
@@ -130,8 +130,8 @@ void main() {
 
     group('remove', () {
       test('removes an entry by id', () async {
-        await store.write('swap_in', 'to-remove', _entry(id: 'to-remove'));
-        await store.write('swap_in', 'to-keep', _entry(id: 'to-keep'));
+        await store.write('swap_in', 'to-remove', entry0(id: 'to-remove'));
+        await store.write('swap_in', 'to-keep', entry0(id: 'to-keep'));
 
         await store.remove('swap_in', 'to-remove');
 
@@ -146,7 +146,7 @@ void main() {
         await store.write(
           'escrow_fund',
           'active',
-          _entry(id: 'active', isTerminal: false),
+          entry0(id: 'active', isTerminal: false),
         );
         expect(await store.hasNonTerminal('escrow_fund'), isTrue);
       });
@@ -155,7 +155,7 @@ void main() {
         await store.write(
           'escrow_fund',
           'done',
-          _entry(id: 'done', isTerminal: true),
+          entry0(id: 'done', isTerminal: true),
         );
         expect(await store.hasNonTerminal('escrow_fund'), isFalse);
       });
@@ -173,17 +173,17 @@ void main() {
         await store.write(
           'swap_in',
           'old-done',
-          _entry(id: 'old-done', isTerminal: true, updatedAt: oldDate),
+          entry0(id: 'old-done', isTerminal: true, updatedAt: oldDate),
         );
         await store.write(
           'swap_in',
           'recent-done',
-          _entry(id: 'recent-done', isTerminal: true, updatedAt: recentDate),
+          entry0(id: 'recent-done', isTerminal: true, updatedAt: recentDate),
         );
         await store.write(
           'swap_in',
           'old-active',
-          _entry(id: 'old-active', isTerminal: false, updatedAt: oldDate),
+          entry0(id: 'old-active', isTerminal: false, updatedAt: oldDate),
         );
 
         final pruned = await store.pruneTerminal(
@@ -199,7 +199,7 @@ void main() {
       });
 
       test('returns 0 when nothing to prune', () async {
-        await store.write('swap_in', 'fresh', _entry(id: 'fresh'));
+        await store.write('swap_in', 'fresh', entry0(id: 'fresh'));
         final pruned = await store.pruneTerminal(
           'swap_in',
           const Duration(days: 30),
@@ -210,8 +210,8 @@ void main() {
 
     group('namespace isolation', () {
       test('different namespaces are independent', () async {
-        await store.write('swap_in', 'a', _entry(id: 'a'));
-        await store.write('swap_out', 'b', _entry(id: 'b'));
+        await store.write('swap_in', 'a', entry0(id: 'a'));
+        await store.write('swap_out', 'b', entry0(id: 'b'));
 
         final swapInAll = await store.readAll('swap_in');
         final swapOutAll = await store.readAll('swap_out');
@@ -224,8 +224,8 @@ void main() {
 
     group('persistence roundtrip', () {
       test('entries survive store recreation (same db)', () async {
-        await store.write('swap_in', 'persist-1', _entry(id: 'persist-1'));
-        await store.write('swap_out', 'persist-2', _entry(id: 'persist-2'));
+        await store.write('swap_in', 'persist-1', entry0(id: 'persist-1'));
+        await store.write('swap_out', 'persist-2', entry0(id: 'persist-2'));
         store.dispose();
 
         // Create a new store instance pointing at the same database
@@ -238,7 +238,7 @@ void main() {
       });
 
       test('keeps data isolated per pubkey', () async {
-        await store.write('swap_in', 'user-a', _entry(id: 'user-a'));
+        await store.write('swap_in', 'user-a', entry0(id: 'user-a'));
 
         // Switch user
         activeKeyPair = userB;
@@ -247,7 +247,7 @@ void main() {
         final allB = await store.readAll('swap_in');
         expect(allB, isEmpty);
 
-        await store.write('swap_in', 'user-b', _entry(id: 'user-b'));
+        await store.write('swap_in', 'user-b', entry0(id: 'user-b'));
 
         // Verify database has both users' data
         final rowsA = db.select(
@@ -276,14 +276,14 @@ void main() {
         var changeCount = 0;
         store.onChanged.listen((_) => changeCount++);
 
-        await store.write('swap_in', 'x', _entry(id: 'x'));
+        await store.write('swap_in', 'x', entry0(id: 'x'));
         // Allow microtask to process
         await Future.delayed(Duration.zero);
         expect(changeCount, 1);
       });
 
       test('fires on remove', () async {
-        await store.write('swap_in', 'x', _entry(id: 'x'));
+        await store.write('swap_in', 'x', entry0(id: 'x'));
 
         var changeCount = 0;
         store.onChanged.listen((_) => changeCount++);

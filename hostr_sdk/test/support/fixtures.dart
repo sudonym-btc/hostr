@@ -10,6 +10,8 @@
 /// final host = await seeds.freshHost();
 /// final listing = host.listing;
 /// ```
+library;
+
 export 'package:hostr_sdk/seed/seed.dart'
     show
         SeedFactory,
