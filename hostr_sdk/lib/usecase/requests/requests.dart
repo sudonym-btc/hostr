@@ -250,7 +250,7 @@ class Requests extends RequestsModel {
               );
               _inFlightQueries.remove(key);
             })
-            .doOnError((_, __) {
+            .doOnError((_, _) {
               sw.stop();
               _inFlightQueries.remove(key);
             })

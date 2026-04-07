@@ -29,6 +29,8 @@ include: package:lints/recommended.yaml
 # For additional information about configuring this file, see
 # https://dart.dev/guides/language/analysis-options
 analyzer:
+  errors:
+    experimental_member_use: ignore
   exclude: 
     - '**/*.g.dart'
     - '**/*.swagger.dart'

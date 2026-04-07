@@ -12,7 +12,6 @@ import '../evm/evm.dart';
 class EscrowMethods extends CrudUseCase<EscrowMethod> {
   final Auth _auth;
   final Evm _evm;
-  Auth get auth => _auth;
 
   EscrowMethods({
     required super.requests,
@@ -24,7 +23,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
        super(kind: EscrowMethod.kinds[0]);
 
   Future<EscrowMethod?> myMethod() async {
-    final keyPair = auth.activeKeyPair;
+    final keyPair = _auth.activeKeyPair;
     if (keyPair == null) return null;
     return getOne(
       Filter(kinds: EscrowMethod.kinds, authors: [keyPair.publicKey]),
@@ -53,7 +52,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     List<String> trustedEscrowPubkeys = const [],
     List<AcceptedPaymentForm>? acceptedPaymentForms,
   }) async {
-    final keyPair = auth.activeKeyPair;
+    final keyPair = _auth.activeKeyPair;
     if (keyPair == null) return;
 
     if (bytecodeHashes.isEmpty) {

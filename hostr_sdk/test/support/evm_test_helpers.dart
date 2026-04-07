@@ -3,6 +3,8 @@
 /// Consolidates helper functions that were previously duplicated across
 /// multiple integration test files (escrow_fund_test, escrow_fund_with_swap_test,
 /// fee_and_verification_test, escrow_fund_erc20_test, swap_out_erc20_test).
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';

@@ -137,13 +137,7 @@ class AnvilClient {
     final result = await rpcCallWithResult(
       method: 'eth_sendTransaction',
       params: [
-        {
-          'from': from,
-          'to': to,
-          'data': data,
-          if (value != null) 'value': value,
-          if (gas != null) 'gas': gas,
-        },
+        {'from': from, 'to': to, 'data': data, 'value': ?value, 'gas': ?gas},
       ],
     );
     return result as String?;

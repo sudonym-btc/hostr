@@ -1105,7 +1105,7 @@ class _MarkerGroup {
       markerId: markerId,
       position: centroid,
       memberIds: nextMemberIds,
-      label: '${n} results',
+      label: '$n results',
       enabled: enabled || listing.enabled,
     );
   }

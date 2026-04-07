@@ -7,13 +7,14 @@ import '../escrow_methods/escrows_methods.dart';
 
 @Singleton()
 class Escrows extends CrudUseCase<EscrowService> {
-  EscrowMethods escrowMethods;
+  final EscrowMethods _escrowMethods;
 
   Escrows({
     required super.requests,
     required super.logger,
-    required this.escrowMethods,
-  }) : super(kind: EscrowService.kinds[0]);
+    required EscrowMethods escrowMethods,
+  }) : _escrowMethods = escrowMethods,
+       super(kind: EscrowService.kinds[0]);
 
   Future<MutualEscrowResult> determineMutualEscrow(
     String buyerPubkey,
@@ -22,10 +23,10 @@ class Escrows extends CrudUseCase<EscrowService> {
     // Query both users' escrow-method events. Trust, contract literacy, and
     // token acceptance all live on the same kind:30301 event now.
     final results = await Future.wait([
-      escrowMethods.getOne(
+      _escrowMethods.getOne(
         Filter(kinds: EscrowMethod.kinds, authors: [buyerPubkey]),
       ),
-      escrowMethods.getOne(
+      _escrowMethods.getOne(
         Filter(kinds: EscrowMethod.kinds, authors: [sellerPubkey]),
       ),
     ]);

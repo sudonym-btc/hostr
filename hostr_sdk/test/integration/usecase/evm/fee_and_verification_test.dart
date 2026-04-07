@@ -200,8 +200,8 @@ void main() {
       );
 
       // ── Fee estimation ──
-      final fees = await swapIn.estimateFees();
-      expectSwapFees(fees);
+      final quote = await configured.swapInQuote(params: swapIn.params);
+      expectSwapFees(quote.feeBreakdown);
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapInState>[swapIn.state];
@@ -279,8 +279,8 @@ void main() {
       );
 
       // ── Fee estimation ──
-      final fees = await swapIn.estimateFees();
-      expectSwapFees(fees);
+      final quote = await configured.swapInQuote(params: swapIn.params);
+      expectSwapFees(quote.feeBreakdown);
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapInState>[swapIn.state];
@@ -334,24 +334,13 @@ void main() {
       );
 
       // ── Fee estimation ──
-      final fees = await swapOut.estimateFees();
-      expectSwapFees(fees);
+      final quote = await swapOut.chain.swapOutQuote(params: swapOut.params);
+      expectSwapFees(quote.feeBreakdown);
 
-      // Verify balance and invoiceAmount are populated after estimateFees
-      expect(
-        swapOut.balance,
-        isNotNull,
-        reason: 'balance should be cached after estimateFees',
-      );
-      expect(swapOut.balance!.value, greaterThan(BigInt.zero));
-      expect(
-        swapOut.invoiceAmount,
-        isNotNull,
-        reason: 'invoiceAmount should be cached after estimateFees',
-      );
-      expect(swapOut.invoiceAmount!.value, greaterThan(BigInt.zero));
-      print('  balance: ${swapOut.balance}');
-      print('  invoiceAmount: ${swapOut.invoiceAmount}');
+      expect(quote.balance.value, greaterThan(BigInt.zero));
+      expect(quote.invoiceAmount.value, greaterThan(BigInt.zero));
+      print('  balance: ${quote.balance}');
+      print('  invoiceAmount: ${quote.invoiceAmount}');
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapOutState>[swapOut.state];
@@ -464,24 +453,13 @@ void main() {
       );
 
       // ── Fee estimation ──
-      final fees = await erc20Op.estimateFees();
-      expectSwapFees(fees);
+      final quote = await configured.swapOutQuote(params: erc20Op.params);
+      expectSwapFees(quote.feeBreakdown);
 
-      // Verify balance and invoiceAmount are populated
-      expect(
-        erc20Op.balance,
-        isNotNull,
-        reason: 'balance should be cached after estimateFees',
-      );
-      expect(erc20Op.balance!.value, greaterThan(BigInt.zero));
-      expect(
-        erc20Op.invoiceAmount,
-        isNotNull,
-        reason: 'invoiceAmount should be cached after estimateFees',
-      );
-      expect(erc20Op.invoiceAmount!.value, greaterThan(BigInt.zero));
-      print('  ERC-20 balance: ${erc20Op.balance}');
-      print('  ERC-20 invoiceAmount: ${erc20Op.invoiceAmount}');
+      expect(quote.balance.value, greaterThan(BigInt.zero));
+      expect(quote.invoiceAmount.value, greaterThan(BigInt.zero));
+      print('  ERC-20 balance: ${quote.balance}');
+      print('  ERC-20 invoiceAmount: ${quote.invoiceAmount}');
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapOutState>[erc20Op.state];
@@ -556,7 +534,7 @@ void main() {
         // ── 3. Estimate fees before executing ──
         // No manual ERC-20 funding is needed — the operation conducts a
         // swap-in via Boltz to bring the required tBTC amount on-chain.
-        final operation = hostr.escrow.fund(
+        final preparer = hostr.escrow.fund(
           EscrowFundParams(
             escrowService: escrowService,
             negotiateReservation: negotiateReservation,
@@ -565,37 +543,38 @@ void main() {
           ),
         );
 
-        final fees = await operation.estimateFees();
+        final fees = await preparer.estimateFees();
         expectEscrowFees(fees);
 
-        // ── 4. Initialize, fund the derived account with gas, and run ──
-        await operation.initialize();
+        // ── 4. Prepare, fund the derived account with gas, and run swap-in ──
+        final swapInParams = await preparer.prepare();
         final fundingKey = await hostr.auth.hd.getActiveEvmKey(
-          accountIndex: operation.accountIndex,
+          accountIndex: preparer.accountIndex,
         );
         await anvil.setBalance(
           address: fundingKey.address.eip55With0x,
           amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
         );
 
-        final emittedStates = <OnchainOperationState>[operation.state];
-        final sub = operation.stream.listen(emittedStates.add);
+        final swapIn = configured.swapIn(
+          params: swapInParams,
+          auth: hostr.auth,
+          logger: CustomLogger(),
+        );
+        final emittedStates = <SwapInState>[swapIn.state];
+        final sub = swapIn.stream.listen(emittedStates.add);
 
-        await operation.run();
-        emittedStates.add(operation.state);
+        await swapIn.execute();
+        emittedStates.add(swapIn.state);
         await sub.cancel();
 
         // ── 5. Verify state flow ──
-        expect(emittedStates.first, isA<OnchainInitialised>());
-        expect(operation.state, isA<OnchainTxConfirmed>());
+        expect(emittedStates.first, isA<SwapInInitialised>());
+        expect(swapIn.state, isA<SwapInCompleted>());
 
-        final confirmed = operation.state as OnchainTxConfirmed;
-        final completedData = confirmed.data;
-        expect(completedData.transactionInformation, isNotNull);
-        final txHash = extractTxHash(completedData.transactionInformation!);
+        final completed = swapIn.state as SwapInCompleted;
+        final txHash = completed.data.claimTxHash;
         expect(txHash, isNotNull);
-        expect(completedData.transactionReceipt, isNotNull);
-        expect(isReceiptSuccessful(completedData.transactionReceipt!), isTrue);
 
         // ── 6. Build self-signed reservation with escrow proof ──
         final hostKeyPair = trade.host.keyPair;

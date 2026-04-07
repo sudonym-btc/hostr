@@ -1,6 +1,7 @@
+// ignore_for_file: experimental_member_use
+
 import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
-import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
 import 'package:rxdart/rxdart.dart';
 
@@ -14,9 +15,6 @@ class Nwc {
   final CustomLogger _logger;
   final NwcStorage _nwcStorage;
   final Ndk _ndk;
-  CustomLogger get logger => _logger;
-  NwcStorage get nwcStorage => _nwcStorage;
-  Ndk get ndk => _ndk;
   List<NwcCubit> connections = [];
   final _connectionsSubject = BehaviorSubject<List<NwcCubit>>.seeded([]);
   Stream<List<NwcCubit>> get connectionsStream => _connectionsSubject.stream;

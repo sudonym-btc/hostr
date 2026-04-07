@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/background_worker/background_worker.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
-import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
+import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
@@ -91,7 +91,7 @@ class _FakeEvm extends Fake implements Evm {
   }
 }
 
-class _FakeAutoWithdrawService extends Fake implements AutoWithdrawService {
+class _FakeFundsMonitorService extends Fake implements FundsMonitorService {
   int startCount = 0;
   int stopCount = 0;
   int checkNowCount = 0;
@@ -151,21 +151,21 @@ void main() {
   late _FakeUserSubscriptions userSubscriptions;
   late _FakeHeartbeats heartbeats;
   late _FakeEvm evm;
-  late _FakeAutoWithdrawService autoWithdraw;
+  late _FakeFundsMonitorService fundsMonitor;
 
   setUp(() {
     auth = _FakeAuth();
     userSubscriptions = _FakeUserSubscriptions();
     heartbeats = _FakeHeartbeats();
     evm = _FakeEvm();
-    autoWithdraw = _FakeAutoWithdrawService();
+    fundsMonitor = _FakeFundsMonitorService();
 
     worker = BackgroundWorker(
       auth: auth,
       userSubscriptions: userSubscriptions,
       heartbeats: heartbeats,
       evm: evm,
-      autoWithdraw: autoWithdraw,
+      fundsMonitor: fundsMonitor,
       listings: _FakeListings(),
       metadata: _FakeMetadataUseCase(),
       operationStore: _FakeOperationStateStore(),
@@ -205,7 +205,7 @@ void main() {
       expect(result.hasNotifications, isTrue);
       expect(result.notifications.single, contains('reserved'));
       expect(heartbeats.upsertCount, 1);
-      expect(autoWithdraw.checkNowCount, 1);
+      expect(fundsMonitor.checkNowCount, 1);
       expect(evm.recoverCount, 1);
       expect(userSubscriptions.startCount, 1);
     },
@@ -221,12 +221,12 @@ void main() {
 
       await worker.watch();
 
-      expect(autoWithdraw.startCount, 1);
+      expect(fundsMonitor.startCount, 1);
       expect(heartbeats.upsertCount, 1);
 
       await worker.stop();
 
-      expect(autoWithdraw.stopCount, greaterThanOrEqualTo(1));
+      expect(fundsMonitor.stopCount, greaterThanOrEqualTo(1));
     },
   );
 }

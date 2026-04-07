@@ -127,7 +127,7 @@ Listing _buildListing({
 Nip01Event _buildProfileEvent({required KeyPair key, String? lud16}) {
   final meta = <String, dynamic>{
     'name': 'test-user-${key.publicKey.substring(0, 6)}',
-    if (lud16 != null) 'lud16': lud16,
+    'lud16': ?lud16,
   };
   final unsigned = Nip01Event(
     pubKey: key.publicKey,

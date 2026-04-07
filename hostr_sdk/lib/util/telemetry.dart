@@ -29,7 +29,7 @@ Uri _resolveTraceExportUri(String endpoint) {
   }
 
   if (path.endsWith('/otlp')) {
-    return uri.replace(path: '${path}/v1/traces');
+    return uri.replace(path: '$path/v1/traces');
   }
 
   return uri.replace(

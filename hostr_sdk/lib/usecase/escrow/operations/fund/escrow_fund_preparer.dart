@@ -162,10 +162,7 @@ class EscrowFundPreparer {
       fundingToken,
       fundingAmount,
     );
-    return {
-      if (approveCall != null) 'ERC20.approve': approveCall,
-      'createTrade': fundCall,
-    };
+    return {'ERC20.approve': ?approveCall, 'createTrade': fundCall};
   }
 
   Call? _buildApproveCallIfNeeded(

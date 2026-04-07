@@ -96,8 +96,9 @@ class _ThreadContentState extends State<ThreadContent> {
 
     if (message.child is EscrowServiceSelected) return false;
     if (message.child is Reservation &&
-        (message.child as Reservation).isNegotiation)
+        (message.child as Reservation).isNegotiation) {
       return false;
+    }
     return true; // unknown type still renders
   }
 

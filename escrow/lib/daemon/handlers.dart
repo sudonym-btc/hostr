@@ -151,7 +151,7 @@ class DaemonHandler {
     );
     final txHash = await ctx.hostr.evm.configuredChains.first.sendCalls(
         await hostr.auth.hd.getActiveEvmKey(accountIndex: accountIndex),
-        [intent]);
+        {'arbitrate': intent});
     return {'txHash': '$txHash'};
   }
 

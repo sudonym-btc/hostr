@@ -69,11 +69,11 @@ String formatAmount(DenominatedAmount amount, {bool exact = true}) {
 
   if (!exact) {
     final value = compactFormat(true).format(amountAsDouble);
-    return '$value';
+    return value;
   }
 
   final value = trimTrailingZeros(format(true).format(amountAsDouble));
-  return '$value';
+  return value;
 }
 
 /// Format a [TokenAmount] for display (on-chain amounts like escrow events).
@@ -109,11 +109,11 @@ String formatTokenAmount(
 
   if (!exact) {
     final value = compactFormat(true).format(amountAsDouble);
-    return '$value';
+    return value;
   }
 
   final value = trimTrailingZeros(format(true).format(amountAsDouble));
-  return '$value';
+  return value;
 }
 
 String trimTrailingZeros(String value) {
