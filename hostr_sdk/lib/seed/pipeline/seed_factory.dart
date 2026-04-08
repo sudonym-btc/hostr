@@ -238,6 +238,7 @@ class SeedFactory {
       dTag: 'mock-reservation-${thread.id}',
       listingAnchor: thread.listing.anchor!,
       threadAnchor: thread.request.getDtag()!,
+      pTags: [thread.listing.pubKey],
       start: thread.start,
       end: thread.end,
       stage: ReservationStage.commit,

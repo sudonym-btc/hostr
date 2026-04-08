@@ -34,6 +34,7 @@ class FakeRelayRequests extends Fake implements hostr_requests.Requests {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) {
     final typed = StreamWithStatus<T>();
     _source.stream.listen((event) => typed.add(event as T));

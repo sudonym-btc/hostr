@@ -56,9 +56,13 @@ class _TripsScreenState extends State<TripsScreen> {
         return TradeHeader(
           tradeId: item.event.tradeId,
           showActions: false,
-          onTap: () => AutoRouter.of(
-            context,
-          ).push(ThreadRoute(anchor: item.event.tradeId)),
+          onTap: () {
+            final anchor = getIt<Hostr>().messaging.threads
+                .findPreferredConversationIdByTradeId(item.event.tradeId);
+            if (anchor != null) {
+              AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
+            }
+          },
         );
       },
     );

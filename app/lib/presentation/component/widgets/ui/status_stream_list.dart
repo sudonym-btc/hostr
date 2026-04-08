@@ -25,6 +25,11 @@ class StatusStreamListWidget<T> extends StatefulWidget {
 
   final Widget Function()? emptyBuilder;
 
+  /// Whether to keep list items alive when scrolled off screen.
+  /// Defaults to `true`. Set to `false` when items hold expensive resources
+  /// (e.g. Trade cubits with live Nostr subscriptions).
+  final bool addAutomaticKeepAlives;
+
   const StatusStreamListWidget({
     super.key,
     required this.builder,
@@ -35,6 +40,7 @@ class StatusStreamListWidget<T> extends StatefulWidget {
     this.reserveBottomNavigationBarSpace = true,
     this.animateItems = true,
     this.resultCountBuilder,
+    this.addAutomaticKeepAlives = true,
     required this.stream,
   });
 
@@ -102,7 +108,8 @@ class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
         }
 
         return ListView.separated(
-          addAutomaticKeepAlives: true,
+          padding: EdgeInsets.zero,
+          addAutomaticKeepAlives: widget.addAutomaticKeepAlives,
           itemCount: items.length,
           separatorBuilder: (_, _) => Container(),
           itemBuilder: (context, index) {

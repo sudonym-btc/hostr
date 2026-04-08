@@ -26,7 +26,7 @@ class NegotiationWidget extends StatelessWidget {
     final hasCounter = tradeState.actions.contains(TradeAction.counter);
     final hasPay = tradeState.actions.contains(TradeAction.pay);
     final hasAccept = tradeState.actions.contains(TradeAction.accept);
-    final registry = getIt<SwapInTracker>();
+    final registry = getIt<Hostr>().swapInTracker;
     return CustomPadding(
       top: 0,
       bottom: 0.5,

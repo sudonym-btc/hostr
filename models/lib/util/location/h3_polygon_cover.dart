@@ -351,7 +351,7 @@ class H3PolygonCover {
       toleranceKm: _estimateSimplificationToleranceKm(initialProbeResolution),
       minHoleAreaKm2: _minimumHoleAreaKm2(initialProbeResolution),
     );
-    final polygonForCover = simplification.geometry;
+    final polygonForCover = polygon; //simplification.geometry;
 
     if (simplification.changed) {
       _logger.i(

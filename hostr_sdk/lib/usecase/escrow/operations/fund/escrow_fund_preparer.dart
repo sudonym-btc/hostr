@@ -201,7 +201,12 @@ class EscrowFundPreparer {
       amount: amount,
       sellerEvmAddress: params.sellerProfile.evmAddress!,
       arbiterEvmAddress: params.escrowService.evmAddress,
-      unlockAt: params.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
+      unlockAt: params.negotiateReservation.end != null
+          ? params.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000
+          : DateTime.now()
+                    .add(const Duration(days: 30))
+                    .millisecondsSinceEpoch ~/
+                1000,
       escrowFee: escrowFee,
       ethKey: _signer,
       token: isERC20 ? token : null,

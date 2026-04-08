@@ -29,6 +29,12 @@ abstract class RequestsModel {
     required Filter filter,
     List<String>? relays,
     String? name,
+
+    /// When false, the live subscription will not have a [since] filter applied
+    /// based on the latest query result. Set this to false for event types
+    /// (e.g. NIP-59 gift wraps) whose [created_at] is intentionally randomised
+    /// into the past, so that newly arriving events are never filtered out.
+    bool setSinceOnLiveFilter = true,
   });
   Future<int> count({
     required Filter filter,
@@ -153,6 +159,7 @@ class Requests extends RequestsModel {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) => _logger.spanSync('subscribe', () {
     if (name == null) {
       throw ArgumentError(
@@ -180,7 +187,7 @@ class Requests extends RequestsModel {
                 response.addStatus(StreamStatusQueryComplete());
 
                 liveFilter = filter.clone();
-                if (lastCreatedAt != null) {
+                if (setSinceOnLiveFilter && lastCreatedAt != null) {
                   final nextSince = lastCreatedAt! + 1;
                   liveFilter!.since =
                       liveFilter!.since == null ||

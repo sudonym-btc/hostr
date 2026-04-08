@@ -302,7 +302,9 @@ class Seeder {
     final arbiterKey = MockKeys.escrow.privateKey!;
     final amountWei = thread.request.amount!.value * BigInt.from(10).pow(10);
     final unlockAt = BigInt.from(
-      thread.request.end.toUtc().millisecondsSinceEpoch ~/ 1000,
+      thread.request.end != null
+          ? thread.request.end!.toUtc().millisecondsSinceEpoch ~/ 1000
+          : DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch ~/ 1000,
     );
 
     final createResult = await sink.submitTrade(

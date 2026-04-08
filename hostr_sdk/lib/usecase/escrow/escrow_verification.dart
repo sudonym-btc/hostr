@@ -30,7 +30,7 @@ class EscrowVerificationResult {
 /// matching on-chain trade with the correct amount.
 ///
 /// This is a stateless utility that can be used by:
-/// - [ReservationPairs] when validating buyer-only pairs
+/// - [ReservationGroups] when validating buyer-only groups
 /// - [TradeAudit] when auditing a specific trade
 ///
 /// It does NOT validate Nostr-level proof structure (signatures, listing

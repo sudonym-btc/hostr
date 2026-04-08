@@ -46,11 +46,13 @@ Stream<double> buildAverageReviewRatingStream(
 class ListingReviewsList extends StatelessWidget {
   final StreamWithStatus<Validation<Review>> reviewsStream;
   final Stream<List<Validation<Review>>>? itemsStream;
+  final bool isOwner;
 
   const ListingReviewsList({
     super.key,
     required this.reviewsStream,
     this.itemsStream,
+    this.isOwner = false,
   });
 
   @override
@@ -77,11 +79,13 @@ class ListingReviewsList extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             title: AppLocalizations.of(context)!.noReviewsYet,
-            subtitle: 'Be the first guest to share feedback for this listing.',
+            subtitle: isOwner
+                ? null
+                : 'Be the first guest to share feedback for this listing.',
           );
         }
 
-        return ListView(
+        return AdaptiveList(
           children: [
             for (final item in items) ...[
               Gap.vertical.lg(),

@@ -48,8 +48,10 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   late final EscrowSelectorCubit _selectorCubit;
   EscrowFundPreparer? _preparer;
 
-  /// Once the user confirms, this holds the live swap operation.
+  /// Once the user confirms and the swap has moved past the initialised
+  /// state, this holds the live swap operation.
   SwapInOperation? _swapOperation;
+  StreamSubscription? _swapReadySub;
 
   @override
   void initState() {
@@ -90,15 +92,24 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
 
     // Transition to swap flow and auto-execute — the user already confirmed
     // in EscrowFundConfirmWidget so there is no need to show the
-    // SwapInConfirmWidget again.
+    // SwapInConfirmWidget again. Wait until the swap has moved past the
+    // initialised state before switching the UI so the confirm button
+    // stays in its loading state throughout.
     if (mounted) {
-      setState(() => _swapOperation = swapOp);
+      swapOp.init();
       unawaited(swapOp.execute());
+      _swapReadySub = swapOp.stream
+          .where((s) => s is! SwapInInitialised)
+          .take(1)
+          .listen((_) {
+        if (mounted) setState(() => _swapOperation = swapOp);
+      });
     }
   }
 
   @override
   void dispose() {
+    _swapReadySub?.cancel();
     _selectorCubit.close();
     // If there's a live swap, let it continue (the registry holds it).
     // detachOrClose is handled by SwapInFlowWidget.
@@ -110,7 +121,12 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     // Once a swap has been created, show the swap-in flow.
     final swap = _swapOperation;
     if (swap != null) {
-      return SwapInFlowWidget(cubit: swap);
+      return SwapInFlowWidget(
+        cubit: swap,
+        progressTitle: 'Funding Escrow',
+        successTitle: 'Escrow Funded',
+        errorTitle: 'Escrow Deposit Failed',
+      );
     }
 
     return BlocProvider.value(
@@ -175,7 +191,8 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
     setState(() => _loading = true);
     try {
       await widget.onConfirm();
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('EscrowFundConfirmWidget._handleConfirm error: $e\n$st');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -215,24 +232,21 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                 }
 
                 final fees = snapshot.data!;
-                final chainConfig = widget.preparer.configuredChain.config;
-                final escrowDenom = chainConfig
-                    .tokenByAddress(fees.escrowFee.token.address)
-                    ?.denomination;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "+ ${formatTokenAmount(fees.gasFee, denomination: chainConfig.nativeDenomination)} in network fees"
-                      "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
-                      style: subtleStyle,
-                    ),
+                    if (!fees.gasSponsored)
+                      Text(
+                        "+ ${formatTokenAmount(fees.gasFee)} in network fees"
+                        "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
+                        style: subtleStyle,
+                      ),
                     Text(
                       "+ ${formatAmount(fees.swapFee)} in swap fees",
                       style: subtleStyle,
                     ),
                     Text(
-                      "+ ${formatTokenAmount(fees.escrowFee, denomination: escrowDenom)} in escrow fees",
+                      "+ ${formatTokenAmount(fees.escrowFee)} in escrow fees",
                       style: subtleStyle,
                     ),
                   ],
@@ -249,14 +263,30 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
 
 class EscrowFundProgressWidget extends StatelessWidget {
   final OnchainSwapProgress progress;
-  const EscrowFundProgressWidget(this.progress, {super.key});
+
+  /// Optional overrides for the terminal-state sheet titles.
+  final String? title;
+  final String? successTitle;
+  final String? errorTitle;
+
+  const EscrowFundProgressWidget(
+    this.progress, {
+    super.key,
+    this.title,
+    this.successTitle,
+    this.errorTitle,
+  });
 
   @override
   Widget build(BuildContext context) {
     final swapState = progress.swapState;
     if (swapState == null) {
-      return const Center(child: CircularProgressIndicator());
+      return OnchainTransactionSheet.loading(title: title);
     }
-    return OnchainTransactionSheet.swapProgress(progress);
+    return OnchainTransactionSheet.swapProgress(
+      progress,
+      successTitle: successTitle,
+      errorTitle: errorTitle,
+    );
   }
 }

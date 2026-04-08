@@ -11,6 +11,10 @@ import 'package:ndk/ndk.dart';
 mixin ListingTagRead {
   EventTags get tagSource;
 
+  // ── NIP-99 tag-promoted fields ────────────────────────────────────
+  String get title => tagSource.getTagValue('title') ?? '';
+  List<String> get images => tagSource.getTags('image');
+
   bool get active => tagSource.getTagBool('active', defaultValue: true);
   bool get allowBarter => tagSource.getTagBool('allowBarter');
   int get minStay => tagSource.getTagInt('minStay') ?? 1;
@@ -41,20 +45,15 @@ class ListingTags extends EventTags with ListingTagRead {
 
 // ── Event class ─────────────────────────────────────────────────────────────
 
-class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
-    with ListingTagRead {
+class Listing extends Event<ListingTags> with ListingTagRead {
   static const List<int> kinds = [kNostrKindListing];
   static final EventTagsParser<ListingTags> _tagParser = ListingTags.new;
-  static final EventContentParser<ListingContent> _contentParser =
-      ListingContent.fromJson;
 
   @override
   EventTags get tagSource => parsedTags;
 
-  // ── Content-only convenience getters ────────────────────────────────
-  String get title => parsedContent.title;
-  String get description => parsedContent.description;
-  List<String> get images => parsedContent.images;
+  // ── NIP-99: description is the .content field (Markdown) ────────────
+  String get description => content;
 
   Listing(
       {required super.pubKey,
@@ -63,16 +62,12 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
       super.createdAt,
       super.id,
       super.sig})
-      : super(
-            kind: kNostrKindListing,
-            tagParser: _tagParser,
-            contentParser: _contentParser);
+      : super(kind: kNostrKindListing, tagParser: _tagParser);
 
   Listing.fromNostrEvent(Nip01Event e)
       : super.fromNostrEvent(
           e,
           tagParser: _tagParser,
-          contentParser: _contentParser,
         );
 
   // ── Factory constructor ─────────────────────────────────────────────
@@ -106,6 +101,9 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
       tags: ListingTags(
         (TagBuilder()
               ..add('d', dTag)
+              ..add('title', title)
+              ..addImages(images)
+              ..add('t', 'accommodation')
               ..addBool('active', active)
               ..addBool('allowBarter', allowBarter)
               ..addInt('minStay', minStay)
@@ -123,11 +121,7 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
               ..addAll(extraTags))
             .build(),
       ),
-      content: ListingContent(
-        title: title,
-        description: description,
-        images: images,
-      ),
+      content: description,
     );
   }
 
@@ -161,6 +155,9 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
         .where((t) =>
             t.isNotEmpty &&
             !const {
+              'title',
+              'image',
+              't',
               'active',
               'allowBarter',
               'minStay',
@@ -183,6 +180,9 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
       tags: ListingTags(
         (TagBuilder()
               ..addAll(preserved)
+              ..add('title', title ?? this.title)
+              ..addImages(images ?? this.images)
+              ..add('t', 'accommodation')
               ..addBool('active', active ?? this.active)
               ..addBool('allowBarter', allowBarter ?? this.allowBarter)
               ..addInt('minStay', minStay ?? this.minStay)
@@ -201,103 +201,118 @@ class Listing extends JsonContentNostrEvent<ListingContent, ListingTags>
               ..addAll(extraTags ?? const []))
             .build(),
       ),
-      content: ListingContent(
-        title: title ?? this.title,
-        description: description ?? this.description,
-        images: images ?? this.images,
-      ),
+      content: description ?? this.description,
     );
+  }
+
+  /// Whether two date ranges overlap using **half-open interval** semantics.
+  ///
+  /// Ranges are treated as `[start, end)` — the end date is exclusive.
+  /// This matches standard hospitality convention: checkout day equals the
+  /// next guest's checkin day without conflict.
+  ///
+  /// All dates are normalized to UTC midnight before comparison.
+  /// When `start == end` (single-day), the range is inflated to one day.
+  static bool datesOverlap({
+    required DateTime startA,
+    required DateTime endA,
+    required DateTime startB,
+    required DateTime endB,
+  }) {
+    DateTime normalize(DateTime value) {
+      return DateTime.utc(value.year, value.month, value.day);
+    }
+
+    var aStart = normalize(startA);
+    var aEnd = normalize(endA);
+    var bStart = normalize(startB);
+    var bEnd = normalize(endB);
+
+    // Swap if inverted.
+    if (aEnd.isBefore(aStart)) {
+      final temp = aStart;
+      aStart = aEnd;
+      aEnd = temp;
+    }
+    if (bEnd.isBefore(bStart)) {
+      final temp = bStart;
+      bStart = bEnd;
+      bEnd = temp;
+    }
+
+    // Inflate single-day ranges to span one day.
+    if (aEnd.isAtSameMomentAs(aStart)) aEnd = aEnd.add(Duration(days: 1));
+    if (bEnd.isAtSameMomentAs(bStart)) bEnd = bEnd.add(Duration(days: 1));
+
+    // Half-open overlap: [aStart, aEnd) ∩ [bStart, bEnd)
+    return aStart.isBefore(bEnd) && aEnd.isAfter(bStart);
   }
 
   static bool isAvailable(
     DateTime start,
     DateTime end,
-    List<ReservationPair> reservationPairs,
+    List<ReservationGroup> reservationGroups,
   ) {
-    DateTime normalize(DateTime value) {
-      return DateTime.utc(value.year, value.month, value.day);
-    }
+    for (final group in reservationGroups) {
+      if (group.cancelled) continue;
 
-    var normalizedStart = normalize(start);
-    var normalizedEnd = normalize(end);
+      final pairStart = group.start;
+      final pairEnd = group.end;
+      if (pairStart == null || pairEnd == null) continue;
 
-    if (normalizedEnd.isBefore(normalizedStart)) {
-      final temp = normalizedStart;
-      normalizedStart = normalizedEnd;
-      normalizedEnd = temp;
-    }
-
-    final effectiveEnd = normalizedEnd.isAtSameMomentAs(normalizedStart)
-        ? normalizedEnd.add(Duration(days: 1))
-        : normalizedEnd;
-
-    for (final pair in reservationPairs) {
-      if (pair.cancelled) {
-        continue;
-      }
-
-      final pairStartValue = pair.start;
-      final pairEndValue = pair.end;
-      if (pairStartValue == null || pairEndValue == null) {
-        continue;
-      }
-
-      final reservationStart = normalize(pairStartValue);
-      final reservationEnd = normalize(pairEndValue);
-
-      final overlaps = normalizedStart.isBefore(reservationEnd) &&
-          effectiveEnd.isAfter(reservationStart);
-      if (overlaps) {
+      if (datesOverlap(
+        startA: start,
+        endA: end,
+        startB: pairStart,
+        endB: pairEnd,
+      )) {
         return false;
       }
     }
     return true;
   }
 
-  // Currently can only compare prices of the same denomination
-  DenominatedAmount cost(DateTime start, DateTime end) {
-    // Loop through prices and choose the cheapest result
-    List<DenominatedAmount> costs = prices
-        .map((p) => DenominatedAmount(
-            value: BigInt.from(end.difference(start).inDays.abs() /
-                    FrequencyInDays.of(p.frequency)) *
-                p.amount.value,
-            denomination: p.amount.denomination,
-            decimals: p.amount.decimals))
-        .toList();
+  /// Compute the cheapest cost across all listed prices.
+  ///
+  /// - **Recurring prices** (frequency != null) require [start] and [end] to
+  ///   compute units × unit-price.
+  /// - **One-time / fixed prices** (frequency == null) are taken as-is,
+  ///   multiplied by [quantity].
+  ///
+  /// Prices that need dates but don't have them are skipped.
+  DenominatedAmount cost({DateTime? start, DateTime? end, int quantity = 1}) {
+    final costs = <DenominatedAmount>[];
+    for (final p in prices) {
+      if (p.frequency != null) {
+        // Recurring – need date range
+        if (start == null || end == null) continue;
+        final units = end.difference(start).inDays.abs() /
+            FrequencyInDays.of(p.frequency);
+        costs.add(DenominatedAmount(
+          value: BigInt.from(units) * p.amount.value,
+          denomination: p.amount.denomination,
+          decimals: p.amount.decimals,
+        ));
+      } else {
+        // One-time / fixed – just amount × quantity
+        costs.add(DenominatedAmount(
+          value: p.amount.value * BigInt.from(quantity),
+          denomination: p.amount.denomination,
+          decimals: p.amount.decimals,
+        ));
+      }
+    }
+    if (costs.isEmpty) {
+      // Fallback: return first price as-is
+      final p = prices.first;
+      return DenominatedAmount(
+        value: p.amount.value * BigInt.from(quantity),
+        denomination: p.amount.denomination,
+        decimals: p.amount.decimals,
+      );
+    }
     costs.sort((a, b) => a.value.compareTo(b.value));
     return costs.first;
-  }
-}
-
-// ── Content (non-searchable fields only) ────────────────────────────────────
-
-class ListingContent extends EventContent {
-  final String title;
-  final String description;
-  final List<String> images;
-
-  ListingContent({
-    required this.title,
-    required this.description,
-    required this.images,
-  });
-
-  @override
-  Map<String, dynamic> toJson() {
-    return {
-      "title": title,
-      "description": description,
-      "images": images,
-    };
-  }
-
-  static ListingContent fromJson(Map<String, dynamic> json) {
-    return ListingContent(
-      title: json["title"] ?? '',
-      description: json["description"] ?? '',
-      images: json["images"] != null ? List<String>.from(json["images"]) : [],
-    );
   }
 }
 

@@ -99,7 +99,7 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
 
     try {
       final threadCubit = context.read<ThreadCubit>();
-      await threadCubit.thread.replyText(_replyController.text);
+      await threadCubit.thread.replyTextAndWait(_replyController.text);
 
       if (!mounted) return;
       setState(() {

@@ -70,8 +70,8 @@ class Reservation
   ];
 
   // ── Convenience getters ─────────────────────────────────────────────
-  DateTime get start => parsedContent.start;
-  DateTime get end => parsedContent.end;
+  DateTime? get start => parsedContent.start;
+  DateTime? get end => parsedContent.end;
   bool get cancelled => stage == ReservationStage.cancel;
   PaymentProof? get proof => parsedContent.proof;
   ReservationTweakMaterial? get tweakMaterial => parsedContent.tweakMaterial;
@@ -92,7 +92,8 @@ class Reservation
 
   ReservationExpectedAmount resolveExpectedAmount({required Listing listing}) {
     final listingAuthor = getPubKeyFromAnchor(parsedTags.listingAnchor);
-    final listingPrice = listing.cost(start, end);
+    final listingPrice =
+        listing.cost(start: start, end: end, quantity: quantity);
     final negotiatedAmount = amount;
     final hasOffListAmount = negotiatedAmount != null &&
         negotiatedAmount.denomination == listingPrice.denomination &&
@@ -142,8 +143,8 @@ class Reservation
     required String pubKey,
     required String dTag,
     required String listingAnchor,
-    required DateTime start,
-    required DateTime end,
+    DateTime? start,
+    DateTime? end,
     // Content fields
     ReservationStage stage = ReservationStage.negotiate,
     int quantity = 1,
@@ -154,7 +155,7 @@ class Reservation
     Map<String, String> signatures = const {},
     // Tag fields
     String? threadAnchor,
-    String? pTag,
+    List<String> pTags = const [],
     List<List<String>> extraTags = const [],
     // Event-level
     String? id,
@@ -168,7 +169,7 @@ class Reservation
         [kListingRefTag, listingAnchor],
         ['d', dTag],
         if (threadAnchor != null) [kThreadRefTag, threadAnchor],
-        if (pTag != null) ['p', pTag],
+        for (final p in pTags) ['p', p],
         ...extraTags,
       ]),
       content: ReservationContent(
@@ -266,8 +267,9 @@ class Reservation
       return ReservationStatus.cancelled;
     }
 
-    final hasReservationEnded =
-        validReservations.first.end.isBefore(DateTime.now().toUtc());
+    final reservationEnd = validReservations.first.end;
+    final hasReservationEnded = reservationEnd != null &&
+        reservationEnd.isBefore(DateTime.now().toUtc());
     if (hasReservationEnded) {
       return ReservationStatus.completed;
     }
@@ -381,8 +383,9 @@ class Reservation
   }
 
   bool isBlockedDate(KeyPair hostKey) {
+    if (start == null || end == null) return false;
     final nonce = Reservation.getNonceForBlockedReservation(
-        start: start, end: end, hostKey: hostKey);
+        start: start!, end: end!, hostKey: hostKey);
 
     return getDtag() == nonce;
   }
@@ -402,8 +405,8 @@ class Reservation
 }
 
 class ReservationContent extends EventContent with CommitTerms {
-  final DateTime start;
-  final DateTime end;
+  final DateTime? start;
+  final DateTime? end;
   final PaymentProof? proof;
 
   /// Private recipient witness used to derive recipient commitments.
@@ -434,8 +437,8 @@ class ReservationContent extends EventContent with CommitTerms {
   bool get cancelled => stage == ReservationStage.cancel;
 
   ReservationContent({
-    required this.start,
-    required this.end,
+    this.start,
+    this.end,
     this.proof,
     this.tweakMaterial,
     this.stage = ReservationStage.negotiate,
@@ -446,8 +449,8 @@ class ReservationContent extends EventContent with CommitTerms {
   });
 
   factory ReservationContent.negotiate({
-    required DateTime start,
-    required DateTime end,
+    DateTime? start,
+    DateTime? end,
     PaymentProof? proof,
     ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
@@ -469,8 +472,8 @@ class ReservationContent extends EventContent with CommitTerms {
   }
 
   factory ReservationContent.commit({
-    required DateTime start,
-    required DateTime end,
+    DateTime? start,
+    DateTime? end,
     PaymentProof? proof,
     ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
@@ -492,8 +495,8 @@ class ReservationContent extends EventContent with CommitTerms {
   }
 
   factory ReservationContent.cancel({
-    required DateTime start,
-    required DateTime end,
+    DateTime? start,
+    DateTime? end,
     PaymentProof? proof,
     ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
@@ -517,8 +520,8 @@ class ReservationContent extends EventContent with CommitTerms {
   @override
   Map<String, dynamic> toJson() {
     return {
-      "start": start.toUtc().toIso8601String(),
-      "end": end.toUtc().toIso8601String(),
+      if (start != null) "start": start!.toUtc().toIso8601String(),
+      if (end != null) "end": end!.toUtc().toIso8601String(),
       "proof": proof?.toJson(),
       if (tweakMaterial != null) "tweakMaterial": tweakMaterial!.toJson(),
       "stage": stage.name,
@@ -561,8 +564,8 @@ class ReservationContent extends EventContent with CommitTerms {
     final sigs = json["signatures"] as Map<String, dynamic>?;
     final tweakMaterialJson = json["tweakMaterial"] as Map<String, dynamic>?;
     return ReservationContent(
-      start: DateTime.parse(json["start"]),
-      end: DateTime.parse(json["end"]),
+      start: json["start"] != null ? DateTime.parse(json["start"]) : null,
+      end: json["end"] != null ? DateTime.parse(json["end"]) : null,
       proof:
           json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
       tweakMaterial: tweakMaterialJson != null

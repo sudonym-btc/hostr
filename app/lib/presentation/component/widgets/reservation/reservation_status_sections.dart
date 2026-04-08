@@ -3,7 +3,7 @@ import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:models/main.dart';
 
 class ReservationStatusSections {
-  static bool isUpcoming(Validation<ReservationPair> item) {
+  static bool isUpcoming(Validation<ReservationGroup> item) {
     final now = DateTime.now().toUtc();
     final end = item.event.end;
     if (end == null) return true;
@@ -11,8 +11,8 @@ class ReservationStatusSections {
   }
 
   static int compare(
-    Validation<ReservationPair> a,
-    Validation<ReservationPair> b,
+    Validation<ReservationGroup> a,
+    Validation<ReservationGroup> b,
   ) {
     final aUpcoming = isUpcoming(a);
     final bUpcoming = isUpcoming(b);
@@ -34,8 +34,8 @@ class ReservationStatusSections {
 
   static Widget? buildHeader(
     BuildContext context,
-    Validation<ReservationPair>? previous,
-    Validation<ReservationPair> current,
+    Validation<ReservationGroup>? previous,
+    Validation<ReservationGroup> current,
   ) {
     final currentUpcoming = isUpcoming(current);
     final previousUpcoming = previous != null ? isUpcoming(previous) : null;

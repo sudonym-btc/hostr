@@ -174,36 +174,26 @@ class EventTags {
     return v != null ? DateTime.tryParse(v) : null;
   }
 
-  /// Parse price tags encoded as:
-  /// - `["price", "decimalAmount:BTC:frequency"]` (3 segments – BTC denomination)
-  /// - `["price", "decimalAmount:denomination:frequency"]` (3 segments – any denomination)
-  List<Price> getTagPrices({
-    int Function(int chainId, String address)? resolveDecimals,
-  }) {
+  /// Parse NIP-99 price tags:
+  /// - Recurring: `["price", "amount", "currency", "frequency"]` (4 elements)
+  /// - One-time:  `["price", "amount", "currency"]` (3 elements)
+  List<Price> getTagPrices() {
     return tags
-        .where((t) => t.isNotEmpty && t[0] == 'price')
+        .where((t) => t.length >= 3 && t[0] == 'price')
         .map((t) {
-          final raw = t[1];
-          final parts = raw.split(':');
-
-          // 3 segments: "amount:denomination:frequency"
-          if (parts.length == 3) {
-            final freq = Frequency.values.where((f) => f.name == parts[2]);
-            if (freq.isEmpty) return null;
-            final denomination = parts[1];
-            // BTC denomination uses 8 decimals (satoshis) by default.
-            // Other denominations are not yet defined; default to 8.
-            final decimals = denomination == 'BTC' ? 8 : 8;
-            return Price(
-              amount: DenominatedAmount.fromDecimal(
-                parts[0],
-                denomination,
-                decimals,
-              ),
-              frequency: freq.first,
-            );
-          }
-          return null;
+          final amount = t[1];
+          final denomination = t[2];
+          final freq = t.length >= 4 ? FrequencyNip99.fromNip99(t[3]) : null;
+          // BTC denomination uses 8 decimals (satoshis) by default.
+          final decimals = denomination == 'BTC' ? 8 : 8;
+          return Price(
+            amount: DenominatedAmount.fromDecimal(
+              amount,
+              denomination,
+              decimals,
+            ),
+            frequency: freq,
+          );
         })
         .whereType<Price>()
         .toList();

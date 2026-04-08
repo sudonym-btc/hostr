@@ -80,36 +80,78 @@ class Threads {
         );
       });
 
-  // If DM'ing has nothing to do with reservation or a specific thread, we still want to keep it compatible with the same thread structure.
-  // So we generate a thread ID based on the participants if no thread anchor is provided.
-  static String threadIdentifierForMessage(Message message) {
-    final sortedParticipants = <String>{
-      ...message.pTags,
-      message.pubKey,
-    }.toList()..sort();
-    final explicitThreadAnchor = message.parsedTags.getTagValue(kThreadRefTag);
-    return explicitThreadAnchor ??
-        crypto.sha256
-            .convert(utf8.encode(sortedParticipants.join(':')))
-            .toString();
+  static List<String> normalizeParticipants(Iterable<String> participants) =>
+      (participants.where((p) => p.isNotEmpty).toSet().toList()..sort());
+
+  static String conversationIdentifier(
+    Iterable<String> participants, {
+    String conversationTag = '',
+  }) {
+    final preimage = jsonEncode([
+      normalizeParticipants(participants),
+      conversationTag.trim(),
+    ]);
+    return crypto.sha256.convert(utf8.encode(preimage)).toString();
+  }
+
+  static String threadIdentifierForMessage(Message message) =>
+      conversationIdentifier([
+        message.pubKey,
+        ...message.pTags,
+      ], conversationTag: message.getFirstTag(kConversationTag) ?? '');
+
+  Thread ensureConversation({
+    required Iterable<String> participants,
+    String conversationTag = '',
+  }) {
+    final tag = conversationTag.trim();
+    final anchor = conversationIdentifier(participants, conversationTag: tag);
+    final created = !threads.containsKey(anchor);
+    final thread = threads.putIfAbsent(
+      anchor,
+      () => getIt<Thread>(param1: anchor),
+    );
+    thread.configureConversation(
+      conversationTag: tag,
+      participants: participants,
+    );
+    if (created) threadController.add(thread);
+    return thread;
+  }
+
+  List<Thread> findByConversationTag(String tag) =>
+      threads.values.where((t) => t.conversationTag == tag.trim()).toList();
+
+  String? findPreferredConversationIdByTradeId(String tradeId) {
+    final matches = findByConversationTag(tradeId);
+    if (matches.isEmpty) return null;
+    matches.sort((a, b) {
+      final c = a.participantCount.compareTo(b.participantCount);
+      return c != 0
+          ? c
+          : b.lastActivityTimestamp.compareTo(a.lastActivityTimestamp);
+    });
+    return matches.first.anchor;
+  }
+
+  Thread? findPreferredThreadByTradeId(String tradeId) {
+    final anchor = findPreferredConversationIdByTradeId(tradeId);
+    return anchor != null ? threads[anchor] : null;
   }
 
   void processMessage(
     Message message,
   ) => _logger.spanSync('processMessage', () {
-    final id = threadIdentifierForMessage(message);
     _logger.d(
-      'Received message with id ${message.id} for thread $id, content: ${message.content.runtimeType}',
+      'Received message ${message.id}, content: ${message.content.runtimeType}',
     );
-    if (!_seenIds.add(message.id)) {
-      return;
-    }
+    if (!_seenIds.add(message.id)) return;
 
-    if (threads[id] == null) {
-      threads[id] = getIt<Thread>(param1: id);
-      threadController.add(threads[id]!);
-    }
-    threads[id]!.messages.add(message);
+    final thread = ensureConversation(
+      participants: [message.pubKey, ...message.pTags],
+      conversationTag: message.getFirstTag(kConversationTag) ?? '',
+    );
+    thread.messages.add(message);
 
     // Insert in sorted order (by createdAt) instead of copying + re-sorting
     // the entire list on every message.

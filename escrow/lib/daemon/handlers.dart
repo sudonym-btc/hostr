@@ -39,6 +39,7 @@ class DaemonHandler {
     server.registerMethod(kRpcUpdateProfile, _updateProfile);
     server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
     server.registerMethod(kRpcResolveNames, _resolveNames);
+    server.registerMethod(kRpcListReservationGroups, _listReservationGroups);
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -417,6 +418,29 @@ class DaemonHandler {
 
     return {
       'names': {for (final pk in pubkeys) pk: _nameCache[pk]},
+    };
+  }
+
+  // ── Reservation Groups ────────────────────────────────────────────────────
+
+  Map<String, dynamic> _listReservationGroups(json_rpc.Parameters params) {
+    final groups = monitor.reservationGroups;
+    return {
+      'groups': groups.entries.map((e) {
+        final g = e.value;
+        return {
+          'groupId': e.key,
+          'tradeId': g.tradeId,
+          'listingAnchor': g.listingAnchor,
+          'stage': g.stage.name,
+          'cancelled': g.cancelled,
+          'hasBuyer': g.buyerReservation != null,
+          'hasSeller': g.sellerReservation != null,
+          'hasEscrow': g.escrowReservation != null,
+          'escrowStage': g.escrowReservation?.stage.name,
+          'participants': g.participantSet.toList(),
+        };
+      }).toList(),
     };
   }
 }

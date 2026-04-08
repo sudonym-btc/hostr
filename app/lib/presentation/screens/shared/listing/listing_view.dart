@@ -84,6 +84,7 @@ class _ListingViewContent extends StatelessWidget {
     final reviewsListWidget = listing_sections.ListingReviewsList(
       reviewsStream: dependencies.verifiedReviews,
       itemsStream: dependencies.reviewItems,
+      isOwner: isOwner,
     );
 
     final reserveBottomBar = isOwner
@@ -100,8 +101,10 @@ class _ListingViewContent extends StatelessWidget {
                   right: kSpace6,
                   child: Reserve(
                     listing: listing,
-                    reservationPairItemsStream:
-                        dependencies.reservationPairItems,
+                    reservationGroupItemsStream:
+                        dependencies.reservationGroupItems,
+                    reservationsStatus:
+                        dependencies.verifiedReservationGroups.status,
                   ),
                 ),
               ),
@@ -123,7 +126,7 @@ class _ListingViewContent extends StatelessWidget {
         ),
         reviewsListWidget: reviewsListWidget,
         reserveBottomBar: reserveBottomBar,
-        verifiedPairsStream: dependencies.verifiedReservationPairs,
+        verifiedGroupsStream: dependencies.verifiedReservationGroups,
         hostKeyPair: activeKeyPair,
         onCancelBlockedReservation: (reservation) async {
           await getIt<Hostr>().reservations.cancel(
@@ -153,7 +156,8 @@ class ListingViewBody extends StatelessWidget {
   final Widget reviewsSummaryWidget;
   final Widget reviewsListWidget;
   final Widget? reserveBottomBar;
-  final StreamWithStatus<List<Validation<ReservationPair>>> verifiedPairsStream;
+  final StreamWithStatus<List<Validation<ReservationGroup>>>
+  verifiedGroupsStream;
   final KeyPair? hostKeyPair;
   final ValueChanged<Reservation> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
@@ -168,7 +172,7 @@ class ListingViewBody extends StatelessWidget {
     required this.reviewsSummaryWidget,
     required this.reviewsListWidget,
     this.reserveBottomBar,
-    required this.verifiedPairsStream,
+    required this.verifiedGroupsStream,
     required this.hostKeyPair,
     required this.onCancelBlockedReservation,
     required this.onBlockDates,
@@ -255,9 +259,9 @@ class ListingViewBody extends StatelessWidget {
         if (isOwner) ...[
           Gap.vertical.lg(),
           BlockedReservations(
-            reservationPairItemsStream: ListingDependenciesProvider.of(
+            reservationGroupItemsStream: ListingDependenciesProvider.of(
               context,
-            ).reservationPairItems,
+            ).reservationGroupItems,
             hostKeyPair: hostKeyPair,
             onCancelBlockedReservation: onCancelBlockedReservation,
             onBlockDates: onBlockDates,

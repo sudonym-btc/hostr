@@ -41,6 +41,9 @@ class AppAvatar extends StatelessWidget {
   /// [image]/[pubkey].
   final ImageProvider? foregroundImage;
 
+  /// Called when [foregroundImage] fails to load (e.g. 404).
+  final ImageErrorListener? onForegroundImageError;
+
   /// Circle radius in logical pixels.
   final double radius;
 
@@ -55,6 +58,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   }) : radius = 10;
 
   /// 28 px diameter – message profile headers.
@@ -66,6 +70,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   }) : radius = 14;
 
   /// 32 px diameter – chip avatars.
@@ -77,6 +82,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   }) : radius = 16;
 
   /// 40 px diameter – list item leading widget (default).
@@ -88,6 +94,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   }) : radius = 20;
 
   /// 72 px diameter – profile popup.
@@ -99,6 +106,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   }) : radius = 36;
 
   /// 80 px diameter – profile header / hero avatar.
@@ -110,6 +118,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   }) : radius = 40;
 
   /// Escape hatch for one-off sizes.
@@ -122,6 +131,7 @@ class AppAvatar extends StatelessWidget {
     this.icon,
     this.color,
     this.foregroundImage,
+    this.onForegroundImageError,
   });
 
   @override
@@ -153,6 +163,7 @@ class AppAvatar extends StatelessWidget {
         radius: radius,
         backgroundColor: bgColor,
         foregroundImage: foregroundImage,
+        onForegroundImageError: onForegroundImageError,
       );
     }
 

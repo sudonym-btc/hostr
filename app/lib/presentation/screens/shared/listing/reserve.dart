@@ -2,21 +2,30 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:rxdart/rxdart.dart';
 
 class Reserve extends StatefulWidget {
   final Listing listing;
-  final Stream<List<Validation<ReservationPair>>> reservationPairItemsStream;
+  final Stream<List<Validation<ReservationGroup>>> reservationGroupItemsStream;
+
+  /// Status stream from the underlying [StreamWithStatus].
+  /// When provided, the reserve button is disabled until the status
+  /// transitions to [StreamStatusQueryComplete] or [StreamStatusLive].
+  final ValueStream<StreamStatus>? reservationsStatus;
 
   const Reserve({
     super.key,
     required this.listing,
-    required this.reservationPairItemsStream,
+    required this.reservationGroupItemsStream,
+    this.reservationsStatus,
   });
 
   @override
@@ -32,7 +41,7 @@ class _ReserveState extends State<Reserve> {
   }
 
   DenominatedAmount _listingAmountFor(DateTimeRange range) {
-    return widget.listing.cost(range.start, range.end);
+    return widget.listing.cost(start: range.start, end: range.end);
   }
 
   DenominatedAmount _effectiveAmountFor(DateTimeRange range) {
@@ -74,13 +83,13 @@ class _ReserveState extends State<Reserve> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Validation<ReservationPair>>>(
-      stream: widget.reservationPairItemsStream,
-      builder: (context, reservationPairsSnapshot) {
-        final reservationPairs =
-            (reservationPairsSnapshot.data ??
-                    const <Validation<ReservationPair>>[])
-                .whereType<Valid<ReservationPair>>()
+    return StreamBuilder<List<Validation<ReservationGroup>>>(
+      stream: widget.reservationGroupItemsStream,
+      builder: (context, reservationGroupsSnapshot) {
+        final reservationGroups =
+            (reservationGroupsSnapshot.data ??
+                    const <Validation<ReservationGroup>>[])
+                .whereType<Valid<ReservationGroup>>()
                 .map((validated) => validated.event)
                 .toList(growable: false);
 
@@ -101,7 +110,7 @@ class _ReserveState extends State<Reserve> {
                         onTap: () => selectDates(
                           context,
                           context.read<DateRangeCubit>(),
-                          reservationPairs,
+                          reservationGroups,
                           enforceContiguousAvailability: true,
                         ),
                       ),
@@ -147,35 +156,60 @@ class _ReserveState extends State<Reserve> {
                 BlocBuilder<ReservationCubit, ReservationCubitState>(
                   builder: (context, state) {
                     final dateRange = dateState.dateRange;
-                    return FilledButton(
-                      onPressed:
-                          state.status == ReservationCubitStatus.loading ||
-                              dateRange == null
-                          ? null
-                          : () => authGatedAction(
-                              context,
-                              pendingRoute: _reservePendingRoute(dateRange),
-                              action: () async {
-                                await context
-                                    .read<ReservationCubit>()
-                                    .createReservationRequest(
-                                      listing: widget.listing,
-                                      startDate: dateRange.start,
-                                      endDate: dateRange.end,
-                                      amount: _effectiveAmountFor(dateRange),
-                                      onSuccess: (reservation) {
-                                        AutoRouter.of(context).push(
-                                          ThreadRoute(
-                                            anchor: reservation.getDtag()!,
+                    final statusStream = widget.reservationsStatus;
+                    return StreamBuilder<StreamStatus>(
+                      stream: statusStream,
+                      initialData: statusStream?.valueOrNull,
+                      builder: (context, statusSnapshot) {
+                        final reservationsReady =
+                            statusStream == null ||
+                            statusSnapshot.data is StreamStatusQueryComplete ||
+                            statusSnapshot.data is StreamStatusLive;
+                        return FilledButton(
+                          onPressed:
+                              state.status == ReservationCubitStatus.loading ||
+                                  dateRange == null ||
+                                  !reservationsReady
+                              ? null
+                              : () => authGatedAction(
+                                  context,
+                                  pendingRoute: _reservePendingRoute(dateRange),
+                                  action: () async {
+                                    await context
+                                        .read<ReservationCubit>()
+                                        .createReservationRequest(
+                                          listing: widget.listing,
+                                          startDate: dateRange.start,
+                                          endDate: dateRange.end,
+                                          amount: _effectiveAmountFor(
+                                            dateRange,
                                           ),
+                                          onSuccess: (reservation) {
+                                            final anchor =
+                                                Threads.conversationIdentifier(
+                                                  [
+                                                    getIt<Hostr>().auth
+                                                        .getActiveKey()
+                                                        .publicKey,
+                                                    widget.listing.pubKey,
+                                                  ],
+                                                  conversationTag: reservation
+                                                      .getDtag()!,
+                                                );
+                                            AutoRouter.of(
+                                              context,
+                                            ).push(ThreadRoute(anchor: anchor));
+                                          },
                                         );
-                                      },
-                                    );
-                              },
-                            ),
-                      child: state.status == ReservationCubitStatus.loading
-                          ? const AppLoadingIndicator.small()
-                          : Text(AppLocalizations.of(context)!.reserve),
+                                  },
+                                ),
+                          child: state.status == ReservationCubitStatus.loading
+                              ? const AppLoadingIndicator.small()
+                              : !reservationsReady
+                              ? const AppLoadingIndicator.small()
+                              : Text(AppLocalizations.of(context)!.reserve),
+                        );
+                      },
                     );
                   },
                 ),
@@ -191,7 +225,7 @@ class _ReserveState extends State<Reserve> {
 Future<void> selectDates(
   BuildContext context,
   DateRangeCubit dateRangeCubit,
-  List<ReservationPair> reservationPairs, {
+  List<ReservationGroup> reservationGroups, {
   bool enforceContiguousAvailability = true,
 }) async {
   bool selectableDayPredicate(
@@ -209,13 +243,13 @@ Future<void> selectDates(
       }
 
       if (enforceContiguousAvailability) {
-        return Listing.isAvailable(selectedStartDay, day, reservationPairs);
+        return Listing.isAvailable(selectedStartDay, day, reservationGroups);
       }
 
       return true;
     }
 
-    if (!Listing.isAvailable(day, day, reservationPairs)) {
+    if (!Listing.isAvailable(day, day, reservationGroups)) {
       return false;
     }
 

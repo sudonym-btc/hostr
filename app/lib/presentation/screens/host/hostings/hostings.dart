@@ -114,9 +114,17 @@ class HostingsScreenState extends State<HostingsScreen> {
                         showActions: false,
                         showImages: true,
                         compact: true,
-                        onTap: () => AutoRouter.of(
-                          context,
-                        ).push(ThreadRoute(anchor: pair.tradeId)),
+                        onTap: () {
+                          final anchor = getIt<Hostr>().messaging.threads
+                              .findPreferredConversationIdByTradeId(
+                                pair.tradeId,
+                              );
+                          if (anchor != null) {
+                            AutoRouter.of(
+                              context,
+                            ).push(ThreadRoute(anchor: anchor));
+                          }
+                        },
                       ),
                     ),
                   ],

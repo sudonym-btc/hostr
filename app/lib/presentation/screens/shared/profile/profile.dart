@@ -12,7 +12,6 @@ import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
-import 'edit_profile.dart';
 import 'profile_panes.dart';
 
 @RoutePage()
@@ -59,24 +58,45 @@ class ProfileScreen extends StatelessWidget {
   }
 
   SliverAppBar _buildAppBar(BuildContext context, ProfileMetadata? profile) {
+    bool hasPicture =
+        profile?.metadata.picture != null &&
+        profile!.metadata.picture!.isNotEmpty;
+    final surfaceColor = AppSurface.of(context);
     return SliverAppBar(
       automaticallyImplyLeading: false,
       pinned: true,
       stretch: true,
-      expandedHeight: 240,
+      expandedHeight: hasPicture ? 240 : null,
       title: Text(profile?.metadata.getName() ?? ''),
       actions: _buildActions(context),
-      flexibleSpace: FlexibleSpaceBar(
-        background:
-            (profile?.metadata.picture != null &&
-                profile!.metadata.picture!.isNotEmpty)
-            ? BlossomImage(
-                image: profile.metadata.picture!,
-                pubkey: profile.metadata.pubKey,
-                fit: BoxFit.cover,
-              )
-            : noImageSetPlaceholder(context),
-      ),
+      surfaceTintColor: Colors.transparent,
+      backgroundColor: surfaceColor.withValues(alpha: 0.90),
+      flexibleSpace: hasPicture
+          ? FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  BlossomImage(
+                    image: profile.metadata.picture!,
+                    pubkey: profile.metadata.pubKey,
+                    fit: BoxFit.cover,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          surfaceColor.withValues(alpha: 0.7),
+                          surfaceColor.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : null, // : noImageSetPlaceholder(context)
     );
   }
 

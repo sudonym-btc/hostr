@@ -489,12 +489,14 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
     required _i6.Filter? filter,
     List<String>? relays,
     String? name,
+    bool? setSinceOnLiveFilter = true,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#subscribe, [], {
               #filter: filter,
               #relays: relays,
               #name: name,
+              #setSinceOnLiveFilter: setSinceOnLiveFilter,
             }),
             returnValue: _FakeStreamWithStatus_5<T>(
               this,
@@ -502,6 +504,7 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
                 #filter: filter,
                 #relays: relays,
                 #name: name,
+                #setSinceOnLiveFilter: setSinceOnLiveFilter,
               }),
             ),
           )
@@ -1387,41 +1390,26 @@ class MockReservations extends _i1.Mock implements _i16.Reservations {
           as _i7.StreamWithStatus<_i7.Validation<_i9.Reservation>>);
 
   @override
-  _i26.Future<Map<String, _i9.ReservationPair>> queryReservationPairs({
+  _i26.Future<Map<String, _i9.ReservationGroup>> queryReservationGroups({
     required _i9.Listing? listing,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#queryReservationPairs, [], {#listing: listing}),
-            returnValue: _i26.Future<Map<String, _i9.ReservationPair>>.value(
-              <String, _i9.ReservationPair>{},
+            Invocation.method(#queryReservationGroups, [], {#listing: listing}),
+            returnValue: _i26.Future<Map<String, _i9.ReservationGroup>>.value(
+              <String, _i9.ReservationGroup>{},
             ),
           )
-          as _i26.Future<Map<String, _i9.ReservationPair>>);
+          as _i26.Future<Map<String, _i9.ReservationGroup>>);
 
   @override
-  Map<
-    String,
-    ({_i9.Reservation? buyerReservation, _i9.Reservation? sellerReservation})
-  >
-  groupByThread(List<_i9.Reservation>? reservations) =>
+  Map<String, _i9.ReservationGroup> groupByThread(
+    List<_i9.Reservation>? reservations,
+  ) =>
       (super.noSuchMethod(
             Invocation.method(#groupByThread, [reservations]),
-            returnValue:
-                <
-                  String,
-                  ({
-                    _i9.Reservation? buyerReservation,
-                    _i9.Reservation? sellerReservation,
-                  })
-                >{},
+            returnValue: <String, _i9.ReservationGroup>{},
           )
-          as Map<
-            String,
-            ({
-              _i9.Reservation? buyerReservation,
-              _i9.Reservation? sellerReservation,
-            })
-          >);
+          as Map<String, _i9.ReservationGroup>);
 
   @override
   _i7.StreamWithStatus<_i9.Reservation> subscribeToMyReservations() =>

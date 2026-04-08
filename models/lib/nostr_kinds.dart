@@ -47,3 +47,4 @@ const kNostrKindProfileBadges = 30008;
 const kReservationRefTag = "r";
 const kThreadRefTag = "t";
 const kListingRefTag = "l";
+const kConversationTag = "conversation";

@@ -83,6 +83,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) {
     final subId = 'sub_${_subCounter++}';
     late final _Subscription<T> subscription;

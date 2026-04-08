@@ -2,6 +2,8 @@
 
 import 'package:injectable/injectable.dart';
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
+import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart'
+    as nwc_uri;
 import 'package:ndk/ndk.dart' hide Nwc;
 import 'package:rxdart/rxdart.dart';
 
@@ -208,7 +210,7 @@ class MockNwc extends Nwc {
 
   @override
   Future<NwcConnection> connect(String url) async {
-    return NwcConnection(NostrWalletConnectUri.parseConnectionUri(url));
+    return NwcConnection(nwc_uri.NostrWalletConnectUri.parseConnectionUri(url));
   }
 
   @override

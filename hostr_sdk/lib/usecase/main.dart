@@ -22,7 +22,7 @@ export 'nwc/main.dart';
 export 'payments/main.dart';
 export 'relays/relays.dart';
 export 'requests/requests.dart';
-export 'reservation_pairs/reservation_pairs.dart';
+export 'reservation_groups/reservation_groups.dart';
 export 'reservation_requests/reservation_requests.dart';
 export 'reservation_transitions/reservation_transitions.dart';
 export 'reservations/reservations.dart';

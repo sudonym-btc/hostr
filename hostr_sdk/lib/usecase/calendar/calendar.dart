@@ -140,57 +140,57 @@ class Calendar {
     _publishedEntries.clear();
   });
 
-  Future<void> _onHosting(Validation<ReservationPair> validation) =>
+  Future<void> _onHosting(Validation<ReservationGroup> validation) =>
       _logger.span('_onHosting', () async {
-        if (validation is! Valid<ReservationPair>) return;
-        final pair = validation.event;
-        if (!_isFuture(pair)) return;
+        if (validation is! Valid<ReservationGroup>) return;
+        final group = validation.event;
+        if (!_isFuture(group)) return;
 
         try {
-          final guestPubkey = _resolveGuestPubkey(pair);
+          final guestPubkey = _resolveGuestPubkey(group);
           String guestName = 'Guest';
           if (guestPubkey != null) {
             final profile = await _metadata.loadMetadata(guestPubkey);
             guestName = profile?.metadata.getName() ?? _shortKey(guestPubkey);
           }
 
-          final listingName = await _resolveListingName(pair.listingAnchor);
+          final listingName = await _resolveListingName(group.listingAnchor);
           final entry = _buildEntry(
-            tradeId: pair.tradeId,
-            pair: pair,
+            tradeId: group.tradeId,
+            group: group,
             baseTitle: 'Hosting $guestName at $listingName',
           );
           await _publishEntry(entry);
         } catch (e, st) {
           _logger.w(
-            'Calendar: failed to sync hosting ${pair.tradeId}',
+            'Calendar: failed to sync hosting ${group.tradeId}',
             error: e,
             stackTrace: st,
           );
         }
       });
 
-  Future<void> _onTrip(Validation<ReservationPair> validation) =>
+  Future<void> _onTrip(Validation<ReservationGroup> validation) =>
       _logger.span('_onTrip', () async {
-        if (validation is! Valid<ReservationPair>) return;
-        final pair = validation.event;
-        if (!_isFuture(pair)) return;
+        if (validation is! Valid<ReservationGroup>) return;
+        final group = validation.event;
+        if (!_isFuture(group)) return;
 
         try {
-          final hostProfile = await _metadata.loadMetadata(pair.hostPubkey);
+          final hostProfile = await _metadata.loadMetadata(group.hostPubkey);
           final hostName =
-              hostProfile?.metadata.getName() ?? _shortKey(pair.hostPubkey);
+              hostProfile?.metadata.getName() ?? _shortKey(group.hostPubkey);
 
-          final listingName = await _resolveListingName(pair.listingAnchor);
+          final listingName = await _resolveListingName(group.listingAnchor);
           final entry = _buildEntry(
-            tradeId: pair.tradeId,
-            pair: pair,
+            tradeId: group.tradeId,
+            group: group,
             baseTitle: 'Visiting $listingName hosted by $hostName',
           );
           await _publishEntry(entry);
         } catch (e, st) {
           _logger.w(
-            'Calendar: failed to sync trip ${pair.tradeId}',
+            'Calendar: failed to sync trip ${group.tradeId}',
             error: e,
             stackTrace: st,
           );
@@ -198,19 +198,20 @@ class Calendar {
       });
 
   Future<void> _onHostingSnapshot(
-    List<Validation<ReservationPair>> validations,
+    List<Validation<ReservationGroup>> validations,
   ) => _logger.span('_onHostingSnapshot', () async {
     for (final validation in validations) {
       await _onHosting(validation);
     }
   });
 
-  Future<void> _onTripSnapshot(List<Validation<ReservationPair>> validations) =>
-      _logger.span('_onTripSnapshot', () async {
-        for (final validation in validations) {
-          await _onTrip(validation);
-        }
-      });
+  Future<void> _onTripSnapshot(
+    List<Validation<ReservationGroup>> validations,
+  ) => _logger.span('_onTripSnapshot', () async {
+    for (final validation in validations) {
+      await _onTrip(validation);
+    }
+  });
 
   Future<void> _publishEntry(CalendarEntry entry) =>
       _logger.span('_publishEntry', () async {
@@ -228,18 +229,18 @@ class Calendar {
 
   CalendarEntry _buildEntry({
     required String tradeId,
-    required ReservationPair pair,
+    required ReservationGroup group,
     required String baseTitle,
   }) {
-    final start = pair.start;
-    final end = pair.end;
+    final start = group.start;
+    final end = group.end;
     if (start == null || end == null) {
       throw StateError('Calendar entry requires both start and end dates');
     }
 
     return CalendarEntry(
       tradeId: tradeId,
-      title: _buildTitle(pair: pair, baseTitle: baseTitle),
+      title: _buildTitle(group: group, baseTitle: baseTitle),
       description: _buildDescription(tradeId: tradeId, start: start, end: end),
       start: start,
       end: end,
@@ -258,10 +259,10 @@ class Calendar {
         }
       });
 
-  String? _resolveGuestPubkey(ReservationPair pair) {
+  String? _resolveGuestPubkey(ReservationGroup group) {
     final tweakedPubkey =
-        pair.buyerReservation?.recipient ?? pair.buyerReservation?.pubKey;
-    final tweakMaterial = pair.buyerReservation?.tweakMaterial;
+        group.buyerReservation?.recipient ?? group.buyerReservation?.pubKey;
+    final tweakMaterial = group.buyerReservation?.tweakMaterial;
     final salt = tweakMaterial?.salt;
     final parity = tweakMaterial?.parity;
     if (tweakedPubkey == null ||
@@ -278,19 +279,19 @@ class Calendar {
     );
   }
 
-  bool _isFuture(ReservationPair pair) {
-    final start = pair.start;
-    final end = pair.end;
+  bool _isFuture(ReservationGroup group) {
+    final start = group.start;
+    final end = group.end;
     if (start == null || end == null) return false;
 
     return start.isAfter(DateTime.now().toUtc());
   }
 
   String _buildTitle({
-    required ReservationPair pair,
+    required ReservationGroup group,
     required String baseTitle,
   }) {
-    if (pair.cancelled) {
+    if (group.cancelled) {
       return 'CANCELLED: $baseTitle';
     }
     return baseTitle;

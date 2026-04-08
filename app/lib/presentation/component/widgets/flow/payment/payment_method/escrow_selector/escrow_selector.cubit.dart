@@ -50,20 +50,25 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
     if (state is EscrowSelectorLoaded &&
         (state as EscrowSelectorLoaded).selectedEscrow != null) {
       final loadedState = state as EscrowSelectorLoaded;
-      await getIt<Hostr>()
-          .messaging
-          .threads
-          .threads[negotiateReservation.getDtag()!]!
-          .replyEvent(
-            EscrowServiceSelected(
-              pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-              tags: EscrowServiceSelectedTags([]),
-              content: EscrowServiceSelectedContent(
-                service: loadedState.selectedEscrow!,
-                sellerMethods: loadedState.result.sellerMethod!,
-              ),
-            ),
-          );
+      final tradeId = negotiateReservation.getDtag()!;
+      final thread = getIt<Hostr>().messaging.threads
+          .findPreferredThreadByTradeId(tradeId);
+      if (thread == null) {
+        debugPrint(
+          'EscrowSelectorCubit.select: no thread found for tradeId=$tradeId',
+        );
+        return;
+      }
+      await thread.replyEvent(
+        EscrowServiceSelected(
+          pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+          tags: EscrowServiceSelectedTags([]),
+          content: EscrowServiceSelectedContent(
+            service: loadedState.selectedEscrow!,
+            sellerMethods: loadedState.result.sellerMethod!,
+          ),
+        ),
+      );
     }
   }
 }

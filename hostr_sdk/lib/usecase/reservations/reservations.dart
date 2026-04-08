@@ -324,98 +324,58 @@ class Reservations extends CrudUseCase<Reservation>
     return reservations.where((e) => !e.cancelled).toList();
   }
 
-  /// Converts a flat list of reservations into [ReservationPair] objects
+  /// Converts a flat list of reservations into [ReservationGroup] objects
   /// grouped by trade id (`d` tag).
   ///
-  /// The seller pubkey is derived from each reservation's listing anchor
-  /// via [getPubKeyFromAnchor], so no [Listing] object is required.
-  static Map<String, ReservationPair> toReservationPairs({
+  /// Each group's role-based getters (sellerReservation, buyerReservation,
+  /// escrowReservation) are computed from the flat list automatically.
+  static Map<String, ReservationGroup> toReservationGroups({
     required List<Reservation> reservations,
   }) {
-    final Map<
-      String,
-      ({Reservation? sellerReservation, Reservation? buyerReservation})
-    >
-    pairs = {};
+    final Map<String, List<Reservation>> grouped = {};
 
     for (final reservation in reservations) {
-      final hash = reservation.getDtag() ?? reservation.id;
-      final current =
-          pairs[hash] ?? (sellerReservation: null, buyerReservation: null);
-
-      final sellerPubKey = getPubKeyFromAnchor(
-        reservation.parsedTags.listingAnchor,
-      );
-
-      if (reservation.pubKey == sellerPubKey) {
-        pairs[hash] = (
-          sellerReservation: reservation,
-          buyerReservation: current.buyerReservation,
-        );
-      } else {
-        pairs[hash] = (
-          sellerReservation: current.sellerReservation,
-          buyerReservation: reservation,
-        );
-      }
+      final groupId = ReservationGroup.groupIdFromEvent(reservation);
+      grouped.putIfAbsent(groupId, () => []);
+      // Replace any existing reservation from the same pubkey
+      grouped[groupId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
+      grouped[groupId]!.add(reservation);
     }
 
-    return pairs.map(
-      (hash, pair) => MapEntry(
-        hash,
-        ReservationPair(
-          sellerReservation: pair.sellerReservation,
-          buyerReservation: pair.buyerReservation,
-        ),
-      ),
+    return grouped.map(
+      (groupId, list) =>
+          MapEntry(groupId, ReservationGroup(reservations: list)),
     );
   }
 
   /// Queries all reservations for [listing] and returns them grouped as
-  /// [ReservationPair] by trade id (`d` tag).
-  Future<Map<String, ReservationPair>> queryReservationPairs({
+  /// [ReservationGroup] by trade id (`d` tag).
+  Future<Map<String, ReservationGroup>> queryReservationGroups({
     required Listing listing,
   }) async {
     final reservations = await getListingReservations(
       listingAnchor: listing.anchor!,
     );
-    return toReservationPairs(reservations: reservations);
+    return toReservationGroups(reservations: reservations);
   }
 
-  Map<String, ({Reservation? sellerReservation, Reservation? buyerReservation})>
-  groupByThread(List<Reservation> reservations) {
-    final temp =
-        <
-          String,
-          ({Reservation? sellerReservation, Reservation? buyerReservation})
-        >{};
+  Map<String, ReservationGroup> groupByThread(List<Reservation> reservations) {
+    final Map<String, List<Reservation>> grouped = {};
 
     for (final reservation in reservations) {
       final tradeId = reservation.getDtag();
       if (tradeId == null || tradeId.isEmpty) continue;
-      final thread = messaging.threads.threads[tradeId];
+      final thread = messaging.threads.findPreferredThreadByTradeId(tradeId);
       if (thread == null) continue;
 
-      final sellerPubKey = getPubKeyFromAnchor(
-        thread.state.value.lastReservationRequest.parsedTags.listingAnchor,
-      );
-
-      final current =
-          temp[tradeId] ?? (sellerReservation: null, buyerReservation: null);
-
-      if (reservation.pubKey == sellerPubKey) {
-        temp[tradeId] = (
-          sellerReservation: reservation,
-          buyerReservation: current.buyerReservation,
-        );
-      } else {
-        temp[tradeId] = (
-          sellerReservation: current.sellerReservation,
-          buyerReservation: reservation,
-        );
-      }
+      grouped.putIfAbsent(tradeId, () => []);
+      grouped[tradeId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
+      grouped[tradeId]!.add(reservation);
     }
-    return temp;
+
+    return grouped.map(
+      (hash, list) => MapEntry(hash, ReservationGroup(reservations: list)),
+    );
   }
 
   StreamWithStatus<Reservation> subscribeToMyReservations() {
@@ -471,7 +431,7 @@ class Reservations extends CrudUseCase<Reservation>
       dTag: request.getDtag()!,
       listingAnchor: request.parsedTags.listingAnchor,
       threadAnchor: anchor,
-      pTag: saltedPubkey,
+      pTags: [saltedPubkey],
       start: request.start,
       end: request.end,
       stage: ReservationStage.commit,
@@ -503,6 +463,11 @@ class Reservations extends CrudUseCase<Reservation>
       dTag: tradeId!,
       listingAnchor: listingAnchor,
       threadAnchor: threadAnchor,
+      pTags: [
+        getPubKeyFromAnchor(listingAnchor),
+        if (proof.escrowProof != null)
+          proof.escrowProof!.escrowService.escrowPubkey,
+      ],
       start: negotiateReservation.start,
       end: negotiateReservation.end,
       stage: ReservationStage.commit,

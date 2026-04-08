@@ -30,6 +30,7 @@ class _FakeRequests extends Fake implements Requests {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) {
     lastSubscribeFilter = filter;
     return subscribeSource as StreamWithStatus<T>;
@@ -100,47 +101,58 @@ void main() {
     await requests.dispose();
   });
 
-  test('upsertCurrent broadcasts a signed heartbeat for the active user', () async {
-    final heartbeat = await heartbeats.upsertCurrent(createdAt: 1710000000);
+  test(
+    'upsertCurrent broadcasts a signed heartbeat for the active user',
+    () async {
+      final heartbeat = await heartbeats.upsertCurrent(createdAt: 1710000000);
 
-    expect(heartbeat.pubKey, MockKeys.hoster.publicKey);
-    expect(heartbeat.kind, kNostrKindReceivedHeartbeat);
-    expect(heartbeat.sig, isNotNull);
-    expect(heartbeat.valid(), isTrue);
+      expect(heartbeat.pubKey, MockKeys.hoster.publicKey);
+      expect(heartbeat.kind, kNostrKindReceivedHeartbeat);
+      expect(heartbeat.sig, isNotNull);
+      expect(heartbeat.valid(), isTrue);
 
-    final broadcast = requests.lastBroadcastEvent as ReceivedHeartbeat?;
-    expect(broadcast, isNotNull);
-    expect(broadcast!.pubKey, MockKeys.hoster.publicKey);
-    expect(broadcast.createdAt, 1710000000);
-  });
+      final broadcast = requests.lastBroadcastEvent as ReceivedHeartbeat?;
+      expect(broadcast, isNotNull);
+      expect(broadcast!.pubKey, MockKeys.hoster.publicKey);
+      expect(broadcast.createdAt, 1710000000);
+    },
+  );
 
-  test('subscribeUsers constrains the filter to heartbeat kind and authors', () {
-    final stream = heartbeats.subscribeUsers([
-      MockKeys.hoster.publicKey,
-      MockKeys.guest.publicKey,
-      MockKeys.hoster.publicKey,
-    ]);
+  test(
+    'subscribeUsers constrains the filter to heartbeat kind and authors',
+    () {
+      final stream = heartbeats.subscribeUsers([
+        MockKeys.hoster.publicKey,
+        MockKeys.guest.publicKey,
+        MockKeys.hoster.publicKey,
+      ]);
 
-    expect(stream, isNotNull);
-    expect(
-      requests.lastSubscribeFilter?.authors,
-      orderedEquals([MockKeys.guest.publicKey, MockKeys.hoster.publicKey]..sort()),
-    );
-    expect(
-      requests.lastSubscribeFilter?.kinds,
-      orderedEquals([kNostrKindReceivedHeartbeat]),
-    );
-  });
+      expect(stream, isNotNull);
+      expect(
+        requests.lastSubscribeFilter?.authors,
+        orderedEquals(
+          [MockKeys.guest.publicKey, MockKeys.hoster.publicKey]..sort(),
+        ),
+      );
+      expect(
+        requests.lastSubscribeFilter?.kinds,
+        orderedEquals([kNostrKindReceivedHeartbeat]),
+      );
+    },
+  );
 
-  test('queryUsers constrains the filter to heartbeat kind and authors', () async {
-    final stream = heartbeats.queryUsers([MockKeys.hoster.publicKey]);
+  test(
+    'queryUsers constrains the filter to heartbeat kind and authors',
+    () async {
+      final stream = heartbeats.queryUsers([MockKeys.hoster.publicKey]);
 
-    expect(stream, isNotNull);
-    expect(requests.lastQueryFilter?.authors, [MockKeys.hoster.publicKey]);
-    expect(requests.lastQueryFilter?.kinds, [kNostrKindReceivedHeartbeat]);
+      expect(stream, isNotNull);
+      expect(requests.lastQueryFilter?.authors, [MockKeys.hoster.publicKey]);
+      expect(requests.lastQueryFilter?.kinds, [kNostrKindReceivedHeartbeat]);
 
-    await stream.close();
-  });
+      await stream.close();
+    },
+  );
 
   test('latestForUsers returns the newest heartbeat per pubkey', () async {
     final future = heartbeats.latestForUsers([
@@ -156,7 +168,10 @@ void main() {
 
     final latest = await future;
 
-    expect(latest.keys, containsAll([MockKeys.hoster.publicKey, MockKeys.guest.publicKey]));
+    expect(
+      latest.keys,
+      containsAll([MockKeys.hoster.publicKey, MockKeys.guest.publicKey]),
+    );
     expect(latest[MockKeys.hoster.publicKey]?.createdAt, 300);
     expect(latest[MockKeys.guest.publicKey]?.createdAt, 200);
   });

@@ -2,21 +2,26 @@ import 'denominated_amount.dart';
 
 class Price {
   DenominatedAmount amount;
-  Frequency frequency;
 
-  Price({required this.amount, required this.frequency});
+  /// The billing frequency. `null` means a one-time / fixed price.
+  Frequency? frequency;
+
+  Price({required this.amount, this.frequency});
 
   factory Price.fromJson(Map<String, dynamic> json) {
+    final freqStr = json['frequency'] as String?;
     return Price(
         amount: DenominatedAmount.fromJson(json['amount']),
-        frequency: Frequency.values.firstWhere(
-            (e) => e.toString() == 'Frequency.${json['frequency']}'));
+        frequency: freqStr != null
+            ? Frequency.values
+                .firstWhere((e) => e.toString() == 'Frequency.$freqStr')
+            : null);
   }
 
   Map<String, dynamic> toJson() {
     return {
       'amount': amount.toJson(),
-      'frequency': frequency.toString().split('.').last
+      if (frequency != null) 'frequency': frequency.toString().split('.').last,
     };
   }
 }
@@ -31,7 +36,43 @@ class FrequencyInDays {
     Frequency.yearly: 365,
   };
 
-  static int of(Frequency frequency) {
-    return values[frequency] ?? 0; // Return 0 if the frequency is not found
+  /// Returns days-per-period. Returns 1 for null (one-time price).
+  static int of(Frequency? frequency) {
+    if (frequency == null) return 1;
+    return values[frequency] ?? 0;
+  }
+}
+
+/// NIP-99 noun-form frequency names (day, week, month, year).
+extension FrequencyNip99 on Frequency {
+  String get nip99Name {
+    switch (this) {
+      case Frequency.daily:
+        return 'day';
+      case Frequency.weekly:
+        return 'week';
+      case Frequency.monthly:
+        return 'month';
+      case Frequency.yearly:
+        return 'year';
+    }
+  }
+
+  /// Parse NIP-99 noun-form frequency. Returns null for unrecognised values
+  /// (which means one-time / fixed price).
+  static Frequency? fromNip99(String? name) {
+    if (name == null) return null;
+    switch (name) {
+      case 'day':
+        return Frequency.daily;
+      case 'week':
+        return Frequency.weekly;
+      case 'month':
+        return Frequency.monthly;
+      case 'year':
+        return Frequency.yearly;
+      default:
+        return null;
+    }
   }
 }

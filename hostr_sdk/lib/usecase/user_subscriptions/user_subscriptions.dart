@@ -12,8 +12,9 @@ import '../escrow/escrow.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../gift_wraps/gift_wraps.dart';
 import '../heartbeat/heartbeat.dart';
+import '../messaging/threads.dart';
 import '../requests/requests.dart';
-import '../reservation_pairs/reservation_pairs.dart';
+import '../reservation_groups/reservation_groups.dart';
 import '../reservation_transitions/reservation_transitions.dart';
 import '../reservations/reservations.dart';
 import '../reviews/reviews.dart';
@@ -50,7 +51,7 @@ class UserSubscriptions {
   final Heartbeats _heartbeats;
   final Reservations _reservations;
   final ReservationTransitions _transitions;
-  final ReservationPairs _reservationPairs;
+  final ReservationGroups _reservationGroups;
 
   final Reviews _reviews;
   final Zaps _zaps;
@@ -63,7 +64,7 @@ class UserSubscriptions {
     required Heartbeats heartbeats,
     required Reservations reservations,
     required ReservationTransitions transitions,
-    required ReservationPairs reservationPairs,
+    required ReservationGroups reservationGroups,
     required Reviews reviews,
     required Zaps zaps,
     required EscrowUseCase escrow,
@@ -73,7 +74,7 @@ class UserSubscriptions {
        _heartbeats = heartbeats,
        _reservations = reservations,
        _transitions = transitions,
-       _reservationPairs = reservationPairs,
+       _reservationGroups = reservationGroups,
        _reviews = reviews,
        _zaps = zaps,
        _escrow = escrow,
@@ -84,21 +85,21 @@ class UserSubscriptions {
   /// All reservations for trades the user is involved in (by trade ID / d-tag).
   late ExpandableSubscription<Reservation> allMyReservations$;
 
-  /// Validated reservation pairs derived from [allMyReservations$].
-  /// Each pair is grouped by trade ID and validated (proof-checked) via
-  /// [ReservationPairs.verifyFromSource].
-  late StreamWithStatus<List<Validation<ReservationPair>>>
-  allMyReservationPairs$;
+  /// Validated reservation groups derived from [allMyReservations$].
+  /// Each group is grouped by trade ID and validated (proof-checked) via
+  /// [ReservationGroups.verifyFromSource].
+  late StreamWithStatus<List<Validation<ReservationGroup>>>
+  allMyReservationGroups$;
 
-  /// Latest validated reservation pairs flattened from [allMyReservationPairs$].
-  late StreamWithStatus<Validation<ReservationPair>>
-  allMyReservationPairsCurrent$;
+  /// Latest validated reservation groups flattened from [allMyReservationGroups$].
+  late StreamWithStatus<Validation<ReservationGroup>>
+  allMyReservationGroupsCurrent$;
 
-  /// Reservation pairs where the current user is the **guest** (not the host).
-  late StreamWithStatus<Validation<ReservationPair>> myTrips$;
+  /// Reservation groups where the current user is the **guest** (not the host).
+  late StreamWithStatus<Validation<ReservationGroup>> myTrips$;
 
-  /// Reservation pairs where the current user is the **host**.
-  late StreamWithStatus<Validation<ReservationPair>> myHostings$;
+  /// Reservation groups where the current user is the **host**.
+  late StreamWithStatus<Validation<ReservationGroup>> myHostings$;
 
   /// All reservation transitions across every trade the user is in.
   late ExpandableSubscription<ReservationTransition> allTransitions$;
@@ -162,7 +163,7 @@ class UserSubscriptions {
       _parsedGiftwraps$!.replayStream.listen((event) {
         if (event is Message) {
           _logger.d(
-            'Inbox parsed message id=${event.id} thread=${event.parsedTags.threadAnchor} '
+            'Inbox parsed message id=${event.id} thread=${Threads.threadIdentifierForMessage(event)} '
             'child=${event.child.runtimeType}',
           );
           return;
@@ -213,17 +214,17 @@ class UserSubscriptions {
       name: 'user-reservations',
     );
 
-    allMyReservationPairs$ = _reservationPairs.verifyFromSource(
+    allMyReservationGroups$ = _reservationGroups.verifyFromSource(
       source: allMyReservations$.stream,
     );
-    allMyReservationPairsCurrent$ = allMyReservationPairs$.currentItemsBy(
+    allMyReservationGroupsCurrent$ = allMyReservationGroups$.currentItemsBy(
       (item) => item.event.tradeId,
     );
 
-    myTrips$ = allMyReservationPairsCurrent$.where(
+    myTrips$ = allMyReservationGroupsCurrent$.where(
       (item) => item.event.hostPubkey != myPubkey,
     );
-    myHostings$ = allMyReservationPairsCurrent$.where(
+    myHostings$ = allMyReservationGroupsCurrent$.where(
       (item) => item.event.hostPubkey == myPubkey,
     );
 
@@ -268,8 +269,8 @@ class UserSubscriptions {
     _parsedGiftwraps$ = null;
     await myTrips$.close();
     await myHostings$.close();
-    await allMyReservationPairsCurrent$.close();
-    await allMyReservationPairs$.close();
+    await allMyReservationGroupsCurrent$.close();
+    await allMyReservationGroups$.close();
     await allMyReservations$.reset();
     await allTransitions$.reset();
     await allHeartbeats$.reset();
@@ -323,7 +324,10 @@ class UserSubscriptions {
         if (child is Reservation) {
           _processReservationRequest(child);
         } else if (child is EscrowServiceSelected) {
-          _maybeAddEscrowStream(child, message.parsedTags.threadAnchor);
+          final tradeId = _tradeIdForMessage(message);
+          if (tradeId != null && tradeId.isNotEmpty) {
+            _maybeAddEscrowStream(child, tradeId);
+          }
         }
       }),
     );
@@ -359,7 +363,7 @@ class UserSubscriptions {
     '_maybeExpandHeartbeatsForThread',
     () {
       final myPubkey = _auth.getActiveKey().publicKey;
-      final threadKey = _threadIdentifierForMessage(message);
+      final threadKey = Threads.threadIdentifierForMessage(message);
       bool changed = false;
 
       for (final pubkey in _counterpartyPubkeysForMessage(message, myPubkey)) {
@@ -449,17 +453,18 @@ class UserSubscriptions {
     return counterparties;
   }
 
-  String _threadIdentifierForMessage(Message message) {
-    final explicitThreadAnchor = message.parsedTags.threadAnchor;
-    if (explicitThreadAnchor.isNotEmpty) {
-      return explicitThreadAnchor;
+  String? _tradeIdForMessage(Message message) {
+    final conversationTag = message.getFirstTag(kConversationTag);
+    if (conversationTag != null && conversationTag.isNotEmpty) {
+      return conversationTag;
     }
 
-    final sortedParticipants = <String>{
-      ...message.pTags,
-      message.pubKey,
-    }.toList()..sort();
-    return sortedParticipants.join(':');
+    final child = message.child;
+    if (child is Reservation) {
+      return child.getDtag();
+    }
+
+    return null;
   }
 
   void _addZapReceiptStream({

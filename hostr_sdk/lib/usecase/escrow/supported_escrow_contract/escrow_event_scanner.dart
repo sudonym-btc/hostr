@@ -455,6 +455,13 @@ class EscrowEventScanner {
       return rbtcFromWei(amount);
     }
     final decimals = await chain?.resolveTokenDecimals(token.eip55With0x);
+    if (decimals == null) {
+      logger.e(
+        'Could not resolve on-chain decimals for ERC-20 '
+        '${token.eip55With0x} on chain ${chain?.config.chainId}. '
+        'Falling back to 18 decimals — amounts may display incorrectly.',
+      );
+    }
     return tokenAmountFromEvm(
       token.eip55With0x,
       amount,

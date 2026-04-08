@@ -79,7 +79,7 @@ Message _textMessage({
   required String id,
   required String sender,
   required List<String> recipients,
-  String? threadTag,
+  String? conversationTag,
   required int createdAt,
 }) {
   return Message(
@@ -89,13 +89,21 @@ Message _textMessage({
     createdAt: createdAt,
     tags: MessageTags([
       for (final recipient in recipients) ['p', recipient],
-      if (threadTag != null) [kThreadRefTag, threadTag],
+      if (conversationTag != null) [kConversationTag, conversationTag],
     ]),
   );
 }
 
 /// Flush the event loop so stream listeners have a chance to process events.
 Future<void> _pump() => Future<void>.delayed(Duration.zero);
+
+/// Shorthand: conversation ID for guest+hoster (+ optional extras) with a tag.
+String _cid(String tag, [List<String> extra = const []]) =>
+    Threads.conversationIdentifier([
+      MockKeys.guest.publicKey,
+      MockKeys.hoster.publicKey,
+      ...extra,
+    ], conversationTag: tag);
 
 void main() {
   late Threads threads;
@@ -131,12 +139,13 @@ void main() {
   });
 
   test(
-    'creates threads from stream and reuses existing thread anchors',
+    'groups same participants and conversation tag into one thread',
     () async {
       final createdAnchors = <String>[];
       final sub = threads.threadStream.listen((thread) {
         createdAnchors.add(thread.anchor);
       });
+      final conversationId = _cid('trade-1');
 
       userSubscriptions.emitStatus(StreamStatusLive());
       userSubscriptions.emit(
@@ -144,86 +153,124 @@ void main() {
           id: 'm-1',
           sender: MockKeys.guest.publicKey,
           recipients: [MockKeys.hoster.publicKey],
-          threadTag: 'thread-a',
+          conversationTag: 'trade-1',
           createdAt: 100,
         ),
       );
       await _pump();
 
       expect(threads.threads.length, 1);
-      expect(threads.threads.containsKey('thread-a'), isTrue);
-      expect(threads.threads['thread-a']!.state.value.messages.length, 1);
+      expect(threads.threads.containsKey(conversationId), isTrue);
+      expect(threads.threads[conversationId]!.state.value.messages.length, 1);
 
       userSubscriptions.emit(
         _textMessage(
           id: 'm-2',
           sender: MockKeys.hoster.publicKey,
           recipients: [MockKeys.guest.publicKey],
-          threadTag: 'thread-a',
+          conversationTag: 'trade-1',
           createdAt: 101,
         ),
       );
       await _pump();
 
       expect(threads.threads.length, 1);
-      expect(threads.threads['thread-a']!.state.value.messages.length, 2);
+      expect(threads.threads[conversationId]!.state.value.messages.length, 2);
 
       userSubscriptions.emit(
         _textMessage(
           id: 'm-3',
           sender: MockKeys.guest.publicKey,
           recipients: [MockKeys.hoster.publicKey],
-          threadTag: 'thread-b',
+          conversationTag: 'trade-1',
           createdAt: 102,
         ),
       );
       await _pump();
 
-      expect(threads.threads.length, 2);
-      expect(threads.threads.containsKey('thread-b'), isTrue);
-      expect(createdAnchors, ['thread-a', 'thread-b']);
+      expect(threads.threads.length, 1);
+      expect(threads.threads[conversationId]!.state.value.messages.length, 3);
+      expect(createdAnchors, [conversationId]);
 
       await sub.cancel();
     },
   );
 
-  test(
-    'creates a new thread when a new thread tag appears in stream',
-    () async {
-      userSubscriptions.emit(
-        _textMessage(
-          id: 'm-4',
-          sender: MockKeys.guest.publicKey,
-          recipients: [MockKeys.hoster.publicKey],
-          threadTag: 'thread-x',
-          createdAt: 110,
-        ),
-      );
-      userSubscriptions.emit(
-        _textMessage(
-          id: 'm-5',
-          sender: MockKeys.hoster.publicKey,
-          recipients: [MockKeys.guest.publicKey],
-          threadTag: 'thread-y',
-          createdAt: 111,
-        ),
-      );
-      await _pump();
+  test('creates a new thread when conversation tag changes', () async {
+    final firstConversationId = _cid('trade-x');
+    final secondConversationId = _cid('trade-y');
 
-      expect(threads.threads.length, 2);
-      expect(threads.threads.containsKey('thread-x'), isTrue);
-      expect(threads.threads.containsKey('thread-y'), isTrue);
-      expect(threads.threads['thread-x']!.state.value.messages.length, 1);
-      expect(threads.threads['thread-y']!.state.value.messages.length, 1);
-    },
-  );
+    userSubscriptions.emit(
+      _textMessage(
+        id: 'm-4',
+        sender: MockKeys.guest.publicKey,
+        recipients: [MockKeys.hoster.publicKey],
+        conversationTag: 'trade-x',
+        createdAt: 110,
+      ),
+    );
+    userSubscriptions.emit(
+      _textMessage(
+        id: 'm-5',
+        sender: MockKeys.hoster.publicKey,
+        recipients: [MockKeys.guest.publicKey],
+        conversationTag: 'trade-y',
+        createdAt: 111,
+      ),
+    );
+    await _pump();
+
+    expect(threads.threads.length, 2);
+    expect(threads.threads.containsKey(firstConversationId), isTrue);
+    expect(threads.threads.containsKey(secondConversationId), isTrue);
+    expect(
+      threads.threads[firstConversationId]!.state.value.messages.length,
+      1,
+    );
+    expect(
+      threads.threads[secondConversationId]!.state.value.messages.length,
+      1,
+    );
+  });
+
+  test('creates a new thread when participant set changes', () async {
+    final guestHostConversation = _cid('trade-z');
+    final guestHostEscrowConversation = _cid('trade-z', [
+      MockKeys.escrow.publicKey,
+    ]);
+
+    userSubscriptions.emit(
+      _textMessage(
+        id: 'm-6',
+        sender: MockKeys.guest.publicKey,
+        recipients: [MockKeys.hoster.publicKey],
+        conversationTag: 'trade-z',
+        createdAt: 120,
+      ),
+    );
+    userSubscriptions.emit(
+      _textMessage(
+        id: 'm-7',
+        sender: MockKeys.guest.publicKey,
+        recipients: [MockKeys.hoster.publicKey, MockKeys.escrow.publicKey],
+        conversationTag: 'trade-z',
+        createdAt: 121,
+      ),
+    );
+    await _pump();
+
+    expect(threads.threads.length, 2);
+    expect(threads.threads.containsKey(guestHostConversation), isTrue);
+    expect(threads.threads.containsKey(guestHostEscrowConversation), isTrue);
+  });
 
   test('ignores duplicate message ids from stream', () async {
+    final conversationId = _cid('trade-dup');
     final message = _textMessage(
       id: 'm-dup',
       sender: MockKeys.guest.publicKey,
       recipients: [MockKeys.hoster.publicKey],
-      threadTag: 'thread-dup',
+      conversationTag: 'trade-dup',
       createdAt: 110,
     );
 
@@ -233,7 +280,7 @@ void main() {
 
     expect(threads.state.length, 1);
     expect(threads.threads.length, 1);
-    expect(threads.threads['thread-dup']!.state.value.messages.length, 1);
+    expect(threads.threads[conversationId]!.state.value.messages.length, 1);
   });
 
   test(
@@ -252,9 +299,13 @@ void main() {
           id: 'existing',
           sender: MockKeys.hoster.publicKey,
           recipients: [MockKeys.guest.publicKey],
-          threadTag: 'thread-reply',
+          conversationTag: 'trade-reply',
           createdAt: 100,
         ),
+      );
+      thread.configureConversation(
+        conversationTag: 'trade-reply',
+        participants: [MockKeys.guest.publicKey, MockKeys.hoster.publicKey],
       );
       await _pump();
 
@@ -263,7 +314,7 @@ void main() {
       expect(message.id, 'awaited-message');
       expect(messaging.lastContent, 'hello back');
       expect(messaging.lastTags, [
-        [kThreadRefTag, 'thread-reply'],
+        [kConversationTag, 'trade-reply'],
       ]);
       expect(messaging.lastRecipientPubkeys, [MockKeys.hoster.publicKey]);
 

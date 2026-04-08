@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -7,6 +8,7 @@ import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/claim/escrow_claim.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/release/escrow_release.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
@@ -64,13 +66,13 @@ class CommitMenu extends StatelessWidget {
         stream: Rx.merge([
           trade.transitions$.stream.map((_) => null),
           trade.payments$.stream.map((_) => null),
-          trade.reservationPair$.stream.map((_) => null),
+          trade.reservationGroup$.stream.map((_) => null),
         ]),
         initialData: null,
         builder: (context, transitionsSnapshot) {
           final transitions = trade.transitions$.items;
           final paymentEvents = trade.payments$.items;
-          final reservationValidation = trade.reservationPair$.items;
+          final reservationValidation = trade.reservationGroup$.items;
 
           return ModalBottomSheet(
             title: 'Information',
@@ -85,10 +87,10 @@ class CommitMenu extends StatelessWidget {
                       paymentEvents: paymentEvents,
                       hostPubKey: tradeState.hostPubKey,
                     ),
-                    if (reservationValidation is Invalid<ReservationPair>) ...[
+                    if (reservationValidation is Invalid<ReservationGroup>) ...[
                       Gap.vertical.lg(),
                       _ReservationRecords(
-                        validatedReservationPair: reservationValidation.last,
+                        validatedReservationGroup: reservationValidation.last,
                         listing: tradeState.listing,
                         hostPubKey: tradeState.hostPubKey,
                       ),
@@ -149,8 +151,23 @@ class CommitMenu extends StatelessWidget {
                 onTap: () {
                   final pubkey = trade.getEscrowPubkey();
                   if (pubkey != null) {
-                    context.read<ThreadCubit>().addParticipant(pubkey);
-                    trade.refreshActions();
+                    final currentThread = context.read<ThreadCubit>().thread;
+                    final myPubkey = getIt<Hostr>().auth
+                        .getActiveKey()
+                        .publicKey;
+                    final nextThread = getIt<Hostr>().messaging.threads
+                        .ensureConversation(
+                          participants: {
+                            myPubkey,
+                            ...currentThread.state.value.participantPubkeys,
+                            ...currentThread.addedParticipants,
+                            pubkey,
+                          },
+                          conversationTag: trade.tradeId,
+                        );
+                    AutoRouter.of(
+                      context,
+                    ).push(ThreadRoute(anchor: nextThread.anchor));
                   }
                 },
               );
@@ -192,7 +209,10 @@ class CommitMenu extends StatelessWidget {
                       tradeId: trade.tradeId,
                     ),
                   );
-                  showAppModal(context, builder: (_) => ClaimFlowWidget(cubit: claimOp));
+                  showAppModal(
+                    context,
+                    builder: (_) => ClaimFlowWidget(cubit: claimOp),
+                  );
                 },
               );
             case TradeAction.review:
@@ -223,20 +243,20 @@ class CommitMenu extends StatelessWidget {
 }
 
 class _ReservationRecords extends StatelessWidget {
-  final Validation<ReservationPair> validatedReservationPair;
+  final Validation<ReservationGroup> validatedReservationGroup;
   final Listing listing;
   final String hostPubKey;
 
   const _ReservationRecords({
-    required this.validatedReservationPair,
+    required this.validatedReservationGroup,
     required this.listing,
     required this.hostPubKey,
   });
 
   @override
   Widget build(BuildContext context) {
-    final pair = validatedReservationPair;
-    if (pair is Invalid<ReservationPair>) {
+    final pair = validatedReservationGroup;
+    if (pair is Invalid<ReservationGroup>) {
       final reason = pair.reason;
       return Column(
         mainAxisSize: MainAxisSize.max,

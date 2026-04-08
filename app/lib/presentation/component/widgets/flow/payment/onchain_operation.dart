@@ -71,9 +71,15 @@ class OnchainTransactionSheet extends StatelessWidget {
   factory OnchainTransactionSheet.swapProgress(
     OnchainSwapProgress state, {
     Key? key,
+    String? successTitle,
+    String? errorTitle,
   }) => OnchainTransactionSheet(
     key: key,
-    content: SwapInViewWidget(state.swapState!),
+    content: SwapInViewWidget(
+      state.swapState!,
+      successTitle: successTitle,
+      errorTitle: errorTitle,
+    ),
   );
 
   /// Transaction confirmed on-chain.

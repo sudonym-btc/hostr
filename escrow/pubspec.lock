@@ -523,10 +523,10 @@ packages:
     dependency: "direct main"
     description:
       name: ndk
-      sha256: "95f535cdc5b8c2fa730b48dd3123ea03a9c545629429b2422e552f150f2d7001"
+      sha256: cb65ac0c2a5b57b42352f35edbdeb6c359fe80e145e9cc4e527fc39e435deac3
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.1-dev.19"
+    version: "0.7.1"
   node_preamble:
     dependency: transitive
     description:

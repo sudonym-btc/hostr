@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
@@ -30,6 +32,14 @@ class ProfilePopup extends StatefulWidget {
 }
 
 class _ProfilePopupState extends State<ProfilePopup> {
+  late final Future<ReceivedHeartbeat?> _lastSeenFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastSeenFuture = getIt<Hostr>().heartbeats.latestForUser(widget.pubkey);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ProfileProvider(
@@ -41,7 +51,11 @@ class _ProfilePopupState extends State<ProfilePopup> {
           leading: ProfilePopupAvatar(profile: profile),
           title: ProfilePopupTitle(profile),
           subtitle: profile?.metadata.about,
-          content: ProfilePopupContent(profile: profile, pubkey: widget.pubkey),
+          content: ProfilePopupContent(
+            profile: profile,
+            pubkey: widget.pubkey,
+            lastSeenFuture: _lastSeenFuture,
+          ),
           buttons: Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -79,11 +93,13 @@ String ProfilePopupTitle(ProfileMetadata? profile) {
 class ProfilePopupContent extends StatelessWidget {
   final ProfileMetadata? profile;
   final String pubkey;
+  final Future<ReceivedHeartbeat?>? lastSeenFuture;
 
   const ProfilePopupContent({
     super.key,
     required this.profile,
     required this.pubkey,
+    this.lastSeenFuture,
   });
 
   @override
@@ -94,6 +110,7 @@ class ProfilePopupContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (lastSeenFuture != null) _LastSeenRow(future: lastSeenFuture!),
         Gap.vertical.sm(),
         VerifiedNip05Badge(
           nip05: metadata?.nip05,
@@ -110,6 +127,55 @@ class ProfilePopupContent extends StatelessWidget {
         Gap.vertical.sm(),
         _PubkeyRow(pubkey: pubkey),
       ],
+    );
+  }
+}
+
+// ─── Last seen row ───────────────────────────────────────────────────────────
+
+class _LastSeenRow extends StatelessWidget {
+  final Future<ReceivedHeartbeat?> future;
+
+  const _LastSeenRow({required this.future});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FutureBuilder<ReceivedHeartbeat?>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ShimmerPlaceholder(
+              loading: true,
+              borderRadius: BorderRadius.circular(4),
+              child: const SizedBox(height: 13, width: 90),
+            ),
+          );
+        }
+        final heartbeat = snapshot.data;
+        if (heartbeat == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.access_time_outlined,
+                size: kIconSm,
+                color: theme.colorScheme.outline,
+              ),
+              Gap.horizontal.sm(),
+              RelativeTimeText(
+                dateTime: heartbeat.receivedAt,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

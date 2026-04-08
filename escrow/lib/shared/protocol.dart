@@ -82,6 +82,12 @@ const kRpcGetEvmMnemonic = 'getEvmMnemonic';
 /// Returns `{ "names": { pubkey: displayName | null, … } }`.
 const kRpcResolveNames = 'resolveNames';
 
+// ── Reservation Groups ──────────────────────────────────────────────────────
+
+/// List all reservation groups the escrow is tracking.
+/// Returns `{ "groups": [ ReservationGroupSummaryJson, … ] }`.
+const kRpcListReservationGroups = 'listReservationGroups';
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Serialisation helpers
 // ──────────────────────────────────────────────────────────────────────────────

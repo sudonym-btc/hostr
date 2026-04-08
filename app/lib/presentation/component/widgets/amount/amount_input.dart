@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:intl/intl.dart';
 import 'package:models/main.dart';
 
@@ -76,25 +78,37 @@ String formatAmount(DenominatedAmount amount, {bool exact = true}) {
   return value;
 }
 
+/// Lazily-built resolver backed by [getIt<Hostr>] chain configs.
+TokenDisplayResolver? _cachedResolver;
+
+TokenDisplayResolver? get _resolver {
+  if (_cachedResolver != null) return _cachedResolver;
+  try {
+    _cachedResolver = TokenDisplayResolver(
+      getIt<Hostr>().evm.configuredChains.map((c) => c.config),
+    );
+  } catch (_) {
+    // getIt not yet configured (e.g. during tests) — leave null.
+  }
+  return _cachedResolver;
+}
+
 /// Format a [TokenAmount] for display (on-chain amounts like escrow events).
 ///
-/// When [denomination] is provided (e.g. `"BTC"`, `"USD"`), the amount is
-/// converted to a [DenominatedAmount] and formatted with the proper symbol.
-/// Otherwise falls back to BTC display for Lightning/native tokens and a
-/// raw decimal string for ERC-20s.
-String formatTokenAmount(
-  TokenAmount amount, {
-  bool exact = true,
-  String? denomination,
-}) {
-  if (denomination != null) {
+/// Denomination is resolved automatically from the app's chain configuration
+/// via [TokenDisplayResolver].  Falls back to BTC display for native tokens
+/// and a raw decimal string for unrecognised ERC-20s.
+String formatTokenAmount(TokenAmount amount, {bool exact = true}) {
+  // Attempt config-based denomination lookup.
+  final info = _resolver?.resolve(amount.token);
+  if (info != null && info.denomination.isNotEmpty) {
     return formatAmount(
-      amount.toDenominated(denomination: denomination),
+      amount.toDenominated(denomination: info.denomination),
       exact: exact,
     );
   }
 
-  // Fallback: no denomination provided — use token type heuristics.
+  // Fallback: no resolver or unknown token — use token type heuristics.
   if (amount.token.isNative) {
     const prefix = '₿ ';
     final sats = _toSats(amount).toInt();
