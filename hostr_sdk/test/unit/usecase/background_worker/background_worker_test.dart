@@ -34,12 +34,12 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
 
   @override
-  final StreamWithStatus<Validation<ReservationPair>> myHostings$ =
-      StreamWithStatus<Validation<ReservationPair>>();
+  final StreamWithStatus<Validation<ReservationGroup>> myHostings$ =
+      StreamWithStatus<Validation<ReservationGroup>>();
 
   @override
-  final StreamWithStatus<Validation<ReservationPair>> myTrips$ =
-      StreamWithStatus<Validation<ReservationPair>>();
+  final StreamWithStatus<Validation<ReservationGroup>> myTrips$ =
+      StreamWithStatus<Validation<ReservationGroup>>();
 
   @override
   Future<void> start() async {
@@ -193,7 +193,7 @@ void main() {
       );
 
       userSubscriptions.myHostings$.replaceAll([
-        Valid(ReservationPair(buyerReservation: guestReservation)),
+        Valid(ReservationGroup(reservations: [guestReservation])),
       ]);
       userSubscriptions.messages$.addStatus(StreamStatusLive());
       userSubscriptions.myHostings$.addStatus(StreamStatusLive());

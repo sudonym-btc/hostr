@@ -49,6 +49,7 @@ class _FakeRequests extends Fake implements Requests {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) => StreamWithStatus<T>();
 }
 

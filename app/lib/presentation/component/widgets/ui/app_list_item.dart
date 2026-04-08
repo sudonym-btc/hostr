@@ -134,11 +134,13 @@ class AppListItemAvatar {
     Key? key,
     required Color color,
     ImageProvider? foregroundImage,
+    ImageErrorListener? onForegroundImageError,
   }) {
     return AppAvatar.md(
       key: key,
       color: color,
       foregroundImage: foregroundImage,
+      onForegroundImageError: onForegroundImageError,
     );
   }
 }

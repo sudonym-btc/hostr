@@ -145,7 +145,7 @@ void main() {
         amount: usdtAmount,
         sellerEvmAddress: trade.sellerProfile.evmAddress!,
         arbiterEvmAddress: escrowService.evmAddress,
-        unlockAt: negotiation.end.millisecondsSinceEpoch ~/ 1000,
+        unlockAt: negotiation.end!.millisecondsSinceEpoch ~/ 1000,
         escrowFee: TokenAmount(value: escrowFee, token: usdtToken),
         ethKey: buyerKey,
         token: usdtToken,

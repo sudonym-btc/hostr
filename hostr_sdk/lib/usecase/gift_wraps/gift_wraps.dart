@@ -62,6 +62,11 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
         final raw = requests.subscribe<Nip01Event>(
           filter: kindFilter(filter),
           name: name != null ? 'GiftWraps-$name' : 'GiftWraps-parsed',
+          // NIP-59 gift wraps have a randomised created_at (up to 48 h in the
+          // past) for privacy. Setting a `since` filter on the live phase would
+          // cause the relay to silently drop newly sent gift wraps whose
+          // timestamp happens to fall before `since`, so we disable it.
+          setSinceOnLiveFilter: false,
         );
 
         final parsed = StreamWithStatus<Nip01Event>(onClose: raw.close);

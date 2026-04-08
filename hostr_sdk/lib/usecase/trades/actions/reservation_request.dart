@@ -56,7 +56,7 @@ class ReservationRequestActions {
         ? null
         : _lastOfferByOtherPubkey(reservationRequests, ourPubkey);
     final listingPrice = latestOffer != null
-        ? listing.cost(latestOffer.start, latestOffer.end)
+        ? listing.cost(start: latestOffer.start, end: latestOffer.end, quantity: latestOffer.quantity)
         : null;
     final latestOfferSentByUs = latestOffer?.pubKey == ourPubkey;
     final latestOfferAcceptsPrevious = _isAcceptedCounterpartOffer(

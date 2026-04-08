@@ -10,7 +10,8 @@ const blossomUrl = 'https://blossom.hostr.development';
 const tipsAddress = 'tips@lnbits.hostr.development';
 const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
 
-const bootstrapRelays = <String>[];
+const bootstrapRelays = <String>[
+];
 
 const bootstrapEscrowPubkeys = <String>[
   'c51b0c80ab4ec70cee8746fa0175ea439152bb8cf2d37ef84d13eaa095112f0c',
@@ -27,7 +28,7 @@ const evmConfig = EvmConfig(
       id: 'arbitrum-regtest',
       chainId: 412346,
       rpcUrl: 'https://arbitrum.hostr.development',
-      nativeDenomination: 'ETH',
+      nativeDenomination: 'BTC',
       accountAbstraction: AAConfig(
         bundlerUrl: 'https://paymaster.hostr.development',
         entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
@@ -55,3 +56,4 @@ const evmConfig = EvmConfig(
     ),
   ],
 );
+

@@ -326,7 +326,7 @@ class StreamWithStatus<T> {
   /// values.
   ///
   /// ```dart
-  /// source.scan(<String, ReservationPair>{}, (acc, item) {
+  /// source.scan(<String, ReservationGroup>{}, (acc, item) {
   ///   return {...acc, item.tradeId: item};
   /// });
   /// ```

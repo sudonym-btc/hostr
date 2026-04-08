@@ -24,6 +24,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) {
     lastSubscribeFilter = filter;
     lastSubscribeType = T;

@@ -770,7 +770,10 @@ class EntityFactory {
       seedAmenities = _buildListingAmenities(r);
     }
 
-    final mergedExtraTags = [...seedGeoTags, ...(extraTags ?? const [])];
+    final mergedExtraTags = <List<String>>[
+      ...seedGeoTags,
+      ...(extraTags ?? const []),
+    ];
 
     return Listing.create(
       pubKey: kp.publicKey,
@@ -1074,6 +1077,7 @@ class EntityFactory {
     ReservationTweakMaterial? tweakMaterial,
     Map<String, String>? signatures,
     List<List<String>> extraTags = const [],
+    List<String>? pTags,
     int? createdAt,
     int? accountIndex,
   }) async {
@@ -1087,6 +1091,11 @@ class EntityFactory {
     // ── Fast path: commit-stage with pre-computed signer ──────────────
     // No key derivation needed — the caller supplies everything.
     if (dTag != null && signerOverride != null) {
+      // Auto-compute pTags when not provided:
+      // - If the signer is NOT the seller (i.e. buyer), p-tag the seller.
+      // - If the signer IS the seller, no auto-compute — caller must supply.
+      final isSeller = signerOverride.publicKey == listing.pubKey;
+      final resolvedPTags = pTags ?? (isSeller ? <String>[] : [listing.pubKey]);
       return Reservation.create(
         pubKey: signerOverride.publicKey,
         dTag: dTag,
@@ -1095,12 +1104,13 @@ class EntityFactory {
         end: resolvedEnd,
         stage: stage,
         quantity: quantity ?? 1,
-        amount: amount ?? listing.cost(resolvedStart, resolvedEnd),
+        amount: amount ?? listing.cost(start: resolvedStart, end: resolvedEnd),
         recipient: recipient,
         tweakMaterial: tweakMaterial,
         proof: proof,
         signatures: signatures ?? const {},
         threadAnchor: stage != ReservationStage.negotiate ? dTag : null,
+        pTags: resolvedPTags,
         extraTags: extraTags,
         createdAt: createdAt ?? _defaultCreatedAt(),
       ).signAs(signerOverride, Reservation.fromNostrEvent);
@@ -1140,11 +1150,12 @@ class EntityFactory {
       end: resolvedEnd,
       stage: stage,
       quantity: quantity ?? 1,
-      amount: amount ?? listing.cost(resolvedStart, resolvedEnd),
+      amount: amount ?? listing.cost(start: resolvedStart, end: resolvedEnd),
       recipient: recipient ?? tweakedGuestKey.publicKey,
       tweakMaterial: resolvedTweakMaterial,
       proof: proof,
       threadAnchor: stage != ReservationStage.negotiate ? tradeId : null,
+      pTags: pTags ?? [listing.pubKey],
       extraTags: extraTags,
       createdAt: createdAt ?? _defaultCreatedAt(),
     ).signAs(resolvedSigner, Reservation.fromNostrEvent);

@@ -13,7 +13,7 @@ export 'message.dart';
 export 'profile_metadata.dart';
 export 'received_heartbeat.dart';
 export 'reservation.dart';
-export 'reservation_pair.dart';
+export 'reservation_group.dart';
 export 'reservation_transition.dart';
 export 'review.dart';
 export 'seen_messages.dart';

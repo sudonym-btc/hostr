@@ -5,18 +5,21 @@ import 'package:hostr/logic/cubit/availability.cubit.dart';
 import 'package:hostr/logic/cubit/date_range.cubit.dart';
 import 'package:models/main.dart';
 
-ReservationPair _reservationPair({
+ReservationGroup _reservationGroup({
   required DateTime start,
   required DateTime end,
 }) {
-  return ReservationPair(
-    sellerReservation: Reservation.create(
-      pubKey: 'host-pubkey',
-      dTag: 'test-reservation',
-      listingAnchor: 'listing-anchor',
-      start: start,
-      end: end,
-    ),
+  final hostKey = 'host-pubkey';
+  return ReservationGroup(
+    reservations: [
+      Reservation.create(
+        pubKey: hostKey,
+        dTag: 'test-reservation',
+        listingAnchor: '32121:$hostKey:test-listing',
+        start: start,
+        end: end,
+      ),
+    ],
   );
 }
 
@@ -50,8 +53,8 @@ void main() {
         );
         return AvailabilityCubit(
           dateRangeCubit: dateRangeCubit,
-          reservationPairs: [
-            _reservationPair(
+          reservationGroups: [
+            _reservationGroup(
               start: DateTime(2026, 2, 10),
               end: DateTime(2026, 2, 12),
             ),
@@ -70,8 +73,8 @@ void main() {
         );
         return AvailabilityCubit(
           dateRangeCubit: dateRangeCubit,
-          reservationPairs: [
-            _reservationPair(
+          reservationGroups: [
+            _reservationGroup(
               start: DateTime(2026, 2, 2),
               end: DateTime(2026, 2, 4),
             ),

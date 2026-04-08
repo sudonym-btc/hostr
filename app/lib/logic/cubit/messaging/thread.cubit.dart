@@ -23,15 +23,20 @@ class ThreadCubit extends Cubit<ThreadCubitState> {
           threadState: thread.state.value,
         ),
       ) {
-    // Build counterparty cubits from participantCubits but ignore our own key
-    for (final pubkey in thread.state.value.participantPubkeys) {
+    for (final pubkey in {
+      ...thread.state.value.participantPubkeys,
+      ...thread.addedParticipants,
+    }) {
       addParticipant(pubkey);
     }
     _emitParticipantStates();
 
     _subscriptions.add(
       thread.state.listen((threadState) {
-        for (final pubkey in threadState.participantPubkeys) {
+        for (final pubkey in {
+          ...threadState.participantPubkeys,
+          ...thread.addedParticipants,
+        }) {
           addParticipant(pubkey);
         }
         emit(state.copyWith(threadState: threadState));

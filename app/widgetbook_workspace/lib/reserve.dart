@@ -13,8 +13,8 @@ Widget reserve(BuildContext context) {
     alignment: Alignment.center,
     child: Reserve(
       listing: MOCK_LISTINGS[0],
-      reservationPairItemsStream:
-          Stream<List<Validation<ReservationPair>>>.value(const []),
+      reservationGroupItemsStream:
+          Stream<List<Validation<ReservationGroup>>>.value(const []),
     ),
   );
 }

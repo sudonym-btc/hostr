@@ -34,8 +34,8 @@ class TradeHeaderView extends StatelessWidget {
 
   Listing get listing => tradeState.listing;
   ProfileMetadata? get listingProfile => tradeState.hostProfile;
-  DateTime get start => tradeState.start;
-  DateTime get end => tradeState.end;
+  DateTime? get start => tradeState.start;
+  DateTime? get end => tradeState.end;
   DenominatedAmount? get amount => tradeState.amount;
   TradeAvailability get availability => tradeState.availability;
   String? get availabilityReason => tradeState.availabilityReason;
@@ -44,7 +44,7 @@ class TradeHeaderView extends StatelessWidget {
   String get hostPubKey => tradeState.hostPubKey;
   StreamWithStatus<PaymentEvent> get paymentEventsStream =>
       tradeState.streams.paymentEvents;
-  StreamWithStatus<Validation<ReservationPair>>? get reservationStream =>
+  StreamWithStatus<Validation<ReservationGroup>>? get reservationStream =>
       tradeState.streams.reservationStream;
   StreamWithStatus<ReservationTransition>? get transitionsStream =>
       tradeState.streams.transitionsStream;
@@ -56,8 +56,8 @@ class TradeHeaderView extends StatelessWidget {
       AutoRouter.of(context).push(
         ListingRoute(
           a: listing.naddr()!,
-          dateRangeStart: start.toUtc().toIso8601String(),
-          dateRangeEnd: end.toUtc().toIso8601String(),
+          dateRangeStart: start?.toUtc().toIso8601String(),
+          dateRangeEnd: end?.toUtc().toIso8601String(),
         ),
       );
     }
@@ -165,16 +165,24 @@ class TradeHeaderView extends StatelessWidget {
                   ),
                 ),
                 // if (!compact) Gap.vertical.xs(),
-                Text(
-                  formatDateRangeShort(
-                    DateTimeRange(start: start, end: end),
-                    Localizations.localeOf(context),
-                  ),
-                  style: compact
-                      ? theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )
-                      : theme.textTheme.bodyMedium,
+                Builder(
+                  builder: (context) {
+                    final s = start;
+                    final e = end;
+                    return Text(
+                      s != null && e != null
+                          ? formatDateRangeShort(
+                              DateTimeRange(start: s, end: e),
+                              Localizations.localeOf(context),
+                            )
+                          : '',
+                      style: compact
+                          ? theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            )
+                          : theme.textTheme.bodyMedium,
+                    );
+                  },
                 ),
                 if (statusBanners.isNotEmpty)
                   SizedBox(height: compact ? kSpace1 : kSpace2),

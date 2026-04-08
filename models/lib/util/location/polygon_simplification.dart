@@ -196,6 +196,17 @@ class PolygonSimplification {
     return _closeRing(points);
   }
 
+  /// Douglas-Peucker adapted for **closed** polygon rings.
+  ///
+  /// The standard D-P algorithm treats its input as an open polyline between
+  /// two fixed endpoints.  When applied naively to a closed ring (strip the
+  /// closure, then run D-P from index 0 → n-1) the "reference line" is the
+  /// chord from the first to the last open vertex — which is **not** an actual
+  /// polygon edge.  Points near the closing edge are measured against this
+  /// phantom chord and can be incorrectly removed, distorting the polygon.
+  ///
+  /// Fix: find the vertex farthest from vertex 0, split the ring into two
+  /// arcs at that point, and apply standard D-P to each arc independently.
   List<GeoCoord> _simplifyClosedRingDouglasPeucker(
     List<GeoCoord> ring, {
     required double toleranceKm,
@@ -206,10 +217,49 @@ class PolygonSimplification {
     }
 
     final projected = _projectOpenRing(open);
-    final keep = List<bool>.filled(projected.length, false);
+    final n = projected.length;
+
+    // Find the point farthest from point[0] to split the ring into two arcs.
+    int splitIndex = 0;
+    double maxDistSq = -1;
+    for (var i = 1; i < n; i++) {
+      final dx = projected[i].x - projected[0].x;
+      final dy = projected[i].y - projected[0].y;
+      final distSq = dx * dx + dy * dy;
+      if (distSq > maxDistSq) {
+        maxDistSq = distSq;
+        splitIndex = i;
+      }
+    }
+
+    final keep = List<bool>.filled(n, false);
     keep[0] = true;
-    keep[projected.length - 1] = true;
-    _markDouglasPeucker(projected, 0, projected.length - 1, toleranceKm, keep);
+    keep[splitIndex] = true;
+
+    // Arc 1: 0 → splitIndex (contiguous in the projected array).
+    if (splitIndex > 1) {
+      _markDouglasPeucker(projected, 0, splitIndex, toleranceKm, keep);
+    }
+
+    // Arc 2: splitIndex → … → n-1 → 0 (wraps around the ring).
+    // Build a contiguous sub-array so _markDouglasPeucker can be reused.
+    final arc2Len = n - splitIndex + 1;
+    if (arc2Len > 2) {
+      final arc2 = List<_ProjectedPoint>.generate(
+        arc2Len,
+        (i) => projected[(splitIndex + i) % n],
+      );
+      final arc2Keep = List<bool>.filled(arc2Len, false);
+      arc2Keep[0] = true;
+      arc2Keep[arc2Len - 1] = true;
+      _markDouglasPeucker(arc2, 0, arc2Len - 1, toleranceKm, arc2Keep);
+
+      for (var i = 1; i < arc2Len - 1; i++) {
+        if (arc2Keep[i]) {
+          keep[(splitIndex + i) % n] = true;
+        }
+      }
+    }
 
     final simplified = <GeoCoord>[];
     for (var i = 0; i < open.length; i++) {

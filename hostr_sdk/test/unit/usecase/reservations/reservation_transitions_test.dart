@@ -44,6 +44,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) {
     return _source as StreamWithStatus<T>;
   }

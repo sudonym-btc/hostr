@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
@@ -8,7 +6,6 @@ import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
 class InboxItemView extends StatelessWidget {
   final List<ProfileMetadata> counterparties;
@@ -19,6 +16,7 @@ class InboxItemView extends StatelessWidget {
   final bool read;
   final bool received;
   final bool selected;
+  final bool isLoading;
   final VoidCallback? onTap;
 
   const InboxItemView({
@@ -31,6 +29,7 @@ class InboxItemView extends StatelessWidget {
     this.read = false,
     this.received = false,
     this.selected = false,
+    this.isLoading = false,
     this.onTap,
   });
 
@@ -43,19 +42,31 @@ class InboxItemView extends StatelessWidget {
         horizontal: kDefaultPadding.toDouble(),
         vertical: 0,
       ),
-      leading: ProfileAvatars.md(profiles: counterparties),
-      title: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      leading: isLoading
+          ? ShimmerPlaceholder(
+              loading: true,
+              borderRadius: BorderRadius.circular(20),
+              child: const SizedBox(width: 40, height: 40),
+            )
+          : ProfileAvatars.md(profiles: counterparties),
+      title: isLoading
+          ? ShimmerPlaceholder(
+              loading: true,
+              borderRadius: BorderRadius.circular(4),
+              child: const SizedBox(height: 14, width: 120),
+            )
+          : Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          _RelativeTimeText(dateTime: lastDateTime),
+          RelativeTimeText(dateTime: lastDateTime),
           if (sentByUs && received)
             Icon(
               Icons.done,
@@ -117,6 +128,7 @@ class InboxItem extends StatelessWidget {
             subtitle: subtitle,
             lastDateTime: lastDateTime,
             selected: selected,
+            isLoading: counterparties.isEmpty,
             sentByUs:
                 lastMessage?.pubKey ==
                 getIt<Hostr>().auth.getActiveKey().publicKey,
@@ -127,39 +139,5 @@ class InboxItem extends StatelessWidget {
         },
       ),
     );
-  }
-}
-
-class _RelativeTimeText extends StatefulWidget {
-  final DateTime dateTime;
-
-  const _RelativeTimeText({required this.dateTime});
-
-  @override
-  State<_RelativeTimeText> createState() => _RelativeTimeTextState();
-}
-
-class _RelativeTimeTextState extends State<_RelativeTimeText> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(timeago.format(widget.dateTime, locale: 'en_short'));
   }
 }

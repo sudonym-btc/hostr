@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/user_config/hostr_user_config.dart';

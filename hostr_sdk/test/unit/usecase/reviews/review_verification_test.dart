@@ -38,6 +38,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     required Filter filter,
     List<String>? relays,
     String? name,
+    bool setSinceOnLiveFilter = true,
   }) {
     final source = StreamWithStatus<T>();
     _subscriptions.add(source);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -442,11 +443,7 @@ class VerificationTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: theme.textTheme.bodyMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(title, overflow: TextOverflow.ellipsis),
               if (subtitle != null)
                 Text(
                   subtitle!,
@@ -456,7 +453,11 @@ class VerificationTile extends StatelessWidget {
                 ),
               if (chipRow != null) ...[
                 Gap.vertical.xs(),
-                Wrap(spacing: 4, runSpacing: 4, children: chipRow!),
+                Wrap(
+                  spacing: AppSpacing.of(context).xs,
+                  runSpacing: AppSpacing.of(context).xs,
+                  children: chipRow!,
+                ),
               ],
             ],
           ),

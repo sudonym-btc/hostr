@@ -13,7 +13,19 @@ import '../../../modal_bottom_sheet.dart';
 
 class SwapInFlowWidget extends StatefulWidget {
   final SwapInOperation cubit;
-  const SwapInFlowWidget({super.key, required this.cubit});
+
+  /// Optional overrides for the flow titles.
+  final String? progressTitle;
+  final String? successTitle;
+  final String? errorTitle;
+
+  const SwapInFlowWidget({
+    super.key,
+    required this.cubit,
+    this.progressTitle,
+    this.successTitle,
+    this.errorTitle,
+  });
 
   @override
   State<SwapInFlowWidget> createState() => _SwapInFlowWidgetState();
@@ -44,6 +56,9 @@ class _SwapInFlowWidgetState extends State<SwapInFlowWidget> {
           return SwapInViewWidget(
             state,
             onConfirm: () async => widget.cubit.execute(),
+            progressTitle: widget.progressTitle,
+            successTitle: widget.successTitle,
+            errorTitle: widget.errorTitle,
           );
         },
       ),
@@ -54,7 +69,20 @@ class _SwapInFlowWidgetState extends State<SwapInFlowWidget> {
 class SwapInViewWidget extends StatelessWidget {
   final SwapInState state;
   final Future<void> Function()? onConfirm;
-  const SwapInViewWidget(this.state, {super.key, this.onConfirm});
+
+  /// Optional overrides for the flow titles.
+  final String? progressTitle;
+  final String? successTitle;
+  final String? errorTitle;
+
+  const SwapInViewWidget(
+    this.state, {
+    super.key,
+    this.onConfirm,
+    this.progressTitle,
+    this.successTitle,
+    this.errorTitle,
+  });
 
   @override
   build(BuildContext context) {
@@ -64,9 +92,15 @@ class SwapInViewWidget extends StatelessWidget {
       case SwapInPaymentProgress():
         return SwapInPaymentProgressWidget(state as SwapInPaymentProgress);
       case SwapInCompleted():
-        return SwapInSuccessWidget(state as SwapInCompleted);
+        return SwapInSuccessWidget(
+          state as SwapInCompleted,
+          title: successTitle,
+        );
       case SwapInFailed():
-        return SwapInFailureWidget((state as SwapInFailed).error.toString());
+        return SwapInFailureWidget(
+          (state as SwapInFailed).error.toString(),
+          title: errorTitle,
+        );
       case SwapInInvoicePaid():
       case SwapInAwaitingOnChain():
       case SwapInFunded():
@@ -75,7 +109,7 @@ class SwapInViewWidget extends StatelessWidget {
       case SwapInRequestCreated():
       case SwapInPaymentDispatching():
       case SwapInClaimRelaying():
-        return SwapInProgressWidget(state);
+        return SwapInProgressWidget(state, title: progressTitle);
     }
   }
 }
@@ -201,7 +235,8 @@ class SwapInPaymentProgressWidget extends StatelessWidget {
 
 class SwapInProgressWidget extends StatelessWidget {
   final SwapInState state;
-  const SwapInProgressWidget(this.state, {super.key});
+  final String? title;
+  const SwapInProgressWidget(this.state, {super.key, this.title});
 
   String _subtitle(AppLocalizations l10n) {
     switch (state) {
@@ -224,7 +259,7 @@ class SwapInProgressWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
-      title: AppLocalizations.of(context)!.swapProgressTitle,
+      title: title ?? AppLocalizations.of(context)!.swapProgressTitle,
       subtitle: _subtitle(AppLocalizations.of(context)!),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -240,13 +275,14 @@ class SwapInProgressWidget extends StatelessWidget {
 
 class SwapInSuccessWidget extends StatelessWidget {
   final SwapInCompleted state;
-  const SwapInSuccessWidget(this.state, {super.key});
+  final String? title;
+  const SwapInSuccessWidget(this.state, {super.key, this.title});
 
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: AppLocalizations.of(context)!.swapCompleteTitle,
+      title: title ?? AppLocalizations.of(context)!.swapCompleteTitle,
       subtitle: AppLocalizations.of(context)!.swapCompleteSubtitle,
       content: Container(),
     );
@@ -255,13 +291,14 @@ class SwapInSuccessWidget extends StatelessWidget {
 
 class SwapInFailureWidget extends StatelessWidget {
   final String error;
-  const SwapInFailureWidget(this.error, {super.key});
+  final String? title;
+  const SwapInFailureWidget(this.error, {super.key, this.title});
 
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.error,
-      title: AppLocalizations.of(context)!.swapFailedTitle,
+      title: title ?? AppLocalizations.of(context)!.swapFailedTitle,
       content: Text(error),
     );
   }

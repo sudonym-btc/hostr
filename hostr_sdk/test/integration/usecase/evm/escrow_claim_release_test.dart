@@ -201,7 +201,7 @@ Future<void> _fundTradeWithoutSwap({
       token: EthereumAddress.fromHex(zeroAddress),
       amount: amount.value,
       unlockAt: BigInt.from(
-        trade.negotiateReservation.end.millisecondsSinceEpoch ~/ 1000,
+        trade.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000,
       ),
       escrowFee: feeValue,
     ),

@@ -1,6 +1,6 @@
-/// Tests for the [ReservationPairs] usecase — specifically the static
-/// [ReservationPairs.verifyPair] function and the
-/// [Reservations.toReservationPairs] grouping.
+/// Tests for the [ReservationGroups] usecase — specifically the static
+/// [ReservationGroups.verifyGroup] function and the
+/// [Reservations.toReservationGroups] grouping.
 ///
 /// Covers:
 /// - Seller-confirmed pair → Valid
@@ -18,7 +18,7 @@ library;
 import 'dart:convert';
 
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/reservation_pairs/reservation_pairs.dart';
+import 'package:hostr_sdk/usecase/reservation_groups/reservation_groups.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -76,6 +76,7 @@ Future<Reservation> _sellerAck({
   stage: ReservationStage.commit,
   start: negotiate.start,
   end: negotiate.end,
+  pTags: [negotiate.pubKey],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -83,19 +84,27 @@ Future<Reservation> _cancel({
   required Reservation source,
   required Listing listing,
   required KeyPair signer,
-}) => _f.reservation(
-  listing: listing,
-  dTag: source.getDtag()!,
-  signerOverride: signer,
-  stage: ReservationStage.cancel,
-  start: source.start,
-  end: source.end,
-  quantity: source.quantity,
-  amount: source.amount,
-  recipient: source.recipient,
-  tweakMaterial: source.tweakMaterial,
-  createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
-);
+}) {
+  // Derive the counterparty from the source event's participant set.
+  // The counterparty is whichever pubkey in {source.pubKey, ...source.pTags}
+  // is NOT the signer.
+  final candidates = {source.pubKey, ...source.parsedTags.getTags('p')}
+    ..remove(signer.publicKey);
+  return _f.reservation(
+    listing: listing,
+    dTag: source.getDtag()!,
+    signerOverride: signer,
+    stage: ReservationStage.cancel,
+    start: source.start,
+    end: source.end,
+    quantity: source.quantity,
+    amount: source.amount,
+    recipient: source.recipient,
+    tweakMaterial: source.tweakMaterial,
+    pTags: candidates.toList(),
+    createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Extended helpers (extracted from integration test for pure-logic groups)
@@ -183,6 +192,7 @@ Future<Reservation> _buildSellerAck({
   stage: ReservationStage.commit,
   start: negotiate.start,
   end: negotiate.end,
+  pTags: [negotiate.pubKey],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -203,6 +213,7 @@ Future<Reservation> _buildSelfSignedCommit({
   amount: negotiate.amount,
   tweakMaterial: negotiate.tweakMaterial,
   proof: proof,
+  pTags: [listing.pubKey],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -211,19 +222,24 @@ Future<Reservation> _buildCancel({
   required Reservation source,
   required Listing listing,
   required KeyPair signer,
-}) => _f.reservation(
-  listing: listing,
-  dTag: source.getDtag()!,
-  signerOverride: signer,
-  stage: ReservationStage.cancel,
-  start: source.start,
-  end: source.end,
-  quantity: source.quantity,
-  amount: source.amount,
-  recipient: source.recipient,
-  tweakMaterial: source.tweakMaterial,
-  createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
-);
+}) {
+  final candidates = {source.pubKey, ...source.parsedTags.getTags('p')}
+    ..remove(signer.publicKey);
+  return _f.reservation(
+    listing: listing,
+    dTag: source.getDtag()!,
+    signerOverride: signer,
+    stage: ReservationStage.cancel,
+    start: source.start,
+    end: source.end,
+    quantity: source.quantity,
+    amount: source.amount,
+    recipient: source.recipient,
+    tweakMaterial: source.tweakMaterial,
+    pTags: candidates.toList(),
+    createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
+  );
+}
 
 /// Builds a synthetic NIP-57 zap receipt event.
 Nip01EventModel _buildZapReceiptEvent({
@@ -294,7 +310,7 @@ PaymentProof _buildZapPaymentProof({
 void main() async {
   final listing = _listing();
 
-  group('toReservationPairs', () {
+  group('toReservationGroups', () {
     test('groups buyer and seller by trade id (d-tag)', () async {
       final buyer = MockKeys.guest;
       final nego = await _negotiate(listing: listing, buyer: buyer);
@@ -304,7 +320,7 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pairs = Reservations.toReservationPairs(reservations: [nego, ack]);
+      final pairs = Reservations.toReservationGroups(reservations: [nego, ack]);
 
       expect(pairs.length, 1);
       final pair = pairs.values.first;
@@ -334,7 +350,7 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pairs = Reservations.toReservationPairs(
+      final pairs = Reservations.toReservationGroups(
         reservations: [nego1, nego2, ack1],
       );
 
@@ -345,7 +361,7 @@ void main() async {
       final buyer = MockKeys.guest;
       final nego = await _negotiate(listing: listing, buyer: buyer);
 
-      final pairs = Reservations.toReservationPairs(reservations: [nego]);
+      final pairs = Reservations.toReservationGroups(reservations: [nego]);
 
       expect(pairs.length, 1);
       final pair = pairs.values.first;
@@ -354,13 +370,13 @@ void main() async {
     });
 
     test('empty list produces empty map', () {
-      final pairs = Reservations.toReservationPairs(reservations: []);
+      final pairs = Reservations.toReservationGroups(reservations: []);
 
       expect(pairs, isEmpty);
     });
   });
 
-  group('verifyPair', () {
+  group('verifyGroup', () {
     test('seller-confirmed pair → Valid', () async {
       final buyer = MockKeys.guest;
       final nego = await _negotiate(listing: listing, buyer: buyer);
@@ -370,13 +386,10 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pair = ReservationPair(
-        sellerReservation: ack,
-        buyerReservation: nego,
-      );
+      final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
     });
 
     test('seller-only pair (blocked date) → Valid', () {
@@ -389,10 +402,10 @@ void main() async {
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
-      final pair = ReservationPair(sellerReservation: ack);
+      final pair = ReservationGroup(reservations: [ack]);
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
     });
 
     test('seller-only pair derives listing anchor and host pubkey', () {
@@ -405,7 +418,7 @@ void main() async {
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
-      final pair = ReservationPair(sellerReservation: ack);
+      final pair = ReservationGroup(reservations: [ack]);
 
       expect(pair.listingAnchor, listing.anchor);
       expect(pair.hostPubkey, listing.pubKey);
@@ -415,10 +428,10 @@ void main() async {
       final buyer = MockKeys.guest;
       final nego = await _negotiate(listing: listing, buyer: buyer);
 
-      final pair = ReservationPair(buyerReservation: nego);
+      final pair = ReservationGroup(reservations: [nego]);
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
     });
 
     test('cancelled by seller → Valid with sellerCancelled flag', () async {
@@ -435,13 +448,10 @@ void main() async {
         signer: MockKeys.hoster,
       );
 
-      final pair = ReservationPair(
-        sellerReservation: cancelled,
-        buyerReservation: nego,
-      );
+      final pair = ReservationGroup(reservations: [cancelled, nego]);
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
 
@@ -454,10 +464,10 @@ void main() async {
         signer: buyer,
       );
 
-      final pair = ReservationPair(buyerReservation: cancelled);
+      final pair = ReservationGroup(reservations: [cancelled]);
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
@@ -475,22 +485,21 @@ void main() async {
         signer: buyer,
       );
 
-      final pair = ReservationPair(
-        sellerReservation: sellerCancelled,
-        buyerReservation: buyerCancelled,
+      final pair = ReservationGroup(
+        reservations: [sellerCancelled, buyerCancelled],
       );
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
     test('empty pair (both null) → Invalid', () {
-      final pair = ReservationPair();
+      final pair = ReservationGroup();
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
 
@@ -522,17 +531,17 @@ void main() async {
         signer: buyer2,
       );
 
-      final pairs = Reservations.toReservationPairs(
+      final pairs = Reservations.toReservationGroups(
         reservations: [nego1, ack1, nego2, cancelled2],
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair))
+          .map((pair) => ReservationGroups.verifyGroup(pair))
           .toList();
 
-      final valid = results.whereType<Valid<ReservationPair>>().length;
+      final valid = results.whereType<Valid<ReservationGroup>>().length;
       final cancelledValid = results
-          .whereType<Valid<ReservationPair>>()
+          .whereType<Valid<ReservationGroup>>()
           .where((v) => v.event.cancelled)
           .length;
 
@@ -572,13 +581,13 @@ void main() async {
         signer: buyer2,
       );
 
-      final pairs = Reservations.toReservationPairs(
+      final pairs = Reservations.toReservationGroups(
         reservations: [nego1, ack1, cancelled2],
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair))
-          .whereType<Valid<ReservationPair>>();
+          .map((pair) => ReservationGroups.verifyGroup(pair))
+          .whereType<Valid<ReservationGroup>>();
 
       // All verified pairs are Valid; callers filter out cancelled ones.
       final activeCount = results.where((v) => !v.event.cancelled).length;
@@ -597,21 +606,18 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pair = ReservationPair(
-        sellerReservation: ack,
-        buyerReservation: nego,
-      );
+      final pair = ReservationGroup(reservations: [ack, nego]);
 
       // Default: seller confirmation makes it valid.
-      final defaultResult = ReservationPairs.verifyPair(pair);
-      expect(defaultResult, isA<Valid<ReservationPair>>());
+      final defaultResult = ReservationGroups.verifyGroup(pair);
+      expect(defaultResult, isA<Valid<ReservationGroup>>());
 
       // Forced: buyer negotiate has no proof → Invalid.
-      final forcedResult = ReservationPairs.verifyPair(
+      final forcedResult = ReservationGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(forcedResult, isA<Invalid<ReservationPair>>());
+      expect(forcedResult, isA<Invalid<ReservationGroup>>());
     });
 
     test('forceValidateSelfSigned=true: seller-only pair (blocked date, '
@@ -625,13 +631,13 @@ void main() async {
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
 
-      final pair = ReservationPair(sellerReservation: ack);
+      final pair = ReservationGroup(reservations: [ack]);
 
-      final result = ReservationPairs.verifyPair(
+      final result = ReservationGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(result, isA<Valid<ReservationPair>>());
+      expect(result, isA<Valid<ReservationGroup>>());
     });
 
     test('forceValidateSelfSigned=false: seller-confirmed pair with '
@@ -644,16 +650,13 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pair = ReservationPair(
-        sellerReservation: ack,
-        buyerReservation: nego,
-      );
+      final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = ReservationPairs.verifyPair(
+      final result = ReservationGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: false,
       );
-      expect(result, isA<Valid<ReservationPair>>());
+      expect(result, isA<Valid<ReservationGroup>>());
     });
 
     test('forceValidateSelfSigned=true: cancelled pair still Valid', () async {
@@ -665,31 +668,31 @@ void main() async {
         signer: buyer,
       );
 
-      final pair = ReservationPair(buyerReservation: cancelled);
+      final pair = ReservationGroup(reservations: [cancelled]);
 
-      final result = ReservationPairs.verifyPair(
+      final result = ReservationGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(result, isA<Valid<ReservationPair>>());
+      expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
 
     test('forceValidateSelfSigned=true: empty pair (both null) → Invalid', () {
-      final pair = ReservationPair();
+      final pair = ReservationGroup();
 
-      final result = ReservationPairs.verifyPair(
+      final result = ReservationGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
-      expect(result, isA<Invalid<ReservationPair>>());
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
   });
 
   // ─── Group 4: Zap proof validation (extracted from integration test) ───
 
-  group('verifyPair — zap proof validation', () {
+  group('verifyGroup — zap proof validation', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
     final lnurl = 'host@hostr.development';
@@ -706,7 +709,10 @@ void main() async {
       'valid zap proof (sufficient amount, correct recipient) → Valid',
       () async {
         final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-        final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+        final expectedCost = listing
+            .cost(start: nego.start, end: nego.end)
+            .value
+            .toInt();
 
         final proof = _buildZapPaymentProof(
           listing: listing,
@@ -723,15 +729,18 @@ void main() async {
           proof: proof,
         );
 
-        final pair = ReservationPair(buyerReservation: commit);
-        final result = ReservationPairs.verifyPair(pair);
-        expect(result, isA<Valid<ReservationPair>>());
+        final pair = ReservationGroup(reservations: [commit]);
+        final result = ReservationGroups.verifyGroup(pair);
+        expect(result, isA<Valid<ReservationGroup>>());
       },
     );
 
     test('zap proof with overpayment → Valid', () async {
       final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+      final expectedCost = listing
+          .cost(start: nego.start, end: nego.end)
+          .value
+          .toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -748,9 +757,9 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
     });
 
     test('zap proof with insufficient amount → Invalid', () async {
@@ -771,15 +780,18 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('Amount insufficient'));
     });
 
     test('zap proof with wrong recipient → Invalid', () async {
       final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+      final expectedCost = listing
+          .cost(start: nego.start, end: nego.end)
+          .value
+          .toInt();
 
       final receipt = _buildZapReceiptEvent(
         amountSats: expectedCost,
@@ -803,15 +815,18 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('recipient does not match'));
     });
 
     test('zap proof with wrong hoster profile → Invalid', () async {
       final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+      final expectedCost = listing
+          .cost(start: nego.start, end: nego.end)
+          .value
+          .toInt();
 
       final wrongHosterProfile = _buildProfileEvent(key: buyer, lud16: lnurl);
 
@@ -830,15 +845,18 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('profile does not match'));
     });
 
     test('zap proof with wrong lnurl → Invalid', () async {
       final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+      final expectedCost = listing
+          .cost(start: nego.start, end: nego.end)
+          .value
+          .toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -855,9 +873,9 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('LNURL does not match'));
     });
 
@@ -878,9 +896,9 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Invalid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Invalid<ReservationGroup>>());
       expect(
         (result as Invalid).reason,
         contains('Unsupported or missing payment proof type'),
@@ -890,7 +908,7 @@ void main() async {
 
   // ─── Group 5: allowSelfSignedReservation flag ──────────────────────────
 
-  group('verifyPair — allowSelfSignedReservation flag', () {
+  group('verifyGroup — allowSelfSignedReservation flag', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
 
@@ -906,7 +924,10 @@ void main() async {
           lud16: 'host@hostr.development',
         );
         final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-        final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+        final expectedCost = listing
+            .cost(start: nego.start, end: nego.end)
+            .value
+            .toInt();
 
         final proof = _buildZapPaymentProof(
           listing: listing,
@@ -923,9 +944,9 @@ void main() async {
           proof: proof,
         );
 
-        final pair = ReservationPair(buyerReservation: commit);
-        final result = ReservationPairs.verifyPair(pair);
-        expect(result, isA<Valid<ReservationPair>>());
+        final pair = ReservationGroup(reservations: [commit]);
+        final result = ReservationGroups.verifyGroup(pair);
+        expect(result, isA<Valid<ReservationGroup>>());
       },
     );
 
@@ -938,9 +959,9 @@ void main() async {
         );
         final nego = await _buildNegotiate(listing: listing, buyer: buyer);
 
-        final pair = ReservationPair(buyerReservation: nego);
-        final result = ReservationPairs.verifyPair(pair);
-        expect(result, isA<Invalid<ReservationPair>>());
+        final pair = ReservationGroup(reservations: [nego]);
+        final result = ReservationGroups.verifyGroup(pair);
+        expect(result, isA<Invalid<ReservationGroup>>());
       },
     );
 
@@ -958,7 +979,10 @@ void main() async {
         lud16: 'host@hostr.development',
       );
       final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+      final expectedCost = listing
+          .cost(start: nego.start, end: nego.end)
+          .value
+          .toInt();
 
       final proof = _buildZapPaymentProof(
         listing: listing,
@@ -975,15 +999,15 @@ void main() async {
         proof: proof,
       );
 
-      final pair = ReservationPair(buyerReservation: commit);
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final pair = ReservationGroup(reservations: [commit]);
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
     });
   });
 
   // ─── Group 6: Barter validation ────────────────────────────────────────
 
-  group('verifyPair — barter scenarios', () {
+  group('verifyGroup — barter scenarios', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
 
@@ -997,9 +1021,9 @@ void main() async {
           customAmount: BigInt.from(50000),
         );
 
-        final pair = ReservationPair(buyerReservation: nego);
-        final result = ReservationPairs.verifyPair(pair);
-        expect(result, isA<Invalid<ReservationPair>>());
+        final pair = ReservationGroup(reservations: [nego]);
+        final result = ReservationGroups.verifyGroup(pair);
+        expect(result, isA<Invalid<ReservationGroup>>());
       },
     );
 
@@ -1017,13 +1041,10 @@ void main() async {
         seller: host,
       );
 
-      final pair = ReservationPair(
-        sellerReservation: ack,
-        buyerReservation: nego,
-      );
+      final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = ReservationPairs.verifyPair(pair);
-      expect(result, isA<Valid<ReservationPair>>());
+      final result = ReservationGroups.verifyGroup(pair);
+      expect(result, isA<Valid<ReservationGroup>>());
     });
 
     test(
@@ -1040,7 +1061,10 @@ void main() async {
         );
 
         final nego = await _buildNegotiate(listing: listing, buyer: buyer);
-        final expectedCost = listing.cost(nego.start, nego.end).value.toInt();
+        final expectedCost = listing
+            .cost(start: nego.start, end: nego.end)
+            .value
+            .toInt();
 
         final proof = _buildZapPaymentProof(
           listing: listing,
@@ -1057,16 +1081,16 @@ void main() async {
           proof: proof,
         );
 
-        final pair = ReservationPair(buyerReservation: commit);
-        final result = ReservationPairs.verifyPair(pair);
-        expect(result, isA<Valid<ReservationPair>>());
+        final pair = ReservationGroup(reservations: [commit]);
+        final result = ReservationGroups.verifyGroup(pair);
+        expect(result, isA<Valid<ReservationGroup>>());
       },
     );
   });
 
-  // ─── Group 7: Pipeline (toReservationPairs → verifyPair) ───────────────
+  // ─── Group 7: Pipeline (toReservationGroups → verifyGroup) ───────────────
 
-  group('toReservationPairs + verifyPair pipeline (with proofs)', () {
+  group('toReservationGroups + verifyGroup pipeline (with proofs)', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
     final buyer2 = MockKeys.reviewer;
@@ -1111,16 +1135,18 @@ void main() async {
         salt: 'pair-3',
       );
 
-      final pairs = Reservations.toReservationPairs(
+      final pairs = Reservations.toReservationGroups(
         reservations: [nego1, ack1, nego2, cancelled2, nego3],
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair))
+          .map((pair) => ReservationGroups.verifyGroup(pair))
           .toList();
 
-      final validCount = results.whereType<Valid<ReservationPair>>().length;
-      final invalidCount = results.whereType<Invalid<ReservationPair>>().length;
+      final validCount = results.whereType<Valid<ReservationGroup>>().length;
+      final invalidCount = results
+          .whereType<Invalid<ReservationGroup>>()
+          .length;
 
       expect(validCount, 2, reason: 'Seller-confirmed + cancelled are valid');
       expect(invalidCount, 1, reason: 'Only no-proof pair is invalid');
@@ -1145,7 +1171,10 @@ void main() async {
           buyer: buyer2,
           salt: 'mixed-2',
         );
-        final expectedCost = listing.cost(nego2.start, nego2.end).value.toInt();
+        final expectedCost = listing
+            .cost(start: nego2.start, end: nego2.end)
+            .value
+            .toInt();
         final proof = _buildZapPaymentProof(
           listing: listing,
           hosterProfile: hosterProfile,
@@ -1166,15 +1195,15 @@ void main() async {
           salt: 'mixed-3',
         );
 
-        final pairs = Reservations.toReservationPairs(
+        final pairs = Reservations.toReservationGroups(
           reservations: [nego1, ack1, commit2, nego3],
         );
 
         final results = pairs.values
-            .map((pair) => ReservationPairs.verifyPair(pair))
+            .map((pair) => ReservationGroups.verifyGroup(pair))
             .toList();
 
-        final validCount = results.whereType<Valid<ReservationPair>>().length;
+        final validCount = results.whereType<Valid<ReservationGroup>>().length;
 
         expect(validCount, 2);
       },
@@ -1219,7 +1248,7 @@ void main() async {
         signer: host,
       );
 
-      final pairs = Reservations.toReservationPairs(
+      final pairs = Reservations.toReservationGroups(
         reservations: [
           nego1,
           ack1,
@@ -1231,11 +1260,11 @@ void main() async {
       );
 
       final results = pairs.values
-          .map((pair) => ReservationPairs.verifyPair(pair))
+          .map((pair) => ReservationGroups.verifyGroup(pair))
           .toList();
 
       final activeCount = results
-          .whereType<Valid<ReservationPair>>()
+          .whereType<Valid<ReservationGroup>>()
           .where((v) => !v.event.cancelled)
           .length;
 

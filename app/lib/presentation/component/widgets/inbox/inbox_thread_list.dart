@@ -21,12 +21,15 @@ class InboxThreadList extends StatelessWidget {
     return StreamBuilder(
       stream: getIt<Hostr>().messaging.threads.messages$.itemsStream,
       builder: (context, snapshot) {
-        final threads = getIt<Hostr>().messaging.threads.threads.values.toList()
-          ..sort(
-            (a, b) => b.state.value.getLastDateTime.compareTo(
-              a.state.value.getLastDateTime,
-            ),
-          );
+        final threads =
+            getIt<Hostr>().messaging.threads.threads.values
+                .where((thread) => thread.state.value.messages.isNotEmpty)
+                .toList()
+              ..sort(
+                (a, b) => b.state.value.getLastDateTime.compareTo(
+                  a.state.value.getLastDateTime,
+                ),
+              );
         if (threads.isEmpty) {
           return EmtyResultsWidget(
             leading: Icon(
@@ -51,7 +54,7 @@ class InboxThreadList extends StatelessWidget {
             )
             .toList();
 
-        return ListView(children: items);
+        return ListView(padding: EdgeInsets.zero, children: items);
       },
     );
   }

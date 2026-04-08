@@ -4,7 +4,7 @@
 /// - Creating a negotiate reservation with salt & commitment hash
 /// - Self-signed commit with escrow proof (allowSelfSignedReservation=true)
 /// - Seller-ack flow (allowSelfSignedReservation=false)
-/// - Buyer / seller cancel → ReservationPairStatus accuracy
+/// - Buyer / seller cancel → ReservationGroupStatus accuracy
 /// - allowBarter × allowSelfSignedReservation matrix
 /// - Commit-terms validation and hash integrity
 /// - ReservationTransition validation across the lifecycle
@@ -91,6 +91,7 @@ Future<Reservation> _commitReservation({
   amount: negotiate.amount,
   proof: proof,
   signatures: signatures,
+  pTags: [listing.pubKey],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -106,6 +107,7 @@ Future<Reservation> _sellerAckReservation({
   stage: ReservationStage.commit,
   start: negotiate.start,
   end: negotiate.end,
+  pTags: [negotiate.pubKey],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -114,19 +116,24 @@ Future<Reservation> _cancelReservation({
   required Reservation source,
   required Listing listing,
   required KeyPair signer,
-}) => _f.reservation(
-  listing: listing,
-  dTag: source.getDtag()!,
-  signerOverride: signer,
-  stage: ReservationStage.cancel,
-  start: source.start,
-  end: source.end,
-  quantity: source.quantity,
-  amount: source.amount,
-  recipient: source.recipient,
-  tweakMaterial: source.tweakMaterial,
-  createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
-);
+}) {
+  final candidates = {source.pubKey, ...source.parsedTags.getTags('p')}
+    ..remove(signer.publicKey);
+  return _f.reservation(
+    listing: listing,
+    dTag: source.getDtag()!,
+    signerOverride: signer,
+    stage: ReservationStage.cancel,
+    start: source.start,
+    end: source.end,
+    quantity: source.quantity,
+    amount: source.amount,
+    recipient: source.recipient,
+    tweakMaterial: source.tweakMaterial,
+    pTags: candidates.toList(),
+    createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
+  );
+}
 
 /// Build a [ReservationTransition] event for testing transition validation.
 ReservationTransition _transition({
@@ -281,7 +288,7 @@ void main() async {
         start: start,
         end: end,
         quantity: 2,
-        amount: listing.cost(start, end),
+        amount: listing.cost(start: start, end: end),
       );
 
       expect(negotiate.commitHash(), expected.commitHash());
@@ -652,7 +659,10 @@ void main() async {
         start: DateTime(2026, 6, 1),
         end: DateTime(2026, 6, 5),
         quantity: 2,
-        amount: listing.cost(DateTime(2026, 6, 1), DateTime(2026, 6, 5)),
+        amount: listing.cost(
+          start: DateTime(2026, 6, 1),
+          end: DateTime(2026, 6, 5),
+        ),
       ).commitHash();
       expect(commit.commitHash(), reDerived);
     });
@@ -903,9 +913,9 @@ void main() async {
     });
   });
 
-  // ── 8. Buyer / Seller cancel → ReservationPairStatus ───────────────
+  // ── 8. Buyer / Seller cancel → ReservationGroupStatus ───────────────
 
-  group('ReservationPairStatus after cancel', () {
+  group('ReservationGroupStatus after cancel', () {
     test('buyer cancels negotiate → pair shows cancelled', () async {
       final listing = _listing();
       final negotiate = await _negotiateReservation(
@@ -919,7 +929,7 @@ void main() async {
         signer: buyer,
       );
 
-      final status = ReservationPair(buyerReservation: buyerCancel);
+      final status = ReservationGroup(reservations: [buyerCancel]);
 
       expect(status.cancelled, isTrue);
       expect(status.buyerCancelled, isTrue);
@@ -947,10 +957,7 @@ void main() async {
         signer: seller,
       );
 
-      final status = ReservationPair(
-        buyerReservation: commit,
-        sellerReservation: sellerCancel,
-      );
+      final status = ReservationGroup(reservations: [sellerCancel, commit]);
 
       expect(status.cancelled, isTrue);
       expect(status.sellerCancelled, isTrue);
@@ -977,9 +984,8 @@ void main() async {
         signer: seller,
       );
 
-      final status = ReservationPair(
-        buyerReservation: buyerCancel,
-        sellerReservation: sellerCancel,
+      final status = ReservationGroup(
+        reservations: [sellerCancel, buyerCancel],
       );
 
       expect(status.cancelled, isTrue);
@@ -1006,10 +1012,7 @@ void main() async {
         seller: seller,
       );
 
-      final status = ReservationPair(
-        buyerReservation: commit,
-        sellerReservation: sellerAck,
-      );
+      final status = ReservationGroup(reservations: [sellerAck, commit]);
 
       expect(status.cancelled, isFalse);
       expect(status.isActive, isTrue);
@@ -1026,7 +1029,7 @@ void main() async {
         salt: 'salt-neg-only',
       );
 
-      final status = ReservationPair(buyerReservation: negotiate);
+      final status = ReservationGroup(reservations: [negotiate]);
 
       expect(status.cancelled, isFalse);
       expect(status.isActive, isFalse);
@@ -1237,8 +1240,8 @@ void main() async {
       final validation = Reservation.validate(commit);
       expect(validation.isValid, isTrue);
 
-      // ReservationPairStatus shows active
-      var status = ReservationPair(buyerReservation: commit);
+      // ReservationGroupStatus shows active
+      var status = ReservationGroup(reservations: [commit]);
       expect(status.isActive, isTrue);
       expect(status.stage, ReservationStage.commit);
 
@@ -1249,10 +1252,7 @@ void main() async {
         signer: seller,
       );
 
-      status = ReservationPair(
-        buyerReservation: commit,
-        sellerReservation: sellerCancel,
-      );
+      status = ReservationGroup(reservations: [sellerCancel, commit]);
       expect(status.cancelled, isTrue);
       expect(status.sellerCancelled, isTrue);
       expect(status.isActive, isFalse);
@@ -1315,11 +1315,8 @@ void main() async {
         // Host reservation is valid without proof
         expect(Reservation.validate(sellerAck).isValid, isTrue);
 
-        // ReservationPairStatus shows committed
-        var status = ReservationPair(
-          buyerReservation: negotiate,
-          sellerReservation: sellerAck,
-        );
+        // ReservationGroupStatus shows committed
+        var status = ReservationGroup(reservations: [sellerAck, negotiate]);
         expect(status.isActive, isTrue);
         expect(status.stage, ReservationStage.commit);
 
@@ -1330,10 +1327,7 @@ void main() async {
           signer: buyer,
         );
 
-        status = ReservationPair(
-          buyerReservation: buyerCancel,
-          sellerReservation: sellerAck,
-        );
+        status = ReservationGroup(reservations: [sellerAck, buyerCancel]);
         expect(status.cancelled, isTrue);
         expect(status.buyerCancelled, isTrue);
         expect(status.sellerCancelled, isFalse);

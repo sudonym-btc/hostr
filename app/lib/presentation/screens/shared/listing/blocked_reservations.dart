@@ -5,21 +5,21 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class BlockedReservations extends StatelessWidget {
-  final Stream<List<Validation<ReservationPair>>> reservationPairItemsStream;
+  final Stream<List<Validation<ReservationGroup>>> reservationGroupItemsStream;
   final KeyPair? hostKeyPair;
   final ValueChanged<Reservation> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
 
   const BlockedReservations({
     super.key,
-    required this.reservationPairItemsStream,
+    required this.reservationGroupItemsStream,
     required this.hostKeyPair,
     required this.onCancelBlockedReservation,
     required this.onBlockDates,
   });
 
   List<Reservation> _buildBlockedReservations(
-    List<Validation<ReservationPair>> items,
+    List<Validation<ReservationGroup>> items,
   ) {
     final hostKey = hostKeyPair;
     if (hostKey == null) {
@@ -27,12 +27,8 @@ class BlockedReservations extends StatelessWidget {
     }
 
     return [
-          for (final pair in items.whereType<Valid<ReservationPair>>()) ...[
-            if (pair.event.sellerReservation != null)
-              pair.event.sellerReservation!,
-            if (pair.event.buyerReservation != null)
-              pair.event.buyerReservation!,
-          ],
+          for (final group in items.whereType<Valid<ReservationGroup>>())
+            ...group.event.reservations,
         ]
         .where(
           (reservation) =>
@@ -52,12 +48,14 @@ class BlockedReservations extends StatelessWidget {
   ) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-      title: Text(
-        formatDateRangeShort(
-          DateTimeRange(start: reservation.start, end: reservation.end),
-          Localizations.localeOf(context),
-        ),
-      ),
+      title: reservation.start != null && reservation.end != null
+          ? Text(
+              formatDateRangeShort(
+                DateTimeRange(start: reservation.start!, end: reservation.end!),
+                Localizations.localeOf(context),
+              ),
+            )
+          : const SizedBox.shrink(),
       trailing: IconButton(
         icon: const Icon(Icons.cancel),
         onPressed: () => onCancelBlockedReservation(reservation),
@@ -67,11 +65,11 @@ class BlockedReservations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Validation<ReservationPair>>>(
-      stream: reservationPairItemsStream,
+    return StreamBuilder<List<Validation<ReservationGroup>>>(
+      stream: reservationGroupItemsStream,
       builder: (context, snapshot) {
         final blockedReservations = _buildBlockedReservations(
-          snapshot.data ?? const <Validation<ReservationPair>>[],
+          snapshot.data ?? const <Validation<ReservationGroup>>[],
         );
 
         return Section(

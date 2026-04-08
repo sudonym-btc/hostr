@@ -57,16 +57,10 @@ class ReservationActions {
   Future<void> cancel() async {
     final keyPair = await trade.activeKeyPair();
     final r =
-        trade.currentReservationPairs
-            .whereType<Valid<ReservationPair>>()
+        trade.currentReservationGroups
+            .whereType<Valid<ReservationGroup>>()
             .where((validation) => !validation.event.cancelled)
-            .expand(
-              (validation) => [
-                validation.event.sellerReservation,
-                validation.event.buyerReservation,
-              ],
-            )
-            .whereType<Reservation>()
+            .expand((validation) => validation.event.reservations)
             .toList()
           ..sort((a, b) {
             final aMatch = a.pubKey == keyPair.publicKey ? 0 : 1;

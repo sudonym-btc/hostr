@@ -29,7 +29,7 @@ class Hostr {
   LnurlUseCase get lnurl => getIt<LnurlUseCase>();
   Location get location => getIt<Location>();
   Reservations get reservations => getIt<Reservations>();
-  ReservationPairs get reservationPairs => getIt<ReservationPairs>();
+  ReservationGroups get reservationGroups => getIt<ReservationGroups>();
   ReservationTransitions get reservationTransitions =>
       getIt<ReservationTransitions>();
   GiftWraps get giftWraps => getIt<GiftWraps>();
@@ -62,15 +62,25 @@ class Hostr {
   Calendar get calendar => getIt<Calendar>();
 
   Trade trade(String tradeId) {
-    return getIt<Trade>(
-      param1: tradeId,
-      param2: messaging.threads.threads[tradeId]!.messages.items
-          .where((msg) => msg.child is Reservation)
-          .map((msg) => msg.child as Reservation)
-          .first
-          .parsedTags
-          .listingAnchor,
-    );
+    final thread = messaging.threads.findPreferredThreadByTradeId(tradeId);
+    final listingAnchor =
+        thread?.messages.items
+            .where((m) => m.child is Reservation)
+            .map((m) => (m.child as Reservation).parsedTags.listingAnchor)
+            .where((a) => a.isNotEmpty)
+            .firstOrNull ??
+        userSubscriptions.allMyReservations$.stream.items
+            .where(
+              (r) =>
+                  r.getDtag() == tradeId &&
+                  r.parsedTags.listingAnchor.isNotEmpty,
+            )
+            .map((r) => r.parsedTags.listingAnchor)
+            .firstOrNull;
+    if (listingAnchor == null) {
+      throw StateError('Unable to resolve listing anchor for trade $tradeId');
+    }
+    return getIt<Trade>(param1: tradeId, param2: listingAnchor);
   }
 
   StreamSubscription? _authStateSubscription;

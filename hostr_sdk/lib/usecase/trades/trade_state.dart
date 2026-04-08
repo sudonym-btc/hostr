@@ -21,8 +21,8 @@ class TradeReady extends TradeState {
   final TradeRole role;
   final String tradeId;
   final String listingAnchor;
-  final DateTime start;
-  final DateTime end;
+  final DateTime? start;
+  final DateTime? end;
   final DenominatedAmount? amount;
   final TradeStage stage;
   final List<TradeAction> actions;
@@ -121,12 +121,12 @@ class NegotiationStage extends TradeStage {
 }
 
 class CommitStage extends TradeStage {
-  final ReservationPair reservationPair;
+  final ReservationGroup reservationGroup;
   final List<PaymentEvent> payments;
   final List<ReservationTransition> transitions;
 
   const CommitStage({
-    required this.reservationPair,
+    required this.reservationGroup,
     required this.payments,
     required this.transitions,
   });
@@ -134,7 +134,7 @@ class CommitStage extends TradeStage {
 
 class TradeStreams {
   final StreamWithStatus<PaymentEvent> paymentEvents;
-  final StreamWithStatus<Validation<ReservationPair>> reservationStream;
+  final StreamWithStatus<Validation<ReservationGroup>> reservationStream;
   final StreamWithStatus<ReservationTransition> transitionsStream;
   final ValueStream<bool> subscriptionsLive;
 

@@ -9,27 +9,28 @@ import '../escrow/escrow_verification.dart';
 import '../evm/evm.dart';
 import '../reservations/reservations.dart';
 
-/// Dependencies resolved for a single reservation-pair verification.
-class ReservationPairDeps {
+/// Dependencies resolved for a single reservation-group verification.
+class ReservationGroupDeps {
   final Listing listing;
 
-  const ReservationPairDeps({required this.listing});
+  const ReservationGroupDeps({required this.listing});
 }
 
-/// Use case that groups raw [Reservation] events into seller/buyer pairs
-/// per commitment hash and runs validation over them.
+/// Use case that groups raw [Reservation] events into [ReservationGroup]s
+/// per trade id (d-tag) and runs validation over them.
 ///
 /// Follows the same `subscribeVerified` / `queryVerified` API shape used by
-/// [Reviews] via [CanVerify], but operates on [ReservationPair] rather
+/// [Reviews] via [CanVerify], but operates on [ReservationGroup] rather
 /// than a single [Nip01Event].
 ///
-/// Validation rules per pair:
-/// 1. Either party cancelled → [Invalid] (no proof check).
+/// Validation rules per group:
+/// 1. Either party cancelled → [Valid] (cancellation is a legitimate protocol
+///    outcome, not a structural error).
 /// 2. Seller confirmation exists → [Valid] (host confirmed the trade).
 /// 3. Buyer-only (self-signed) → validate payment proof via
 ///    [Reservation.validate].
 @Singleton()
-class ReservationPairs {
+class ReservationGroups {
   final Reservations _reservations;
   final CustomLogger _logger;
   final Evm _evm;
@@ -40,27 +41,27 @@ class ReservationPairs {
     logger: _logger,
   );
 
-  ReservationPairs({
+  ReservationGroups({
     required Reservations reservations,
     required CustomLogger logger,
     required Evm evm,
   }) : _reservations = reservations,
-       _logger = logger.scope('reservation-pairs'),
+       _logger = logger.scope('reservation-groups'),
        _evm = evm;
 
   // ── Public API ──────────────────────────────────────────────────────
 
-  /// Validates reservation pairs from an **external** [source] stream.
+  /// Validates reservation groups from an **external** [source] stream.
   ///
   /// Unlike [subscribeVerified], the caller owns the [source] lifetime —
   /// passing `closeSourceOnClose: false` (the default) keeps the shared
   /// stream alive when this view is closed.
-  StreamWithStatus<List<Validation<ReservationPair>>> verifyFromSource({
+  StreamWithStatus<List<Validation<ReservationGroup>>> verifyFromSource({
     required StreamWithStatus<Reservation> source,
     Duration debounce = const Duration(milliseconds: 350),
     bool closeSourceOnClose = false,
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPair pair)? forceValidatePredicate,
+    bool Function(ReservationGroup group)? forceValidatePredicate,
   }) => _logger.spanSync('verifyFromSource', () {
     return _buildValidatedStream(
       source: source,
@@ -71,16 +72,16 @@ class ReservationPairs {
     );
   });
 
-  /// Live subscription that emits validated reservation pairs for [listing].
+  /// Live subscription that emits validated reservation groups for [listing].
   ///
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists. This is the mode escrow arbitration uses.
-  StreamWithStatus<List<Validation<ReservationPair>>> subscribeVerified({
+  StreamWithStatus<List<Validation<ReservationGroup>>> subscribeVerified({
     required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPair pair)? forceValidatePredicate,
+    bool Function(ReservationGroup group)? forceValidatePredicate,
   }) => _logger.spanSync('subscribeVerified', () {
     final source = _reservations.subscribe(
       Filter(
@@ -88,7 +89,7 @@ class ReservationPairs {
           kListingRefTag: [listingAnchor],
         },
       ),
-      name: 'ReservationPairs-verified',
+      name: 'ReservationGroups-verified',
     );
     return _buildValidatedStream(
       source: source,
@@ -99,16 +100,16 @@ class ReservationPairs {
     );
   });
 
-  /// One-shot query that emits validated reservation pairs for [listing].
+  /// One-shot query that emits validated reservation groups for [listing].
   ///
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists.
-  StreamWithStatus<List<Validation<ReservationPair>>> queryVerified({
+  StreamWithStatus<List<Validation<ReservationGroup>>> queryVerified({
     required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPair pair)? forceValidatePredicate,
+    bool Function(ReservationGroup group)? forceValidatePredicate,
   }) => _logger.spanSync('queryVerified', () {
     final source = _reservations.query(
       Filter(
@@ -116,7 +117,7 @@ class ReservationPairs {
           kListingRefTag: [listingAnchor],
         },
       ),
-      name: 'ReservationPairs-query',
+      name: 'ReservationGroups-query',
     );
     return _buildValidatedStream(
       source: source,
@@ -129,7 +130,7 @@ class ReservationPairs {
 
   // ── Verification ────────────────────────────────────────────────────
 
-  /// Pure verification of a single pair against its [listing].
+  /// Pure verification of a single group against its [listing].
   ///
   /// When [forceValidateSelfSigned] is `true` the buyer's payment proof is
   /// validated regardless of whether a seller confirmation exists. This is
@@ -138,31 +139,31 @@ class ReservationPairs {
   ///
   /// This is intentionally static so it can be used in tests or
   /// other contexts without needing the full usecase instance.
-  static Validation<ReservationPair> verifyPair(
-    ReservationPair pair, {
+  static Validation<ReservationGroup> verifyGroup(
+    ReservationGroup group, {
     bool forceValidateSelfSigned = false,
   }) {
     // 1. Cancelled → Valid (cancellation is a legitimate protocol outcome,
-    // not a structural error). Callers that must exclude cancelled pairs
-    // (availability checks, cancel action) filter on pair.cancelled directly.
-    if (pair.cancelled) {
-      return Valid(pair);
+    // not a structural error). Callers that must exclude cancelled groups
+    // (availability checks, cancel action) filter on group.cancelled directly.
+    if (group.cancelled) {
+      return Valid(group);
     }
 
     // 2. When forcing validation, always check the buyer's proof.
     if (forceValidateSelfSigned) {
-      final buyer = pair.buyerReservation;
+      final buyer = group.buyerReservation;
       if (buyer == null) {
         // Seller-only trade with no buyer reservation to validate.
-        if (pair.sellerReservation != null) {
-          return Valid(pair);
+        if (group.sellerReservation != null) {
+          return Valid(group);
         }
-        return Invalid(pair, 'No reservation found');
+        return Invalid(group, 'No reservation found');
       }
 
       final validation = Reservation.validate(buyer);
       if (validation.isValid) {
-        return Valid(pair);
+        return Valid(group);
       }
 
       final reason = validation.fields.values
@@ -170,51 +171,51 @@ class ReservationPairs {
           .map((f) => f.message)
           .join('; ');
       return Invalid(
-        pair,
+        group,
         reason.isNotEmpty ? reason : 'Invalid payment proof',
       );
     }
 
     // 3. Seller (host) confirmation exists → Valid (default mode).
-    if (pair.sellerReservation != null) {
-      return Valid(pair);
+    if (group.sellerReservation != null) {
+      return Valid(group);
     }
 
     // 4. Buyer-only: must have a buyer reservation to validate.
-    final buyer = pair.buyerReservation;
+    final buyer = group.buyerReservation;
     if (buyer == null) {
-      return Invalid(pair, 'No reservation found');
+      return Invalid(group, 'No reservation found');
     }
 
     // 5. Validate the buyer's self-signed proof.
     final validation = Reservation.validate(buyer);
     if (validation.isValid) {
-      return Valid(pair);
+      return Valid(group);
     }
 
     final reason = validation.fields.values
         .where((f) => !f.ok)
         .map((f) => f.message)
         .join('; ');
-    return Invalid(pair, reason.isNotEmpty ? reason : 'Invalid payment proof');
+    return Invalid(group, reason.isNotEmpty ? reason : 'Invalid payment proof');
   }
 
   /// Async verification that includes on-chain escrow amount checks.
   ///
-  /// First runs [verifyPair] for Nostr-level validation. If the buyer has
+  /// First runs [verifyGroup] for Nostr-level validation. If the buyer has
   /// an escrow proof and [escrowVerification] is available, also verifies
   /// the on-chain trade amount covers the listing cost.
   ///
   /// When [forceValidateSelfSigned] is `true` the buyer's escrow proof is
   /// checked regardless of whether a seller confirmation exists.
-  static Future<Validation<ReservationPair>> verifyPairOnChain(
-    ReservationPair pair, {
+  static Future<Validation<ReservationGroup>> verifyGroupOnChain(
+    ReservationGroup group, {
     bool forceValidateSelfSigned = false,
     EscrowVerification? escrowVerification,
   }) async {
     // Run Nostr-level check first.
-    final nostrResult = verifyPair(
-      pair,
+    final nostrResult = verifyGroup(
+      group,
       forceValidateSelfSigned: forceValidateSelfSigned,
     );
 
@@ -222,7 +223,7 @@ class ReservationPairs {
     if (nostrResult is Invalid) return nostrResult;
 
     // Determine which buyer reservation to verify on-chain.
-    final buyer = pair.buyerReservation;
+    final buyer = group.buyerReservation;
     if (buyer == null) return nostrResult;
 
     // Only check on-chain when:
@@ -233,7 +234,7 @@ class ReservationPairs {
     final needsOnChain =
         hasEscrowProof &&
         escrowVerification != null &&
-        (forceValidateSelfSigned || pair.sellerReservation == null);
+        (forceValidateSelfSigned || group.sellerReservation == null);
 
     if (!needsOnChain) return nostrResult;
 
@@ -242,54 +243,55 @@ class ReservationPairs {
     if (result.isValid) return nostrResult;
 
     return Invalid(
-      pair,
+      group,
       result.reason ?? 'On-chain escrow verification failed',
     );
   }
 
   // ── Stream plumbing ─────────────────────────────────────────────────
 
-  StreamWithStatus<List<Validation<ReservationPair>>> _buildValidatedStream({
+  StreamWithStatus<List<Validation<ReservationGroup>>> _buildValidatedStream({
     required StreamWithStatus<Reservation> source,
     required Duration debounce,
     required bool closeSourceOnClose,
     bool forceValidateSelfSigned = false,
-    bool Function(ReservationPair pair)? forceValidatePredicate,
+    bool Function(ReservationGroup group)? forceValidatePredicate,
   }) {
-    final pairs = <String, Validation<ReservationPair>>{};
-    final snapshots = source.asyncMap<List<Validation<ReservationPair>>>((
+    final groups = <String, Validation<ReservationGroup>>{};
+    final snapshots = source.asyncMap<List<Validation<ReservationGroup>>>((
       item,
     ) async {
-      final tradeId = item.getDtag()!;
-      final existing = pairs[tradeId];
+      final tradeId = item.getDtag() ?? item.id; // for logging only
+      final groupId = ReservationGroup.groupIdFromEvent(item);
+      final existing = groups[groupId];
       final updated = existing != null
           ? existing.event.addReservation(item)
-          : ReservationPair.fromReservation(item);
+          : ReservationGroup.fromReservation(item);
       final shouldForceValidate =
           forceValidatePredicate?.call(updated) ?? forceValidateSelfSigned;
 
-      pairs[tradeId] = await verifyPairOnChain(
+      groups[groupId] = await verifyGroupOnChain(
         updated,
         forceValidateSelfSigned: shouldForceValidate,
         escrowVerification: escrowVerification,
       );
 
-      if (pairs[tradeId] is Invalid) {
+      if (groups[groupId] is Invalid) {
         _logger.w(
-          'Pair for trade $tradeId is invalid: ${(pairs[tradeId] as Invalid).reason}',
+          'Group for trade $tradeId is invalid: ${(groups[groupId] as Invalid).reason}',
         );
       } else {
-        _logger.d('Pair for trade $tradeId is valid');
+        _logger.d('Group for trade $tradeId is valid');
       }
 
-      return pairs.values.toList();
+      return groups.values.toList();
     });
 
     if (closeSourceOnClose) {
       snapshots.onClose = () => source.close();
     }
 
-    final response = StreamWithStatus<List<Validation<ReservationPair>>>(
+    final response = StreamWithStatus<List<Validation<ReservationGroup>>>(
       onClose: () => snapshots.close(),
     );
 

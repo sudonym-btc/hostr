@@ -67,15 +67,32 @@ class TagBuilder {
     return this;
   }
 
-  // ── Price helpers ───────────────────────────────────────────────────
+  // ── NIP-99 image helpers ────────────────────────────────────────────
 
-  /// Encodes each [Price] as `["price", "decimalAmount:denomination:frequency"]`.
+  /// Encodes each image URL as `["image", "url"]` (NIP-99 / NIP-58).
+  TagBuilder addImages(List<String> images) {
+    for (final url in images) {
+      _tags.add(['image', url]);
+    }
+    return this;
+  }
+
+  // ── NIP-99 price helpers ────────────────────────────────────────────
+
+  /// Encodes each [Price] per NIP-99:
+  /// - Recurring: `["price", "amount", "currency", "frequency"]`
+  /// - One-time:  `["price", "amount", "currency"]`
   TagBuilder addPrices(List<Price> prices) {
     for (final p in prices) {
-      _tags.add([
+      final tag = [
         'price',
-        '${p.amount.toDecimalString()}:${p.amount.denomination}:${p.frequency.name}',
-      ]);
+        p.amount.toDecimalString(),
+        p.amount.denomination,
+      ];
+      if (p.frequency != null) {
+        tag.add(p.frequency!.nip99Name);
+      }
+      _tags.add(tag);
     }
     return this;
   }

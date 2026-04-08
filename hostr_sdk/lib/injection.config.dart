@@ -76,8 +76,8 @@ import 'package:hostr_sdk/usecase/payments/payments.dart' as _i226;
 import 'package:hostr_sdk/usecase/relays/relays.dart' as _i883;
 import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart' as _i286;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i1014;
-import 'package:hostr_sdk/usecase/reservation_pairs/reservation_pairs.dart'
-    as _i966;
+import 'package:hostr_sdk/usecase/reservation_groups/reservation_groups.dart'
+    as _i533;
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
     as _i49;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart'
@@ -470,8 +470,8 @@ extension GetItInjectableX on _i174.GetIt {
         evm: gh<_i305.Evm>(),
       ),
     );
-    gh.singleton<_i966.ReservationPairs>(
-      () => _i966.ReservationPairs(
+    gh.singleton<_i533.ReservationGroups>(
+      () => _i533.ReservationGroups(
         reservations: gh<_i326.Reservations>(),
         logger: gh<_i372.CustomLogger>(),
         evm: gh<_i305.Evm>(),
@@ -484,11 +484,20 @@ extension GetItInjectableX on _i174.GetIt {
         heartbeats: gh<_i175.Heartbeats>(),
         reservations: gh<_i326.Reservations>(),
         transitions: gh<_i826.ReservationTransitions>(),
-        reservationPairs: gh<_i966.ReservationPairs>(),
+        reservationGroups: gh<_i533.ReservationGroups>(),
         reviews: gh<_i660.Reviews>(),
         zaps: gh<_i1045.Zaps>(),
         escrow: gh<_i376.EscrowUseCase>(),
         logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i733.Calendar>(
+      () => _i733.Calendar(
+        userSubscriptions: gh<_i576.UserSubscriptions>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        logger: gh<_i331.CustomLogger>(),
+        port: gh<_i733.CalendarPort>(),
       ),
     );
     gh.singleton<_i1016.FundsMonitorService>(
@@ -532,15 +541,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i733.Calendar>(
-      () => _i733.Calendar(
-        userSubscriptions: gh<_i576.UserSubscriptions>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-        logger: gh<_i331.CustomLogger>(),
-        port: gh<_i733.CalendarPort>(),
-      ),
-    );
     gh.singleton<_i850.PaymentProofOrchestrator>(
       () => _i850.PaymentProofOrchestrator(
         userSubs: gh<_i576.UserSubscriptions>(),
@@ -561,7 +561,7 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
-        reservationPairs: gh<_i966.ReservationPairs>(),
+        reservationGroups: gh<_i533.ReservationGroups>(),
         threads: gh<_i768.Threads>(),
       ),
     );

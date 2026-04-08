@@ -78,7 +78,7 @@ class ThreadReadyWidget extends StatelessWidget {
           if (context.read<ThreadCubit>().thread.isTradeCandidate)
             AppSurface(
               child: TradeHeader(
-                tradeId: context.read<ThreadCubit>().thread.anchor,
+                tradeId: context.read<ThreadCubit>().thread.tradeId!,
               ),
             ),
           Expanded(child: ThreadContent(participants: participants)),

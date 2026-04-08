@@ -231,10 +231,7 @@ class PaymentProofOrchestrator {
 
   Thread? _findThreadForTrade(String tradeId) =>
       _logger.spanSync('_findThreadForTrade', () {
-        if (!_threads.threads.containsKey(tradeId)) {
-          return null;
-        }
-        return _threads.threads[tradeId];
+        return _threads.findPreferredThreadByTradeId(tradeId);
       });
 
   String _threadPayload(String threadId) =>

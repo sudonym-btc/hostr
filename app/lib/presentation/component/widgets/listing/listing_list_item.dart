@@ -151,12 +151,12 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
-  StreamSubscription<List<Validation<ReservationPair>>>?
+  StreamSubscription<List<Validation<ReservationGroup>>>?
   _verifiedPairsSubscription;
   late final ListingDependencies _listingDependencies;
   AvailabilityCubit? _availabilityCubit;
   DateRangeCubit? _localDateRangeCubit;
-  List<ReservationPair> _latestAvailabilityPairs = const [];
+  List<ReservationGroup> _latestAvailabilityGroups = const [];
 
   @override
   void initState() {
@@ -167,15 +167,15 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     );
     _listingDependencies = ListingDependencies.forListing(widget.listing);
 
-    _verifiedPairsSubscription = _listingDependencies.reservationPairItems
+    _verifiedPairsSubscription = _listingDependencies.reservationGroupItems
         .listen((items) {
-          final availabilityPairs = items
-              .whereType<Valid<ReservationPair>>()
+          final availabilityGroups = items
+              .whereType<Valid<ReservationGroup>>()
               .map((validated) => validated.event)
               .toList();
 
-          _latestAvailabilityPairs = availabilityPairs;
-          _availabilityCubit?.updateReservationPairs(availabilityPairs);
+          _latestAvailabilityGroups = availabilityGroups;
+          _availabilityCubit?.updateReservationGroups(availabilityGroups);
         });
   }
 
@@ -194,7 +194,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     _localDateRangeCubit ??= DateRangeCubit();
     _availabilityCubit = AvailabilityCubit(
       dateRangeCubit: dateRangeCubit ?? _localDateRangeCubit!,
-      reservationPairs: _latestAvailabilityPairs,
+      reservationGroups: _latestAvailabilityGroups,
     );
   }
 

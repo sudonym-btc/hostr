@@ -204,13 +204,19 @@ class FundsMonitorService {
         );
 
     // Combined stream: latest EOA snapshot + latest escrow snapshot.
+    // shareReplay so both the sweep listener and displayBalance$ (and any
+    // future subscriber) can listen without hitting "already listened to".
     fundsStream$ = Rx.combineLatest2(
       _eoaSubject.stream,
       _escrowSubject.stream,
       (eoaItems, escrowItems) => [...eoaItems, ...escrowItems],
-    );
+    ).shareReplay(maxSize: 1);
 
-    displayBalance$ = fundsStream$.map(_groupByToken).distinct();
+    // shareReplay so the UI can re-subscribe on widget remount.
+    displayBalance$ = fundsStream$
+        .map(_groupByToken)
+        .distinct()
+        .shareReplay(maxSize: 1);
   }
 
   void _onBalanceUpdate(BalanceUpdate update) {

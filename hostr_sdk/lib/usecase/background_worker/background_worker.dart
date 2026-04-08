@@ -409,19 +409,19 @@ class BackgroundWorker {
   }
 
   Future<_BackgroundSignal?> _signalFromHosting(
-    Validation<ReservationPair> validation,
+    Validation<ReservationGroup> validation,
   ) async {
     final myPubkey = _auth.getActiveKey().publicKey;
-    final pair = validation.event;
-    final guestReservation = pair.buyerReservation;
+    final group = validation.event;
+    final guestReservation = group.buyerReservation;
     if (guestReservation == null) return null;
     if (guestReservation.pubKey == myPubkey) return null;
     if (!_isAfterHeartbeatBoundary(guestReservation.createdAt)) return null;
 
-    final guestPubkey = await _resolveHostingGuestPubkey(pair);
+    final guestPubkey = await _resolveHostingGuestPubkey(group);
     final guestName = await _resolveDisplayName(guestPubkey);
     final title = await _resolveListingTitle(
-      pair.listingAnchor,
+      group.listingAnchor,
       fallback: 'your listing',
     );
 
@@ -430,7 +430,7 @@ class BackgroundWorker {
         id: 'hosting-cancel:${guestReservation.id}',
         body: '$guestName cancelled a reservation',
         createdAt: guestReservation.createdAt,
-        payload: _threadPayload(pair.tradeId),
+        payload: _threadPayload(group.tradeId),
       );
     }
 
@@ -438,12 +438,12 @@ class BackgroundWorker {
       id: 'hosting-reservation:${guestReservation.id}',
       body: '$guestName reserved $title',
       createdAt: guestReservation.createdAt,
-      payload: _threadPayload(pair.tradeId),
+      payload: _threadPayload(group.tradeId),
     );
   }
 
-  Future<String> _resolveHostingGuestPubkey(ReservationPair pair) async {
-    final fallback = pair.buyerReservation?.pubKey;
+  Future<String> _resolveHostingGuestPubkey(ReservationGroup group) async {
+    final fallback = group.buyerReservation?.pubKey;
     if (fallback == null) {
       throw StateError(
         'Cannot resolve guest pubkey without a buyer reservation',
@@ -452,8 +452,8 @@ class BackgroundWorker {
 
     try {
       final trade = getIt<Trade>(
-        param1: pair.tradeId,
-        param2: pair.listingAnchor,
+        param1: group.tradeId,
+        param2: group.listingAnchor,
       );
       return await trade.resolveGuestPubkey() ?? fallback;
     } catch (_) {
@@ -462,11 +462,11 @@ class BackgroundWorker {
   }
 
   Future<_BackgroundSignal?> _signalFromTrip(
-    Validation<ReservationPair> validation,
+    Validation<ReservationGroup> validation,
   ) async {
     final myPubkey = _auth.getActiveKey().publicKey;
-    final pair = validation.event;
-    final sellerReservation = pair.sellerReservation;
+    final group = validation.event;
+    final sellerReservation = group.sellerReservation;
     if (sellerReservation == null) return null;
     if (sellerReservation.pubKey == myPubkey) return null;
     if (!_isAfterHeartbeatBoundary(sellerReservation.createdAt)) return null;
@@ -477,7 +477,7 @@ class BackgroundWorker {
 
     final hostName = await _resolveDisplayName(sellerReservation.pubKey);
     final title = await _resolveListingTitle(
-      pair.listingAnchor,
+      group.listingAnchor,
       fallback: 'your stay',
     );
 
@@ -486,7 +486,7 @@ class BackgroundWorker {
         id: 'trip-cancel:${sellerReservation.id}',
         body: '$hostName cancelled a reservation',
         createdAt: sellerReservation.createdAt,
-        payload: _threadPayload(pair.tradeId),
+        payload: _threadPayload(group.tradeId),
       );
     }
 
@@ -494,7 +494,7 @@ class BackgroundWorker {
       id: 'trip-confirm:${sellerReservation.id}',
       body: '$hostName confirmed your stay at $title',
       createdAt: sellerReservation.createdAt,
-      payload: _threadPayload(pair.tradeId),
+      payload: _threadPayload(group.tradeId),
     );
   }
 

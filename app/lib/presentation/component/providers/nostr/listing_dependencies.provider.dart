@@ -9,8 +9,8 @@ import 'package:rxdart/rxdart.dart';
 class ListingDependencies {
   Listing listing;
   final StreamWithStatus<Validation<Review>> verifiedReviews;
-  final StreamWithStatus<List<Validation<ReservationPair>>>
-  verifiedReservationPairs;
+  final StreamWithStatus<List<Validation<ReservationGroup>>>
+  verifiedReservationGroups;
 
   factory ListingDependencies.forListing(Listing listing) {
     final anchor = listing.anchor;
@@ -28,7 +28,7 @@ class ListingDependencies {
           },
         ),
       ),
-      verifiedReservationPairs: getIt<Hostr>().reservationPairs.queryVerified(
+      verifiedReservationGroups: getIt<Hostr>().reservationGroups.queryVerified(
         listingAnchor: anchor,
       ),
     );
@@ -37,15 +37,15 @@ class ListingDependencies {
   ListingDependencies({
     required this.listing,
     required this.verifiedReviews,
-    required this.verifiedReservationPairs,
+    required this.verifiedReservationGroups,
   });
 
   late final Stream<List<Validation<Review>>> reviewItems = verifiedReviews
       .itemsStream
       .shareReplay(maxSize: 1);
 
-  late final Stream<List<Validation<ReservationPair>>> reservationPairItems =
-      verifiedReservationPairs.latestItemsStream.shareReplay(maxSize: 1);
+  late final Stream<List<Validation<ReservationGroup>>> reservationGroupItems =
+      verifiedReservationGroups.latestItemsStream.shareReplay(maxSize: 1);
 
   late final Stream<int> reviewCount = reviewItems
       .map((items) => items.whereType<Valid<Review>>().length)
@@ -69,13 +69,13 @@ class ListingDependencies {
       })
       .shareReplay(maxSize: 1);
 
-  late final Stream<int> reservationCount = reservationPairItems
-      .map((items) => items.whereType<Valid<ReservationPair>>().length)
+  late final Stream<int> reservationCount = reservationGroupItems
+      .map((items) => items.whereType<Valid<ReservationGroup>>().length)
       .shareReplay(maxSize: 1);
 
   void close() {
     verifiedReviews.close();
-    verifiedReservationPairs.close();
+    verifiedReservationGroups.close();
   }
 }
 

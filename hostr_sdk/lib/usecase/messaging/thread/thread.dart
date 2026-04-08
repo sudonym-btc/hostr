@@ -24,6 +24,7 @@ class Thread {
 
   final String anchor;
   final StreamWithStatus<Message> messages = StreamWithStatus<Message>();
+  String conversationTag = '';
 
   bool _isTradeCandidate(ThreadState current) => current.messages.any(
     (message) =>
@@ -31,7 +32,8 @@ class Thread {
         (message.child as Reservation).isNegotiation,
   );
 
-  bool get isTradeCandidate => _isTradeCandidate(state.value);
+  bool get isTradeCandidate =>
+      conversationTag.isNotEmpty || _isTradeCandidate(state.value);
 
   Thread(
     @factoryParam this.anchor, {
@@ -111,18 +113,65 @@ class Thread {
 
   List<String> addedParticipants = [];
 
+  String? get tradeId {
+    if (conversationTag.isNotEmpty) return conversationTag;
+    for (final m in state.value.messages.reversed) {
+      if (m.child is Reservation) {
+        final id = (m.child as Reservation).getDtag();
+        if (id != null && id.isNotEmpty) return id;
+      }
+    }
+    return null;
+  }
+
+  int get participantCount => {
+    _auth.getActiveKey().publicKey,
+    ...state.value.participantPubkeys,
+    ...addedParticipants,
+  }.where((p) => p.isNotEmpty).length;
+
+  int get lastActivityTimestamp => messages.items.isEmpty
+      ? 0
+      : messages.items.map((m) => m.createdAt).reduce((a, b) => a > b ? a : b);
+
+  void configureConversation({
+    required String conversationTag,
+    Iterable<String> participants = const [],
+  }) {
+    this.conversationTag = conversationTag;
+    final myPubkey = _auth.getActiveKey().publicKey;
+    for (final pubkey in participants.toSet()) {
+      if (pubkey.isNotEmpty &&
+          pubkey != myPubkey &&
+          !addedParticipants.contains(pubkey)) {
+        addedParticipants.add(pubkey);
+      }
+    }
+  }
+
+  List<String> get _recipientPubkeys {
+    final myPubkey = _auth.getActiveKey().publicKey;
+    final recipients = <String>{
+      ...state.value.counterpartyPubkeys,
+      ...addedParticipants,
+    }..removeWhere((pubkey) => pubkey.isEmpty || pubkey == myPubkey);
+    final sorted = recipients.toList()..sort();
+    return sorted;
+  }
+
+  List<List<String>> get _conversationTags => conversationTag.isEmpty
+      ? const []
+      : [
+          [kConversationTag, conversationTag],
+        ];
+
   Future<List<Future<List<RelayBroadcastResponse>>>> replyText(
     String content,
   ) => _logger.span('replyText', () async {
     return _messaging.broadcastText(
       content: content.trim(),
-      tags: [
-        [kThreadRefTag, anchor],
-      ],
-      recipientPubkeys: [
-        ...state.value.counterpartyPubkeys,
-        ...addedParticipants,
-      ],
+      tags: _conversationTags,
+      recipientPubkeys: _recipientPubkeys,
     );
   });
 
@@ -130,13 +179,8 @@ class Thread {
       _logger.span('replyTextAndWait', () async {
         return _messaging.broadcastTextAndAwait(
           content: content.trim(),
-          tags: [
-            [kThreadRefTag, anchor],
-          ],
-          recipientPubkeys: [
-            ...state.value.counterpartyPubkeys,
-            ...addedParticipants,
-          ],
+          tags: _conversationTags,
+          recipientPubkeys: _recipientPubkeys,
         );
       });
 
@@ -147,14 +191,8 @@ class Thread {
   }) => _logger.span('replyEvent', () async {
     return _messaging.broadcastEvent(
       event: event,
-      tags: [
-        [kThreadRefTag, anchor],
-        ...tags,
-      ],
-      recipientPubkeys: [
-        ...state.value.counterpartyPubkeys,
-        ...addedParticipants,
-      ],
+      tags: [..._conversationTags, ...tags],
+      recipientPubkeys: _recipientPubkeys,
     );
   });
 
