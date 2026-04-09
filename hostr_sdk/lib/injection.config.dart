@@ -11,6 +11,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:hostr_sdk/config.dart' as _i910;
+import 'package:hostr_sdk/datasources/app_database.dart' as _i555;
 import 'package:hostr_sdk/datasources/storage.dart' as _i111;
 import 'package:hostr_sdk/injection.dart' as _i231;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
@@ -128,6 +129,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i148.SwapOutQuoteService>(() => _i148.SwapOutQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
+    gh.singleton<_i555.AppDatabase>(() => hostrSdkModule.appDatabase);
     gh.singleton<_i216.CommonDatabase>(() => hostrSdkModule.operationsDb);
     gh.singleton<_i331.CustomLogger>(() => hostrSdkModule.logger);
     gh.singleton<_i337.Telemetry>(() => hostrSdkModule.telemetry);
@@ -216,7 +218,11 @@ extension GetItInjectableX on _i174.GetIt {
       ),
     );
     gh.singleton<_i218.RelayStorage>(
-      () => _i218.RelayStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
+      () => _i218.RelayStorage(
+        gh<_i216.CommonDatabase>(),
+        gh<_i910.HostrConfig>(),
+        gh<_i1000.Auth>(),
+      ),
     );
     gh.singleton<_i218.NwcStorage>(
       () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
@@ -285,7 +291,7 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i794.UserConfigStore>(
       () => _i794.UserConfigStore(
-        gh<_i111.KeyValueStorage>(),
+        gh<_i216.CommonDatabase>(),
         gh<_i331.CustomLogger>(),
         gh<_i1000.Auth>(),
       ),

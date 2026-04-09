@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/background.dart';
+import 'package:hostr/injection.dart' show Env;
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:workmanager/workmanager.dart';
@@ -38,7 +39,7 @@ void callbackDispatcher() {
   logger.d('invoked');
 
   Workmanager().executeTask((task, inputData) async {
-    final env = await readPersistedEnvironment();
+    final env = inputData?['env'] as String? ?? Env.prod;
     return await executeBackgroundTask(env, task, inputData);
   });
 }

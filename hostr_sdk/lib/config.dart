@@ -1,9 +1,9 @@
 import 'package:models/secp256k1.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:sqlite3/common.dart';
 
-import 'datasources/operations_database.dart';
+import 'datasources/app_database.dart';
+import 'datasources/app_database_platform.dart';
 import 'datasources/storage.dart';
 import 'usecase/calendar/calendar.dart';
 import 'usecase/evm/config/evm_config.dart';
@@ -157,7 +157,7 @@ class HostrConfig {
   final NdkConfig ndkConfig;
   final HostrSDKStorage storage;
   final KeyValueStorage keyValueStorage;
-  final CommonDatabase operationsDb;
+  final AppDatabase appDatabase;
   final CustomLogger logger;
   final Telemetry telemetry;
   final CalendarPort? calendarPort;
@@ -178,12 +178,12 @@ class HostrConfig {
     this.showNotification,
     EventVerifier? eventVerifier,
     KeyValueStorage? storage,
-    CommonDatabase? operationsDb,
+    AppDatabase? appDatabase,
     NdkConfig? ndk,
     CustomLogger? logs,
     Telemetry? telemetry,
   }) : keyValueStorage = storage ?? InMemoryKeyValueStorage(),
-       operationsDb = operationsDb ?? openOperationsDb(),
+       appDatabase = appDatabase ?? AppDatabase(openAppDb()),
        storage = HostrSDKStorage.fromKeyValue(
          storage ?? InMemoryKeyValueStorage(),
        ),

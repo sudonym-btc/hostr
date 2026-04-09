@@ -87,44 +87,71 @@ _ScreenshotFixture _buildFixture() {
   return (guest: guests.first, listing: listings.first);
 }
 
-/// Take screenshots for every page in [mode] ("light" or "dark").
+/// Take all screenshots for [mode] ("light" or "dark").
 ///
-/// The [appRouter] must already be mounted and the user authenticated.
+/// Self-contained: logs out → sign-in screenshot → logs in → connects NWC
+/// → captures every authenticated page.  Call once per brightness mode.
 Future<void> _takeScreenshots(
   WidgetTester tester,
   IntegrationTestWidgetsFlutterBinding binding,
   AppRouter appRouter,
-  Listing listing,
-  String mode,
-) async {
-  // ── 0. Profile ────────────────────────────────────────────
+  _ScreenshotFixture fixture,
+  String mode, {
+  required IntegrationTestHarness harness,
+}) async {
+  // ── 0. Sign-in ────────────────────────────────────────────
+  // Remove all NWC connections (disposes cubits + wipes storage) while the
+  // key is still active, then logout.
+  while (harness.hostr.nwc.connections.isNotEmpty) {
+    await harness.hostr.nwc.remove(harness.hostr.nwc.connections.last);
+  }
+  await harness.hostr.auth.logout();
+  await _settle(tester, frames: 2);
+  appRouter.navigate(SignInRoute());
+  await _settle(tester, frames: 6);
+  await binding.takeScreenshot('screenshots/$mode/login.png');
+
+  // ── 1. Log in + connect wallet ────────────────────────────
+  final keyField = find.byKey(const ValueKey('key'));
+  await tester.enterText(keyField, fixture.guest.keyPair.privateKey!);
+  await tester.pump();
+  await tester.tap(find.byKey(const ValueKey('login')));
+  await _settle(tester, frames: 24); // 12 s — auth + thread sync
+
+  await harness.connectNwc(
+    user: fixture.guest.keyPair,
+    appNamePrefix: 'screenshots',
+  );
+  await _settle(tester, frames: 6); // let the NWC cubit propagate
+
+  // ── 2. Profile ────────────────────────────────────────────
   appRouter.navigate(ProfileRoute());
   await _settle(tester, frames: 6);
   await binding.takeScreenshot('screenshots/$mode/profile.png');
 
-  // ── 1. Home / search ────────────────────────────────────────────
+  // ── 3. Home / search ────────────────────────────────────────────
   appRouter.navigate(SearchRoute());
   await _settle(tester, frames: 6);
   await binding.takeScreenshot('screenshots/$mode/search.png');
 
-  // ── 2. Listing detail ───────────────────────────────────────────
-  appRouter.navigate(ListingRoute(a: listing.naddr()!));
+  // ── 4. Listing detail ───────────────────────────────────────────
+  appRouter.navigate(ListingRoute(a: fixture.listing.naddr()!));
   await _settle(tester, frames: 6);
   await binding.takeScreenshot('screenshots/$mode/listing.png');
 
-  // ── 3. Inbox ────────────────────────────────────────────────────
+  // ── 5. Inbox ────────────────────────────────────────────────────
   appRouter.navigate(InboxRoute());
   await _settle(tester, frames: 6);
   await binding.takeScreenshot('screenshots/$mode/threads.png');
 
-  // ── 4. Thread detail ────────────────────────────────────────────
+  // ── 6. Thread detail ────────────────────────────────────────────
   final threadMap = getIt<Hostr>().messaging.threads.threads;
   if (threadMap.isNotEmpty) {
     appRouter.navigate(ThreadRoute(anchor: threadMap.keys.first));
     await _settle(tester, frames: 6);
     await binding.takeScreenshot('screenshots/$mode/thread.png');
 
-    // ── 5. Tap "Pay" → payment modal ──────────────────────────────
+    // ── 7. Tap "Pay" → payment modal ──────────────────────────────
     // Find a thread that shows the Pay button (pending threads where
     // the guest hasn't committed yet).
     const payKey = ValueKey('trade_action_pay');
@@ -143,27 +170,26 @@ Future<void> _takeScreenshots(
       await _settle(tester, frames: 8); // give the modal time to load
       await binding.takeScreenshot('screenshots/$mode/payment.png');
 
-      // Dismiss the modal bottom sheet so subsequent screenshots
-      // start from a clean slate.
-      final nav = Navigator.of(tester.element(find.byType(Scaffold).first));
-      if (nav.canPop()) nav.pop();
-      await _settle(tester, frames: 2);
+      // The modal is pushed on the root navigator (useRootNavigator: true),
+      // so appRouter.navigate() won't dismiss it. Pop via the root navigator.
+      final rootNav = tester.state<NavigatorState>(
+        find.byType(Navigator).first,
+      );
+      if (rootNav.canPop()) rootNav.pop();
+      await _settle(tester, frames: 4);
     }
   }
 }
 
 // ── Test ────────────────────────────────────────────────────────────────────
 //
-// Everything runs in a **single** testWidgets so the widget tree (and auth
-// state) survives across screenshots.  Each testWidgets rebuilds the tree
-// from scratch which drops the login session — that's why the old multi-test
-// approach never navigated past the home page.
+// Everything runs in a **single** testWidgets so the widget tree survives
+// across screenshots.  `_takeScreenshots` is self-contained per brightness
+// mode: it logs out → takes a sign-in screenshot → logs back in → captures
+// every authenticated page.
 //
 // We avoid `pumpAndSettle` entirely — the NDK's relay reconnect timers keep
 // the frame scheduler permanently busy, so `pumpAndSettle` blocks forever.
-//
-// After logging in, the suite captures every page in light mode, then
-// switches platformBrightness to dark and captures them again.
 
 void main() {
   // Accept the dev CA so HTTPS calls to anvil/rifrelay/boltz through
@@ -191,9 +217,7 @@ void main() {
     final app = MyApp(appRouter: appRouter);
 
     await mockNetworkImages(() async {
-      await harness.hostr.auth.logout();
       // ── Mount the app once — keep it alive for the whole suite ─────
-      // Start in light mode.
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
       await tester.pumpWidget(app);
       await _settle(tester);
@@ -201,55 +225,27 @@ void main() {
       await binding.convertFlutterSurfaceToImage();
       await tester.pump();
 
-      // ── Sign-in screenshot (light) ────────────────────────────────
-      appRouter.navigate(SignInRoute());
-      await _settle(tester, frames: 6);
-      await binding.takeScreenshot('screenshots/light/login.png');
-
-      // ── Sign-in screenshot (dark) ─────────────────────────────────
-      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
-      await _settle(tester, frames: 4);
-      await binding.takeScreenshot('screenshots/dark/login.png');
-
-      // ── Switch back to light to log in ────────────────────────────
-      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
-      await _settle(tester, frames: 2);
-
-      // ── Log in as the seeded guest ────────────────────────────────
-      final keyField = find.byKey(const ValueKey('key'));
-      await tester.enterText(keyField, fixture.guest.keyPair.privateKey!);
-      await tester.pump();
-      final loginButton = find.byKey(const ValueKey('login'));
-      await tester.tap(loginButton);
-      await _settle(tester, frames: 14); // 7 s — auth + thread sync
-
-      // ── Connect NWC wallet for the signed-in user ─────────────────
-      await harness.connectNwc(
-        user: fixture.guest.keyPair,
-        appNamePrefix: 'screenshots',
-      );
-      await _settle(tester, frames: 6); // let the NWC cubit propagate
-
-      // ── Light mode screenshots ────────────────────────────────────
+      // ── Light mode ────────────────────────────────────────────────
       await _takeScreenshots(
         tester,
         binding,
         appRouter,
-        fixture.listing,
+        fixture,
         'light',
+        harness: harness,
       );
 
-      // ── Switch to dark mode ───────────────────────────────────────
+      // ── Dark mode ─────────────────────────────────────────────────
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
       await _settle(tester, frames: 4); // let the theme rebuild
 
-      // ── Dark mode screenshots ────────────────────────────────────
       await _takeScreenshots(
         tester,
         binding,
         appRouter,
-        fixture.listing,
+        fixture,
         'dark',
+        harness: harness,
       );
 
       // Clean up the test value.

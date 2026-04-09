@@ -6,22 +6,29 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/background_task_type.dart';
-import 'package:hostr/data/sources/operations_db.dart';
+import 'package:hostr/data/sources/app_db.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/main.dart'
     show H3Engine, describeH3BackendSelection, describeSecp256k1Backend;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'crypto/flutter_crypto_provider.dart';
 import 'injection.dart';
-import 'setup/hydrated_storage.dart';
 import 'setup/runtime_backends.dart';
+import 'setup/sqlite_hydrated_storage.dart';
 
 final logger = CustomLogger(tag: 'app');
+
+/// The active environment identifier, set by [initCore].
+///
+/// Accessible from anywhere that imports `setup.dart` — used by
+/// [setupWorkmanager] and the one-off task scheduler in `app.dart`
+/// so they can pass the env through to background isolates via
+/// Workmanager `inputData`.
+late String currentEnv;
 
 /// Initializes everything required before business logic can run.
 ///
@@ -47,12 +54,7 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
 
   setCryptoProvider(FlutterCryptoProvider());
 
-  sw.reset();
-  await Future.wait([
-    persistEnvironment(env),
-    buildHydratedStorage().then((storage) => HydratedBloc.storage = storage),
-  ]);
-  log.d('persistEnv + hydratedStorage: ${sw.elapsedMilliseconds}ms');
+  currentEnv = env;
 
   sw.reset();
   configureOptimalRuntimeBackends();
@@ -69,15 +71,17 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   log.d('primeH3Engine: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
-  final operationsDb = await openOperationsDb();
-  log.d('openOperationsDb: ${sw.elapsedMilliseconds}ms');
+  final rawDb = await openAppDb();
+  final appDatabase = AppDatabase(rawDb);
+  HydratedBloc.storage = SqliteHydratedStorage(appDatabase.db);
+  log.d('appDatabase + hydratedStorage: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   getIt.registerSingleton<Hostr>(
     Hostr(
       config: getIt<Config>().buildHostrConfig(
         logger: logger,
-        operationsDb: operationsDb,
+        appDatabase: appDatabase,
         showNotification:
             ({required int id, String? title, String? body, String? payload}) =>
                 FlutterLocalNotificationsPlugin().show(
@@ -116,9 +120,7 @@ Future<void> initApp() async {
   await _lockAppOrientation();
   logger.d('lockOrientation: ${sw.elapsedMilliseconds}ms');
 
-  sw.reset();
-  final env = await readPersistedEnvironment();
-  logger.d('readPersistedEnv: ${sw.elapsedMilliseconds}ms');
+  final env = currentEnv;
 
   // Skip notification permission prompt in test — it blocks CI and
   // screenshot automation with a system dialog that can't be pre-granted.
@@ -130,7 +132,7 @@ Future<void> initApp() async {
 
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     sw.reset();
-    setupWorkmanager();
+    setupWorkmanager(env);
     logger.d('workmanager: ${sw.elapsedMilliseconds}ms');
   }
 
@@ -145,7 +147,7 @@ Future<void> _lockAppOrientation() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 }
 
-void setupWorkmanager() {
+void setupWorkmanager(String env) {
   Workmanager().initialize(callbackDispatcher);
   // Only register periodic tasks at launch — processing tasks are scheduled
   // on-demand by _scheduleOnchainOperations() when the app enters background.
@@ -154,6 +156,7 @@ void setupWorkmanager() {
     BackgroundTaskType.periodicSync.identifier,
     BackgroundTaskType.periodicSync.taskName,
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    inputData: <String, dynamic>{'env': env},
   );
 }
 
@@ -193,16 +196,4 @@ Future<void> setupNotifications() async {
   if (launchPayload != null && launchPayload.isNotEmpty) {
     dispatchNotificationPayload(launchPayload);
   }
-}
-
-const String _environmentPrefsKey = 'hostr.env';
-
-Future<void> persistEnvironment(String env) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_environmentPrefsKey, env);
-}
-
-Future<String> readPersistedEnvironment() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getString(_environmentPrefsKey) ?? Env.prod;
 }

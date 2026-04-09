@@ -64,7 +64,6 @@ dependencies:
   timelines_plus: ^1.0.8
   h3_flutter: ^0.7.1
   faker: ^2.2.0
-  hive_ce: ^2.19.3
   bip39_mnemonic: ^4.0.1
   app_links: ^7.0.0
   flutter_svg: ^2.2.0

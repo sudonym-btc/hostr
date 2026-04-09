@@ -84,22 +84,8 @@ class OperationStateStore {
   final PublishSubject<void> _onChanged = PublishSubject();
 
   OperationStateStore(this._db, CustomLogger logger, this._auth)
-    : _logger = logger.scope('op-store') {
-    // Wait up to 5 s for a concurrent writer (another isolate) to finish.
-    _db.execute('PRAGMA busy_timeout = 5000');
-    _db.execute('''
-      CREATE TABLE IF NOT EXISTS operations (
-        pubkey      TEXT    NOT NULL,
-        namespace   TEXT    NOT NULL,
-        id          TEXT    NOT NULL,
-        state       TEXT,
-        is_terminal INTEGER NOT NULL DEFAULT 0,
-        updated_at  TEXT,
-        data        TEXT    NOT NULL,
-        PRIMARY KEY (pubkey, namespace, id)
-      )
-    ''');
-  }
+    : _logger = logger.scope('op-store');
+  // Table creation and PRAGMA busy_timeout are handled by AppDatabase.
 
   // ── Public CRUD ─────────────────────────────────────────────────────
 

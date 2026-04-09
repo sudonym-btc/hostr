@@ -452,7 +452,7 @@ class EscrowEventScanner {
         token.eip55With0x.toLowerCase() ==
         SupportedEscrowContract.zeroAddress.eip55With0x.toLowerCase();
     if (isNative) {
-      return rbtcFromWei(amount);
+      return rbtcFromWei(amount, chainId: chain?.config.chainId);
     }
     final decimals = await chain?.resolveTokenDecimals(token.eip55With0x);
     if (decimals == null) {

@@ -210,8 +210,8 @@ class _SplashProgressView extends StatelessWidget {
 
   String _logoAssetForTheme(Brightness brightness) {
     return brightness == Brightness.dark
-        ? 'assets/images/logo/generated/logo_startup_dark_512.png'
-        : 'assets/images/logo/generated/logo_startup_light_512.png';
+        ? 'assets/images/logo/generated/logo_base_1024.png'
+        : 'assets/images/logo/generated/logo_base_1024.png';
   }
 
   @override
@@ -229,8 +229,8 @@ class _SplashProgressView extends StatelessWidget {
             // Logo – same asset as the native splash.
             Image.asset(
               _logoAssetForTheme(theme.brightness),
-              width: 180,
-              height: 72,
+              width: 120,
+              height: 120,
               fit: BoxFit.contain,
             ),
             Gap.vertical.lg(),

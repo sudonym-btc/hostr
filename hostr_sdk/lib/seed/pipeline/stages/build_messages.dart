@@ -145,7 +145,7 @@ Future<List<Nip01Event>> buildMessages({
         sender: thread.guest,
         recipient: thread.host,
         tags: [
-          [kThreadRefTag, threadAnchor],
+          [kConversationTag, threadAnchor],
           ['p', thread.host.keyPair.publicKey],
         ],
         createdAt: ctx.timestampDaysAfter(40 + i),
@@ -167,7 +167,7 @@ Future<List<Nip01Event>> buildMessages({
           sender: sender,
           recipient: recipient,
           tags: [
-            [kThreadRefTag, threadAnchor],
+            [kConversationTag, threadAnchor],
             ['p', recipient.keyPair.publicKey],
           ],
           createdAt: ctx.timestampDaysAfter(41 + i + m),
@@ -257,7 +257,7 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
         sender: thread.guest,
         recipient: thread.host,
         tags: [
-          [kThreadRefTag, threadAnchor],
+          [kConversationTag, threadAnchor],
           ['p', thread.host.keyPair.publicKey],
         ],
         createdAt: ctx.timestampDaysAfter(41 + i),

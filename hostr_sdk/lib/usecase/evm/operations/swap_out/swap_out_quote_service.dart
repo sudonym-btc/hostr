@@ -68,8 +68,8 @@ class SwapOutQuoteService {
         params.amount ?? await _getSwapBalance(chain, params, tokenAddress);
     final gasEstimate = await _estimateLockGasFee(chain, params, tokenAddress);
     final gasFee = gasEstimate.gasSponsored
-        ? rbtcFromWei(BigInt.zero)
-        : rbtcFromWei(gasEstimate.gasCostWei);
+        ? rbtcFromWei(BigInt.zero, chainId: chain.config.chainId)
+        : rbtcFromWei(gasEstimate.gasCostWei, chainId: chain.config.chainId);
 
     final balanceRounded = TokenAmountEvmExt(balance).roundDownToSats();
     final gasFeeRounded = TokenAmountEvmExt(gasFee).roundUpToSats();
