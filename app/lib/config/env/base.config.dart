@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hostr/data/sources/calendar/eventide_calendar_port.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:sqlite3/common.dart';
 
 abstract class Config {
   List<String> get relays => [];
@@ -21,13 +20,13 @@ abstract class Config {
 
   HostrConfig buildHostrConfig({
     CustomLogger? logger,
-    CommonDatabase? operationsDb,
+    AppDatabase? appDatabase,
     ShowNotification? showNotification,
   }) {
     final log = logger ?? CustomLogger();
 
     return HostrConfig(
-      operationsDb: operationsDb,
+      appDatabase: appDatabase,
       bootstrapRelays: [
         ...relays,
         hostrRelay,

@@ -84,7 +84,13 @@ final _satToWei = BigInt.from(10).pow(10);
 // ── Free-standing factories ────────────────────────────────────────────
 
 /// Construct an RBTC [TokenAmount] from a raw wei value.
-TokenAmount rbtcFromWei(BigInt wei) => TokenAmount(value: wei, token: rbtc);
+///
+/// If [chainId] is provided, the token will use that chain ID instead of
+/// the default Rootstock mainnet (30).
+TokenAmount rbtcFromWei(BigInt wei, {int? chainId}) => TokenAmount(
+  value: wei,
+  token: chainId != null ? Token.native(chainId) : rbtc,
+);
 
 /// Construct an RBTC [TokenAmount] from a count of satoshis.
 ///

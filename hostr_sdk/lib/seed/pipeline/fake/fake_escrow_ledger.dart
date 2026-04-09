@@ -1,3 +1,5 @@
+import 'package:models/main.dart' show Token;
+
 import '../seed_pipeline_models.dart';
 import '../sink/seed_sink.dart';
 
@@ -7,6 +9,7 @@ class FakeTrade {
   final String buyerPrivateKey;
   final String sellerPrivateKey;
   final String arbiterPrivateKey;
+  final Token token;
   final BigInt amountWei;
   final BigInt unlockAt;
   final String txHash;
@@ -19,6 +22,7 @@ class FakeTrade {
     required this.buyerPrivateKey,
     required this.sellerPrivateKey,
     required this.arbiterPrivateKey,
+    required this.token,
     required this.amountWei,
     required this.unlockAt,
     required this.txHash,
@@ -63,6 +67,7 @@ class FakeEscrowLedger {
       buyerPrivateKey: intent.buyerPrivateKey,
       sellerPrivateKey: intent.sellerPrivateKey,
       arbiterPrivateKey: intent.arbiterPrivateKey,
+      token: intent.token,
       amountWei: intent.amountWei,
       unlockAt: intent.unlockAt,
       txHash: txHash,

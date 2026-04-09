@@ -74,17 +74,14 @@ class SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _handleSignup() async {
-    print('signup start ${DateTime.now()}');
     final mnemonic = Mnemonic(
       hex.decode(Helpers.getSecureRandomHex(32)),
       Language.english,
     );
-    print('signup middle ${DateTime.now()}');
 
     final identity = await getIt<Hostr>().auth.previewResolvedIdentity(
       mnemonic.sentence,
     );
-    print('signup end ${DateTime.now()}');
 
     await showAppModal(
       context,

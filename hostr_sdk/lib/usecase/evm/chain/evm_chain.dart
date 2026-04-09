@@ -383,7 +383,7 @@ class EvmChain {
           (client) => client.getBalance(address),
         ).then((val) {
           logger.d('Balance for $address: $val');
-          return rbtcFromWei(val.getInWei);
+          return rbtcFromWei(val.getInWei, chainId: config.chainId);
         });
       });
 
@@ -631,7 +631,7 @@ class EvmChain {
           funded.add((
             address: r.address,
             accountIndex: r.index,
-            balance: rbtcFromWei(r.balance.getInWei),
+            balance: rbtcFromWei(r.balance.getInWei, chainId: config.chainId),
           ));
         }
       }

@@ -4,6 +4,7 @@ import 'package:ndk/ndk.dart';
 import 'package:sqlite3/common.dart';
 
 import 'config.dart';
+import 'datasources/app_database.dart';
 import 'datasources/storage.dart';
 import 'injection.config.dart';
 import 'usecase/calendar/calendar.dart';
@@ -30,7 +31,10 @@ abstract class HostrSdkModule {
   KeyValueStorage get keyValueStorage => _hostrConfig.keyValueStorage;
 
   @singleton
-  CommonDatabase get operationsDb => _hostrConfig.operationsDb;
+  AppDatabase get appDatabase => _hostrConfig.appDatabase;
+
+  @singleton
+  CommonDatabase get operationsDb => _hostrConfig.appDatabase.db;
 
   @singleton
   CustomLogger get logger => _hostrConfig.logger;

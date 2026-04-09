@@ -36,10 +36,14 @@ CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-$REPO_ROOT/logs/chromedriver.log}"
 #   "iPhone 17 Pro"        → 6.3″
 #   "iPhone 16e"           → 4.7″
 #   "iPad Pro 13-inch (M4)"→ 13″
-if [[ -z "${DEVICES:-}" ]]; then
+if [[ -z "${DEVICES+x}" ]]; then
+  # No DEVICES env var at all → use default set.
   DEVICES=(
     "iPhone 17 Pro Max"
   )
+elif [[ -z "$DEVICES" ]]; then
+  # DEVICES="" → explicitly empty, skip iOS.
+  DEVICES=()
 else
   # Allow DEVICES="A,B" override
   IFS=',' read -ra DEVICES <<< "$DEVICES"
@@ -183,7 +187,7 @@ ensure_chromedriver() {
 
   mkdir -p "$(dirname "$CHROMEDRIVER_LOG")"
 
-  echo "   🚗 Starting ChromeDriver on port $CHROMEDRIVER_PORT…"
+  echo "   🚗 Starting ChromeDriver on port ${CHROMEDRIVER_PORT}..."
   "$chromedriver_bin" --port="$CHROMEDRIVER_PORT" >"$CHROMEDRIVER_LOG" 2>&1 &
   CHROMEDRIVER_PID=$!
 
@@ -324,7 +328,7 @@ seed_screenshot_relay
 
 FAILED=()
 
-for device_name in "${DEVICES[@]}"; do
+for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
   slug=$(sanitize "$device_name")
   echo "📱 $device_name → screenshots/$slug/"
 
@@ -386,7 +390,7 @@ fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if [[ ${#FAILED[@]} -gt 0 ]]; then
-  echo "⚠️  Some devices failed: ${FAILED[*]}"
+  echo "⚠️  Some devices failed: ${FAILED[*]+${FAILED[*]}}"
 else
   echo "✅ All screenshots generated!"
 fi
@@ -399,7 +403,7 @@ fi
 
 echo ""
 echo "Output:"
-for device_name in "${DEVICES[@]}"; do
+for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
   slug=$(sanitize "$device_name")
   dir="screenshots/$slug"
   if [[ -d "$dir" ]]; then

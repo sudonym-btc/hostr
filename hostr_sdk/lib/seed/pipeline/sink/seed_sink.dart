@@ -1,3 +1,4 @@
+import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import '../seed_pipeline_models.dart';
@@ -18,6 +19,14 @@ class SubmitTrade {
   final String buyerPrivateKey;
   final String sellerPrivateKey;
   final String arbiterPrivateKey;
+
+  /// The on-chain token to deposit.  Native token (address(0)) means the
+  /// contract expects `msg.value`; an ERC-20 address means the sink must
+  /// `approve` + `transferFrom`.
+  final Token token;
+
+  /// Amount expressed in the token's smallest unit (wei for native, raw
+  /// integer for ERC-20).
   final BigInt amountWei;
   final BigInt unlockAt;
 
@@ -26,6 +35,7 @@ class SubmitTrade {
     required this.buyerPrivateKey,
     required this.sellerPrivateKey,
     required this.arbiterPrivateKey,
+    required this.token,
     required this.amountWei,
     required this.unlockAt,
   });

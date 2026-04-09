@@ -12,6 +12,7 @@ import 'package:hostr/presentation/main.dart';
 import 'package:hostr/route/nostr_link_handler.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr/setup.dart' show currentEnv;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -85,6 +86,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         BackgroundTaskType.onchainOps.taskName,
         initialDelay: const Duration(seconds: 0),
         existingWorkPolicy: ExistingWorkPolicy.replace,
+        inputData: <String, dynamic>{'env': currentEnv},
       );
 
       // Longer processing window scheduled by iOS when network is available. Scheduler may delay this by minutes, but it's a safety net in case the one-off task expires before the operation completes.
@@ -93,6 +95,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         BackgroundTaskType.onchainOps.taskName,
         initialDelay: const Duration(seconds: 0),
         constraints: Constraints(networkType: NetworkType.connected),
+        inputData: <String, dynamic>{'env': currentEnv},
       );
     } catch (_) {
       // Best-effort — don't crash the lifecycle handler.

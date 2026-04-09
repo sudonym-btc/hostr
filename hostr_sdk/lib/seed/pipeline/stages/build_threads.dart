@@ -60,10 +60,16 @@ Future<List<SeedThread>> buildThreads({
       late final DateTime start;
       late final DateTime end;
       if (isFutureReservation) {
-        start = chainNow.add(Duration(days: 3 + ctx.random.nextInt(180)));
+        final rawStart = chainNow.add(
+          Duration(days: 3 + ctx.random.nextInt(180)),
+        );
+        start = DateTime.utc(rawStart.year, rawStart.month, rawStart.day);
         end = start.add(Duration(days: stayDays));
       } else {
-        end = chainNow.subtract(Duration(days: 1 + ctx.random.nextInt(180)));
+        final rawEnd = chainNow.subtract(
+          Duration(days: 1 + ctx.random.nextInt(180)),
+        );
+        end = DateTime.utc(rawEnd.year, rawEnd.month, rawEnd.day);
         start = end.subtract(Duration(days: stayDays));
       }
 

@@ -300,11 +300,44 @@ class Seeder {
     final guestKey = thread.guest.keyPair.privateKey!;
     final hostKey = thread.host.keyPair.privateKey!;
     final arbiterKey = MockKeys.escrow.privateKey!;
-    final amountWei = thread.request.amount!.value * BigInt.from(10).pow(10);
+
+    // Resolve the on-chain token from the seller's escrow method.
+    final denomination = thread.request.amount!.denomination;
+    final method = plan.method;
+    final Token token;
+    if (method != null) {
+      final acceptedTokens = method.acceptedTokensFor(denomination);
+      if (acceptedTokens.isNotEmpty) {
+        // Use tBTC decimals from config when available, otherwise assume 18.
+        final tagId = acceptedTokens.first;
+        final decimals =
+            tagId.contains(':') &&
+                !tagId.endsWith('0x0000000000000000000000000000000000000000')
+            ? config.tbtcDecimals
+            : 18;
+        token = Token.fromTagId(tagId, decimals: decimals);
+      } else {
+        token = Token.native(config.chainId);
+      }
+    } else {
+      token = Token.native(config.chainId);
+    }
+
+    // Scale the denomination amount (e.g. sats with 8 decimals) to the
+    // token's on-chain precision.
+    final denominationDecimals = thread.request.amount!.decimals;
+    final decimalDiff = token.decimals - denominationDecimals;
+    final amountWei = decimalDiff > 0
+        ? thread.request.amount!.value * BigInt.from(10).pow(decimalDiff)
+        : thread.request.amount!.value;
+
     final unlockAt = BigInt.from(
       thread.request.end != null
           ? thread.request.end!.toUtc().millisecondsSinceEpoch ~/ 1000
-          : DateTime.now().add(const Duration(days: 30)).millisecondsSinceEpoch ~/ 1000,
+          : DateTime.now()
+                    .add(const Duration(days: 30))
+                    .millisecondsSinceEpoch ~/
+                1000,
     );
 
     final createResult = await sink.submitTrade(
@@ -313,6 +346,7 @@ class Seeder {
         buyerPrivateKey: guestKey,
         sellerPrivateKey: hostKey,
         arbiterPrivateKey: arbiterKey,
+        token: token,
         amountWei: amountWei,
         unlockAt: unlockAt,
       ),

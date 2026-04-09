@@ -60,6 +60,7 @@ class ZapListWidgetState extends State<ZapListWidget> {
       final lnurl = getIt<Hostr>().lnurl;
       final lud16Link = lnurl.getLud16LinkFromLud16(widget.lud16!);
       if (lud16Link == null) {
+        if (!mounted) return;
         setState(() {
           _error = 'Invalid lightning address: ${widget.lud16}';
           _resolving = false;
@@ -67,6 +68,7 @@ class ZapListWidgetState extends State<ZapListWidget> {
         return;
       }
       final response = await lnurl.getLnurlResponse(lud16Link);
+      if (!mounted) return;
       final nostrPubkey = response?.nostrPubkey;
       if (nostrPubkey == null || nostrPubkey.isEmpty) {
         setState(() {
@@ -78,6 +80,7 @@ class ZapListWidgetState extends State<ZapListWidget> {
       _startFetch(nostrPubkey);
       setState(() => _resolving = false);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _resolving = false;

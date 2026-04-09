@@ -71,10 +71,10 @@ class FundsMonitorService {
   ///
   /// Items where [FundsItem.contract] is non-null are escrow-locked and
   /// require `preLockCalls` in the corresponding swap-out operation.
-  late final Stream<List<FundsItem>> fundsStream$;
+  late Stream<List<FundsItem>> fundsStream$;
 
   /// Display-only: per-token totals collapsed from [fundsStream$].
-  late final Stream<List<TokenAmount>> displayBalance$;
+  late Stream<List<TokenAmount>> displayBalance$;
 
   // ── Internal state ───────────────────────────────────────────────────────
 
