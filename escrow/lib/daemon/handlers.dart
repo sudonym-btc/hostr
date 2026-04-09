@@ -102,8 +102,10 @@ class DaemonHandler {
       'formatted': result.format(),
       'hasBuyer': result.buyer != null,
       'hasSeller': result.seller != null,
+      'hasEscrow': result.escrow != null,
       'buyerStage': result.buyer?.currentStage?.name,
       'sellerStage': result.seller?.currentStage?.name,
+      'escrowStage': result.escrow?.currentStage?.name,
     };
   }
 

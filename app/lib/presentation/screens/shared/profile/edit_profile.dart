@@ -132,11 +132,7 @@ class EditProfileViewState extends State<EditProfileView> {
           }
           if (snapshot.connectionState == ConnectionState.done) {
             final fields = buildFormFields();
-            return LayoutBuilder(
-              builder: (context, constraints) => constraints.hasBoundedHeight
-                  ? ListView(children: fields)
-                  : Column(mainAxisSize: MainAxisSize.min, children: fields),
-            );
+            return AdaptiveList(children: fields);
           }
           return Text(AppLocalizations.of(context)!.errorLabel);
         },

@@ -4,8 +4,8 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
+import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
-import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/token_amount_ext.dart';
@@ -17,6 +17,7 @@ import '../../../trade_account_allocator/trade_account_allocator.dart';
 import '../../../user_config/user_config_store.dart';
 import '../../../user_subscriptions/user_subscriptions.dart';
 import '../../chain/evm_balance_types.dart';
+import '../../chain/evm_chain.dart';
 import '../../evm.dart';
 import '../operation_state_store.dart';
 import '../swap_out/swap_out_models.dart';
@@ -61,7 +62,6 @@ class FundsMonitorService {
   final TradeAccountAllocator _tradeAccountAllocator;
   final OperationStateStore _stateStore;
   final UserConfigStore _userConfigStore;
-  final HostrConfig _hostrConfig;
   final SwapOutQuoteService _quoteService;
   final CustomLogger _logger;
 
@@ -84,16 +84,13 @@ class FundsMonitorService {
     [],
   );
 
-  /// Pending escrow withdrawals keyed by tradeId.
-  final Map<String, FundsItem> _escrowItems = {};
+  /// Live escrow balances keyed by (addressLower, tokenAddressLower).
+  final Map<(String, String), FundsItem> _escrowItems = {};
   final BehaviorSubject<List<FundsItem>> _escrowSubject =
       BehaviorSubject.seeded([]);
 
   /// Address → account index (populated during seeding + new address tracking).
   final Map<String, int> _addressToAccountIndex = {};
-
-  /// Track in-flight escrow items to prevent concurrent retries.
-  final Set<String> _inFlightEscrowTradeIds = {};
 
   bool _swapInProgress = false;
   Timer? _cooldownTimer;
@@ -111,7 +108,6 @@ class FundsMonitorService {
     this._tradeAccountAllocator,
     this._stateStore,
     this._userConfigStore,
-    this._hostrConfig,
     this._quoteService,
     CustomLogger logger,
   ) : _logger = logger.scope('funds-monitor');
@@ -162,7 +158,6 @@ class FundsMonitorService {
     _escrowItems.clear();
     _escrowSubject.add([]);
     _addressToAccountIndex.clear();
-    _inFlightEscrowTradeIds.clear();
   });
 
   /// Force an immediate sweep check (skips debounce).
@@ -299,47 +294,59 @@ class FundsMonitorService {
     final contract = event.contract;
     if (chain == null || contract == null) return;
 
-    final tradeId = event.tradeId;
-    if (_escrowItems.containsKey(tradeId)) return;
-    if (_inFlightEscrowTradeIds.contains(tradeId)) return;
-
-    _inFlightEscrowTradeIds.add(tradeId);
     try {
       final accountIndex =
           await _tradeAccountAllocator.tryFindTradeAccountIndexByTradeId(
-            tradeId,
+            event.tradeId,
           ) ??
           0;
       final keypair = await _auth.hd.getActiveEvmKey(
         accountIndex: accountIndex,
       );
 
-      final pending = await contract.pendingWithdrawal(
-        tradeId: tradeId,
-        beneficiary: keypair.address,
+      await _refreshEscrowBalances(
+        contract: contract,
+        chain: chain,
+        keypair: keypair,
+        accountIndex: accountIndex,
       );
-      if (pending == BigInt.zero) return;
+    } catch (e) {
+      _logger.e('Failed to refresh escrow balances after ${event.tradeId}: $e');
+    }
+  }
 
-      final item = FundsItem(
+  /// Fetch all escrow balances for [keypair] from [contract] and emit
+  /// the updated list via [_escrowSubject].
+  Future<void> _refreshEscrowBalances({
+    required SupportedEscrowContract contract,
+    required EvmChain chain,
+    required EthPrivateKey keypair,
+    required int accountIndex,
+  }) async {
+    final balanceMap = await contract.allBalances(beneficiary: keypair.address);
+
+    final addrKey = keypair.address.eip55With0x.toLowerCase();
+
+    // Remove stale entries for this address (tokens that may now be zero).
+    _escrowItems.removeWhere((key, _) => key.$1 == addrKey);
+
+    // Upsert non-zero balances.
+    for (final entry in balanceMap.entries) {
+      final token = await chain.resolveToken(entry.key.eip55With0x);
+      final tokenKey = entry.key.eip55With0x.toLowerCase();
+      _escrowItems[(addrKey, tokenKey)] = FundsItem(
         address: keypair.address,
         keypair: keypair,
         accountIndex: accountIndex,
-        token: Token.native(chain.config.chainId),
-        balance: rbtcFromWei(pending),
+        token: token,
+        balance: TokenAmount(value: entry.value, token: token),
         chain: chain,
-        blockNumber:
-            0, // BlockInformation carries no block number; 0 is a safe placeholder
+        blockNumber: 0,
         contract: contract,
-        tradeId: tradeId,
       );
-
-      _escrowItems[tradeId] = item;
-      _escrowSubject.add(_escrowItems.values.toList());
-    } catch (e) {
-      _logger.e('Failed to build escrow FundsItem for $tradeId: $e');
-    } finally {
-      _inFlightEscrowTradeIds.remove(tradeId);
     }
+
+    _escrowSubject.add(_escrowItems.values.toList());
   }
 
   // ── Seeding ──────────────────────────────────────────────────────────────
@@ -433,27 +440,9 @@ class FundsMonitorService {
       return false;
     }
 
-    final minimumBalance = rbtcFromSats(
-      BigInt.from(_hostrConfig.autoWithdrawMinimumSats),
-    );
-
-    // Gate 4: minimum balance?
-    if (item.balance < minimumBalance) {
-      _logger.d(
-        'FundsMonitor skipped ${item.address.eip55With0x}: '
-        '${item.balance.getInSats} sats below minimum '
-        '${_hostrConfig.autoWithdrawMinimumSats}',
-      );
-      return false;
-    }
-
     // Gate 5: fee ratio?
     try {
-      final swapParams = SwapOutParams(
-        evmKey: item.keypair,
-        accountIndex: item.accountIndex,
-        amount: item.isEscrowLocked ? item.balance : null,
-      );
+      final swapParams = await _swapOutParams(item);
       final quote = await item.chain.swapOutQuote(params: swapParams);
       final networkFees = quote.feeBreakdown.networkFees;
       final feeRatio = networkFees.value == BigInt.zero
@@ -479,29 +468,8 @@ class FundsMonitorService {
   Future<void> _executeSwapOut(FundsItem item) async {
     _swapInProgress = true;
     try {
-      // For escrow-locked funds, bundle withdraw() as a pre-lock call.
-      Map<String, Call>? preLockCalls;
-      if (item.isEscrowLocked) {
-        final destination = await item.chain.getAccountAddress(item.keypair);
-        preLockCalls = {
-          'withdraw': item.contract!.withdraw(
-            WithdrawArgs(
-              tradeId: item.tradeId!,
-              ethKey: item.keypair,
-              beneficiary: item.keypair.address,
-              destination: destination,
-            ),
-          ),
-        };
-      }
-
       final swapOp = item.chain.swapOut(
-        params: SwapOutParams(
-          evmKey: item.keypair,
-          accountIndex: item.accountIndex,
-          amount: item.isEscrowLocked ? item.balance : null,
-          preLockCalls: preLockCalls,
-        ),
+        params: await _swapOutParams(item),
         auth: getIt<Auth>(),
         logger: _logger,
         nwc: getIt<Nwc>(),
@@ -512,7 +480,7 @@ class FundsMonitorService {
       _logger.i(
         'FundsMonitor: initiating swap-out of ${item.balance.getInSats} sats '
         'on ${item.chain.config.id}'
-        '${item.tradeId != null ? " (escrow trade=${item.tradeId})" : ""}',
+        '${item.isEscrowLocked ? " (escrow)" : ""}',
       );
 
       await swapOp.execute();
@@ -521,10 +489,14 @@ class FundsMonitorService {
         _logger.i(
           'FundsMonitor: swap-out completed on ${item.chain.config.id}',
         );
-        // Evict the escrow item on success.
-        if (item.tradeId != null) {
-          _escrowItems.remove(item.tradeId);
-          _escrowSubject.add(_escrowItems.values.toList());
+        // Re-fetch escrow balances so the subject reflects the withdrawal.
+        if (item.isEscrowLocked) {
+          await _refreshEscrowBalances(
+            contract: item.contract!,
+            chain: item.chain,
+            keypair: item.keypair,
+            accountIndex: item.accountIndex,
+          );
         }
       } else if (swapOp.state is SwapOutFailed) {
         final failed = swapOp.state as SwapOutFailed;
@@ -539,6 +511,37 @@ class FundsMonitorService {
       _swapInProgress = false;
       _cooldownTimer = Timer(cooldownDuration, () {});
     }
+  }
+
+  // ── Param builder ────────────────────────────────────────────────────────
+
+  /// Builds [SwapOutParams] for [item], including escrow `withdraw()` as a
+  /// pre-lock call when the funds are locked in an escrow contract.
+  ///
+  /// Shared by the quote gate-check and the actual swap-out execution so that
+  /// gas estimation sees the same call bundle as the real operation.
+  Future<SwapOutParams> _swapOutParams(FundsItem item) async {
+    Map<String, Call>? preLockCalls;
+    if (item.isEscrowLocked) {
+      final destination = await item.chain.getAccountAddress(item.keypair);
+      final tokenAddress = EthereumAddress.fromHex(item.token.address);
+      preLockCalls = {
+        'withdraw': item.contract!.withdraw(
+          WithdrawArgs(
+            token: tokenAddress,
+            ethKey: item.keypair,
+            beneficiary: item.keypair.address,
+            destination: destination,
+          ),
+        ),
+      };
+    }
+    return SwapOutParams(
+      evmKey: item.keypair,
+      accountIndex: item.accountIndex,
+      amount: item.isEscrowLocked ? item.balance : null,
+      preLockCalls: preLockCalls,
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

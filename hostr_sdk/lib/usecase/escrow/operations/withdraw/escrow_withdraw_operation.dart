@@ -62,23 +62,22 @@ class EscrowWithdrawOperation {
       );
 
       // ── Resolve HD account ──
-      final accountIndex =
-          await tradeAccountAllocator.tryFindTradeAccountIndexByTradeId(
-            params.tradeId,
-          ) ??
-          0;
+      final accountIndex = 0;
       final evmKey = await auth.hd.getActiveEvmKey(accountIndex: accountIndex);
       final beneficiary = EthereumAddress.fromHex(params.beneficiaryEvmAddress);
       final smartWallet = await configuredChain.getAccountAddress(evmKey);
 
-      // ── Read pending withdrawal ──
-      final pendingAmountWei = await contract.pendingWithdrawal(
-        tradeId: params.tradeId,
+      // ── Read pending balance for the native token ──
+      final nativeToken = EthereumAddress.fromHex(
+        '0x0000000000000000000000000000000000000000',
+      );
+      final pendingAmountWei = await contract.balanceOf(
         beneficiary: beneficiary,
+        token: nativeToken,
       );
       if (pendingAmountWei <= BigInt.zero) {
         throw StateError(
-          'No pending withdrawal for trade ${params.tradeId} '
+          'No pending withdrawal for '
           'beneficiary ${beneficiary.eip55With0x}',
         );
       }
@@ -92,13 +91,14 @@ class EscrowWithdrawOperation {
 
       logger.i(
         'EscrowWithdraw: pending=$pendingAmountWei '
-        '(${withdrawAmount.getInSats} sats) for trade ${params.tradeId}',
+        '(${withdrawAmount.getInSats} sats) for '
+        'beneficiary ${beneficiary.eip55With0x}',
       );
 
       // ── Build the escrow withdraw intent ──
       final withdrawIntent = contract.withdraw(
         WithdrawArgs(
-          tradeId: params.tradeId,
+          token: nativeToken,
           ethKey: evmKey,
           beneficiary: beneficiary,
           destination: smartWallet,

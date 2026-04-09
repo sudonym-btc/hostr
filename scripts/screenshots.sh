@@ -248,10 +248,10 @@ seed_screenshot_relay() {
 }
 JSON
 
-  # echo "🌱 Seeding relay for screenshots…"
-  # "$REPO_ROOT/scripts/seed_relay.sh" --config-file="$config_file" \
-  #   2>&1 | sed 's/^/   /'
-  # echo ""
+  echo "🌱 Seeding relay for screenshots…"
+  "$REPO_ROOT/scripts/seed_relay.sh" --config-file="$config_file" \
+    2>&1 | sed 's/^/   /'
+  echo ""
 }
 
 sync_landing_page_screenshots() {
@@ -319,18 +319,6 @@ set -a
 source "$REPO_ROOT/.env"
 source "$REPO_ROOT/.env.local"
 set +a
-
-# Derive the per-chain escrow address variable.
-_CHAIN_PREFIX="EVM_CHAIN_$(echo "$EVM_CHAINS" | tr '[:lower:]-' '[:upper:]_')"
-_ESCROW_ADDR_VAR="${_CHAIN_PREFIX}_ESCROW_CONTRACT_ADDRESS"
-_ESCROW_ADDR="${!_ESCROW_ADDR_VAR}"
-if [[ -z "$_ESCROW_ADDR" ]]; then
-  echo "❌ Could not resolve escrow contract address ($_ESCROW_ADDR_VAR)."
-  echo "   Re-run scripts/sync-contract-env.sh local."
-  exit 1
-fi
-echo "📝 Contract address ($_ESCROW_ADDR_VAR): $_ESCROW_ADDR"
-echo ""
 
 seed_screenshot_relay
 

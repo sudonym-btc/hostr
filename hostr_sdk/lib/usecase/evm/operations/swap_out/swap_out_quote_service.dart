@@ -64,9 +64,12 @@ class SwapOutQuoteService {
         ? EthereumAddress.fromHex(params.amount!.token.address)
         : null;
 
-    final balance = await _getSwapBalance(chain, params, tokenAddress);
+    final balance =
+        params.amount ?? await _getSwapBalance(chain, params, tokenAddress);
     final gasEstimate = await _estimateLockGasFee(chain, params, tokenAddress);
-    final gasFee = rbtcFromWei(gasEstimate.gasCostWei);
+    final gasFee = gasEstimate.gasSponsored
+        ? rbtcFromWei(BigInt.zero)
+        : rbtcFromWei(gasEstimate.gasCostWei);
 
     final balanceRounded = TokenAmountEvmExt(balance).roundDownToSats();
     final gasFeeRounded = TokenAmountEvmExt(gasFee).roundUpToSats();
@@ -120,26 +123,12 @@ class SwapOutQuoteService {
           : maxInvoiceByPair,
     );
 
-    final invoiceAmount = TokenAmountEvmExt(
-      params.amount ?? maxInvoice,
-    ).roundDownToSats();
+    final invoiceAmount = TokenAmountEvmExt(maxInvoice).roundDownToSats();
 
     if (invoiceAmount < minInvoice) {
       throw StateError(
         'Invoice amount ${TokenAmountEvmExt(invoiceAmount).getInSats} sats is below Boltz minimum '
         '${TokenAmountEvmExt(minInvoice).getInSats} sats.',
-      );
-    }
-    if (invoiceAmount > maxInvoiceByPair) {
-      throw StateError(
-        'Invoice amount ${TokenAmountEvmExt(invoiceAmount).getInSats} sats exceeds Boltz maximum '
-        '${TokenAmountEvmExt(maxInvoiceByPair).getInSats} sats.',
-      );
-    }
-    if (invoiceAmount > maxInvoiceByBalance) {
-      throw StateError(
-        'Invoice amount ${TokenAmountEvmExt(invoiceAmount).getInSats} sats exceeds affordable maximum '
-        '${TokenAmountEvmExt(maxInvoiceByBalance).getInSats} sats after gas+swap fees.',
       );
     }
 

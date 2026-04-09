@@ -127,16 +127,18 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
           "Sending to ${counterpartyCubits.values.map((e) => e.state.data?.metadata.getName() ?? 'Loading').join(', ')}";
     }
 
-    return ThreadReplyView(
-      controller: _replyController,
-      isLoading: isLoading,
-      errorText: _status == _ThreadReplyStatus.error ? _error : null,
-      label: label,
-      hintText: AppLocalizations.of(context)!.typeAMessage,
-      onChanged: (_) {
-        setState(() {});
-      },
-      onSend: _sendReply,
+    return SafeArea(
+      child: ThreadReplyView(
+        controller: _replyController,
+        isLoading: isLoading,
+        errorText: _status == _ThreadReplyStatus.error ? _error : null,
+        label: label,
+        hintText: AppLocalizations.of(context)!.typeAMessage,
+        onChanged: (_) {
+          setState(() {});
+        },
+        onSend: _sendReply,
+      ),
     );
   }
 }

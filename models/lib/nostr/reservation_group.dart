@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:models/nostr/main.dart';
+import 'package:models/nostr_kinds.dart' show kListingRefTag;
 
 /// Groups all reservation events for a single trade (same `d` tag).
 ///
@@ -121,10 +122,17 @@ class ReservationGroup {
   }
 
   String get listingAnchor {
-    return reservations.first.parsedTags.listingAnchor;
+    for (final r in reservations) {
+      final anchors = r.parsedTags.getTags(kListingRefTag);
+      if (anchors.isNotEmpty) return anchors.first;
+    }
+    throw StateError('No reservation in group carries a listing anchor');
   }
 
   String get hostPubkey => getPubKeyFromAnchor(listingAnchor);
+
+  /// The buyer (guest) pubkey, resolved from the buyer's reservation.
+  String? get buyerPubkey => buyerReservation?.pubKey;
 
   /// The escrow service pubkey, resolved from the first reservation that
   /// carries an [EscrowProof].

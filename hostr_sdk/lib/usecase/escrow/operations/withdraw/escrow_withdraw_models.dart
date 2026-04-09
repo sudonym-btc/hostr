@@ -7,16 +7,14 @@ import 'package:models/main.dart';
 /// contract — all in a single atomic UserOperation.
 class EscrowWithdrawParams {
   final EscrowService escrowService;
-  final String tradeId;
 
   /// The on-chain address that was awarded funds during settlement
   /// (buyer, seller, or arbiter). Must match a non-zero entry in
-  /// `pendingWithdrawals[tradeId]`.
+  /// `balances[beneficiary][token]`.
   final String beneficiaryEvmAddress;
 
   EscrowWithdrawParams({
     required this.escrowService,
-    required this.tradeId,
     required this.beneficiaryEvmAddress,
   });
 }

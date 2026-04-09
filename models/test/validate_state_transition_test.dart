@@ -68,17 +68,6 @@ void main() {
         expect(result.isValid, isTrue);
       });
 
-      test('negotiate → commit (sellerAck)', () {
-        final result = validateStateTransitions([
-          _transition(
-            type: ReservationTransitionType.sellerAck,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
-          ),
-        ]);
-        expect(result.isValid, isTrue);
-      });
-
       test('negotiate → commit (commit)', () {
         final result = validateStateTransitions([
           _transition(
@@ -193,18 +182,6 @@ void main() {
         expect(result.reason, contains('does not match stages'));
       });
 
-      test('sellerAck with negotiate → cancel', () {
-        final result = validateStateTransitions([
-          _transition(
-            type: ReservationTransitionType.sellerAck,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.cancel,
-          ),
-        ]);
-        expect(result.isValid, isFalse);
-        expect(result.reason, contains('does not match stages'));
-      });
-
       test('commit type with commit → cancel', () {
         final result = validateStateTransitions([
           _transition(
@@ -236,7 +213,7 @@ void main() {
             to: ReservationStage.negotiate,
           ),
           _transition(
-            type: ReservationTransitionType.sellerAck,
+            type: ReservationTransitionType.commit,
             from: ReservationStage.negotiate,
             to: ReservationStage.commit,
           ),

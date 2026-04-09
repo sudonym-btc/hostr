@@ -57,7 +57,10 @@ class Payments {
       }
     }
     // No NWC wallet connected – try LUD16 from user metadata first
-    return await _tryCreateInvoiceFromLud16(amountSats);
+    return await _tryCreateInvoiceFromLud16(
+      amountSats,
+      description: description,
+    );
   });
 
   /// Attempts to create an invoice from the current user's LUD16 lightning
@@ -85,6 +88,16 @@ class Payments {
       }
 
       final lnurlResponse = await _lnurl.getLnurlResponse(lud16Link);
+      _logger.d(
+        'LNURL response for LUD16 $lud16: '
+        'callback=${lnurlResponse?.callback}, '
+        'tag=${lnurlResponse?.tag}, '
+        'minSendable=${lnurlResponse?.minSendable}, '
+        'maxSendable=${lnurlResponse?.maxSendable}, '
+        'commentAllowed=${lnurlResponse?.commentAllowed}, '
+        'allowsNostr=${lnurlResponse?.allowsNostr}, '
+        'metadata=${lnurlResponse?.metadata}',
+      );
       if (lnurlResponse == null || lnurlResponse.callback == null) {
         _logger.w('LNURL response invalid for $lud16');
         return null;
@@ -101,7 +114,9 @@ class Payments {
         return null;
       }
 
-      _logger.i('Successfully created invoice via LUD16 ($lud16)');
+      _logger.i(
+        'Successfully created invoice via LUD16 ($lud16, $description)',
+      );
       return invoiceResponse.invoice;
     } catch (e) {
       _logger.w('Error creating invoice from LUD16: $e');

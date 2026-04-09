@@ -508,7 +508,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1068.TradeAccountAllocator>(),
         gh<_i842.OperationStateStore>(),
         gh<_i794.UserConfigStore>(),
-        gh<_i910.HostrConfig>(),
         gh<_i148.SwapOutQuoteService>(),
         gh<_i331.CustomLogger>(),
       ),
