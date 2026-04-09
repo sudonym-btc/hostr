@@ -12,9 +12,9 @@ import '../../chain/evm_chain.dart';
 /// [accountIndex] so the consumer can sign transactions or create swap-out
 /// operations directly.
 ///
-/// For escrow-locked funds, [contract] and [tradeId] are non-null. The
-/// swap-out operation must include `contract.withdraw(...)` as a pre-lock
-/// call so that the withdrawal and lockup happen atomically.
+/// For escrow-locked funds, [contract] is non-null. The swap-out operation
+/// must include `contract.withdraw(...)` as a pre-lock call so that the
+/// withdrawal and lockup happen atomically.
 class FundsItem {
   /// The EVM address that holds the funds.
   ///
@@ -40,9 +40,6 @@ class FundsItem {
   /// call in the swap-out operation.
   final SupportedEscrowContract? contract;
 
-  /// Trade ID — present when [contract] is non-null.
-  final String? tradeId;
-
   /// Whether this item represents escrow-locked funds.
   bool get isEscrowLocked => contract != null;
 
@@ -55,11 +52,7 @@ class FundsItem {
     required this.chain,
     required this.blockNumber,
     this.contract,
-    this.tradeId,
-  }) : assert(
-         (contract == null) == (tradeId == null),
-         'contract and tradeId must both be set or both be null',
-       );
+  });
 
   /// Cache key — unique per (address, token, contract address).
   (String, String, String) get cacheKey => (
@@ -71,6 +64,5 @@ class FundsItem {
   @override
   String toString() =>
       'FundsItem(addr=${address.eip55With0x}, token=${token.address}, '
-      'balance=${balance.value}, escrow=${contract != null}, '
-      'trade=$tradeId)';
+      'balance=${balance.value}, escrow=${contract != null})';
 }

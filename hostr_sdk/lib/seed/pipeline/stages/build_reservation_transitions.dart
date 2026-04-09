@@ -42,9 +42,7 @@ List<ReservationTransition> buildReservationTransitions({
     final cancelled = reservation.stage == ReservationStage.cancel;
     final transitionType = cancelled
         ? ReservationTransitionType.cancel
-        : (thread.selfSigned
-              ? ReservationTransitionType.commit
-              : ReservationTransitionType.sellerAck);
+        : ReservationTransitionType.commit;
     final actor = thread.selfSigned
         ? thread.guest.keyPair
         : thread.host.keyPair;

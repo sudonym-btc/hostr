@@ -9,12 +9,12 @@ import '../amount/amount_input.dart';
 class PaymentTimelineItem extends StatelessWidget {
   // Can be either a Reservation or a PaymentEvent, both have different display info
   final dynamic event;
-  final String hostPubkey;
+  final ReservationGroup? reservationGroup;
 
   const PaymentTimelineItem({
     super.key,
     required this.event,
-    required this.hostPubkey,
+    this.reservationGroup,
   });
   @override
   Widget build(BuildContext context) {
@@ -60,19 +60,42 @@ class PaymentTimelineItem extends StatelessWidget {
 
     if (event is ReservationTransition) {
       final transitionEvent = event as ReservationTransition;
+      final pubKey = transitionEvent.pubKey;
+      final hostPubkey = reservationGroup?.hostPubkey;
+      final escrowPubkey = reservationGroup?.escrowPubkey;
+
+      String _roleLabel({
+        required String host,
+        required String escrow,
+        required String guest,
+      }) {
+        if (pubKey == escrowPubkey) return escrow;
+        if (pubKey == hostPubkey) return host;
+        return guest;
+      }
+
       var title = 'Guest created reservation';
       switch (transitionEvent.transitionType) {
-        case ReservationTransitionType.sellerAck:
-          title = 'Host confirmed reservation';
-          break;
         case ReservationTransitionType.cancel:
-          title = transitionEvent.pubKey == hostPubkey
-              ? 'Host cancelled reservation'
-              : 'Guest cancelled reservation';
+          title = _roleLabel(
+            host: 'Host cancelled reservation',
+            escrow: 'Escrow cancelled reservation',
+            guest: 'Guest cancelled reservation',
+          );
           break;
         case ReservationTransitionType.commit:
+          title = _roleLabel(
+            host: 'Host confirmed reservation',
+            escrow: 'Escrow confirmed reservation',
+            guest: 'Guest committed reservation',
+          );
+          break;
         case ReservationTransitionType.counterOffer:
-          title = 'Guest created reservation';
+          title = _roleLabel(
+            host: 'Host counter-offered',
+            escrow: 'Escrow updated reservation',
+            guest: 'Guest created reservation',
+          );
           break;
       }
 

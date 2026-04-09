@@ -442,7 +442,7 @@ class Reservations extends CrudUseCase<Reservation>
     logger.d('Accepting reservation request: $request');
     return _upsertWithTransition(
       reservation: reservation,
-      transitionType: ReservationTransitionType.sellerAck,
+      transitionType: ReservationTransitionType.commit,
       fromStage: ReservationStage.negotiate,
       toStage: ReservationStage.commit,
       commitTermsHash: request.commitHash(),

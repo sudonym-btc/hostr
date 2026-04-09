@@ -61,6 +61,7 @@ class TradeAuditResult {
   final Listing? listing;
   final PartyAudit? buyer;
   final PartyAudit? seller;
+  final PartyAudit? escrow;
 
   /// One-sentence human-readable explanation of the trade outcome and fault.
   final String explanation;
@@ -70,6 +71,7 @@ class TradeAuditResult {
     this.listing,
     this.buyer,
     this.seller,
+    this.escrow,
     required this.explanation,
   });
 
@@ -83,7 +85,7 @@ class TradeAuditResult {
       );
     }
     buf.writeln();
-    for (final party in [seller, buyer]) {
+    for (final party in [seller, escrow, buyer]) {
       if (party == null) continue;
       buf.writeln('── ${party.role} (${_short(party.pubkey)}) ──');
       if (party.reservations.isEmpty) {
@@ -204,22 +206,38 @@ class TradeAudit {
       }
     }
 
-    // 3. Partition reservations and transitions by party.
+    // 3. Resolve escrow pubkey from any reservation carrying an EscrowProof.
+    String? escrowPubkey;
+    for (final r in allReservations) {
+      final pk = r.proof?.escrowProof?.escrowService.escrowPubkey;
+      if (pk != null) {
+        escrowPubkey = pk;
+        break;
+      }
+    }
+
+    // 4. Partition reservations and transitions by party (seller / escrow / buyer).
     final sellerReservations = <Reservation>[];
+    final escrowReservations = <Reservation>[];
     final buyerReservations = <Reservation>[];
     for (final r in allReservations) {
       if (sellerPubkey != null && r.pubKey == sellerPubkey) {
         sellerReservations.add(r);
+      } else if (escrowPubkey != null && r.pubKey == escrowPubkey) {
+        escrowReservations.add(r);
       } else {
         buyerReservations.add(r);
       }
     }
 
     final sellerTransitions = <ReservationTransition>[];
+    final escrowTransitions = <ReservationTransition>[];
     final buyerTransitions = <ReservationTransition>[];
     for (final t in allTransitions) {
       if (sellerPubkey != null && t.pubKey == sellerPubkey) {
         sellerTransitions.add(t);
+      } else if (escrowPubkey != null && t.pubKey == escrowPubkey) {
+        escrowTransitions.add(t);
       } else {
         buyerTransitions.add(t);
       }
@@ -229,9 +247,10 @@ class TradeAudit {
     int byCreatedAt(ReservationTransition a, ReservationTransition b) =>
         a.createdAt.compareTo(b.createdAt);
     sellerTransitions.sort(byCreatedAt);
+    escrowTransitions.sort(byCreatedAt);
     buyerTransitions.sort(byCreatedAt);
 
-    // 4. Validate reservations against the listing.
+    // 5. Validate reservations against the listing.
     List<({Reservation reservation, ValidationResult validation})>
     validateReservations(List<Reservation> reservations) {
       return reservations.map((r) {
@@ -243,9 +262,10 @@ class TradeAudit {
     }
 
     final sellerValidated = validateReservations(sellerReservations);
+    final escrowValidated = validateReservations(escrowReservations);
     final buyerValidated = validateReservations(buyerReservations);
 
-    // 4b. On-chain escrow verification for buyer's committed reservation.
+    // 5b. On-chain escrow verification for buyer's committed reservation.
     EscrowVerificationResult? buyerEscrowResult;
     if (listing != null) {
       final committedBuyer = buyerReservations
@@ -262,11 +282,12 @@ class TradeAudit {
       }
     }
 
-    // 5. Validate transition chains.
+    // 6. Validate transition chains.
     final sellerChain = validateStateTransitions(sellerTransitions);
+    final escrowChain = validateStateTransitions(escrowTransitions);
     final buyerChain = validateStateTransitions(buyerTransitions);
 
-    // 6. Build party audits.
+    // 7. Build party audits.
     PartyAudit? buildParty(
       String role,
       String? pubkey,
@@ -303,6 +324,15 @@ class TradeAudit {
       sellerChain,
     );
 
+    final escrowAudit = buildParty(
+      'ESCROW',
+      escrowPubkey,
+      escrowReservations,
+      escrowValidated,
+      escrowTransitions,
+      escrowChain,
+    );
+
     // Determine buyer pubkey.
     String? buyerPubkey;
     if (buyerReservations.isNotEmpty) {
@@ -321,11 +351,12 @@ class TradeAudit {
       escrowResult: buyerEscrowResult,
     );
 
-    // 7. Produce the one-sentence explanation.
+    // 8. Produce the one-sentence explanation.
     final explanation = _explain(
       tradeId: tradeId,
       seller: sellerAudit,
       buyer: buyerAudit,
+      escrow: escrowAudit,
       listing: listing,
     );
 
@@ -334,6 +365,7 @@ class TradeAudit {
       listing: listing,
       buyer: buyerAudit,
       seller: sellerAudit,
+      escrow: escrowAudit,
       explanation: explanation,
     );
   });
@@ -343,6 +375,7 @@ class TradeAudit {
     required String tradeId,
     PartyAudit? seller,
     PartyAudit? buyer,
+    PartyAudit? escrow,
     Listing? listing,
   }) {
     // No data at all.
@@ -352,6 +385,12 @@ class TradeAudit {
 
     final sellerCancelled = seller?.currentStage == ReservationStage.cancel;
     final buyerCancelled = buyer?.currentStage == ReservationStage.cancel;
+    final escrowCancelled = escrow?.currentStage == ReservationStage.cancel;
+
+    // Escrow cancelled — escrow service withdrew from the trade.
+    if (escrowCancelled) {
+      return 'The escrow service cancelled the trade; escrow refused to proceed.';
+    }
 
     // Both cancelled.
     if (sellerCancelled && buyerCancelled) {
@@ -374,6 +413,9 @@ class TradeAudit {
     }
     if (buyer != null && !buyer.transitionChainResult.isValid) {
       return 'The buyer\'s transition chain is invalid (${buyer.transitionChainResult.reason}); buyer published malformed state transitions.';
+    }
+    if (escrow != null && !escrow.transitionChainResult.isValid) {
+      return 'The escrow\'s transition chain is invalid (${escrow.transitionChainResult.reason}); escrow published malformed state transitions.';
     }
 
     // Reservation validity issues.
@@ -413,6 +455,13 @@ class TradeAudit {
       return 'The seller\'s reservation is invalid (${reasons.join('; ')}); seller is at fault.';
     }
 
+    // Escrow involvement expected but missing.
+    final buyerClaimsEscrow =
+        buyer?.reservations.any((r) => r.proof?.escrowProof != null) == true;
+    if (buyerClaimsEscrow && escrow == null) {
+      return 'Buyer claims escrow involvement but the escrow service never confirmed; escrow is unresponsive.';
+    }
+
     // Missing seller confirmation.
     if (seller == null || seller.reservations.isEmpty) {
       if (buyer != null && buyer.reservations.isNotEmpty) {
@@ -436,9 +485,16 @@ class TradeAudit {
         buyer?.currentStage == ReservationStage.commit ||
         buyer?.reservations.any((r) => r.stage == ReservationStage.commit) ==
             true;
+    final escrowConfirmed =
+        escrow?.currentStage == ReservationStage.commit ||
+        escrow?.reservations.any((r) => r.stage == ReservationStage.commit) ==
+            true;
 
     if (sellerCommitted && buyerCommitted) {
-      return 'Both parties committed to the trade; no dispute — trade is active or completed.';
+      final escrowNote = escrowConfirmed
+          ? ' Escrow service confirmed.'
+          : (buyerClaimsEscrow ? ' Escrow service has not yet confirmed.' : '');
+      return 'Both parties committed to the trade; no dispute — trade is active or completed.$escrowNote';
     }
 
     // Still negotiating.

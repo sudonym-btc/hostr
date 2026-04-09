@@ -9,12 +9,12 @@ import 'payment_timeline_item.dart';
 class TradeTimeline extends StatelessWidget {
   final List<ReservationTransition> transitions;
   final List<PaymentEvent> paymentEvents;
-  final String hostPubKey;
+  final ReservationGroup? reservationGroup;
   const TradeTimeline({
     super.key,
     required this.transitions,
     required this.paymentEvents,
-    required this.hostPubKey,
+    this.reservationGroup,
   });
 
   @override
@@ -66,7 +66,7 @@ class TradeTimeline extends StatelessWidget {
             kSpace4,
             child: PaymentTimelineItem(
               event: events[index],
-              hostPubkey: hostPubKey,
+              reservationGroup: reservationGroup,
             ),
           ),
           itemCount: events.length,

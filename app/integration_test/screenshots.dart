@@ -191,6 +191,7 @@ void main() {
     final app = MyApp(appRouter: appRouter);
 
     await mockNetworkImages(() async {
+      await harness.hostr.auth.logout();
       // ── Mount the app once — keep it alive for the whole suite ─────
       // Start in light mode.
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;

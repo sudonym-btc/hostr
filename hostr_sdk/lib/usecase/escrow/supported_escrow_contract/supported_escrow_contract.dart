@@ -77,11 +77,11 @@ class ReleaseArgs {
 }
 
 class WithdrawArgs {
-  final String tradeId;
+  final EthereumAddress token;
   final EthPrivateKey ethKey;
 
   /// The address that was awarded funds during settlement (buyer, seller, or
-  /// arbiter). Must match a non-zero entry in `pendingWithdrawals[tradeId]`.
+  /// arbiter). Must match a non-zero entry in `balances[beneficiary][token]`.
   final EthereumAddress beneficiary;
 
   /// Where to send the tokens. Can differ from [beneficiary] — this is what
@@ -89,7 +89,7 @@ class WithdrawArgs {
   final EthereumAddress destination;
 
   const WithdrawArgs({
-    required this.tradeId,
+    required this.token,
     required this.ethKey,
     required this.beneficiary,
     required this.destination,
@@ -125,10 +125,18 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   });
   Call withdraw(WithdrawArgs args);
 
-  /// Read the amount a [beneficiary] can still withdraw from a settled trade.
+  /// Read the total balance a [beneficiary] can withdraw for a given [token].
   /// Returns `BigInt.zero` if nothing is pending.
-  Future<BigInt> pendingWithdrawal({
-    required String tradeId,
+  Future<BigInt> balanceOf({
+    required EthereumAddress beneficiary,
+    required EthereumAddress token,
+  });
+
+  /// Read all token balances a [beneficiary] can withdraw.
+  ///
+  /// Returns a map of token address → amount (wei / smallest-unit).
+  /// Only non-zero balances are included.
+  Future<Map<EthereumAddress, BigInt>> allBalances({
     required EthereumAddress beneficiary,
   });
 

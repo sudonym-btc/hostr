@@ -211,116 +211,134 @@ class _AppShellScreenState extends State<AppShellScreen>
                   return AutoRouter(
                     builder: (context, child) {
                       final router = AutoRouter.of(context);
-                      final topRouteName = router.topRoute.name;
-                      final layout = AppLayoutSpec.of(context);
-                      final theme = Theme.of(context);
 
-                      final segments = router.currentSegments;
-                      final currentRouteName = segments.isNotEmpty
-                          ? segments.last.name
-                          : topRouteName;
+                      // Rebuild when deeply-nested routes change.
+                      // auto_route's notifyAll() always pings the root
+                      // controller, but intermediate shell controllers
+                      // are not notified, so without this the
+                      // bottom-nav visibility check would use stale
+                      // segments (e.g. ThreadRoute inside InboxRoute).
+                      return ListenableBuilder(
+                        listenable: router.root,
+                        builder: (context, _) {
+                          final topRouteName = router.topRoute.name;
+                          final layout = AppLayoutSpec.of(context);
+                          final theme = Theme.of(context);
 
-                      final selectedIndex = resolveAppNavigationIndex(
-                        currentRouteName: currentRouteName,
-                        destinations: destinations,
-                        isLoggedIn: isLoggedIn,
-                        modeState: modeState,
-                      );
+                          final segments = router.currentSegments;
+                          final currentRouteName = segments.isNotEmpty
+                              ? segments.last.name
+                              : topRouteName;
 
-                      final showSidebar = layout.showsSidebarNavigation;
-                      final isOnTabs = segments.any(
-                        (s) => s.name == TabShellRoute.name,
-                      );
-
-                      // On compact viewports, hide the bottom nav when
-                      // the user has navigated into a nested child route
-                      // (e.g. ThreadRoute inside InboxRoute). Only show
-                      // the nav bar for the tab destination routes
-                      // themselves.
-                      final isOnNestedChild =
-                          !showSidebar &&
-                          isOnTabs &&
-                          segments.length > 1 &&
-                          !destinations.any(
-                            (d) => d.route.routeName == segments.last.name,
+                          final selectedIndex = resolveAppNavigationIndex(
+                            currentRouteName: currentRouteName,
+                            destinations: destinations,
+                            isLoggedIn: isLoggedIn,
+                            modeState: modeState,
                           );
-                      final showBottomNav =
-                          !showSidebar && isOnTabs && !isOnNestedChild;
 
-                      // ── Single stable Scaffold ──────────────────────
-                      // The child always sits at Row index 1, so
-                      // crossing the breakpoint never unmounts
-                      // TabShellScreen / IndexedStack — tab state and
-                      // initState fetches are preserved.
-                      // The root surface is the lightest tone for the
-                      // current brightness so nested AppSurface widgets
-                      // can step progressively deeper (darker).
-                      final rootSurface = theme.brightness == Brightness.light
-                          ? theme.colorScheme.surfaceContainerLowest
-                          : theme.colorScheme.surfaceContainerHighest;
+                          final showSidebar = layout.showsSidebarNavigation;
+                          final isOnTabs = segments.any(
+                            (s) => s.name == TabShellRoute.name,
+                          );
 
-                      return Scaffold(
-                        backgroundColor: rootSurface,
-                        extendBody: showBottomNav,
-                        body: AppSurface.inherit(
-                          color: rootSurface,
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: layout.shellMaxWidth,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Sidebar — always at index 0, zero
-                                  // width when hidden. Keeps the content
-                                  // child at a stable tree position.
-                                  SizedBox(
-                                    width: showSidebar ? kAppSidebarWidth : 0,
-                                    child: showSidebar
-                                        ? SafeArea(
-                                            right: false,
-                                            bottom: false,
-                                            child: _buildSidebar(
-                                              context,
-                                              destinations: destinations,
-                                              selectedIndex: selectedIndex,
-                                              onDestinationSelected: (idx) {
-                                                _selectDestination(
-                                                  router,
-                                                  destinations,
-                                                  idx,
-                                                );
-                                              },
+                          // On compact viewports, hide the bottom nav
+                          // when the user has navigated into a nested
+                          // child route (e.g. ThreadRoute inside
+                          // InboxRoute). Only show the nav bar for the
+                          // tab destination routes themselves.
+                          final isOnNestedChild =
+                              !showSidebar &&
+                              isOnTabs &&
+                              segments.length > 1 &&
+                              !destinations.any(
+                                (d) => d.route.routeName == segments.last.name,
+                              );
+                          final showBottomNav =
+                              !showSidebar && isOnTabs && !isOnNestedChild;
+
+                          // ── Single stable Scaffold ──────────────────
+                          // The child always sits at Row index 1, so
+                          // crossing the breakpoint never unmounts
+                          // TabShellScreen / IndexedStack — tab state
+                          // and initState fetches are preserved.
+                          // The root surface is the lightest tone for
+                          // the current brightness so nested AppSurface
+                          // widgets can step progressively deeper
+                          // (darker).
+                          final rootSurface =
+                              theme.brightness == Brightness.light
+                              ? theme.colorScheme.surfaceContainerLowest
+                              : theme.colorScheme.surfaceContainerHighest;
+
+                          return Scaffold(
+                            backgroundColor: rootSurface,
+                            extendBody: showBottomNav,
+                            body: AppSurface.inherit(
+                              color: rootSurface,
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: layout.shellMaxWidth,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Sidebar — always at index 0,
+                                      // zero width when hidden. Keeps
+                                      // the content child at a stable
+                                      // tree position.
+                                      SizedBox(
+                                        width: showSidebar
+                                            ? kAppSidebarWidth
+                                            : 0,
+                                        child: showSidebar
+                                            ? SafeArea(
+                                                right: false,
+                                                bottom: false,
+                                                child: _buildSidebar(
+                                                  context,
+                                                  destinations: destinations,
+                                                  selectedIndex: selectedIndex,
+                                                  onDestinationSelected: (idx) {
+                                                    _selectDestination(
+                                                      router,
+                                                      destinations,
+                                                      idx,
+                                                    );
+                                                  },
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                      // Content — always at index 1.
+                                      Expanded(
+                                        child:
+                                            NotificationListener<
+                                              ScrollNotification
+                                            >(
+                                              onNotification:
+                                                  _onScrollNotification,
+                                              child: child,
                                             ),
-                                          )
-                                        : null,
+                                      ),
+                                    ],
                                   ),
-                                  // Content — always at index 1.
-                                  Expanded(
-                                    child:
-                                        NotificationListener<
-                                          ScrollNotification
-                                        >(
-                                          onNotification: _onScrollNotification,
-                                          child: child,
-                                        ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        bottomNavigationBar: showBottomNav
-                            ? _buildBottomNav(
-                                context,
-                                router: router,
-                                destinations: destinations,
-                                selectedIndex: selectedIndex,
-                                navBg: theme
-                                    .bottomNavigationBarTheme
-                                    .backgroundColor!,
-                              )
-                            : null,
+                            bottomNavigationBar: showBottomNav
+                                ? _buildBottomNav(
+                                    context,
+                                    router: router,
+                                    destinations: destinations,
+                                    selectedIndex: selectedIndex,
+                                    navBg: theme
+                                        .bottomNavigationBarTheme
+                                        .backgroundColor!,
+                                  )
+                                : null,
+                          );
+                        },
                       );
                     },
                   );

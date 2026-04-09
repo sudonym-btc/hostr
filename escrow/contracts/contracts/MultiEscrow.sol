@@ -61,7 +61,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         keccak256("Arbitrate(bytes32 tradeId,uint256 factor)");
 
     bytes32 private constant WITHDRAW_TYPEHASH =
-        keccak256("Withdraw(bytes32 tradeId,address destination)");
+        keccak256("Withdraw(address token,address destination)");
 
     // ── State ─────────────────────────────────────────────────────────
 
@@ -69,15 +69,15 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     bytes32[] private _activeTradeIds;
     mapping(bytes32 => uint256) private _activeTradeIndexPlusOne;
 
-    /// @dev Sentinel address stored in _settledToken for native-currency trades
-    ///      (address(0) is the default for unmapped keys, so we need a non-zero marker).
-    address private constant NATIVE_SENTINEL = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    /// @dev user => token => withdrawable balance.
+    ///      token address(0) represents native RBTC.
+    mapping(address => mapping(address => uint256)) public balances;
 
-    /// @dev tradeId => beneficiary => amount available to withdraw
-    mapping(bytes32 => mapping(address => uint256)) public pendingWithdrawals;
+    /// @dev user => list of token addresses with non-zero balances (for enumeration).
+    mapping(address => address[]) private _userTokens;
 
-    /// @dev tradeId => token used (NATIVE_SENTINEL for native). Non-zero after settlement.
-    mapping(bytes32 => address) private _settledToken;
+    /// @dev user => token => true if the token is already tracked in _userTokens.
+    mapping(address => mapping(address => bool)) private _userTokenKnown;
 
     /// @dev token => total pending withdrawal amount across all settled trades
     mapping(address => uint256) public totalPending;
@@ -89,11 +89,11 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    event Withdrawn(bytes32 indexed tradeId, address indexed beneficiary, address indexed token, address destination, uint256 amount);
+    event Withdrawn(address indexed beneficiary, address indexed token, address destination, uint256 amount);
 
     // ── Constructor ───────────────────────────────────────────────────
 
-    constructor() EIP712("Hostr MultiEscrow", "5") {
+    constructor() EIP712("Hostr MultiEscrow", "6") {
         owner = msg.sender;
     }
 
@@ -200,6 +200,15 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         emit TradeCreated(tradeId, token, seller, buyer, arbiter, amount, unlockAt, escrowFee);
     }
 
+    function _creditBalance(address recipient, address token, uint256 amount) internal {
+        if (amount == 0 || recipient == address(0)) return;
+        balances[recipient][token] += amount;
+        if (!_userTokenKnown[recipient][token]) {
+            _userTokenKnown[recipient][token] = true;
+            _userTokens[recipient].push(token);
+        }
+    }
+
     function _settleTrade(
         bytes32 tradeId,
         address firstRecipient,
@@ -214,21 +223,18 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         _removeActiveTrade(tradeId);
         delete trades[tradeId];
 
-        // Store token for later withdrawal (NATIVE_SENTINEL for native)
-        _settledToken[tradeId] = token == address(0) ? NATIVE_SENTINEL : token;
-
-        // Record pending withdrawals instead of transferring
+        // Credit balances keyed by (user, token)
         uint256 pendingTotal;
         if (fee > 0) {
-            pendingWithdrawals[tradeId][trade.arbiter] += fee;
+            _creditBalance(trade.arbiter, token, fee);
             pendingTotal += fee;
         }
         if (firstAmount > 0) {
-            pendingWithdrawals[tradeId][firstRecipient] += firstAmount;
+            _creditBalance(firstRecipient, token, firstAmount);
             pendingTotal += firstAmount;
         }
         if (secondAmount > 0) {
-            pendingWithdrawals[tradeId][secondRecipient] += secondAmount;
+            _creditBalance(secondRecipient, token, secondAmount);
             pendingTotal += secondAmount;
         }
         totalPending[token] += pendingTotal;
@@ -405,39 +411,62 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     // ── Withdraw ──────────────────────────────────────────────────────
 
-    /// @notice Withdraw settled funds. After a trade is settled (via claim,
-    ///         release, or arbitrate) the tokens are held in the contract.
-    ///         Each beneficiary can withdraw their share to any `destination`
-    ///         by providing an EIP-712 signature.
+    /// @notice Withdraw the full balance of a specific token.
     ///         `beneficiary` is the address that was awarded funds during
     ///         settlement. `signature` must be from `beneficiary`.
     ///         Anyone can broadcast the transaction (gas-sponsored relay).
     function withdraw(
-        bytes32 tradeId,
+        address token,
         address beneficiary,
         address destination,
         bytes calldata signature
     ) external nonReentrant {
         _verifySigner(
             beneficiary,
-            keccak256(abi.encode(WITHDRAW_TYPEHASH, tradeId, destination)),
+            keccak256(abi.encode(WITHDRAW_TYPEHASH, token, destination)),
             signature
         );
 
-        uint256 amount = pendingWithdrawals[tradeId][beneficiary];
+        uint256 amount = balances[beneficiary][token];
         if (amount == 0) revert NothingToWithdraw();
 
-        // Resolve the token (NATIVE_SENTINEL -> address(0))
-        address stored = _settledToken[tradeId];
-        address token = stored == NATIVE_SENTINEL ? address(0) : stored;
-
         // Clear before transfer (CEI)
-        delete pendingWithdrawals[tradeId][beneficiary];
+        balances[beneficiary][token] = 0;
         totalPending[token] -= amount;
 
         _transfer(token, destination, amount);
 
-        emit Withdrawn(tradeId, beneficiary, token, destination, amount);
+        emit Withdrawn(beneficiary, token, destination, amount);
+    }
+
+    // ── Balance queries ───────────────────────────────────────────────
+
+    /// @notice Returns all tokens and corresponding balances for a user.
+    function balanceOf(address user) external view returns (address[] memory tokens, uint256[] memory amounts) {
+        address[] storage userTokenList = _userTokens[user];
+        uint256 len = userTokenList.length;
+
+        // Count non-zero entries first to size the return arrays
+        uint256 count;
+        for (uint256 i; i < len;) {
+            if (balances[user][userTokenList[i]] > 0) {
+                unchecked { ++count; }
+            }
+            unchecked { ++i; }
+        }
+
+        tokens = new address[](count);
+        amounts = new uint256[](count);
+        uint256 j;
+        for (uint256 i; i < len;) {
+            uint256 bal = balances[user][userTokenList[i]];
+            if (bal > 0) {
+                tokens[j] = userTokenList[i];
+                amounts[j] = bal;
+                unchecked { ++j; }
+            }
+            unchecked { ++i; }
+        }
     }
 
     // ── Rescue ────────────────────────────────────────────────────────

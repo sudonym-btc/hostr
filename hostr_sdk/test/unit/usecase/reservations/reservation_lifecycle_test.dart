@@ -1040,7 +1040,7 @@ void main() async {
   // ── 9. ReservationTransition validation across lifecycle ───────────
 
   group('validateStateTransitions lifecycle', () {
-    test('valid: negotiate → sellerAck → commit (normal flow)', () {
+    test('valid: negotiate → negotiate → commit (normal flow)', () {
       final result = validateStateTransitions([
         _transition(
           type: ReservationTransitionType.counterOffer,
@@ -1057,7 +1057,7 @@ void main() async {
           createdAtOffset: 1,
         ),
         _transition(
-          type: ReservationTransitionType.sellerAck,
+          type: ReservationTransitionType.commit,
           from: ReservationStage.negotiate,
           to: ReservationStage.commit,
           signer: seller,
@@ -1150,19 +1150,6 @@ void main() async {
           from: ReservationStage.negotiate,
           to: ReservationStage.commit,
           signer: buyer,
-        ),
-      ]);
-      expect(result.isValid, isFalse);
-      expect(result.reason, contains('does not match stages'));
-    });
-
-    test('invalid: sellerAck type with negotiate → cancel', () {
-      final result = validateStateTransitions([
-        _transition(
-          type: ReservationTransitionType.sellerAck,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.cancel,
-          signer: seller,
         ),
       ]);
       expect(result.isValid, isFalse);
@@ -1346,7 +1333,7 @@ void main() async {
         // Step 5: Validate seller's transition chain
         final sellerTransitions = [
           _transition(
-            type: ReservationTransitionType.sellerAck,
+            type: ReservationTransitionType.commit,
             from: ReservationStage.negotiate,
             to: ReservationStage.commit,
             signer: seller,

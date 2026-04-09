@@ -65,7 +65,6 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     );
   }
 
-  /// Lazy-initialised EIP-712 signer for claim / release / arbitrate.
   EscrowEip712Signer get _signer {
     final c = chain;
     if (c == null) {
@@ -152,30 +151,45 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
 
   @override
   Call withdraw(WithdrawArgs args) => logger.spanSync('withdraw', () {
-    final tradeIdBytes = getBytes32(args.tradeId);
+    final tokenAddress = args.token;
     final signature = _signer.signWithdraw(
-      tradeId: tradeIdBytes,
+      token: tokenAddress,
       destination: args.destination,
       signer: args.ethKey,
     );
     return buildCall(
       functionName: 'withdraw',
-      args: [tradeIdBytes, args.beneficiary, args.destination, signature],
+      args: [tokenAddress, args.beneficiary, args.destination, signature],
     );
   });
 
   @override
-  Future<BigInt> pendingWithdrawal({
-    required String tradeId,
+  Future<BigInt> balanceOf({
     required EthereumAddress beneficiary,
-  }) => logger.span('pendingWithdrawal', () async {
+    required EthereumAddress token,
+  }) => logger.span('balanceOf', () async {
     await ensureDeployed();
     return _withDecodedCustomError(() {
-      return contract.pendingWithdrawals((
-        $param16: getBytes32(tradeId),
-        $param17: beneficiary,
-      ));
+      return contract.balances(($param5: beneficiary, $param6: token));
     });
+  });
+
+  @override
+  Future<Map<EthereumAddress, BigInt>> allBalances({
+    required EthereumAddress beneficiary,
+  }) => logger.span('allBalances', () async {
+    await ensureDeployed();
+    final result = await _withDecodedCustomError(() {
+      return contract.balanceOf((user: beneficiary));
+    });
+    final map = <EthereumAddress, BigInt>{};
+    for (var i = 0; i < result.tokens.length; i++) {
+      final amount = result.amounts[i];
+      if (amount > BigInt.zero) {
+        map[result.tokens[i]] = amount;
+      }
+    }
+    return map;
   });
 
   @override

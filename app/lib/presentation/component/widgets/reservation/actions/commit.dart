@@ -73,6 +73,7 @@ class CommitMenu extends StatelessWidget {
           final transitions = trade.transitions$.items;
           final paymentEvents = trade.payments$.items;
           final reservationValidation = trade.reservationGroup$.items;
+          final reservationGroup = reservationValidation.lastOrNull?.event;
 
           return ModalBottomSheet(
             title: 'Information',
@@ -85,7 +86,7 @@ class CommitMenu extends StatelessWidget {
                     TradeTimeline(
                       transitions: transitions,
                       paymentEvents: paymentEvents,
-                      hostPubKey: tradeState.hostPubKey,
+                      reservationGroup: reservationGroup,
                     ),
                     if (reservationValidation is Invalid<ReservationGroup>) ...[
                       Gap.vertical.lg(),

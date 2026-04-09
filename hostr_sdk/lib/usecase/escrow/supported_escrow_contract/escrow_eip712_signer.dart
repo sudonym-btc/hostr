@@ -8,7 +8,7 @@ import 'package:web3dart/web3dart.dart';
 ///
 /// The domain matches the Solidity constructor:
 /// ```solidity
-/// constructor() EIP712("Hostr MultiEscrow", "5") { … }
+/// constructor() EIP712("Hostr MultiEscrow", "6") { … }
 /// ```
 ///
 /// Four typed-data actions are supported:
@@ -18,10 +18,10 @@ import 'package:web3dart/web3dart.dart';
 /// | Claim    | `Claim(bytes32 tradeId)`                               |
 /// | Release  | `Release(bytes32 tradeId,address actor)`               |
 /// | Arbitrate| `Arbitrate(bytes32 tradeId,uint256 factor)`            |
-/// | Withdraw | `Withdraw(bytes32 tradeId,address destination)`        |
+/// | Withdraw | `Withdraw(address token,address destination)`         |
 class EscrowEip712Signer {
   static const String _domainName = 'Hostr MultiEscrow';
-  static const String _domainVersion = '5';
+  static const String _domainVersion = '6';
 
   final int chainId;
   final EthereumAddress verifyingContract;
@@ -123,10 +123,10 @@ class EscrowEip712Signer {
 
   // ── Withdraw ──────────────────────────────────────────────────────
 
-  /// Sign a `Withdraw(bytes32 tradeId, address destination)` for a beneficiary
+  /// Sign a `Withdraw(address token, address destination)` for a beneficiary
   /// to pull settled funds to any destination address.
   Uint8List signWithdraw({
-    required Uint8List tradeId,
+    required EthereumAddress token,
     required EthereumAddress destination,
     required EthPrivateKey signer,
   }) {
@@ -134,14 +134,14 @@ class EscrowEip712Signer {
       types: {
         eip712.EIP712Domain.type: _domainType,
         'Withdraw': const [
-          eip712.MessageTypeProperty(name: 'tradeId', type: 'bytes32'),
+          eip712.MessageTypeProperty(name: 'token', type: 'address'),
           eip712.MessageTypeProperty(name: 'destination', type: 'address'),
         ],
       },
       primaryType: 'Withdraw',
       domain: _domain,
       message: {
-        'tradeId': bytesToHex(tradeId, include0x: true),
+        'token': token.eip55With0x,
         'destination': destination.eip55With0x,
       },
     );

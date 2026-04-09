@@ -168,18 +168,12 @@ class HostrConfig {
   /// skips notification delivery — the operation still completes.
   final ShowNotification? showNotification;
 
-  /// Minimum EVM balance (in sats) per address before auto-withdrawal
-  /// triggers.  Must be above typical swap-out fees to avoid losing money
-  /// on small amounts.
-  final int autoWithdrawMinimumSats;
-
   HostrConfig({
     required this.bootstrapRelays,
     required this.bootstrapBlossom,
     this.bootstrapEscrowPubkeys = const [],
     required this.hostrRelay,
     required this.evmConfig,
-    this.autoWithdrawMinimumSats = 10000,
     this.calendarPort,
     this.showNotification,
     EventVerifier? eventVerifier,

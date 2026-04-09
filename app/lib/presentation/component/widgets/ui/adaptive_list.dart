@@ -19,7 +19,10 @@ class AdaptiveList extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.hasBoundedHeight) {
-          return ListView(padding: padding, children: children);
+          return ListView(
+            padding: padding ?? EdgeInsets.zero,
+            children: children,
+          );
         }
         return Padding(
           padding: padding ?? EdgeInsets.zero,

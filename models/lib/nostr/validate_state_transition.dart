@@ -54,9 +54,6 @@ const _typeToStages =
   ReservationTransitionType.counterOffer: {
     (ReservationStage.negotiate, ReservationStage.negotiate),
   },
-  ReservationTransitionType.sellerAck: {
-    (ReservationStage.negotiate, ReservationStage.commit),
-  },
   ReservationTransitionType.commit: {
     (ReservationStage.negotiate, ReservationStage.commit),
   },

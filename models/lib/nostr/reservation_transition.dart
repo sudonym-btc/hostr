@@ -79,13 +79,10 @@ enum ReservationTransitionType {
   /// A negotiate-stage update (counter-offer with new terms).
   counterOffer,
 
-  /// Seller acknowledges / approves the negotiate terms.
-  sellerAck,
-
-  /// Buyer or seller commits the reservation (negotiate → commit).
+  /// Any party commits the reservation (negotiate → commit).
   commit,
 
-  /// Buyer or seller cancels (negotiate → cancel, or commit → cancel).
+  /// Any party cancels (negotiate → cancel, or commit → cancel).
   cancel,
 }
 
@@ -100,8 +97,8 @@ class ReservationTransitionContent extends EventContent {
   final ReservationStage toStage;
 
   /// The commit-terms hash that both parties agree on at the time of
-  /// transition. For [commit] and [sellerAck] this MUST match the
-  /// reservation's `commitTermsHash`.
+  /// transition. For [commit] this MUST match the reservation's
+  /// `commitTermsHash`.
   final String? commitTermsHash;
 
   /// Human-readable reason or note (optional). Useful for cancellations.

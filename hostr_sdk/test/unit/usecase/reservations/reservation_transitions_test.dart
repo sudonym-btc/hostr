@@ -121,7 +121,7 @@ void main() {
 
         final result = await usecase.record(
           reservation: reservation,
-          transitionType: ReservationTransitionType.sellerAck,
+          transitionType: ReservationTransitionType.commit,
           fromStage: ReservationStage.negotiate,
           toStage: ReservationStage.commit,
           commitTermsHash: 'hash-abc',
@@ -190,7 +190,7 @@ void main() {
 
         final result = await usecase.record(
           reservation: reservation,
-          transitionType: ReservationTransitionType.sellerAck,
+          transitionType: ReservationTransitionType.commit,
           fromStage: ReservationStage.negotiate,
           toStage: ReservationStage.commit,
         );
