@@ -98,6 +98,8 @@ EscrowMethod _escrowMethod({
   final tags = <List<String>>[
     ['d', 'escrow-method'],
     ['t', chosenEscrowType],
+    ['c', escrowService.contractBytecodeHash],
+    ['p', escrowService.pubKey],
     if (includeAcceptedToken) ['a', 'BTC', Token.native(30).tagId],
   ];
   final event = Nip01Utils.signWithPrivateKey(

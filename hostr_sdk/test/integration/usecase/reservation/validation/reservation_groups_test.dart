@@ -21,11 +21,13 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:http/http.dart' as http;
+import 'package:logger/logger.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -353,16 +355,6 @@ PaymentProof _buildEscrowPaymentProof({
 //  Hex / bytes helper
 // ═══════════════════════════════════════════════════════════════════════════
 
-Uint8List _hexToBytes32(String hex) {
-  final clean = hex.startsWith('0x') ? hex.substring(2) : hex;
-  final padded = clean.padLeft(64, '0');
-  final bytes = <int>[];
-  for (var i = 0; i < padded.length; i += 2) {
-    bytes.add(int.parse(padded.substring(i, i + 2), radix: 16));
-  }
-  return Uint8List.fromList(bytes);
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  Tests
 // ═══════════════════════════════════════════════════════════════════════════
@@ -378,6 +370,7 @@ void main() {
   setUpAll(() async {
     harness = await IntegrationTestHarness.create(
       name: 'hostr_reservation_groups_it',
+      logLevel: Level.all,
     );
   });
 
@@ -594,15 +587,44 @@ void main() {
   group(
     'verifyGroup — escrow proof (on-chain)',
     () {
+      late http.Client httpClient;
       late Web3Client web3;
+      late MultiEscrowWrapper escrowWrapper;
       late Listing listing;
       late EscrowService escrowService;
       late EscrowTrust escrowTrust;
       late EscrowMethod escrowMethod;
       late Nip01Event hosterProfile;
 
+      /// Send a [Call] from [signer] and wait for its receipt.
+      Future<String> sendCall(Call call, EthPrivateKey signer) async {
+        final txHash = await web3.sendTransaction(
+          signer,
+          Transaction(
+            to: call.to,
+            data: Uint8List.fromList(hex.decode(call.data.substring(2))),
+            value: EtherAmount.fromBigInt(EtherUnit.wei, call.value),
+          ),
+          chainId: 412346,
+        );
+        TransactionReceipt? receipt;
+        for (var i = 0; i < 20; i++) {
+          receipt = await web3.getTransactionReceipt(txHash);
+          if (receipt != null) break;
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        }
+        expect(receipt, isNotNull, reason: 'TX should be mined');
+        return txHash;
+      }
+
       setUpAll(() async {
-        web3 = Web3Client(IntegrationTestHarness.anvilRpc, http.Client());
+        httpClient = http.Client();
+        web3 = Web3Client(IntegrationTestHarness.anvilRpc, httpClient);
+        escrowWrapper = MultiEscrowWrapper(
+          client: web3,
+          address: EthereumAddress.fromHex(_contractAddress),
+          logger: CustomLogger(),
+        );
 
         listing = _buildListing(
           host: host,
@@ -624,6 +646,7 @@ void main() {
 
       tearDownAll(() {
         web3.dispose();
+        httpClient.close();
       });
 
       test('self-signed commit with real escrow deposit → Valid', () async {
@@ -642,58 +665,26 @@ void main() {
           salt: salt,
         );
 
-        // Derive a unique trade ID
-        final tradeId = nego.getDtag()!;
-        final tradeIdBytes = _hexToBytes32(
-          sha256.convert(utf8.encode(tradeId)).toString(),
-        );
-
-        // Real on-chain deposit
-        final contract = DeployedContract(
-          ContractAbi.fromJson(
-            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"address","name":"_token","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
-            'MultiEscrow',
-          ),
-          EthereumAddress.fromHex(_contractAddress),
-        );
-
+        // Real on-chain deposit via MultiEscrowWrapper
         final sellerEvm = await deriveEvmKey(host.privateKey!);
-        final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
-        final unlockAt = BigInt.from(nego.end!.millisecondsSinceEpoch ~/ 1000);
-
-        final depositAmount = EtherAmount.fromBigInt(
-          EtherUnit.wei,
-          BigInt.from(100000),
-        );
-
-        final txHash = await web3.sendTransaction(
-          buyerEvm,
-          Transaction.callContract(
-            contract: contract,
-            function: contract.function('createTrade'),
-            parameters: [
-              tradeIdBytes,
-              buyerEvm.address,
-              sellerEvm.address,
-              arbiterEvm.address,
-              EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'),
-              BigInt.zero,
-              unlockAt,
-              BigInt.zero,
-            ],
-            value: depositAmount,
+        final tradeIdHex = sha256
+            .convert(utf8.encode(nego.getDtag()!))
+            .toString();
+        final intent = escrowWrapper.fund(
+          FundArgs(
+            tradeId: tradeIdHex,
+            amount: TokenAmount(
+              value: BigInt.from(100000),
+              token: Token.native(412346),
+            ),
+            sellerEvmAddress: sellerEvm.address.eip55With0x,
+            arbiterEvmAddress: escrowService.evmAddress,
+            unlockAt: nego.end!.millisecondsSinceEpoch ~/ 1000,
+            ethKey: buyerEvm,
           ),
-          chainId: 412346,
         );
 
-        // Wait for the tx to be mined
-        TransactionReceipt? receipt;
-        for (var i = 0; i < 20; i++) {
-          receipt = await web3.getTransactionReceipt(txHash);
-          if (receipt != null) break;
-          await Future<void>.delayed(const Duration(milliseconds: 200));
-        }
-        expect(receipt, isNotNull, reason: 'Deposit tx should be mined');
+        final txHash = await sendCall(intent, buyerEvm);
 
         // Build escrow proof with the real tx hash
         final proof = _buildEscrowPaymentProof(
@@ -732,55 +723,25 @@ void main() {
           salt: salt,
         );
 
-        final tradeId = nego.getDtag()!;
-        final tradeIdBytes = _hexToBytes32(
-          sha256.convert(utf8.encode(tradeId)).toString(),
-        );
-
-        final contract = DeployedContract(
-          ContractAbi.fromJson(
-            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"address","name":"_token","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
-            'MultiEscrow',
-          ),
-          EthereumAddress.fromHex(_contractAddress),
-        );
-
         final sellerEvm = await deriveEvmKey(host.privateKey!);
-        final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
-        final unlockAt = BigInt.from(nego.end!.millisecondsSinceEpoch ~/ 1000);
-
-        final depositAmount = EtherAmount.fromBigInt(
-          EtherUnit.wei,
-          BigInt.from(50000),
-        );
-
-        final txHash = await web3.sendTransaction(
-          buyerEvm,
-          Transaction.callContract(
-            contract: contract,
-            function: contract.function('createTrade'),
-            parameters: [
-              tradeIdBytes,
-              buyerEvm.address,
-              sellerEvm.address,
-              arbiterEvm.address,
-              EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'),
-              BigInt.zero,
-              unlockAt,
-              BigInt.zero,
-            ],
-            value: depositAmount,
+        final tradeIdHex = sha256
+            .convert(utf8.encode(nego.getDtag()!))
+            .toString();
+        final intent = escrowWrapper.fund(
+          FundArgs(
+            tradeId: tradeIdHex,
+            amount: TokenAmount(
+              value: BigInt.from(50000),
+              token: Token.native(412346),
+            ),
+            sellerEvmAddress: sellerEvm.address.eip55With0x,
+            arbiterEvmAddress: escrowService.evmAddress,
+            unlockAt: nego.end!.millisecondsSinceEpoch ~/ 1000,
+            ethKey: buyerEvm,
           ),
-          chainId: 412346,
         );
 
-        TransactionReceipt? receipt;
-        for (var i = 0; i < 20; i++) {
-          receipt = await web3.getTransactionReceipt(txHash);
-          if (receipt != null) break;
-          await Future<void>.delayed(const Duration(milliseconds: 200));
-        }
-        expect(receipt, isNotNull);
+        final txHash = await sendCall(intent, buyerEvm);
 
         // Build escrow proof (validates the EscrowProof construction path)
         // ignore: unused_local_variable
@@ -815,55 +776,26 @@ void main() {
             salt: salt,
           );
 
-          final tradeId = nego.getDtag()!;
-          final tradeIdBytes = _hexToBytes32(
-            sha256.convert(utf8.encode(tradeId)).toString(),
-          );
-
-          final contract = DeployedContract(
-            ContractAbi.fromJson(
-              '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"address","name":"_token","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
-              'MultiEscrow',
-            ),
-            EthereumAddress.fromHex(_contractAddress),
-          );
-
-          final sellerEvm = await deriveEvmKey(host.privateKey!);
-          final arbiterEvm = await deriveEvmKey(MockKeys.escrow.privateKey!);
-          final unlockAt = BigInt.from(
-            nego.end!.millisecondsSinceEpoch ~/ 1000,
-          );
-
           // Deposit only 1 wei — intentionally wrong amount
-          final wrongAmount = EtherAmount.fromBigInt(EtherUnit.wei, BigInt.one);
-
-          final txHash = await web3.sendTransaction(
-            buyerEvm,
-            Transaction.callContract(
-              contract: contract,
-              function: contract.function('createTrade'),
-              parameters: [
-                tradeIdBytes,
-                buyerEvm.address,
-                sellerEvm.address,
-                arbiterEvm.address,
-                EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'),
-                BigInt.zero,
-                unlockAt,
-                BigInt.zero,
-              ],
-              value: wrongAmount,
+          final sellerEvm = await deriveEvmKey(host.privateKey!);
+          final tradeIdHex = sha256
+              .convert(utf8.encode(nego.getDtag()!))
+              .toString();
+          final intent = escrowWrapper.fund(
+            FundArgs(
+              tradeId: tradeIdHex,
+              amount: TokenAmount(
+                value: BigInt.one,
+                token: Token.native(412346),
+              ),
+              sellerEvmAddress: sellerEvm.address.eip55With0x,
+              arbiterEvmAddress: escrowService.evmAddress,
+              unlockAt: nego.end!.millisecondsSinceEpoch ~/ 1000,
+              ethKey: buyerEvm,
             ),
-            chainId: 412346,
           );
 
-          TransactionReceipt? receipt;
-          for (var i = 0; i < 20; i++) {
-            receipt = await web3.getTransactionReceipt(txHash);
-            if (receipt != null) break;
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-          }
-          expect(receipt, isNotNull);
+          final txHash = await sendCall(intent, buyerEvm);
 
           // Verify the on-chain amount is wrong (1 wei vs expected 100000)
           final txInfo = await web3.getTransactionByHash(txHash);

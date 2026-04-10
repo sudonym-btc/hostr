@@ -108,6 +108,7 @@ resource "google_compute_disk" "relay_data" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [snapshot]
   }
 
   depends_on = [google_project_service.compute]
@@ -122,6 +123,7 @@ resource "google_compute_disk" "blossom_data" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [snapshot]
   }
 
   depends_on = [google_project_service.compute]

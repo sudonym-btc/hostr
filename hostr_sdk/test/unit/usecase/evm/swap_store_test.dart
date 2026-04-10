@@ -3,6 +3,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:hostr_sdk/datasources/app_database.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
@@ -32,7 +33,7 @@ void main() {
   }) => {'id': id, 'isTerminal': isTerminal, 'updatedAt': ?updatedAt};
 
   setUp(() {
-    db = native_sqlite3.sqlite3.openInMemory();
+    db = AppDatabase(native_sqlite3.sqlite3.openInMemory()).db;
     activeKeyPair = userA;
     final mockAuth = MockAuth();
     when(mockAuth.activeKeyPair).thenAnswer((_) => activeKeyPair);

@@ -96,35 +96,6 @@ Nip01Event _buildSignedProfile({required KeyPair key, String? evmAddress}) {
   );
 }
 
-/// Builds a listing (signed) by [host] with escrow support.
-Listing _buildListing({required KeyPair host, BigInt? pricePerNight}) {
-  return Listing.create(
-    pubKey: host.publicKey,
-    dTag:
-        'listing-fee-it-${host.publicKey.substring(0, 8)}-${DateTime.now().microsecondsSinceEpoch}',
-    title: 'Integration Test Cottage',
-    description: 'A cosy place for fee integration testing.',
-    images: ['https://picsum.photos/seed/it/800/600'],
-    price: [
-      Price(
-        amount: DenominatedAmount(
-          value: pricePerNight ?? BigInt.from(100000),
-          denomination: 'BTC',
-          decimals: 8,
-        ),
-        frequency: Frequency.daily,
-      ),
-    ],
-    location: 'test-location',
-    type: ListingType.house,
-    amenities: Amenities(),
-    allowBarter: false,
-    allowSelfSignedReservation: true,
-    requiresEscrow: true,
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(host, Listing.fromNostrEvent);
-}
-
 /// Builds a self-signed commit reservation with a [PaymentProof].
 Reservation _buildSelfSignedCommit({
   required Reservation negotiate,
@@ -320,21 +291,37 @@ void main() {
 
       await harness.anvilRootstock.setBalance(
         address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(500000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
       );
 
-      final swapOuts = await hostr.evm.swapOutAll();
-      expect(
-        swapOuts,
-        isNotEmpty,
-        reason: 'Should have at least one swap-out op',
+      await hostr.evm.init();
+      final rskChain = hostr.evm.getChainById('rootstock-regtest')!;
+      final userKey = await hostr.auth.hd.getActiveEvmKey();
+
+      // Use a specific amount well below the balance to avoid the
+      // full-balance edge case where the EOA gas buffer in _sendEoaCalls
+      // (20% + 10 000) pushes lock + gas above the available balance.
+      final nativeToken = Token.native(rskChain.config.chainId);
+      final requestedAmount = TokenAmount(
+        value: rbtcFromSats(BigInt.from(500000)).getInWei,
+        token: nativeToken,
       );
-      final swapOut = swapOuts.firstWhere(
-        (op) => op.chain.config.id == 'rootstock-regtest',
+
+      final swapOut = rskChain.swapOut(
+        params: SwapOutParams(
+          evmKey: userKey,
+          accountIndex: 0,
+          amount: requestedAmount,
+        ),
+        auth: hostr.auth,
+        logger: CustomLogger(),
+        nwc: hostr.nwc,
+        payments: hostr.payments,
+        quoteService: SwapOutQuoteService(),
       );
 
       // ── Fee estimation ──
-      final quote = await swapOut.chain.swapOutQuote(params: swapOut.params);
+      final quote = await rskChain.swapOutQuote(params: swapOut.params);
       expectSwapFees(quote.feeBreakdown);
 
       expect(quote.balance.value, greaterThan(BigInt.zero));
@@ -435,7 +422,7 @@ void main() {
         decimals: 18,
       );
       final requestedAmount = TokenAmount(
-        value: BigInt.from(50000) * BigInt.from(10).pow(10),
+        value: BigInt.from(60000) * BigInt.from(10).pow(10),
         token: tbtcToken,
       );
 
@@ -582,7 +569,7 @@ void main() {
           hostKeyPair.privateKey!,
         )).address.eip55With0x;
 
-        final listing = _buildListing(host: hostKeyPair);
+        final listing = trade.listing;
         final hosterProfile = _buildSignedProfile(
           key: hostKeyPair,
           evmAddress: hostEvmAddress,

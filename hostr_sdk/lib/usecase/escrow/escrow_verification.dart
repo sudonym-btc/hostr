@@ -119,11 +119,13 @@ class EscrowVerification {
     }
 
     final escrowService = escrowProof.escrowService;
-
-    if (escrowProof.hostsEscrowMethods
+    final supportedContractHashes = escrowProof.hostsEscrowMethods
         .getTags('c')
-        .where((element) => element == escrowService.contractBytecodeHash)
-        .isEmpty) {
+        .map((element) => element.toLowerCase());
+
+    if (!supportedContractHashes.contains(
+      escrowService.contractBytecodeHash.toLowerCase(),
+    )) {
       return EscrowVerificationResult.invalid(
         'Host does not support escrow contract ${escrowService.contractBytecodeHash}',
       );

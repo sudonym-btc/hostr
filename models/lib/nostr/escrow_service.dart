@@ -181,7 +181,9 @@ enum EscrowType { EVM }
 
 enum ChainIds {
   Rootstock(30),
-  RootstockRegtest(33);
+  RootstockRegtest(33),
+  Arbitrum(42161),
+  ArbitrumRegtest(412346);
 
   final int value;
   const ChainIds(this.value);

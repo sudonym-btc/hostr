@@ -59,14 +59,30 @@ void main() {
     );
 
     // Fund on the Rootstock chain — native swaps use RSK.
+    final userKey = await hostr.auth.hd.getActiveEvmKey();
     await harness.anvilRootstock.setBalance(
-      address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
+      address: userKey.address.eip55With0x,
       amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
     );
 
-    final ops = await hostr.evm.swapOutAll();
-    final swapOut = ops.firstWhere(
-      (op) => op.chain.config.id == 'rootstock-regtest',
+    // Use explicit amount instead of swapOutAll to avoid the full-balance
+    // sweep edge case where the EOA gas buffer exceeds the balance.
+    final rskChain = hostr.evm.getChainById('rootstock-regtest')!;
+    final requestedAmount = rbtcFromSats(
+      BigInt.from(500000),
+      chainId: rskChain.config.chainId,
+    );
+    final swapOut = rskChain.swapOut(
+      params: SwapOutParams(
+        evmKey: userKey,
+        accountIndex: 0,
+        amount: requestedAmount,
+      ),
+      auth: hostr.auth,
+      logger: CustomLogger(),
+      nwc: hostr.nwc,
+      payments: hostr.payments,
+      quoteService: SwapOutQuoteService(),
     );
 
     final emittedStates = <SwapOutState>[swapOut.state];
@@ -95,16 +111,31 @@ void main() {
       // Sign in without NWC so _acquireInvoice falls through to external.
       await harness.hostr.auth.signin(MockKeys.guest.privateKey!);
 
+      final userKey = await harness.hostr.auth.hd.getActiveEvmKey();
       await harness.anvilRootstock.setBalance(
-        address:
-            (await harness.hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
+        address: userKey.address.eip55With0x,
         amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
-      final ops = await harness.hostr.evm.swapOutAll();
-      final swapOut1 = ops.firstWhere(
-        (op) => op.chain.config.id == 'rootstock-regtest',
+      // Use explicit amount instead of swapOutAll to avoid the full-balance
+      // sweep edge case where the EOA gas buffer exceeds the balance.
+      final rskChain = harness.hostr.evm.getChainById('rootstock-regtest')!;
+      final requestedAmount = rbtcFromSats(
+        BigInt.from(500000),
+        chainId: rskChain.config.chainId,
+      );
+      final swapOut1 = rskChain.swapOut(
+        params: SwapOutParams(
+          evmKey: userKey,
+          accountIndex: 0,
+          amount: requestedAmount,
+        ),
+        auth: harness.hostr.auth,
+        logger: CustomLogger(),
+        nwc: harness.hostr.nwc,
+        payments: harness.hostr.payments,
+        quoteService: SwapOutQuoteService(),
       );
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);

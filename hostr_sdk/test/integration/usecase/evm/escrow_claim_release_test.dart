@@ -88,8 +88,7 @@ void main() {
 
       final completed = operation.state as OnchainTxConfirmed;
       final completedData = completed.data;
-      expect(completedData.transactionInformation, isNotNull);
-      final txHash = extractTxHash(completedData.transactionInformation!);
+      final txHash = completedData.txHash;
       expect(txHash, isNotNull);
 
       expect(completedData.transactionReceipt, isNotNull);
@@ -143,8 +142,7 @@ void main() {
 
       final completed = operation.state as OnchainTxConfirmed;
       final completedData = completed.data;
-      expect(completedData.transactionInformation, isNotNull);
-      final txHash = extractTxHash(completedData.transactionInformation!);
+      final txHash = completedData.txHash;
       expect(txHash, isNotNull);
 
       expect(completedData.transactionReceipt, isNotNull);
