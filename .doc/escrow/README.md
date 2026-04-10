@@ -4,6 +4,8 @@ Repo for listening to nostr events, running required L2 nodes and forwarding or 
 
 ## CLI Demo
 
+![Escrow CLI demo](escrow-cli.gif)
+
 The CLI demo is recorded with [VHS](https://github.com/charmbracelet/vhs).
 The escrow `Dockerfile` has a `vhs` target that combines the AOT-compiled CLI
 binary with Charm's VHS image — no Dart SDK needed at recording time.
