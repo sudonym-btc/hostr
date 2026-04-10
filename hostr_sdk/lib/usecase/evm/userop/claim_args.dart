@@ -4,8 +4,8 @@ import 'package:wallet/wallet.dart' show EthereumAddress;
 
 /// Arguments for an EtherSwap / ERC20Swap claim operation.
 ///
-/// Extracted from the deprecated rif_relay module so the typedef can be shared
-/// across the codebase without pulling in the relay implementation.
+/// Shared typedef so claim logic can be used across the codebase without
+/// coupling to any single swap-contract implementation.
 ///
 /// When [tokenAddress] is non-null the claim targets the ERC20Swap contract
 /// (which requires `tokenAddress` as an additional parameter in every call).

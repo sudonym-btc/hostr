@@ -127,11 +127,6 @@ resource "google_compute_disk" "blossom_data" {
   depends_on = [google_project_service.compute]
 }
 
-# NOTE: rif_relay_data disk removed — bundler is stateless.
-# If you need to clean up the old disk, run:
-#   terraform state rm google_compute_disk.rif_relay_data
-#   Then delete the disk manually from the GCP console.
-
 resource "google_compute_instance" "compose_vm" {
   name                      = "${local.project_base_name}-compose"
   project                   = var.project_id

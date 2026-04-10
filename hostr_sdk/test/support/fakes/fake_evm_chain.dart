@@ -12,7 +12,7 @@ import 'package:web3dart/web3dart.dart';
 /// Instead of connecting to a real RPC or smart contract, this fake lets tests
 /// configure the results of claim and refund operations.
 class FakeEvmChain extends Fake implements EvmChain {
-  /// If non-null, [_attemptClaim] (via RifRelay) will return this tx hash.
+  /// If non-null, [_attemptClaim] will return this tx hash.
   /// If null, the claim will throw.
   String? claimResult;
 

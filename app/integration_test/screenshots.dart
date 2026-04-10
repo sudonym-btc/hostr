@@ -223,7 +223,7 @@ Future<void> _takeScreenshots(
 // we proceed with the screenshot regardless.
 
 void main() {
-  // Accept the dev CA so HTTPS calls to anvil/rifrelay/boltz through
+  // Accept the dev CA so HTTPS calls to anvil/boltz through
   // nginx-proxy don't fail with CERTIFICATE_VERIFY_FAILED.
   // main_development.dart does this for the normal app; integration tests
   // bypass that entrypoint so we must set it here.
