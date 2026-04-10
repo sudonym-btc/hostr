@@ -424,7 +424,7 @@ final class SwapInPaymentDispatching extends SwapInState {
   };
 }
 
-/// The on-chain claim is being relayed via RIF Relay.
+/// The on-chain claim is being relayed via account abstraction (ERC-4337).
 ///
 /// This is a **busy/CAS lock** state, analogous to
 /// [SwapInPaymentDispatching] — see that class for details.

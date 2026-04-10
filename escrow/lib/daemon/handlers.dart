@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:escrow/daemon/bootstrap.dart';
-import 'package:escrow/daemon/escrow_monitor.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
@@ -10,17 +8,16 @@ import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
 
 /// Registers all JSON-RPC method handlers on a per-client [json_rpc.Server].
 class DaemonHandler {
-  final DaemonContext ctx;
-  final EscrowMonitor monitor;
+  final EscrowDaemon daemon;
 
   /// In-memory cache: pubkey → display name (null = looked up but no name).
   final Map<String, String?> _nameCache = {};
 
-  DaemonHandler({required this.ctx, required this.monitor});
+  DaemonHandler({required this.daemon});
 
-  Hostr get hostr => ctx.hostr;
-  SupportedEscrowContract get contract => ctx.contract;
-  EscrowService get escrowService => ctx.escrowService;
+  Hostr get hostr => daemon.hostr;
+  SupportedEscrowContract get contract => daemon.context.contract;
+  EscrowService get escrowService => daemon.context.escrowService;
 
   /// Wire every RPC method onto [server].
   void register(json_rpc.Server server) {
@@ -47,14 +44,14 @@ class DaemonHandler {
   Map<String, dynamic> _getStatus(json_rpc.Parameters params) {
     return {
       'status': 'ok',
-      'trackedTrades': monitor.trades.length,
-      'pendingTrades': monitor.pendingTrades.length,
+      'trackedTrades': daemon.trades.length,
+      'pendingTrades': daemon.pendingTrades.length,
       'syncedThreads': hostr.messaging.threads.threads.length,
     };
   }
 
   Map<String, dynamic> _listTrades(json_rpc.Parameters params) {
-    final trades = monitor.trades.values.toList()
+    final trades = daemon.trades.values.toList()
       ..sort((a, b) {
         // Pending (funded) first, then by updatedAt descending.
         final aP = a.status == TradeStatus.funded ? 0 : 1;
@@ -63,7 +60,7 @@ class DaemonHandler {
         return b.updatedAt.compareTo(a.updatedAt);
       });
     return {
-      'trades': trades.map((t) => t.toSummary().toJson()).toList(),
+      'trades': trades.map((t) => t.toJson()).toList(),
     };
   }
 
@@ -71,14 +68,14 @@ class DaemonHandler {
     final tradeId = params['tradeId'].asString;
 
     // Try in-memory first, then fall back to on-chain lookup.
-    final snapshot = monitor.getTrade(tradeId);
+    final snapshot = daemon.getTrade(tradeId);
     print('[getTrade] tradeId=$tradeId, snapshot=${snapshot?.status}');
     final onChain = await contract.getTrade(tradeId);
     print('[getTrade] onChain=$onChain');
 
     return {
       'tradeId': tradeId,
-      'cached': snapshot?.toSummary().toJson(),
+      'cached': snapshot?.toJson(),
       'onChain': onChain != null
           ? {
               'isActive': onChain.isActive,
@@ -154,8 +151,8 @@ class DaemonHandler {
       forward: forward,
       ethKey: signer,
     );
-    final txHash =
-        await ctx.configuredChain.sendCalls(signer, {'arbitrate': intent});
+    final txHash = await daemon.context.configuredChain
+        .sendCalls(signer, {'arbitrate': intent});
     return {'txHash': '$txHash'};
   }
 
@@ -427,7 +424,7 @@ class DaemonHandler {
   // ── Reservation Groups ────────────────────────────────────────────────────
 
   Map<String, dynamic> _listReservationGroups(json_rpc.Parameters params) {
-    final groups = monitor.reservationGroups;
+    final groups = daemon.reservationGroups;
     return {
       'groups': groups.entries.map((e) {
         final g = e.value;

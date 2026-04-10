@@ -59,7 +59,9 @@
       "ryanluker.vscode-coverage-gutters",
       "nomicfoundation.hardhat-solidity",
       "dart-code.flutter",
-      "localizely.flutter-intl"
+      "localizely.flutter-intl",
+      "qwtel.sqlite-viewer",
+      "ms-vscode-remote.remote-ssh"
     ]
   },
   "launch": {
