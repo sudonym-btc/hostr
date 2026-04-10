@@ -51,6 +51,17 @@ Future<void> loadSecp256k1Backend() async {
   await (_loadFuture ??= _attemptFastBackendLoad());
 }
 
+/// Loads coinlib's native secp256k1 backend after first copying the bundled
+/// platform library into the current build directory when needed.
+///
+/// This is useful in tests or scripts that need to call `loadCoinlib()`
+/// directly without going through [loadSecp256k1Backend], which normally owns
+/// the preparation step.
+Future<void> loadBundledCoinlibSecp256k1() async {
+  await prepareBundledSecp256k1BinaryIfNeeded();
+  await loadCoinlib();
+}
+
 void primeSecp256k1Backend() {
   unawaited(loadSecp256k1Backend());
 }

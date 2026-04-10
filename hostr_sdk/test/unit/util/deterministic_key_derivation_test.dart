@@ -1,7 +1,6 @@
 @Tags(['unit'])
 library;
 
-import 'package:coinlib/coinlib.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/secp256k1.dart';
 import 'package:test/test.dart';
@@ -12,7 +11,7 @@ void main() {
   const nostrPrivateKeyHex =
       '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
 
-  setUpAll(loadCoinlib);
+  setUpAll(loadBundledCoinlibSecp256k1);
 
   tearDown(() {
     setSecp256k1LoaderOverride(null);
@@ -23,7 +22,7 @@ void main() {
       var loadCount = 0;
       setSecp256k1LoaderOverride(() async {
         loadCount++;
-        await loadCoinlib();
+        await loadBundledCoinlibSecp256k1();
       }, label: 'test loader');
 
       final key = await deriveEvmKey(nostrPrivateKeyHex, accountIndex: 1);
