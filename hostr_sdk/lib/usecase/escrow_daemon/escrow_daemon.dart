@@ -1,100 +1,147 @@
 import 'dart:async';
 
-import 'package:escrow/shared/protocol.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 import 'package:rxdart/rxdart.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
-/// Status of a tracked escrow trade.
-enum TradeStatus { funded, arbitrated, released, claimed, unknown }
+import '../../hostr.dart';
+import '../../util/main.dart';
+import '../escrow/escrow_verification.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
+import '../reservation_groups/reservation_groups.dart';
+import 'escrow_daemon_models.dart';
 
-/// In-memory snapshot of a trade derived from on-chain events.
-class TradeSnapshot {
-  final String tradeId;
-  final TradeStatus status;
-  final int amountSats;
-  final String? lastTxHash;
-  final DateTime updatedAt;
-
-  TradeSnapshot({
-    required this.tradeId,
-    required this.status,
-    required this.amountSats,
-    this.lastTxHash,
-    required this.updatedAt,
-  });
-
-  TradeSnapshot copyWith({
-    TradeStatus? status,
-    int? amountSats,
-    String? lastTxHash,
-    DateTime? updatedAt,
-  }) =>
-      TradeSnapshot(
-        tradeId: tradeId,
-        status: status ?? this.status,
-        amountSats: amountSats ?? this.amountSats,
-        lastTxHash: lastTxHash ?? this.lastTxHash,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
-
-  TradeSummary toSummary() => TradeSummary(
-        tradeId: tradeId,
-        status: status.name,
-        amountSats: amountSats,
-        txHash: lastTxHash,
-        updatedAt: updatedAt,
-      );
-}
-
-/// Long-running monitor that subscribes to:
-///   1. On-chain escrow contract events (fund, arbitrate, release, claim).
-///   2. Nostr thread messages.
-///   3. Reservation events that p-tag or are authored by this escrow. For
-///      each [ReservationGroup] where the escrow has not yet published a
-///      status, force-validates the buyer's escrow proof and broadcasts a
-///      commit (valid) or cancel (invalid) reservation.
+/// Use case that encapsulates all escrow-daemon business logic:
 ///
-/// Maintains an in-memory map of all known trades so the CLI can read state
-/// instantly without re-querying the chain.
-class EscrowMonitor {
-  final Hostr hostr;
-  final SupportedEscrowContract contract;
-  final EscrowService escrowService;
+///   1. **Bootstrap** — build the [EscrowService] descriptor, verify the
+///      contract is deployed, and publish to the relay.
+///   2. **Monitor** — subscribe to on-chain contract events, Nostr thread
+///      messages, and reservation events; auto-confirm or cancel buyer
+///      self-signed reservations.
+///
+/// This is a long-lived object. Create it with a [Hostr] that is already
+/// authenticated (`hostr.auth.signin(…)` / `hostr.auth.init()` completed).
+///
+/// ```dart
+/// final daemon = EscrowDaemon(hostr: hostr);
+/// final ctx = await daemon.bootstrap(config);
+/// daemon.start();
+/// // … later …
+/// await daemon.stop();
+/// ```
+class EscrowDaemon {
+  final Hostr _hostr;
+  final CustomLogger _logger;
 
+  EscrowDaemonContext? _context;
+
+  // ── Trade state ─────────────────────────────────────────────────────────
   final Map<String, TradeSnapshot> _trades = {};
   final _tradesSubject = BehaviorSubject<Map<String, TradeSnapshot>>.seeded({});
 
-  StreamSubscription? _eventSub;
-  StreamSubscription? _threadSub;
-
-  // ── Reservation auto-confirmation state ──────────────────────────────────
+  // ── Reservation auto-confirmation state ─────────────────────────────────
   late final EscrowVerification _escrowVerification;
   final Map<String, ReservationGroup> _reservationGroups = {};
+
+  // ── Subscriptions ───────────────────────────────────────────────────────
+  StreamSubscription? _eventSub;
+  StreamSubscription? _threadSub;
   StreamSubscription? _reservationPTagSub;
   StreamSubscription? _reservationAuthorSub;
   Timer? _reservationDebounce;
 
-  EscrowMonitor({
-    required this.hostr,
-    required this.contract,
-    required this.escrowService,
-  }) {
-    _escrowVerification = EscrowVerification(
-      evm: hostr.evm,
-      logger: CustomLogger(),
+  EscrowDaemon({required Hostr hostr})
+    : _hostr = hostr,
+      _logger = hostr.logger.scope('escrow-daemon') {
+    _escrowVerification = EscrowVerification(evm: hostr.evm, logger: _logger);
+  }
+
+  // ── Getters ───────────────────────────────────────────────────────────────
+
+  /// The underlying [Hostr] instance.
+  Hostr get hostr => _hostr;
+
+  /// The daemon context created by [bootstrap]. Throws if not bootstrapped.
+  EscrowDaemonContext get context {
+    if (_context == null) {
+      throw StateError(
+        'EscrowDaemon has not been bootstrapped yet. '
+        'Call bootstrap() first.',
+      );
+    }
+    return _context!;
+  }
+
+  /// Whether [bootstrap] has been called successfully.
+  bool get isBootstrapped => _context != null;
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
+
+  /// Builds the [EscrowService], verifies the contract is deployed, and
+  /// publishes the service to the relay.
+  ///
+  /// The [Hostr] must already be authenticated before calling this.
+  Future<EscrowDaemonContext> bootstrap(EscrowDaemonConfig config) async {
+    _logger.i('Bootstrapping escrow daemon…');
+
+    final chain = _hostr.evm.configuredChains[config.chainIndex];
+    final contractAddress = chain.config.escrowContractAddress!;
+    final pubKey = _hostr.auth.activeKeyPair!.publicKey;
+    final evmKey = await _hostr.auth.hd.getActiveEvmKey();
+
+    final escrowService = EscrowService(
+      pubKey: pubKey,
+      tags: EventTags([
+        ['d', contractAddress],
+      ]),
+      content: EscrowServiceContent(
+        pubkey: pubKey,
+        evmAddress: evmKey.address.eip55With0x,
+        contractAddress: contractAddress,
+        contractBytecodeHash:
+            await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+              chain.client,
+              EthereumAddress.fromHex(contractAddress),
+            ),
+        chainId: chain.config.chainId,
+        maxDuration: config.maxDuration,
+        type: EscrowType.EVM,
+        feePercent: config.feePercent,
+      ),
     );
+
+    final configuredChain = _hostr.evm.getChainForEscrowService(escrowService);
+    final contract = configuredChain.escrow.getSupportedEscrowContract(
+      escrowService,
+    );
+
+    await contract.ensureDeployed();
+    await _hostr.escrows.upsert(escrowService);
+
+    _logger.i('Escrow service published: ${escrowService.content}');
+
+    _context = EscrowDaemonContext(
+      escrowService: escrowService,
+      contract: contract,
+      configuredChain: configuredChain,
+      web3client: configuredChain.client,
+    );
+
+    return _context!;
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
 
   /// Start listening to contract events, Nostr threads, and reservations.
+  ///
+  /// Must be called after [bootstrap].
   void start() {
     _startContractListener();
     _startThreadListener();
     _startReservationListener();
-    print('[monitor] Escrow monitor started');
+    _logger.i('Escrow monitor started');
   }
 
   /// Stop all subscriptions.
@@ -107,7 +154,7 @@ class EscrowMonitor {
     _tradesSubject.close();
   }
 
-  /// All tracked trades.
+  /// All tracked trades (unmodifiable).
   Map<String, TradeSnapshot> get trades => Map.unmodifiable(_trades);
 
   /// Stream that emits whenever the trade map changes.
@@ -127,35 +174,33 @@ class EscrowMonitor {
   // ── Contract events ───────────────────────────────────────────────────────
 
   void _startContractListener() {
-    hostr.auth.hd.getActiveEvmKey().then((evmKey) {
-      final streamer = contract.allEvents(
-        ContractEventsParams(
-          arbiterEvmAddress: evmKey.address,
-        ),
+    _hostr.auth.hd.getActiveEvmKey().then((evmKey) {
+      final streamer = context.contract.allEvents(
+        ContractEventsParams(arbiterEvmAddress: evmKey.address),
         null,
       );
 
       streamer.status.listen((status) {
         if (status is StreamStatusError) {
-          print('[monitor] Contract event stream error: ${status.error}');
-          print('[monitor] ${status.stackTrace}');
+          _logger.e('Contract event stream error: ${status.error}');
         } else {
-          print('[monitor] Contract event stream status: '
-              '${status.runtimeType}');
+          _logger.d('Contract event stream status: ${status.runtimeType}');
         }
       });
 
       _eventSub = streamer.stream.listen(
         _onEscrowEvent,
-        onError: (e, st) => print('[monitor] Contract event error: $e'),
+        onError: (e, st) => _logger.e('Contract event error: $e'),
       );
     });
   }
 
   void _onEscrowEvent(EscrowEvent event) {
     if (event is EscrowFundedEvent) {
-      print('[monitor] Trade funded: ${event.tradeId}  '
-          '${event.amount.getInSats} sats');
+      _logger.i(
+        'Trade funded: ${event.tradeId}  '
+        '${event.amount.getInSats} sats',
+      );
       _trades[event.tradeId] = TradeSnapshot(
         tradeId: event.tradeId,
         status: TradeStatus.funded,
@@ -164,8 +209,10 @@ class EscrowMonitor {
         updatedAt: event.block.timestamp,
       );
     } else if (event is EscrowArbitratedEvent) {
-      print('[monitor] Trade arbitrated: ${event.tradeId}  '
-          'forwarded=${event.forwarded}');
+      _logger.i(
+        'Trade arbitrated: ${event.tradeId}  '
+        'forwarded=${event.forwarded}',
+      );
       final existing = _trades[event.tradeId];
       if (existing != null) {
         _trades[event.tradeId] = existing.copyWith(
@@ -175,7 +222,7 @@ class EscrowMonitor {
         );
       }
     } else if (event is EscrowReleasedEvent) {
-      print('[monitor] Trade released: ${event.tradeId}');
+      _logger.i('Trade released: ${event.tradeId}');
       final existing = _trades[event.tradeId];
       if (existing != null) {
         _trades[event.tradeId] = existing.copyWith(
@@ -185,7 +232,7 @@ class EscrowMonitor {
         );
       }
     } else if (event is EscrowClaimedEvent) {
-      print('[monitor] Trade claimed: ${event.tradeId}');
+      _logger.i('Trade claimed: ${event.tradeId}');
       final existing = _trades[event.tradeId];
       if (existing != null) {
         _trades[event.tradeId] = existing.copyWith(
@@ -202,57 +249,51 @@ class EscrowMonitor {
   // ── Nostr thread messages ─────────────────────────────────────────────────
 
   void _startThreadListener() {
-    hostr.userSubscriptions.start();
-    _threadSub = hostr.messaging.threads.threadStream.listen(
-      (thread) {
-        print('[monitor] New/updated thread: ${thread.anchor}');
-      },
-      onError: (e) => print('[monitor] Thread stream error: $e'),
-    );
+    _hostr.userSubscriptions.start();
+    _threadSub = _hostr.messaging.threads.threadStream.listen((thread) {
+      _logger.d('New/updated thread: ${thread.anchor}');
+    }, onError: (e) => _logger.e('Thread stream error: $e'));
   }
 
   // ── Reservation auto-confirmation ─────────────────────────────────────────
 
-  /// Subscribes to reservation events where this escrow is either a p-tagged
-  /// participant or the author. Incoming events are accumulated into
-  /// [ReservationGroup]s and processed with a debounce.
   void _startReservationListener() {
-    final escrowPubkey = hostr.auth.activeKeyPair!.publicKey;
+    final escrowPubkey = _hostr.auth.activeKeyPair!.publicKey;
 
     // 1. Reservations that p-tag the escrow (buyer's self-signed commits).
-    final pTagStream = hostr.reservations.subscribe(
+    final pTagStream = _hostr.reservations.subscribe(
       Filter(pTags: [escrowPubkey]),
     );
     _reservationPTagSub = pTagStream.stream.listen(
       _onReservation,
-      onError: (e) => print('[monitor] Reservation p-tag stream error: $e'),
+      onError: (e) => _logger.e('Reservation p-tag stream error: $e'),
     );
 
     // 2. Reservations authored by the escrow (our own past confirmations/
     //    cancellations). Needed so group.escrowReservation is populated and
-    //    we skip groups we've already handled — the relay is our persistence.
-    final authorStream = hostr.reservations.subscribe(
+    //    we skip groups we've already handled.
+    final authorStream = _hostr.reservations.subscribe(
       Filter(authors: [escrowPubkey]),
     );
     _reservationAuthorSub = authorStream.stream.listen(
       _onReservation,
-      onError: (e) => print('[monitor] Reservation author stream error: $e'),
+      onError: (e) => _logger.e('Reservation author stream error: $e'),
     );
 
-    print('[monitor] Reservation listener started for $escrowPubkey');
+    _logger.i('Reservation listener started for $escrowPubkey');
   }
 
-  /// Accumulates a reservation into its [ReservationGroup] and schedules
-  /// a debounced processing pass.
   void _onReservation(Reservation reservation) {
     final groupId = ReservationGroup.groupIdFromEvent(reservation);
     final existing = _reservationGroups[groupId] ?? const ReservationGroup();
     _reservationGroups[groupId] = existing.addReservation(reservation);
 
-    print('[monitor] Reservation received: '
-        'trade=${reservation.getDtag()} '
-        'pubkey=${reservation.pubKey.substring(0, 8)}… '
-        'stage=${reservation.stage.name}');
+    _logger.d(
+      'Reservation received: '
+      'trade=${reservation.getDtag()} '
+      'pubkey=${reservation.pubKey.substring(0, 8)}… '
+      'stage=${reservation.stage.name}',
+    );
 
     // Debounce so rapid bursts (e.g. historical catch-up) are batched.
     _reservationDebounce?.cancel();
@@ -262,18 +303,12 @@ class EscrowMonitor {
     );
   }
 
-  /// Iterates every accumulated group and processes those that need action.
   void _processAllGroups() {
     for (final entry in _reservationGroups.entries) {
       _processGroup(entry.value);
     }
   }
 
-  /// For a single [ReservationGroup]:
-  ///   - Skips if the escrow has already published (commit or cancel).
-  ///   - Skips if there is no buyer commit with an escrow proof.
-  ///   - Force-validates the buyer's escrow proof on-chain.
-  ///   - Broadcasts a commit (valid) or cancel (invalid) reservation.
   Future<void> _processGroup(ReservationGroup group) async {
     // Already handled — our own reservation is in the group (from the relay).
     if (group.escrowReservation != null) return;
@@ -284,7 +319,7 @@ class EscrowMonitor {
     if (buyer.proof?.escrowProof == null) return;
 
     final tradeId = group.tradeId;
-    print('[monitor] Processing reservation group: trade=$tradeId');
+    _logger.i('Processing reservation group: trade=$tradeId');
 
     try {
       final result = await ReservationGroups.verifyGroupOnChain(
@@ -297,22 +332,20 @@ class EscrowMonitor {
         await _publishEscrowConfirmation(group, buyer);
       } else if (result is Invalid<ReservationGroup>) {
         final reason = result.reason;
-        print('[monitor] Escrow proof INVALID for trade=$tradeId: $reason');
+        _logger.w('Escrow proof INVALID for trade=$tradeId: $reason');
         await _publishEscrowCancellation(group, buyer);
       }
     } catch (e, st) {
-      print('[monitor] Error processing group trade=$tradeId: $e');
-      print('[monitor] $st');
+      _logger.e('Error processing group trade=$tradeId: $e');
+      _logger.e('$st');
     }
   }
 
-  /// Broadcasts a commit reservation from the escrow, confirming the buyer's
-  /// self-signed proof is valid.
   Future<void> _publishEscrowConfirmation(
     ReservationGroup group,
     Reservation buyer,
   ) async {
-    final keyPair = hostr.auth.activeKeyPair!;
+    final keyPair = _hostr.auth.activeKeyPair!;
 
     final reservation = Reservation.create(
       pubKey: keyPair.publicKey,
@@ -327,23 +360,21 @@ class EscrowMonitor {
       recipient: buyer.recipient,
     ).signAs(keyPair, Reservation.fromNostrEvent);
 
-    await hostr.reservations.upsert(reservation);
+    await _hostr.reservations.upsert(reservation);
 
     // Update local group so we don't re-process.
     final groupId = ReservationGroup.groupIdFromEvent(reservation);
-    _reservationGroups[groupId] =
-        (_reservationGroups[groupId] ?? group).addReservation(reservation);
+    _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
+        .addReservation(reservation);
 
-    print('[monitor] ✓ Published escrow COMMIT for trade=${group.tradeId}');
+    _logger.i('✓ Published escrow COMMIT for trade=${group.tradeId}');
   }
 
-  /// Broadcasts a cancel reservation from the escrow, indicating the buyer's
-  /// self-signed proof failed validation.
   Future<void> _publishEscrowCancellation(
     ReservationGroup group,
     Reservation buyer,
   ) async {
-    final keyPair = hostr.auth.activeKeyPair!;
+    final keyPair = _hostr.auth.activeKeyPair!;
 
     final reservation = Reservation.create(
       pubKey: keyPair.publicKey,
@@ -358,13 +389,13 @@ class EscrowMonitor {
       recipient: buyer.recipient,
     ).signAs(keyPair, Reservation.fromNostrEvent);
 
-    await hostr.reservations.upsert(reservation);
+    await _hostr.reservations.upsert(reservation);
 
     // Update local group so we don't re-process.
     final groupId = ReservationGroup.groupIdFromEvent(reservation);
-    _reservationGroups[groupId] =
-        (_reservationGroups[groupId] ?? group).addReservation(reservation);
+    _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
+        .addReservation(reservation);
 
-    print('[monitor] ✗ Published escrow CANCEL for trade=${group.tradeId}');
+    _logger.i('✗ Published escrow CANCEL for trade=${group.tradeId}');
   }
 }

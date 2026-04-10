@@ -53,33 +53,11 @@ P1
 
 - [ ] Background worker: https://docs.page/fluttercommunity/flutter_workmanager/quickstart
   - [ ] Must show notifications for items not already in thread messaege sync hydrated cubit
-  - [ ] Sync calendar optional
-- [ ] Startup loading page
-  - [x] Sync giftwraps
-  - [x] Broadcast preferred user blossom servers if not found
-  - [x] Broadcast preferred user relays if not found
-  - [x] Broadcast preferred user escrows if not found
 - [ ] Deeplinks
   - [ ] Allow opening of listings/reviews via deeplinks
-- [ ] Payments
-  - [x] Claim payment
-  - [x] Refund payment
-  - [ ] Swap in should broadcast claim as soon as lockup in mempool
-  - [ ] Host autowithdraw should leave sats for claim/refund transactions
-- [ ] Host views
-  - [ ] List of upcoming reservations
 - [ ] Blossom files
   - [ ] Caching of blossom servers between Image components
-- [ ] Payment status
-  - [ ] Check if can NWC allows fetching invoice with description
-  - [x] Combine rootstock status check and NWC status check into one PaymentStatus
-  - [ ] Mock NWC should record "paid" invoices and respond to list invoice request appropriately
-  - [ ] Mock lightning payments should 'resolve' accurate invoices and amounts
-- [x] NIP 05 verification
-- [x] Language file
-- [ ] Tests
 
 ### Escrow
 
-- [ ] Update escrow advertisement on launch
 - [ ] Listen for cancelled events and arbitrate accordingly

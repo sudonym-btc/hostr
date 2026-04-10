@@ -8,6 +8,7 @@ export 'can_verify.dart';
 export 'crud.usecase.dart';
 export 'deterministic_keys/deterministic_keys.dart';
 export 'escrow/main.dart';
+export 'escrow_daemon/main.dart';
 export 'escrow_methods/escrows_methods.dart';
 export 'escrows/escrows.dart';
 export 'evm/main.dart';

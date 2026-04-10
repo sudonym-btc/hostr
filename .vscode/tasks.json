@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Relay: Pull DB (staging)",
+      "type": "shell",
+      "command": "gcloud compute ssh hostr-staging-compose --project hostr-staging-d4c52998 --zone us-central1-a --command \"sqlite3 '/mnt/relay-data/nostr.db' 'PRAGMA wal_checkpoint(TRUNCATE);'\" && gcloud compute scp hostr-staging-compose:/mnt/relay-data/nostr.db ${workspaceFolder:root}/docker/data/relay-snapshot.db --project hostr-staging-d4c52998 --zone us-central1-a && echo '✓ Saved to docker/data/relay-snapshot.db — click to open with SQLite Viewer'",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "Relay: Pull DB (production)",
+      "type": "shell",
+      "command": "gcloud compute ssh hostr-production-compose --project hostr-production-d3ba05b4 --zone us-central1-a --command \"sqlite3 '/mnt/relay-data/nostr.db' 'PRAGMA wal_checkpoint(TRUNCATE);'\" && gcloud compute scp hostr-production-compose:/mnt/relay-data/nostr.db ${workspaceFolder:root}/docker/data/relay-snapshot.db --project hostr-production-d3ba05b4 --zone us-central1-a && echo '✓ Saved to docker/data/relay-snapshot.db — click to open with SQLite Viewer'",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    }
+  ]
+}

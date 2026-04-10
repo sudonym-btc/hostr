@@ -316,4 +316,7 @@ jobs:
     needs: release
     if: needs.release.outputs.new_release == 'true'
     uses: ./.github/workflows/docker_build.yaml
+    permissions:
+      contents: read
+      id-token: write
     secrets: inherit

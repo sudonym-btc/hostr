@@ -651,7 +651,7 @@ void main() {
         // Real on-chain deposit
         final contract = DeployedContract(
           ContractAbi.fromJson(
-            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
+            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"address","name":"_token","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
             'MultiEscrow',
           ),
           EthereumAddress.fromHex(_contractAddress),
@@ -676,6 +676,8 @@ void main() {
               buyerEvm.address,
               sellerEvm.address,
               arbiterEvm.address,
+              EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'),
+              BigInt.zero,
               unlockAt,
               BigInt.zero,
             ],
@@ -737,7 +739,7 @@ void main() {
 
         final contract = DeployedContract(
           ContractAbi.fromJson(
-            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
+            '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"address","name":"_token","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
             'MultiEscrow',
           ),
           EthereumAddress.fromHex(_contractAddress),
@@ -762,6 +764,8 @@ void main() {
               buyerEvm.address,
               sellerEvm.address,
               arbiterEvm.address,
+              EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'),
+              BigInt.zero,
               unlockAt,
               BigInt.zero,
             ],
@@ -818,7 +822,7 @@ void main() {
 
           final contract = DeployedContract(
             ContractAbi.fromJson(
-              '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
+              '[{"inputs":[{"internalType":"bytes32","name":"tradeId","type":"bytes32"},{"internalType":"address","name":"_buyer","type":"address"},{"internalType":"address","name":"_seller","type":"address"},{"internalType":"address","name":"_arbiter","type":"address"},{"internalType":"address","name":"_token","type":"address"},{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"uint256","name":"_unlockAt","type":"uint256"},{"internalType":"uint256","name":"_escrowFee","type":"uint256"}],"name":"createTrade","outputs":[],"stateMutability":"payable","type":"function"}]',
               'MultiEscrow',
             ),
             EthereumAddress.fromHex(_contractAddress),
@@ -843,6 +847,8 @@ void main() {
                 buyerEvm.address,
                 sellerEvm.address,
                 arbiterEvm.address,
+                EthereumAddress.fromHex('0x0000000000000000000000000000000000000000'),
+                BigInt.zero,
                 unlockAt,
                 BigInt.zero,
               ],

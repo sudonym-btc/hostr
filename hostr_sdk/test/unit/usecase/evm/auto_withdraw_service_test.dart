@@ -3,7 +3,7 @@ library;
 
 import 'dart:async';
 
-import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/datasources/app_database.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
@@ -27,7 +27,6 @@ import 'package:test/test.dart';
 /// the real service method so these tests verify production code directly.
 class GateHarness {
   late final CommonDatabase db;
-  late final InMemoryKeyValueStorage kvStorage;
   late final OperationStateStore stateStore;
   late final UserConfigStore userConfigStore;
   late final CustomLogger logger;
@@ -49,13 +48,12 @@ class GateHarness {
     TokenAmount? initialBalance,
     int minimumSats = 10000,
   }) async {
-    db = native_sqlite3.sqlite3.openInMemory();
-    kvStorage = InMemoryKeyValueStorage();
+    db = AppDatabase(native_sqlite3.sqlite3.openInMemory()).db;
     final mockAuth = MockAuth();
     final fakeUser = Bip340.fromPrivateKey('1' * 64);
     when(mockAuth.activeKeyPair).thenAnswer((_) => fakeUser);
     stateStore = OperationStateStore(db, CustomLogger(), mockAuth);
-    userConfigStore = UserConfigStore(kvStorage, CustomLogger(), mockAuth);
+    userConfigStore = UserConfigStore(db, CustomLogger(), mockAuth);
     logger = CustomLogger();
 
     balance = initialBalance ?? TokenAmount.zero(rbtc);
