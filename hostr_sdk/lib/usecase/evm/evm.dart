@@ -136,13 +136,20 @@ class Evm {
 
   EvmChain getChainForEscrowService(EscrowService service) =>
       _logger.spanSync('getChainForEscrowService', () {
-        // TODO: match by chain ID from escrow service metadata.
-        // For now return the first chain.
         if (configuredChains.isEmpty) {
           throw StateError(
             'No EVM chains configured for escrow service ${service.id}',
           );
         }
+        final match = configuredChains
+            .where((c) => c.config.chainId == service.chainId)
+            .firstOrNull;
+        if (match != null) return match;
+        _logger.w(
+          'No chain with chainId=${service.chainId} for escrow service '
+          '${service.id} — falling back to first configured chain '
+          '(chainId=${configuredChains.first.config.chainId})',
+        );
         return configuredChains.first;
       });
 

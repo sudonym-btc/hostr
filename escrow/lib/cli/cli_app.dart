@@ -11,6 +11,7 @@ import 'package:escrow/cli/screens/thread_detail.dart';
 import 'package:escrow/cli/screens/thread_list.dart';
 import 'package:escrow/cli/screens/trade_detail.dart';
 import 'package:escrow/cli/screens/trade_list.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:interact_cli/interact_cli.dart';
 
@@ -150,15 +151,16 @@ class CliApp {
       final path = info['derivationPath'] as String;
 
       print('');
-      print('── EVM Mnemonic (MetaMask-compatible) ──');
+      print(sectionHeader('EVM Mnemonic (MetaMask-compatible)'));
       print('');
-      print('  $mnemonic');
+      print(kvTable({
+        'Address': evmAddress,
+        'Derivation path': path,
+        'Mnemonic': mnemonic,
+      }));
       print('');
-      print('  Address         : $evmAddress');
-      print('  Derivation path : $path');
-      print('');
-      print(
-          '  ⚠ Keep this mnemonic secret — it controls the escrow EVM wallet.');
+      print(kWarnStyle.render(
+          '  ⚠ Keep this mnemonic secret — it controls the escrow EVM wallet.'));
       print('');
       pressAnyKey();
     } catch (e) {
@@ -182,10 +184,13 @@ class CliApp {
       final status = await client.getStatus();
       spinner.done();
       print('');
-      print('  Status         : ${status['status']}');
-      print('  Tracked trades : ${status['trackedTrades']}');
-      print('  Pending trades : ${status['pendingTrades']}');
-      print('  Synced threads : ${status['syncedThreads']}');
+      print(sectionHeader('Daemon Status'));
+      print(kvTable({
+        'Status': colorStatus('${status['status']}'),
+        'Tracked trades': '${status['trackedTrades']}',
+        'Pending trades': '${status['pendingTrades']}',
+        'Synced threads': '${status['syncedThreads']}',
+      }));
       print('');
       pressAnyKey();
     } catch (e) {

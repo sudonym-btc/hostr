@@ -1,5 +1,6 @@
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:interact_cli/interact_cli.dart';
 
@@ -29,14 +30,22 @@ Future<Navigation> serviceEditScreen(
   }
 
   print('');
-  print('── Service: ${service['contractAddress']} ──');
-  print('  Chain ID  : ${service['chainId']}');
-  print('  EVM addr  : ${service['evmAddress']}');
-  print('  Fee %     : ${service['feePercent']}%');
-  print('  Min amount: ${service['minAmount']} sats');
-  print('  Max amount: ${service['maxAmount'] ?? 'unlimited'}');
-  print(
-      '  Max dur.  : ${(service['maxDuration'] as num).toInt() ~/ 86400} days');
+  print(sectionHeader('Service: ${service['contractAddress']}'));
+  final minAmt = service['minAmount'] is int
+      ? formatSats(service['minAmount'] as int)
+      : '${service['minAmount']}';
+  final maxAmt = service['maxAmount'] != null && service['maxAmount'] is int
+      ? formatSats(service['maxAmount'] as int)
+      : 'unlimited';
+  final maxDays = '${(service['maxDuration'] as num).toInt() ~/ 86400} days';
+  print(kvTable({
+    'Chain ID': '${service['chainId']}',
+    'EVM address': '${service['evmAddress']}',
+    'Fee': '${service['feePercent']}%',
+    'Min amount': '$minAmt sats',
+    'Max amount': '$maxAmt',
+    'Max duration': maxDays,
+  }));
   print('');
 
   final actions = [

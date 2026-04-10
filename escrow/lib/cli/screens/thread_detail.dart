@@ -1,5 +1,7 @@
+import 'package:artisanal/style.dart';
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:interact_cli/interact_cli.dart';
@@ -48,7 +50,7 @@ Future<Navigation> threadDetailScreen(
 
   // ── Display messages ───────────────────────────────────────────────────
   print('');
-  print('── Thread: $threadId ──');
+  print(sectionHeader('Thread: $threadId'));
   print('   Participants: ${participants.map(label).join(', ')}');
   print('');
 
@@ -108,8 +110,10 @@ void _printMessage(ThreadMessage msg, Map<String, String?> names) {
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   final dateStr = '$timeStr, ${dt.day} ${_monthAbbr(dt.month)} ${dt.year}';
   final content = msg.content.isNotEmpty ? msg.content : '[event]';
-  print('  $sender: $content');
-  print('    $dateStr');
+  final styledSender = Style().bold().foreground(Colors.cyan).render(sender);
+  final styledDate = kDimStyle.render(dateStr);
+  print('  $styledSender: $content');
+  print('    $styledDate');
 }
 
 String _monthAbbr(int month) {
