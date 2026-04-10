@@ -1,4 +1,4 @@
-# Tailscale & Split DNS for Local Development
+# Tailscale
 
 ## Overview
 

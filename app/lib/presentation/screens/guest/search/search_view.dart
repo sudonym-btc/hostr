@@ -191,11 +191,7 @@ class SearchViewState extends State<SearchView> {
                 ],
               ),
             ),
-            Expanded(
-              child: Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-              ),
-            ),
+            Expanded(child: Container(color: AppSurface.of(context))),
           ],
         ),
         AnimatedPositioned(
@@ -207,15 +203,13 @@ class SearchViewState extends State<SearchView> {
           height: totalHeight * _panelFraction,
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: AppSurface.of(context),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(16),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).scaffoldBackgroundColor.withAlpha(120),
+                  color: AppSurface.of(context).withAlpha(120),
                   blurRadius: 24,
                   spreadRadius: 2,
                   offset: const Offset(0, -6),

@@ -4,22 +4,28 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/lib/hostr-common.sh"
 ENVIRONMENT="${HOSTR_ENVIRONMENT:-local}"
 ENV_FILE="$REPO_ROOT/.env.$ENVIRONMENT"
+
+# Helper: run docker compose with the correct -f flags for the environment.
+_compose() {
+    (cd "$REPO_ROOT" && hostr_compose_cmd "$ENVIRONMENT" "$@")
+}
 
 reset_relay() {
     echo "Resetting relay container and state..."
 
     # Stop and remove only the relay container.
-    (cd "$REPO_ROOT" && docker compose stop relay >/dev/null 2>&1 || true)
-    (cd "$REPO_ROOT" && docker compose rm -f relay >/dev/null 2>&1 || true)
+    _compose stop relay >/dev/null 2>&1 || true
+    _compose rm -f relay >/dev/null 2>&1 || true
 
     # Remove relay DB state.
     rm -rf "$REPO_ROOT/docker/data/relay"
     mkdir -p "$REPO_ROOT/docker/data/relay"
 
     # Start a fresh relay container.
-    (cd "$REPO_ROOT" && docker compose up -d relay)
+    _compose up -d relay
 
     # Wait until the relay is actually accepting connections.
     echo "Waiting for relay to become ready..."

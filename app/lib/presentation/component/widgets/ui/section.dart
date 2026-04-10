@@ -38,6 +38,7 @@ class Section extends StatelessWidget {
               ?action,
             ],
           ),
+          if (title != null) const SizedBox(height: 8),
           body,
         ],
       ),

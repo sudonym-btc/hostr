@@ -19,6 +19,7 @@
 ///   ./scripts/screenshots.sh
 library;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/app.dart';
@@ -56,18 +57,32 @@ const _config = SeedPipelineConfig(
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/// Pump [frames] frames spaced [interval] apart.
+/// Try [pumpAndSettle] first; if the frame scheduler never goes idle
+/// (shimmer animations, indeterminate spinners, relay-reconnect timers, …)
+/// fall back to pumping a fixed number of frames so the test doesn't hang.
 ///
-/// Unlike `pumpAndSettle`, this does NOT wait for the scheduler to go idle.
-/// NDK relay-reconnect timers keep scheduling frames indefinitely so
-/// `pumpAndSettle` never returns.
+/// The settle timeout is kept short (2 s) because most pages in this app have
+/// at least one perpetual animation (image-loading shimmers, indeterminate
+/// spinners, `RelativeTimeText` timers) that prevent the scheduler from ever
+/// going idle.  When the page *does* settle quickly (e.g. the sign-in form)
+/// we save time; otherwise we fall through to the fixed-frame path promptly.
 Future<void> _settle(
   WidgetTester tester, {
-  int frames = 10,
-  Duration interval = const Duration(milliseconds: 500),
+  Duration settleTimeout = const Duration(seconds: 2),
+  int fallbackFrames = 10,
+  Duration fallbackInterval = const Duration(milliseconds: 500),
 }) async {
-  for (var i = 0; i < frames; i++) {
-    await tester.pump(interval);
+  try {
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      settleTimeout,
+    );
+  } on FlutterError {
+    // Frame scheduler never went idle — pump a fixed number of frames instead.
+    for (var i = 0; i < fallbackFrames; i++) {
+      await tester.pump(fallbackInterval);
+    }
   }
 }
 
@@ -97,58 +112,71 @@ Future<void> _takeScreenshots(
   AppRouter appRouter,
   _ScreenshotFixture fixture,
   String mode, {
-  required IntegrationTestHarness harness,
+  IntegrationTestHarness? harness,
 }) async {
+  final hostr = getIt<Hostr>();
+  debugPrint('📸 [$mode] Starting screenshot suite');
+
   // ── 0. Sign-in ────────────────────────────────────────────
   // Remove all NWC connections (disposes cubits + wipes storage) while the
   // key is still active, then logout.
-  while (harness.hostr.nwc.connections.isNotEmpty) {
-    await harness.hostr.nwc.remove(harness.hostr.nwc.connections.last);
+  while (hostr.nwc.connections.isNotEmpty) {
+    debugPrint('📸 [$mode] Removing NWC connection…');
+    await hostr.nwc.remove(hostr.nwc.connections.last);
   }
-  await harness.hostr.auth.logout();
-  await _settle(tester, frames: 2);
+  debugPrint('📸 [$mode] Logging out…');
+  await hostr.auth.logout();
+  await _settle(tester);
   appRouter.navigate(SignInRoute());
-  await _settle(tester, frames: 6);
+  await _settle(tester);
+  debugPrint('📸 [$mode] ✓ login');
   await binding.takeScreenshot('screenshots/$mode/login.png');
 
   // ── 1. Log in + connect wallet ────────────────────────────
-  final keyField = find.byKey(const ValueKey('key'));
-  await tester.enterText(keyField, fixture.guest.keyPair.privateKey!);
-  await tester.pump();
-  await tester.tap(find.byKey(const ValueKey('login')));
-  await _settle(tester, frames: 24); // 12 s — auth + thread sync
+  // On web, tester.enterText doesn't reliably trigger onChanged so the
+  // login button stays disabled.  Call the auth API directly instead —
+  // the sign-in screenshot is already captured with the empty form above.
+  debugPrint('📸 [$mode] Signing in…');
+  await hostr.auth.signin(fixture.guest.keyPair.privateKey!);
+  await _settle(tester);
+  debugPrint('📸 [$mode] Signed in, connecting NWC…');
 
-  await harness.connectNwc(
+  await harness?.connectNwc(
     user: fixture.guest.keyPair,
     appNamePrefix: 'screenshots',
   );
-  await _settle(tester, frames: 6); // let the NWC cubit propagate
+  await _settle(tester);
 
   // ── 2. Profile ────────────────────────────────────────────
   appRouter.navigate(ProfileRoute());
-  await _settle(tester, frames: 6);
+  await _settle(tester);
+  debugPrint('📸 [$mode] ✓ profile');
   await binding.takeScreenshot('screenshots/$mode/profile.png');
 
   // ── 3. Home / search ────────────────────────────────────────────
   appRouter.navigate(SearchRoute());
-  await _settle(tester, frames: 6);
+  await _settle(tester);
+  debugPrint('📸 [$mode] ✓ search');
   await binding.takeScreenshot('screenshots/$mode/search.png');
 
   // ── 4. Listing detail ───────────────────────────────────────────
   appRouter.navigate(ListingRoute(a: fixture.listing.naddr()!));
-  await _settle(tester, frames: 6);
+  await _settle(tester);
+  debugPrint('📸 [$mode] ✓ listing');
   await binding.takeScreenshot('screenshots/$mode/listing.png');
 
   // ── 5. Inbox ────────────────────────────────────────────────────
   appRouter.navigate(InboxRoute());
-  await _settle(tester, frames: 6);
+  await _settle(tester);
+  debugPrint('📸 [$mode] ✓ threads');
   await binding.takeScreenshot('screenshots/$mode/threads.png');
 
   // ── 6. Thread detail ────────────────────────────────────────────
   final threadMap = getIt<Hostr>().messaging.threads.threads;
   if (threadMap.isNotEmpty) {
     appRouter.navigate(ThreadRoute(anchor: threadMap.keys.first));
-    await _settle(tester, frames: 6);
+    await _settle(tester);
+    debugPrint('📸 [$mode] ✓ thread');
     await binding.takeScreenshot('screenshots/$mode/thread.png');
 
     // ── 7. Tap "Pay" → payment modal ──────────────────────────────
@@ -159,7 +187,7 @@ Future<void> _takeScreenshots(
     if (payFinder.evaluate().isEmpty) {
       for (final anchor in threadMap.keys.skip(1)) {
         appRouter.navigate(ThreadRoute(anchor: anchor));
-        await _settle(tester, frames: 6);
+        await _settle(tester);
         payFinder = find.byKey(payKey);
         if (payFinder.evaluate().isNotEmpty) break;
       }
@@ -167,7 +195,8 @@ Future<void> _takeScreenshots(
 
     if (payFinder.evaluate().isNotEmpty) {
       await tester.tap(payFinder.first);
-      await _settle(tester, frames: 8); // give the modal time to load
+      await _settle(tester);
+      debugPrint('📸 [$mode] ✓ payment');
       await binding.takeScreenshot('screenshots/$mode/payment.png');
 
       // The modal is pushed on the root navigator (useRootNavigator: true),
@@ -176,9 +205,10 @@ Future<void> _takeScreenshots(
         find.byType(Navigator).first,
       );
       if (rootNav.canPop()) rootNav.pop();
-      await _settle(tester, frames: 4);
+      await _settle(tester);
     }
   }
+  debugPrint('📸 [$mode] Done (${threadMap.length} threads found)');
 }
 
 // ── Test ────────────────────────────────────────────────────────────────────
@@ -188,8 +218,9 @@ Future<void> _takeScreenshots(
 // mode: it logs out → takes a sign-in screenshot → logs back in → captures
 // every authenticated page.
 //
-// We avoid `pumpAndSettle` entirely — the NDK's relay reconnect timers keep
-// the frame scheduler permanently busy, so `pumpAndSettle` blocks forever.
+// We use `pumpAndSettle` with a timeout so pages render fully before capture.
+// If the NDK relay reconnect timers prevent idle, the timeout will expire and
+// we proceed with the screenshot regardless.
 
 void main() {
   // Accept the dev CA so HTTPS calls to anvil/rifrelay/boltz through
@@ -208,13 +239,18 @@ void main() {
 
     // Re-use the app's Hostr singleton so NWC connections land on the same
     // instance the UI reads from.
-    final harness = await IntegrationTestHarness.create(
-      name: 'screenshots',
-      hostr: getIt<Hostr>(),
-    );
+    // IntegrationTestHarness relies on dart:io (Anvil HTTP, AlbyHub HTTP,
+    // Platform.environment) so it's only created on native platforms.
+    final IntegrationTestHarness? harness = kIsWeb
+        ? null
+        : await IntegrationTestHarness.create(
+            name: 'screenshots',
+            hostr: getIt<Hostr>(),
+          );
 
     final appRouter = AppRouter();
     final app = MyApp(appRouter: appRouter);
+    debugPrint('📸 Bootstrap complete (web=${kIsWeb})');
 
     await mockNetworkImages(() async {
       // ── Mount the app once — keep it alive for the whole suite ─────
@@ -236,8 +272,9 @@ void main() {
       );
 
       // ── Dark mode ─────────────────────────────────────────────────
+      debugPrint('📸 Switching to dark mode');
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
-      await _settle(tester, frames: 4); // let the theme rebuild
+      await _settle(tester);
 
       await _takeScreenshots(
         tester,
@@ -252,7 +289,8 @@ void main() {
       tester.platformDispatcher.clearPlatformBrightnessTestValue();
 
       // Tear down AlbyHub app connections (does NOT dispose the app's Hostr).
-      await harness.dispose();
+      await harness?.dispose();
+      debugPrint('📸 All screenshots complete');
     });
   });
 }

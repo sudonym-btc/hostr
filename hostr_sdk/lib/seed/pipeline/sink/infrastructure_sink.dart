@@ -123,12 +123,17 @@ class InfrastructureSink implements SeedSink {
       final anvil = _anvil();
       final erc20 = IERC20(address: tokenAddress, client: _chainClient());
 
+      // Use a large sentinel balance so concurrent trades for the same
+      // buyer don't race on _setErc20Balance (each call overwrites the
+      // raw storage slot, so the last writer wins).
+      final largeBalance = BigInt.two.pow(128);
+
       // 1. Set the buyer's ERC-20 balance via storage override.
       await _setErc20Balance(
         anvil: anvil,
         token: tokenAddress.eip55With0x,
         account: buyer.eip55With0x,
-        amount: intent.amountWei,
+        amount: largeBalance,
       );
 
       // 2. Approve the escrow contract to spend the tokens.
@@ -136,7 +141,7 @@ class InfrastructureSink implements SeedSink {
       final approveTx = await erc20.approve(
         (
           spender: EthereumAddress.fromHex(contractAddress),
-          value: intent.amountWei,
+          value: largeBalance,
         ),
         credentials: guestCredentials,
         transaction: Transaction(

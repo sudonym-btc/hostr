@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
 import 'connection.dart';
 
@@ -14,7 +13,7 @@ class NostrWalletConnectWidget extends StatelessWidget {
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [Gap.vertical.md(), connectionList],
+          children: [connectionList],
         ),
       ],
     );

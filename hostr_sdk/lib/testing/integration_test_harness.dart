@@ -46,7 +46,6 @@ class IntegrationTestHarness {
   final AnvilClient anvilRootstock;
   final AlbyHubClient albyHub;
   final TestSeedHelper seeds;
-  final Directory hydratedDir;
 
   /// Whether this harness created the [hostr] instance (and therefore
   /// owns its lifecycle).  When `false`, [dispose] will skip
@@ -68,7 +67,6 @@ class IntegrationTestHarness {
     required this.anvilRootstock,
     required this.albyHub,
     required this.seeds,
-    required this.hydratedDir,
     this.fundedKeys = const [],
     bool ownsHostr = true,
   }) : _ownsHostr = ownsHostr;
@@ -113,16 +111,16 @@ class IntegrationTestHarness {
     Level logLevel = Level.debug,
     bool cleanHydratedStorage = true,
   }) async {
-    // Accept self-signed dev TLS certs for all HTTP/WebSocket connections.
-    HttpOverrides.global = _PermissiveHttpOverrides();
-
     CustomLogger.configure(output: ConsoleOutput(), level: logLevel);
     final seeds = TestSeedHelper(seed: seed);
-    final storageDir = Directory('${Directory.systemTemp.path}/$name');
 
     // When an external Hostr is supplied the caller already set up hydrated
     // storage — skip the setup to avoid overwriting it.
+    // The dart:io APIs (HttpOverrides, Directory) are also only safe on
+    // native runtimes, so keep them inside this guard.
     if (hostr == null) {
+      HttpOverrides.global = _PermissiveHttpOverrides();
+      final storageDir = Directory('${Directory.systemTemp.path}/$name');
       if (cleanHydratedStorage && storageDir.existsSync()) {
         storageDir.deleteSync(recursive: true);
       }
@@ -178,7 +176,6 @@ class IntegrationTestHarness {
       anvil: anvil,
       anvilRootstock: anvilRootstock,
       albyHub: albyHub,
-      hydratedDir: storageDir,
       seeds: seeds,
       fundedKeys: fundKeys,
       ownsHostr: hostr == null,

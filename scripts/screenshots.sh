@@ -188,6 +188,16 @@ ensure_chromedriver() {
   mkdir -p "$(dirname "$CHROMEDRIVER_LOG")"
 
   echo "   🚗 Starting ChromeDriver on port ${CHROMEDRIVER_PORT}..."
+
+  # Kill any stale ChromeDriver left on this port from a previous run.
+  local stale_pid
+  stale_pid=$(lsof -ti :"$CHROMEDRIVER_PORT" 2>/dev/null || true)
+  if [[ -n "$stale_pid" ]]; then
+    echo "   ⚠️  Killing stale process on port $CHROMEDRIVER_PORT (PID $stale_pid)"
+    kill "$stale_pid" 2>/dev/null || true
+    sleep 1
+  fi
+
   "$chromedriver_bin" --port="$CHROMEDRIVER_PORT" >"$CHROMEDRIVER_LOG" 2>&1 &
   CHROMEDRIVER_PID=$!
 
@@ -254,7 +264,7 @@ JSON
 
   echo "🌱 Seeding relay for screenshots…"
   "$REPO_ROOT/scripts/seed_relay.sh" --config-file="$config_file" \
-    2>&1 | sed 's/^/   /'
+    2>&1 | sed -l 's/^/   /'
   echo ""
 }
 
@@ -298,7 +308,7 @@ run_chrome_screenshots() {
     --target=integration_test/screenshots.dart \
     -d chrome \
     --web-browser-flag="--window-size=$CHROME_WINDOW_SIZE" \
-    --no-pub 2>&1 | sed 's/^/   /'; then
+    --no-pub 2>&1 | sed -l 's/^/   /'; then
     echo "   ✅ Done"
   else
     echo "   ❌ Flutter drive failed for Chrome"
@@ -361,7 +371,7 @@ for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
       --driver=test_driver/screenshot_test.dart \
       --target=integration_test/screenshots.dart \
       -d "$udid" \
-      --no-pub 2>&1 | sed 's/^/   /'; then
+      --no-pub 2>&1 | sed -l 's/^/   /'; then
     echo "   ✅ Done"
     if [[ "$device_name" == iPhone* ]]; then
       if ! sync_landing_page_screenshots "$slug"; then
