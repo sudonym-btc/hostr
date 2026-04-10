@@ -290,6 +290,36 @@ class Evm {
                 ),
               );
             }
+
+            // Also scan ERC-20 balances when Boltz tokens are configured.
+            final boltzTokens = configured.swaps?.chainInfo.tokens;
+            if (boltzTokens != null && boltzTokens.isNotEmpty) {
+              final tokenFunded = await configured
+                  .getAddressesWithTokenBalances(boltzTokens);
+              for (final entry in tokenFunded) {
+                if (minimumBalance != null &&
+                    entry.balance.getInSats < minimumBalance.getInSats) {
+                  continue;
+                }
+                final evmKey = await _auth.hd.getActiveEvmKey(
+                  accountIndex: entry.accountIndex,
+                );
+                ops.add(
+                  configured.swapOut(
+                    params: SwapOutParams(
+                      evmKey: evmKey,
+                      accountIndex: entry.accountIndex,
+                      amount: entry.balance,
+                    ),
+                    auth: _auth,
+                    logger: _logger,
+                    nwc: getIt<Nwc>(),
+                    payments: getIt<Payments>(),
+                    quoteService: getIt<SwapOutQuoteService>(),
+                  ),
+                );
+              }
+            }
           }
         }
         return ops;

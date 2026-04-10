@@ -31,13 +31,17 @@ class AuthIdentityResolver {
 
   AuthRecord buildAuthRecord(String input, {int nostrAccountIndex = 0}) {
     final trimmed = input.trim();
+    final normalizedWhitespace = trimmed
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .join(' ');
     final wordCount = trimmed
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .length;
     if (wordCount == 12 || wordCount == 24) {
       final normalized = Mnemonic.fromSentence(
-        trimmed,
+        normalizedWhitespace,
         Language.english,
       ).sentence;
       return AuthRecord(

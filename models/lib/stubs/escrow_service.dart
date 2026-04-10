@@ -6,12 +6,13 @@ List<EscrowService> MOCK_ESCROWS({
   required String contractAddress,
   required String evmAddress,
   String? byteCodeHash,
+  int chainId = 412346,
 }) =>
     [
       EscrowService(
           pubKey: MockKeys.escrow.publicKey,
           content: EscrowServiceContent(
-            chainId: ChainIds.RootstockRegtest.value,
+            chainId: chainId,
             pubkey: MockKeys.escrow.publicKey,
 //               Verifiable build metadata: the exact Solidity compiler version, optimizer flag + runs, and metadata settings used to compile. These determine the runtime bytecode.
 // Runtime bytecode hash: take eth_getCode for the deployed address, hash with keccak256. This uniquely identifies the deployed logic (state ignored).

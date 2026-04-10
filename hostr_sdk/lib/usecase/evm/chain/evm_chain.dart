@@ -68,6 +68,7 @@ class EvmChain {
   late final EvmBalanceMonitor balanceMonitor;
 
   Web3Client _client;
+  http.Client _httpClient;
 
   /// The current [Web3Client] instance.
   Web3Client get client => _client;
@@ -89,6 +90,7 @@ class EvmChain {
   final Map<String, List<_GetLogsRequest>> _getLogsQueues = {};
   final Map<String, Timer?> _getLogsTimers = {};
   final StreamController<void> _pollNow = StreamController<void>.broadcast();
+  bool _disposed = false;
 
   /// ERC-20 token registry — keyed by lower-case checksummed address.
   ///
@@ -96,30 +98,60 @@ class EvmChain {
   /// on first access so all token lookups share a single cache.
   final Map<String, Token> _tokenRegistry = {};
 
-  EvmChain({
+  EvmChain._({
     required this.config,
     required this.auth,
     required CustomLogger logger,
     required this.swapInQuoteService,
     required this.swapOutQuoteService,
+    required http.Client httpClient,
     this.aa,
   }) : logger = logger.scope('evm-chain'),
-       _client = _buildWeb3Client(config.rpcUrl) {
+       _httpClient = httpClient,
+       _client = Web3Client(config.rpcUrl, httpClient) {
     escrow = EscrowCapability(chain: this, logger: logger);
     balanceMonitor = EvmBalanceMonitor(chain: this, logger: logger);
   }
 
-  static Web3Client _buildWeb3Client(String rpcUrl) =>
-      Web3Client(rpcUrl, createPlatformHttpClient());
+  factory EvmChain({
+    required EvmChainConfig config,
+    required Auth auth,
+    required CustomLogger logger,
+    required SwapInQuoteService swapInQuoteService,
+    required SwapOutQuoteService swapOutQuoteService,
+    AACapability? aa,
+  }) => EvmChain._(
+    config: config,
+    auth: auth,
+    logger: logger,
+    swapInQuoteService: swapInQuoteService,
+    swapOutQuoteService: swapOutQuoteService,
+    httpClient: createPlatformHttpClient(),
+    aa: aa,
+  );
 
-  Web3Client buildClient() => _buildWeb3Client(config.rpcUrl);
+  static (Web3Client, http.Client) _buildWeb3Client(String rpcUrl) {
+    final httpClient = createPlatformHttpClient();
+    return (Web3Client(rpcUrl, httpClient), httpClient);
+  }
+
+  /// Creates a standalone [Web3Client] with its own HTTP transport.
+  ///
+  /// **The caller is responsible for disposing both** the returned client
+  /// and the [http.Client] (via the record's second element).
+  (Web3Client, http.Client) buildClient() => _buildWeb3Client(config.rpcUrl);
 
   void _rebuildClient() => logger.spanSync('_rebuildClient', () {
+    if (_disposed) return;
     logger.i('Rebuilding Web3Client after consecutive failures');
     final oldClient = _client;
-    _client = buildClient();
+    final oldHttp = _httpClient;
+    final (newClient, newHttp) = _buildWeb3Client(config.rpcUrl);
+    _client = newClient;
+    _httpClient = newHttp;
     _clientGeneration++;
     oldClient.dispose();
+    oldHttp.close();
   });
 
   void _resetClientIfGeneration(int generation) {
@@ -158,14 +190,16 @@ class EvmChain {
   });
 
   Future<void> dispose() async {
+    _disposed = true;
+    _pollNow.close(); // unblock any _newBlocks generators first
     await balanceMonitor.dispose();
     for (final timer in _getLogsTimers.values) {
       timer?.cancel();
     }
     _getLogsTimers.clear();
     _getLogsQueues.clear();
-    _pollNow.close();
     client.dispose();
+    _httpClient.close();
   }
 
   Future<List<FilterEvent>> getLogs(
@@ -406,7 +440,7 @@ class EvmChain {
     int consecutiveFailures = 0;
     Duration currentInterval = interval;
 
-    while (true) {
+    while (!_disposed) {
       try {
         final current = await _callRpcWithRetry(
           'getBlockNumber',
@@ -426,6 +460,7 @@ class EvmChain {
           yield current;
         }
       } catch (e) {
+        if (_disposed) break;
         consecutiveFailures++;
         logger.w(
           'Block number poll failed ($consecutiveFailures/$maxConsecutiveFailures): $e',
@@ -445,14 +480,20 @@ class EvmChain {
           ),
         );
       }
+      if (_disposed) break;
       // Sleep until the interval elapses OR notifyNewBlock() fires.
       final delayCompleter = Completer<void>();
       final timer = Timer(currentInterval, () {
         if (!delayCompleter.isCompleted) delayCompleter.complete();
       });
-      final sub = _pollNow.stream.listen((_) {
-        if (!delayCompleter.isCompleted) delayCompleter.complete();
-      });
+      final sub = _pollNow.stream.listen(
+        (_) {
+          if (!delayCompleter.isCompleted) delayCompleter.complete();
+        },
+        onDone: () {
+          if (!delayCompleter.isCompleted) delayCompleter.complete();
+        },
+      );
       await delayCompleter.future;
       timer.cancel();
       await sub.cancel();
@@ -792,7 +833,7 @@ class EvmChain {
         stateOverride: stateOverride,
       );
     }
-    return _estimateEoaGas(signer, calls: calls);
+    return _estimateEoaGas(signer, calls: calls, stateOverride: stateOverride);
   }
 
   // ── EOA internals ─────────────────────────────────────────────────
@@ -839,6 +880,7 @@ class EvmChain {
   Future<({BigInt gasCostWei, bool gasSponsored})> _estimateEoaGas(
     EthPrivateKey signer, {
     Map<String, Call>? calls,
+    List<permissionless.StateOverride>? stateOverride,
   }) async {
     if (calls == null || calls.isEmpty) {
       // Baseline estimate for contract interactions when the exact calldata is
@@ -853,15 +895,42 @@ class EvmChain {
 
     BigInt totalGas = BigInt.zero;
     final gasPrice = await client.getGasPrice();
+
+    // Build the state-override map once (if provided) so it can be appended to
+    // every raw `eth_estimateGas` call.
+    final Map<String, dynamic>? overrideJson =
+        (stateOverride != null && stateOverride.isNotEmpty)
+        ? permissionless.stateOverridesToJson(stateOverride)
+        : null;
+
     for (final entry in calls.entries) {
       final call = entry.value;
-      final gas = await client.estimateGas(
-        sender: signer.address,
-        to: call.to,
-        value: EtherAmount.inWei(call.value),
-        data: _hexToBytes(call.data),
-      );
-      totalGas += gas;
+      if (overrideJson != null) {
+        // web3dart's `estimateGas` does not support state overrides, so we
+        // fall back to a raw JSON-RPC call that includes the override map as
+        // the third parameter.
+        final txObj = <String, dynamic>{
+          'from': signer.address.hex,
+          'to': call.to.hex,
+          if (call.value != BigInt.zero)
+            'value': '0x${call.value.toRadixString(16)}',
+          'data': call.data.startsWith('0x') ? call.data : '0x${call.data}',
+        };
+        final amountHex = await client.makeRPCCall<String>('eth_estimateGas', [
+          txObj,
+          'latest',
+          overrideJson,
+        ]);
+        totalGas += hexToInt(amountHex);
+      } else {
+        final gas = await client.estimateGas(
+          sender: signer.address,
+          to: call.to,
+          value: EtherAmount.inWei(call.value),
+          data: _hexToBytes(call.data),
+        );
+        totalGas += gas;
+      }
     }
     return (gasCostWei: totalGas * gasPrice.getInWei, gasSponsored: false);
   }

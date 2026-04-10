@@ -1,9 +1,7 @@
 @Tags(['unit'])
 library;
 
-import 'dart:convert';
-
-import 'package:hostr_sdk/datasources/storage.dart';
+import 'package:hostr_sdk/datasources/app_database.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/user_config/hostr_user_config.dart';
@@ -12,6 +10,8 @@ import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+import 'package:sqlite3/common.dart';
+import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:test/test.dart';
 
 void main() {
@@ -120,7 +120,7 @@ void main() {
   });
 
   group('UserConfigStore', () {
-    late InMemoryKeyValueStorage storage;
+    late CommonDatabase db;
     late Auth auth;
     late KeyPair? activeKeyPair;
     late UserConfigStore store;
@@ -128,15 +128,13 @@ void main() {
     final userA = Bip340.fromPrivateKey('1' * 64);
     final userB = Bip340.fromPrivateKey('2' * 64);
 
-    String keyFor(String pubkey) => 'hostr_user_config:$pubkey';
-
     setUp(() {
-      storage = InMemoryKeyValueStorage();
+      db = AppDatabase(native_sqlite3.sqlite3.openInMemory()).db;
       activeKeyPair = userA;
       final mockAuth = MockAuth();
       when(mockAuth.activeKeyPair).thenAnswer((_) => activeKeyPair);
       auth = mockAuth;
-      store = UserConfigStore(storage, CustomLogger(), auth);
+      store = UserConfigStore(db, CustomLogger(), auth);
     });
 
     tearDown(() {
@@ -151,8 +149,11 @@ void main() {
       });
 
       test('loads config from storage', () async {
-        final saved = const HostrUserConfig(mode: AppMode.host).toJson();
-        await storage.write(keyFor(userA.publicKey), jsonEncode(saved));
+        db.execute('INSERT INTO config (pubkey, key, value) VALUES (?, ?, ?)', [
+          userA.publicKey,
+          'mode',
+          'host',
+        ]);
 
         await store.initialize();
         final config = await store.state;
@@ -163,9 +164,11 @@ void main() {
         await store.initialize();
         await store.update(const HostrUserConfig(mode: AppMode.host));
 
-        // Write something different directly to storage
-        final other = const HostrUserConfig(mode: AppMode.guest).toJson();
-        await storage.write(keyFor(userA.publicKey), jsonEncode(other));
+        // Write something different directly to the DB.
+        db.execute(
+          'INSERT OR REPLACE INTO config (pubkey, key, value) VALUES (?, ?, ?)',
+          [userA.publicKey, 'mode', 'guest'],
+        );
 
         // Second initialize should be a no-op
         await store.initialize();
@@ -174,10 +177,15 @@ void main() {
       });
 
       test('handles corrupt storage gracefully', () async {
-        await storage.write(keyFor(userA.publicKey), 'not valid json}}}');
+        db.execute('INSERT INTO config (pubkey, key, value) VALUES (?, ?, ?)', [
+          userA.publicKey,
+          'auto_withdraw_enabled',
+          'not-a-bool',
+        ]);
         await store.initialize();
         final config = await store.state;
-        expect(config, equals(HostrUserConfig.defaults));
+        expect(config.mode, AppMode.guest);
+        expect(config.autoWithdrawEnabled, isTrue);
       });
     });
 
@@ -194,11 +202,16 @@ void main() {
         expect(config.autoWithdrawEnabled, isFalse);
 
         // Verify it's in underlying storage
-        final raw = await storage.read(keyFor(userA.publicKey));
-        expect(raw, isNotNull);
-        final decoded = jsonDecode(raw as String) as Map<String, dynamic>;
+        final rows = db.select(
+          'SELECT key, value FROM config WHERE pubkey = ? ORDER BY key',
+          [userA.publicKey],
+        );
+        expect(rows, hasLength(2));
+        final decoded = {
+          for (final row in rows) row['key'] as String: row['value'] as String,
+        };
         expect(decoded['mode'], 'host');
-        expect(decoded['autoWithdrawEnabled'], isFalse);
+        expect(decoded['auto_withdraw_enabled'], 'false');
       });
     });
 
@@ -244,7 +257,7 @@ void main() {
         );
 
         // Create a new store pointing at the same storage
-        final store2 = UserConfigStore(storage, CustomLogger(), auth);
+        final store2 = UserConfigStore(db, CustomLogger(), auth);
         await store2.initialize();
 
         final config = await store2.state;
@@ -271,8 +284,14 @@ void main() {
             ),
           );
 
-          final rawA = await storage.read(keyFor(userA.publicKey));
-          final rawB = await storage.read(keyFor(userB.publicKey));
+          final rawA = db.select(
+            'SELECT value FROM config WHERE pubkey = ? AND key = ?',
+            [userA.publicKey, 'mode'],
+          );
+          final rawB = db.select(
+            'SELECT value FROM config WHERE pubkey = ? AND key = ?',
+            [userB.publicKey, 'mode'],
+          );
           expect(rawA, isNotNull);
           expect(rawB, isNotNull);
 

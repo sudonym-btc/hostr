@@ -39,7 +39,7 @@ variable "compose_machine_type" {
 variable "compose_zone" {
   description = "Zone for the Docker Compose VM."
   type        = string
-  default     = "us-central1-a"
+  default     = "us-central1-b"
 }
 
 variable "compose_boot_disk_size_gb" {
