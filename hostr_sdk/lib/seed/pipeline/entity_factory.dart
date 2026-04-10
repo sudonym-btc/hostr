@@ -742,14 +742,19 @@ class EntityFactory {
       if (longitude > 180) longitude -= 360;
       if (longitude < -180) longitude += 360;
 
-      final h3Tags = H3Engine.bundled().hierarchy.hierarchyForPoint(
-        latitude: latitude,
-        longitude: longitude,
-      );
-      seedGeoTags = List<List<String>>.generate(
-        h3Tags.length,
-        (i) => ['g', h3Tags[i]],
-      );
+      try {
+        final h3Tags = H3Engine.bundled().hierarchy.hierarchyForPoint(
+          latitude: latitude,
+          longitude: longitude,
+        );
+        seedGeoTags = List<List<String>>.generate(
+          h3Tags.length,
+          (i) => ['g', h3Tags[i]],
+        );
+      } on UnsupportedError {
+        // H3 native library unavailable (e.g. web/JS runtime).
+        // Geo tags are search metadata; listings work without them.
+      }
       seedLocation = base.city;
 
       final theme = _kThemeForListingType[resolvedType] ?? _ListingTheme.urban;

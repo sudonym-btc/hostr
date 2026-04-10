@@ -75,16 +75,8 @@ Future<void> _applyStartupReadyEffects(
   BuildContext context,
   StartupGateReady state,
 ) async {
-  // Note: we deliberately do NOT re-check auth here.
-  // Hostr.auth already transitioned to LoggedIn from the signin() call.
-  // Re-checking could momentarily see stale state (timing-dependent),
-  // which triggers the auth subscription → reset+run → double-Ready race.
-
-  if (!state.isHost) return;
-
-  try {
-    await context.read<ModeCubit>().setHost();
-  } catch (_) {}
+  // Mode is loaded from persisted storage by ModeCubit.load() — the
+  // startup gate should not override the user's saved preference.
 }
 
 final _gateLog = CustomLogger().scope('startup-gate');
@@ -152,7 +144,7 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
 
         _gateLog.d(
           'StartupGate: Ready '
-          '(hasMetadata=${state.hasMetadata}, isHost=${state.isHost}, '
+          '(hasMetadata=${state.hasMetadata}, '
           'hasPending=${getIt<PendingNavigation>().hasPending})',
         );
 

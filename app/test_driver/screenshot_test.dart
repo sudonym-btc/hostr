@@ -9,6 +9,7 @@ Future<void> main() async {
   final device = Platform.environment['SCREENSHOT_DEVICE'];
 
   final FlutterDriver driver = await FlutterDriver.connect();
+  var count = 0;
   await integrationDriver(
     driver: driver,
     onScreenshot:
@@ -18,6 +19,9 @@ Future<void> main() async {
               : name;
           final File image = await File(path).create(recursive: true);
           image.writeAsBytesSync(bytes);
+          count++;
+          final sizeKB = (bytes.length / 1024).toStringAsFixed(0);
+          print('📸 [$count] $path (${sizeKB}KB)');
           return true;
         },
   );

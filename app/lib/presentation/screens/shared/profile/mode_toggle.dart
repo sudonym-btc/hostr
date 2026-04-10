@@ -11,41 +11,39 @@ class ModeToggleWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ModeCubit, ModeCubitState>(
       builder: (context, state) {
-        return CustomPadding(
-          child: Center(
-            child: ToggleButtons(
-              fillColor: Theme.of(context).colorScheme.primary,
-              selectedBorderColor: Theme.of(context).colorScheme.primary,
-              borderColor: Theme.of(context).colorScheme.primary,
-              selectedColor: Theme.of(context).colorScheme.onPrimary,
-              borderWidth: 1,
-              borderRadius: BorderRadius.circular(50.0),
-              isSelected: [state is HostMode, state is GuestMode],
-              onPressed: (int index) {
-                if (index == 0) {
-                  BlocProvider.of<ModeCubit>(context).setHost();
-                } else {
-                  BlocProvider.of<ModeCubit>(context).setGuest();
-                }
-              },
-              textStyle: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-              children: [
-                CustomPadding.horizontal.md(
-                  child: Text(
-                    AppLocalizations.of(context)!.hostMode,
-                    textAlign: TextAlign.center,
-                  ),
+        return Center(
+          child: ToggleButtons(
+            fillColor: Theme.of(context).colorScheme.primary,
+            selectedBorderColor: Theme.of(context).colorScheme.primary,
+            borderColor: Theme.of(context).colorScheme.primary,
+            selectedColor: Theme.of(context).colorScheme.onPrimary,
+            borderWidth: 1,
+            borderRadius: BorderRadius.circular(50.0),
+            isSelected: [state is HostMode, state is GuestMode],
+            onPressed: (int index) {
+              if (index == 0) {
+                BlocProvider.of<ModeCubit>(context).setHost();
+              } else {
+                BlocProvider.of<ModeCubit>(context).setGuest();
+              }
+            },
+            textStyle: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            children: [
+              CustomPadding.horizontal.md(
+                child: Text(
+                  AppLocalizations.of(context)!.hostMode,
+                  textAlign: TextAlign.center,
                 ),
-                CustomPadding.horizontal.md(
-                  child: Text(
-                    AppLocalizations.of(context)!.guestMode,
-                    textAlign: TextAlign.center,
-                  ),
+              ),
+              CustomPadding.horizontal.md(
+                child: Text(
+                  AppLocalizations.of(context)!.guestMode,
+                  textAlign: TextAlign.center,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

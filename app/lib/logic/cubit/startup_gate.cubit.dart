@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:ndk/ndk.dart' show Filter;
 
 /// Describes each step of the startup bootstrap process.
 enum StartupStep {
@@ -49,15 +48,12 @@ class StartupGateInProgress extends StartupGateState {
 /// All steps completed.
 ///
 /// [hasMetadata] – whether an existing profile was found.
-/// [isHost] – whether the user owns at least one listing and should be
-///            switched to host mode.
 class StartupGateReady extends StartupGateState {
   final bool hasMetadata;
-  final bool isHost;
-  const StartupGateReady({required this.hasMetadata, required this.isHost});
+  const StartupGateReady({required this.hasMetadata});
 
   @override
-  List<Object?> get props => [hasMetadata, isHost];
+  List<Object?> get props => [hasMetadata];
 }
 
 /// Something went wrong.
@@ -99,7 +95,7 @@ class StartupGateCubit extends Cubit<StartupGateState> {
       // ── Unauthenticated path: skip directly to ready ───────────────────
       final pubkey = _hostr.auth.activeKeyPair?.publicKey;
       if (pubkey == null) {
-        emit(const StartupGateReady(hasMetadata: true, isHost: false));
+        emit(const StartupGateReady(hasMetadata: true));
         return;
       }
 
@@ -119,22 +115,10 @@ class StartupGateCubit extends Cubit<StartupGateState> {
       await _waitForThreadSync();
       completed.add(StartupStep.messages);
 
-      // ── Check for existing listings (host mode) ────────────────────────
-      final hasListing = await _checkHasListing(pubkey);
-
       // ── Done ───────────────────────────────────────────────────────────
-      emit(StartupGateReady(hasMetadata: metadata != null, isHost: hasListing));
+      emit(StartupGateReady(hasMetadata: metadata != null));
     } catch (e) {
       emit(StartupGateError(e.toString()));
-    }
-  }
-
-  Future<bool> _checkHasListing(String pubkey) async {
-    try {
-      final listing = await _hostr.listings.getOne(Filter(authors: [pubkey]));
-      return listing != null;
-    } catch (_) {
-      return false;
     }
   }
 

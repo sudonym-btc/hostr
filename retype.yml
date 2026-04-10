@@ -1,24 +1,12 @@
-input: ./
-output: .retype
+input: .doc
+output: ../.retype
 url: # Add your website address here
-include:
-  - ".doc/**/*"
-  - "app/screenshots/*"
-exclude: 
-  - "app"
-  - "escrow"
-  - "infrastructure"
-  - "docker"
-  - "dependencies"
 
 branding:
   title: Hostr
-  logo: app/assets/images/logo/logo.svg
+  logo: assets/images/logo/logo_no_text.svg
   label: Docs
 
 links:
   - text: Getting Started
-    link: /.doc/guides/getting_started.md
-
-generator:
-  paths: absolute
+    link: /guides/getting_started.md

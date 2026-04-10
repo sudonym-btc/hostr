@@ -332,9 +332,7 @@ class _AppShellScreenState extends State<AppShellScreen>
                                     router: router,
                                     destinations: destinations,
                                     selectedIndex: selectedIndex,
-                                    navBg: theme
-                                        .bottomNavigationBarTheme
-                                        .backgroundColor!,
+                                    navBg: rootSurface,
                                   )
                                 : null,
                           );

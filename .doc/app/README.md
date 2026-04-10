@@ -6,11 +6,11 @@ This is a client that displays and posts events related to short term accommodat
 
 <p align="start">
 
-<img src="/app/screenshots/home.png" alt="Home page" width=200 style="max-width:300px;">&nbsp;
-<img src="/app/screenshots/listing.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
-<img src="/app/screenshots/threads.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
-<img src="/app/screenshots/thread.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
-<img src="/app/screenshots/thread_pay.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
+<img src="../screenshots/iphone_17_pro_max/dark/search.png" alt="Search page" width=200 style="max-width:300px;">&nbsp;
+<img src="../screenshots/iphone_17_pro_max/dark/listing.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
+<img src="../screenshots/iphone_17_pro_max/dark/threads.png" alt="Threads page" width=200 style="max-width:300px;">&nbsp;
+<img src="../screenshots/iphone_17_pro_max/dark/thread.png" alt="Thread page" width=200 style="max-width:300px;">&nbsp;
+<img src="../screenshots/iphone_17_pro_max/dark/payment.png" alt="Payment page" width=200 style="max-width:300px;">&nbsp;
 
 </p>
 
@@ -49,10 +49,28 @@ flutter run
 
 - Each `Screen` widget just handles the mapping of query and path parameters onto it's corresponding `View` widget. This allows for catalogging widgets while only using their TypeSafe parameters, rather than having to pass in query strings etc.
 
-## Improvements
+## Generating screenshots
 
-- Swap in transaction should go straight into the contract
-- Escrow contract COULD encode bolt12, and then escrcow can do the swap by proving they paid a corresponding bolt11 invoice and releasing the funds to themselves. Out of scope. For now using LUD16 for zapReceipt.
+To generate screenshots of the app run
+
+```
+./scripts/screenshots.sh
+```
+
+Screenshots will be saved in `app/screenshot`.
+
+## Compile ABIs
+
+We use [Boltz](https://boltz.exchange/) to swap into and out of escrow contracts on [Arbitrum](https://arbitrum.io/)'s EVM L2.
+
+To facilitate this, we require the [ABIs](https://www.quicknode.com/guides/ethereum-development/smart-contracts/what-is-an-abi) that Boltz makes available for their swaps, and the ABIs used for the escrow contract.
+
+If we import the ABIs, we can use [web3dart](https://pub.dev/packages/web3dart) package and it's accompanying class builder to easily interact with any EVM compatible L2.
+We only need to run this if there is a change in the ABIs, since the compiled dart is committed in the `/app` folder.
+
+```bash
+./scripts/compile_abis.sh
+```
 
 ## Assets
 

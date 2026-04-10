@@ -47,9 +47,8 @@ class ProfileSummarySection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const ModeToggleWidget(),
-
+                    Gap.vertical.lg(),
                     if ((profile!.metadata.about ?? '').isNotEmpty) ...[
-                      Gap.vertical.xs(),
                       Text(
                         profile!.metadata.about!,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -104,7 +103,7 @@ class ProfileSettingsSection extends StatelessWidget {
           title: 'Balance',
           action: IconButton(
             icon: const Icon(Icons.key),
-            tooltip: 'Copy mnemonic',
+            tooltip: 'Copy EVM mnemonic',
             onPressed: () async {
               final mnemonic = (await getIt<Hostr>().auth.hd.getEvmMnemonic())
                   .join(' ');
@@ -115,28 +114,32 @@ class ProfileSettingsSection extends StatelessWidget {
               );
             },
           ),
-          body: MoneyInFlightWidget(),
-        ),
-        Section(
-          body: StreamBuilder<HostrUserConfig>(
-            stream: getIt<Hostr>().userConfig.stream,
-            builder: (context, snapshot) {
-              final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
-              return SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Auto-withdraw'),
-                subtitle: const Text(
-                  'Automatically sweep received funds into your Lightning wallet',
-                ),
-                value: enabled,
-                onChanged: (value) async {
-                  final current = await getIt<Hostr>().userConfig.state;
-                  await getIt<Hostr>().userConfig.update(
-                    current.copyWith(autoWithdrawEnabled: value),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MoneyInFlightWidget(),
+              Gap.vertical.sm(),
+              StreamBuilder<HostrUserConfig>(
+                stream: getIt<Hostr>().userConfig.stream,
+                builder: (context, snapshot) {
+                  final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
+                  return SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Auto-withdraw'),
+                    subtitle: const Text(
+                      'Automatically sweep received funds into your Lightning wallet',
+                    ),
+                    value: enabled,
+                    onChanged: (value) async {
+                      final current = await getIt<Hostr>().userConfig.state;
+                      await getIt<Hostr>().userConfig.update(
+                        current.copyWith(autoWithdrawEnabled: value),
+                      );
+                    },
                   );
                 },
-              );
-            },
+              ),
+            ],
           ),
         ),
         if (AppLayoutSpec.of(context).isExpanded) const Spacer(),
