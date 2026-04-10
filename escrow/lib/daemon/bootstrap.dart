@@ -13,12 +13,14 @@ class DaemonContext {
   final Hostr hostr;
   final EscrowService escrowService;
   final SupportedEscrowContract contract;
+  final EvmChain configuredChain;
   final Web3Client web3client;
 
   DaemonContext({
     required this.hostr,
     required this.escrowService,
     required this.contract,
+    required this.configuredChain,
     required this.web3client,
   });
 }
@@ -89,6 +91,7 @@ Future<DaemonContext> bootstrap() async {
     hostr: hostr,
     escrowService: escrowService,
     contract: contract,
-    web3client: hostr.evm.configuredChains.first.client,
+    configuredChain: configuredChain,
+    web3client: configuredChain.client,
   );
 }

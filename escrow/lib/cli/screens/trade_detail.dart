@@ -1,5 +1,6 @@
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:interact_cli/interact_cli.dart';
 
@@ -30,25 +31,32 @@ Future<Navigation> tradeDetailScreen(
 
   // ── Display ────────────────────────────────────────────────────────────
   print('');
-  print('── Trade: $tradeId ──');
+  print(sectionHeader('Trade: $tradeId'));
 
   final cached = data['cached'] as Map<String, dynamic>?;
   if (cached != null) {
-    print('  Status   : ${cached['status']}');
-    print('  Amount   : ${cached['amountSats']} sats');
-    print('  Last tx  : ${cached['txHash'] ?? '—'}');
-    print('  Updated  : ${cached['updatedAt']}');
+    final amount = cached['amountSats'] is int
+        ? formatSats(cached['amountSats'] as int)
+        : '${cached['amountSats']}';
+    print(kvTable({
+      'Status': colorStatus('${cached['status']}'),
+      'Amount': '$amount sats',
+      'Last tx': '${cached['txHash'] ?? '—'}',
+      'Updated': '${cached['updatedAt']}',
+    }));
   }
 
   final onChain = data['onChain'] as Map<String, dynamic>?;
   if (onChain != null) {
-    print('  Active   : ${onChain['isActive']}');
-    print('  Buyer    : ${onChain['buyer']}');
-    print('  Seller   : ${onChain['seller']}');
-    print('  Arbiter  : ${onChain['arbiter']}');
-    print('  Amount   : ${onChain['amount']} wei');
-    print('  UnlockAt : ${onChain['unlockAt']}');
-    print('  Fee      : ${onChain['escrowFee']} wei');
+    print(kvTable({
+      'Active': '${onChain['isActive']}',
+      'Buyer': '${onChain['buyer']}',
+      'Seller': '${onChain['seller']}',
+      'Arbiter': '${onChain['arbiter']}',
+      'Amount': '${onChain['amount']} wei',
+      'UnlockAt': '${onChain['unlockAt']}',
+      'Fee': '${onChain['escrowFee']} wei',
+    }));
   } else if (cached == null) {
     print('  Trade not found in cache or on chain.');
   }
@@ -58,6 +66,7 @@ Future<Navigation> tradeDetailScreen(
   final actions = [
     'Audit',
     'Arbitrate',
+    'View Thread',
     'Refresh',
   ];
 
@@ -71,6 +80,8 @@ Future<Navigation> tradeDetailScreen(
     case 1:
       return Navigation(Screen.arbitrate, selectedTradeId: tradeId);
     case 2:
+      return Navigation(Screen.threadDetail, selectedThreadId: tradeId);
+    case 3:
     default:
       // Refresh = re-run this same screen
       return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);

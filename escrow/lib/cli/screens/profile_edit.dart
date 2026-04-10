@@ -1,5 +1,6 @@
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:interact_cli/interact_cli.dart';
 
@@ -26,17 +27,19 @@ Future<Navigation> profileEditScreen(DaemonClient client) async {
   }
 
   print('');
-  print('── Profile ──');
-  print('  Pubkey      : ${profile['pubkey']}');
-  print('  Name        : ${profile['name'] ?? '—'}');
-  print('  Display name: ${profile['displayName'] ?? '—'}');
-  print('  About       : ${profile['about'] ?? '—'}');
-  print('  Picture     : ${profile['picture'] ?? '—'}');
-  print('  Banner      : ${profile['banner'] ?? '—'}');
-  print('  NIP-05      : ${profile['nip05'] ?? '—'}');
-  print('  LN address  : ${profile['lud16'] ?? '—'}');
-  print('  Website     : ${profile['website'] ?? '—'}');
-  print('  EVM address : ${profile['evmAddress'] ?? '—'}');
+  print(sectionHeader('Profile'));
+  print(kvTable({
+    'Pubkey': '${profile['pubkey']}',
+    'Name': '${profile['name'] ?? '—'}',
+    'Display name': '${profile['displayName'] ?? '—'}',
+    'About': '${profile['about'] ?? '—'}',
+    'Picture': '${profile['picture'] ?? '—'}',
+    'Banner': '${profile['banner'] ?? '—'}',
+    'NIP-05': '${profile['nip05'] ?? '—'}',
+    'LN address': '${profile['lud16'] ?? '—'}',
+    'Website': '${profile['website'] ?? '—'}',
+    'EVM address': '${profile['evmAddress'] ?? '—'}',
+  }));
   print('');
 
   final fields = [

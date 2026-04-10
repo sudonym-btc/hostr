@@ -1,5 +1,6 @@
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:interact_cli/interact_cli.dart';
@@ -50,12 +51,13 @@ Future<Navigation> threadListScreen(DaemonClient client) async {
   // ── Selection ──────────────────────────────────────────────────────────
   final options = threads.map((t) {
     final who = t.participants.map(label).join(', ');
+    final msgs = kDimStyle.render('(${t.messageCount} msgs)');
     final preview = t.lastMessage != null && t.lastMessage!.isNotEmpty
         ? (t.lastMessage!.length > 40
             ? '${t.lastMessage!.substring(0, 40)}…'
             : t.lastMessage!)
-        : '(no messages)';
-    return '$who  (${t.messageCount} msgs)  $preview';
+        : kDimStyle.render('(no messages)');
+    return '$who  $msgs  $preview';
   }).toList();
 
   final idx = SelectOrBack(prompt: 'Threads', options: options).interact();

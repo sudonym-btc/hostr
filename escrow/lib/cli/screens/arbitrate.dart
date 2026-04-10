@@ -1,5 +1,6 @@
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
+import 'package:escrow/cli/styles.dart';
 import 'package:escrow/cli/widgets.dart';
 import 'package:interact_cli/interact_cli.dart';
 
@@ -9,19 +10,27 @@ Future<Navigation> arbitrateScreen(
   String tradeId,
 ) async {
   print('');
-  print('── Arbitrate: $tradeId ──');
+  print(sectionHeader('Arbitrate: $tradeId'));
   print('');
   print('  Enter the forward ratio — the fraction of escrowed funds sent to');
   print('  the seller. Must be between 0 and 1 (inclusive).');
   print(
       '  Example: 0.5 = split 50/50, 1 = all to seller, 0 = full refund to buyer.');
   print('');
+  print(kDimStyle.render('  Leave blank to go back.'));
+  print('');
 
   final forwardStr = Input(prompt: 'Forward ratio (0–1)').interact();
+
+  if (forwardStr.trim().isEmpty) {
+    return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
+  }
+
   final forward = double.tryParse(forwardStr.trim());
 
   if (forward == null || forward < 0 || forward > 1) {
     print('  Invalid value. Must be a number between 0 and 1.');
+    pressAnyKey();
     return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
   }
 
