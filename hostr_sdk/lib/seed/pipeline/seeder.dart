@@ -265,7 +265,11 @@ class Seeder {
     }
 
     // Phase 4: Build reservation events (pure).
-    for (final plan in plans) {
+    // Skip escrow plans that never got a createTxHash — they would produce
+    // a commit reservation with proof=null which is invalid.
+    for (final plan in plans.where(
+      (p) => !p.useEscrow || p.createTxHash != null,
+    )) {
       await stage_outcomes.buildReservationForPlan(
         ctx: ctx,
         plan: plan,
@@ -308,11 +312,9 @@ class Seeder {
     if (method != null) {
       final acceptedTokens = method.acceptedTokensFor(denomination);
       if (acceptedTokens.isNotEmpty) {
-        // Use tBTC decimals from config when available, otherwise assume 18.
         final tagId = acceptedTokens.first;
-        final decimals =
-            tagId.contains(':') &&
-                !tagId.endsWith('0x0000000000000000000000000000000000000000')
+        const nativeAddress = '0x0000000000000000000000000000000000000000';
+        final decimals = tagId.contains(':') && !tagId.endsWith(nativeAddress)
             ? config.tbtcDecimals
             : 18;
         token = Token.fromTagId(tagId, decimals: decimals);

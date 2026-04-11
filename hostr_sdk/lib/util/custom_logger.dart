@@ -55,6 +55,7 @@ class CustomLogger extends Logger {
   CustomLogger({String? tag})
     : _resolvedTag = tag ?? _tag,
       super(
+        filter: ProductionFilter(),
         printer: SimplePrinter(colors: true),
         output: _outputOverride ?? _DeveloperLogOutput(tag: tag ?? _tag),
         level: _levelOverride,

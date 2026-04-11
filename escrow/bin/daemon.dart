@@ -6,6 +6,7 @@ import 'package:escrow/injection.dart';
 import 'package:escrow/shared/socket_config.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:logger/logger.dart';
 import 'package:models/stubs/main.dart';
 
 /// Allow self-signed certificates so the daemon can connect to local
@@ -31,17 +32,23 @@ class PermissiveHttpOverrides extends HttpOverrides {
 ///   3. Opens a Unix domain socket and serves JSON-RPC requests from CLI
 ///      clients.
 void main(List<String> arguments) async {
-  print('[daemon] Starting escrow daemon…');
-
   // ── Process-level setup ───────────────────────────────────────────────────
   HttpOverrides.global = PermissiveHttpOverrides();
   setCryptoProvider(DartCryptoProvider());
+
+  // Route all SDK logs to stdout so they're visible in the terminal.
+  CustomLogger.configure(
+    output: ConsoleOutput(),
+    level: Level.info,
+  );
+  final logger = CustomLogger(tag: 'daemon');
+  logger.i('Starting escrow daemon…');
 
   final String privateKey =
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
   final String environment = Platform.environment['ENV'] ?? 'dev';
 
-  await setupInjection(environment: environment);
+  await setupInjection(environment: environment, logger: logger);
   final hostr = getIt<Hostr>();
   await hostr.auth.signin(privateKey);
 
@@ -55,28 +62,29 @@ void main(List<String> arguments) async {
       (c) => c.config.escrowContractAddress == chain.escrowContractAddress,
     ),
   ));
-  print('[daemon] Bootstrap complete');
+  logger.i('Bootstrap complete');
 
-  daemon.start();
+  await daemon.start();
 
   // ── 2. RPC server ─────────────────────────────────────────────────────────
   final handler = DaemonHandler(daemon: daemon);
   final server = RpcSocketServer(
     socketPath: socketPath,
     registerMethods: handler.register,
+    logger: CustomLogger(tag: 'rpc'),
   );
   await server.start();
 
-  print('[daemon] Escrow daemon ready — socket: $socketPath');
-  print('[daemon] Press Ctrl-C to stop');
+  logger.i('Escrow daemon ready — socket: $socketPath');
+  logger.i('Press Ctrl-C to stop');
 
   // ── Graceful shutdown ─────────────────────────────────────────────────────
   Future<void> shutdown() async {
-    print('\n[daemon] Shutting down…');
+    logger.i('Shutting down…');
     await server.stop();
     await daemon.stop();
     await hostr.dispose();
-    print('[daemon] Goodbye');
+    logger.i('Goodbye');
     exit(0);
   }
 

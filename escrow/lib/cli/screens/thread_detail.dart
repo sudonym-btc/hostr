@@ -23,10 +23,12 @@ Future<Navigation> threadDetailScreen(
 
   List<ThreadMessage> messages;
   List<String> participants;
+  String? tradeId;
   try {
     final result = await client.getThread(threadId);
     messages = result.messages;
     participants = result.participants;
+    tradeId = result.conversationTag;
     spinner.done();
   } catch (e) {
     spinner.failed();
@@ -52,6 +54,9 @@ Future<Navigation> threadDetailScreen(
   print('');
   print(sectionHeader('Thread: $threadId'));
   print('   Participants: ${participants.map(label).join(', ')}');
+  if (tradeId != null && tradeId.isNotEmpty) {
+    print('   Trade ID: $tradeId');
+  }
   print('');
 
   if (messages.isEmpty) {
@@ -82,17 +87,18 @@ Future<Navigation> threadDetailScreen(
   // ── What next? ─────────────────────────────────────────────────────────
   final actions = [
     'Refresh this thread',
-    'View Trade',
+    if (tradeId != null && tradeId.isNotEmpty) 'View Trade',
   ];
 
   final idx = SelectOrBack(prompt: 'Next', options: actions).interact();
 
-  switch (idx) {
-    case 0:
+  if (idx == -1) return Navigation.to(Screen.threadList);
+  final selected = actions[idx];
+  switch (selected) {
+    case 'Refresh this thread':
       return Navigation(Screen.threadDetail, selectedThreadId: threadId);
-    case 1:
-      return Navigation(Screen.tradeDetail, selectedTradeId: threadId);
-    case -1:
+    case 'View Trade':
+      return Navigation(Screen.tradeDetail, selectedTradeId: tradeId!);
     default:
       return Navigation.to(Screen.threadList);
   }

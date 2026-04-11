@@ -99,6 +99,7 @@ class TradeSummary {
   final int amountSats;
   final String? txHash;
   final DateTime updatedAt;
+  final bool disputed;
 
   TradeSummary({
     required this.tradeId,
@@ -106,6 +107,7 @@ class TradeSummary {
     required this.amountSats,
     this.txHash,
     required this.updatedAt,
+    this.disputed = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -114,6 +116,7 @@ class TradeSummary {
         'amountSats': amountSats,
         'txHash': txHash,
         'updatedAt': updatedAt.toIso8601String(),
+        'disputed': disputed,
       };
 
   factory TradeSummary.fromJson(Map<String, dynamic> json) => TradeSummary(
@@ -122,6 +125,7 @@ class TradeSummary {
         amountSats: json['amountSats'] as int,
         txHash: json['txHash'] as String?,
         updatedAt: DateTime.parse(json['updatedAt'] as String),
+        disputed: json['disputed'] as bool? ?? false,
       );
 }
 

@@ -472,24 +472,36 @@ class VerificationTile extends StatelessWidget {
 class StatusChip extends StatelessWidget {
   final String label;
   final Color color;
+  final Color? foregroundColor;
 
-  const StatusChip({super.key, required this.label, required this.color});
+  const StatusChip({
+    super.key,
+    required this.label,
+    required this.color,
+    this.foregroundColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final bg = foregroundColor != null ? color : color.withValues(alpha: 0.12);
+    final fg =
+        foregroundColor ??
+        (foregroundColor != null
+            ? Theme.of(context).colorScheme.onSecondary
+            : color);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: kSpace2,
         vertical: kSpace1,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: bg,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
+          color: fg,
           fontWeight: FontWeight.w500,
         ),
       ),

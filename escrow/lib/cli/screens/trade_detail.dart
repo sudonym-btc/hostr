@@ -29,6 +29,8 @@ Future<Navigation> tradeDetailScreen(
     return Navigation.to(Screen.tradeList);
   }
 
+  final threadAnchor = data['threadAnchor'] as String?;
+
   // ── Display ────────────────────────────────────────────────────────────
   print('');
   print(sectionHeader('Trade: $tradeId'));
@@ -66,24 +68,23 @@ Future<Navigation> tradeDetailScreen(
   final actions = [
     'Audit',
     'Arbitrate',
-    'View Thread',
+    if (threadAnchor != null) 'View Thread',
     'Refresh',
   ];
 
   final idx = SelectOrBack(prompt: 'Action', options: actions).interact();
 
-  switch (idx) {
-    case -1:
-      return Navigation.to(Screen.tradeList);
-    case 0:
+  if (idx == -1) return Navigation.to(Screen.tradeList);
+  final selected = actions[idx];
+  switch (selected) {
+    case 'Audit':
       return Navigation(Screen.audit, selectedTradeId: tradeId);
-    case 1:
+    case 'Arbitrate':
       return Navigation(Screen.arbitrate, selectedTradeId: tradeId);
-    case 2:
-      return Navigation(Screen.threadDetail, selectedThreadId: tradeId);
-    case 3:
+    case 'View Thread':
+      return Navigation(Screen.threadDetail, selectedThreadId: threadAnchor!);
+    case 'Refresh':
     default:
-      // Refresh = re-run this same screen
       return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
   }
 }

@@ -37,6 +37,10 @@ class AppAvatar extends StatelessWidget {
   /// Background colour. Defaults to `surfaceContainerHighest` from the theme.
   final Color? color;
 
+  /// Icon / text colour. When set, overrides the default foreground derived by
+  /// [CircleAvatar] so the caller can guarantee contrast.
+  final Color? foregroundColor;
+
   /// If you already have a resolved [ImageProvider] use this instead of
   /// [image]/[pubkey].
   final ImageProvider? foregroundImage;
@@ -57,6 +61,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   }) : radius = 10;
@@ -69,6 +74,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   }) : radius = 14;
@@ -81,6 +87,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   }) : radius = 16;
@@ -93,6 +100,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   }) : radius = 20;
@@ -105,6 +113,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   }) : radius = 36;
@@ -117,6 +126,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   }) : radius = 40;
@@ -130,6 +140,7 @@ class AppAvatar extends StatelessWidget {
     this.label,
     this.icon,
     this.color,
+    this.foregroundColor,
     this.foregroundImage,
     this.onForegroundImageError,
   });
@@ -184,7 +195,7 @@ class AppAvatar extends StatelessWidget {
       return CircleAvatar(
         radius: radius,
         backgroundColor: bgColor,
-        child: Icon(icon, size: radius),
+        child: Icon(icon, size: radius, color: foregroundColor),
       );
     }
 

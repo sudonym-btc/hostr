@@ -135,10 +135,17 @@ class ReservationGroup {
   String? get buyerPubkey => buyerReservation?.pubKey;
 
   /// The escrow service pubkey, resolved from the first reservation that
-  /// carries an [EscrowProof].
+  /// carries an [EscrowProof], falling back to the first `p` tag with
+  /// an `"escrow"` role marker (`["p", pk, "", "escrow"]`).
   String? get escrowPubkey {
+    // 1. Resolve from EscrowProof (most authoritative).
     for (final r in reservations) {
       final pk = r.proof?.escrowProof?.escrowService.escrowPubkey;
+      if (pk != null) return pk;
+    }
+    // 2. Fallback: scan p tags for the role marker.
+    for (final r in reservations) {
+      final pk = r.parsedTags.getTagValueByMarker('p', 'escrow');
       if (pk != null) return pk;
     }
     return null;

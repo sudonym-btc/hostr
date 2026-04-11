@@ -8,36 +8,22 @@ class PaymentStatusChip extends StatelessWidget {
   final PaymentEvent? state;
   const PaymentStatusChip({super.key, required this.state});
 
-  StatusChip _buildChip(
-    BuildContext context, {
-    required String label,
-    required IconData icon,
-  }) {
-    return StatusChip(
-      label: label,
-      color: Theme.of(context).colorScheme.primary,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     Widget child;
     if (state is EscrowFundedEvent) {
-      child = _buildChip(context, label: 'Paid', icon: Icons.check);
+      child = StatusChip(
+        label: 'Paid',
+        color: colorScheme.secondary,
+        foregroundColor: colorScheme.onSecondary,
+      );
     } else if (state is EscrowReleasedEvent) {
-      child = _buildChip(
-        context,
-        label: 'Funds Released',
-        icon: Icons.handshake,
-      );
+      child = StatusChip(label: 'Funds Released', color: colorScheme.primary);
     } else if (state is EscrowArbitratedEvent) {
-      child = _buildChip(context, label: 'Arbitrated', icon: Icons.gavel);
+      child = StatusChip(label: 'Arbitrated', color: colorScheme.primary);
     } else if (state is EscrowClaimedEvent) {
-      child = _buildChip(
-        context,
-        label: 'Claimed',
-        icon: Icons.done_all_outlined,
-      );
+      child = StatusChip(label: 'Claimed', color: colorScheme.primary);
     } else {
       child = const SizedBox.shrink();
     }

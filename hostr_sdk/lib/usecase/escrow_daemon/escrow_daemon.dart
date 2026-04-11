@@ -47,6 +47,7 @@ class EscrowDaemon {
 
   // ── Subscriptions ───────────────────────────────────────────────────────
   StreamSubscription? _eventSub;
+  final Map<String, StreamSubscription> _tradeEventSubs = {};
   StreamSubscription? _threadSub;
   StreamSubscription? _reservationPTagSub;
   StreamSubscription? _reservationAuthorSub;
@@ -136,10 +137,11 @@ class EscrowDaemon {
 
   /// Start listening to contract events, Nostr threads, and reservations.
   ///
-  /// Must be called after [bootstrap].
-  void start() {
+  /// Must be called after [bootstrap]. Awaits the initial thread query so
+  /// that conversations are available immediately after this returns.
+  Future<void> start() async {
     _startContractListener();
-    _startThreadListener();
+    await _startThreadListener();
     _startReservationListener();
     _logger.i('Escrow monitor started');
   }
@@ -147,6 +149,10 @@ class EscrowDaemon {
   /// Stop all subscriptions.
   Future<void> stop() async {
     await _eventSub?.cancel();
+    for (final sub in _tradeEventSubs.values) {
+      await sub.cancel();
+    }
+    _tradeEventSubs.clear();
     await _threadSub?.cancel();
     await _reservationPTagSub?.cancel();
     await _reservationAuthorSub?.cancel();
@@ -167,12 +173,25 @@ class EscrowDaemon {
   /// Lookup a single trade.
   TradeSnapshot? getTrade(String tradeId) => _trades[tradeId];
 
+  /// Eagerly update (or insert) a trade snapshot and notify listeners.
+  ///
+  /// Used after the daemon itself sends a transaction (e.g. arbitrate) so the
+  /// CLI sees the updated status immediately, without waiting for the event
+  /// stream to deliver the on-chain log.
+  void updateTrade(TradeSnapshot snapshot) {
+    _trades[snapshot.tradeId] = snapshot;
+    _tradesSubject.add(_trades);
+  }
+
   /// All reservation groups the escrow is involved in.
   Map<String, ReservationGroup> get reservationGroups =>
       Map.unmodifiable(_reservationGroups);
 
   // ── Contract events ───────────────────────────────────────────────────────
 
+  /// Phase 1: Subscribe to `TradeCreated` events filtered by our arbiter
+  /// address. For each discovered trade ID, spin up a per-trade stream
+  /// (phase 2) that delivers ALL lifecycle events for that trade.
   void _startContractListener() {
     _hostr.auth.hd.getActiveEvmKey().then((evmKey) {
       final streamer = context.contract.allEvents(
@@ -182,20 +201,51 @@ class EscrowDaemon {
 
       streamer.status.listen((status) {
         if (status is StreamStatusError) {
-          _logger.e('Contract event stream error: ${status.error}');
+          _logger.e('Arbiter event stream error: ${status.error}');
         } else {
-          _logger.d('Contract event stream status: ${status.runtimeType}');
+          _logger.d('Arbiter event stream status: ${status.runtimeType}');
         }
       });
 
-      _eventSub = streamer.stream.listen(
-        _onEscrowEvent,
-        onError: (e, st) => _logger.e('Contract event error: $e'),
-      );
+      _eventSub = streamer.stream.listen((event) {
+        if (event is EscrowFundedEvent) {
+          _logger.i(
+            'Discovered trade: ${event.tradeId}  '
+            '${event.amount.getInSats} sats',
+          );
+          _startTradeListener(event.tradeId);
+        }
+      }, onError: (e, st) => _logger.e('Arbiter event error: $e'));
     });
   }
 
-  void _onEscrowEvent(EscrowEvent event) {
+  /// Phase 2: Subscribe to ALL event types for a single trade.
+  ///
+  /// The per-trade filter does not restrict by arbiter, so it receives
+  /// `TradeCreated`, `Arbitrated`, `ReleasedToCounterparty`, and `Claimed`.
+  /// The [EscrowEventScanner] caches per-trade events and short-circuits
+  /// from cache once a terminal state is reached.
+  void _startTradeListener(String tradeId) {
+    if (_tradeEventSubs.containsKey(tradeId)) return; // already listening
+
+    final streamer = context.contract.allEvents(
+      ContractEventsParams(tradeId: tradeId),
+      null,
+    );
+
+    streamer.status.listen((status) {
+      if (status is StreamStatusError) {
+        _logger.e('Trade $tradeId event stream error: ${status.error}');
+      }
+    });
+
+    _tradeEventSubs[tradeId] = streamer.stream.listen(
+      _onTradeEvent,
+      onError: (e, st) => _logger.e('Trade $tradeId event error: $e'),
+    );
+  }
+
+  void _onTradeEvent(EscrowEvent event) {
     if (event is EscrowFundedEvent) {
       _logger.i(
         'Trade funded: ${event.tradeId}  '
@@ -248,11 +298,34 @@ class EscrowDaemon {
 
   // ── Nostr thread messages ─────────────────────────────────────────────────
 
-  void _startThreadListener() {
-    _hostr.userSubscriptions.start();
+  Future<void> _startThreadListener() async {
+    _logger.i('Starting thread listener…');
+    await _hostr.userSubscriptions.start();
+    _logger.i('UserSubscriptions started');
+
     _threadSub = _hostr.messaging.threads.threadStream.listen((thread) {
       _logger.d('New/updated thread: ${thread.anchor}');
     }, onError: (e) => _logger.e('Thread stream error: $e'));
+
+    // Wait for the initial gift-wrap query to complete so threads are
+    // populated before the daemon reports ready. Timeout after 30s so
+    // a slow relay doesn't block startup indefinitely.
+    _logger.i('Waiting for thread query to complete…');
+    try {
+      await _hostr.messaging.threads.status
+          .firstWhere(
+            (s) => s is StreamStatusQueryComplete || s is StreamStatusLive,
+          )
+          .timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      _logger.w(
+        'Thread loading timed out after 30s — '
+        'continuing with ${_hostr.messaging.threads.threads.length} threads',
+      );
+    }
+    _logger.i(
+      'Threads ready: ${_hostr.messaging.threads.threads.length} conversations',
+    );
   }
 
   // ── Reservation auto-confirmation ─────────────────────────────────────────
@@ -351,7 +424,11 @@ class EscrowDaemon {
       pubKey: keyPair.publicKey,
       dTag: group.tradeId,
       listingAnchor: group.listingAnchor,
-      pTags: [group.hostPubkey, buyer.pubKey],
+      pTags: [
+        PTag.seller(group.hostPubkey),
+        PTag.buyer(buyer.pubKey),
+        PTag.escrow(keyPair.publicKey),
+      ],
       start: buyer.start,
       end: buyer.end,
       stage: ReservationStage.commit,
@@ -380,7 +457,11 @@ class EscrowDaemon {
       pubKey: keyPair.publicKey,
       dTag: group.tradeId,
       listingAnchor: group.listingAnchor,
-      pTags: [group.hostPubkey, buyer.pubKey],
+      pTags: [
+        PTag.seller(group.hostPubkey),
+        PTag.buyer(buyer.pubKey),
+        PTag.escrow(keyPair.publicKey),
+      ],
       start: buyer.start,
       end: buyer.end,
       stage: ReservationStage.cancel,

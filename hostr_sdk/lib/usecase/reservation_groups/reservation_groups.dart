@@ -280,6 +280,12 @@ class ReservationGroups {
         _logger.w(
           'Group for trade $tradeId is invalid: ${(groups[groupId] as Invalid).reason}',
         );
+        _logger.w('Buyer reservation: ${updated.buyerReservation}');
+        _logger.w(
+          'Buyer reservation proof: ${updated.buyerReservation?.proof}',
+        );
+        _logger.w('Seller reservation: ${updated.sellerReservation}');
+        _logger.w('Escrow reservation: ${updated.escrowReservation}');
       } else {
         _logger.d('Group for trade $tradeId is valid');
       }

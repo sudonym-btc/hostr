@@ -118,7 +118,7 @@ class CommitMenu extends StatelessWidget {
                 icon: Icons.cancel_outlined,
                 onTap: () => showAppModal(
                   context,
-                  builder: (_) => ModalBottomSheet(
+                  builder: (modalContext) => ModalBottomSheet(
                     title: AppLocalizations.of(context)!.cancelReservation,
                     subtitle: AppLocalizations.of(context)!.areYouSure,
                     content: const SizedBox.shrink(),
@@ -135,7 +135,7 @@ class CommitMenu extends StatelessWidget {
                             ).colorScheme.onError,
                           ),
                           onPressed: () {
-                            Navigator.of(context).pop();
+                            Navigator.of(modalContext).pop();
                             trade.execute(TradeAction.cancel);
                           },
                           child: Text(AppLocalizations.of(context)!.ok),

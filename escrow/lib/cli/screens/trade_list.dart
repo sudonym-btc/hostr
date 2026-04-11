@@ -1,3 +1,4 @@
+import 'package:artisanal/style.dart';
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/navigation.dart';
 import 'package:escrow/cli/styles.dart';
@@ -39,8 +40,14 @@ Future<Navigation> tradeListScreen(DaemonClient client) async {
         t.tradeId.length > 12 ? '${t.tradeId.substring(0, 12)}…' : t.tradeId;
     final sats = formatSats(t.amountSats).padLeft(12);
     final status = colorStatus(t.status.padRight(12));
+    final disputed = t.disputed
+        ? Style()
+            .bold()
+            .foreground(Colors.warning)
+            .render('⚠ disputed'.padRight(12))
+        : ''.padRight(12);
     final time = kDimStyle.render(relativeTime(t.updatedAt));
-    return '$short  $sats sats  $status  $time';
+    return '$short  $sats sats  $status  $disputed  $time';
   }).toList();
 
   final idx = SelectOrBack(prompt: 'Trades', options: options).interact();

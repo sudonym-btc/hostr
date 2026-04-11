@@ -983,11 +983,18 @@ class EntityFactory {
     String? usdtAddress,
     int? createdAt,
   }) async {
+    // Rootstock chains use native RBTC as the BTC settlement token.
+    // All other chains (Arbitrum, etc.) use a wrapped ERC-20 like tBTC.
+    final isRootstock = ChainIds.values
+        .where((c) => c.name.toLowerCase().contains('rootstock'))
+        .any((c) => c.value == chainId);
+
     final acceptedPaymentForms = [
-      AcceptedPaymentForm(
-        denomination: 'BTC',
-        tokenTagId: Token.native(chainId).tagId,
-      ),
+      if (isRootstock)
+        AcceptedPaymentForm(
+          denomination: 'BTC',
+          tokenTagId: Token.native(chainId).tagId,
+        ),
       if (tbtcAddress != null && tbtcAddress.isNotEmpty)
         AcceptedPaymentForm(
           denomination: 'BTC',
@@ -1082,7 +1089,7 @@ class EntityFactory {
     ReservationTweakMaterial? tweakMaterial,
     Map<String, String>? signatures,
     List<List<String>> extraTags = const [],
-    List<String>? pTags,
+    List<PTag>? pTags,
     int? createdAt,
     int? accountIndex,
   }) async {
@@ -1100,7 +1107,12 @@ class EntityFactory {
       // - If the signer is NOT the seller (i.e. buyer), p-tag the seller.
       // - If the signer IS the seller, no auto-compute — caller must supply.
       final isSeller = signerOverride.publicKey == listing.pubKey;
-      final resolvedPTags = pTags ?? (isSeller ? <String>[] : [listing.pubKey]);
+      final resolvedPTags =
+          pTags ??
+          <PTag>[
+            PTag.seller(listing.pubKey),
+            if (!isSeller) PTag.buyer(signerOverride.publicKey),
+          ];
       return Reservation.create(
         pubKey: signerOverride.publicKey,
         dTag: dTag,
@@ -1160,7 +1172,16 @@ class EntityFactory {
       tweakMaterial: resolvedTweakMaterial,
       proof: proof,
       threadAnchor: stage != ReservationStage.negotiate ? tradeId : null,
-      pTags: pTags ?? [listing.pubKey],
+      pTags:
+          pTags ??
+          [
+            PTag.seller(listing.pubKey),
+            PTag.buyer(
+              stage == ReservationStage.negotiate
+                  ? tweakedGuestKey.publicKey
+                  : resolvedSigner.publicKey,
+            ),
+          ],
       extraTags: extraTags,
       createdAt: createdAt ?? _defaultCreatedAt(),
     ).signAs(resolvedSigner, Reservation.fromNostrEvent);

@@ -18,6 +18,31 @@ enum ReservationStage {
   cancel,
 }
 
+/// A participant tag for a reservation event.
+///
+/// Emitted as `["p", pubkey]` when [role] is `null`, or
+/// `["p", pubkey, "", role]` with the standard NIP-01 relay-hint slot
+/// left empty when a role is specified.
+class PTag {
+  final String pubkey;
+  final String? role;
+
+  const PTag(this.pubkey, [this.role]);
+
+  /// Creates a tag for the seller (host) participant.
+  const PTag.seller(this.pubkey) : role = 'seller';
+
+  /// Creates a tag for the buyer (guest) participant.
+  const PTag.buyer(this.pubkey) : role = 'buyer';
+
+  /// Creates a tag for the escrow service participant.
+  const PTag.escrow(this.pubkey) : role = 'escrow';
+
+  /// Converts to a raw Nostr tag array.
+  List<String> toTag() =>
+      role != null ? ['p', pubkey, '', role!] : ['p', pubkey];
+}
+
 class ReservationTags extends EventTags
     with ReferencesListing<ReservationTags> {
   ReservationTags(super.tags);
@@ -155,7 +180,7 @@ class Reservation
     Map<String, String> signatures = const {},
     // Tag fields
     String? threadAnchor,
-    List<String> pTags = const [],
+    List<PTag> pTags = const [],
     List<List<String>> extraTags = const [],
     // Event-level
     String? id,
@@ -169,7 +194,7 @@ class Reservation
         [kListingRefTag, listingAnchor],
         ['d', dTag],
         if (threadAnchor != null) [kThreadRefTag, threadAnchor],
-        for (final p in pTags) ['p', p],
+        for (final p in pTags) p.toTag(),
         ...extraTags,
       ]),
       content: ReservationContent(

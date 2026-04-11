@@ -112,7 +112,6 @@ class InfrastructureSink implements SeedSink {
         transaction: Transaction(
           nonce: nonce,
           value: EtherAmount.inWei(intent.amountWei),
-          maxGas: 450000,
           gasPrice: gasPrice,
         ),
       );
@@ -144,11 +143,7 @@ class InfrastructureSink implements SeedSink {
           value: largeBalance,
         ),
         credentials: guestCredentials,
-        transaction: Transaction(
-          nonce: approveNonce,
-          maxGas: 100000,
-          gasPrice: gasPrice,
-        ),
+        transaction: Transaction(nonce: approveNonce, gasPrice: gasPrice),
       );
       await _assertTxSucceeded(approveTx, 'erc20-approve', intent.tradeId);
 
@@ -169,7 +164,6 @@ class InfrastructureSink implements SeedSink {
         transaction: Transaction(
           nonce: createNonce,
           value: EtherAmount.zero(),
-          maxGas: 450000,
           gasPrice: gasPrice,
         ),
       );
@@ -222,6 +216,20 @@ class InfrastructureSink implements SeedSink {
       final credentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
       final nonce = await _nextNonce(credentials.address);
       final factor = BigInt.from(700);
+
+      // ── Diagnostic: verify trade is active before arbitrating ──────
+      final preCheck = await _escrow().activeTrade((tradeId: tradeIdBytes));
+      if (!preCheck.isActive) {
+        final raw = await _escrow().trades(($param26: tradeIdBytes));
+        throw Exception(
+          '[infra-sink] PRE-CHECK FAIL: tradeId=${intent.tradeId} is NOT '
+          'active before arbitrate call. '
+          'buyer=${raw.buyer}, amount=${raw.amount}, '
+          'arbiterNonce=$nonce',
+        );
+      }
+      // ──────────────────────────────────────────────────────────────
+
       final signature = signer.signArbitrate(
         tradeId: tradeIdBytes,
         factor: factor,
@@ -230,11 +238,7 @@ class InfrastructureSink implements SeedSink {
       txHash = await _escrow().arbitrate(
         (tradeId: tradeIdBytes, factor: factor, signature: signature),
         credentials: credentials,
-        transaction: Transaction(
-          nonce: nonce,
-          maxGas: 250000,
-          gasPrice: gasPrice,
-        ),
+        transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
       );
     } else if (intent.outcome == EscrowOutcome.claimedByHost) {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
@@ -246,11 +250,7 @@ class InfrastructureSink implements SeedSink {
       txHash = await _escrow().claim(
         (tradeId: tradeIdBytes, signature: signature),
         credentials: credentials,
-        transaction: Transaction(
-          nonce: nonce,
-          maxGas: 250000,
-          gasPrice: gasPrice,
-        ),
+        transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
       );
     } else {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
@@ -267,11 +267,7 @@ class InfrastructureSink implements SeedSink {
           signature: signature,
         ),
         credentials: credentials,
-        transaction: Transaction(
-          nonce: nonce,
-          maxGas: 250000,
-          gasPrice: gasPrice,
-        ),
+        transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
       );
     }
 
@@ -522,9 +518,49 @@ class InfrastructureSink implements SeedSink {
       );
     }
     if (receipt.status != true) {
+      // Diagnostic: replay the tx as eth_call to get the revert reason,
+      // and check on-chain state to understand why the tx reverted.
+      String diag = '';
+      try {
+        // 1. Get revert reason via eth_call replay.
+        final tx = await _retryChainCall((c) => c.getTransactionByHash(txHash));
+        if (tx != null) {
+          try {
+            final blockHex =
+                '0x${receipt.blockNumber.blockNum.toRadixString(16)}';
+            final revertData = await _chainClient().makeRPCCall<String>(
+              'eth_call',
+              [
+                {
+                  'from': tx.from.eip55With0x,
+                  'to': tx.to?.eip55With0x,
+                  'data': bytesToHex(tx.input, include0x: true),
+                  'value': '0x${tx.value.getInWei.toRadixString(16)}',
+                  // Omit gas limit so the replay uses block gas limit,
+                  // avoiding a spurious OutOfGas that masks the real error.
+                },
+                blockHex,
+              ],
+            );
+            diag += ' | revertData=$revertData';
+          } catch (rpcErr) {
+            // RPCError.message often contains the decoded revert reason.
+            diag += ' | revertRpc=$rpcErr';
+          }
+        }
+
+        // 2. Check post-tx on-chain state.
+        final tradeIdBytes = getBytes32(tradeIdHex);
+        final postCheck = await _escrow().activeTrade((tradeId: tradeIdBytes));
+        final raw = await _escrow().trades(($param26: tradeIdBytes));
+        diag +=
+            ' | postTx: isActive=${postCheck.isActive}, '
+            'buyer=${raw.buyer}, amount=${raw.amount}, '
+            'arbiter=${raw.arbiter}';
+      } catch (_) {}
       throw Exception(
         '[infra-sink] tradeId=$tradeIdHex stage=$stage tx=$txHash '
-        'failed (status=${receipt.status})',
+        'failed (status=${receipt.status})$diag',
       );
     }
   }

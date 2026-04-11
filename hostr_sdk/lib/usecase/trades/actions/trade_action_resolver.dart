@@ -95,7 +95,6 @@ class TradeActionResolver {
       ReservationActions.resolve(
         validTradeReservations,
         ownReservationsStatus,
-        [...threadState.participantPubkeys, ...addedParticipants],
         role,
         allReservations: allTradeReservations,
       ),

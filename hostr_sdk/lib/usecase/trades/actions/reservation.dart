@@ -16,7 +16,6 @@ class ReservationActions {
   static List<TradeAction> resolve(
     List<Reservation> reservations,
     StreamStatus reservationStreamStatus,
-    List<String> participantPubkeys,
     TradeRole role, {
     List<Reservation>? allReservations,
   }) {
@@ -35,19 +34,11 @@ class ReservationActions {
         reservationStatus == ReservationStatus.cancelled ||
         reservationStatus == ReservationStatus.invalid ||
         reservationStatus == ReservationStatus.completed;
-    final hasMessagedEscrow = participantPubkeys.any(
-      (pubkey) => escrowReservations.any(
-        (reservation) =>
-            reservation.proof?.escrowProof?.escrowService.escrowPubkey ==
-            pubkey,
-      ),
-    );
-
     if (!hasTerminalReservationState) {
       actions.add(TradeAction.cancel);
     }
 
-    if (!hasMessagedEscrow && hasUsedEscrow) {
+    if (hasUsedEscrow) {
       actions.add(TradeAction.messageEscrow);
     }
 

@@ -48,9 +48,6 @@ class FundsMonitorService {
   /// How long to wait after a balance change before checking gates.
   static const debounceDuration = Duration(seconds: 5);
 
-  /// How long to wait after a swap-out attempt before trying again.
-  static const cooldownDuration = Duration(seconds: 300);
-
   /// Maximum fee-to-balance ratio tolerated for an auto-withdrawal.
   static const double maxFeeRatio = 0.10;
 
@@ -93,7 +90,6 @@ class FundsMonitorService {
   final Map<String, int> _addressToAccountIndex = {};
 
   bool _swapInProgress = false;
-  Timer? _cooldownTimer;
 
   StreamSubscription? _balanceSub;
   StreamSubscription? _eventSub;
@@ -143,8 +139,6 @@ class FundsMonitorService {
     _eventSub = null;
     await _sweepSub?.cancel();
     _sweepSub = null;
-    _cooldownTimer?.cancel();
-    _cooldownTimer = null;
     _swapInProgress = false;
 
     _logger.d('FundsMonitorService stopped');
@@ -401,72 +395,93 @@ class FundsMonitorService {
         );
   }
 
-  Future<void> _sweep(List<FundsItem> items) =>
-      _logger.span('_sweep', () async {
-        for (final item in items) {
-          if (_swapInProgress) break;
+  Future<void> _sweep(
+    List<FundsItem> items,
+  ) => _logger.span('_sweep', () async {
+    if (items.isEmpty) {
+      _logger.d('FundsMonitor sweep: no items');
+    } else {
+      _logger.d(
+        'FundsMonitor sweep: ${items.length} item(s)\n'
+        '${items.map((i) => '  • ${i.chain.config.id} '
+            '${i.token.tagId} '
+            '${i.balance.getInSats} sats '
+            '@${i.address.eip55With0x} '
+            '${i.isEscrowLocked ? "[escrow: ${i.contract!.address.eip55With0x}]" : "[EOA]"}').join('\n')}',
+      );
+    }
+    for (final item in items) {
+      if (!await _passesGates(item)) continue;
 
-          if (!await _passesGates(item)) continue;
-
-          await _executeSwapOut(item);
-        }
-      });
+      await _executeSwapOut(item);
+    }
+  });
 
   Future<bool> _passesGates(FundsItem item) async {
-    final config = await _userConfigStore.state;
-
-    // Gate 1: enabled?
-    if (!config.autoWithdrawEnabled) return false;
-
-    // Guard: already swapping?
-    if (_swapInProgress) return false;
-
-    // Guard: cooldown active?
-    if (_cooldownTimer?.isActive ?? false) {
-      _logger.d('FundsMonitor skipped: cooldown active');
-      return false;
-    }
-
-    // Gate 2: Any escrow operations in flight?
-    if (await _stateStore.hasNonTerminal('escrow_fund')) {
-      _logger.d('FundsMonitor skipped: escrow fund operation(s) in flight');
-      return false;
-    }
-
-    // Gate 3: Any active (non-terminal) swaps already running?
-    if (await _stateStore.hasNonTerminal('swap_in') ||
-        await _stateStore.hasNonTerminal('swap_out')) {
-      _logger.d('FundsMonitor skipped: active swap(s) in progress');
-      return false;
-    }
-
-    // Gate 5: fee ratio?
     try {
-      final swapParams = await _swapOutParams(item);
-      final quote = await item.chain.swapOutQuote(params: swapParams);
-      final networkFees = quote.feeBreakdown.networkFees;
-      final feeRatio = networkFees.value == BigInt.zero
-          ? 0.0
-          : networkFees.value.toDouble() / item.balance.getInSats.toDouble();
+      final config = await _userConfigStore.state;
 
-      if (feeRatio > maxFeeRatio) {
-        _logger.d(
-          'FundsMonitor skipped on ${item.chain.config.id}: fee ratio '
-          '${(feeRatio * 100).toStringAsFixed(1)}% exceeds max '
-          '${(maxFeeRatio * 100).toStringAsFixed(1)}%',
-        );
+      // Gate 1: enabled?
+      if (!config.autoWithdrawEnabled) return false;
+
+      // Guard: already swapping?
+      if (_swapInProgress) return false;
+
+      // Gate 2: Any escrow operations in flight?
+      if (await _stateStore.hasNonTerminal('escrow_fund')) {
+        _logger.d('FundsMonitor skipped: escrow fund operation(s) in flight');
         return false;
       }
-    } catch (e) {
-      _logger.w('FundsMonitor: could not get quote for gate check: $e');
+
+      // Gate 3: Any active (non-terminal) swaps already running?
+      if (await _stateStore.hasNonTerminal('swap_in') ||
+          await _stateStore.hasNonTerminal('swap_out')) {
+        _logger.d('FundsMonitor skipped: active swap(s) in progress');
+        return false;
+      }
+
+      // Gate 5: fee ratio?
+      try {
+        final swapParams = await _swapOutParams(item);
+        final quote = await item.chain.swapOutQuote(params: swapParams);
+        final networkFees = quote.feeBreakdown.networkFees;
+        final feeRatio = networkFees.value == BigInt.zero
+            ? 0.0
+            : networkFees.value.toDouble() / item.balance.getInSats.toDouble();
+
+        if (feeRatio > maxFeeRatio) {
+          _logger.d(
+            'FundsMonitor skipped on ${item.chain.config.id}: fee ratio '
+            '${(feeRatio * 100).toStringAsFixed(1)}% exceeds max '
+            '${(maxFeeRatio * 100).toStringAsFixed(1)}%',
+          );
+          return false;
+        }
+      } catch (e) {
+        _logger.w('FundsMonitor: could not get quote for gate check: $e');
+        return false;
+      }
+
+      return true;
+    } catch (e, st) {
+      _logger.e(
+        'FundsMonitor: _passesGates threw for '
+        '${item.chain.config.id} ${item.token.tagId} '
+        '@${item.address.eip55With0x}: $e\n$st',
+      );
       return false;
     }
-
-    return true;
   }
 
   Future<void> _executeSwapOut(FundsItem item) async {
     _swapInProgress = true;
+    _logger.i(
+      'FundsMonitor: executing swap-out — '
+      '${item.chain.config.id} ${item.token.tagId} '
+      '${item.balance.getInSats} sats '
+      '@${item.address.eip55With0x}'
+      '${item.isEscrowLocked ? " [escrow: ${item.contract!.address.eip55With0x}]" : " [EOA]"}',
+    );
     try {
       final swapOp = item.chain.swapOut(
         params: await _swapOutParams(item),
@@ -475,12 +490,6 @@ class FundsMonitorService {
         nwc: getIt<Nwc>(),
         payments: getIt<Payments>(),
         quoteService: _quoteService,
-      );
-
-      _logger.i(
-        'FundsMonitor: initiating swap-out of ${item.balance.getInSats} sats '
-        'on ${item.chain.config.id}'
-        '${item.isEscrowLocked ? " (escrow)" : ""}',
       );
 
       await swapOp.execute();
@@ -509,7 +518,6 @@ class FundsMonitorService {
       _logger.e('FundsMonitor: swap-out threw on ${item.chain.config.id}: $e');
     } finally {
       _swapInProgress = false;
-      _cooldownTimer = Timer(cooldownDuration, () {});
     }
   }
 

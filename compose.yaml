@@ -133,8 +133,8 @@ services:
 
   landing-page:
     build:
-      context: ./landing-page
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: landing-page/Dockerfile
     environment:
       - VIRTUAL_HOST=landing.${DOMAIN},${DOMAIN}
       - VIRTUAL_PORT=80
