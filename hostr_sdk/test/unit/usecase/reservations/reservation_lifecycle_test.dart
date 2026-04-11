@@ -91,7 +91,7 @@ Future<Reservation> _commitReservation({
   amount: negotiate.amount,
   proof: proof,
   signatures: signatures,
-  pTags: [listing.pubKey],
+  pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -107,7 +107,7 @@ Future<Reservation> _sellerAckReservation({
   stage: ReservationStage.commit,
   start: negotiate.start,
   end: negotiate.end,
-  pTags: [negotiate.pubKey],
+  pTags: [PTag.seller(listing.pubKey), PTag.buyer(negotiate.pubKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -119,6 +119,7 @@ Future<Reservation> _cancelReservation({
 }) {
   final candidates = {source.pubKey, ...source.parsedTags.getTags('p')}
     ..remove(signer.publicKey);
+  final host = listing.pubKey;
   return _f.reservation(
     listing: listing,
     dTag: source.getDtag()!,
@@ -130,7 +131,9 @@ Future<Reservation> _cancelReservation({
     amount: source.amount,
     recipient: source.recipient,
     tweakMaterial: source.tweakMaterial,
-    pTags: candidates.toList(),
+    pTags: [
+      for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
+    ],
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
   );
 }

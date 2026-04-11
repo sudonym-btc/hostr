@@ -52,14 +52,6 @@ jobs:
         run: gcloud auth configure-docker "${{ steps.meta.outputs.registry_host }}" --quiet
 
       # ── Environment-agnostic images ──────────────────────────────────────
-      - name: Build & push aa-deploy
-        run: |
-          docker build \
-            -t "${{ steps.meta.outputs.registry }}/aa-deploy:${{ steps.meta.outputs.sha_tag }}" \
-            -t "${{ steps.meta.outputs.registry }}/aa-deploy:latest" \
-            -f docker/account-abstraction/Dockerfile docker/account-abstraction
-          docker push "${{ steps.meta.outputs.registry }}/aa-deploy" --all-tags
-
       - name: Build & push escrow
         run: |
           docker build \
@@ -73,7 +65,7 @@ jobs:
           docker build \
             -t "${{ steps.meta.outputs.registry }}/landing-page:${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/landing-page:latest" \
-            -f landing-page/Dockerfile landing-page
+            -f landing-page/Dockerfile .
           docker push "${{ steps.meta.outputs.registry }}/landing-page" --all-tags
 
       # ── App image (env-specific build args baked in) ─────────────────────

@@ -136,7 +136,7 @@ Reservation _buildNegotiate({
       decimals: 8,
     ),
     tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
-    pTags: [listing.pubKey],
+    pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);
 }
@@ -155,7 +155,7 @@ Reservation _buildSellerAck({
     start: negotiate.start,
     end: negotiate.end,
     stage: ReservationStage.commit,
-    pTags: [negotiate.pubKey],
+    pTags: [PTag.seller(listing.pubKey), PTag.buyer(negotiate.pubKey)],
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
   ).signAs(seller, Reservation.fromNostrEvent);
 }
@@ -178,7 +178,7 @@ Reservation _buildSelfSignedCommit({
     amount: negotiate.amount,
     tweakMaterial: negotiate.tweakMaterial,
     proof: proof,
-    pTags: [listing.pubKey],
+    pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);
 }
@@ -191,6 +191,7 @@ Reservation _buildCancel({
 }) {
   final candidates = {source.pubKey, ...source.parsedTags.getTags('p')};
   candidates.remove(signer.publicKey);
+  final host = listing.pubKey;
   return Reservation.create(
     pubKey: signer.publicKey,
     dTag: source.getDtag()!,
@@ -203,7 +204,9 @@ Reservation _buildCancel({
     recipient: source.recipient,
     tweakMaterial: source.tweakMaterial,
     signatures: source.signatures,
-    pTags: candidates.toList(),
+    pTags: [
+      for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
+    ],
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
   ).signAs(signer, Reservation.fromNostrEvent);
 }

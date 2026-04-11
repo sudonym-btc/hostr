@@ -431,7 +431,10 @@ class Reservations extends CrudUseCase<Reservation>
       dTag: request.getDtag()!,
       listingAnchor: request.parsedTags.listingAnchor,
       threadAnchor: anchor,
-      pTags: [saltedPubkey],
+      pTags: [
+        PTag.seller(auth.activeKeyPair!.publicKey),
+        PTag.buyer(saltedPubkey),
+      ],
       start: request.start,
       end: request.end,
       stage: ReservationStage.commit,
@@ -464,9 +467,10 @@ class Reservations extends CrudUseCase<Reservation>
       listingAnchor: listingAnchor,
       threadAnchor: threadAnchor,
       pTags: [
-        getPubKeyFromAnchor(listingAnchor),
+        PTag.seller(getPubKeyFromAnchor(listingAnchor)),
+        PTag.buyer(activeKeyPair.publicKey),
         if (proof.escrowProof != null)
-          proof.escrowProof!.escrowService.escrowPubkey,
+          PTag.escrow(proof.escrowProof!.escrowService.escrowPubkey),
       ],
       start: negotiateReservation.start,
       end: negotiateReservation.end,
@@ -559,6 +563,7 @@ class Reservations extends CrudUseCase<Reservation>
       pubKey: auth.activeKeyPair!.publicKey,
       dTag: nonce,
       listingAnchor: listingAnchor,
+      pTags: [PTag.seller(auth.activeKeyPair!.publicKey)],
       stage: ReservationStage.commit,
       start: start,
       end: end,

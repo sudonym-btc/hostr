@@ -83,12 +83,14 @@ class InboxItemView extends StatelessWidget {
 }
 
 class InboxItem extends StatelessWidget {
+  final ThreadCubit cubit;
   final Thread thread;
   final bool selected;
   final ValueChanged<String> onSelect;
 
   const InboxItem({
     super.key,
+    required this.cubit,
     required this.thread,
     this.selected = false,
     required this.onSelect,
@@ -96,8 +98,8 @@ class InboxItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ThreadCubit(thread: thread),
+    return BlocProvider.value(
+      value: cubit,
       child: BlocBuilder<ThreadCubit, ThreadCubitState>(
         builder: (context, state) {
           final lastDateTime = state.threadState.getLastDateTime;

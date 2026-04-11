@@ -246,13 +246,6 @@ class Trade extends Cubit<TradeState> {
     final end = lastRequest?.end;
     final amount = lastRequest?.amount;
     final ourPubkey = _resolveNegotiationPubkey(reservationRequests);
-    final tradeThreads = _threads.findByConversationTag(tradeId);
-    final participantPubkeys = <String>{
-      ...?threadState?.participantPubkeys,
-      ...?thread?.addedParticipants,
-      for (final t in tradeThreads) ...t.state.value.participantPubkeys,
-      for (final t in tradeThreads) ...t.addedParticipants,
-    }.toList();
 
     // Compute overlap lock from listing-level reservations.
     final validAllListingPairs = allListingReservations
@@ -337,7 +330,6 @@ class Trade extends Cubit<TradeState> {
         ReservationActions.resolve(
           validTradeReservations,
           ownReservationsStatus,
-          participantPubkeys,
           role,
           allReservations: allTradeReservations,
         ),
@@ -525,14 +517,6 @@ class Trade extends Cubit<TradeState> {
     }
     return null;
   });
-
-  /// Forces a re-emit by re-running the pipeline manually (e.g. after
-  /// mutating thread.addedParticipants).
-  void refreshActions() {
-    // The pipeline will re-emit on the next stream event. For immediate
-    // re-evaluation we can trigger it by checking if thread state changed.
-    // For now, thread.state listeners handle this automatically.
-  }
 
   Future<void> execute(TradeAction action) => _logger.span('execute', () async {
     final current = state;

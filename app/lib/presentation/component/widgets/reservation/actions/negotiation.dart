@@ -138,7 +138,7 @@ class NegotiationWidget extends StatelessWidget {
     onPressed: () {
       showAppModal(
         context,
-        builder: (_) => ModalBottomSheet(
+        builder: (modalContext) => ModalBottomSheet(
           title: AppLocalizations.of(context)!.cancelReservation,
           subtitle: AppLocalizations.of(context)!.areYouSure,
           content: const SizedBox.shrink(),
@@ -151,7 +151,7 @@ class NegotiationWidget extends StatelessWidget {
                   foregroundColor: Theme.of(context).colorScheme.onError,
                 ),
                 onPressed: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(modalContext).pop();
                   context.read<Trade>().execute(TradeAction.cancel);
                 },
                 child: Text(AppLocalizations.of(context)!.ok),

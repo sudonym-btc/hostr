@@ -74,7 +74,10 @@ class ReservationRequests extends CrudUseCase {
       amount: amount ?? listing.cost(start: startDate, end: endDate),
       tweakMaterial: tweakMaterial,
       recipient: recipientKey.publicKey,
-      pTags: [getPubKeyFromAnchor(listing.anchor!)],
+      pTags: [
+        PTag.seller(getPubKeyFromAnchor(listing.anchor!)),
+        PTag.buyer(recipientKey.publicKey),
+      ],
     ).signAs(recipientKey.keyPair, Reservation.fromNostrEvent);
   });
 
@@ -99,12 +102,12 @@ class ReservationRequests extends CrudUseCase {
       tweakMaterial: previousRequest.tweakMaterial,
       recipient: previousRequest.recipient,
       pTags: [
-        signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)
-            ? previousRequest
-                  .pubKey // seller counter-offers: p-tag the buyer
-            : getPubKeyFromAnchor(
-                listingAnchor,
-              ), // buyer counter-offers: p-tag the seller
+        PTag.seller(getPubKeyFromAnchor(listingAnchor)),
+        PTag.buyer(
+          signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)
+              ? previousRequest.pubKey
+              : signerKeyPair.publicKey,
+        ),
       ],
     );
 

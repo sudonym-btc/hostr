@@ -122,10 +122,19 @@ class _AppShellScreenState extends State<AppShellScreen>
 
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification) {
+      // If the content isn't actually scrollable, always keep the nav visible.
+      if (notification.metrics.maxScrollExtent <= 0) {
+        _navController.forward();
+        return false;
+      }
       final delta = notification.scrollDelta ?? 0;
-      if (delta > 0) {
+      if (delta > 0 && notification.dragDetails != null) {
+        // Only hide during an active user drag — not during programmatic
+        // or ballistic (fling / layout-settling) scrolls which can fire
+        // on initial load when data arrives and populates the list.
         _navController.reverse();
       } else if (delta < 0) {
+        // Always allow showing the nav on scroll-up from any source.
         _navController.forward();
       }
     }
@@ -238,9 +247,14 @@ class _AppShellScreenState extends State<AppShellScreen>
                           );
 
                           final showSidebar = layout.showsSidebarNavigation;
-                          final isOnTabs = segments.any(
-                            (s) => s.name == TabShellRoute.name,
-                          );
+                          // router.currentSegments may be empty on the
+                          // very first frame (child routes haven't
+                          // resolved yet). Fall back to topRoute which
+                          // is always available once AutoRouter calls
+                          // its builder.
+                          final isOnTabs =
+                              topRouteName == TabShellRoute.name ||
+                              segments.any((s) => s.name == TabShellRoute.name);
 
                           // On compact viewports, hide the bottom nav
                           // when the user has navigated into a nested
@@ -257,19 +271,28 @@ class _AppShellScreenState extends State<AppShellScreen>
                           final showBottomNav =
                               !showSidebar && isOnTabs && !isOnNestedChild;
 
+                          // DEBUG — remove after diagnosing navbar issue
+                          debugPrint(
+                            '[NAV] topRoute=$topRouteName '
+                            'segments=[${segments.map((s) => s.name).join(', ')}] '
+                            'isOnTabs=$isOnTabs '
+                            'isOnNestedChild=$isOnNestedChild '
+                            'showBottomNav=$showBottomNav '
+                            'showSidebar=$showSidebar '
+                            'destinations=[${destinations.map((d) => d.route.routeName).join(', ')}]',
+                          );
+
                           // ── Single stable Scaffold ──────────────────
                           // The child always sits at Row index 1, so
                           // crossing the breakpoint never unmounts
                           // TabShellScreen / IndexedStack — tab state
                           // and initState fetches are preserved.
-                          // The root surface is the lightest tone for
-                          // the current brightness so nested AppSurface
-                          // widgets can step progressively deeper
-                          // (darker).
+                          // The root surface is the lowest-elevation
+                          // tone so nested AppSurface widgets can step
+                          // progressively toward higher elevation
+                          // (darker in light mode, lighter in dark mode).
                           final rootSurface =
-                              theme.brightness == Brightness.light
-                              ? theme.colorScheme.surfaceContainerLowest
-                              : theme.colorScheme.surfaceContainerHighest;
+                              theme.colorScheme.surfaceContainerLowest;
 
                           return Scaffold(
                             backgroundColor: rootSurface,

@@ -49,18 +49,8 @@ final kWarnStyle = Style().bold().foreground(Colors.warning);
 /// Map of lowercase status keywords → colors.
 const Map<String, Color> kStatusColors = {
   'funded': Colors.success,
-  'complete': Colors.success,
-  'completed': Colors.success,
   'active': Colors.success,
   'ok': Colors.success,
-  'released': Colors.success,
-  'pending': Colors.warning,
-  'awaiting': Colors.warning,
-  'created': Colors.warning,
-  'disputed': Colors.error,
-  'expired': Colors.error,
-  'failed': Colors.error,
-  'refunded': Colors.info,
   'arbitrated': Colors.info,
 };
 

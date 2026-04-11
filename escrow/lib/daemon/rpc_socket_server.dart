@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:hostr_sdk/hostr_sdk.dart' show CustomLogger;
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:stream_channel/stream_channel.dart';
 
@@ -13,6 +14,7 @@ import 'package:stream_channel/stream_channel.dart';
 class RpcSocketServer {
   final String socketPath;
   final void Function(json_rpc.Server server) registerMethods;
+  final CustomLogger _logger;
 
   ServerSocket? _serverSocket;
   final List<json_rpc.Server> _clients = [];
@@ -20,7 +22,8 @@ class RpcSocketServer {
   RpcSocketServer({
     required this.socketPath,
     required this.registerMethods,
-  });
+    CustomLogger? logger,
+  }) : _logger = logger ?? CustomLogger(tag: 'rpc');
 
   /// Bind to [socketPath] and begin accepting connections.
   Future<void> start() async {
@@ -33,16 +36,16 @@ class RpcSocketServer {
       0,
     );
 
-    print('[rpc] Listening on $socketPath');
+    _logger.i('Listening on $socketPath');
 
     _serverSocket!.listen(
       _onClient,
-      onError: (e) => print('[rpc] Server socket error: $e'),
+      onError: (e) => _logger.e('Server socket error: $e'),
     );
   }
 
   void _onClient(Socket socket) {
-    print('[rpc] Client connected');
+    _logger.i('Client connected');
 
     // Wrap the raw socket in a StreamChannel<String> for json_rpc_2.
     //
@@ -73,7 +76,7 @@ class RpcSocketServer {
     _clients.add(server);
 
     server.listen().then((_) {
-      print('[rpc] Client disconnected');
+      _logger.i('Client disconnected');
       _clients.remove(server);
     });
   }

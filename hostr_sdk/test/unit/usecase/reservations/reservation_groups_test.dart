@@ -76,7 +76,7 @@ Future<Reservation> _sellerAck({
   stage: ReservationStage.commit,
   start: negotiate.start,
   end: negotiate.end,
-  pTags: [negotiate.pubKey],
+  pTags: [PTag.seller(listing.pubKey), PTag.buyer(negotiate.pubKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -90,6 +90,7 @@ Future<Reservation> _cancel({
   // is NOT the signer.
   final candidates = {source.pubKey, ...source.parsedTags.getTags('p')}
     ..remove(signer.publicKey);
+  final host = listing.pubKey;
   return _f.reservation(
     listing: listing,
     dTag: source.getDtag()!,
@@ -101,7 +102,9 @@ Future<Reservation> _cancel({
     amount: source.amount,
     recipient: source.recipient,
     tweakMaterial: source.tweakMaterial,
-    pTags: candidates.toList(),
+    pTags: [
+      for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
+    ],
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
   );
 }
@@ -192,7 +195,7 @@ Future<Reservation> _buildSellerAck({
   stage: ReservationStage.commit,
   start: negotiate.start,
   end: negotiate.end,
-  pTags: [negotiate.pubKey],
+  pTags: [PTag.seller(listing.pubKey), PTag.buyer(negotiate.pubKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -213,7 +216,7 @@ Future<Reservation> _buildSelfSignedCommit({
   amount: negotiate.amount,
   tweakMaterial: negotiate.tweakMaterial,
   proof: proof,
-  pTags: [listing.pubKey],
+  pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -225,6 +228,7 @@ Future<Reservation> _buildCancel({
 }) {
   final candidates = {source.pubKey, ...source.parsedTags.getTags('p')}
     ..remove(signer.publicKey);
+  final host = listing.pubKey;
   return _f.reservation(
     listing: listing,
     dTag: source.getDtag()!,
@@ -236,7 +240,9 @@ Future<Reservation> _buildCancel({
     amount: source.amount,
     recipient: source.recipient,
     tweakMaterial: source.tweakMaterial,
-    pTags: candidates.toList(),
+    pTags: [
+      for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
+    ],
     createdAt: DateTime(2026, 1, 4).millisecondsSinceEpoch ~/ 1000,
   );
 }

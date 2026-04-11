@@ -238,7 +238,12 @@ class SeedFactory {
       dTag: 'mock-reservation-${thread.id}',
       listingAnchor: thread.listing.anchor!,
       threadAnchor: thread.request.getDtag()!,
-      pTags: [thread.listing.pubKey],
+      pTags: [
+        PTag.seller(thread.listing.pubKey),
+        PTag.buyer(thread.guest.keyPair.publicKey),
+        if (withEscrowProof && escrowService != null)
+          PTag.escrow(escrowService.escrowPubkey),
+      ],
       start: thread.start,
       end: thread.end,
       stage: ReservationStage.commit,

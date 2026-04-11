@@ -51,6 +51,7 @@ class DaemonHandler {
   }
 
   Map<String, dynamic> _listTrades(json_rpc.Parameters params) {
+    final threads = hostr.messaging.threads;
     final trades = daemon.trades.values.toList()
       ..sort((a, b) {
         // Pending (funded) first, then by updatedAt descending.
@@ -60,7 +61,11 @@ class DaemonHandler {
         return b.updatedAt.compareTo(a.updatedAt);
       });
     return {
-      'trades': trades.map((t) => t.toJson()).toList(),
+      'trades': trades.map((t) {
+        final json = t.toJson();
+        json['disputed'] = threads.findByConversationTag(t.tradeId).isNotEmpty;
+        return json;
+      }).toList(),
     };
   }
 
@@ -69,12 +74,15 @@ class DaemonHandler {
 
     // Try in-memory first, then fall back to on-chain lookup.
     final snapshot = daemon.getTrade(tradeId);
-    print('[getTrade] tradeId=$tradeId, snapshot=${snapshot?.status}');
     final onChain = await contract.getTrade(tradeId);
-    print('[getTrade] onChain=$onChain');
+
+    // Resolve trade ID → thread anchor so the CLI can navigate directly.
+    final threadAnchor =
+        hostr.messaging.threads.findPreferredConversationIdByTradeId(tradeId);
 
     return {
       'tradeId': tradeId,
+      'threadAnchor': threadAnchor,
       'cached': snapshot?.toJson(),
       'onChain': onChain != null
           ? {
@@ -120,9 +128,7 @@ class DaemonHandler {
     // Look up the on-chain trade to find the arbiter address, then derive
     // the matching HD key. This ensures we sign with the correct account
     // even if the trade was created with a non-default account index.
-    print('[arbitrate] Looking up trade on chain: $tradeId');
     final onChain = await contract.getTrade(tradeId);
-    print('[arbitrate] getTrade result: $onChain');
     if (onChain == null) {
       throw json_rpc.RpcException(-32001, 'Trade not found on chain: $tradeId');
     }
@@ -153,6 +159,18 @@ class DaemonHandler {
     );
     final txHash = await daemon.context.configuredChain
         .sendCalls(signer, {'arbitrate': intent});
+
+    // Eagerly update the in-memory cache so the CLI sees the new status
+    // immediately, without waiting for the event stream.
+    final existing = daemon.getTrade(tradeId);
+    if (existing != null) {
+      daemon.updateTrade(existing.copyWith(
+        status: TradeStatus.arbitrated,
+        lastTxHash: '$txHash',
+        updatedAt: DateTime.now().toUtc(),
+      ));
+    }
+
     return {'txHash': '$txHash'};
   }
 
@@ -186,6 +204,7 @@ class DaemonHandler {
     final state = thread.state.value;
     return {
       'threadId': threadId,
+      'conversationTag': thread.conversationTag,
       'participants': state.participantPubkeys,
       'messages': state.sortedMessages
           .map((m) => ThreadMessage(
@@ -206,10 +225,6 @@ class DaemonHandler {
     if (thread == null) {
       throw json_rpc.RpcException(-32001, 'Thread not found: $threadId');
     }
-    print([
-      ...thread.addedParticipants,
-      ...thread.state.value.participantPubkeys
-    ]);
     try {
       await thread
           .replyTextAndWait(content)

@@ -288,17 +288,19 @@ class AppSurface extends StatelessWidget {
 
   /// Returns the colour [steps] levels deeper on the neutral surface scale.
   ///
-  /// In light mode the M3 scale runs light (index 0) → dark (index N),
-  /// so `+1` increments the index.  In dark mode it runs dark (index 0) →
-  /// light (index N), so `+1` *decrements* the index to stay "deeper".
+  /// The M3 surface-container ramp is already ordered by elevation in
+  /// [_scale]: index 0 is the lowest (background) and index N is the
+  /// highest.  Flutter's [ColorScheme] ensures that in light mode this
+  /// means lightest → darkest, and in dark mode darkest → lightest.
+  /// Therefore stepping "deeper" (more elevated) always increments the
+  /// index regardless of brightness.
   static Color stepped(BuildContext context, [int steps = 1]) {
     final current = of(context);
     final scale = _scale(context);
-    final isLight = Theme.of(context).brightness == Brightness.light;
     var idx = scale.indexOf(current);
-    if (idx == -1) idx = isLight ? 0 : scale.length - 1;
-    final next = isLight ? idx + steps : idx - steps;
-    return scale[next.clamp(0, scale.length - 1)];
+    if (idx == -1) idx = 0;
+    final next = (idx + steps).clamp(0, scale.length - 1);
+    return scale[next];
   }
 
   /// Injects a baseline surface colour without rendering a [Material].

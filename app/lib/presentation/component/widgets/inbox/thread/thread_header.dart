@@ -161,19 +161,19 @@ class ProfileAvatars extends StatelessWidget {
         height: diameter,
         width: diameter,
         child: Stack(
-          children: profiles
+          children: profiles.indexed
               .map(
-                (counterparty) => Positioned(
-                  left: profiles.indexOf(counterparty) * overlap,
+                (entry) => Positioned(
+                  left: entry.$1 * overlap,
                   child: GestureDetector(
                     onTap: onProfileTap != null
-                        ? () => onProfileTap!(counterparty)
+                        ? () => onProfileTap!(entry.$2)
                         : null,
                     child: AppAvatar.custom(
                       radius: radius,
-                      image: counterparty.metadata.picture,
-                      pubkey: counterparty.pubKey,
-                      label: counterparty.metadata.name ?? '',
+                      image: entry.$2.metadata.picture,
+                      pubkey: entry.$2.pubKey,
+                      label: entry.$2.metadata.name ?? '',
                     ),
                   ),
                 ),

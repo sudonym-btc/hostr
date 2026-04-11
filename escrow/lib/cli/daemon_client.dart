@@ -88,8 +88,12 @@ class DaemonClient {
         .toList();
   }
 
-  Future<({List<ThreadMessage> messages, List<String> participants})> getThread(
-      String threadId) async {
+  Future<
+      ({
+        List<ThreadMessage> messages,
+        List<String> participants,
+        String? conversationTag
+      })> getThread(String threadId) async {
     final result =
         await _rpc.sendRequest(kRpcGetThread, {'threadId': threadId});
     final map = Map<String, dynamic>.from(result as Map);
@@ -100,6 +104,7 @@ class DaemonClient {
           .toList(),
       participants:
           (map['participants'] as List).map((e) => e as String).toList(),
+      conversationTag: map['conversationTag'] as String?,
     );
   }
 

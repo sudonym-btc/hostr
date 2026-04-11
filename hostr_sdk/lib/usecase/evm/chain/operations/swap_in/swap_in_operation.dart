@@ -536,6 +536,7 @@ class EvmSwapInOperation extends SwapInOperation {
         }
 
         logger.i('Swap-in completed: ${data.claimTxHash}');
+        chain.notifyNewBlock();
         return SwapInCompleted(data);
       });
 

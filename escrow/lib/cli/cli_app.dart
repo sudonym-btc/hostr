@@ -104,7 +104,7 @@ class CliApp {
   /// Wraps [mainMenuScreen] but also handles the "Daemon status" option inline.
   Future<Navigation> _mainMenuWithStatus() async {
     final options = [
-      'Pending trades',
+      'Trades',
       'Threads',
       'Services',
       'Profile',

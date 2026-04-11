@@ -137,6 +137,20 @@ class EventTags {
     return tags.where((t) => t.first == key).map((t) => t[1]).toList();
   }
 
+  /// Returns the value (2nd element) of the first tag matching [key]
+  /// whose marker (4th element, index 3) equals [marker], or `null`.
+  ///
+  /// This follows the NIP-01 convention where position 3 is a relay hint
+  /// and position 4 (index 3) carries an application-defined marker.
+  String? getTagValueByMarker(String key, String marker) {
+    for (final t in tags) {
+      if (t.length >= 4 && t[0] == key && t[3] == marker) {
+        return t[1];
+      }
+    }
+    return null;
+  }
+
   // ── Typed read helpers ──────────────────────────────────────────────
 
   /// First value for [key], or null if absent.

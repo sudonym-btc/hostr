@@ -31,6 +31,7 @@ Map<String, String> _parseOtlpHeaders(String? raw) {
 
 Future<void> setupInjection({
   String environment = 'dev',
+  CustomLogger? logger,
 }) async {
   await _ensureHydratedStorage();
 
@@ -43,7 +44,7 @@ Future<void> setupInjection({
     Hostr(
       environment: environment,
       config: HostrConfig(
-        logs: CustomLogger(),
+        logs: logger ?? CustomLogger(),
         bootstrapRelays: [env.relayUrl],
         bootstrapBlossom: [env.blossomUrl],
         hostrRelay: env.relayUrl,
