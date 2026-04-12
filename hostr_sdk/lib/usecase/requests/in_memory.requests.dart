@@ -189,6 +189,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
     required void Function(T) onData,
     void Function(Object, StackTrace?)? onError,
     required String name,
+    List<String>? relays,
   }) {
     final subId = 'live_${_subCounter++}';
     late final _Subscription<T> subscription;

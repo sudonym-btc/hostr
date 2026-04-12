@@ -12,6 +12,13 @@ class DevelopmentConfig extends Config {
   @override
   List<String> get bootstrapEscrowPubkeys => env.bootstrapEscrowPubkeys;
   @override
+  List<String> get relays => [
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://relay.primal.net',
+    'wss://purplepag.es',
+  ];
+  @override
   String get hostrBlossom => env.blossomUrl;
   @override
   String get hostrRelay => env.relayUrl;

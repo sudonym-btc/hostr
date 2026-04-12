@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
@@ -9,24 +11,40 @@ import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-/// Widget to display badges for a listing
+/// Widget to display badges for a listing or a host pubkey.
+///
+/// Filters by:
+/// - `p` tag → [pubKey] (the badge recipient — typically the host)
+/// - `a` tag → [listingAnchor] (the specific listing this badge targets),
+///   when provided
 class ListingBadgesWidget extends StatelessWidget {
-  final String listingAnchor;
+  final String pubKey;
+  final String? listingAnchor;
 
-  const ListingBadgesWidget({required this.listingAnchor, super.key});
+  const ListingBadgesWidget({
+    required this.pubKey,
+    this.listingAnchor,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Fetch badge awards that target this listing
+    // Fetch badge awards whose p-tag matches the host pubkey.
+    // When a listingAnchor is provided also filter by the a-tag so we only
+    // show badges scoped to this specific listing.
     return BlocProvider<ListCubit<BadgeAward>>(
       create: (context) => ListCubit<BadgeAward>(
         kinds: BadgeAward.kinds,
         nostrService: getIt(),
         filter: Filter(
-          tags: {
-            kListingRefTag: [listingAnchor],
-          },
+          pTags: [pubKey],
+          tags: listingAnchor != null
+              ? {
+                  'a': [listingAnchor!],
+                }
+              : null,
         ),
       )..next(),
       child: BlocBuilder<ListCubit<BadgeAward>, ListCubitState<BadgeAward>>(
@@ -202,189 +220,114 @@ class BadgeDetailsSheet extends StatelessWidget {
     final badgeName = definition?.name ?? 'Badge';
     final badgeDescription = definition?.description;
     final badgeImage = definition?.image;
-    final badgeAnchor = award.badgeDefinitionAnchor;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.3,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          padding: const EdgeInsets.all(kSpace4),
-          child: ListView(
-            controller: scrollController,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: kSpace1,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              if (badgeImage != null)
-                Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      badgeImage,
-                      width: kIconHero,
-                      height: kIconHero,
-                      fit: BoxFit.cover,
-                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                      frameBuilder:
-                          (context, child, frame, wasSynchronouslyLoaded) {
-                            final loaded =
-                                wasSynchronouslyLoaded || frame != null;
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                AnimatedOpacity(
-                                  opacity: loaded ? 0 : 1,
-                                  duration: kAnimationDuration,
-                                  curve: kAnimationCurve,
-                                  child: const ImageLoadingShimmer(
-                                    width: kIconHero,
-                                    height: kIconHero,
-                                  ),
-                                ),
-                                AnimatedOpacity(
-                                  opacity: loaded ? 1 : 0,
-                                  duration: kAnimationDuration,
-                                  curve: kAnimationCurve,
-                                  child: child,
-                                ),
-                              ],
-                            );
-                          },
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ImageLoadError(
-                            width: kIconHero,
-                            height: kIconHero,
-                          ),
-                    ),
-                  ),
-                ),
-              Gap.vertical.md(),
-              Text(
-                badgeName,
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              if (badgeDescription != null) ...[
-                Gap.vertical.custom(kSpace3),
-                Text(
-                  badgeDescription,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              Gap.vertical.custom(kSpace5),
-              const Divider(),
-              Gap.vertical.md(),
-              Text(
-                'Badge Information',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              Gap.vertical.custom(kSpace3),
-              _InfoRow(
-                label: 'Issued by',
-                child: ProfileChipWidget(id: award.pubKey),
-              ),
-              Gap.vertical.sm(),
-              _InfoRow(label: 'Award ID', value: _truncateHash(award.id)),
-              if (badgeAnchor != null) ...[
-                Gap.vertical.sm(),
-                _InfoRow(
-                  label: 'Badge Anchor',
-                  value: _truncateAnchor(badgeAnchor),
-                ),
-              ],
-              Gap.vertical.md(),
-              Container(
-                padding: const EdgeInsets.all(kSpace3),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: kIconSm,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        Gap.horizontal.sm(),
-                        Text(
-                          'About Badges',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                      ],
-                    ),
-                    Gap.vertical.sm(),
-                    Text(
-                      'Badges are immutable awards that cannot be revoked by the issuer. '
-                      'The listing owner can choose to hide badges from their display, '
-                      'but the award itself remains on the Nostr network.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    final issuedAt = DateTime.fromMillisecondsSinceEpoch(
+      award.createdAt * 1000,
     );
-  }
 
-  String _truncateHash(String hash) {
-    if (hash.length <= 16) return hash;
-    return '${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}';
-  }
-
-  String _truncateAnchor(String anchor) {
-    final parts = anchor.split(':');
-    if (parts.length != 3) return anchor;
-    return '${parts[0]}:${_truncateHash(parts[1])}:${parts[2]}';
+    return ModalBottomSheet(
+      leading: badgeImage != null
+          ? Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  badgeImage,
+                  width: kIconHero,
+                  height: kIconHero,
+                  fit: BoxFit.cover,
+                  webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ImageLoadError(width: kIconHero, height: kIconHero),
+                ),
+              ),
+            )
+          : Icon(
+              Icons.verified,
+              size: kIconHero,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      title: badgeName,
+      subtitle: badgeDescription,
+      content: Padding(
+        padding: const EdgeInsets.symmetric(vertical: kSpace3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Awarded by  ',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Flexible(child: ProfileChipWidget(id: award.pubKey)),
+              ],
+            ),
+            Gap.vertical.xs(),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: kIconSm,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                Gap.horizontal.xs(),
+                _AwardedTimeText(
+                  dateTime: issuedAt,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      buttons: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String? value;
-  final Widget? child;
+/// Displays "Awarded X ago" with auto-refreshing relative time.
+class _AwardedTimeText extends StatefulWidget {
+  final DateTime dateTime;
+  final TextStyle? style;
 
-  const _InfoRow({required this.label, this.value, this.child});
+  const _AwardedTimeText({required this.dateTime, this.style});
+
+  @override
+  State<_AwardedTimeText> createState() => _AwardedTimeTextState();
+}
+
+class _AwardedTimeTextState extends State<_AwardedTimeText> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 100,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Gap.horizontal.custom(kSpace3),
-        Expanded(
-          child:
-              child ??
-              Text(value ?? '', style: Theme.of(context).textTheme.bodyMedium),
-        ),
-      ],
-    );
+    final relative = timeago.format(widget.dateTime, locale: 'en_short');
+    return Text('Awarded $relative ago', style: widget.style);
   }
 }

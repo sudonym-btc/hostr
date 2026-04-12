@@ -72,87 +72,126 @@ class ProfileSummarySection extends StatelessWidget {
 class ProfileSettingsSection extends StatelessWidget {
   const ProfileSettingsSection({super.key});
 
+  List<Widget> _buildSections(BuildContext context) {
+    return [
+      Section(
+        title: AppLocalizations.of(context)!.wallet,
+        action: OutlinedButton(
+          onPressed: () {
+            showAppModal(context, builder: (_) => AddWalletWidget());
+          },
+          child: Text(AppLocalizations.of(context)!.connect),
+        ),
+        body: NostrWalletConnectContainerWidget(),
+      ),
+      const Section(title: 'Relays', body: RelayListWidget()),
+      BlocProvider(
+        create: (_) => TrustedEscrowsCubit(hostr: getIt<Hostr>())..load(),
+        child: BlocBuilder<TrustedEscrowsCubit, TrustedEscrowsState>(
+          builder: (context, state) {
+            return Section(
+              title: 'Escrows',
+              body: _TrustedEscrowsBody(state: state),
+            );
+          },
+        ),
+      ),
+      Section(
+        title: 'Balance',
+        action: IconButton(
+          icon: const Icon(Icons.key),
+          tooltip: 'Copy EVM mnemonic',
+          onPressed: () async {
+            final mnemonic = (await getIt<Hostr>().auth.hd.getEvmMnemonic())
+                .join(' ');
+            Clipboard.setData(ClipboardData(text: mnemonic));
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Mnemonic copied to clipboard')),
+            );
+          },
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MoneyInFlightWidget(),
+            Gap.vertical.sm(),
+            StreamBuilder<HostrUserConfig>(
+              stream: getIt<Hostr>().userConfig.stream,
+              builder: (context, snapshot) {
+                final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
+                return SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Auto-withdraw'),
+                  subtitle: const Text(
+                    'Automatically sweep received funds into your Lightning wallet',
+                  ),
+                  value: enabled,
+                  onChanged: (value) async {
+                    final current = await getIt<Hostr>().userConfig.state;
+                    await getIt<Hostr>().userConfig.update(
+                      current.copyWith(autoWithdrawEnabled: value),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildFooter() {
+    return AppSurface(
+      child: Column(
+        children: [
+          const ZapUsWidget(),
+          if (const bool.fromEnvironment('dart.vm.product') == false)
+            const DevWidget(),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Section(
-          title: AppLocalizations.of(context)!.wallet,
-          action: OutlinedButton(
-            onPressed: () {
-              showAppModal(context, builder: (_) => AddWalletWidget());
-            },
-            child: Text(AppLocalizations.of(context)!.connect),
-          ),
-          body: NostrWalletConnectContainerWidget(),
-        ),
-        const Section(title: 'Relays', body: RelayListWidget()),
-        BlocProvider(
-          create: (_) => TrustedEscrowsCubit(hostr: getIt<Hostr>())..load(),
-          child: BlocBuilder<TrustedEscrowsCubit, TrustedEscrowsState>(
-            builder: (context, state) {
-              return Section(
-                title: 'Escrows',
-                body: _TrustedEscrowsBody(state: state),
-              );
-            },
-          ),
-        ),
-        Section(
-          title: 'Balance',
-          action: IconButton(
-            icon: const Icon(Icons.key),
-            tooltip: 'Copy EVM mnemonic',
-            onPressed: () async {
-              final mnemonic = (await getIt<Hostr>().auth.hd.getEvmMnemonic())
-                  .join(' ');
-              Clipboard.setData(ClipboardData(text: mnemonic));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Mnemonic copied to clipboard')),
-              );
-            },
-          ),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              MoneyInFlightWidget(),
-              Gap.vertical.sm(),
-              StreamBuilder<HostrUserConfig>(
-                stream: getIt<Hostr>().userConfig.stream,
-                builder: (context, snapshot) {
-                  final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
-                  return SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Auto-withdraw'),
-                    subtitle: const Text(
-                      'Automatically sweep received funds into your Lightning wallet',
-                    ),
-                    value: enabled,
-                    onChanged: (value) async {
-                      final current = await getIt<Hostr>().userConfig.state;
-                      await getIt<Hostr>().userConfig.update(
-                        current.copyWith(autoWithdrawEnabled: value),
-                      );
-                    },
-                  );
-                },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final sections = _buildSections(context);
+        final footer = _buildFooter();
+
+        // Expanded viewport: height is bounded → use CustomScrollView so the
+        // pane scrolls independently and SliverFillRemaining pushes the footer
+        // to the bottom when there is spare space.
+        if (constraints.hasBoundedHeight) {
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: sections,
+                ),
+              ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [Gap.vertical.md(), footer],
+                ),
               ),
             ],
-          ),
-        ),
-        if (AppLayoutSpec.of(context).isExpanded) const Spacer(),
-        AppSurface(
-          child: Column(
-            children: [
-              const ZapUsWidget(),
-              if (const bool.fromEnvironment('dart.vm.product') == false)
-                const DevWidget(),
-            ],
-          ),
-        ),
-      ],
+          );
+        }
+
+        // Compact/stacked viewport: height is unbounded (sits inside an outer
+        // SingleChildScrollView).  Use a plain Column — no inner scroll view.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [...sections, Gap.vertical.md(), footer],
+        );
+      },
     );
   }
 }

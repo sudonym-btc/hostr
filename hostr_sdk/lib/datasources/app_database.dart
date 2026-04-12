@@ -22,7 +22,7 @@ import 'package:sqlite3/common.dart';
 /// are idempotent — re-running one is a harmless no-op.
 class AppDatabase {
   /// Current schema version.  Bump when adding a new migration step.
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   /// The raw database handle.  Exposed so that existing DAOs
   /// (e.g. [OperationStateStore]) can keep accepting [CommonDatabase].
@@ -43,6 +43,7 @@ class AppDatabase {
     db.execute('BEGIN IMMEDIATE');
     try {
       if (current < 1) _v1();
+      if (current < 2) _v2();
 
       db.execute('PRAGMA user_version = $schemaVersion');
       db.execute('COMMIT');
@@ -87,6 +88,19 @@ class AppDatabase {
       CREATE TABLE IF NOT EXISTS state_cache (
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      )
+    ''');
+  }
+
+  // ── V2 — displayed notifications log ─────────────────────────────────
+
+  void _v2() {
+    // Generic log of notification IDs that have been shown at least once.
+    // Used to suppress duplicate OS notifications across app restarts.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS displayed_notifications (
+        id         TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     ''');
   }

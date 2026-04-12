@@ -198,7 +198,7 @@ class HostrConfig {
              defaultQueryTimeout: Duration(seconds: 10),
              // We have to bootstrap our relay, which means NDK will immediately make connection attempt
              // If we do not provide bootstrap relays, queries without author param will not be sent to any relays
-             bootstrapRelays: [hostrRelay],
+             bootstrapRelays: bootstrapRelays,
              logLevel: LogLevel.warning,
            ),
        logger = logs ?? CustomLogger(),

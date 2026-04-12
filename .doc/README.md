@@ -57,6 +57,8 @@ P1
   - [ ] Allow opening of listings/reviews via deeplinks
 - [ ] Blossom files
   - [ ] Caching of blossom servers between Image components
+- [ ] Routing: unify tab-initial-route source of truth
+  - [ ] `SearchRoute` is declared `initial: true` in the static route config but `buildAppNavigationDestinations` independently decides which tabs exist per mode — during mode transitions the router briefly shows the wrong initial tab (SearchRoute in host mode) before the dynamic destination list catches up. Remove `initial: true` from tab children and let `AutoTabsRouter` drive the initial index from `buildAppNavigationDestinations` so there is one mode-aware source of truth.
 
 ### Escrow
 

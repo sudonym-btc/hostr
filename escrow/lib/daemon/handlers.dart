@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -37,6 +38,12 @@ class DaemonHandler {
     server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
     server.registerMethod(kRpcResolveNames, _resolveNames);
     server.registerMethod(kRpcListReservationGroups, _listReservationGroups);
+    server.registerMethod(kRpcListBadgeDefinitions, _listBadgeDefinitions);
+    server.registerMethod(kRpcUpsertBadgeDefinition, _upsertBadgeDefinition);
+    server.registerMethod(kRpcDeleteBadgeDefinition, _deleteBadgeDefinition);
+    server.registerMethod(kRpcListBadgeAwards, _listBadgeAwards);
+    server.registerMethod(kRpcAwardBadge, _awardBadge);
+    server.registerMethod(kRpcRevokeBadge, _revokeBadge);
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -434,6 +441,162 @@ class DaemonHandler {
     return {
       'names': {for (final pk in pubkeys) pk: _nameCache[pk]},
     };
+  }
+
+  // ── Badges ────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> _listBadgeDefinitions(
+      json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final definitions = await hostr.badgeDefinitions.list(
+      Filter(authors: [pubkey], kinds: [30009]),
+    );
+    return {
+      'definitions': definitions.map((d) {
+        return BadgeDefinitionSummary(
+          anchor: d.anchor,
+          identifier: d.identifier ?? '',
+          name: d.name,
+          description: d.description,
+          image: d.image,
+        ).toJson();
+      }).toList(),
+    };
+  }
+
+  Future<Map<String, dynamic>> _upsertBadgeDefinition(
+      json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final identifier = params['identifier'].asString;
+    final name = params['name'].asString;
+    final description = params['description'].asStringOr('');
+    final image = params['image'].asStringOr('');
+
+    // Build content JSON as per NIP-58 spec.
+    final contentMap = <String, dynamic>{'name': name};
+    if (description.isNotEmpty) contentMap['description'] = description;
+    if (image.isNotEmpty) contentMap['image'] = image;
+
+    final event = Nip01Event(
+      pubKey: pubkey,
+      kind: 30009,
+      tags: [
+        ['d', identifier],
+      ],
+      content: jsonEncode(contentMap),
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+
+    final definition = BadgeDefinition.fromNostrEvent(event);
+    await hostr.badgeDefinitions.upsert(definition);
+    return {'anchor': definition.anchor};
+  }
+
+  Future<Map<String, dynamic>> _deleteBadgeDefinition(
+      json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final anchor = params['anchor'].asString;
+    final existing = await hostr.badgeDefinitions.getOneByAnchor(anchor);
+    if (existing == null) {
+      throw json_rpc.RpcException(
+          -32001, 'Badge definition not found: $anchor');
+    }
+    // NIP-09 deletion event.
+    final deletion = Nip01Event(
+      pubKey: pubkey,
+      kind: 5,
+      tags: [
+        ['e', existing.id],
+        ['a', anchor],
+      ],
+      content: 'Badge definition deleted by escrow operator',
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+    await hostr.badgeDefinitions
+        .upsert(BadgeDefinition.fromNostrEvent(deletion));
+    return {'ok': true};
+  }
+
+  Future<Map<String, dynamic>> _listBadgeAwards(
+      json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final definitionAnchor = params['definitionAnchor'].asStringOr('');
+
+    final filter = definitionAnchor.isNotEmpty
+        ? Filter(
+            authors: [pubkey],
+            kinds: [8],
+            tags: {
+              'a': [definitionAnchor],
+            },
+          )
+        : Filter(authors: [pubkey], kinds: [8]);
+
+    final awards = await hostr.badgeAwards.list(filter);
+    return {
+      'awards': awards.map((a) {
+        final issuedAt = DateTime.fromMillisecondsSinceEpoch(
+          a.createdAt * 1000,
+          isUtc: true,
+        );
+        return BadgeAwardSummary(
+          id: a.id,
+          definitionAnchor: a.badgeDefinitionAnchor ?? '',
+          recipientPubkey: a.recipients.firstOrNull ?? '',
+          listingAnchor: a.targetAnchor,
+          issuedAt: issuedAt,
+        ).toJson();
+      }).toList(),
+    };
+  }
+
+  Future<Map<String, dynamic>> _awardBadge(json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final definitionAnchor = params['definitionAnchor'].asString;
+    final recipientPubkey = params['recipientPubkey'].asString;
+    final listingAnchor = params['listingAnchor'].asStringOr('');
+
+    final tags = <List<String>>[
+      ['a', definitionAnchor],
+      ['p', recipientPubkey],
+    ];
+    if (listingAnchor.isNotEmpty) {
+      // Second 'a' tag marks the specific listing being awarded.
+      tags.add(['a', listingAnchor]);
+    }
+
+    final event = Nip01Event(
+      pubKey: pubkey,
+      kind: 8,
+      tags: tags,
+      content: '',
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+
+    final award = BadgeAward.fromNostrEvent(event);
+    await hostr.badgeAwards.upsert(award);
+    return {'awardId': award.id};
+  }
+
+  Future<Map<String, dynamic>> _revokeBadge(json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final awardId = params['awardId'].asString;
+    final existing = await hostr.badgeAwards.getById(awardId);
+
+    // NIP-09 deletion event referencing the award.
+    final deletion = Nip01Event(
+      pubKey: pubkey,
+      kind: 5,
+      tags: [
+        ['e', existing.id],
+      ],
+      content: 'Badge award revoked by escrow operator',
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+    // Broadcast the deletion through the generic badgeAwards channel
+    // so the relay processes it as a NIP-09 deletion.
+    await hostr.badgeAwards.upsert(BadgeAward.fromNostrEvent(deletion));
+    return {'ok': true};
   }
 
   // ── Reservation Groups ────────────────────────────────────────────────────

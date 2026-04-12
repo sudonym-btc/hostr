@@ -88,6 +88,40 @@ const kRpcResolveNames = 'resolveNames';
 /// Returns `{ "groups": [ ReservationGroupSummaryJson, … ] }`.
 const kRpcListReservationGroups = 'listReservationGroups';
 
+// ── Badges ──────────────────────────────────────────────────────────────────
+
+/// List all badge definitions published by the escrow keypair.
+/// Returns `{ "definitions": [ BadgeDefinitionSummaryJson, … ] }`.
+const kRpcListBadgeDefinitions = 'listBadgeDefinitions';
+
+/// Create or update a badge definition (kind 30009, identified by `d` tag).
+/// Params: `{ "identifier": String, "name": String, "description": String?,
+///            "image": String? }`.
+/// Returns `{ "anchor": String }`.
+const kRpcUpsertBadgeDefinition = 'upsertBadgeDefinition';
+
+/// Delete a badge definition by anchor.
+/// Params: `{ "anchor": String }`.
+/// Returns `{ "ok": true }`.
+const kRpcDeleteBadgeDefinition = 'deleteBadgeDefinition';
+
+/// List badge awards issued by the escrow keypair,
+/// optionally filtered by badge definition anchor.
+/// Params: `{ "definitionAnchor": String? }`.
+/// Returns `{ "awards": [ BadgeAwardSummaryJson, … ] }`.
+const kRpcListBadgeAwards = 'listBadgeAwards';
+
+/// Award a badge to a pubkey, optionally tied to a listing anchor.
+/// Params: `{ "definitionAnchor": String, "recipientPubkey": String,
+///            "listingAnchor": String? }`.
+/// Returns `{ "awardId": String }`.
+const kRpcAwardBadge = 'awardBadge';
+
+/// Revoke a badge award by event id (publishes a NIP-09 deletion).
+/// Params: `{ "awardId": String }`.
+/// Returns `{ "ok": true }`.
+const kRpcRevokeBadge = 'revokeBadge';
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Serialisation helpers
 // ──────────────────────────────────────────────────────────────────────────────
@@ -220,5 +254,75 @@ class ServiceSummary {
         contractAddress: json['contractAddress'] as String,
         chainId: json['chainId'] as int,
         feePercent: (json['feePercent'] as num).toDouble(),
+      );
+}
+
+// ── Badge DTOs ───────────────────────────────────────────────────────────────
+
+/// Summary of a badge definition for list views.
+class BadgeDefinitionSummary {
+  final String anchor;
+  final String identifier;
+  final String name;
+  final String? description;
+  final String? image;
+
+  BadgeDefinitionSummary({
+    required this.anchor,
+    required this.identifier,
+    required this.name,
+    this.description,
+    this.image,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'anchor': anchor,
+        'identifier': identifier,
+        'name': name,
+        if (description != null) 'description': description,
+        if (image != null) 'image': image,
+      };
+
+  factory BadgeDefinitionSummary.fromJson(Map<String, dynamic> json) =>
+      BadgeDefinitionSummary(
+        anchor: json['anchor'] as String,
+        identifier: json['identifier'] as String,
+        name: json['name'] as String,
+        description: json['description'] as String?,
+        image: json['image'] as String?,
+      );
+}
+
+/// Summary of a badge award for list views.
+class BadgeAwardSummary {
+  final String id;
+  final String definitionAnchor;
+  final String recipientPubkey;
+  final String? listingAnchor;
+  final DateTime issuedAt;
+
+  BadgeAwardSummary({
+    required this.id,
+    required this.definitionAnchor,
+    required this.recipientPubkey,
+    this.listingAnchor,
+    required this.issuedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'definitionAnchor': definitionAnchor,
+        'recipientPubkey': recipientPubkey,
+        if (listingAnchor != null) 'listingAnchor': listingAnchor,
+        'issuedAt': issuedAt.toIso8601String(),
+      };
+
+  factory BadgeAwardSummary.fromJson(Map<String, dynamic> json) =>
+      BadgeAwardSummary(
+        id: json['id'] as String,
+        definitionAnchor: json['definitionAnchor'] as String,
+        recipientPubkey: json['recipientPubkey'] as String,
+        listingAnchor: json['listingAnchor'] as String?,
+        issuedAt: DateTime.parse(json['issuedAt'] as String),
       );
 }

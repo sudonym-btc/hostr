@@ -8,6 +8,7 @@ import 'package:hostr/presentation/component/providers/nostr/listing_dependencie
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
+import 'package:hostr/presentation/component/widgets/listing_badges_widget.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -248,6 +249,11 @@ class ListingViewBody extends StatelessWidget {
         ),
         Gap.vertical.sm(),
         reviewsSummaryWidget,
+        Gap.vertical.sm(),
+        ListingBadgesWidget(
+          pubKey: listing.pubKey,
+          listingAnchor: listing.anchor,
+        ),
         Gap.vertical.sm(),
         AmenityTagsWidget(amenities: listing.amenities),
         Gap.vertical.md(),

@@ -44,6 +44,30 @@ const kNostrKindBadgeDefinition = 30009;
 /// Kind 30008: Profile Badges - user's chosen badges to display (replaceable)
 const kNostrKindProfileBadges = 30008;
 
+/// Event kinds that are specific to the hostr application and must NEVER be
+/// broadcast to external relays. The [Requests.broadcast] guard uses this set
+/// to force these events onto the hostr relay only.
+const kHostrOnlyKinds = <int>{
+  kNostrKindListing,
+  kNostrKindReservation,
+  kNostrKindReview,
+  kNostrKindReservationTransition,
+  kNostrKindEscrowService,
+  kNostrKindEscrowTrust,
+  kNostrKindEscrowMethod,
+  kNostrKindEscrowServiceSelected,
+  kNostrKindGiftWrap,
+  kNostrKindSeal,
+  kNostrKindReceivedHeartbeat,
+  kNostrKindTypingIndicator,
+  kNostrKindSeenMessages,
+  // NIP-58 badge events are hostr-specific (host reputation, listing badges)
+  // and must not leak to external relays.
+  kNostrKindBadgeAward,
+  kNostrKindBadgeDefinition,
+  kNostrKindProfileBadges,
+};
+
 const kReservationRefTag = "r";
 const kThreadRefTag = "t";
 const kListingRefTag = "l";

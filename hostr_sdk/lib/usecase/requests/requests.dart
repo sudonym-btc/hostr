@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:injectable/injectable.dart';
+import 'package:models/nostr_kinds.dart' show kHostrOnlyKinds;
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, LogOutput, Logger, Ndk, Nip01Event;
@@ -10,7 +11,7 @@ import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../config.dart' show CoinlibEventSigner;
+import '../../config.dart' show CoinlibEventSigner, HostrConfig;
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
@@ -60,6 +61,7 @@ abstract class RequestsModel {
     required void Function(T) onData,
     void Function(Object, StackTrace?)? onError,
     required String name,
+    List<String>? relays,
   });
 }
 
@@ -101,8 +103,38 @@ class Requests extends RequestsModel {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
 
-  String _namedRequest(String baseName, [int suffixLength = 5]) =>
-      '$baseName-${Helpers.getRandomString(suffixLength)}';
+  // NIP-01 doesn't specify a maximum subscription ID length, but many relay
+  // implementations (including Damus / nostr-rs-relay) enforce a 64-char cap.
+  static const int _maxSubIdLength = 64;
+
+  // NDK appends "-" + 10 random chars to the name for query() calls on the
+  // wire, so the safe maximum for any name we pass to ndk.requests.query() is
+  // 64 - 11 = 53 chars.  ndk.requests.subscription() uses the id as-is, so
+  // the full 64 chars are available there.
+  static const int _ndkQuerySuffix = 11; // "-" + 10 random chars
+  static const int _maxQueryNameLength = _maxSubIdLength - _ndkQuerySuffix;
+
+  /// Truncates [id] to [_maxSubIdLength] for use as a live-subscription id
+  /// (passed to [ndk.requests.subscription] which uses the value verbatim).
+  static String capSubId(String id) =>
+      id.length > _maxSubIdLength ? id.substring(0, _maxSubIdLength) : id;
+
+  /// Truncates [name] to [_maxQueryNameLength] for use as a query name
+  /// (NDK appends its own random suffix, so we need extra headroom).
+  static String capQueryName(String name) => name.length > _maxQueryNameLength
+      ? name.substring(0, _maxQueryNameLength)
+      : name;
+
+  // With a 6-char suffix ("-XXXXX") that leaves 57 chars for the base name,
+  // but _namedRequest is only used for live-subscription IDs (not queries).
+  String _namedRequest(String baseName, [int suffixLength = 5]) {
+    final suffix = '-${Helpers.getRandomString(suffixLength)}';
+    final maxBase = _maxSubIdLength - suffix.length;
+    final truncated = baseName.length > maxBase
+        ? baseName.substring(0, maxBase)
+        : baseName;
+    return '$truncated$suffix';
+  }
 
   Stream<Nip01Event> _connectedStream({
     required Stream<Nip01Event> Function() open,
@@ -122,15 +154,17 @@ class Requests extends RequestsModel {
     required String name,
     required Filter filter,
     Duration? timeout,
+    List<String>? relays,
   }) {
     return _connectedStream(
       open: () => ndk.requests
           .query(
-            name: name,
+            name: capQueryName(name),
             filter: cleanTags(filter),
             cacheRead: false,
             cacheWrite: false,
             timeout: timeout,
+            explicitRelays: relays,
           )
           .stream,
     );
@@ -140,14 +174,16 @@ class Requests extends RequestsModel {
     required String name,
     required Filter filter,
     bool cacheRead = false,
+    List<String>? relays,
   }) {
     return _connectedStream(
       open: () => ndk.requests
           .subscription(
-            id: name,
+            id: capSubId(name),
             filter: cleanTags(filter),
             cacheRead: cacheRead,
             cacheWrite: true,
+            explicitRelays: relays,
           )
           .stream,
     );
@@ -178,7 +214,11 @@ class Requests extends RequestsModel {
     int? lastCreatedAt;
     Filter? liveFilter;
 
-    final queryStream = _openQueryStream(name: '$name-q', filter: filter);
+    final queryStream = _openQueryStream(
+      name: '$name-q',
+      filter: filter,
+      relays: relays,
+    );
 
     final subscription =
         _parseEvents<T>(
@@ -205,6 +245,7 @@ class Requests extends RequestsModel {
                     name: ndkSubName,
                     filter: effectiveLiveFilter,
                     cacheRead: useCache,
+                    relays: relays,
                   );
                 }),
               ]),
@@ -241,7 +282,12 @@ class Requests extends RequestsModel {
     final sw = Stopwatch()..start();
     final queryName = name ?? _namedRequest('query');
     final source =
-        _openQueryStream(name: queryName, filter: filter, timeout: timeout)
+        _openQueryStream(
+              name: queryName,
+              filter: filter,
+              timeout: timeout,
+              relays: relays,
+            )
             .doOnListen(() {
               final now = DateTime.now().toIso8601String();
               if (!_loggedFirstQuery) {
@@ -253,7 +299,7 @@ class Requests extends RequestsModel {
             .doOnDone(() {
               sw.stop();
               _logger.d(
-                'query name=$queryName completed in ${sw.elapsedMilliseconds}ms',
+                'query name=${capQueryName(queryName)} completed in ${sw.elapsedMilliseconds}ms',
               );
               _inFlightQueries.remove(key);
             })
@@ -261,12 +307,7 @@ class Requests extends RequestsModel {
               sw.stop();
               _inFlightQueries.remove(key);
             })
-            .asBroadcastStream(
-              onCancel: (subscription) {
-                subscription.cancel();
-                _inFlightQueries.remove(key);
-              },
-            );
+            .shareReplay();
 
     _inFlightQueries[key] = source;
 
@@ -293,6 +334,19 @@ class Requests extends RequestsModel {
     required Nip01Event event,
     List<String>? relays,
   }) async {
+    // ── Relay guard: app-specific events must never leak to external relays ──
+    if (kHostrOnlyKinds.contains(event.kind)) {
+      final hostrRelay = getIt<HostrConfig>().hostrRelay;
+      if (relays == null) {
+        relays = [hostrRelay];
+      } else if (!relays.every((r) => r == hostrRelay)) {
+        _logger.w(
+          'broadcast guard: stripped non-hostr relays for kind ${event.kind}',
+        );
+        relays = [hostrRelay];
+      }
+    }
+
     var eventToBroadcast = event;
 
     if (event.sig == null) {
@@ -327,13 +381,19 @@ class Requests extends RequestsModel {
     required void Function(T) onData,
     void Function(Object, StackTrace?)? onError,
     required String name,
+    List<String>? relays,
   }) => _logger.spanSync('liveSubscription', () {
     final ndkSubName = _namedRequest(name);
 
     _logger.d('liveSubscription opening: $ndkSubName filter=$filter');
 
     final listener = _parseEvents<T>(
-      _openLiveStream(name: ndkSubName, filter: filter, cacheRead: useCache),
+      _openLiveStream(
+        name: ndkSubName,
+        filter: filter,
+        cacheRead: useCache,
+        relays: relays,
+      ),
     ).listen(onData, onError: onError);
 
     return LiveSubscriptionHandle(() async {
