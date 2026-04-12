@@ -317,17 +317,17 @@ void main() {
         logger: CustomLogger(),
         nwc: hostr.nwc,
         payments: hostr.payments,
-        quoteService: SwapOutQuoteService(),
+        quoteService: SwapQuoteService(),
       );
 
       // ── Fee estimation ──
       final quote = await rskChain.swapOutQuote(params: swapOut.params);
       expectSwapFees(quote.feeBreakdown);
 
-      expect(quote.balance.value, greaterThan(BigInt.zero));
-      expect(quote.invoiceAmount.value, greaterThan(BigInt.zero));
-      print('  balance: ${quote.balance}');
-      print('  invoiceAmount: ${quote.invoiceAmount}');
+      expect(quote.sendAmount.value, greaterThan(BigInt.zero));
+      expect(quote.receiveAmount.value, greaterThan(BigInt.zero));
+      print('  balance: ${quote.sendAmount}');
+      print('  invoiceAmount: ${quote.receiveAmount}');
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapOutState>[swapOut.state];
@@ -436,17 +436,17 @@ void main() {
         logger: CustomLogger(),
         nwc: hostr.nwc,
         payments: hostr.payments,
-        quoteService: SwapOutQuoteService(),
+        quoteService: SwapQuoteService(),
       );
 
       // ── Fee estimation ──
       final quote = await configured.swapOutQuote(params: erc20Op.params);
       expectSwapFees(quote.feeBreakdown);
 
-      expect(quote.balance.value, greaterThan(BigInt.zero));
-      expect(quote.invoiceAmount.value, greaterThan(BigInt.zero));
-      print('  ERC-20 balance: ${quote.balance}');
-      print('  ERC-20 invoiceAmount: ${quote.invoiceAmount}');
+      expect(quote.sendAmount.value, greaterThan(BigInt.zero));
+      expect(quote.receiveAmount.value, greaterThan(BigInt.zero));
+      print('  ERC-20 balance: ${quote.sendAmount}');
+      print('  ERC-20 invoiceAmount: ${quote.receiveAmount}');
 
       // ── Execute and verify completion ──
       final emittedStates = <SwapOutState>[erc20Op.state];

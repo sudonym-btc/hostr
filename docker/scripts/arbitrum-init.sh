@@ -253,5 +253,15 @@ if [ -n "${BOLTZ_WALLET_ADDRESS:-}" ]; then
     --value 1000ether "$BOLTZ_WALLET_ADDRESS"
 fi
 
+# ── 6. Deploy Uniswap V3 stack ───────────────────────────────────────────
+# Deploys WETH9, Multicall3, UniswapV3Factory, NonfungiblePositionManager,
+# QuoterV2, SwapRouter02.  Creates WETH/USDT + WETH/tBTC pools and seeds
+# full-range liquidity.
+export ARBITRUM_RPC="$ARBITRUM_RPC"
+export TBTC_ADDRESS="$TBTC_ADDRESS"
+export USDT_ADDRESS="$USDT_ADDRESS"
+export DEPLOYER_PK="$DEPLOYER_PK"
+sh /scripts/deploy-uniswap-v3.sh
+
 echo ""
 echo "Arbitrum init complete."

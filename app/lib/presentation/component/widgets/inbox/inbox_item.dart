@@ -35,6 +35,17 @@ class InboxItemView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return AppListItem.loading(
+        selected: selected,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: kDefaultPadding.toDouble(),
+          vertical: 0,
+        ),
+        onTap: onTap,
+      );
+    }
+
     final theme = Theme.of(context);
     return AppListItem(
       selected: selected,
@@ -42,25 +53,13 @@ class InboxItemView extends StatelessWidget {
         horizontal: kDefaultPadding.toDouble(),
         vertical: 0,
       ),
-      leading: isLoading
-          ? ShimmerPlaceholder(
-              loading: true,
-              borderRadius: BorderRadius.circular(20),
-              child: const SizedBox(width: 40, height: 40),
-            )
-          : ProfileAvatars.md(profiles: counterparties),
-      title: isLoading
-          ? ShimmerPlaceholder(
-              loading: true,
-              borderRadius: BorderRadius.circular(4),
-              child: const SizedBox(height: 14, width: 120),
-            )
-          : Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+      leading: ProfileAvatars.md(profiles: counterparties),
+      title: Text(
+        title,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Column(
         mainAxisSize: MainAxisSize.min,

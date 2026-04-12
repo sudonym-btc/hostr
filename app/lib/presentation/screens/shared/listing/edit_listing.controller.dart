@@ -1,10 +1,10 @@
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
+import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/bool_field_controller.dart';
 import 'package:hostr/logic/forms/image_field_controller.dart';
 import 'package:hostr/logic/forms/listing_price_field_controller.dart';
 import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
-import 'package:hostr/logic/forms/sats_amount_field_controller.dart';
 import 'package:hostr/logic/forms/text_field_controller.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
@@ -31,9 +31,8 @@ class EditListingController extends UpsertFormController {
   final ListingSpecFieldController specField = ListingSpecFieldController();
   final BoolFieldController activeField = BoolFieldController(initial: true);
   final BoolFieldController barterField = BoolFieldController();
-  final SatsAmountFieldController securityDepositField =
-      SatsAmountFieldController();
-  final SatsAmountFieldController minPaymentField = SatsAmountFieldController();
+  final AmountFieldController securityDepositField = AmountFieldController();
+  final AmountFieldController minPaymentField = AmountFieldController();
   final LocationController locationController = LocationController();
 
   EditListingController() {

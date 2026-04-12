@@ -1,58 +1,107 @@
-import 'package:flutter/material.dart';
-import 'package:hostr/core/util/thousands_separator_formatter.dart';
+import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:models/main.dart';
 
-/// Manages listing price state — currency, text editing, and conversion
-/// to/from [DenominatedAmount] and [Price] model objects.
+/// Well-known decimal precision for each denomination.
+///
+/// BTC uses 8 decimals (satoshis), USD uses 6 (micro-dollars),
+/// ETH uses 18 (wei).  Add entries here as new denominations
+/// are supported.
+const denominationDecimals = <String, int>{'BTC': 8, 'USD': 6, 'ETH': 18};
+
+/// Returns the canonical decimal count for [denomination], defaulting to 8.
+int decimalsForDenomination(String denomination) =>
+    denominationDecimals[denomination] ?? 8;
+
+/// Manages listing price state as a thin wrapper around [AmountFieldController].
+///
+/// Adds frequency (daily/weekly/etc.) and the [Price] ↔ [DenominatedAmount]
+/// bridging that the underlying amount controller doesn't know about.
 class ListingPriceFieldController extends FormFieldController {
-  final TextEditingController textController = TextEditingController();
-  String _denomination = 'BTC';
-  int _decimals = 8;
-  String _originalSats = '0';
+  /// The amount sub-controller — owns the denomination, text editing, and
+  /// integer-vs-decimal parsing.
+  final AmountFieldController amountField = AmountFieldController();
+
+  // ── Delegated accessors ─────────────────────────────────────────
+
+  /// Shortcut: the active denomination (e.g. `"BTC"`, `"USD"`).
+  String get denomination => amountField.denomination;
+
+  /// Shortcut: the active decimal precision.
+  int get decimals => amountField.decimals;
+
+  /// Shortcut: the current amount (may be `null` if empty/zero).
+  DenominatedAmount? get amount => amountField.amount;
+
+  /// The current amount for display — never null, returns zero when empty.
+  DenominatedAmount get displayAmount =>
+      amountField.amount ??
+      DenominatedAmount.zero(amountField.denomination, amountField.decimals);
+
+  // ── Dirty / Valid ───────────────────────────────────────────────
 
   @override
-  bool get isDirty {
-    final currentSats = textController.text.replaceAll(',', '').trim();
-    return currentSats != _originalSats;
+  bool get isDirty => amountField.isDirty;
+
+  @override
+  bool get isValid => validatePrice() == null;
+
+  // ── Denomination ────────────────────────────────────────────────
+
+  /// Switch denomination, clearing the entered value.
+  void setDenomination(String denomination) {
+    amountField.setDenomination(denomination);
+    notifyListeners();
   }
 
-  @override
-  bool get isValid => validatePrice(textController.text) == null;
+  // ── State (from model) ──────────────────────────────────────────
 
-  /// Set the initial state from the listing's existing prices.
+  /// Initialise from the listing's existing prices.
   void setState(List<Price> prices) {
-    _denomination = 'BTC';
-    _decimals = 8;
     final nightly = prices.firstWhere(
       (p) => p.frequency == Frequency.daily,
       orElse: () => prices.isNotEmpty
           ? prices.first
           : Price(
-              amount: DenominatedAmount(
-                denomination: 'BTC',
-                value: BigInt.zero,
-                decimals: 8,
+              amount: DenominatedAmount.zero(
+                amountField.denomination,
+                amountField.decimals,
               ),
               frequency: Frequency.daily,
             ),
     );
-    _originalSats = nightly.amount.value.toString();
-    textController.text = formatWithCommas(_originalSats);
+
+    // Initialise the amount controller with the nightly amount.
+    // A zero value is treated as "empty" — display blank.
+    final a = nightly.amount;
+    amountField.setState(a.value > BigInt.zero ? a : null);
     notifyListeners();
   }
 
-  String? validatePrice(String? value) {
-    final amount = amountFromSatsInput(value ?? '');
-    if (amount.value <= BigInt.zero) {
+  /// Set the amount directly (e.g. from the keypad bottom sheet).
+  void setAmount(DenominatedAmount? value) {
+    amountField.setState(value);
+    notifyListeners();
+  }
+
+  // ── Validation ──────────────────────────────────────────────────
+
+  String? validatePrice([String? _]) {
+    final a = amountField.amount;
+    if (a == null || a.value <= BigInt.zero) {
       return 'Enter a valid price';
     }
     return null;
   }
 
+  // ── Build model ─────────────────────────────────────────────────
+
   /// Build the updated price list, replacing or appending the daily price.
   List<Price> buildUpdatedPrices(List<Price> currentPrices) {
-    final updatedAmount = amountFromSatsInput(textController.text);
+    final updatedAmount =
+        amountField.amount ??
+        DenominatedAmount.zero(amountField.denomination, amountField.decimals);
+
     if (currentPrices.isEmpty) {
       return [Price(amount: updatedAmount, frequency: Frequency.daily)];
     }
@@ -73,35 +122,17 @@ class ListingPriceFieldController extends FormFieldController {
     return updated;
   }
 
-  DenominatedAmount amountFromSatsInput(String input) {
-    final trimmed = input.replaceAll(',', '').trim();
-    if (trimmed.isEmpty) {
-      return DenominatedAmount(
-        denomination: _denomination,
-        value: BigInt.zero,
-        decimals: _decimals,
-      );
-    }
+  // ── Lifecycle ───────────────────────────────────────────────────
 
-    try {
-      final sats = BigInt.parse(trimmed);
-      return DenominatedAmount(
-        denomination: _denomination,
-        value: sats,
-        decimals: _decimals,
-      );
-    } on FormatException {
-      return DenominatedAmount(
-        denomination: _denomination,
-        value: BigInt.zero,
-        decimals: _decimals,
-      );
-    }
+  ListingPriceFieldController() {
+    // Forward change notifications from the child amount controller.
+    amountField.addListener(notifyListeners);
   }
 
   @override
   void dispose() {
-    textController.dispose();
+    amountField.removeListener(notifyListeners);
+    amountField.dispose();
     super.dispose();
   }
 }

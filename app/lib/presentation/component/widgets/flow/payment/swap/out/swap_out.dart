@@ -108,7 +108,7 @@ class SwapOutConfirmWidget extends StatefulWidget {
 }
 
 class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
-  late final Future<SwapOutQuote> _quoteFuture;
+  late final Future<SwapQuote> _quoteFuture;
 
   @override
   void initState() {
@@ -122,7 +122,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
     return ModalBottomSheet(
       type: ModalBottomSheetType.normal,
       title: AppLocalizations.of(context)!.withdrawFundsTitle,
-      content: FutureBuilder<SwapOutQuote>(
+      content: FutureBuilder<SwapQuote>(
         future: _quoteFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -152,7 +152,7 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
           );
 
           return AmountWidget(
-            amount: quote.invoiceAmount.toDenominated(),
+            amount: quote.receiveAmount.toDenominated(),
             feeWidget: Text(
               "+ ${formatAmount(fees.networkFees)} in network fees${fees.gasSponsored ? ' (gas sponsored)' : ''}",
               style: subtleStyle,

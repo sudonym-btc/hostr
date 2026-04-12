@@ -30,7 +30,7 @@ class EscrowWithdrawOperation {
   final Evm evm;
   final Nwc nwc;
   final Payments payments;
-  final SwapOutQuoteService quoteService;
+  final SwapQuoteService quoteService;
   final CustomLogger logger;
   final EscrowWithdrawParams params;
 

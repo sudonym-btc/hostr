@@ -49,14 +49,12 @@ import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_ser
     as _i1016;
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart'
     as _i842;
-import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_quote_service.dart'
-    as _i686;
 import 'package:hostr_sdk/usecase/evm/operations/swap_in_tracker.dart'
     as _i1058;
-import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_quote_service.dart'
-    as _i148;
 import 'package:hostr_sdk/usecase/evm/operations/swap_out_tracker.dart'
     as _i673;
+import 'package:hostr_sdk/usecase/evm/operations/swap_quote_service.dart'
+    as _i686;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
@@ -127,8 +125,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final hostrSdkModule = _$HostrSdkModule();
-    gh.factory<_i686.SwapInQuoteService>(() => _i686.SwapInQuoteService());
-    gh.factory<_i148.SwapOutQuoteService>(() => _i148.SwapOutQuoteService());
+    gh.factory<_i686.SwapQuoteService>(() => _i686.SwapQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
     gh.singleton<_i995.AppDatabase>(() => hostrSdkModule.appDatabase);
@@ -542,7 +539,7 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1068.TradeAccountAllocator>(),
         gh<_i842.OperationStateStore>(),
         gh<_i794.UserConfigStore>(),
-        gh<_i148.SwapOutQuoteService>(),
+        gh<_i686.SwapQuoteService>(),
         gh<_i331.CustomLogger>(),
       ),
     );

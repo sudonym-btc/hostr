@@ -173,7 +173,7 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
                     }
                   }
                 : null,
-            feeWidget: FutureBuilder<SwapInQuote>(
+            feeWidget: FutureBuilder<SwapQuote>(
               future: operation.chain.swapInQuote(params: operation.params),
               builder: (context, snapshot) {
                 final baseStyle = Theme.of(context).textTheme.bodySmall!;

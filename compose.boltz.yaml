@@ -82,6 +82,8 @@ services:
         condition: service_healthy
     volumes:
       - ./docker/scripts/arbitrum-init.sh:/scripts/arbitrum-init.sh:ro
+      - ./docker/scripts/deploy-uniswap-v3.sh:/scripts/deploy-uniswap-v3.sh:ro
+      - ./docker/scripts/uniswap-v3-bytecodes:/scripts/uniswap-v3-bytecodes:ro
       - ./dependencies/boltz-regtest/images/scripts/utils.sh:/scripts/boltz-utils.sh:ro
       - ./docker/data/arbitrum:/data
     entrypoint: ["sh", "/scripts/arbitrum-init.sh"]

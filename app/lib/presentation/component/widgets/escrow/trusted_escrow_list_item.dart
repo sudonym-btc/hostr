@@ -17,15 +17,17 @@ class TrustedEscrowListItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metadata = profile?.metadata;
-    final title = metadata?.getName() ?? 'Unnamed';
-    final subtitle = metadata?.nip05 ?? '';
+    if (profile == null) return AppListItem.loading(onTap: onTap);
+
+    final metadata = profile!.metadata;
+    final title = metadata.getName();
+    final subtitle = metadata.nip05 ?? '';
 
     return AppListItem(
       onTap: onTap,
       leading: AppAvatar.md(
-        image: metadata?.picture,
-        pubkey: profile?.pubKey,
+        image: metadata.picture,
+        pubkey: profile!.pubKey,
         label: title,
         icon: Icons.security,
       ),

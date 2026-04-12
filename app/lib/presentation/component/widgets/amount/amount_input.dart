@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/forms/listing_price_field_controller.dart'
+    show decimalsForDenomination;
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -142,209 +144,257 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
   final DenominatedAmount? min;
   final DenominatedAmount? max;
 
-  AmountInputWidget({super.key, initialValue, this.min, this.max})
-    : super(
-        initialValue: initialValue ?? DenominatedAmount.zero('BTC', 8),
-        builder: (field) {
-          final amountInput = field.widget as AmountInputWidget;
-          final isOutOfRange =
-              (amountInput.min != null &&
-                  field.value!.value < amountInput.min!.value) ||
-              (amountInput.max != null &&
-                  field.value!.value > amountInput.max!.value);
-          final isBtc = field.value!.isBtc;
-          final maxDecimals = isBtc ? 0 : field.value!.decimals;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Gap.vertical.custom(kSpace8),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      formatAmount(field.value!),
-                      style: Theme.of(field.context).textTheme.displayMedium!
-                          .copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: isOutOfRange
-                                ? Theme.of(field.context).colorScheme.error
-                                : null,
-                          ),
-                    ),
-                    if (amountInput.min != null || amountInput.max != null)
-                      CustomPadding.only(
-                        top: kSpace1,
-                        child: Text(
-                          '${amountInput.min != null ? formatAmount(amountInput.min!) : '0'} — ${amountInput.max != null ? formatAmount(amountInput.max!) : '∞'}',
-                          style: Theme.of(field.context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  field.context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Gap.vertical.custom(kSpace5),
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: kAppFormMaxWidth),
-                  child: CustomPadding(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                mainAxisExtent: 64,
-                                mainAxisSpacing: 12,
-                              ),
-                          itemCount: 12,
-                          itemBuilder: (context, index) {
-                            Widget buttonContent;
-                            if (index < 11) {
-                              buttonContent = Text(
-                                buttons[index].toString(),
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
-                              );
-                            } else if (index == 11) {
-                              buttonContent = Icon(
-                                Icons.backspace,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              );
-                            } else {
-                              buttonContent =
-                                  Container(); // Empty container for the last cell
-                            }
+  /// Denominations the user may switch between (e.g. `['BTC', 'USD']`).
+  ///
+  /// When empty or single-element, the denomination selector is hidden
+  /// and the widget behaves exactly as before.
+  final List<String> possibleDenominations;
 
-                            return GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                // For BTC-family, we edit in sats (the display unit),
-                                // so use the raw integer value directly.
-                                String currentValue;
-                                if (isBtc) {
-                                  currentValue = field.value!.value.toString();
-                                } else {
-                                  currentValue = field.value!.toDecimalString(
-                                    maxDecimals: maxDecimals,
-                                  );
-                                  // Only trim trailing zeros after the decimal point
-                                  if (currentValue.contains('.')) {
-                                    currentValue = currentValue.replaceAll(
-                                      RegExp(r'0*$'),
-                                      '',
-                                    );
-                                    currentValue = currentValue.replaceAll(
-                                      RegExp(r'\.$'),
-                                      '',
-                                    );
-                                  }
-                                }
+  /// Fired when the user taps a different denomination in the selector.
+  ///
+  /// The parent is responsible for rebuilding with new [initialValue],
+  /// [min], and [max] all expressed in the new denomination.
+  final ValueChanged<String>? onDenominationChanged;
 
-                                if (buttons[index] is int) {
-                                  if (currentValue == '0') {
-                                    currentValue = '';
-                                  }
-                                  final newValue =
-                                      currentValue + buttons[index].toString();
-                                  final DenominatedAmount newAmount;
-                                  if (isBtc) {
-                                    final parsed = BigInt.tryParse(newValue);
-                                    if (parsed == null) return;
-                                    newAmount = DenominatedAmount(
-                                      value: parsed,
-                                      denomination: field.value!.denomination,
-                                      decimals: field.value!.decimals,
-                                    );
-                                  } else {
-                                    newAmount = DenominatedAmount.fromDecimal(
-                                      newValue,
-                                      field.value!.denomination,
-                                      field.value!.decimals,
-                                    );
-                                  }
-                                  field.didChange(newAmount);
-                                  return;
-                                }
+  AmountInputWidget({
+    super.key,
+    initialValue,
+    this.min,
+    this.max,
+    this.possibleDenominations = const [],
+    this.onDenominationChanged,
+  }) : super(
+         initialValue: initialValue ?? DenominatedAmount.zero('BTC', 8),
+         builder: (field) {
+           final amountInput = field.widget as AmountInputWidget;
+           final isOutOfRange =
+               (amountInput.min != null &&
+                   field.value!.value < amountInput.min!.value) ||
+               (amountInput.max != null &&
+                   field.value!.value > amountInput.max!.value);
+           final isBtc = field.value!.isBtc;
+           final maxDecimals = isBtc ? 0 : field.value!.decimals;
+           final denominations = amountInput.possibleDenominations;
+           final activeDenomination = field.value!.denomination;
+           return Column(
+             mainAxisSize: MainAxisSize.min,
+             children: [
+               Gap.vertical.custom(kSpace8),
+               Center(
+                 child: Column(
+                   mainAxisSize: MainAxisSize.min,
+                   children: [
+                     Text(
+                       formatAmount(field.value!),
+                       style: Theme.of(field.context).textTheme.displayMedium!
+                           .copyWith(
+                             fontWeight: FontWeight.bold,
+                             color: isOutOfRange
+                                 ? Theme.of(field.context).colorScheme.error
+                                 : null,
+                           ),
+                     ),
+                     if (amountInput.min != null || amountInput.max != null)
+                       CustomPadding.only(
+                         top: kSpace1,
+                         child: Text(
+                           '${amountInput.min != null ? formatAmount(amountInput.min!) : '0'} — ${amountInput.max != null ? formatAmount(amountInput.max!) : '∞'}',
+                           style: Theme.of(field.context).textTheme.bodySmall
+                               ?.copyWith(
+                                 color: Theme.of(
+                                   field.context,
+                                 ).colorScheme.onSurfaceVariant,
+                               ),
+                         ),
+                       ),
+                   ],
+                 ),
+               ),
+               // ── Denomination selector ─────────────────────────────
+               if (denominations.length > 1) ...[
+                 Gap.vertical.custom(kSpace3),
+                 Center(
+                   child: SegmentedButton<String>(
+                     segments: denominations
+                         .map(
+                           (d) =>
+                               ButtonSegment<String>(value: d, label: Text(d)),
+                         )
+                         .toList(),
+                     selected: {activeDenomination},
+                     onSelectionChanged: (selected) {
+                       final newDenom = selected.first;
+                       final newDecimals = decimalsForDenomination(newDenom);
+                       field.didChange(
+                         DenominatedAmount.zero(newDenom, newDecimals),
+                       );
+                       amountInput.onDenominationChanged?.call(newDenom);
+                     },
+                     showSelectedIcon: false,
+                   ),
+                 ),
+               ],
+               Gap.vertical.custom(kSpace5),
+               Center(
+                 child: ConstrainedBox(
+                   constraints: const BoxConstraints(
+                     maxWidth: kAppFormMaxWidth,
+                   ),
+                   child: CustomPadding(
+                     child: Column(
+                       mainAxisAlignment: MainAxisAlignment.end,
+                       children: [
+                         GridView.builder(
+                           shrinkWrap: true,
+                           physics: const NeverScrollableScrollPhysics(),
+                           gridDelegate:
+                               SliverGridDelegateWithFixedCrossAxisCount(
+                                 crossAxisCount: 3,
+                                 mainAxisExtent: 64,
+                                 mainAxisSpacing: 12,
+                               ),
+                           itemCount: 12,
+                           itemBuilder: (context, index) {
+                             Widget buttonContent;
+                             if (index < 11) {
+                               buttonContent = Text(
+                                 buttons[index].toString(),
+                                 style: Theme.of(context)
+                                     .textTheme
+                                     .headlineSmall
+                                     ?.copyWith(
+                                       color: Theme.of(
+                                         context,
+                                       ).colorScheme.onSurface,
+                                     ),
+                               );
+                             } else if (index == 11) {
+                               buttonContent = Icon(
+                                 Icons.backspace,
+                                 color: Theme.of(context).colorScheme.onSurface,
+                               );
+                             } else {
+                               buttonContent =
+                                   Container(); // Empty container for the last cell
+                             }
 
-                                if (buttons[index] == '.') {
-                                  if (isBtc) return; // no decimals for sats
-                                  if (!currentValue.contains('.')) {
-                                    final newValue = currentValue.isEmpty
-                                        ? '0.'
-                                        : '$currentValue.';
-                                    field.didChange(
-                                      DenominatedAmount.fromDecimal(
-                                        newValue,
-                                        field.value!.denomination,
-                                        field.value!.decimals,
-                                      ),
-                                    );
-                                  }
-                                  return;
-                                }
+                             return GestureDetector(
+                               behavior: HitTestBehavior.opaque,
+                               onTap: () {
+                                 // For BTC-family, we edit in sats (the display unit),
+                                 // so use the raw integer value directly.
+                                 String currentValue;
+                                 if (isBtc) {
+                                   currentValue = field.value!.value.toString();
+                                 } else {
+                                   currentValue = field.value!.toDecimalString(
+                                     maxDecimals: maxDecimals,
+                                   );
+                                   // Only trim trailing zeros after the decimal point
+                                   if (currentValue.contains('.')) {
+                                     currentValue = currentValue.replaceAll(
+                                       RegExp(r'0*$'),
+                                       '',
+                                     );
+                                     currentValue = currentValue.replaceAll(
+                                       RegExp(r'\.$'),
+                                       '',
+                                     );
+                                   }
+                                 }
 
-                                if (buttons[index] == 'backspace') {
-                                  if (currentValue.isNotEmpty) {
-                                    final newValue = currentValue.substring(
-                                      0,
-                                      currentValue.length - 1,
-                                    );
-                                    if (isBtc) {
-                                      final parsed = newValue.isEmpty
-                                          ? BigInt.zero
-                                          : (BigInt.tryParse(newValue) ??
-                                                BigInt.zero);
-                                      field.didChange(
-                                        DenominatedAmount(
-                                          value: parsed,
-                                          denomination:
-                                              field.value!.denomination,
-                                          decimals: field.value!.decimals,
-                                        ),
-                                      );
-                                    } else {
-                                      field.didChange(
-                                        DenominatedAmount.fromDecimal(
-                                          newValue.isEmpty ? '0' : newValue,
-                                          field.value!.denomination,
-                                          field.value!.decimals,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                }
-                              },
-                              child: AppSurface(
-                                steps: 2,
-                                shape: const CircleBorder(),
-                                padding: const EdgeInsets.all(16),
-                                child: Center(child: buttonContent),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
+                                 if (buttons[index] is int) {
+                                   if (currentValue == '0') {
+                                     currentValue = '';
+                                   }
+                                   final newValue =
+                                       currentValue + buttons[index].toString();
+                                   final DenominatedAmount newAmount;
+                                   if (isBtc) {
+                                     final parsed = BigInt.tryParse(newValue);
+                                     if (parsed == null) return;
+                                     newAmount = DenominatedAmount(
+                                       value: parsed,
+                                       denomination: field.value!.denomination,
+                                       decimals: field.value!.decimals,
+                                     );
+                                   } else {
+                                     newAmount = DenominatedAmount.fromDecimal(
+                                       newValue,
+                                       field.value!.denomination,
+                                       field.value!.decimals,
+                                     );
+                                   }
+                                   field.didChange(newAmount);
+                                   return;
+                                 }
+
+                                 if (buttons[index] == '.') {
+                                   if (isBtc) return; // no decimals for sats
+                                   if (!currentValue.contains('.')) {
+                                     final newValue = currentValue.isEmpty
+                                         ? '0.'
+                                         : '$currentValue.';
+                                     field.didChange(
+                                       DenominatedAmount.fromDecimal(
+                                         newValue,
+                                         field.value!.denomination,
+                                         field.value!.decimals,
+                                       ),
+                                     );
+                                   }
+                                   return;
+                                 }
+
+                                 if (buttons[index] == 'backspace') {
+                                   if (currentValue.isNotEmpty) {
+                                     final newValue = currentValue.substring(
+                                       0,
+                                       currentValue.length - 1,
+                                     );
+                                     if (isBtc) {
+                                       final parsed = newValue.isEmpty
+                                           ? BigInt.zero
+                                           : (BigInt.tryParse(newValue) ??
+                                                 BigInt.zero);
+                                       field.didChange(
+                                         DenominatedAmount(
+                                           value: parsed,
+                                           denomination:
+                                               field.value!.denomination,
+                                           decimals: field.value!.decimals,
+                                         ),
+                                       );
+                                     } else {
+                                       field.didChange(
+                                         DenominatedAmount.fromDecimal(
+                                           newValue.isEmpty ? '0' : newValue,
+                                           field.value!.denomination,
+                                           field.value!.decimals,
+                                         ),
+                                       );
+                                     }
+                                   }
+                                 }
+                               },
+                               child: AppSurface(
+                                 steps: 2,
+                                 shape: const CircleBorder(),
+                                 padding: const EdgeInsets.all(16),
+                                 child: Center(child: buttonContent),
+                               ),
+                             );
+                           },
+                         ),
+                       ],
+                     ),
+                   ),
+                 ),
+               ),
+             ],
+           );
+         },
+       );
 }
 
 /// A bottom sheet that allows the user to edit an amount within an optional range.
@@ -352,12 +402,16 @@ class AmountEditorBottomSheet extends StatefulWidget {
   final DenominatedAmount initialAmount;
   final DenominatedAmount? minAmount;
   final DenominatedAmount? maxAmount;
+  final List<String> possibleDenominations;
+  final ValueChanged<String>? onDenominationChanged;
 
   const AmountEditorBottomSheet({
     super.key,
     required this.initialAmount,
     this.minAmount,
     this.maxAmount,
+    this.possibleDenominations = const [],
+    this.onDenominationChanged,
   });
 
   /// Shows the amount editor as a modal bottom sheet.
@@ -367,6 +421,8 @@ class AmountEditorBottomSheet extends StatefulWidget {
     required DenominatedAmount initialAmount,
     DenominatedAmount? minAmount,
     DenominatedAmount? maxAmount,
+    List<String> possibleDenominations = const [],
+    ValueChanged<String>? onDenominationChanged,
   }) {
     return showAppModal<DenominatedAmount>(
       context,
@@ -374,6 +430,8 @@ class AmountEditorBottomSheet extends StatefulWidget {
         initialAmount: initialAmount,
         minAmount: minAmount,
         maxAmount: maxAmount,
+        possibleDenominations: possibleDenominations,
+        onDenominationChanged: onDenominationChanged,
       ),
     );
   }
@@ -396,6 +454,8 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
           initialValue: widget.initialAmount,
           min: widget.minAmount,
           max: widget.maxAmount,
+          possibleDenominations: widget.possibleDenominations,
+          onDenominationChanged: widget.onDenominationChanged,
         ),
         SafeArea(
           top: false,
