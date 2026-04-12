@@ -77,7 +77,7 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
       const AppNavigationDestination(
         label: 'Explore',
         icon: Icons.travel_explore,
-        route: SearchRoute(),
+        route: ExploreRoute(),
       ),
       AppNavigationDestination(
         label: 'Sign In',
@@ -113,13 +113,13 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
   }
 
   return [
-    const AppNavigationDestination(
-      label: 'Explore',
-      icon: Icons.travel_explore,
-      route: SearchRoute(),
-    ),
-    const AppNavigationDestination(
-      label: 'Trips',
+      const AppNavigationDestination(
+        label: 'Explore',
+        icon: Icons.travel_explore,
+        route: ExploreRoute(),
+      ),
+      const AppNavigationDestination(
+        label: 'Trips',
       icon: Icons.flight,
       route: TripsRoute(),
     ),
@@ -147,13 +147,13 @@ String resolveAppNavigationRouteName({
     case EditListingRoute.name:
       return isLoggedIn && modeState is HostMode
           ? MyListingsRoute.name
-          : SearchRoute.name;
+          : ExploreRoute.name;
     case ListingRoute.name:
       return isLoggedIn && modeState is HostMode
           ? MyListingsRoute.name
-          : SearchRoute.name;
+          : ExploreRoute.name;
     case FiltersRoute.name:
-      return SearchRoute.name;
+      return ExploreRoute.name;
     case ThreadRoute.name:
       return InboxRoute.name;
     default:

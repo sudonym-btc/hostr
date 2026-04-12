@@ -60,6 +60,7 @@ RUN case "$APP_PROFILE" in \
     *) FLUTTER_TARGET="lib/main_development.dart" ;; \
     esac \
     && flutter build web --release \
+    --base-href="/" \
     --target="$FLUTTER_TARGET"
 
 FROM nginx:1.27-alpine AS runtime

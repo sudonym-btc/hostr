@@ -51,16 +51,16 @@ resource "google_dns_record_set" "app" {
   depends_on = [google_compute_address.static_ip]
 }
 
-resource "google_dns_record_set" "landing" {
-  name         = "landing.${var.domain_name}."
-  type         = "A"
-  ttl          = 300
-  project      = var.project_id
-  managed_zone = data.google_dns_managed_zone.app_zone.name
-  rrdatas      = [google_compute_address.static_ip.address]
-
-  depends_on = [google_compute_address.static_ip]
-}
+# resource "google_dns_record_set" "landing" {
+#   name         = "landing.${var.domain_name}."
+#   type         = "A"
+#   ttl          = 300
+#   project      = var.project_id
+#   managed_zone = data.google_dns_managed_zone.app_zone.name
+#   rrdatas      = [google_compute_address.static_ip.address]
+#
+#   depends_on = [google_compute_address.static_ip]
+# }
 
 resource "google_dns_record_set" "paymaster" {
   name         = "paymaster.${var.domain_name}."

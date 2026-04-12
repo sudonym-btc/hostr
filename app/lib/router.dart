@@ -75,9 +75,9 @@ class AppRouter extends RootStackRouter {
                   children: [
                     /// Public routes
                     AutoRoute(
-                      page: SearchRoute.page,
+                      page: ExploreRoute.page,
                       initial: true,
-                      path: 'search',
+                      path: 'explore',
                       children: [
                         AutoRoute(page: FiltersRoute.page, path: 'filters'),
                       ],

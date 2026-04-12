@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/component/widgets/search/listing_map_controller.dart';
-import 'package:hostr/presentation/component/widgets/search/map_style.dart';
-import 'package:hostr/presentation/component/widgets/search/price_marker.dart';
+import 'package:hostr/presentation/component/widgets/explore/listing_map_controller.dart';
+import 'package:hostr/presentation/component/widgets/explore/map_style.dart';
+import 'package:hostr/presentation/component/widgets/explore/price_marker.dart';
 import 'package:models/main.dart';
 
 export 'listing_map_controller.dart';

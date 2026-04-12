@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
-import 'package:hostr/presentation/screens/guest/search/search_view.dart';
+import 'package:hostr/presentation/screens/guest/explore/explore_view.dart';
 import 'package:models/main.dart';
 
 @RoutePage()
-class SearchScreen extends StatelessWidget {
-  const SearchScreen({super.key});
+class ExploreScreen extends StatelessWidget {
+  const ExploreScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,7 @@ class SearchScreen extends StatelessWidget {
           ),
         ),
       ],
-      child: SearchView(),
+      child: ExploreView(),
     );
   }
 }

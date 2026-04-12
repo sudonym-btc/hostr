@@ -1,3 +1,3 @@
-export 'search/filters.dart';
-export 'search/search.dart';
+export 'explore/filters.dart';
+export 'explore/explore.dart';
 export 'trips/trips.dart';

@@ -545,7 +545,7 @@ class InfrastructureSink implements SeedSink {
             // (the void return value of the called function) — making it look
             // like there was no revert data when really the diagnostic just
             // succeeded silently.
-            final prevBlock = receipt.blockNumber.blockNum - BigInt.one;
+            final prevBlock = receipt.blockNumber.blockNum - 1;
             final blockHex = '0x${prevBlock.toRadixString(16)}';
             final revertData = await _chainClient().makeRPCCall<String>(
               'eth_call',

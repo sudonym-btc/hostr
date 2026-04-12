@@ -58,7 +58,7 @@ services:
           - relay.${DOMAIN}
           - blossom.${DOMAIN}
           - app.${DOMAIN}
-          - landing.${DOMAIN}
+          # - landing.${DOMAIN}
           - telemetry.${DOMAIN}
           - ${DOMAIN}
           - lnbits.${DOMAIN}
@@ -131,21 +131,21 @@ services:
     networks:
       - default
 
-  landing-page:
-    build:
-      context: .
-      dockerfile: landing-page/Dockerfile
-    environment:
-      - VIRTUAL_HOST=landing.${DOMAIN},${DOMAIN}
-      - VIRTUAL_PORT=80
-    ports:
-      - "${LANDING_PAGE_PORT:-8091}:80"
-    networks:
-      - default
-    profiles:
-      - local
-      - staging
-      - prod
+  # landing-page:
+  #   build:
+  #     context: .
+  #     dockerfile: landing-page/Dockerfile
+  #   environment:
+  #     - VIRTUAL_HOST=landing.${DOMAIN},${DOMAIN}
+  #     - VIRTUAL_PORT=80
+  #   ports:
+  #     - "${LANDING_PAGE_PORT:-8091}:80"
+  #   networks:
+  #     - default
+  #   profiles:
+  #     - local
+  #     - staging
+  #     - prod
 
   app:
     build:
@@ -155,7 +155,7 @@ services:
         APP_PROFILE: ${COMPOSE_PROFILES:-local}
         GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
     environment:
-      - VIRTUAL_HOST=app.${DOMAIN}
+      - VIRTUAL_HOST=app.${DOMAIN},${DOMAIN}
       - VIRTUAL_PORT=80
     networks:
       - default
