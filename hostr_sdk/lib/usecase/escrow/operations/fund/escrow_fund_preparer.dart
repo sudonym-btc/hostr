@@ -69,7 +69,7 @@ class EscrowFundPreparer {
     return SwapInParams(
       evmKey: _signer,
       accountIndex: accountIndex,
-      amount: quote.resolvedSwapAmount,
+      amount: quote.sendAmount,
       invoiceDescription: swapInvoiceDescription,
       claimAddress: claimAddress,
       parentOperationId: tradeId,
@@ -144,7 +144,7 @@ class EscrowFundPreparer {
     );
   }
 
-  Future<SwapInQuote> _buildQuote(_ResolvedCalls resolved) {
+  Future<SwapQuote> _buildQuote(_ResolvedCalls resolved) {
     final swapInParams = SwapInParams(
       evmKey: _signer,
       accountIndex: accountIndex,
@@ -152,7 +152,7 @@ class EscrowFundPreparer {
       postClaimCalls: resolved.fundCalls,
       postClaimStateOverrides: resolved.stateOverrides,
     );
-    return getIt<SwapInQuoteService>().buildQuote(
+    return getIt<SwapQuoteService>().buildSwapInQuote(
       chain: configuredChain,
       params: swapInParams,
       escrowFee: resolved.escrowFee,

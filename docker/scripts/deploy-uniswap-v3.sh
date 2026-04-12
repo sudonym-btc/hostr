@@ -1,0 +1,445 @@
+#!/bin/sh
+# ─────────────────────────────────────────────────────────────────────────────
+# deploy-uniswap-v3.sh
+#
+# Deploys the full Uniswap V3 stack on anvil-arbitrum for ERC20 quoting
+# and swapping in the local regtest environment.
+#
+# Deployed contracts (Account #9, deterministic addresses):
+#   Nonce 0 → WETH9              0x95bD8D42f30351685e96C62EDdc0d0613bf9a87A
+#   Nonce 1 → Multicall3         0x98eDDadCfde04dC22a0e62119617e74a6Bc77313
+#   Nonce 2 → UniswapV3Factory   0x2B574555158337Cd46d47c2Ca57E4698A1f04e70
+#   Nonce 3 → NonfungiblePosMgr  0xcA8b49076D1A8039599e24979abf819af784c27a
+#   Nonce 4 → QuoterV2           0xc039b3B46814D8388e5205D37Dd0D154D806F1f4
+#   Nonce 5 → SwapRouter02       0x2B15063A6F8a11d18404C801F295b1d19dCC8574
+#
+# After deployment:
+#   - Creates tBTC/USDT (fee=3000) pool
+#   - Initialises pool at $70,000/tBTC
+#   - Seeds full-range liquidity
+#
+# Called from arbitrum-init.sh after MockTBTC + MockUSDT deployment.
+#
+# Required env:
+#   ARBITRUM_RPC     – RPC endpoint (e.g. http://anvil-arbitrum:8545)
+#   TBTC_ADDRESS     – deployed MockTBTC address
+#   USDT_ADDRESS     – deployed MockUSDT address
+#   DEPLOYER_PK      – private key of Account #1 (token holder)
+# ─────────────────────────────────────────────────────────────────────────────
+set -eu
+
+: "${ARBITRUM_RPC:?ARBITRUM_RPC is required}"
+: "${TBTC_ADDRESS:?TBTC_ADDRESS is required}"
+: "${USDT_ADDRESS:?USDT_ADDRESS is required}"
+: "${DEPLOYER_PK:?DEPLOYER_PK is required}"
+
+RPC="$ARBITRUM_RPC"
+
+# ── Uniswap deployer: Anvil Account #9 (clean nonce 0) ───────────────────
+UNI_PK="0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
+UNI_DEPLOYER="0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+
+# Pre-extracted creation bytecodes (mounted from host)
+BYTECODES="${BYTECODES_DIR:-/scripts/uniswap-v3-bytecodes}"
+
+# ── Expected deterministic addresses (Account #9, nonces 0-5) ────────────
+WETH_ADDR="0x95bD8D42f30351685e96C62EDdc0d0613bf9a87A"
+MULTICALL3_ADDR="0x98eDDadCfde04dC22a0e62119617e74a6Bc77313"
+FACTORY_ADDR="0x2B574555158337Cd46d47c2Ca57E4698A1f04e70"
+NFT_POS_MGR="0xcA8b49076D1A8039599e24979abf819af784c27a"
+QUOTER_V2_ADDR="0xc039b3B46814D8388e5205D37Dd0D154D806F1f4"
+SWAP_ROUTER_ADDR="0x2B15063A6F8a11d18404C801F295b1d19dCC8574"
+
+# Zero address for unused constructor args
+ZERO="0x0000000000000000000000000000000000000000"
+
+echo ""
+echo "═══════════════════════════════════════════════"
+echo " Deploying Uniswap V3 Stack"
+echo "═══════════════════════════════════════════════"
+echo "  Deployer:  $UNI_DEPLOYER (Account #9)"
+echo "  tBTC:      $TBTC_ADDRESS"
+echo "  USDT:      $USDT_ADDRESS"
+echo ""
+
+# ── Helper: verify deployed address matches expectation ───────────────────
+verify_deploy() {
+  local name="$1" actual="$2" expected="$3"
+  # Compare case-insensitively (cast --json returns lowercase, compute-address returns checksummed)
+  local actual_lc expected_lc
+  actual_lc=$(echo "$actual" | tr '[:upper:]' '[:lower:]')
+  expected_lc=$(echo "$expected" | tr '[:upper:]' '[:lower:]')
+  if [ "$actual_lc" != "$expected_lc" ]; then
+    echo "  ⚠ $name deployed at $actual (expected $expected)"
+    echo "  All subsequent addresses will be wrong. Aborting."
+    exit 1
+  fi
+  local code
+  code=$(cast code --rpc-url "$RPC" "$actual")
+  if [ "$code" = "0x" ] || [ -z "$code" ]; then
+    echo "  ✗ No code at $name ($actual)"
+    exit 1
+  fi
+  echo "  ✓ $name  $actual"
+}
+
+# ══════════════════════════════════════════════════════════════════════════
+# PHASE 1: Deploy contracts
+# ══════════════════════════════════════════════════════════════════════════
+
+# ── 1a. WETH9 (nonce 0) — forge create from inline Solidity ──────────────
+echo "▶ [1/6] Deploying WETH9..."
+mkdir -p /tmp/uniswap/src
+
+cat > /tmp/uniswap/foundry.toml << 'FEOF'
+[profile.default]
+src = "src"
+out = "out"
+FEOF
+
+cat > /tmp/uniswap/src/WETH9.sol << 'SOLEOF'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+contract WETH9 {
+    string public name     = "Wrapped Ether";
+    string public symbol   = "WETH";
+    uint8  public decimals = 18;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    uint256 public totalSupply;
+
+    event Deposit(address indexed dst, uint256 wad);
+    event Withdrawal(address indexed src, uint256 wad);
+    event Transfer(address indexed src, address indexed dst, uint256 wad);
+    event Approval(address indexed src, address indexed guy, uint256 wad);
+
+    receive() external payable { deposit(); }
+
+    function deposit() public payable {
+        balanceOf[msg.sender] += msg.value;
+        totalSupply += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    function withdraw(uint256 wad) public {
+        require(balanceOf[msg.sender] >= wad);
+        balanceOf[msg.sender] -= wad;
+        totalSupply -= wad;
+        payable(msg.sender).transfer(wad);
+        emit Withdrawal(msg.sender, wad);
+    }
+
+    function transfer(address dst, uint256 wad) public returns (bool) {
+        return transferFrom(msg.sender, dst, wad);
+    }
+
+    function transferFrom(address src, address dst, uint256 wad) public returns (bool) {
+        if (src != msg.sender && allowance[src][msg.sender] != type(uint256).max) {
+            allowance[src][msg.sender] -= wad;
+        }
+        balanceOf[src] -= wad;
+        balanceOf[dst] += wad;
+        emit Transfer(src, dst, wad);
+        return true;
+    }
+
+    function approve(address guy, uint256 wad) public returns (bool) {
+        allowance[msg.sender][guy] = wad;
+        emit Approval(msg.sender, guy, wad);
+        return true;
+    }
+}
+SOLEOF
+
+cd /tmp/uniswap
+WETH_OUT=$(forge create src/WETH9.sol:WETH9 \
+  --rpc-url "$RPC" --private-key "$UNI_PK" --broadcast 2>&1)
+WETH_DEPLOYED=$(echo "$WETH_OUT" | grep -i "Deployed to:" | awk '{print $NF}')
+verify_deploy "WETH9" "$WETH_DEPLOYED" "$WETH_ADDR"
+
+# ── 1b. Multicall3 (nonce 1) — forge create from inline Solidity ─────────
+echo "▶ [2/6] Deploying Multicall3..."
+
+cat > /tmp/uniswap/src/Multicall3.sol << 'SOLEOF'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+/// @title Multicall3 — minimal implementation for regtest
+/// @notice Aggregates read calls. Compatible with the canonical Multicall3 ABI.
+contract Multicall3 {
+    struct Call3 {
+        address target;
+        bool allowFailure;
+        bytes callData;
+    }
+
+    struct Result {
+        bool success;
+        bytes returnData;
+    }
+
+    /// @notice Aggregate calls, returning success/data per call
+    function aggregate3(Call3[] calldata calls)
+        external
+        payable
+        returns (Result[] memory returnData)
+    {
+        uint256 length = calls.length;
+        returnData = new Result[](length);
+        Call3 calldata calli;
+        for (uint256 i; i < length; ) {
+            calli = calls[i];
+            (bool success, bytes memory ret) = calli.target.call(calli.callData);
+            if (!success && !calli.allowFailure) {
+                // Bubble up the revert reason
+                assembly { revert(add(ret, 0x20), mload(ret)) }
+            }
+            returnData[i] = Result(success, ret);
+            unchecked { ++i; }
+        }
+    }
+
+    /// @notice Simple aggregate (legacy)
+    function aggregate(Call3[] calldata calls)
+        external
+        payable
+        returns (uint256 blockNumber, bytes[] memory returnData)
+    {
+        blockNumber = block.number;
+        uint256 length = calls.length;
+        returnData = new bytes[](length);
+        for (uint256 i; i < length; ) {
+            (bool success, bytes memory ret) = calls[i].target.call(calls[i].callData);
+            require(success, "Multicall3: call failed");
+            returnData[i] = ret;
+            unchecked { ++i; }
+        }
+    }
+
+    function getBlockNumber() external view returns (uint256 blockNumber) {
+        blockNumber = block.number;
+    }
+
+    function getBlockHash(uint256 blockNumber) external view returns (bytes32 blockHash) {
+        blockHash = blockhash(blockNumber);
+    }
+
+    function getLastBlockHash() external view returns (bytes32 blockHash) {
+        unchecked { blockHash = blockhash(block.number - 1); }
+    }
+
+    function getCurrentBlockTimestamp() external view returns (uint256 timestamp) {
+        timestamp = block.timestamp;
+    }
+
+    function getCurrentBlockGasLimit() external view returns (uint256 gaslimit) {
+        gaslimit = block.gaslimit;
+    }
+
+    function getCurrentBlockCoinbase() external view returns (address coinbase) {
+        coinbase = block.coinbase;
+    }
+
+    function getEthBalance(address addr) external view returns (uint256 balance) {
+        balance = addr.balance;
+    }
+
+    function getChainId() external view returns (uint256 chainid) {
+        chainid = block.chainid;
+    }
+}
+SOLEOF
+
+MC_OUT=$(forge create src/Multicall3.sol:Multicall3 \
+  --rpc-url "$RPC" --private-key "$UNI_PK" --broadcast 2>&1)
+MC_DEPLOYED=$(echo "$MC_OUT" | grep -i "Deployed to:" | awk '{print $NF}')
+verify_deploy "Multicall3" "$MC_DEPLOYED" "$MULTICALL3_ADDR"
+
+# ── 1c. UniswapV3Factory (nonce 2) — from pre-extracted bytecode ─────────
+echo "▶ [3/6] Deploying UniswapV3Factory..."
+FACTORY_BYTECODE=$(cat "$BYTECODES/UniswapV3Factory.hex")
+FACTORY_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "$FACTORY_BYTECODE" --json 2>&1)
+FACTORY_DEPLOYED=$(echo "$FACTORY_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+verify_deploy "UniswapV3Factory" "$FACTORY_DEPLOYED" "$FACTORY_ADDR"
+
+# ── 1d. NonfungiblePositionManager (nonce 3) ─────────────────────────────
+echo "▶ [4/6] Deploying NonfungiblePositionManager..."
+NFT_BYTECODE=$(cat "$BYTECODES/NonfungiblePositionManager.hex")
+# Constructor: (address _factory, address _WETH9, address _tokenDescriptor_)
+# Pass address(0) for tokenDescriptor — only used by tokenURI() which we don't need
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address,address)" \
+  "$FACTORY_ADDR" "$WETH_ADDR" "$ZERO")
+NFT_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "${NFT_BYTECODE}$(echo "$CONSTRUCTOR_ARGS" | sed 's/^0x//')" --json 2>&1)
+NFT_DEPLOYED=$(echo "$NFT_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+verify_deploy "NonfungiblePositionManager" "$NFT_DEPLOYED" "$NFT_POS_MGR"
+
+# ── 1e. QuoterV2 (nonce 4) ───────────────────────────────────────────────
+echo "▶ [5/6] Deploying QuoterV2..."
+QUOTER_BYTECODE=$(cat "$BYTECODES/QuoterV2.hex")
+# Constructor: (address _factory, address _WETH9)
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address)" \
+  "$FACTORY_ADDR" "$WETH_ADDR")
+QUOTER_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "${QUOTER_BYTECODE}$(echo "$CONSTRUCTOR_ARGS" | sed 's/^0x//')" --json 2>&1)
+QUOTER_DEPLOYED=$(echo "$QUOTER_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+verify_deploy "QuoterV2" "$QUOTER_DEPLOYED" "$QUOTER_V2_ADDR"
+
+# ── 1f. SwapRouter02 (nonce 5) ───────────────────────────────────────────
+echo "▶ [6/6] Deploying SwapRouter02..."
+ROUTER_BYTECODE=$(cat "$BYTECODES/SwapRouter02.hex")
+# Constructor: (address _factoryV2, address _factoryV3, address _positionManager, address _WETH9)
+# Pass address(0) for V2 factory (no V2 routing needed)
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address,address,address)" \
+  "$ZERO" "$FACTORY_ADDR" "$NFT_POS_MGR" "$WETH_ADDR")
+ROUTER_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "${ROUTER_BYTECODE}$(echo "$CONSTRUCTOR_ARGS" | sed 's/^0x//')" --json 2>&1)
+ROUTER_DEPLOYED=$(echo "$ROUTER_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+verify_deploy "SwapRouter02" "$ROUTER_DEPLOYED" "$SWAP_ROUTER_ADDR"
+
+echo ""
+echo "  All 6 contracts deployed ✓"
+
+# ══════════════════════════════════════════════════════════════════════════
+# PHASE 2: Create and initialise tBTC/USDT pool
+# ══════════════════════════════════════════════════════════════════════════
+
+# ── Determine token ordering (token0 = lower address) ────────────────────
+# Uniswap V3 requires token0 < token1. The sqrtPriceX96 depends on ordering.
+
+# Helper: returns "0" if $1 < $2 (hex comparison), else "1"
+addr_lt() {
+  local a
+  a=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+  local b
+  b=$(echo "$2" | tr '[:upper:]' '[:lower:]')
+  if [ "$a" \< "$b" ]; then echo "0"; else echo "1"; fi
+}
+
+echo ""
+echo "▶ Creating tBTC/USDT pool (fee=3000)..."
+
+# Price: 1 tBTC = 70,000 USDT
+# sqrtPriceX96 = sqrt(price_token1_per_token0_in_raw) * 2^96
+if [ "$(addr_lt "$USDT_ADDRESS" "$TBTC_ADDRESS")" = "0" ]; then
+  # USDT(6 dec) is token0, tBTC(18 dec) is token1
+  # price = raw_tBTC / raw_USDT = 1e18 / (70000*1e6) ≈ 14285714.286
+  POOL_T0="$USDT_ADDRESS"
+  POOL_T1="$TBTC_ADDRESS"
+  POOL_SQRT="299454306921933319110960707796992"
+else
+  # tBTC(18 dec) is token0, USDT(6 dec) is token1
+  # price = raw_USDT / raw_tBTC = (70000*1e6) / 1e18 ≈ 0.00000007
+  POOL_T0="$TBTC_ADDRESS"
+  POOL_T1="$USDT_ADDRESS"
+  POOL_SQRT="20961801484535330867511296"
+fi
+
+cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  "$FACTORY_ADDR" "createPool(address,address,uint24)(address)" \
+  "$POOL_T0" "$POOL_T1" 3000 >/dev/null
+
+TBTC_USDT_POOL=$(cast call --rpc-url "$RPC" \
+  "$FACTORY_ADDR" "getPool(address,address,uint24)(address)" \
+  "$TBTC_ADDRESS" "$USDT_ADDRESS" 3000)
+TBTC_USDT_POOL=$(echo "$TBTC_USDT_POOL" | tr -d '[:space:]')
+echo "  Pool: $TBTC_USDT_POOL"
+
+echo "  Initialising (1 tBTC = 70,000 USDT)..."
+cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  "$TBTC_USDT_POOL" "initialize(uint160)" "$POOL_SQRT" >/dev/null
+echo "  ✓ tBTC/USDT pool initialised"
+
+# ══════════════════════════════════════════════════════════════════════════
+# PHASE 3: Seed liquidity
+# ══════════════════════════════════════════════════════════════════════════
+
+echo ""
+echo "▶ Funding Uniswap deployer with tokens for liquidity..."
+
+# Transfer MockUSDT and MockTBTC from main deployer (Account #1) to UNI deployer
+USDT_LIQ="500000000000"              # 500k USDT (6 decimals)
+TBTC_LIQ="10000000000000000000"      # 10 tBTC (18 decimals)
+
+cast send --rpc-url "$RPC" --private-key "$DEPLOYER_PK" \
+  "$USDT_ADDRESS" "transfer(address,uint256)" "$UNI_DEPLOYER" "$USDT_LIQ" >/dev/null
+echo "  ✓ 500k USDT → $UNI_DEPLOYER"
+
+cast send --rpc-url "$RPC" --private-key "$DEPLOYER_PK" \
+  "$TBTC_ADDRESS" "transfer(address,uint256)" "$UNI_DEPLOYER" "$TBTC_LIQ" >/dev/null
+echo "  ✓ 10 tBTC → $UNI_DEPLOYER"
+
+# ── Approve tokens for NonfungiblePositionManager ─────────────────────────
+MAX_UINT="115792089237316195423570985008687907853269984665640564039457584007913129639935"
+
+echo "  Approving tokens for NonfungiblePositionManager..."
+cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  "$USDT_ADDRESS" "approve(address,uint256)" "$NFT_POS_MGR" "$MAX_UINT" >/dev/null
+cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  "$TBTC_ADDRESS" "approve(address,uint256)" "$NFT_POS_MGR" "$MAX_UINT" >/dev/null
+echo "  ✓ Tokens approved"
+
+# ── Add full-range liquidity ──────────────────────────────────────────────
+# fee=3000 → tickSpacing=60 → min/max ticks rounded to spacing:
+TICK_LOWER="-887220"   # = ceil(-887272 / 60) * 60
+TICK_UPPER="887220"    # = floor(887272 / 60) * 60
+DEADLINE="9999999999"
+
+echo ""
+echo "▶ Adding liquidity to tBTC/USDT pool..."
+
+if [ "$(addr_lt "$USDT_ADDRESS" "$TBTC_ADDRESS")" = "0" ]; then
+  # USDT is token0, tBTC is token1
+  MINT_A0="$USDT_LIQ"
+  MINT_A1="$TBTC_LIQ"
+else
+  MINT_A0="$TBTC_LIQ"
+  MINT_A1="$USDT_LIQ"
+fi
+
+cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  "$NFT_POS_MGR" \
+  "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))(uint256,uint128,uint256,uint256)" \
+  "($POOL_T0,$POOL_T1,3000,$TICK_LOWER,$TICK_UPPER,$MINT_A0,$MINT_A1,0,0,$UNI_DEPLOYER,$DEADLINE)" \
+  >/dev/null
+echo "  ✓ tBTC/USDT liquidity added"
+
+# ── Verify pool has liquidity ─────────────────────────────────────────────
+echo ""
+echo "▶ Verifying pool..."
+
+LIQ=$(cast call --rpc-url "$RPC" "$TBTC_USDT_POOL" "liquidity()(uint128)")
+echo "  tBTC/USDT liquidity: $LIQ"
+
+# ── Test: run a QuoterV2 quote ───────────────────────────────────────────
+echo ""
+echo "▶ Testing QuoterV2 quote (1 tBTC → USDT, fee=3000)..."
+ONE_TBTC="1000000000000000000"
+QUOTE_RESULT=$(cast call --rpc-url "$RPC" "$QUOTER_V2_ADDR" \
+  "quoteExactInputSingle((address,address,uint256,uint24,uint160))(uint256,uint160,uint32,uint256)" \
+  "($TBTC_ADDRESS,$USDT_ADDRESS,$ONE_TBTC,3000,0)" 2>&1 || echo "QUOTE_FAILED")
+
+if echo "$QUOTE_RESULT" | grep -q "QUOTE_FAILED"; then
+  echo "  ⚠ QuoterV2 quote failed (may indicate POOL_INIT_CODE_HASH mismatch)"
+  echo "  Result: $QUOTE_RESULT"
+else
+  echo "  ✓ Quote result: $QUOTE_RESULT"
+fi
+
+# ── Summary ──────────────────────────────────────────────────────────────
+echo ""
+echo "═══════════════════════════════════════════════"
+echo " Uniswap V3 Deployment Complete"
+echo "═══════════════════════════════════════════════"
+echo "  WETH9:                  $WETH_ADDR"
+echo "  Multicall3:             $MULTICALL3_ADDR"
+echo "  UniswapV3Factory:       $FACTORY_ADDR"
+echo "  NonfungiblePosMgr:      $NFT_POS_MGR"
+echo "  QuoterV2:               $QUOTER_V2_ADDR"
+echo "  SwapRouter02:           $SWAP_ROUTER_ADDR"
+echo ""
+echo "  tBTC/USDT pool (3000):  $TBTC_USDT_POOL"
+echo "═══════════════════════════════════════════════"

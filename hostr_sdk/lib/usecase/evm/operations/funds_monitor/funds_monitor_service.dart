@@ -21,8 +21,8 @@ import '../../chain/evm_chain.dart';
 import '../../evm.dart';
 import '../operation_state_store.dart';
 import '../swap_out/swap_out_models.dart';
-import '../swap_out/swap_out_quote_service.dart';
 import '../swap_out/swap_out_state.dart';
+import '../swap_quote_service.dart';
 import 'funds_item.dart';
 
 /// Combined balance monitor and auto-withdrawal service.
@@ -59,7 +59,7 @@ class FundsMonitorService {
   final TradeAccountAllocator _tradeAccountAllocator;
   final OperationStateStore _stateStore;
   final UserConfigStore _userConfigStore;
-  final SwapOutQuoteService _quoteService;
+  final SwapQuoteService _quoteService;
   final CustomLogger _logger;
 
   // ── Observable state ────────────────────────────────────────────────────

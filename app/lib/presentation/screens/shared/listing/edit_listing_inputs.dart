@@ -2,11 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
+import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
-import 'package:hostr/logic/forms/sats_amount_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
+import 'package:hostr_sdk/hostr_sdk.dart' show TokenDisplayInfo;
+import 'package:models/main.dart';
 
 import 'image_picker.dart';
+
+/// Resolve display info (symbol, etc.) for a denomination string.
+TokenDisplayInfo _displayInfoFor(String denomination) {
+  switch (denomination) {
+    case 'BTC':
+      return TokenDisplayInfo.btc;
+    case 'USD':
+      return TokenDisplayInfo.usd;
+    case 'ETH':
+      return TokenDisplayInfo.eth;
+    default:
+      return TokenDisplayInfo(denomination: denomination, symbol: denomination);
+  }
+}
 
 class ImagesInput extends StatelessWidget {
   final EditListingController controller;
@@ -79,24 +95,68 @@ class TitleInput extends StatelessWidget {
 class PriceInput extends StatelessWidget {
   final EditListingController controller;
 
-  const PriceInput({super.key, required this.controller});
+  /// Available denominations the user can switch between.
+  /// When empty, no selector is shown.
+  final List<String> possibleDenominations;
+
+  const PriceInput({
+    super.key,
+    required this.controller,
+    this.possibleDenominations = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller.priceField.textController,
-      validator: controller.priceField.validatePrice,
-      keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        ThousandsSeparatorFormatter(),
-      ],
-      decoration: InputDecoration(
-        hintText: '10,000',
-        prefixText: '₿ ',
-        suffixText: '/ day',
-      ),
+    return ListenableBuilder(
+      listenable: controller.priceField,
+      builder: (context, _) {
+        final denom = controller.priceField.denomination;
+        final displayAmount = controller.priceField.displayAmount;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── tap target ──────────────────────────────────
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _openEditor(context, denom),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  suffixText: '/ day',
+                  hintText: 'Tap to set price',
+                ),
+                child: Text(
+                  formatAmount(displayAmount),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  Future<void> _openEditor(BuildContext context, String denom) async {
+    final current =
+        controller.priceField.amount ??
+        DenominatedAmount.zero(
+          controller.priceField.denomination,
+          controller.priceField.decimals,
+        );
+
+    final result = await AmountEditorBottomSheet.show(
+      context,
+      initialAmount: current,
+      possibleDenominations: possibleDenominations,
+      onDenominationChanged: (d) {
+        controller.priceField.setDenomination(d);
+      },
+    );
+
+    if (result != null) {
+      controller.priceField.setAmount(result);
+    }
   }
 }
 
@@ -447,14 +507,14 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
   }
 }
 
-// ── Sats amount inputs ────────────────────────────────────────────────
+// ── Amount inputs ─────────────────────────────────────────────────────
 
-class _SatsAmountInput extends StatelessWidget {
-  final SatsAmountFieldController controller;
+class _AmountInput extends StatelessWidget {
+  final AmountFieldController controller;
   final String hintText;
   final String? suffixText;
 
-  const _SatsAmountInput({
+  const _AmountInput({
     required this.controller,
     required this.hintText,
     this.suffixText,
@@ -462,19 +522,33 @@ class _SatsAmountInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller.textController,
-      validator: controller.validate,
-      keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        ThousandsSeparatorFormatter(),
-      ],
-      decoration: InputDecoration(
-        hintText: hintText,
-        prefixText: '₿ ',
-        suffixText: suffixText,
-      ),
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final denom = controller.denomination;
+        final info = _displayInfoFor(denom);
+        final isInteger = denom == 'BTC';
+
+        return TextFormField(
+          key: ValueKey('amount_$denom'),
+          controller: controller.textController,
+          validator: controller.validate,
+          keyboardType: isInteger
+              ? TextInputType.number
+              : const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: isInteger
+              ? [
+                  FilteringTextInputFormatter.digitsOnly,
+                  ThousandsSeparatorFormatter(),
+                ]
+              : [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixText: '${info.symbol} ',
+            suffixText: suffixText,
+          ),
+        );
+      },
     );
   }
 }
@@ -486,10 +560,12 @@ class SecurityDepositInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SatsAmountInput(
+    return _AmountInput(
       controller: controller.securityDepositField,
       hintText: '0',
-      suffixText: 'sats',
+      suffixText: controller.securityDepositField.denomination == 'BTC'
+          ? 'sats'
+          : controller.securityDepositField.denomination.toLowerCase(),
     );
   }
 }
@@ -501,10 +577,12 @@ class MinPaymentInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SatsAmountInput(
+    return _AmountInput(
       controller: controller.minPaymentField,
       hintText: '0',
-      suffixText: 'sats',
+      suffixText: controller.minPaymentField.denomination == 'BTC'
+          ? 'sats'
+          : controller.minPaymentField.denomination.toLowerCase(),
     );
   }
 }

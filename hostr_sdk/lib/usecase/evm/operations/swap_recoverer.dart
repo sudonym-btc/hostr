@@ -159,7 +159,7 @@ class SwapRecoverer {
       logger: _logger,
       nwc: getIt<Nwc>(),
       payments: getIt<Payments>(),
-      quoteService: getIt<SwapOutQuoteService>(),
+      quoteService: getIt<SwapQuoteService>(),
       params: SwapOutParams(
         evmKey: evmKey,
         accountIndex: data.accountIndex,

@@ -82,7 +82,7 @@ void main() {
       logger: CustomLogger(),
       nwc: hostr.nwc,
       payments: hostr.payments,
-      quoteService: SwapOutQuoteService(),
+      quoteService: SwapQuoteService(),
     );
 
     final emittedStates = <SwapOutState>[swapOut.state];
@@ -135,7 +135,7 @@ void main() {
         logger: CustomLogger(),
         nwc: harness.hostr.nwc,
         payments: harness.hostr.payments,
-        quoteService: SwapOutQuoteService(),
+        quoteService: SwapQuoteService(),
       );
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);

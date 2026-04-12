@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
-import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 
@@ -19,7 +18,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
   @override
   final EvmChain chain;
   final Nwc nwc;
-  final SwapOutQuoteService quoteService;
+  final SwapQuoteService quoteService;
   final Payments payments;
 
   EthereumAddress? get _requestedTokenAddress {
@@ -447,18 +446,18 @@ class EvmSwapOutOperation extends SwapOutOperation {
   ///
   /// Tries NWC / LUD-16 first; if unavailable, asks the user to provide
   /// one manually via [SwapOutExternalInvoiceRequired].
-  Future<String> _acquireInvoice(SwapOutQuote quote) =>
+  Future<String> _acquireInvoice(SwapQuote quote) =>
       logger.span('_acquireInvoice', () async {
         final invoice = await payments.getMyInvoice(
-          quote.invoiceAmount.getInSats.toInt(),
+          quote.receiveAmount.getInSats.toInt(),
           description: 'Hostr payout',
         );
         if (invoice != null) return invoice;
 
-        emit(SwapOutExternalInvoiceRequired(quote.invoiceAmount));
+        emit(SwapOutExternalInvoiceRequired(quote.receiveAmount));
         logger.i(
           'No NWC or LUD16 available, emitted SwapOutExternalInvoiceRequired '
-          'with amount ${quote.invoiceAmount.getInSats} sats',
+          'with amount ${quote.receiveAmount.getInSats} sats',
         );
         externalInvoiceCompleter = Completer<String>();
         return externalInvoiceCompleter!.future;
@@ -477,7 +476,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
   /// record.
   Future<SwapOutState> _prepareSwap(
     String invoice,
-    SwapOutQuote quote,
+    SwapQuote quote,
     int creationBlock,
   ) => logger.span('_prepareSwap', () async {
     final preimageHash = _extractPreimageHash(invoice);
@@ -487,14 +486,11 @@ class EvmSwapOutOperation extends SwapOutOperation {
     );
     logger.i('Submarine swap created: ${swap.toString()}');
 
-    final gasFee = TokenAmount.fromDenominated(
-      quote.estimatedGasFee,
-      Token.native(chain.config.chainId),
-    );
+    final gasFee = quote.gasFee;
     final funding = SwapFundingRequirement.fromBoltzExpectedAmount(
       expectedAmountSat: swap.expectedAmount.ceil(),
-      fundingToken: quote.balance.token,
-      balance: quote.balance,
+      fundingToken: quote.sendAmount.token,
+      balance: quote.sendAmount,
       gasFee: gasFee,
     );
     funding.validate();
@@ -519,8 +515,8 @@ class EvmSwapOutOperation extends SwapOutOperation {
     return SwapOutAwaitingOnChain(data);
   });
 
-  Future<SwapOutQuote> _buildQuote() =>
-      quoteService.buildQuote(chain: chain, params: params);
+  Future<SwapQuote> _buildQuote() =>
+      quoteService.buildSwapOutQuote(chain: chain, params: params);
 
   Uint8List _decodePaymentHash(String paymentHash) {
     final normalized = paymentHash.startsWith('0x')

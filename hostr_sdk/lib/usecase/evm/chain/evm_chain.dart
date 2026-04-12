@@ -24,12 +24,12 @@ import '../capabilities/boltz_swap_provider.dart';
 import '../capabilities/escrow_capability.dart';
 import '../config/evm_config.dart';
 import '../evm_call.dart';
+import '../models/swap_quote.dart';
 import '../operations/swap_in/swap_in_models.dart';
 import '../operations/swap_in/swap_in_operation.dart' show SwapInOperation;
-import '../operations/swap_in/swap_in_quote_service.dart';
 import '../operations/swap_out/swap_out_models.dart';
-import '../operations/swap_out/swap_out_quote_service.dart';
 import '../operations/swap_out/swap_out_state.dart';
+import '../operations/swap_quote_service.dart';
 import 'evm_balance_monitor.dart';
 import 'operations/swap_in/swap_in_operation.dart';
 import 'operations/swap_out/swap_out_operation.dart';
@@ -60,10 +60,9 @@ class EvmChain {
   /// Whether this chain uses ERC-4337 Account Abstraction.
   bool get hasAA => aa != null;
 
-  /// Quote services — injected so callers can get fee estimates without
+  /// Quote service — injected so callers can get fee estimates without
   /// building a full operation.
-  final SwapInQuoteService swapInQuoteService;
-  final SwapOutQuoteService swapOutQuoteService;
+  final SwapQuoteService quoteService;
 
   /// Balance monitor — tracks a dynamic set of addresses and tokens,
   /// emitting [BalanceUpdate]s on each block tick.
@@ -104,8 +103,7 @@ class EvmChain {
     required this.config,
     required this.auth,
     required CustomLogger logger,
-    required this.swapInQuoteService,
-    required this.swapOutQuoteService,
+    required this.quoteService,
     required http.Client httpClient,
     this.aa,
   }) : logger = logger.scope('evm-chain'),
@@ -119,15 +117,13 @@ class EvmChain {
     required EvmChainConfig config,
     required Auth auth,
     required CustomLogger logger,
-    required SwapInQuoteService swapInQuoteService,
-    required SwapOutQuoteService swapOutQuoteService,
+    required SwapQuoteService quoteService,
     AACapability? aa,
   }) => EvmChain._(
     config: config,
     auth: auth,
     logger: logger,
-    swapInQuoteService: swapInQuoteService,
-    swapOutQuoteService: swapOutQuoteService,
+    quoteService: quoteService,
     httpClient: createPlatformHttpClient(),
     aa: aa,
   );
@@ -1165,22 +1161,22 @@ class EvmChain {
 
   // ── Quote factories ─────────────────────────────────────────────────────
 
-  /// Build a [SwapInQuote] for [params] on this chain.
+  /// Build a [SwapQuote] for [params] on this chain (swap-in direction).
   ///
-  /// [escrowFee] is forwarded to [SwapInQuoteService.buildQuote] and should
+  /// [escrowFee] is forwarded to [SwapQuoteService.buildSwapInQuote] and should
   /// only be set by [EscrowFundPreparer]; plain swap-in callers omit it.
-  Future<SwapInQuote> swapInQuote({
+  Future<SwapQuote> swapInQuote({
     required SwapInParams params,
     TokenAmount? escrowFee,
-  }) => swapInQuoteService.buildQuote(
+  }) => quoteService.buildSwapInQuote(
     chain: this,
     params: params,
     escrowFee: escrowFee,
   );
 
-  /// Build a [SwapOutQuote] for [params] on this chain.
-  Future<SwapOutQuote> swapOutQuote({required SwapOutParams params}) =>
-      swapOutQuoteService.buildQuote(chain: this, params: params);
+  /// Build a [SwapQuote] for [params] on this chain (swap-out direction).
+  Future<SwapQuote> swapOutQuote({required SwapOutParams params}) =>
+      quoteService.buildSwapOutQuote(chain: this, params: params);
 
   /// Create a swap-out (submarine swap) operation for this chain.
   EvmSwapOutOperation swapOut({
@@ -1189,7 +1185,7 @@ class EvmChain {
     required CustomLogger logger,
     required Nwc nwc,
     required Payments payments,
-    required SwapOutQuoteService quoteService,
+    required SwapQuoteService quoteService,
     SwapOutState? initialState,
   }) {
     return EvmSwapOutOperation(

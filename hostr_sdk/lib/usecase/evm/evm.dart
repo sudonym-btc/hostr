@@ -15,9 +15,8 @@ import 'capabilities/aa_capability.dart';
 import 'capabilities/boltz_swap_provider.dart';
 import 'chain/evm_chain.dart';
 import 'chain/operations/swap_out/swap_out_operation.dart';
-import 'operations/swap_in/swap_in_quote_service.dart';
 import 'operations/swap_out/swap_out_models.dart';
-import 'operations/swap_out/swap_out_quote_service.dart';
+import 'operations/swap_quote_service.dart';
 import 'operations/swap_recoverer.dart';
 
 @Singleton()
@@ -67,8 +66,7 @@ class Evm {
         auth: _auth,
         logger: _logger,
         aa: aa,
-        swapInQuoteService: getIt<SwapInQuoteService>(),
-        swapOutQuoteService: getIt<SwapOutQuoteService>(),
+        quoteService: getIt<SwapQuoteService>(),
       );
     }).toList();
   }
@@ -229,7 +227,7 @@ class Evm {
                       logger: _logger,
                       nwc: getIt<Nwc>(),
                       payments: getIt<Payments>(),
-                      quoteService: getIt<SwapOutQuoteService>(),
+                      quoteService: getIt<SwapQuoteService>(),
                     ),
                   );
                 }
@@ -257,7 +255,7 @@ class Evm {
                         logger: _logger,
                         nwc: getIt<Nwc>(),
                         payments: getIt<Payments>(),
-                        quoteService: getIt<SwapOutQuoteService>(),
+                        quoteService: getIt<SwapQuoteService>(),
                       ),
                     );
                   }
@@ -286,7 +284,7 @@ class Evm {
                   logger: _logger,
                   nwc: getIt<Nwc>(),
                   payments: getIt<Payments>(),
-                  quoteService: getIt<SwapOutQuoteService>(),
+                  quoteService: getIt<SwapQuoteService>(),
                 ),
               );
             }
@@ -315,7 +313,7 @@ class Evm {
                     logger: _logger,
                     nwc: getIt<Nwc>(),
                     payments: getIt<Payments>(),
-                    quoteService: getIt<SwapOutQuoteService>(),
+                    quoteService: getIt<SwapQuoteService>(),
                   ),
                 );
               }

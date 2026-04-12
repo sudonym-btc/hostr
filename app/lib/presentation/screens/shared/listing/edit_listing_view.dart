@@ -89,7 +89,10 @@ class EditListingViewState extends State<EditListingView> {
           ),
           Gap.vertical.md(),
           FormLabel(label: 'Price'),
-          PriceInput(controller: controller),
+          PriceInput(
+            controller: controller,
+            possibleDenominations: const ['BTC', 'USD'],
+          ),
           BarterInput(controller: controller),
           Gap.vertical.md(),
           FormLabel(label: 'Specifications'),

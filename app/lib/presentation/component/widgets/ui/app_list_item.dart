@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
+import 'package:hostr/presentation/component/widgets/ui/shimmer_placeholder.dart';
 
 /// A unified list-item widget that standardises the look and feel of every
 /// row-based item across the app (relays, escrows, inbox threads, etc.).
@@ -78,6 +79,40 @@ class AppListItem extends StatelessWidget {
     this.dense = false,
     this.contentPadding,
   });
+
+  /// A shimmer-loading placeholder variant.
+  ///
+  /// Renders animated shimmer bars for the avatar, title, and subtitle so
+  /// every list screen has a consistent skeleton state while data is being
+  /// fetched.
+  static Widget loading({
+    Key? key,
+    bool selected = false,
+    EdgeInsetsGeometry? contentPadding,
+    VoidCallback? onTap,
+  }) {
+    return AppListItem(
+      key: key,
+      selected: selected,
+      contentPadding: contentPadding,
+      onTap: onTap,
+      leading: ShimmerPlaceholder(
+        loading: true,
+        borderRadius: BorderRadius.circular(20),
+        child: const SizedBox(width: 40, height: 40),
+      ),
+      title: ShimmerPlaceholder(
+        loading: true,
+        borderRadius: BorderRadius.circular(4),
+        child: const SizedBox(height: 14, width: 120),
+      ),
+      subtitle: ShimmerPlaceholder(
+        loading: true,
+        borderRadius: BorderRadius.circular(4),
+        child: const SizedBox(height: 12, width: 80),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
