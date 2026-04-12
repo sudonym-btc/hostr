@@ -67,6 +67,20 @@ class TagBuilder {
     return this;
   }
 
+  /// Encodes a [DenominatedAmount] as `[key, amount, denomination, decimals]`.
+  /// Only adds the tag when [value] is non-null.
+  TagBuilder addOptionalDenominatedAmount(String key, DenominatedAmount? value) {
+    if (value != null) {
+      _tags.add([
+        key,
+        value.toDecimalString(),
+        value.denomination,
+        value.decimals.toString(),
+      ]);
+    }
+    return this;
+  }
+
   // ── NIP-99 image helpers ────────────────────────────────────────────
 
   /// Encodes each image URL as `["image", "url"]` (NIP-99 / NIP-58).

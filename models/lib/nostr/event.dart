@@ -172,6 +172,16 @@ class EventTags {
     return v != null ? int.tryParse(v) : null;
   }
 
+  /// Parse a denominated-amount tag encoded as
+  /// `[key, amount, denomination, decimals]`.
+  ///
+  /// Returns `null` if no matching tag exists or if parsing fails.
+  DenominatedAmount? getTagDenominatedAmount(String key) {
+    final tag = tags.where((t) => t.length >= 4 && t[0] == key).firstOrNull;
+    if (tag == null) return null;
+    return DenominatedAmount.fromDecimal(tag[1], tag[2], int.tryParse(tag[3]) ?? 8);
+  }
+
   /// Parse an enum tag by matching [T.name].
   T? getTagEnum<T extends Enum>(String key, List<T> values) {
     final v = getTagValue(key);

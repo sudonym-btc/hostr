@@ -87,7 +87,7 @@ class PaymentTimelineItem extends StatelessWidget {
           title = _roleLabel(
             host: 'Host confirmed reservation',
             escrow: 'Escrow confirmed reservation',
-            guest: 'Guest committed reservation',
+            guest: 'Guest created reservation',
           );
           break;
         case ReservationTransitionType.counterOffer:
@@ -120,10 +120,13 @@ class PaymentTimelineItem extends StatelessWidget {
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowArbitratedEvent) {
+      final paymentPct = formatPercent(event.paymentForwarded * 100);
+      final desc = event.bondForwarded > 0
+          ? 'Payment $paymentPct% to host · Bond ${formatPercent(event.bondForwarded * 100)}% to host'
+          : 'Payment $paymentPct% to host';
       return buildTimeLineItem(
         title: 'Escrow arbitrated',
-        description:
-            'Forwarded ${formatPercent(event.forwarded * 100)}% to host',
+        description: desc,
         timestamp: event.block.timestamp,
       );
     } else if (event is EscrowClaimedEvent) {

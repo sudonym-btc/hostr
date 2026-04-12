@@ -86,6 +86,9 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         ? EthereumAddress.fromHex(args.token!.address)
         : SupportedEscrowContract.zeroAddress;
 
+    final bondAmountEvm = args.bondAmount?.asEvm ?? BigInt.zero;
+    final totalValue = args.amount.asEvm + bondAmountEvm;
+
     return buildCall(
       functionName: 'createTrade',
       args: [
@@ -95,10 +98,11 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
         EthereumAddress.fromHex(args.arbiterEvmAddress),
         tokenAddress,
         args.amount.asEvm,
+        bondAmountEvm,
         BigInt.from(args.unlockAt),
         args.escrowFee?.asEvm ?? BigInt.zero,
       ],
-      value: isERC20 ? null : args.amount.asEvm,
+      value: isERC20 ? null : totalValue,
     );
   });
 
@@ -115,14 +119,17 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   @override
   Call arbitrate({
     required String tradeId,
-    required double forward,
+    required double paymentForward,
+    required double bondForward,
     required EthPrivateKey ethKey,
   }) => logger.spanSync('arbitrate', () {
     final tradeIdBytes = getBytes32(tradeId);
-    final factor = BigInt.from((forward * 1000).round());
+    final paymentFactor = BigInt.from((paymentForward * 1000).round());
+    final bondFactor = BigInt.from((bondForward * 1000).round());
     final signature = _signer.signArbitrate(
       tradeId: tradeIdBytes,
-      factor: factor,
+      paymentFactor: paymentFactor,
+      bondFactor: bondFactor,
       signer: ethKey,
     );
     final function = contract.self.abi.functions.firstWhere(
@@ -130,7 +137,12 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     );
     return callFromEncoded(
       to: contract.self.address,
-      data: function.encodeCall([tradeIdBytes, factor, signature]),
+      data: function.encodeCall([
+        tradeIdBytes,
+        paymentFactor,
+        bondFactor,
+        signature,
+      ]),
     );
   });
 
@@ -211,7 +223,8 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
           seller: trade.seller,
           arbiter: trade.arbiter,
           token: trade.token,
-          amount: trade.amount,
+          paymentAmount: trade.paymentAmount,
+          bondAmount: trade.bondAmount,
           unlockAt: trade.unlockAt,
           escrowFee: trade.escrowFee,
         );

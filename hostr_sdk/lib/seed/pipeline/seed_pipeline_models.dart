@@ -120,6 +120,8 @@ class SeedPipelineData {
   final List<Reservation> reservations;
   final List<Nip01Event> zapReceipts;
   final List<Review> reviews;
+  final List<BadgeDefinition> badgeDefinitions;
+  final List<BadgeAward> badgeAwards;
 
   const SeedPipelineData({
     required this.users,
@@ -134,6 +136,8 @@ class SeedPipelineData {
     required this.reservations,
     required this.zapReceipts,
     required this.reviews,
+    this.badgeDefinitions = const [],
+    this.badgeAwards = const [],
   });
 
   List<Nip01Event> get allEvents => [
@@ -148,6 +152,8 @@ class SeedPipelineData {
     ...zapReceipts,
     ...reservations,
     ...reviews,
+    ...badgeDefinitions,
+    ...badgeAwards,
   ];
 
   SeedSummary get summary {
@@ -197,6 +203,8 @@ class SeedPipelineData {
       escrowServices: escrowServices.length,
       escrowMethods: escrowMethods.length,
       invalidReservations: invalidReservations,
+      badgeDefinitions: badgeDefinitions.length,
+      badgeAwards: badgeAwards.length,
     );
   }
 }
@@ -224,6 +232,8 @@ class SeedSummary {
   final int escrowServices;
   final int escrowMethods;
   final List<InvalidReservationInfo> invalidReservations;
+  final int badgeDefinitions;
+  final int badgeAwards;
 
   const SeedSummary({
     required this.users,
@@ -246,6 +256,8 @@ class SeedSummary {
     required this.escrowServices,
     required this.escrowMethods,
     required this.invalidReservations,
+    this.badgeDefinitions = 0,
+    this.badgeAwards = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -271,6 +283,8 @@ class SeedSummary {
     'invalidReservations': invalidReservations
         .map((info) => info.toJson())
         .toList(),
+    'badgeDefinitions': badgeDefinitions,
+    'badgeAwards': badgeAwards,
   };
 }
 

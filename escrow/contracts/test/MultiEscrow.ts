@@ -16,7 +16,8 @@ const CLAIM_TYPES = {
 const ARBITRATE_TYPES = {
   Arbitrate: [
     { name: "tradeId", type: "bytes32" },
-    { name: "factor", type: "uint256" },
+    { name: "paymentFactor", type: "uint256" },
+    { name: "bondFactor", type: "uint256" },
   ],
 };
 
@@ -49,8 +50,10 @@ describe("MultiEscrow", function () {
     await token.mint(buyer.address, tokenAmount * 10n); // 10 USDT
 
     const amount = hre.ethers.parseEther("1");
+    const bondAmount = hre.ethers.parseEther("0.5");
     const escrowFee = hre.ethers.parseEther("0.1");
     const erc20Amount = 1_000_000n; // 1 USDT
+    const erc20BondAmount = 500_000n; // 0.5 USDT
     const erc20EscrowFee = 100_000n; // 0.1 USDT
     const futureUnlockAt = (await time.latest()) + 3600;
     const pastUnlockAt = (await time.latest()) - 1;
@@ -68,8 +71,10 @@ describe("MultiEscrow", function () {
       seller,
       arbiter,
       amount,
+      bondAmount,
       escrowFee,
       erc20Amount,
+      erc20BondAmount,
       erc20EscrowFee,
       futureUnlockAt,
       pastUnlockAt,
@@ -85,6 +90,7 @@ describe("MultiEscrow", function () {
     seller,
     arbiter,
     amount,
+    bondAmount,
     escrowFee,
     unlockAt,
     label,
@@ -94,6 +100,7 @@ describe("MultiEscrow", function () {
     seller: any;
     arbiter: any;
     amount: bigint;
+    bondAmount: bigint;
     escrowFee: bigint;
     unlockAt: number;
     label: string;
@@ -107,10 +114,11 @@ describe("MultiEscrow", function () {
         seller.address,
         arbiter.address,
         hre.ethers.ZeroAddress,
-        0n,
+        amount,
+        bondAmount,
         unlockAt,
         escrowFee,
-        { value: amount }
+        { value: amount + bondAmount }
       );
     return tradeId;
   }
@@ -122,6 +130,7 @@ describe("MultiEscrow", function () {
     seller,
     arbiter,
     amount,
+    bondAmount,
     escrowFee,
     unlockAt,
     label,
@@ -132,13 +141,14 @@ describe("MultiEscrow", function () {
     seller: any;
     arbiter: any;
     amount: bigint;
+    bondAmount: bigint;
     escrowFee: bigint;
     unlockAt: number;
     label: string;
   }) {
     const tradeId = hre.ethers.id(label);
     const tokenAddress = await token.getAddress();
-    await token.connect(buyer).approve(await escrow.getAddress(), amount);
+    await token.connect(buyer).approve(await escrow.getAddress(), amount + bondAmount);
     await escrow
       .connect(buyer)
       .createTrade(
@@ -148,6 +158,7 @@ describe("MultiEscrow", function () {
         arbiter.address,
         tokenAddress,
         amount,
+        bondAmount,
         unlockAt,
         escrowFee
       );
@@ -171,9 +182,10 @@ describe("MultiEscrow", function () {
     signer: any,
     domain: any,
     tradeId: string,
-    factor: bigint
+    paymentFactor: bigint,
+    bondFactor: bigint
   ) {
-    return signer.signTypedData(domain, ARBITRATE_TYPES, { tradeId, factor });
+    return signer.signTypedData(domain, ARBITRATE_TYPES, { tradeId, paymentFactor, bondFactor });
   }
 
   async function signWithdraw(
@@ -189,7 +201,7 @@ describe("MultiEscrow", function () {
 
   describe("Native RBTC trades", function () {
     it("release credits buyer balance", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -198,6 +210,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "native-release",
@@ -209,12 +222,12 @@ describe("MultiEscrow", function () {
       // Buyer should have balance credited (seller released → buyer receives)
       const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
       const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
-      expect(buyerBal).to.equal(amount - escrowFee);
+      expect(buyerBal).to.equal(amount + bondAmount - escrowFee);
       expect(arbiterBal).to.equal(escrowFee);
     });
 
     it("claim credits seller balance after unlock", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, pastUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, pastUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -223,6 +236,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: pastUnlockAt,
         label: "native-claim",
@@ -231,14 +245,17 @@ describe("MultiEscrow", function () {
       const sig = await signClaim(seller, domain, tradeId);
       await escrow.claim(tradeId, sig);
 
+      // claim: payment-fee → seller, bond → buyer
       const sellerBal = await escrow.balances(seller.address, hre.ethers.ZeroAddress);
+      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
       const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
       expect(sellerBal).to.equal(amount - escrowFee);
+      expect(buyerBal).to.equal(bondAmount);
       expect(arbiterBal).to.equal(escrowFee);
     });
 
     it("arbitrate splits native balances correctly", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -247,26 +264,30 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "native-arbitrate",
       });
 
-      const factor = 700n; // 70% to seller
-      const amountAfterFee = amount - escrowFee;
-      const forwardAmount = (amountAfterFee * factor) / 1000n;
-      const remainingAmount = amountAfterFee - forwardAmount;
+      const paymentFactor = 700n; // 70% of payment to seller
+      const bondFactor = 0n;      // 0% of bond to seller (full refund to buyer)
+      const paymentAfterFee = amount - escrowFee;
+      const sellerPayment = (paymentAfterFee * paymentFactor) / 1000n;
+      const buyerPayment  = paymentAfterFee - sellerPayment;
+      const sellerBond = (bondAmount * bondFactor) / 1000n;
+      const buyerBond  = bondAmount - sellerBond;
 
-      const sig = await signArbitrate(arbiter, domain, tradeId, factor);
-      await escrow.arbitrate(tradeId, factor, sig);
+      const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
+      await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
 
-      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(forwardAmount);
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(remainingAmount);
+      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(sellerPayment + sellerBond);
+      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(buyerPayment + buyerBond);
       expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
     });
 
     it("withdraw sends native RBTC to destination", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -275,6 +296,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "native-withdraw",
@@ -284,7 +306,7 @@ describe("MultiEscrow", function () {
       const releaseSig = await signRelease(seller, domain, tradeId, seller.address);
       await escrow.releaseToCounterparty(tradeId, seller.address, releaseSig);
 
-      const expectedBuyerBal = amount - escrowFee;
+      const expectedBuyerBal = amount + bondAmount - escrowFee;
       expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(expectedBuyerBal);
 
       // Withdraw buyer balance to buyer's own address
@@ -315,7 +337,7 @@ describe("MultiEscrow", function () {
     });
 
     it("withdraw rejects invalid signature", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -324,6 +346,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "native-bad-sig",
@@ -352,7 +375,7 @@ describe("MultiEscrow", function () {
     });
 
     it("returns native balance after settlement", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -361,6 +384,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "balanceof-native",
@@ -371,7 +395,7 @@ describe("MultiEscrow", function () {
 
       const result = await escrow.balanceOf(buyer.address);
       expect(result.tokens).to.deep.equal([hre.ethers.ZeroAddress]);
-      expect(result.amounts).to.deep.equal([amount - escrowFee]);
+      expect(result.amounts).to.deep.equal([amount + bondAmount - escrowFee]);
     });
 
     it("returns multiple tokens after mixed settlements", async function () {
@@ -382,8 +406,10 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         erc20Amount,
+        erc20BondAmount,
         erc20EscrowFee,
         futureUnlockAt,
         domain,
@@ -396,6 +422,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "multi-native",
@@ -411,6 +438,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount: erc20Amount,
+        bondAmount: erc20BondAmount,
         escrowFee: erc20EscrowFee,
         unlockAt: futureUnlockAt,
         label: "multi-erc20",
@@ -427,12 +455,12 @@ describe("MultiEscrow", function () {
       const erc20Idx = result.tokens.indexOf(tokenAddress);
       expect(nativeIdx).to.be.gte(0);
       expect(erc20Idx).to.be.gte(0);
-      expect(result.amounts[nativeIdx]).to.equal(amount - escrowFee);
-      expect(result.amounts[erc20Idx]).to.equal(erc20Amount - erc20EscrowFee);
+      expect(result.amounts[nativeIdx]).to.equal(amount + bondAmount - escrowFee);
+      expect(result.amounts[erc20Idx]).to.equal(erc20Amount + erc20BondAmount - erc20EscrowFee);
     });
 
     it("balance disappears after withdraw", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -441,6 +469,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "balanceof-withdraw",
@@ -462,7 +491,7 @@ describe("MultiEscrow", function () {
 
   describe("ERC20 trades", function () {
     it("creates an ERC20 trade via createTrade", async function () {
-      const { escrow, token, buyer, seller, arbiter, erc20Amount, erc20EscrowFee, futureUnlockAt } =
+      const { escrow, token, buyer, seller, arbiter, erc20Amount, erc20BondAmount, erc20EscrowFee, futureUnlockAt } =
         await loadFixture(deployFixture);
 
       const tradeId = await createERC20Trade({
@@ -472,6 +501,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount: erc20Amount,
+        bondAmount: erc20BondAmount,
         escrowFee: erc20EscrowFee,
         unlockAt: futureUnlockAt,
         label: "erc20-create",
@@ -482,9 +512,10 @@ describe("MultiEscrow", function () {
       expect(activeTrade.trade.buyer).to.equal(buyer.address);
       expect(activeTrade.trade.seller).to.equal(seller.address);
       expect(activeTrade.trade.token).to.equal(await token.getAddress());
-      expect(activeTrade.trade.amount).to.equal(erc20Amount);
+      expect(activeTrade.trade.paymentAmount).to.equal(erc20Amount);
+      expect(activeTrade.trade.bondAmount).to.equal(erc20BondAmount);
       expect(activeTrade.trade.escrowFee).to.equal(erc20EscrowFee);
-      expect(await token.balanceOf(await escrow.getAddress())).to.equal(erc20Amount);
+      expect(await token.balanceOf(await escrow.getAddress())).to.equal(erc20Amount + erc20BondAmount);
     });
 
     it("release credits buyer ERC20 balance", async function () {
@@ -495,6 +526,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         erc20Amount,
+        erc20BondAmount,
         erc20EscrowFee,
         futureUnlockAt,
         domain,
@@ -507,6 +539,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount: erc20Amount,
+        bondAmount: erc20BondAmount,
         escrowFee: erc20EscrowFee,
         unlockAt: futureUnlockAt,
         label: "erc20-release",
@@ -518,7 +551,7 @@ describe("MultiEscrow", function () {
       const tokenAddress = await token.getAddress();
       const buyerBal = await escrow.balances(buyer.address, tokenAddress);
       const arbiterBal = await escrow.balances(arbiter.address, tokenAddress);
-      expect(buyerBal).to.equal(erc20Amount - erc20EscrowFee);
+      expect(buyerBal).to.equal(erc20Amount + erc20BondAmount - erc20EscrowFee);
       expect(arbiterBal).to.equal(erc20EscrowFee);
     });
 
@@ -530,6 +563,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         erc20Amount,
+        erc20BondAmount,
         erc20EscrowFee,
         futureUnlockAt,
         domain,
@@ -542,6 +576,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount: erc20Amount,
+        bondAmount: erc20BondAmount,
         escrowFee: erc20EscrowFee,
         unlockAt: futureUnlockAt,
         label: "erc20-withdraw",
@@ -551,7 +586,7 @@ describe("MultiEscrow", function () {
       await escrow.releaseToCounterparty(tradeId, seller.address, relSig);
 
       const tokenAddress = await token.getAddress();
-      const expectedBuyerBal = erc20Amount - erc20EscrowFee;
+      const expectedBuyerBal = erc20Amount + erc20BondAmount - erc20EscrowFee;
 
       const buyerTokenBefore = await token.balanceOf(buyer.address);
 
@@ -571,6 +606,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         erc20Amount,
+        erc20BondAmount,
         erc20EscrowFee,
         pastUnlockAt,
         domain,
@@ -583,6 +619,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount: erc20Amount,
+        bondAmount: erc20BondAmount,
         escrowFee: erc20EscrowFee,
         unlockAt: pastUnlockAt,
         label: "erc20-claim",
@@ -593,8 +630,10 @@ describe("MultiEscrow", function () {
 
       const tokenAddress = await token.getAddress();
       const sellerBal = await escrow.balances(seller.address, tokenAddress);
+      const buyerBal = await escrow.balances(buyer.address, tokenAddress);
       const arbiterBal = await escrow.balances(arbiter.address, tokenAddress);
       expect(sellerBal).to.equal(erc20Amount - erc20EscrowFee);
+      expect(buyerBal).to.equal(erc20BondAmount);
       expect(arbiterBal).to.equal(erc20EscrowFee);
     });
 
@@ -606,6 +645,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         erc20Amount,
+        erc20BondAmount,
         erc20EscrowFee,
         futureUnlockAt,
         domain,
@@ -618,22 +658,26 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount: erc20Amount,
+        bondAmount: erc20BondAmount,
         escrowFee: erc20EscrowFee,
         unlockAt: futureUnlockAt,
         label: "erc20-arbitrate",
       });
 
-      const factor = 500n; // 50% to seller
-      const amountAfterFee = erc20Amount - erc20EscrowFee;
-      const forwardAmount = (amountAfterFee * factor) / 1000n;
-      const remainingAmount = amountAfterFee - forwardAmount;
+      const paymentFactor = 500n; // 50% of payment to seller
+      const bondFactor = 200n;    // 20% of bond to seller
+      const paymentAfterFee = erc20Amount - erc20EscrowFee;
+      const sellerPayment = (paymentAfterFee * paymentFactor) / 1000n;
+      const buyerPayment  = paymentAfterFee - sellerPayment;
+      const sellerBond = (erc20BondAmount * bondFactor) / 1000n;
+      const buyerBond  = erc20BondAmount - sellerBond;
 
-      const sig = await signArbitrate(arbiter, domain, tradeId, factor);
-      await escrow.arbitrate(tradeId, factor, sig);
+      const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
+      await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
 
       const tokenAddress = await token.getAddress();
-      expect(await escrow.balances(seller.address, tokenAddress)).to.equal(forwardAmount);
-      expect(await escrow.balances(buyer.address, tokenAddress)).to.equal(remainingAmount);
+      expect(await escrow.balances(seller.address, tokenAddress)).to.equal(sellerPayment + sellerBond);
+      expect(await escrow.balances(buyer.address, tokenAddress)).to.equal(buyerPayment + buyerBond);
       expect(await escrow.balances(arbiter.address, tokenAddress)).to.equal(erc20EscrowFee);
     });
 
@@ -651,6 +695,7 @@ describe("MultiEscrow", function () {
           arbiter.address,
           await token.getAddress(),
           erc20Amount,
+          0n,
           futureUnlockAt,
           0n,
           { value: 1n }
@@ -673,7 +718,7 @@ describe("MultiEscrow", function () {
 
   describe("Signature validation", function () {
     it("rejects release with wrong signer", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -682,6 +727,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "bad-release-signer",
@@ -695,7 +741,7 @@ describe("MultiEscrow", function () {
     });
 
     it("rejects claim with wrong signer", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, pastUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, pastUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -704,6 +750,7 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: pastUnlockAt,
         label: "bad-claim-signer",
@@ -718,7 +765,7 @@ describe("MultiEscrow", function () {
     });
 
     it("rejects arbitrate with wrong signer", async function () {
-      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
 
       const tradeId = await createNativeTrade({
@@ -727,15 +774,16 @@ describe("MultiEscrow", function () {
         seller,
         arbiter,
         amount,
+        bondAmount,
         escrowFee,
         unlockAt: futureUnlockAt,
         label: "bad-arb-signer",
       });
 
       // Seller signs arbitrate (only arbiter can)
-      const sig = await signArbitrate(seller, domain, tradeId, 500n);
+      const sig = await signArbitrate(seller, domain, tradeId, 500n, 500n);
       await expect(
-        escrow.arbitrate(tradeId, 500n, sig)
+        escrow.arbitrate(tradeId, 500n, 500n, sig)
       ).to.be.revertedWithCustomError(escrow, "InvalidSignature");
     });
   });

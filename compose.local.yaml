@@ -159,10 +159,10 @@ services:
       - ./docker/tls/ca-trust-entrypoint.sh:/ca-trust-entrypoint.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
-      interval: 2s
-      timeout: 2s
-      retries: 30
-      start_period: 5s
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 120s
     networks:
       - default
 

@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
@@ -6,6 +7,7 @@ import 'entity_factory.dart';
 import 'seed_context.dart';
 import 'seed_pipeline_config.dart';
 import 'seed_pipeline_models.dart';
+import 'stages/build_badges.dart' as stage_badges;
 import 'stages/build_listings.dart' as stage_listings;
 import 'stages/build_messages.dart' as stage_messages;
 import 'stages/build_profiles.dart' as stage_profiles;
@@ -137,6 +139,16 @@ class SeedFactory {
   List<Review> buildReviews(List<SeedThread> threads) => stage_reviews
       .buildReviews(ctx: _ctx, threads: threads, factory: _entities);
 
+  stage_badges.BadgeSeedData buildBadges({
+    required List<SeedUser> hosts,
+    required List<Listing> listings,
+  }) => stage_badges.buildBadges(
+    ctx: _ctx,
+    issuerKey: MockKeys.escrow,
+    hosts: hosts,
+    listings: listings,
+  );
+
   /// Derive a deterministic key pair from an index.
   KeyPair deriveKeyPair(int index) => _ctx.deriveKeyPair(index);
 
@@ -177,6 +189,7 @@ class SeedFactory {
     final messages = await buildMessages(threads);
     final escrowSelectedMessages = await buildEscrowSelectedMessages(threads);
     final reviews = buildReviews(threads);
+    final badges = buildBadges(hosts: hosts, listings: listings);
 
     return SeedPipelineData(
       users: users,
@@ -191,6 +204,8 @@ class SeedFactory {
       reservations: const [], // no outcomes — all pending
       zapReceipts: const [],
       reviews: reviews,
+      badgeDefinitions: badges.definitions,
+      badgeAwards: badges.awards,
     );
   }
 

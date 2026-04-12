@@ -261,7 +261,8 @@ class EscrowDaemon {
     } else if (event is EscrowArbitratedEvent) {
       _logger.i(
         'Trade arbitrated: ${event.tradeId}  '
-        'forwarded=${event.forwarded}',
+        'paymentForwarded=${event.paymentForwarded} '
+        'bondForwarded=${event.bondForwarded}',
       );
       final existing = _trades[event.tradeId];
       if (existing != null) {

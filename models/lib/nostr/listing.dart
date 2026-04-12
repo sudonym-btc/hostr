@@ -32,6 +32,11 @@ mixin ListingTagRead {
       tagSource.getTagCancellationPolicies();
   List<CancellationPolicy> get cancellationPolicy => cancellationPolicies;
   Amenities get amenities => Amenities.fromTags(tagSource.tags);
+
+  /// Optional security deposit that the guest must lock alongside the
+  /// payment amount. Stored as `['securityDeposit', amount, denomination, decimals]`.
+  DenominatedAmount? get securityDeposit =>
+      tagSource.getTagDenominatedAmount('securityDeposit');
 }
 
 // ── Tags class ──────────────────────────────────────────────────────────────
@@ -92,6 +97,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     bool requiresEscrow = false,
     bool allowSelfSignedReservation = false,
     List<CancellationPolicy> cancellationPolicy = const [],
+    DenominatedAmount? securityDeposit,
     List<List<String>> extraTags = const [],
     int? createdAt,
   }) {
@@ -117,6 +123,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                   'allowSelfSignedReservation', allowSelfSignedReservation)
               ..addPrices(price)
               ..addCancellationPolicies(cancellationPolicy)
+              ..addOptionalDenominatedAmount('securityDeposit', securityDeposit)
               ..addAmenities(amenities)
               ..addAll(extraTags))
             .build(),
@@ -141,6 +148,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     List<Price>? prices,
     List<CancellationPolicy>? cancellationPolicy,
     Amenities? amenities,
+    DenominatedAmount? securityDeposit,
+    bool clearSecurityDeposit = false,
     // Content fields
     String? title,
     String? description,
@@ -171,6 +180,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               'price',
               'cancellationPolicy',
               'amenity',
+              'securityDeposit',
             }.contains(t.first))
         .toList();
 
@@ -197,6 +207,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addPrices(prices ?? this.prices)
               ..addCancellationPolicies(
                   cancellationPolicy ?? this.cancellationPolicy)
+              ..addOptionalDenominatedAmount(
+                  'securityDeposit',
+                  clearSecurityDeposit
+                      ? null
+                      : securityDeposit ?? this.securityDeposit)
               ..addAmenities(amenities ?? this.amenities)
               ..addAll(extraTags ?? const []))
             .build(),

@@ -25,9 +25,13 @@ class SubmitTrade {
   /// `approve` + `transferFrom`.
   final Token token;
 
-  /// Amount expressed in the token's smallest unit (wei for native, raw
-  /// integer for ERC-20).
+  /// Payment amount expressed in the token's smallest unit.
   final BigInt amountWei;
+
+  /// Optional security-deposit (bond) amount expressed in the token's
+  /// smallest unit. Passed to the contract as `_bondAmount`.
+  final BigInt? bondAmountWei;
+
   final BigInt unlockAt;
 
   const SubmitTrade({
@@ -37,6 +41,7 @@ class SubmitTrade {
     required this.arbiterPrivateKey,
     required this.token,
     required this.amountWei,
+    this.bondAmountWei,
     required this.unlockAt,
   });
 }
