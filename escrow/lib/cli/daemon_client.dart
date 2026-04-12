@@ -191,4 +191,65 @@ class DaemonClient {
       if (website != null) 'website': website,
     });
   }
+
+  // ── Badges ────────────────────────────────────────────────────────────────
+
+  Future<List<BadgeDefinitionSummary>> listBadgeDefinitions() async {
+    final result = await _rpc.sendRequest(kRpcListBadgeDefinitions);
+    final map = Map<String, dynamic>.from(result as Map);
+    return (map['definitions'] as List)
+        .map((e) => BadgeDefinitionSummary.fromJson(
+            Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<String> upsertBadgeDefinition({
+    required String identifier,
+    required String name,
+    String? description,
+    String? image,
+  }) async {
+    final result = await _rpc.sendRequest(kRpcUpsertBadgeDefinition, {
+      'identifier': identifier,
+      'name': name,
+      if (description != null) 'description': description,
+      if (image != null) 'image': image,
+    });
+    final map = Map<String, dynamic>.from(result as Map);
+    return map['anchor'] as String;
+  }
+
+  Future<void> deleteBadgeDefinition(String anchor) async {
+    await _rpc.sendRequest(kRpcDeleteBadgeDefinition, {'anchor': anchor});
+  }
+
+  Future<List<BadgeAwardSummary>> listBadgeAwards(
+      {String? definitionAnchor}) async {
+    final result = await _rpc.sendRequest(kRpcListBadgeAwards, {
+      if (definitionAnchor != null) 'definitionAnchor': definitionAnchor,
+    });
+    final map = Map<String, dynamic>.from(result as Map);
+    return (map['awards'] as List)
+        .map((e) =>
+            BadgeAwardSummary.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<String> awardBadge({
+    required String definitionAnchor,
+    required String recipientPubkey,
+    String? listingAnchor,
+  }) async {
+    final result = await _rpc.sendRequest(kRpcAwardBadge, {
+      'definitionAnchor': definitionAnchor,
+      'recipientPubkey': recipientPubkey,
+      if (listingAnchor != null) 'listingAnchor': listingAnchor,
+    });
+    final map = Map<String, dynamic>.from(result as Map);
+    return map['awardId'] as String;
+  }
+
+  Future<void> revokeBadge(String awardId) async {
+    await _rpc.sendRequest(kRpcRevokeBadge, {'awardId': awardId});
+  }
 }

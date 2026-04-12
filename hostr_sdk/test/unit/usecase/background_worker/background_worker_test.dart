@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 
+import 'package:hostr_sdk/datasources/notification_log.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/background_worker/background_worker.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
@@ -127,6 +128,23 @@ class _FakeOperationStateStore extends Fake implements OperationStateStore {
   Future<bool> hasNonTerminal(String namespace) async => false;
 }
 
+class _FakeNotificationLog extends Fake implements NotificationLog {
+  final Set<String> _displayed = {};
+
+  @override
+  bool hasBeenDisplayed(String id) => _displayed.contains(id);
+
+  @override
+  void markDisplayed(String id) => _displayed.add(id);
+
+  @override
+  bool tryMarkDisplayed(String id) {
+    if (_displayed.contains(id)) return false;
+    _displayed.add(id);
+    return true;
+  }
+}
+
 Reservation _reservation({
   required String pubkey,
   required String dTag,
@@ -169,6 +187,7 @@ void main() {
       listings: _FakeListings(),
       metadata: _FakeMetadataUseCase(),
       operationStore: _FakeOperationStateStore(),
+      notificationLog: _FakeNotificationLog(),
       logger: CustomLogger(),
     );
   });

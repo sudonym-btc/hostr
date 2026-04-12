@@ -217,18 +217,32 @@ class CommitMenu extends StatelessWidget {
                 },
               );
             case TradeAction.review:
+              final commitStage = tradeState.stage;
+              if (commitStage is! CommitStage) return null;
+              final group = commitStage.reservationGroup;
+              // Get the tweak material from the thread's reservation requests.
+              final requests =
+                  trade.thread?.state.value.reservationRequests ?? [];
+              final tweakMaterial = requests
+                  .where((r) => r.tweakMaterial != null)
+                  .map((r) => r.tweakMaterial!)
+                  .lastOrNull;
+              if (tweakMaterial == null) return null;
+              // Use the buyer's reservation as the anchor for the review.
+              final reservation = group.buyerReservation;
               return (
                 label: 'Review',
                 icon: Icons.star_outline,
                 onTap: () => showAppModal(
                   context,
-                  builder: (_) => CustomPadding(
+                  builder: (modalContext) => CustomPadding(
                     child: EditReview(
                       listing: tradeState.listing,
-                      tweakMaterial: const ReservationTweakMaterial(
-                        salt: 'thread_salt',
-                        parity: false,
-                      ),
+                      reservation: reservation,
+                      tweakMaterial: tweakMaterial,
+                      onSaved: () {
+                        Navigator.of(modalContext).pop();
+                      },
                     ),
                   ),
                 ),
@@ -237,7 +251,7 @@ class CommitMenu extends StatelessWidget {
               return null;
           }
         })
-        .cast<_TradeMenuItem>()
+        .whereType<_TradeMenuItem>()
         .toList();
     return items;
   }

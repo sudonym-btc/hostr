@@ -23,6 +23,7 @@ import '../user_subscriptions/user_subscriptions.dart';
 import 'actions/payment.dart';
 import 'actions/reservation.dart';
 import 'actions/reservation_request.dart';
+import 'actions/review.dart';
 import 'actions/trade_action_resolver.dart';
 import 'trade_state.dart';
 
@@ -332,6 +333,15 @@ class Trade extends Cubit<TradeState> {
           ownReservationsStatus,
           role,
           allReservations: allTradeReservations,
+        ),
+      );
+
+      resolvedActions.addAll(
+        ReviewActions.resolve(
+          reservationGroup: validGroup ?? anyGroup ?? ReservationGroup(),
+          reservationStreamStatus: ownReservationsStatus,
+          payments: payments,
+          role: role,
         ),
       );
     }

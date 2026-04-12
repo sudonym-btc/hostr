@@ -10,6 +10,13 @@ enum Screen {
   serviceList,
   serviceEdit,
   profileEdit,
+  // ── Badges ──
+  badgeMenu,
+  badgeDefinitionList,
+  badgeDefinitionEdit,
+  badgeDefinitionCreate,
+  badgeAwardList,
+  badgeAward,
   exit,
 }
 
@@ -20,16 +27,22 @@ class Navigation {
   final String? selectedTradeId;
   final String? selectedThreadId;
   final String? selectedServiceId;
+  final String? selectedBadgeDefinitionAnchor;
+  final String? selectedBadgeAwardId;
 
   const Navigation(
     this.next, {
     this.selectedTradeId,
     this.selectedThreadId,
     this.selectedServiceId,
+    this.selectedBadgeDefinitionAnchor,
+    this.selectedBadgeAwardId,
   });
 
   const Navigation.to(this.next)
       : selectedTradeId = null,
         selectedThreadId = null,
-        selectedServiceId = null;
+        selectedServiceId = null,
+        selectedBadgeDefinitionAnchor = null,
+        selectedBadgeAwardId = null;
 }

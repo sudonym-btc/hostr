@@ -168,13 +168,34 @@ class AppAvatar extends StatelessWidget {
       );
     }
 
-    // Raw ImageProvider (e.g. NetworkImage for wallet colour dots).
+    // Raw ImageProvider (e.g. NetworkImage for relay/wallet colour dots).
+    //
+    // NOTE: We deliberately do NOT use CircleAvatar.foregroundImage here.
+    // On Flutter Web, foregroundImage routes through paintImage() →
+    // canvas.drawImageRect(), which taints the canvas with cross-origin
+    // image data and causes a Same-Origin Policy crash when the engine
+    // later calls getImageData().  Using an Image widget child instead
+    // keeps rendering in the HTML <img> element path (WebHtmlElementStrategy)
+    // and avoids any canvas interaction for cross-origin URLs.
     if (foregroundImage != null) {
+      final diameter = radius * 2;
       return CircleAvatar(
         radius: radius,
         backgroundColor: bgColor,
-        foregroundImage: foregroundImage,
-        onForegroundImageError: onForegroundImageError,
+        child: ClipOval(
+          child: Image(
+            image: foregroundImage!,
+            width: diameter,
+            height: diameter,
+            fit: BoxFit.cover,
+            errorBuilder: onForegroundImageError != null
+                ? (_, error, stack) {
+                    onForegroundImageError!(error, stack);
+                    return const SizedBox.shrink();
+                  }
+                : null,
+          ),
+        ),
       );
     }
 

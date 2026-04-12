@@ -259,28 +259,13 @@ class _AppShellScreenState extends State<AppShellScreen>
                           // On compact viewports, hide the bottom nav
                           // when the user has navigated into a nested
                           // child route (e.g. ThreadRoute inside
-                          // InboxRoute). Only show the nav bar for the
-                          // tab destination routes themselves.
+                          // InboxRoute). Tab destinations sit at depth
+                          // 2 ([TabShellRoute, <dest>]); anything
+                          // deeper is a nested child.
                           final isOnNestedChild =
-                              !showSidebar &&
-                              isOnTabs &&
-                              segments.length > 1 &&
-                              !destinations.any(
-                                (d) => d.route.routeName == segments.last.name,
-                              );
+                              !showSidebar && isOnTabs && segments.length > 2;
                           final showBottomNav =
                               !showSidebar && isOnTabs && !isOnNestedChild;
-
-                          // DEBUG — remove after diagnosing navbar issue
-                          debugPrint(
-                            '[NAV] topRoute=$topRouteName '
-                            'segments=[${segments.map((s) => s.name).join(', ')}] '
-                            'isOnTabs=$isOnTabs '
-                            'isOnNestedChild=$isOnNestedChild '
-                            'showBottomNav=$showBottomNav '
-                            'showSidebar=$showSidebar '
-                            'destinations=[${destinations.map((d) => d.route.routeName).join(', ')}]',
-                          );
 
                           // ── Single stable Scaffold ──────────────────
                           // The child always sits at Row index 1, so

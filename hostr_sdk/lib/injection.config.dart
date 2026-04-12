@@ -12,6 +12,7 @@
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:hostr_sdk/config.dart' as _i910;
 import 'package:hostr_sdk/datasources/app_database.dart' as _i555;
+import 'package:hostr_sdk/datasources/notification_log.dart' as _i444;
 import 'package:hostr_sdk/datasources/storage.dart' as _i111;
 import 'package:hostr_sdk/injection.dart' as _i231;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
@@ -95,7 +96,6 @@ import 'package:hostr_sdk/usecase/trades/actions/payment.dart' as _i395;
 import 'package:hostr_sdk/usecase/trades/actions/reservation.dart' as _i949;
 import 'package:hostr_sdk/usecase/trades/actions/reservation_request.dart'
     as _i814;
-import 'package:hostr_sdk/usecase/trades/actions/review.dart' as _i558;
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart'
     as _i850;
 import 'package:hostr_sdk/usecase/trades/trade.dart' as _i981;
@@ -295,6 +295,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
         gh<_i1000.Auth>(),
       ),
+    );
+    gh.singleton<_i444.NotificationLog>(
+      () => _i444.NotificationLog(gh<_i216.CommonDatabase>()),
     );
     gh.singleton<_i303.Escrows>(
       () => _i303.Escrows(
@@ -543,6 +546,7 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
         operationStore: gh<_i842.OperationStateStore>(),
+        notificationLog: gh<_i444.NotificationLog>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );
@@ -575,9 +579,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i814.ReservationRequestActions>(
       () => _i814.ReservationRequestActions(trade: gh<_i981.Trade>()),
-    );
-    gh.factory<_i558.ReviewActions>(
-      () => _i558.ReviewActions(trade: gh<_i981.Trade>()),
     );
     gh.factory<_i949.ReservationActions>(
       () => _i949.ReservationActions(

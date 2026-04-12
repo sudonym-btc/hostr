@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:escrow/cli/daemon_client.dart';
 import 'package:escrow/cli/screens/arbitrate.dart';
 import 'package:escrow/cli/screens/audit.dart';
+import 'package:escrow/cli/screens/badges.dart';
 import 'package:escrow/cli/screens/navigation.dart';
 import 'package:escrow/cli/screens/profile_edit.dart';
 import 'package:escrow/cli/screens/service_edit.dart';
@@ -32,19 +33,22 @@ class CliApp {
     String? selectedTradeId;
     String? selectedThreadId;
     String? selectedServiceId;
+    String? selectedBadgeDefinitionAnchor;
 
     while (nav.next != Screen.exit) {
       // Merge context from the navigation result.
       selectedTradeId = nav.selectedTradeId ?? selectedTradeId;
       selectedThreadId = nav.selectedThreadId ?? selectedThreadId;
       selectedServiceId = nav.selectedServiceId ?? selectedServiceId;
+      selectedBadgeDefinitionAnchor =
+          nav.selectedBadgeDefinitionAnchor ?? selectedBadgeDefinitionAnchor;
 
       // Clear screen between navigations for a clean view.
       _clearScreen();
 
       try {
-        nav = await _runScreen(
-            nav.next, selectedTradeId, selectedThreadId, selectedServiceId);
+        nav = await _runScreen(nav.next, selectedTradeId, selectedThreadId,
+            selectedServiceId, selectedBadgeDefinitionAnchor);
       } catch (e) {
         print('\n  Unexpected error: $e');
         nav = Navigation.to(Screen.mainMenu);
@@ -59,6 +63,7 @@ class CliApp {
     String? tradeId,
     String? threadId,
     String? serviceId,
+    String? badgeDefinitionAnchor,
   ) async {
     switch (screen) {
       case Screen.mainMenu:
@@ -96,6 +101,30 @@ class CliApp {
       case Screen.profileEdit:
         return await profileEditScreen(client);
 
+      case Screen.badgeMenu:
+        return await badgeMenuScreen(client);
+
+      case Screen.badgeDefinitionList:
+        return await badgeDefinitionListScreen(client);
+
+      case Screen.badgeDefinitionCreate:
+        return await badgeDefinitionCreateScreen(client);
+
+      case Screen.badgeDefinitionEdit:
+        if (badgeDefinitionAnchor == null) {
+          return Navigation.to(Screen.badgeDefinitionList);
+        }
+        return await badgeDefinitionEditScreen(client, badgeDefinitionAnchor);
+
+      case Screen.badgeAwardList:
+        return await badgeAwardListScreen(
+          client,
+          filterDefinitionAnchor: badgeDefinitionAnchor,
+        );
+
+      case Screen.badgeAward:
+        return await badgeAwardScreen(client);
+
       case Screen.exit:
         return Navigation.to(Screen.exit);
     }
@@ -108,6 +137,7 @@ class CliApp {
       'Threads',
       'Services',
       'Profile',
+      'Badges',
       'EVM mnemonic',
       'Daemon status',
       'Exit',
@@ -125,12 +155,14 @@ class CliApp {
       case 3:
         return Navigation.to(Screen.profileEdit);
       case 4:
+        return Navigation.to(Screen.badgeMenu);
+      case 5:
         await _showEvmMnemonic();
         return Navigation.to(Screen.mainMenu);
-      case 5:
+      case 6:
         await _showStatus();
         return Navigation.to(Screen.mainMenu);
-      case 6:
+      case 7:
       default:
         return Navigation.to(Screen.exit);
     }

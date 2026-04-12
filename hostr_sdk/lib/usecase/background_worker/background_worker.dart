@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../datasources/notification_log.dart';
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
@@ -82,6 +83,7 @@ class BackgroundWorker {
   final Listings _listings;
   final MetadataUseCase _metadata;
   final OperationStateStore _operationStore;
+  final NotificationLog _notificationLog;
   final CustomLogger _logger;
 
   final StreamWithStatus<_BackgroundSignal> _messagesProcessor$ =
@@ -121,6 +123,7 @@ class BackgroundWorker {
     required Listings listings,
     required MetadataUseCase metadata,
     required OperationStateStore operationStore,
+    required NotificationLog notificationLog,
     required CustomLogger logger,
   }) : _auth = auth,
        _userSubscriptions = userSubscriptions,
@@ -130,6 +133,7 @@ class BackgroundWorker {
        _listings = listings,
        _metadata = metadata,
        _operationStore = operationStore,
+       _notificationLog = notificationLog,
        _logger = logger.scope('bg-worker');
 
   Future<void> watch({OnBackgroundProgress? onProgress}) =>
@@ -276,6 +280,7 @@ class BackgroundWorker {
     _bindMessagesProcessor();
     _bindHostingsProcessor();
     _bindTripsProcessor();
+    _bindTripReviewProcessor();
     _bindReadinessBarrier();
 
     for (final processor in <StreamWithStatus<_BackgroundSignal>>[
@@ -334,6 +339,52 @@ class BackgroundWorker {
           .where((signal) => signal != null)
           .cast<_BackgroundSignal>()
           .listen(_myTripsProcessor$.add, onError: _myTripsProcessor$.addError),
+    );
+  }
+
+  /// Listens to completed trips and fires a one-time "leave a review"
+  /// notification per trade.  Uses [NotificationLog] for persistent
+  /// deduplication so the notification is shown at most once per device,
+  /// even across app restarts.
+  void _bindTripReviewProcessor() {
+    _sessionSubscriptions.add(
+      _userSubscriptions.myTrips$.replayStream
+          .asyncMap(_signalFromTripReview)
+          .where((signal) => signal != null)
+          .cast<_BackgroundSignal>()
+          .listen(
+            _emitSignal,
+            onError: (Object e, StackTrace st) {
+              _logger.e(
+                'BackgroundWorker trip-review processor failed',
+                error: e,
+                stackTrace: st,
+              );
+            },
+          ),
+    );
+  }
+
+  Future<_BackgroundSignal?> _signalFromTripReview(
+    Validation<ReservationGroup> validation,
+  ) async {
+    final group = validation.event;
+    if (group.cancelled) return null;
+    if (!group.isCompleted) return null;
+
+    final notificationId = 'trip-review-request:${group.tradeId}';
+    if (!_notificationLog.tryMarkDisplayed(notificationId)) return null;
+
+    final title = await _resolveListingTitle(
+      group.listingAnchor,
+      fallback: 'your stay',
+    );
+
+    return _BackgroundSignal(
+      id: notificationId,
+      body: 'How was your stay? Leave a review for $title',
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      payload: _threadPayload(group.tradeId),
     );
   }
 

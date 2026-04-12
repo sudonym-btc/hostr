@@ -6,6 +6,7 @@ import 'package:ndk/ndk.dart' hide Requests;
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
+import '../requests/requests.dart';
 
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
@@ -25,12 +26,19 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   Future<ProfileMetadata?> loadMetadata(
     String pubkey,
   ) => logger.span('loadMetadata', () async {
+    // Query bootstrap relays explicitly so the request reaches all configured
+    // relays (including well-known public ones like nos.lol / purplepag.es).
+    // Without this, the JIT engine only routes to the target pubkey's NIP-65
+    // write relays, which may not have the latest profile.
+    final relays = _ndk.config.bootstrapRelays;
+
     // We can't use NDK metadata use case, since it does not return custom fields/tags
     final metadatas = await requests
         .query(
           filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
           timeout: metadataLoadTimeout,
           name: 'Metadata-load-$pubkey',
+          relays: relays,
         )
         .toList();
 
@@ -47,7 +55,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     // unavailable from the current relay query path.
     final cachedMetadatas = await _ndk.requests
         .query(
-          name: 'Metadata-load-cache-$pubkey',
+          name: Requests.capQueryName('Metadata-load-cache-$pubkey'),
           filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 20),
           cacheRead: true,
           cacheWrite: true,
