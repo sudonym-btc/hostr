@@ -255,7 +255,7 @@ class ListingViewBody extends StatelessWidget {
           listingAnchor: listing.anchor,
         ),
         Gap.vertical.sm(),
-        AmenityTagsWidget(amenities: listing.amenities),
+        SpecificationsWidget(specifications: listing.specifications),
         Gap.vertical.md(),
         Text(
           listing.description,

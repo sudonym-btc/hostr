@@ -6,7 +6,7 @@ This is a client that displays and posts events related to short term accommodat
 
 <p align="start">
 
-<img src="../screenshots/iphone_17_pro_max/dark/search.png" alt="Search page" width=200 style="max-width:300px;">&nbsp;
+<img src="../screenshots/iphone_17_pro_max/dark/explore.png" alt="Explore page" width=200 style="max-width:300px;">&nbsp;
 <img src="../screenshots/iphone_17_pro_max/dark/listing.png" alt="Listing page" width=200 style="max-width:300px;">&nbsp;
 <img src="../screenshots/iphone_17_pro_max/dark/threads.png" alt="Threads page" width=200 style="max-width:300px;">&nbsp;
 <img src="../screenshots/iphone_17_pro_max/dark/thread.png" alt="Thread page" width=200 style="max-width:300px;">&nbsp;

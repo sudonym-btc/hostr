@@ -7,6 +7,7 @@ import '../deterministic_keys/deterministic_keys.dart';
 import '../evm/evm.dart';
 import '../reservations/reservations.dart';
 import 'trade_account_allocator.dart';
+import 'trade_account_cache.dart';
 
 @Singleton(as: TradeAccountAllocator)
 class TradeAccountAllocatorImpl implements TradeAccountAllocator {
@@ -14,6 +15,7 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   final DeterministicKeys _hd;
   final Evm _evm;
   final Reservations _reservations;
+  final TradeAccountCache _cache;
   final CustomLogger _logger;
 
   TradeAccountAllocatorImpl({
@@ -21,30 +23,44 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     required DeterministicKeys hd,
     required Evm evm,
     required Reservations reservations,
+    required TradeAccountCache cache,
     required CustomLogger logger,
   }) : _auth = auth,
        _hd = hd,
        _evm = evm,
        _reservations = reservations,
+       _cache = cache,
        _logger = logger.scope('trade_account_allocator');
 
   @override
   Future<int> reserveNextTradeIndex() => _logger.span(
     'reserveNextTradeIndex',
     () async {
+      await _cache.ensureLoaded();
+
       var accountIndex = _auth.storedMaxAccountIndex + 1;
 
       while (true) {
-        final tradeId = await _hd.getTradeId(accountIndex: accountIndex);
-        final evmAddress = await _hd.getEvmAddress(accountIndex: accountIndex);
-        final tradeExists = await _tradeExists(tradeId);
-        final addressUsed = await _evmAddressIsUsed(evmAddress);
+        // Derive (and cache) the entry for this candidate index.
+        final entry = _cache.containsIndex(accountIndex)
+            ? _cache.entryAt(accountIndex)!
+            : await _cache.put(accountIndex);
+
+        final tradeExists = await _tradeExists(entry.tradeId);
+        final addressUsed = await _evmAddressIsUsed(
+          bip.EthereumAddress.fromHex(entry.evmAddress),
+        );
 
         if (!tradeExists && !addressUsed) {
           break;
         }
 
         accountIndex++;
+      }
+
+      // Persist the chosen index into the cache (may already be there).
+      if (!_cache.containsIndex(accountIndex)) {
+        await _cache.put(accountIndex);
       }
 
       await _auth.updateMaxAccountIndex(accountIndex);
@@ -72,8 +88,17 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     String tradeId, {
     int maxScan = 128,
   }) async {
+    await _cache.ensureLoaded();
+
+    // O(1) cache hit.
+    final cached = _cache.indexByTradeId(tradeId);
+    if (cached != null) return cached;
+
+    // Cache miss — fall back to linear scan for indices beyond the
+    // cache (e.g. if maxScan exceeds storedMaxAccountIndex).
     final upperBound = _scanUpperBound(maxScan);
     for (var index = 0; index < upperBound; index++) {
+      if (_cache.containsIndex(index)) continue; // already checked
       if (await _hd.getTradeId(accountIndex: index) == tradeId) {
         return index;
       }
@@ -99,8 +124,16 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     String salt, {
     int maxScan = 128,
   }) async {
+    await _cache.ensureLoaded();
+
+    // O(1) cache hit.
+    final cached = _cache.indexBySalt(salt);
+    if (cached != null) return cached;
+
+    // Cache miss — fall back to linear scan for uncached indices.
     final upperBound = _scanUpperBound(maxScan);
     for (var index = 0; index < upperBound; index++) {
+      if (_cache.containsIndex(index)) continue; // already checked
       if (await _hd.getTradeSalt(accountIndex: index) == salt) {
         return index;
       }

@@ -179,7 +179,8 @@ class EventTags {
   DenominatedAmount? getTagDenominatedAmount(String key) {
     final tag = tags.where((t) => t.length >= 4 && t[0] == key).firstOrNull;
     if (tag == null) return null;
-    return DenominatedAmount.fromDecimal(tag[1], tag[2], int.tryParse(tag[3]) ?? 8);
+    return DenominatedAmount.fromDecimal(
+        tag[1], tag[2], int.tryParse(tag[3]) ?? 8);
   }
 
   /// Parse an enum tag by matching [T.name].
@@ -223,7 +224,7 @@ class EventTags {
         .toList();
   }
 
-  // ── Amenity read helpers ────────────────────────────────────────────
+  // ── Cancellation policy helpers ──────────────────────────────────
 
   /// Parse cancellation policy tags encoded as
   /// `["cancellationPolicy", "secondsBeforeStart", "refundFraction"]`.
@@ -245,7 +246,7 @@ class EventTags {
         .toList();
   }
 
-  // ── Amenity read helpers ────────────────────────────────────────────
+  // ── Specification read helpers ──────────────────────────────────────
 
   /// Whether an amenity tag exists for [name].
   bool hasAmenity(String name) {
@@ -256,6 +257,26 @@ class EventTags {
   int getAmenityInt(String name, {int defaultValue = 0}) {
     final tag = tags.cast<List<String>?>().firstWhere(
           (t) => t!.length >= 3 && t[0] == 'amenity' && t[1] == name,
+          orElse: () => null,
+        );
+    return tag != null && tag.length >= 3
+        ? int.tryParse(tag[2]) ?? defaultValue
+        : defaultValue;
+  }
+
+  /// Whether a spec tag exists for [name] (checks both 'spec' and legacy 'amenity').
+  bool hasSpec(String name) {
+    return tags.any((t) =>
+        t.length >= 2 && (t[0] == 'spec' || t[0] == 'amenity') && t[1] == name);
+  }
+
+  /// Read a valued spec, defaulting to [defaultValue] (checks both 'spec' and legacy 'amenity').
+  int getSpecInt(String name, {int defaultValue = 0}) {
+    final tag = tags.cast<List<String>?>().firstWhere(
+          (t) =>
+              t!.length >= 3 &&
+              (t[0] == 'spec' || t[0] == 'amenity') &&
+              t[1] == name,
           orElse: () => null,
         );
     return tag != null && tag.length >= 3

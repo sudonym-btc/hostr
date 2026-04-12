@@ -31,12 +31,20 @@ mixin ListingTagRead {
   List<CancellationPolicy> get cancellationPolicies =>
       tagSource.getTagCancellationPolicies();
   List<CancellationPolicy> get cancellationPolicy => cancellationPolicies;
-  Amenities get amenities => Amenities.fromTags(tagSource.tags);
+  Specifications get specifications => Specifications.fromTags(tagSource.tags);
+
+  @Deprecated('Use specifications instead')
+  Specifications get amenities => specifications;
 
   /// Optional security deposit that the guest must lock alongside the
   /// payment amount. Stored as `['securityDeposit', amount, denomination, decimals]`.
   DenominatedAmount? get securityDeposit =>
       tagSource.getTagDenominatedAmount('securityDeposit');
+
+  /// Optional minimum payment amount the host will accept.
+  /// Stored as `['minPaymentAmount', amount, denomination, decimals]`.
+  DenominatedAmount? get minPaymentAmount =>
+      tagSource.getTagDenominatedAmount('minPaymentAmount');
 }
 
 // ── Tags class ──────────────────────────────────────────────────────────────
@@ -87,7 +95,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     required List<Price> price,
     required String location,
     required ListingType type,
-    required Amenities amenities,
+    required Specifications specifications,
     bool active = true,
     bool allowBarter = false,
     int minStay = 1,
@@ -98,6 +106,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     bool allowSelfSignedReservation = false,
     List<CancellationPolicy> cancellationPolicy = const [],
     DenominatedAmount? securityDeposit,
+    DenominatedAmount? minPaymentAmount,
     List<List<String>> extraTags = const [],
     int? createdAt,
   }) {
@@ -124,7 +133,9 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addPrices(price)
               ..addCancellationPolicies(cancellationPolicy)
               ..addOptionalDenominatedAmount('securityDeposit', securityDeposit)
-              ..addAmenities(amenities)
+              ..addOptionalDenominatedAmount(
+                  'minPaymentAmount', minPaymentAmount)
+              ..addSpecifications(specifications)
               ..addAll(extraTags))
             .build(),
       ),
@@ -147,9 +158,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     bool? allowSelfSignedReservation,
     List<Price>? prices,
     List<CancellationPolicy>? cancellationPolicy,
-    Amenities? amenities,
+    Specifications? specifications,
     DenominatedAmount? securityDeposit,
     bool clearSecurityDeposit = false,
+    DenominatedAmount? minPaymentAmount,
+    bool clearMinPaymentAmount = false,
     // Content fields
     String? title,
     String? description,
@@ -179,8 +192,10 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               'allowSelfSignedReservation',
               'price',
               'cancellationPolicy',
-              'amenity',
+              'spec',
+              'amenity', // back-compat: strip legacy amenity tags on rebuild
               'securityDeposit',
+              'minPaymentAmount',
             }.contains(t.first))
         .toList();
 
@@ -212,7 +227,12 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                   clearSecurityDeposit
                       ? null
                       : securityDeposit ?? this.securityDeposit)
-              ..addAmenities(amenities ?? this.amenities)
+              ..addOptionalDenominatedAmount(
+                  'minPaymentAmount',
+                  clearMinPaymentAmount
+                      ? null
+                      : minPaymentAmount ?? this.minPaymentAmount)
+              ..addSpecifications(specifications ?? this.specifications)
               ..addAll(extraTags ?? const []))
             .build(),
       ),
@@ -366,14 +386,21 @@ class CancellationPolicy {
 
 enum ListingType { room, house, apartment, villa, hotel, hostel, resort }
 
-// ── Amenities (tag-backed) ──────────────────────────────────────────────────
+// ── Specifications (tag-backed) ─────────────────────────────────────────────
 
-class Amenities {
+/// Listing specifications — boolean features and valued details.
+///
+/// Serialised as `["spec", "<name>"]` (boolean) or
+/// `["spec", "<name>", "<value>"]` (valued) Nostr tags.
+class Specifications {
   final Map<String, dynamic> _data;
 
-  Amenities([Map<String, dynamic>? data]) : _data = data ?? {};
+  Specifications([Map<String, dynamic>? data]) : _data = data ?? {};
 
-  /// Generic setter – enables `amenities['pool'] = true`.
+  /// Generic accessor – enables `specs['pool']`.
+  dynamic operator [](String key) => _data[key];
+
+  /// Generic setter – enables `specs['pool'] = true`.
   void operator []=(String key, dynamic value) => _data[key] = value;
 
   // ── Boolean getters ───────────────────────────────────────────────
@@ -471,21 +498,25 @@ class Amenities {
 
   // ── Numeric getters ───────────────────────────────────────────────
   int get bathtub => (_data['bathtub'] as int?) ?? 0;
+  int get bathrooms => (_data['bathrooms'] as int?) ?? 0;
   int get beds => (_data['beds'] as int?) ?? 0;
   int get bedrooms => (_data['bedrooms'] as int?) ?? 0;
+  int get max_guests => (_data['max_guests'] as int?) ?? 0;
   int get tv => (_data['tv'] as int?) ?? 0;
 
   // ── Construct from tags ───────────────────────────────────────────
-  static Amenities fromTags(List<List<String>> tags) {
+  static Specifications fromTags(List<List<String>> tags) {
     final map = <String, dynamic>{};
-    for (final tag in tags.where((t) => t.isNotEmpty && t[0] == 'amenity')) {
+    // Parse both 'spec' (current) and 'amenity' (legacy) tags.
+    for (final tag in tags
+        .where((t) => t.isNotEmpty && (t[0] == 'spec' || t[0] == 'amenity'))) {
       if (tag.length == 2) {
         map[tag[1]] = true;
       } else if (tag.length >= 3) {
         map[tag[1]] = int.tryParse(tag[2]) ?? tag[2];
       }
     }
-    return Amenities(map);
+    return Specifications(map);
   }
 
   // ── Serialize to tags ─────────────────────────────────────────────
@@ -493,11 +524,11 @@ class Amenities {
     return _data.entries.expand((e) {
       if (e.value == true)
         return [
-          ['amenity', e.key]
+          ['spec', e.key]
         ];
       if (e.value is int && (e.value as int) > 0) {
         return [
-          ['amenity', e.key, '${e.value}']
+          ['spec', e.key, '${e.value}']
         ];
       }
       return <List<String>>[];
@@ -505,8 +536,8 @@ class Amenities {
   }
 
   // ── Legacy compat: toMap / fromJSON (used by UI forms) ────────────
-  static Amenities fromJSON(Map<String, dynamic> json) {
-    return Amenities(Map<String, dynamic>.from(json));
+  static Specifications fromJSON(Map<String, dynamic> json) {
+    return Specifications(Map<String, dynamic>.from(json));
   }
 
   Map<String, dynamic> toMap() {
@@ -514,9 +545,11 @@ class Amenities {
     return {
       'airconditioning': airconditioning,
       'allows_pets': allows_pets,
+      'bathrooms': bathrooms,
       'bathtub': bathtub,
       'beds': beds,
       'bedrooms': bedrooms,
+      'max_guests': max_guests,
       'tv': tv,
       'crib': crib,
       'tumble_dryer': tumble_dryer,
@@ -603,3 +636,7 @@ class Amenities {
     };
   }
 }
+
+/// Backwards-compatible alias.
+@Deprecated('Use Specifications instead')
+typedef Amenities = Specifications;

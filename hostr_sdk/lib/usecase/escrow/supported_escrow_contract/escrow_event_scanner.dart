@@ -288,6 +288,12 @@ class EscrowEventScanner {
             tradeCreated.token,
             tradeCreated.paymentAmount,
           ),
+          bondAmount: tradeCreated.bondAmount > BigInt.zero
+              ? await _tokenAmountFromEvent(
+                  tradeCreated.token,
+                  tradeCreated.bondAmount,
+                )
+              : null,
           unlockAt: tradeCreated.unlockAt.toInt(),
         );
       case 'Arbitrated':

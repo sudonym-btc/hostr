@@ -131,7 +131,7 @@ Listing _listing() => _f.listing(
   priceSats: 100000,
   location: 'test-location',
   type: ListingType.house,
-  amenities: Amenities(),
+  specifications: Specifications(),
   allowBarter: true,
   allowSelfSignedReservation: true,
 );

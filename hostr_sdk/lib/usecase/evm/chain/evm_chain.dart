@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -32,6 +33,7 @@ import '../operations/swap_out/swap_out_state.dart';
 import 'evm_balance_monitor.dart';
 import 'operations/swap_in/swap_in_operation.dart';
 import 'operations/swap_out/swap_out_operation.dart';
+import 'rpc_batch_builder.dart';
 
 /// Concrete EVM chain — transport layer plus assembled capabilities.
 ///
@@ -421,6 +423,141 @@ class EvmChain {
         });
       });
 
+  // ════════════════════════════════════════════════════════════════════
+  // JSON-RPC batch transport
+  //
+  // The low-level [batchRpc] method sends an array of JSON-RPC requests
+  // in a single HTTP POST.  Higher-level callers should use
+  // [RpcBatchBuilder] to compose requests from multiple helpers into
+  // one call — see [scanAllHDBalances] for an example.
+  // ════════════════════════════════════════════════════════════════════
+
+  /// Sends a [JSON-RPC batch request](https://www.jsonrpc.org/specification#batch)
+  /// — a single HTTP POST whose body is an array of individual requests.
+  ///
+  /// Returns the results in the **same order** as [requests], with each
+  /// element being either the decoded `result` field on success, or `null`
+  /// if that sub-request returned an error.
+  ///
+  /// The method retries once on transient transport errors (same policy as
+  /// [_callRpcWithRetry]). Individual JSON-RPC errors (e.g. invalid params)
+  /// are **not** retried — the corresponding entry is simply `null`.
+  Future<List<dynamic>> batchRpc(
+    List<({String method, List<dynamic> params})> requests, {
+    Duration timeout = const Duration(seconds: 30),
+  }) => logger.span('batchRpc(${requests.length} calls)', () async {
+    if (requests.isEmpty) return [];
+
+    // Build the JSON-RPC array.
+    final body = <Map<String, dynamic>>[];
+    for (var i = 0; i < requests.length; i++) {
+      body.add({
+        'jsonrpc': '2.0',
+        'method': requests[i].method,
+        'params': requests[i].params,
+        'id': i,
+      });
+    }
+
+    final payload = jsonEncode(body);
+
+    // Retry wrapper (mirrors _callRpcWithRetry logic).
+    const retries = 1;
+    for (var attempt = 1; attempt <= retries + 1; attempt++) {
+      final generation = _clientGeneration;
+      try {
+        final response = await _httpClient
+            .post(
+              Uri.parse(config.rpcUrl),
+              headers: {'Content-Type': 'application/json'},
+              body: payload,
+            )
+            .timeout(timeout);
+
+        if (response.statusCode != 200) {
+          throw http.ClientException(
+            'Batch RPC HTTP ${response.statusCode}: ${response.body}',
+          );
+        }
+
+        final decoded = jsonDecode(response.body);
+
+        // Some nodes (incorrectly) return a single object instead of an
+        // array when the batch has one element. Handle both.
+        final List<dynamic> results;
+        if (decoded is List) {
+          results = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          results = [decoded];
+        } else {
+          throw FormatException(
+            'Unexpected batch RPC response type: ${decoded.runtimeType}',
+          );
+        }
+
+        // Index by 'id' to reorder into request order.
+        final byId = <int, dynamic>{};
+        for (final r in results) {
+          if (r is Map<String, dynamic>) {
+            byId[r['id'] as int] = r;
+          }
+        }
+
+        return List.generate(requests.length, (i) {
+          final r = byId[i];
+          if (r == null) return null;
+          if (r is Map<String, dynamic> && r.containsKey('error')) {
+            logger.w('Batch RPC error for id=$i: ${r['error']}');
+            return null;
+          }
+          return (r as Map<String, dynamic>)['result'];
+        });
+      } catch (error) {
+        if (!_isTransientRpcError(error) || attempt > retries) rethrow;
+        logger.w(
+          'batchRpc failed on attempt $attempt/${retries + 1}: $error. '
+          'Resetting Web3Client and retrying.',
+        );
+        _resetClientIfGeneration(generation);
+        await Future.delayed(Duration(milliseconds: 250 * attempt));
+      }
+    }
+
+    throw StateError('unreachable');
+  });
+
+  /// Execute an [RpcBatch], firing all accumulated requests in a single
+  /// HTTP round-trip and resolving every [BatchResult] handle.
+  Future<void> executeBatch(RpcBatch batch) async {
+    if (batch.isEmpty) return;
+    final raw = await batchRpc(batch.requests);
+    await batch.resolve(raw);
+  }
+
+  /// Fetch native (ETH/RBTC) balances for multiple addresses in a single
+  /// HTTP round-trip.
+  Future<Map<EthereumAddress, TokenAmount>> getBalancesBatch(
+    List<EthereumAddress> addresses,
+  ) => logger.span('getBalancesBatch(${addresses.length})', () async {
+    if (addresses.isEmpty) return {};
+    final batch = RpcBatch();
+    final result = batch.getBalances(addresses, chainId: config.chainId);
+    await executeBatch(batch);
+    return result.value;
+  });
+
+  /// Fetch ERC-20 balances for multiple (owner, token) pairs in a single
+  /// HTTP round-trip.
+  Future<List<TokenAmount?>> getERC20BalancesBatch(
+    List<({EthereumAddress owner, EthereumAddress token})> pairs,
+  ) => logger.span('getERC20BalancesBatch(${pairs.length})', () async {
+    if (pairs.isEmpty) return [];
+    final batch = RpcBatch();
+    final result = batch.getERC20Balances(pairs, tokenResolver: resolveToken);
+    await executeBatch(batch);
+    return result.value;
+  });
+
   /// Emits a new block number whenever the chain advances.
   ///
   /// Uses `eth_blockNumber` polling — the most universally supported RPC
@@ -600,29 +737,22 @@ class EvmChain {
         }),
       );
 
-      // Fire nonce + balance queries for every address in the batch at once.
-      final results = await Future.wait(
-        addresses.map((entry) async {
-          final nonce = await _callRpcWithRetry(
-            'getTransactionCount(${entry.address})',
-            (client) => client.getTransactionCount(entry.address),
-          );
-          final balance = await _callRpcWithRetry(
-            'getBalance(${entry.address})',
-            (client) => client.getBalance(entry.address),
-          );
-          return (
-            index: entry.index,
-            address: entry.address,
-            used: nonce > 0 || balance.getInWei > BigInt.zero,
-          );
-        }),
-      );
+      // Nonce + balance in a single HTTP round-trip.
+      final addrList = addresses.map((a) => a.address).toList(growable: false);
+      final batch = RpcBatch();
+      final nonces = batch.getTransactionCounts(addrList);
+      final balances = batch.getBalances(addrList, chainId: config.chainId);
+      await executeBatch(batch);
 
       // Return the first unused address (results are in index order).
-      for (final r in results) {
-        if (!r.used) {
-          return (address: r.address, accountIndex: r.index);
+      for (var i = 0; i < addresses.length; i++) {
+        final balance = balances.value[addresses[i].address];
+        if (nonces.value[i] == 0 &&
+            (balance == null || balance.value == BigInt.zero)) {
+          return (
+            address: addresses[i].address,
+            accountIndex: addresses[i].index,
+          );
         }
       }
     }
@@ -641,44 +771,19 @@ class EvmChain {
     List<({EthereumAddress address, int accountIndex, TokenAmount balance})>
   >
   getAddressesWithBalance() => logger.span('getAddressesWithBalance', () async {
-    const batchSize = 5;
-    final funded =
-        <({EthereumAddress address, int accountIndex, TokenAmount balance})>[];
+    final allAddresses = await _deriveHDAddresses();
+    final addrList = allAddresses.map((a) => a.address).toList(growable: false);
 
-    for (var offset = 0; offset < _maxScanIndex; offset += batchSize) {
-      final count = min(batchSize, _maxScanIndex - offset);
-      final indices = List.generate(count, (i) => offset + i);
-      final addresses = await Future.wait(
-        indices.map((i) async {
-          return (
-            index: i,
-            address: await auth.hd.getEvmAddress(accountIndex: i),
-          );
-        }),
-      );
+    final batch = RpcBatch();
+    final balances = batch.getBalances(addrList, chainId: config.chainId);
+    await executeBatch(batch);
 
-      final results = await Future.wait(
-        addresses.map((entry) async {
-          final balance = await _callRpcWithRetry(
-            'getBalance(${entry.address})',
-            (client) => client.getBalance(entry.address),
-          );
-          return (index: entry.index, address: entry.address, balance: balance);
-        }),
-      );
-
-      for (final r in results) {
-        if (r.balance.getInWei > BigInt.zero) {
-          funded.add((
-            address: r.address,
-            accountIndex: r.index,
-            balance: rbtcFromWei(r.balance.getInWei, chainId: config.chainId),
-          ));
-        }
-      }
-    }
-
-    return funded;
+    return [
+      for (final entry in allAddresses)
+        if (balances.value[entry.address] case final bal?
+            when bal.value > BigInt.zero)
+          (address: entry.address, accountIndex: entry.index, balance: bal),
+    ];
   });
 
   /// Returns the ERC-20 token balance for a single [owner] address.
@@ -719,6 +824,31 @@ class EvmChain {
       logger.span('getAddressesWithTokenBalances', () async {
         if (tokens.isEmpty) return [];
 
+        final addresses = await _deriveHDAddresses();
+
+        // Build one batch for ALL tokens × ALL addresses.
+        final batch = RpcBatch();
+        final handles =
+            <
+              String,
+              ({
+                BatchResult<List<TokenAmount?>> result,
+                EthereumAddress tokenAddr,
+              })
+            >{};
+
+        for (final tokenEntry in tokens.entries) {
+          final pairs = addresses
+              .map((a) => (owner: a.address, token: tokenEntry.value))
+              .toList(growable: false);
+          handles[tokenEntry.key] = (
+            result: batch.getERC20Balances(pairs, tokenResolver: resolveToken),
+            tokenAddr: tokenEntry.value,
+          );
+        }
+
+        await executeBatch(batch);
+
         final funded =
             <
               ({
@@ -730,36 +860,18 @@ class EvmChain {
               })
             >[];
 
-        // Derive all HD addresses up front.
-        final addresses = await Future.wait(
-          List.generate(_maxScanIndex, (i) async {
-            return (
-              index: i,
-              address: await auth.hd.getEvmAddress(accountIndex: i),
-            );
-          }),
-        );
-
-        // For each token, check all addresses in parallel.
-        for (final tokenEntry in tokens.entries) {
-          final tokenName = tokenEntry.key;
-          final tokenAddr = tokenEntry.value;
-
-          final results = await Future.wait(
-            addresses.map((entry) async {
-              final balance = await getERC20Balance(entry.address, tokenAddr);
-              return (entry: entry, balance: balance);
-            }),
-          );
-
-          for (final r in results) {
-            if (r.balance.value > BigInt.zero) {
+        for (final entry in handles.entries) {
+          final tokenName = entry.key;
+          final h = entry.value;
+          for (var i = 0; i < addresses.length; i++) {
+            final balance = h.result.value[i];
+            if (balance != null && balance.value > BigInt.zero) {
               funded.add((
-                address: r.entry.address,
-                accountIndex: r.entry.index,
-                balance: r.balance,
+                address: addresses[i].address,
+                accountIndex: addresses[i].index,
+                balance: balance,
                 tokenName: tokenName,
-                tokenAddress: tokenAddr,
+                tokenAddress: h.tokenAddr,
               ));
             }
           }
@@ -767,6 +879,106 @@ class EvmChain {
 
         return funded;
       });
+
+  /// Scans all HD-derived addresses for **both** native and ERC-20 balances
+  /// in a **single** JSON-RPC batch request.
+  ///
+  /// This is the most efficient way to seed balance monitors: all
+  /// `eth_getBalance` + `eth_call(balanceOf)` calls are packed into one
+  /// HTTP round-trip via [RpcBatchBuilder].
+  Future<
+    ({
+      List<({EthereumAddress address, int accountIndex, TokenAmount balance})>
+      nativeFunded,
+      List<
+        ({
+          EthereumAddress address,
+          int accountIndex,
+          TokenAmount balance,
+          String tokenName,
+          EthereumAddress tokenAddress,
+        })
+      >
+      tokenFunded,
+    })
+  >
+  scanAllHDBalances({
+    Map<String, EthereumAddress> tokens = const {},
+  }) => logger.span('scanAllHDBalances', () async {
+    final addresses = await _deriveHDAddresses();
+    final addrList = addresses.map((a) => a.address).toList(growable: false);
+
+    // One batch: native balances + all ERC-20 balanceOf calls.
+    final batch = RpcBatch();
+    final nativeResult = batch.getBalances(addrList, chainId: config.chainId);
+
+    final tokenHandles =
+        <
+          String,
+          ({BatchResult<List<TokenAmount?>> result, EthereumAddress tokenAddr})
+        >{};
+    for (final tokenEntry in tokens.entries) {
+      final pairs = addresses
+          .map((a) => (owner: a.address, token: tokenEntry.value))
+          .toList(growable: false);
+      tokenHandles[tokenEntry.key] = (
+        result: batch.getERC20Balances(pairs, tokenResolver: resolveToken),
+        tokenAddr: tokenEntry.value,
+      );
+    }
+
+    // Single HTTP round-trip.
+    await executeBatch(batch);
+
+    // Collect native balances.
+    final nativeFunded = [
+      for (final entry in addresses)
+        if (nativeResult.value[entry.address] case final bal?
+            when bal.value > BigInt.zero)
+          (address: entry.address, accountIndex: entry.index, balance: bal),
+    ];
+
+    // Collect ERC-20 balances.
+    final tokenFunded =
+        <
+          ({
+            EthereumAddress address,
+            int accountIndex,
+            TokenAmount balance,
+            String tokenName,
+            EthereumAddress tokenAddress,
+          })
+        >[];
+    for (final entry in tokenHandles.entries) {
+      final tokenName = entry.key;
+      final h = entry.value;
+      for (var i = 0; i < addresses.length; i++) {
+        final balance = h.result.value[i];
+        if (balance != null && balance.value > BigInt.zero) {
+          tokenFunded.add((
+            address: addresses[i].address,
+            accountIndex: addresses[i].index,
+            balance: balance,
+            tokenName: tokenName,
+            tokenAddress: h.tokenAddr,
+          ));
+        }
+      }
+    }
+
+    return (nativeFunded: nativeFunded, tokenFunded: tokenFunded);
+  });
+
+  /// Derive all HD addresses in the scan window.
+  Future<List<({int index, EthereumAddress address})>> _deriveHDAddresses() =>
+      Future.wait(
+        List.generate(_maxScanIndex, (i) async {
+          return (
+            index: i,
+            address: await auth.hd.getEvmAddress(accountIndex: i),
+          );
+        }),
+      );
 
   Future<List<dynamic>> call(
     ContractAbi abi,

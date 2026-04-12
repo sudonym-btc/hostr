@@ -11,8 +11,8 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:hostr_sdk/config.dart' as _i910;
-import 'package:hostr_sdk/datasources/app_database.dart' as _i555;
-import 'package:hostr_sdk/datasources/notification_log.dart' as _i444;
+import 'package:hostr_sdk/datasources/app_database.dart' as _i995;
+import 'package:hostr_sdk/datasources/notification_log.dart' as _i226;
 import 'package:hostr_sdk/datasources/storage.dart' as _i111;
 import 'package:hostr_sdk/injection.dart' as _i231;
 import 'package:hostr_sdk/usecase/auth/auth.dart' as _i1000;
@@ -91,6 +91,8 @@ import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocato
     as _i1068;
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator_impl.dart'
     as _i698;
+import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.dart'
+    as _i202;
 import 'package:hostr_sdk/usecase/trade_audit/trade_audit.dart' as _i179;
 import 'package:hostr_sdk/usecase/trades/actions/payment.dart' as _i395;
 import 'package:hostr_sdk/usecase/trades/actions/reservation.dart' as _i949;
@@ -129,7 +131,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i148.SwapOutQuoteService>(() => _i148.SwapOutQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
-    gh.singleton<_i555.AppDatabase>(() => hostrSdkModule.appDatabase);
+    gh.singleton<_i995.AppDatabase>(() => hostrSdkModule.appDatabase);
     gh.singleton<_i216.CommonDatabase>(() => hostrSdkModule.operationsDb);
     gh.singleton<_i331.CustomLogger>(() => hostrSdkModule.logger);
     gh.singleton<_i337.Telemetry>(() => hostrSdkModule.telemetry);
@@ -177,6 +179,9 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i908.LnurlUseCase(),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.singleton<_i226.NotificationLog>(
+      () => _i226.NotificationLog(gh<_i216.CommonDatabase>()),
+    );
     gh.singleton<_i1014.Requests>(
       () => _i286.InMemoryRequests(
         ndk: gh<_i857.Ndk>(),
@@ -217,23 +222,8 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i218.RelayStorage>(
-      () => _i218.RelayStorage(
-        gh<_i216.CommonDatabase>(),
-        gh<_i910.HostrConfig>(),
-        gh<_i1000.Auth>(),
-      ),
-    );
     gh.singleton<_i218.NwcStorage>(
       () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
-    );
-    gh.singleton<_i883.Relays>(
-      () => _i883.Relays(
-        ndk: gh<_i857.Ndk>(),
-        relayStorage: gh<_i218.RelayStorage>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-      registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i588.Nwc>(
       () => _i588.MockNwc(
@@ -282,22 +272,19 @@ extension GetItInjectableX on _i174.GetIt {
         evm: gh<_i305.Evm>(),
       ),
     );
+    gh.singleton<_i218.RelayStorage>(
+      () => _i218.RelayStorage(
+        gh<_i216.CommonDatabase>(),
+        gh<_i910.HostrConfig>(),
+        gh<_i1000.Auth>(),
+      ),
+    );
     gh.singleton<_i175.Heartbeats>(
       () => _i175.Heartbeats(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
       ),
-    );
-    gh.singleton<_i794.UserConfigStore>(
-      () => _i794.UserConfigStore(
-        gh<_i216.CommonDatabase>(),
-        gh<_i331.CustomLogger>(),
-        gh<_i1000.Auth>(),
-      ),
-    );
-    gh.singleton<_i444.NotificationLog>(
-      () => _i444.NotificationLog(gh<_i216.CommonDatabase>()),
     );
     gh.singleton<_i303.Escrows>(
       () => _i303.Escrows(
@@ -313,6 +300,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i794.UserConfigStore>(
+      () => _i794.UserConfigStore(
+        gh<_i216.CommonDatabase>(),
+        gh<_i331.CustomLogger>(),
+        gh<_i1000.Auth>(),
+      ),
     );
     gh.singleton<_i842.OperationStateStore>(
       () => _i842.OperationStateStore(
@@ -369,6 +363,14 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_dev, _staging, _prod},
     );
+    gh.singleton<_i883.Relays>(
+      () => _i883.Relays(
+        ndk: gh<_i857.Ndk>(),
+        relayStorage: gh<_i218.RelayStorage>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+      registerFor: {_dev, _staging, _prod},
+    );
     gh.singleton<_i1045.Zaps>(
       () => _i1045.Zaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
@@ -381,6 +383,13 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
       registerFor: {_dev, _staging, _prod},
+    );
+    gh.singleton<_i202.TradeAccountCache>(
+      () => _i202.TradeAccountCache(
+        auth: gh<_i1000.Auth>(),
+        hd: gh<_i149.DeterministicKeys>(),
+        logger: gh<_i331.CustomLogger>(),
+      ),
     );
     gh.factory<_i249.SwapRecoverer>(
       () => _i249.SwapRecoverer(
@@ -405,6 +414,7 @@ extension GetItInjectableX on _i174.GetIt {
         hd: gh<_i149.DeterministicKeys>(),
         evm: gh<_i305.Evm>(),
         reservations: gh<_i326.Reservations>(),
+        cache: gh<_i202.TradeAccountCache>(),
         logger: gh<_i331.CustomLogger>(),
       ),
     );
@@ -509,18 +519,6 @@ extension GetItInjectableX on _i174.GetIt {
         port: gh<_i733.CalendarPort>(),
       ),
     );
-    gh.singleton<_i1016.FundsMonitorService>(
-      () => _i1016.FundsMonitorService(
-        gh<_i305.Evm>(),
-        gh<_i576.UserSubscriptions>(),
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i842.OperationStateStore>(),
-        gh<_i794.UserConfigStore>(),
-        gh<_i148.SwapOutQuoteService>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i768.Threads>(
       () => _i768.Threads(
         userSubscriptions: gh<_i576.UserSubscriptions>(),
@@ -536,18 +534,16 @@ extension GetItInjectableX on _i174.GetIt {
         userSubscriptions: gh<_i576.UserSubscriptions>(),
       ),
     );
-    gh.singleton<_i843.BackgroundWorker>(
-      () => _i843.BackgroundWorker(
-        auth: gh<_i1000.Auth>(),
-        userSubscriptions: gh<_i576.UserSubscriptions>(),
-        heartbeats: gh<_i175.Heartbeats>(),
-        evm: gh<_i305.Evm>(),
-        fundsMonitor: gh<_i1016.FundsMonitorService>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-        operationStore: gh<_i842.OperationStateStore>(),
-        notificationLog: gh<_i444.NotificationLog>(),
-        logger: gh<_i372.CustomLogger>(),
+    gh.singleton<_i1016.FundsMonitorService>(
+      () => _i1016.FundsMonitorService(
+        gh<_i305.Evm>(),
+        gh<_i576.UserSubscriptions>(),
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i842.OperationStateStore>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i148.SwapOutQuoteService>(),
+        gh<_i331.CustomLogger>(),
       ),
     );
     gh.singleton<_i850.PaymentProofOrchestrator>(
@@ -584,6 +580,20 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i949.ReservationActions(
         trade: gh<_i981.Trade>(),
         reservations: gh<_i326.Reservations>(),
+      ),
+    );
+    gh.singleton<_i843.BackgroundWorker>(
+      () => _i843.BackgroundWorker(
+        auth: gh<_i1000.Auth>(),
+        userSubscriptions: gh<_i576.UserSubscriptions>(),
+        heartbeats: gh<_i175.Heartbeats>(),
+        evm: gh<_i305.Evm>(),
+        fundsMonitor: gh<_i1016.FundsMonitorService>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        operationStore: gh<_i842.OperationStateStore>(),
+        notificationLog: gh<_i226.NotificationLog>(),
+        logger: gh<_i372.CustomLogger>(),
       ),
     );
     return this;

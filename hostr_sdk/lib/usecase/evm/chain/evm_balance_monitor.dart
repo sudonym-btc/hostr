@@ -8,6 +8,7 @@ import '../../../util/custom_logger.dart';
 import '../../../util/stream_status.dart';
 import 'evm_balance_types.dart';
 import 'evm_chain.dart';
+import 'rpc_batch_builder.dart';
 
 /// ERC-20 Transfer event topic0: keccak256("Transfer(address,address,uint256)")
 const _transferEventTopic =
@@ -260,32 +261,31 @@ class EvmBalanceMonitor {
     try {
       final blockNumber = await _chain.getBlockNumber();
 
-      // Snapshot native balances for new addresses.
-      for (final addr in newAddresses) {
-        await _fetchAndEmitNativeBalance(addr.address, blockNumber);
-      }
+      // ── Build one combined batch: native + ERC-20 ─────────────────
+      final batch = RpcBatch();
 
-      // Snapshot ERC-20 balances:
-      //  - new addresses × all existing tokens
-      //  - all existing addresses × new tokens
-      //  - new addresses × new tokens
+      // Native balance requests for new addresses.
+      final nativeAddrs = newAddresses.map((a) => a.address).toList();
+      final BatchResult<Map<EthereumAddress, TokenAmount>>? nativeResult =
+          nativeAddrs.isNotEmpty
+          ? batch.getBalances(nativeAddrs, chainId: _chain.config.chainId)
+          : null;
+
+      // ERC-20 pair collection.
       final addressesToSnapshot = <EthereumAddress>{
         ...newAddresses.map((a) => a.address),
       };
-      final tokensToSnapshot = <Token>{
-        ..._trackedTokens, // includes newly added ones
-      };
-
-      // For new tokens, also snapshot against existing addresses.
+      final tokensToSnapshot = <Token>{..._trackedTokens};
       if (newTokens.isNotEmpty) {
         for (final existing in _trackedAddresses) {
           addressesToSnapshot.add(existing.address);
         }
       }
 
+      final erc20Pairs =
+          <({EthereumAddress owner, EthereumAddress token, Token meta})>[];
       for (final addr in addressesToSnapshot) {
         for (final token in tokensToSnapshot) {
-          // Only snapshot if this is a new combination.
           final key = (
             addr.eip55With0x.toLowerCase(),
             token.address.toLowerCase(),
@@ -299,12 +299,50 @@ class EvmBalanceMonitor {
               !newTokens.contains(token)) {
             continue;
           }
-          await _fetchAndEmitErc20Balance(addr, token, blockNumber);
+          erc20Pairs.add((
+            owner: addr,
+            token: EthereumAddress.fromHex(token.address),
+            meta: token,
+          ));
         }
       }
 
-      // If we didn't have a _lastProcessedBlock yet, set it now so
-      // subsequent log scans start from a known point.
+      final batchPairs = erc20Pairs
+          .map((p) => (owner: p.owner, token: p.token))
+          .toList(growable: false);
+      final BatchResult<List<TokenAmount?>>? erc20Result = batchPairs.isNotEmpty
+          ? batch.getERC20Balances(
+              batchPairs,
+              tokenResolver: _chain.resolveToken,
+            )
+          : null;
+
+      // ── Single HTTP round-trip ────────────────────────────────────
+      if (!batch.isEmpty) {
+        await _chain.executeBatch(batch);
+
+        // Apply native balances.
+        if (nativeResult != null) {
+          for (final entry in nativeResult.value.entries) {
+            _emitNativeBalance(entry.key, entry.value, blockNumber);
+          }
+        }
+
+        // Apply ERC-20 balances.
+        if (erc20Result != null) {
+          for (var i = 0; i < erc20Pairs.length; i++) {
+            final balance = erc20Result.value[i];
+            if (balance == null) continue;
+            _emitErc20Balance(
+              erc20Pairs[i].owner,
+              erc20Pairs[i].meta,
+              balance,
+              blockNumber,
+            );
+          }
+        }
+      }
+
       _lastProcessedBlock ??= blockNumber;
 
       if (_blockSub != null) {
@@ -426,11 +464,12 @@ class EvmBalanceMonitor {
           'Native dirty addresses: ${dirty.length}/${_trackedAddresses.length}',
         );
 
-        // Fetch balances in chunks.
+        // Fetch balances in batched RPC chunks.
         for (final chunk in _chunked(dirty.toList(), batchChunkSize)) {
-          await Future.wait(
-            chunk.map((addr) => _fetchAndEmitNativeBalance(addr, blockNumber)),
-          );
+          final balances = await _chain.getBalancesBatch(chunk);
+          for (final entry in balances.entries) {
+            _emitNativeBalance(entry.key, entry.value, blockNumber);
+          }
         }
       });
 
@@ -545,85 +584,79 @@ class EvmBalanceMonitor {
         '(${_trackedAddresses.length} addrs × ${_trackedTokens.length} tokens)',
       );
 
-      // Fetch balanceOf for dirty pairs in chunks.
+      // Fetch balanceOf for dirty pairs in batched-RPC chunks.
       final pairsList = dirtyPairs.toList();
       for (final chunk in _chunked(pairsList, batchChunkSize)) {
-        await Future.wait(
-          chunk.map((pair) => _fetchAndEmitErc20Balance(pair.$1, pair.$2, to)),
-        );
+        final batchPairs = chunk
+            .map(
+              (p) =>
+                  (owner: p.$1, token: EthereumAddress.fromHex(p.$2.address)),
+            )
+            .toList(growable: false);
+        final results = await _chain.getERC20BalancesBatch(batchPairs);
+        for (var i = 0; i < chunk.length; i++) {
+          final balance = results[i];
+          if (balance == null) continue;
+          _emitErc20Balance(chunk[i].$1, chunk[i].$2, balance, to);
+        }
       }
     },
   );
 
   // ══════════════════════════════════════════════════════════════════════
-  // Balance fetching helpers
+  // Balance emit helpers (cache-update + stream, no RPC)
   // ══════════════════════════════════════════════════════════════════════
 
-  Future<void> _fetchAndEmitNativeBalance(
+  /// Update the cache and emit a [BalanceUpdate] for a native balance
+  /// that was already fetched (e.g. via [EvmChain.getBalancesBatch]).
+  void _emitNativeBalance(
     EthereumAddress address,
+    TokenAmount balance,
     int blockNumber,
-  ) async {
-    try {
-      final balance = await _chain.getBalance(address);
-      final nativeToken = Token.native(_chain.config.chainId);
-      final key = (
-        address.eip55With0x.toLowerCase(),
-        nativeToken.address.toLowerCase(),
-      );
-      final previous = _balanceCache[key];
+  ) {
+    final nativeToken = Token.native(_chain.config.chainId);
+    final key = (
+      address.eip55With0x.toLowerCase(),
+      nativeToken.address.toLowerCase(),
+    );
+    final previous = _balanceCache[key];
+    _balanceCache[key] = balance;
 
-      _balanceCache[key] = balance;
-
-      // Emit only if changed (or first fetch).
-      if (previous == null || previous.value != balance.value) {
-        _updates.add(
-          BalanceUpdate(
-            address: address,
-            token: nativeToken,
-            balance: balance,
-            blockNumber: blockNumber,
-          ),
-        );
-      }
-    } catch (e) {
-      _logger.w(
-        'Failed to fetch native balance for ${address.eip55With0x}: $e',
+    if (previous == null || previous.value != balance.value) {
+      _updates.add(
+        BalanceUpdate(
+          address: address,
+          token: nativeToken,
+          balance: balance,
+          blockNumber: blockNumber,
+        ),
       );
     }
   }
 
-  Future<void> _fetchAndEmitErc20Balance(
+  /// Update the cache and emit a [BalanceUpdate] for an ERC-20 balance
+  /// that was already fetched (e.g. via [EvmChain.getERC20BalancesBatch]).
+  void _emitErc20Balance(
     EthereumAddress address,
     Token token,
+    TokenAmount balance,
     int blockNumber,
-  ) async {
-    try {
-      final balance = await _chain.getERC20Balance(
-        address,
-        EthereumAddress.fromHex(token.address),
-      );
-      final key = (
-        address.eip55With0x.toLowerCase(),
-        token.address.toLowerCase(),
-      );
-      final previous = _balanceCache[key];
+  ) {
+    final key = (
+      address.eip55With0x.toLowerCase(),
+      token.address.toLowerCase(),
+    );
+    final previous = _balanceCache[key];
+    _balanceCache[key] = balance;
 
-      _balanceCache[key] = balance;
-
-      if (previous == null || previous.value != balance.value) {
-        _updates.add(
-          BalanceUpdate(
-            address: address,
-            token: balance.token,
-            balance: balance,
-            blockNumber: blockNumber,
-          ),
-        );
-      }
-    } catch (e) {
-      _logger.w(
-        'Failed to fetch ERC20 balance for '
-        '${address.eip55With0x}/${token.tagId}: $e',
+    if (previous == null || previous.value != balance.value) {
+      _updates.add(
+        BalanceUpdate(
+          address: address,
+          token: balance.token,
+          balance: balance,
+          blockNumber: blockNumber,
+        ),
       );
     }
   }

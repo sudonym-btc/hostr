@@ -587,9 +587,9 @@ String _buildListingDescription(Random r, _ListingTheme theme) {
   return '${starts[r.nextInt(starts.length)]} ${ends[r.nextInt(ends.length)]}';
 }
 
-Amenities _buildListingAmenities(Random r) {
-  final amenities = Amenities();
-  final appliers = <void Function(Amenities)>[
+Specifications _buildListingSpecifications(Random r) {
+  final specs = Specifications();
+  final appliers = <void Function(Specifications)>[
     (a) => a['airconditioning'] = true,
     (a) => a['allows_pets'] = true,
     (a) => a['bathtub'] = 1,
@@ -628,10 +628,14 @@ Amenities _buildListingAmenities(Random r) {
   final count = 1 + r.nextInt(min(10, appliers.length));
 
   for (var i = 0; i < count; i++) {
-    appliers[shuffledIndexes[i]](amenities);
+    appliers[shuffledIndexes[i]](specs);
   }
 
-  return amenities;
+  // Also set bathrooms and max_guests for seed data
+  specs['bathrooms'] = 1 + r.nextInt(3);
+  specs['max_guests'] = 2 + r.nextInt(8);
+
+  return specs;
 }
 
 /// Atomic factory for creating individual, signed domain entities.
@@ -698,7 +702,7 @@ class EntityFactory {
     int? quantity,
     ListingType? type,
     List<String>? images,
-    Amenities? amenities,
+    Specifications? specifications,
     bool? requiresEscrow,
     bool? allowSelfSignedReservation,
     bool? allowBarter,
@@ -707,6 +711,8 @@ class EntityFactory {
     String? checkOut,
     bool? active,
     List<CancellationPolicy>? cancellationPolicy,
+    DenominatedAmount? securityDeposit,
+    DenominatedAmount? minPaymentAmount,
     List<List<String>>? extraTags,
     int? createdAt,
     Random? rng,
@@ -727,7 +733,7 @@ class EntityFactory {
     String? seedTitle;
     String? seedDescription;
     List<String>? seedImages;
-    Amenities? seedAmenities;
+    Specifications? seedAmenities;
     List<List<String>> seedGeoTags = const [];
 
     if (seed != null) {
@@ -772,7 +778,7 @@ class EntityFactory {
         return options[lock % options.length];
       });
 
-      seedAmenities = _buildListingAmenities(r);
+      seedAmenities = _buildListingSpecifications(r);
     }
 
     final mergedExtraTags = <List<String>>[
@@ -805,7 +811,7 @@ class EntityFactory {
           images ??
           seedImages ??
           ['https://picsum.photos/seed/$resolvedDTag/1200/800'],
-      amenities: amenities ?? seedAmenities ?? Amenities(),
+      specifications: specifications ?? seedAmenities ?? Specifications(),
       requiresEscrow: requiresEscrow ?? false,
       allowSelfSignedReservation: allowSelfSignedReservation ?? false,
       allowBarter: allowBarter ?? false,
@@ -814,6 +820,8 @@ class EntityFactory {
       checkOut: checkOut ?? '11:0',
       active: active ?? true,
       cancellationPolicy: cancellationPolicy ?? const [],
+      securityDeposit: securityDeposit,
+      minPaymentAmount: minPaymentAmount,
       extraTags: mergedExtraTags,
       createdAt: createdAt ?? _defaultCreatedAt(),
     ).signAs(kp, Listing.fromNostrEvent);

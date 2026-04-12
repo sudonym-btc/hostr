@@ -69,7 +69,8 @@ class TagBuilder {
 
   /// Encodes a [DenominatedAmount] as `[key, amount, denomination, decimals]`.
   /// Only adds the tag when [value] is non-null.
-  TagBuilder addOptionalDenominatedAmount(String key, DenominatedAmount? value) {
+  TagBuilder addOptionalDenominatedAmount(
+      String key, DenominatedAmount? value) {
     if (value != null) {
       _tags.add([
         key,
@@ -124,23 +125,23 @@ class TagBuilder {
     return this;
   }
 
-  // ── Amenity helpers ─────────────────────────────────────────────────
+  // ── Specification helpers ───────────────────────────────────────────
 
-  /// Adds boolean amenity tags (only when true).
-  TagBuilder amenity(String name) {
-    _tags.add(['amenity', name]);
+  /// Adds a boolean spec tag.
+  TagBuilder spec(String name) {
+    _tags.add(['spec', name]);
     return this;
   }
 
-  /// Adds numeric amenity tags (only when value > 0).
-  TagBuilder amenityInt(String name, int value) {
-    if (value > 0) _tags.add(['amenity', name, value.toString()]);
+  /// Adds a valued spec tag (only when value > 0).
+  TagBuilder specValue(String name, int value) {
+    if (value > 0) _tags.add(['spec', name, value.toString()]);
     return this;
   }
 
-  /// Bulk-add from an [Amenities] object.
-  TagBuilder addAmenities(Amenities amenities) {
-    _tags.addAll(amenities.toTags());
+  /// Bulk-add from a [Specifications] object.
+  TagBuilder addSpecifications(Specifications specifications) {
+    _tags.addAll(specifications.toTags());
     return this;
   }
 

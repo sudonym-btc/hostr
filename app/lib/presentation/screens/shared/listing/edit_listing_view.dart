@@ -45,7 +45,7 @@ class EditListingViewState extends State<EditListingView> {
         type: ListingType.room,
         active: true,
         images: [],
-        amenities: Amenities(),
+        specifications: Specifications(),
       );
       controller.setState(_newListing!);
     }
@@ -92,12 +92,14 @@ class EditListingViewState extends State<EditListingView> {
           PriceInput(controller: controller),
           BarterInput(controller: controller),
           Gap.vertical.md(),
-          FormLabel(label: 'Amenities'),
+          FormLabel(label: 'Specifications'),
           Gap.vertical.md(),
-          AmenitiesInput(controller: controller),
+          SpecificationsInput(controller: controller),
           Gap.vertical.md(),
           FormLabel(label: 'Description'),
           DescriptionInput(controller: controller),
+          Gap.vertical.md(),
+          AdvancedSettingsSection(controller: controller),
           if (widget.a != null) ...[
             Gap.vertical.md(),
             ActiveInput(controller: controller),

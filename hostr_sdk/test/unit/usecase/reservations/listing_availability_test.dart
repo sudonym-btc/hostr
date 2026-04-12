@@ -45,7 +45,7 @@ Listing _fixtureListing() => _f.listing(
   priceSats: 100000,
   location: 'Test',
   type: ListingType.house,
-  amenities: Amenities(),
+  specifications: Specifications(),
 );
 
 void main() {

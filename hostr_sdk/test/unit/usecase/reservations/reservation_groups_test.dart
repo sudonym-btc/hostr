@@ -43,7 +43,7 @@ Listing _listing({KeyPair? signer, bool allowSelfSignedReservation = false}) {
     priceSats: 100000,
     location: 'test-location',
     type: ListingType.house,
-    amenities: Amenities(),
+    specifications: Specifications(),
     allowSelfSignedReservation: allowSelfSignedReservation,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   );
@@ -129,7 +129,7 @@ Listing _buildListing({
   priceSats: (pricePerNight ?? BigInt.from(100000)).toInt(),
   location: 'test-location',
   type: ListingType.house,
-  amenities: Amenities(),
+  specifications: Specifications(),
   allowBarter: allowBarter,
   allowSelfSignedReservation: allowSelfSignedReservation,
   createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,

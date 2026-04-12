@@ -196,7 +196,8 @@ class EscrowVerification {
     }
   }
 
-  /// Compares the on-chain funded amount to the expected reservation cost.
+  /// Compares the on-chain funded amount to the expected reservation cost,
+  /// and verifies the security deposit (bond) when the listing requires one.
   EscrowVerificationResult _verifyAmount({
     required EscrowFundedEvent fundedEvent,
     required Reservation reservation,
@@ -246,10 +247,36 @@ class EscrowVerification {
       );
     }
 
+    // ── Security deposit (bond) verification ──────────────────────────
+    final listingDeposit = proof.listing.securityDeposit;
+    if (listingDeposit != null && listingDeposit.value > BigInt.zero) {
+      final onChainBond = fundedEvent.bondAmount;
+      if (onChainBond == null || onChainBond.value <= BigInt.zero) {
+        return EscrowVerificationResult.invalid(
+          'Listing requires a security deposit of ${listingDeposit.value} '
+          '${listingDeposit.denomination} but no bond was escrowed',
+        );
+      }
+
+      final bondDecimalDiff =
+          onChainBond.token.decimals - listingDeposit.decimals;
+      final scaledExpectedBond = bondDecimalDiff <= 0
+          ? listingDeposit.value
+          : listingDeposit.value * BigInt.from(10).pow(bondDecimalDiff);
+
+      if (onChainBond.value < scaledExpectedBond) {
+        return EscrowVerificationResult.invalid(
+          'Onchain bond (${onChainBond.value}) is less than required '
+          'security deposit (${scaledExpectedBond})',
+        );
+      }
+    }
+
     logger.d(
       'Escrow verified for trade ${reservation.getDtag()}: '
       'funded event ${fundedEvent.transactionHash}, '
-      'on-chain=${onChainAmount.value}, expected=${comparableExpected.value}',
+      'on-chain=${onChainAmount.value}, expected=${comparableExpected.value}'
+      '${fundedEvent.bondAmount != null ? ', bond=${fundedEvent.bondAmount!.value}' : ''}',
     );
 
     return EscrowVerificationResult.valid(fundedEvent: fundedEvent);

@@ -68,26 +68,9 @@ class ListingBadgesWidget extends StatelessWidget {
             );
           }
 
+          // Hide completely when there are no badges.
           if (state.results.isEmpty && !state.fetching) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.shield_outlined,
-                    size: kIconSm,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  Gap.horizontal.sm(),
-                  Text(
-                    'No badges',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return const SizedBox.shrink();
           }
 
           return Wrap(

@@ -153,11 +153,11 @@ Future<void> _takeScreenshots(
   debugPrint('📸 [$mode] ✓ profile');
   await binding.takeScreenshot('screenshots/$mode/profile.png');
 
-  // ── 3. Home / search ────────────────────────────────────────────
-  appRouter.navigate(SearchRoute());
+  // ── 3. Home / explore ────────────────────────────────────────────
+  appRouter.navigate(ExploreRoute());
   await _settle(tester);
-  debugPrint('📸 [$mode] ✓ search');
-  await binding.takeScreenshot('screenshots/$mode/search.png');
+  debugPrint('📸 [$mode] ✓ explore');
+  await binding.takeScreenshot('screenshots/$mode/explore.png');
 
   // ── 4. Listing detail ───────────────────────────────────────────
   appRouter.navigate(ListingRoute(a: fixture.listing.naddr()!));

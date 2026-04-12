@@ -225,7 +225,7 @@ class InfrastructureSink implements SeedSink {
       // ── Diagnostic: verify trade is active before arbitrating ──────
       final preCheck = await _escrow().activeTrade((tradeId: tradeIdBytes));
       if (!preCheck.isActive) {
-        final raw = await _escrow().trades(($param26: tradeIdBytes));
+        final raw = await _escrow().trades(($param28: tradeIdBytes));
         throw Exception(
           '[infra-sink] PRE-CHECK FAIL: tradeId=${intent.tradeId} is NOT '
           'active before arbitrate call. '
@@ -571,7 +571,7 @@ class InfrastructureSink implements SeedSink {
         // 2. Check post-tx on-chain state.
         final tradeIdBytes = getBytes32(tradeIdHex);
         final postCheck = await _escrow().activeTrade((tradeId: tradeIdBytes));
-        final raw = await _escrow().trades(($param26: tradeIdBytes));
+        final raw = await _escrow().trades(($param28: tradeIdBytes));
         diag +=
             ' | postTx: isActive=${postCheck.isActive}, '
             'buyer=${raw.buyer}, '

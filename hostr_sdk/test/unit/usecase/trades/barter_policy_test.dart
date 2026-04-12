@@ -21,7 +21,7 @@ Listing _listing({int pricePerNightSats = 100000, bool allowBarter = true}) =>
       priceSats: pricePerNightSats,
       location: 'test-location',
       type: ListingType.house,
-      amenities: Amenities(),
+      specifications: Specifications(),
       allowBarter: allowBarter,
     );
 

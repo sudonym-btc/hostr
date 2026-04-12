@@ -23,7 +23,7 @@ void main() {
         ],
         location: 'Test',
         type: ListingType.house,
-        amenities: Amenities(),
+        specifications: Specifications(),
         cancellationPolicy: const [
           CancellationPolicy(
             durationBeforeStart: Duration(days: 14),
