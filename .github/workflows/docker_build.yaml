@@ -60,13 +60,13 @@ jobs:
             -f escrow/Dockerfile .
           docker push "${{ steps.meta.outputs.registry }}/escrow" --all-tags
 
-      - name: Build & push landing-page
-        run: |
-          docker build \
-            -t "${{ steps.meta.outputs.registry }}/landing-page:${{ steps.meta.outputs.sha_tag }}" \
-            -t "${{ steps.meta.outputs.registry }}/landing-page:latest" \
-            -f landing-page/Dockerfile .
-          docker push "${{ steps.meta.outputs.registry }}/landing-page" --all-tags
+      # - name: Build & push landing-page
+      #   run: |
+      #     docker build \
+      #       -t "${{ steps.meta.outputs.registry }}/landing-page:${{ steps.meta.outputs.sha_tag }}" \
+      #       -t "${{ steps.meta.outputs.registry }}/landing-page:latest" \
+      #       -f landing-page/Dockerfile .
+      #     docker push "${{ steps.meta.outputs.registry }}/landing-page" --all-tags
 
       # ── App image (env-specific build args baked in) ─────────────────────
       - name: Resolve app build args from env files

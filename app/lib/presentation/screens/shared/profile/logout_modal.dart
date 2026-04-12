@@ -27,7 +27,7 @@ ModalBottomSheet logoutModal(
             Navigator.of(modalContext).pop();
             await getIt<Hostr>().auth.logout();
             await router.replaceAll([
-              SearchRoute(),
+              ExploreRoute(),
             ], onFailure: (failure) => throw failure);
           },
           child: Text(AppLocalizations.of(context)!.ok),

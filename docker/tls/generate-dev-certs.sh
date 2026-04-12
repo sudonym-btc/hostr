@@ -108,16 +108,16 @@ generate_cert "lnbits.${DOMAIN}" \
 generate_cert "alby.${DOMAIN}" \
   "DNS:alby.${DOMAIN},DNS:alby,DNS:albyhub,DNS:localhost,IP:127.0.0.1"
 
-generate_cert "landing.${DOMAIN}" \
-  "DNS:landing.${DOMAIN},DNS:${DOMAIN},DNS:landing-page,DNS:localhost,IP:127.0.0.1"
+# generate_cert "landing.${DOMAIN}" \
+#   "DNS:landing.${DOMAIN},DNS:${DOMAIN},DNS:landing-page,DNS:localhost,IP:127.0.0.1"
 
 generate_cert "app.${DOMAIN}" \
-  "DNS:app.${DOMAIN},DNS:app,DNS:localhost,IP:127.0.0.1"
+  "DNS:app.${DOMAIN},DNS:${DOMAIN},DNS:app,DNS:localhost,IP:127.0.0.1"
 
 # nginx-proxy looks for <VIRTUAL_HOST>.crt — symlink the bare domain
-# to the landing cert (which already carries DNS:${DOMAIN} as a SAN).
-ln -sf "landing.${DOMAIN}.crt" "$CERT_DIR/${DOMAIN}.crt"
-ln -sf "landing.${DOMAIN}.key" "$CERT_DIR/${DOMAIN}.key"
+# to the app cert (which carries DNS:${DOMAIN} as a SAN).
+ln -sf "app.${DOMAIN}.crt" "$CERT_DIR/${DOMAIN}.crt"
+ln -sf "app.${DOMAIN}.key" "$CERT_DIR/${DOMAIN}.key"
 
 generate_cert "telemetry.${DOMAIN}" \
   "DNS:telemetry.${DOMAIN},DNS:telemetry,DNS:localhost,IP:127.0.0.1"

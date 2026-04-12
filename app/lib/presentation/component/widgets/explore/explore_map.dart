@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
-import 'package:hostr/presentation/component/widgets/search/listing_map.dart';
+import 'package:hostr/presentation/component/widgets/explore/listing_map.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 double mapsGoogleLogoSize = 0;
 
-class SearchMapWidget extends StatefulWidget {
+class ExploreMapWidget extends StatefulWidget {
   final CustomLogger logger = CustomLogger();
 
   /// Called with the listing id when a price marker is tapped.
@@ -20,15 +20,15 @@ class SearchMapWidget extends StatefulWidget {
   /// Shared map controller.
   final ListingMapController controller;
 
-  SearchMapWidget({super.key, required this.controller, this.onMarkerTap});
+  ExploreMapWidget({super.key, required this.controller, this.onMarkerTap});
 
   @override
   State<StatefulWidget> createState() {
-    return _SearchMapWidgetState();
+    return _ExploreMapWidgetState();
   }
 }
 
-class _SearchMapWidgetState extends State<SearchMapWidget> {
+class _ExploreMapWidgetState extends State<ExploreMapWidget> {
   StreamSubscription<ListCubitState<Listing>>? _listSubscription;
 
   Widget _buildMapContent(BuildContext context) {

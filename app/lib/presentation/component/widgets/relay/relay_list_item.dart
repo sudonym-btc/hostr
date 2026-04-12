@@ -52,7 +52,11 @@ class _RelayListItemViewState extends State<RelayListItemView> {
                   _RelayIconCache.markFailed(widget.iconUrl!);
                 }
                 if (mounted && !_iconFailed) {
-                  setState(() => _iconFailed = true);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_iconFailed) {
+                      setState(() => _iconFailed = true);
+                    }
+                  });
                 }
               }
             : null,

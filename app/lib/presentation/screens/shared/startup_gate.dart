@@ -83,7 +83,7 @@ final _gateLog = CustomLogger().scope('startup-gate');
 
 /// Route names that live inside [TabShellRoute].
 const _tabRouteNames = {
-  SearchRoute.name,
+  ExploreRoute.name,
   SignInRoute.name,
   ProfileRoute.name,
   TripsRoute.name,

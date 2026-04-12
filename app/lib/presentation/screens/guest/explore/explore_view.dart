@@ -5,20 +5,20 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:hostr/presentation/screens/guest/search/filters.dart';
-import 'package:hostr/presentation/screens/guest/search/map_view.cubit.dart';
+import 'package:hostr/presentation/screens/guest/explore/filters.dart';
+import 'package:hostr/presentation/screens/guest/explore/map_view.cubit.dart';
 import 'package:models/main.dart';
 
-class SearchView extends StatefulWidget {
-  const SearchView({super.key});
+class ExploreView extends StatefulWidget {
+  const ExploreView({super.key});
 
   @override
   State<StatefulWidget> createState() {
-    return SearchViewState();
+    return ExploreViewState();
   }
 }
 
-class SearchViewState extends State<SearchView> {
+class ExploreViewState extends State<ExploreView> {
   final ValueNotifier<String?> _scrollToListingId = ValueNotifier(null);
   final ValueNotifier<String?> _focusedListingId = ValueNotifier(null);
   final ListingMapController _listingMapController = ListingMapController();
@@ -175,7 +175,7 @@ class SearchViewState extends State<SearchView> {
               height: listingStartHeight,
               child: Stack(
                 children: [
-                  SearchMapWidget(
+                  ExploreMapWidget(
                     controller: _listingMapController,
                     onMarkerTap: (id) {
                       _focusedListingId.value = id;
@@ -279,7 +279,7 @@ class SearchViewState extends State<SearchView> {
           ),
           AppPane(
             flex: 3,
-            child: SearchMapWidget(
+            child: ExploreMapWidget(
               controller: _listingMapController,
               onMarkerTap: (id) {
                 _focusedListingId.value = id;

@@ -88,7 +88,7 @@ class _AppShellScreenState extends State<AppShellScreen>
         _navItem(
           icon: Icon(
             destination.icon,
-            size: destination.route.routeName == SearchRoute.name
+            size: destination.route.routeName == ExploreRoute.name
                 ? kIconLg
                 : kIconMd,
           ),

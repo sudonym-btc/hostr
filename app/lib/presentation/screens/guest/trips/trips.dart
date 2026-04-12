@@ -47,7 +47,7 @@ class _TripsScreenState extends State<TripsScreen> {
         subtitle: 'Head over to explore some listings to get started!',
         action: FilledButton.tonal(
           onPressed: () {
-            AutoRouter.of(context).navigate(const SearchRoute());
+            AutoRouter.of(context).navigate(const ExploreRoute());
           },
           child: Text('Search'),
         ),

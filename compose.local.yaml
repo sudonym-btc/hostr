@@ -52,10 +52,10 @@ services:
     volumes:
       - ./app/build/web:/usr/share/nginx/html:ro
 
-  landing-page:
-    volumes:
-      - ./landing-page/index.html:/usr/share/nginx/html/index.html:ro
-      - ./landing-page/assets:/usr/share/nginx/html/assets:ro
+  # landing-page:
+  #   volumes:
+  #     - ./landing-page/index.html:/usr/share/nginx/html/index.html:ro
+  #     - ./landing-page/assets:/usr/share/nginx/html/assets:ro
 
   escrow:
     depends_on:
