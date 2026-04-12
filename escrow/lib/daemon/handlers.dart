@@ -97,7 +97,8 @@ class DaemonHandler {
               'buyer': onChain.buyer.eip55With0x,
               'seller': onChain.seller.eip55With0x,
               'arbiter': onChain.arbiter.eip55With0x,
-              'amount': onChain.amount.toString(),
+              'paymentAmount': onChain.paymentAmount.toString(),
+              'bondAmount': onChain.bondAmount.toString(),
               'unlockAt': onChain.unlockAt.toString(),
               'escrowFee': onChain.escrowFee.toString(),
             }
@@ -123,12 +124,19 @@ class DaemonHandler {
 
   Future<Map<String, dynamic>> _arbitrate(json_rpc.Parameters params) async {
     final tradeId = params['tradeId'].asString;
-    final forward = params['forward'].asNum.toDouble();
+    final paymentForward = params['paymentForward'].asNum.toDouble();
+    final bondForward = params['bondForward'].asNum.toDouble();
 
-    if (forward < 0 || forward > 1) {
+    if (paymentForward < 0 || paymentForward > 1) {
       throw json_rpc.RpcException(
         -32602,
-        'forward must be between 0 and 1 (inclusive)',
+        'paymentForward must be between 0 and 1 (inclusive)',
+      );
+    }
+    if (bondForward < 0 || bondForward > 1) {
+      throw json_rpc.RpcException(
+        -32602,
+        'bondForward must be between 0 and 1 (inclusive)',
       );
     }
 
@@ -161,7 +169,8 @@ class DaemonHandler {
         await hostr.auth.hd.getActiveEvmKey(accountIndex: accountIndex);
     final intent = await contract.arbitrate(
       tradeId: tradeId,
-      forward: forward,
+      paymentForward: paymentForward,
+      bondForward: bondForward,
       ethKey: signer,
     );
     final txHash = await daemon.context.configuredChain

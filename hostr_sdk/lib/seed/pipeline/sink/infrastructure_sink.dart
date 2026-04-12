@@ -104,14 +104,17 @@ class InfrastructureSink implements SeedSink {
           seller: seller,
           arbiter: arbiter,
           token: tokenAddress,
-          amount: intent.amountWei,
+          paymentAmount: intent.amountWei,
+          bondAmount: intent.bondAmountWei ?? BigInt.zero,
           unlockAt: intent.unlockAt,
           escrowFee: BigInt.zero,
         ),
         credentials: guestCredentials,
         transaction: Transaction(
           nonce: nonce,
-          value: EtherAmount.inWei(intent.amountWei),
+          value: EtherAmount.inWei(
+            intent.amountWei + (intent.bondAmountWei ?? BigInt.zero),
+          ),
           gasPrice: gasPrice,
         ),
       );
@@ -156,7 +159,8 @@ class InfrastructureSink implements SeedSink {
           seller: seller,
           arbiter: arbiter,
           token: tokenAddress,
-          amount: intent.amountWei,
+          paymentAmount: intent.amountWei,
+          bondAmount: intent.bondAmountWei ?? BigInt.zero,
           unlockAt: intent.unlockAt,
           escrowFee: BigInt.zero,
         ),
@@ -215,7 +219,8 @@ class InfrastructureSink implements SeedSink {
     if (intent.outcome == EscrowOutcome.arbitrated) {
       final credentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
       final nonce = await _nextNonce(credentials.address);
-      final factor = BigInt.from(700);
+      final paymentFactor = BigInt.from(700); // 70% of payment → seller
+      final bondFactor = BigInt.zero; // 0% of bond → seller (full bond → buyer)
 
       // ── Diagnostic: verify trade is active before arbitrating ──────
       final preCheck = await _escrow().activeTrade((tradeId: tradeIdBytes));
@@ -224,7 +229,7 @@ class InfrastructureSink implements SeedSink {
         throw Exception(
           '[infra-sink] PRE-CHECK FAIL: tradeId=${intent.tradeId} is NOT '
           'active before arbitrate call. '
-          'buyer=${raw.buyer}, amount=${raw.amount}, '
+          'buyer=${raw.buyer}, amount=${raw.paymentAmount + raw.bondAmount}, '
           'arbiterNonce=$nonce',
         );
       }
@@ -232,11 +237,17 @@ class InfrastructureSink implements SeedSink {
 
       final signature = signer.signArbitrate(
         tradeId: tradeIdBytes,
-        factor: factor,
+        paymentFactor: paymentFactor,
+        bondFactor: bondFactor,
         signer: credentials,
       );
       txHash = await _escrow().arbitrate(
-        (tradeId: tradeIdBytes, factor: factor, signature: signature),
+        (
+          tradeId: tradeIdBytes,
+          paymentFactor: paymentFactor,
+          bondFactor: bondFactor,
+          signature: signature,
+        ),
         credentials: credentials,
         transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
       );
@@ -526,8 +537,16 @@ class InfrastructureSink implements SeedSink {
         final tx = await _retryChainCall((c) => c.getTransactionByHash(txHash));
         if (tx != null) {
           try {
-            final blockHex =
-                '0x${receipt.blockNumber.blockNum.toRadixString(16)}';
+            // Use blockNumber - 1 (the state BEFORE the failed tx) so the
+            // eth_call simulation is against the same pre-tx state the tx
+            // actually ran against. Using blockNumber itself is wrong: since
+            // the tx reverted (no state change), the end-of-block state equals
+            // the pre-tx state, so the simulation would SUCCEED and return "0x"
+            // (the void return value of the called function) — making it look
+            // like there was no revert data when really the diagnostic just
+            // succeeded silently.
+            final prevBlock = receipt.blockNumber.blockNum - BigInt.one;
+            final blockHex = '0x${prevBlock.toRadixString(16)}';
             final revertData = await _chainClient().makeRPCCall<String>(
               'eth_call',
               [
@@ -555,7 +574,8 @@ class InfrastructureSink implements SeedSink {
         final raw = await _escrow().trades(($param26: tradeIdBytes));
         diag +=
             ' | postTx: isActive=${postCheck.isActive}, '
-            'buyer=${raw.buyer}, amount=${raw.amount}, '
+            'buyer=${raw.buyer}, '
+            'amount=${(raw.paymentAmount + raw.bondAmount)}, '
             'arbiter=${raw.arbiter}';
       } catch (_) {}
       throw Exception(

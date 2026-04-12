@@ -197,9 +197,9 @@ void main() {
         reason: 'Trade token must be USDT',
       );
       expect(
-        onChainTrade.amount,
+        onChainTrade.paymentAmount,
         equals(tradeAmount),
-        reason: 'Trade amount must match',
+        reason: 'Trade payment amount must match',
       );
 
       // ── 13. Verify escrow received the USDT ───────────────────────────

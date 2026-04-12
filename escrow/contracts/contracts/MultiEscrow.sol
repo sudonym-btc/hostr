@@ -43,10 +43,11 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address buyer;
         address seller;
         address arbiter;
-        address token;      // address(0) = native RBTC
-        uint256 amount;
+        address token;          // address(0) = native RBTC
+        uint256 paymentAmount;
+        uint256 bondAmount;
         uint256 unlockAt;
-        uint256 escrowFee;  // flat fee in token units
+        uint256 escrowFee;      // flat fee in token units (on payment only)
     }
 
     // ── EIP-712 type hashes ───────────────────────────────────────────
@@ -58,7 +59,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         keccak256("Claim(bytes32 tradeId)");
 
     bytes32 private constant ARBITRATE_TYPEHASH =
-        keccak256("Arbitrate(bytes32 tradeId,uint256 factor)");
+        keccak256("Arbitrate(bytes32 tradeId,uint256 paymentFactor,uint256 bondFactor)");
 
     bytes32 private constant WITHDRAW_TYPEHASH =
         keccak256("Withdraw(address token,address destination)");
@@ -84,9 +85,9 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     // ── Events ────────────────────────────────────────────────────────
 
-    event TradeCreated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address indexed arbiter, uint256 amount, uint256 unlockAt, uint256 escrowFee);
-    event Arbitrated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount, uint256 fractionForwarded);
-    event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 amount);
+    event TradeCreated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address indexed arbiter, uint256 paymentAmount, uint256 bondAmount, uint256 unlockAt, uint256 escrowFee);
+    event Arbitrated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 paymentAmount, uint256 bondAmount, uint256 paymentFactor, uint256 bondFactor);
+    event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 paymentAmount, uint256 bondAmount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Withdrawn(address indexed beneficiary, address indexed token, address destination, uint256 amount);
@@ -181,23 +182,25 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address token,
         uint256 unlockAt,
         uint256 escrowFee,
-        uint256 amount
+        uint256 paymentAmount,
+        uint256 bondAmount
     ) internal {
         if (trades[tradeId].buyer != address(0)) revert TradeIdAlreadyExists();
-        if (amount == 0) revert MustSendFunds();
-        if (escrowFee > amount) revert EscrowFeeTooHigh();
+        if (paymentAmount + bondAmount == 0) revert MustSendFunds();
+        if (escrowFee > paymentAmount) revert EscrowFeeTooHigh();
 
         trades[tradeId] = Trade({
             buyer: buyer,
             seller: seller,
             arbiter: arbiter,
             token: token,
-            amount: amount,
+            paymentAmount: paymentAmount,
+            bondAmount: bondAmount,
             unlockAt: unlockAt,
             escrowFee: escrowFee
         });
         _addActiveTrade(tradeId);
-        emit TradeCreated(tradeId, token, seller, buyer, arbiter, amount, unlockAt, escrowFee);
+        emit TradeCreated(tradeId, token, seller, buyer, arbiter, paymentAmount, bondAmount, unlockAt, escrowFee);
     }
 
     function _creditBalance(address recipient, address token, uint256 amount) internal {
@@ -240,19 +243,20 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         totalPending[token] += pendingTotal;
     }
 
-    function _claim(bytes32 tradeId) internal returns (uint256 amountAfterFees) {
+    function _claim(bytes32 tradeId) internal {
         Trade storage trade = trades[tradeId];
         if (block.timestamp <= trade.unlockAt) revert ClaimPeriodNotStarted();
-        if (trade.amount == 0) revert NoFundsToClaim();
+        if (trade.paymentAmount + trade.bondAmount == 0) revert NoFundsToClaim();
 
         address seller = trade.seller;
         address buyer = trade.buyer;
         address token = trade.token;
-        amountAfterFees = trade.amount - trade.escrowFee;
+        uint256 paymentAfterFee = trade.paymentAmount - trade.escrowFee;
 
-        _settleTrade(tradeId, seller, amountAfterFees, address(0), 0);
+        // payment (minus fee) → seller, bond → buyer
+        _settleTrade(tradeId, seller, paymentAfterFee, buyer, trade.bondAmount);
 
-        emit Claimed(tradeId, token, seller, buyer, amountAfterFees);
+        emit Claimed(tradeId, token, seller, buyer, paymentAfterFee, trade.bondAmount);
     }
 
     function _releaseToCounterparty(
@@ -260,7 +264,8 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address actor
     ) internal returns (address recipient, uint256 amountAfterFees) {
         Trade storage trade = trades[tradeId];
-        if (trade.amount == 0) revert NoFundsToRelease();
+        uint256 totalAmount = trade.paymentAmount + trade.bondAmount;
+        if (totalAmount == 0) revert NoFundsToRelease();
 
         address token = trade.token;
 
@@ -272,7 +277,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
             revert OnlyBuyerOrSeller();
         }
 
-        amountAfterFees = trade.amount - trade.escrowFee;
+        amountAfterFees = totalAmount - trade.escrowFee;
         _settleTrade(tradeId, recipient, amountAfterFees, address(0), 0);
         emit ReleasedToCounterparty(tradeId, token, actor, recipient, amountAfterFees);
     }
@@ -315,7 +320,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     function activeTrade(bytes32 tradeId) external view returns (bool isActive, Trade memory trade) {
         trade = trades[tradeId];
-        isActive = trade.buyer != address(0) && trade.amount > 0;
+        isActive = trade.buyer != address(0) && (trade.paymentAmount + trade.bondAmount) > 0;
     }
 
     // ── Public entry points ───────────────────────────────────────────
@@ -329,20 +334,27 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address _seller,
         address _arbiter,
         address _token,
-        uint256 _amount,
+        uint256 _paymentAmount,
+        uint256 _bondAmount,
         uint256 _unlockAt,
         uint256 _escrowFee
     ) external payable nonReentrant {
+        uint256 totalAmount = _paymentAmount + _bondAmount;
         uint256 funded;
         if (_token == address(0)) {
             funded = msg.value;
         } else {
             if (msg.value != 0) revert NativeNotExpected();
             uint256 before = IERC20(_token).balanceOf(address(this));
-            _safeTransferFrom(_token, msg.sender, address(this), _amount);
+            _safeTransferFrom(_token, msg.sender, address(this), totalAmount);
             funded = IERC20(_token).balanceOf(address(this)) - before;
         }
-        _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _escrowFee, funded);
+        // Derive individual amounts from the funded total, keeping the caller's
+        // declared split.  This handles fee-on-transfer tokens correctly:
+        // the proportional split is preserved even when `funded < totalAmount`.
+        uint256 fundedPayment = totalAmount > 0 ? (funded * _paymentAmount) / totalAmount : 0;
+        uint256 fundedBond = funded - fundedPayment;
+        _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _escrowFee, fundedPayment, fundedBond);
     }
 
     // ── Release ───────────────────────────────────────────────────────
@@ -366,30 +378,36 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     // ── Arbitrate ─────────────────────────────────────────────────────
 
-    /// @notice Arbitrate a trade, splitting funds between buyer and seller.
+    /// @notice Arbitrate a trade, splitting payment and bond independently.
     ///         `signature` must be from the trade's arbiter.
     ///         Anyone can broadcast the transaction.
     function arbitrate(
         bytes32 tradeId,
-        uint256 factor,
+        uint256 paymentFactor,
+        uint256 bondFactor,
         bytes calldata signature
     ) external nonReentrant {
         _verifySigner(
             trades[tradeId].arbiter,
-            keccak256(abi.encode(ARBITRATE_TYPEHASH, tradeId, factor)),
+            keccak256(abi.encode(ARBITRATE_TYPEHASH, tradeId, paymentFactor, bondFactor)),
             signature
         );
 
         Trade memory trade = trades[tradeId];
-        if (trade.amount == 0) revert NoFundsToRelease();
-        if (factor > FACTOR_SCALE) revert InvalidFactor();
+        if (trade.paymentAmount + trade.bondAmount == 0) revert NoFundsToRelease();
+        if (paymentFactor > FACTOR_SCALE) revert InvalidFactor();
+        if (bondFactor > FACTOR_SCALE) revert InvalidFactor();
 
-        uint256 amountAfterFee = trade.amount - trade.escrowFee;
-        uint256 forwardAmount = (amountAfterFee * factor) / FACTOR_SCALE;
+        uint256 paymentAfterFee = trade.paymentAmount - trade.escrowFee;
+        uint256 sellerPayment = (paymentAfterFee * paymentFactor) / FACTOR_SCALE;
+        uint256 buyerPayment  = paymentAfterFee - sellerPayment;
 
-        _settleTrade(tradeId, trade.seller, forwardAmount, trade.buyer, amountAfterFee - forwardAmount);
+        uint256 sellerBond = (trade.bondAmount * bondFactor) / FACTOR_SCALE;
+        uint256 buyerBond  = trade.bondAmount - sellerBond;
 
-        emit Arbitrated(tradeId, trade.token, trade.seller, trade.buyer, amountAfterFee, factor);
+        _settleTrade(tradeId, trade.seller, sellerPayment + sellerBond, trade.buyer, buyerPayment + buyerBond);
+
+        emit Arbitrated(tradeId, trade.token, trade.seller, trade.buyer, trade.paymentAmount, trade.bondAmount, paymentFactor, bondFactor);
     }
 
     // ── Claim ─────────────────────────────────────────────────────────
@@ -482,7 +500,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         for (uint256 i; i < len;) {
             Trade storage t = trades[_activeTradeIds[i]];
             if (t.token == token) {
-                committed += t.amount;
+                committed += t.paymentAmount + t.bondAmount;
             }
             unchecked { ++i; }
         }

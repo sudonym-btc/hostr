@@ -106,7 +106,19 @@ class EscrowFundPreparer {
       params.amount,
     );
 
-    final fundCalls = _buildFundCalls(params, fundingToken, fundingAmount);
+    // Resolve the optional security deposit in the same funding token.
+    final TokenAmount? bondAmount = params.securityDeposit != null
+        ? await configuredChain.resolveAmountInFundingToken(
+            params.securityDeposit!,
+          )
+        : null;
+
+    final fundCalls = _buildFundCalls(
+      params,
+      fundingToken,
+      fundingAmount,
+      bondAmount,
+    );
     final stateOverrides = await _buildGasEstimationStateOverrides(
       fundCalls,
       signer,
@@ -153,9 +165,10 @@ class EscrowFundPreparer {
     EscrowFundParams params,
     Token fundingToken,
     TokenAmount fundingAmount,
+    TokenAmount? bondAmount,
   ) {
     final fundCall = contract.fund(
-      _buildFundArgs(params, fundingToken, fundingAmount),
+      _buildFundArgs(params, fundingToken, fundingAmount, bondAmount),
     );
     final approveCall = _buildApproveCallIfNeeded(
       params,
@@ -184,6 +197,7 @@ class EscrowFundPreparer {
     EscrowFundParams params,
     Token token,
     TokenAmount amount,
+    TokenAmount? bondAmount,
   ) {
     final isERC20 = token.isERC20;
 
@@ -196,9 +210,13 @@ class EscrowFundPreparer {
     logger.d(
       'escrowFee: $escrowFee for amount: $amount (token: $tokenAddress)',
     );
+    if (bondAmount != null) {
+      logger.d('bondAmount: $bondAmount');
+    }
     return FundArgs(
       tradeId: params.negotiateReservation.getDtag()!,
       amount: amount,
+      bondAmount: bondAmount,
       sellerEvmAddress: params.sellerProfile.evmAddress!,
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end != null

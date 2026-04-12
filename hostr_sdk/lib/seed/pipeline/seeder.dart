@@ -198,6 +198,15 @@ class Seeder {
       await sink.publish(r);
     }
 
+    // Badges (definitions + awards).
+    final badges = factory.buildBadges(hosts: hosts, listings: listings);
+    for (final d in badges.definitions) {
+      await sink.publish(d);
+    }
+    for (final a in badges.awards) {
+      await sink.publish(a);
+    }
+
     // ── 9. Wait for fire-and-forget side effects ─────────────────────────
 
     await Future.wait([...fundFutures, ...identityFutures]);
@@ -219,6 +228,8 @@ class Seeder {
       reservations: reservations,
       zapReceipts: zapReceipts,
       reviews: reviews,
+      badgeDefinitions: badges.definitions,
+      badgeAwards: badges.awards,
     );
   }
 

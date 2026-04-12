@@ -19,8 +19,11 @@ class OnChainTrade {
   /// The ERC-20 token address, or zero-address for native RBTC.
   final EthereumAddress token;
 
-  /// The escrowed amount in wei (native) or token smallest-units (ERC-20).
-  final BigInt amount;
+  /// The escrowed payment amount in wei (native) or token smallest-units (ERC-20).
+  final BigInt paymentAmount;
+
+  /// The escrowed bond (security deposit) amount. Escrow fee is NOT charged on this.
+  final BigInt bondAmount;
   final BigInt unlockAt;
   final BigInt escrowFee;
 
@@ -30,19 +33,21 @@ class OnChainTrade {
     required this.seller,
     required this.arbiter,
     required this.token,
-    required this.amount,
+    required this.paymentAmount,
+    required this.bondAmount,
     required this.unlockAt,
     required this.escrowFee,
   });
 
   @override
   String toString() =>
-      'OnChainTrade(active=$isActive, amount=$amount, buyer=$buyer, seller=$seller, arbiter=$arbiter)';
+      'OnChainTrade(active=$isActive, payment=$paymentAmount, bond=$bondAmount, buyer=$buyer, seller=$seller, arbiter=$arbiter)';
 }
 
 class FundArgs {
   final String tradeId;
   final TokenAmount amount;
+  final TokenAmount? bondAmount;
   final String sellerEvmAddress;
   final String arbiterEvmAddress;
   final int unlockAt;
@@ -56,6 +61,7 @@ class FundArgs {
   const FundArgs({
     required this.tradeId,
     required this.amount,
+    this.bondAmount,
     required this.sellerEvmAddress,
     required this.arbiterEvmAddress,
     required this.unlockAt,
@@ -120,7 +126,8 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Call release(ReleaseArgs args);
   Call arbitrate({
     required String tradeId,
-    required double forward,
+    required double paymentForward,
+    required double bondForward,
     required EthPrivateKey ethKey,
   });
   Call withdraw(WithdrawArgs args);
@@ -336,7 +343,8 @@ class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
 class EscrowArbitratedEvent extends EscrowEvent
     implements PaymentArbitratedEvent {
   final String transactionHash;
-  final double forwarded;
+  final double paymentForwarded;
+  final double bondForwarded;
   EscrowArbitratedEvent({
     required super.tradeId,
     required super.block,
@@ -344,7 +352,8 @@ class EscrowArbitratedEvent extends EscrowEvent
     super.chain,
     super.contract,
     required this.transactionHash,
-    required this.forwarded,
+    required this.paymentForwarded,
+    required this.bondForwarded,
   });
 }
 

@@ -286,7 +286,7 @@ class EscrowEventScanner {
           transactionHash: txHash,
           amount: await _tokenAmountFromEvent(
             tradeCreated.token,
-            tradeCreated.amount,
+            tradeCreated.paymentAmount,
           ),
           unlockAt: tradeCreated.unlockAt.toInt(),
         );
@@ -299,7 +299,8 @@ class EscrowEventScanner {
           chain: chain,
           contract: parentContract,
           transactionHash: txHash,
-          forwarded: arb.fractionForwarded.toInt() / 1000,
+          paymentForwarded: arb.paymentFactor.toInt() / 1000,
+          bondForwarded: arb.bondFactor.toInt() / 1000,
         );
       case 'ReleasedToCounterparty':
         final released = ReleasedToCounterparty(

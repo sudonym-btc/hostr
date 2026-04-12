@@ -71,10 +71,15 @@ class DaemonClient {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<String> arbitrate(String tradeId, double forward) async {
+  Future<String> arbitrate(
+    String tradeId,
+    double paymentForward,
+    double bondForward,
+  ) async {
     final result = await _rpc.sendRequest(kRpcArbitrate, {
       'tradeId': tradeId,
-      'forward': forward,
+      'paymentForward': paymentForward,
+      'bondForward': bondForward,
     });
     final map = Map<String, dynamic>.from(result as Map);
     return map['txHash'] as String;

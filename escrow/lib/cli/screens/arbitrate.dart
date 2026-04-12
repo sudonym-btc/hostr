@@ -12,23 +12,37 @@ Future<Navigation> arbitrateScreen(
   print('');
   print(sectionHeader('Arbitrate: $tradeId'));
   print('');
-  print('  Enter the forward ratio — the fraction of escrowed funds sent to');
-  print('  the seller. Must be between 0 and 1 (inclusive).');
-  print(
-      '  Example: 0.5 = split 50/50, 1 = all to seller, 0 = full refund to buyer.');
+  print('  Enter the forward ratios — the fraction sent to the seller.');
+  print('  Each must be between 0 and 1 (inclusive).');
+  print('  Example: 1 = all to seller, 0 = full refund to buyer, 0.5 = split.');
   print('');
   print(kDimStyle.render('  Leave blank to go back.'));
   print('');
 
-  final forwardStr = Input(prompt: 'Forward ratio (0–1)').interact();
+  // ── Payment forward ────────────────────────────────────────────────
+  final paymentStr = Input(prompt: 'Payment forward ratio (0–1)').interact();
 
-  if (forwardStr.trim().isEmpty) {
+  if (paymentStr.trim().isEmpty) {
     return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
   }
 
-  final forward = double.tryParse(forwardStr.trim());
+  final paymentForward = double.tryParse(paymentStr.trim());
 
-  if (forward == null || forward < 0 || forward > 1) {
+  if (paymentForward == null || paymentForward < 0 || paymentForward > 1) {
+    print('  Invalid value. Must be a number between 0 and 1.');
+    pressAnyKey();
+    return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
+  }
+
+  // ── Bond forward ───────────────────────────────────────────────────
+  final bondStr = Input(
+    prompt: 'Bond (security deposit) forward ratio (0–1)',
+    defaultValue: '0',
+  ).interact();
+
+  final bondForward = double.tryParse(bondStr.trim());
+
+  if (bondForward == null || bondForward < 0 || bondForward > 1) {
     print('  Invalid value. Must be a number between 0 and 1.');
     pressAnyKey();
     return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
@@ -36,7 +50,8 @@ Future<Navigation> arbitrateScreen(
 
   // Confirmation
   final confirmed = Confirm(
-    prompt: 'Arbitrate trade $tradeId with forward=$forward?',
+    prompt:
+        'Arbitrate trade $tradeId with paymentForward=$paymentForward, bondForward=$bondForward?',
     defaultValue: false,
   ).interact();
 
@@ -56,7 +71,7 @@ Future<Navigation> arbitrateScreen(
   ).interact();
 
   try {
-    final txHash = await client.arbitrate(tradeId, forward);
+    final txHash = await client.arbitrate(tradeId, paymentForward, bondForward);
     spinner.done();
     print('  Tx hash: $txHash');
   } catch (e) {

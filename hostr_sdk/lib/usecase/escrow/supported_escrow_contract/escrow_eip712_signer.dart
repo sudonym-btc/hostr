@@ -17,7 +17,7 @@ import 'package:web3dart/web3dart.dart';
 /// |----------|--------------------------------------------------------|
 /// | Claim    | `Claim(bytes32 tradeId)`                               |
 /// | Release  | `Release(bytes32 tradeId,address actor)`               |
-/// | Arbitrate| `Arbitrate(bytes32 tradeId,uint256 factor)`            |
+/// | Arbitrate| `Arbitrate(bytes32 tradeId,uint256 paymentFactor,uint256 bondFactor)` |
 /// | Withdraw | `Withdraw(address token,address destination)`         |
 class EscrowEip712Signer {
   static const String _domainName = 'Hostr MultiEscrow';
@@ -97,10 +97,11 @@ class EscrowEip712Signer {
 
   // ── Arbitrate ────────────────────────────────────────────────────
 
-  /// Sign an `Arbitrate(bytes32 tradeId, uint256 factor)` for the arbiter.
+  /// Sign an `Arbitrate(bytes32 tradeId, uint256 paymentFactor, uint256 bondFactor)` for the arbiter.
   Uint8List signArbitrate({
     required Uint8List tradeId,
-    required BigInt factor,
+    required BigInt paymentFactor,
+    required BigInt bondFactor,
     required EthPrivateKey signer,
   }) {
     final typedData = eip712.TypedMessage(
@@ -108,14 +109,16 @@ class EscrowEip712Signer {
         eip712.EIP712Domain.type: _domainType,
         'Arbitrate': const [
           eip712.MessageTypeProperty(name: 'tradeId', type: 'bytes32'),
-          eip712.MessageTypeProperty(name: 'factor', type: 'uint256'),
+          eip712.MessageTypeProperty(name: 'paymentFactor', type: 'uint256'),
+          eip712.MessageTypeProperty(name: 'bondFactor', type: 'uint256'),
         ],
       },
       primaryType: 'Arbitrate',
       domain: _domain,
       message: {
         'tradeId': bytesToHex(tradeId, include0x: true),
-        'factor': factor,
+        'paymentFactor': paymentFactor,
+        'bondFactor': bondFactor,
       },
     );
     return _sign(typedData, signer);

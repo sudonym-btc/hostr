@@ -70,7 +70,7 @@ class ProfileScreen extends StatelessWidget {
       title: Text(profile?.metadata.getName() ?? ''),
       actions: _buildActions(context),
       surfaceTintColor: Colors.transparent,
-      backgroundColor: surfaceColor.withValues(alpha: 0.90),
+      // backgroundColor: surfaceColor.withValues(alpha: 0.90),
       flexibleSpace: hasPicture
           ? FlexibleSpaceBar(
               background: Stack(
