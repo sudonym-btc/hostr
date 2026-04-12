@@ -3,37 +3,38 @@ import 'package:hostr/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 
-Color getColorForAmenity(BuildContext context, String amenity) {
+Color getColorForSpec(BuildContext context, String spec) {
   return AppSurface.stepped(context, 2);
-  // final random = Random(amenity.hashCode);
-  // return Color.fromARGB(
-  //   25,
-  //   random.nextInt(256),
-  //   random.nextInt(256),
-  //   random.nextInt(256),
-  // );
 }
 
-OutlinedBorder getShapeForAmenity(BuildContext context, String amenity) {
+@Deprecated('Use getColorForSpec instead')
+Color getColorForAmenity(BuildContext context, String amenity) =>
+    getColorForSpec(context, amenity);
+
+OutlinedBorder getShapeForSpec(BuildContext context, String spec) {
   return RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(50.0), // Makes the chip perfectly round
+    borderRadius: BorderRadius.circular(50.0),
     side: BorderSide(
-      color: AppSurface.stepped(context, 4), // Sets the border color
+      color: AppSurface.stepped(context, 4),
       width: 1.0,
     ),
   );
 }
 
-class AmenityTagsWidget extends StatefulWidget {
-  final Amenities amenities;
+@Deprecated('Use getShapeForSpec instead')
+OutlinedBorder getShapeForAmenity(BuildContext context, String amenity) =>
+    getShapeForSpec(context, amenity);
 
-  const AmenityTagsWidget({super.key, required this.amenities});
+class SpecificationsWidget extends StatefulWidget {
+  final Specifications specifications;
+
+  const SpecificationsWidget({super.key, required this.specifications});
 
   @override
-  State<AmenityTagsWidget> createState() => _AmenityTagsWidgetState();
+  State<SpecificationsWidget> createState() => _SpecificationsWidgetState();
 }
 
-class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
+class _SpecificationsWidgetState extends State<SpecificationsWidget> {
   bool _expanded = false;
   bool _overflows = false;
   double? _fullHeight;
@@ -52,9 +53,9 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
   }
 
   @override
-  void didUpdateWidget(covariant AmenityTagsWidget oldWidget) {
+  void didUpdateWidget(covariant SpecificationsWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.amenities != widget.amenities) {
+    if (oldWidget.specifications != widget.specifications) {
       _scheduleOverflowMeasurement();
     }
   }
@@ -95,24 +96,44 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
   Widget build(BuildContext context) {
     final spacing = AppSpacing.of(context);
     final collapsedMaxHeight = _collapsedMaxHeight(context);
-    final amenitiesMap = widget.amenities.toMap();
-    final amenityKeys = amenitiesMap.keys
-        .where((key) => amenitiesMap[key] == true)
+    final specsMap = widget.specifications.toMap();
+
+    // Separate valued specs (int > 0) and boolean specs (true)
+    final valuedEntries = specsMap.entries
+        .where((e) => e.value is int && (e.value as int) > 0)
+        .toList();
+    final boolKeys = specsMap.keys
+        .where((key) => specsMap[key] == true)
         .toList();
 
-    if (amenityKeys.isEmpty) return const SizedBox.shrink();
+    if (valuedEntries.isEmpty && boolKeys.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final chips = <Widget>[
+      // Valued specs first — shown as "Label: Value"
+      ...valuedEntries.map((entry) {
+        return Chip(
+          label: Text('${convertToTitleCase(entry.key)}: ${entry.value}'),
+          shape: getShapeForSpec(context, entry.key),
+          backgroundColor: getColorForSpec(context, entry.key),
+        );
+      }),
+      // Boolean specs
+      ...boolKeys.map((spec) {
+        return Chip(
+          label: Text(convertToTitleCase(spec)),
+          shape: getShapeForSpec(context, spec),
+          backgroundColor: getColorForSpec(context, spec),
+        );
+      }),
+    ];
 
     final wrap = Wrap(
       key: _wrapKey,
       spacing: spacing.chipSpacing,
       runSpacing: spacing.chipRunSpacing,
-      children: amenityKeys.map((amenity) {
-        return Chip(
-          label: Text(convertToTitleCase(amenity)),
-          shape: getShapeForAmenity(context, amenity),
-          backgroundColor: getColorForAmenity(context, amenity),
-        );
-      }).toList(),
+      children: chips,
     );
 
     return Column(
@@ -122,7 +143,6 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           clipBehavior: Clip.hardEdge,
-          // BoxDecoration required for clipBehavior to work on AnimatedContainer
           decoration: const BoxDecoration(),
           constraints: BoxConstraints(
             maxHeight: (_overflows && !_expanded)
@@ -146,3 +166,7 @@ class _AmenityTagsWidgetState extends State<AmenityTagsWidget> {
     );
   }
 }
+
+/// Backwards-compatible alias.
+@Deprecated('Use SpecificationsWidget instead')
+typedef AmenityTagsWidget = SpecificationsWidget;

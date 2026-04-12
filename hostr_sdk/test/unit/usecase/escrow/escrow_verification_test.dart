@@ -62,22 +62,26 @@ class _FakeEvm extends Fake implements Evm {
   EvmChain getChainForEscrowService(EscrowService service) => _configured;
 }
 
-Listing _listing({bool allowBarter = true, int pricePerNightSats = 100000}) =>
-    _f.listing(
-      signer: MockKeys.hoster,
-      dTag: 'listing-escrow-verify',
-      title: 'Escrow Verify Listing',
-      description: 'Test listing',
-      images: const ['https://picsum.photos/seed/escrow/800/600'],
-      priceSats: pricePerNightSats,
-      location: 'test-location',
-      type: ListingType.house,
-      amenities: Amenities(),
-      allowBarter: allowBarter,
-      allowSelfSignedReservation: true,
-      requiresEscrow: true,
-      createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    );
+Listing _listing({
+  bool allowBarter = true,
+  int pricePerNightSats = 100000,
+  DenominatedAmount? securityDeposit,
+}) => _f.listing(
+  signer: MockKeys.hoster,
+  dTag: 'listing-escrow-verify',
+  title: 'Escrow Verify Listing',
+  description: 'Test listing',
+  images: const ['https://picsum.photos/seed/escrow/800/600'],
+  priceSats: pricePerNightSats,
+  location: 'test-location',
+  type: ListingType.house,
+  specifications: Specifications(),
+  allowBarter: allowBarter,
+  allowSelfSignedReservation: true,
+  requiresEscrow: true,
+  securityDeposit: securityDeposit,
+  createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
+);
 
 EscrowService _escrowService() {
   return MOCK_ESCROWS(
@@ -182,12 +186,16 @@ EscrowFundedEvent _fundedEvent({
   required String tradeId,
   required String txHash,
   required int amountSats,
+  int? bondAmountSats,
 }) {
   return EscrowFundedEvent(
     tradeId: tradeId,
     block: BlockInformation(baseFeePerGas: null, timestamp: DateTime.utc(2026)),
     transactionHash: txHash,
     amount: rbtcFromSats(BigInt.from(amountSats)),
+    bondAmount: bondAmountSats != null
+        ? rbtcFromSats(BigInt.from(bondAmountSats))
+        : null,
     unlockAt: 0,
   );
 }
@@ -316,4 +324,196 @@ void main() {
       expect(result.reason, contains('does not accept token'));
     },
   );
+
+  // ── Security deposit (bond) verification ──────────────────────────
+
+  test(
+    'valid when listing has security deposit and bond is escrowed',
+    () async {
+      final listing = _listing(
+        securityDeposit: DenominatedAmount(
+          value: BigInt.from(50000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
+      );
+      const txHash = '0xbond-valid';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            bondAmountSats: 50000,
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isTrue);
+      expect(result.fundedEvent, isNotNull);
+      expect(result.fundedEvent!.bondAmount, isNotNull);
+    },
+  );
+
+  test(
+    'invalid when listing has security deposit but no bond escrowed',
+    () async {
+      final listing = _listing(
+        securityDeposit: DenominatedAmount(
+          value: BigInt.from(50000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
+      );
+      const txHash = '0xbond-missing';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            // no bondAmountSats → null bond
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('security deposit'));
+      expect(result.reason, contains('no bond'));
+    },
+  );
+
+  test('invalid when bond is less than required security deposit', () async {
+    final listing = _listing(
+      securityDeposit: DenominatedAmount(
+        value: BigInt.from(50000),
+        denomination: 'BTC',
+        decimals: 8,
+      ),
+    );
+    const txHash = '0xbond-insufficient';
+    final proof = _paymentProof(listing: listing, txHash: txHash);
+    final reservation = _reservation(
+      listing: listing,
+      amount: null,
+      proof: proof,
+    );
+
+    final contract = _FakeSupportedEscrowContract(
+      _eventsSource(
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          bondAmountSats: 25000, // less than required 50000
+        ),
+      ),
+    );
+    final verification = EscrowVerification(
+      evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+      logger: CustomLogger(),
+    );
+
+    final result = await verification.verify(reservation: reservation);
+
+    expect(result.isValid, isFalse);
+    expect(result.reason, contains('bond'));
+    expect(result.reason, contains('less than required'));
+  });
+
+  test(
+    'valid when listing has no security deposit and no bond escrowed',
+    () async {
+      final listing = _listing(); // no securityDeposit
+      const txHash = '0xno-deposit';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            // no bond — fine since listing doesn't require one
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isTrue);
+    },
+  );
+
+  test('valid when bond exceeds required security deposit', () async {
+    final listing = _listing(
+      securityDeposit: DenominatedAmount(
+        value: BigInt.from(50000),
+        denomination: 'BTC',
+        decimals: 8,
+      ),
+    );
+    const txHash = '0xbond-excess';
+    final proof = _paymentProof(listing: listing, txHash: txHash);
+    final reservation = _reservation(
+      listing: listing,
+      amount: null,
+      proof: proof,
+    );
+
+    final contract = _FakeSupportedEscrowContract(
+      _eventsSource(
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          bondAmountSats: 75000, // more than required 50000
+        ),
+      ),
+    );
+    final verification = EscrowVerification(
+      evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+      logger: CustomLogger(),
+    );
+
+    final result = await verification.verify(reservation: reservation);
+
+    expect(result.isValid, isTrue);
+    expect(result.fundedEvent!.bondAmount!.value, greaterThan(BigInt.zero));
+  });
 }

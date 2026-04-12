@@ -7,6 +7,7 @@ import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator_impl.dart';
+import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
@@ -94,7 +95,9 @@ class _FakeWeb3Client extends Fake implements Web3Client {
     BlockNum? atBlock,
   }) async {
     final bal =
-        balances[address.eip55With0x] ?? balances[address.with0x] ?? BigInt.zero;
+        balances[address.eip55With0x] ??
+        balances[address.with0x] ??
+        BigInt.zero;
     return bip.EtherAmount.inWei(bal);
   }
 }
@@ -135,22 +138,23 @@ void main() {
   late _FakeEvm evm;
   late _FakeReservations reservations;
   late CustomLogger logger;
+  late TradeAccountCache cache;
   late TradeAccountAllocatorImpl allocator;
 
   setUp(() {
-    auth = _FakeAuth(
-      keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null),
-    );
+    auth = _FakeAuth(keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null));
     hd = _FakeDeterministicKeys();
     web3 = _FakeWeb3Client();
     evm = _FakeEvm([_FakeEvmChain(web3)]);
     reservations = _FakeReservations();
     logger = CustomLogger();
+    cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
     allocator = TradeAccountAllocatorImpl(
       auth: auth,
       hd: hd,
       evm: evm,
       reservations: reservations,
+      cache: cache,
       logger: logger,
     );
   });
@@ -167,11 +171,13 @@ void main() {
         keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null),
         maxAccountIndex: 4,
       );
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -183,11 +189,13 @@ void main() {
       // Index 0 has an existing trade.
       hd = _FakeDeterministicKeys(tradeIds: {0: 'taken-trade'});
       reservations = _FakeReservations(existingTradeIds: {'taken-trade'});
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -200,11 +208,13 @@ void main() {
       hd = _FakeDeterministicKeys(evmAddresses: {0: usedAddress});
       web3 = _FakeWeb3Client(nonces: {usedAddress.with0x: 1});
       evm = _FakeEvm([_FakeEvmChain(web3)]);
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -217,11 +227,13 @@ void main() {
       hd = _FakeDeterministicKeys(evmAddresses: {0: usedAddress});
       web3 = _FakeWeb3Client(balances: {usedAddress.with0x: BigInt.from(1000)});
       evm = _FakeEvm([_FakeEvmChain(web3)]);
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -238,11 +250,13 @@ void main() {
   group('findTradeAccountIndexByTradeId', () {
     test('returns matching index', () async {
       hd = _FakeDeterministicKeys(tradeIds: {3: 'target-id'});
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -261,11 +275,13 @@ void main() {
   group('tryFindTradeAccountIndexByTradeId', () {
     test('returns index on match', () async {
       hd = _FakeDeterministicKeys(tradeIds: {7: 'found-it'});
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -313,11 +329,13 @@ void main() {
   group('getReservedTradeIndices', () {
     test('returns empty list when no active key pair', () {
       auth = _FakeAuth();
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 
@@ -333,11 +351,13 @@ void main() {
         keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null),
         maxAccountIndex: 3,
       );
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
         reservations: reservations,
+        cache: cache,
         logger: logger,
       );
 

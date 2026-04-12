@@ -182,7 +182,7 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   }) => logger.span('balanceOf', () async {
     await ensureDeployed();
     return _withDecodedCustomError(() {
-      return contract.balances(($param5: beneficiary, $param6: token));
+      return contract.balances(($param6: beneficiary, $param7: token));
     });
   });
 

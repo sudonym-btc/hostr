@@ -105,10 +105,10 @@ BadgeSeedData buildBadges({
     }
   }
 
-  // Give 'superhost' to ~¼ of hosts.
+  // Give 'superhost' to ~half the hosts (by pubkey, no listing anchor).
   final superhostAnchor = anchorByIdentifier['superhost']!;
   for (final host in hosts) {
-    if (rng.nextDouble() < 0.25) {
+    if (rng.nextDouble() < 0.5) {
       awards.add(
         _buildAward(
           issuerKey: issuerKey,
@@ -122,6 +122,25 @@ BadgeSeedData buildBadges({
   }
 
   // Award listing-specific badges to ~half the listings.
+  // Award 'verified' to ~half the listings.
+  for (final listing in listings) {
+    final listingAnchor = listing.anchor;
+    if (listingAnchor == null) continue;
+
+    if (rng.nextDouble() < 0.5) {
+      awards.add(
+        _buildAward(
+          issuerKey: issuerKey,
+          definitionAnchor: verifiedAnchor,
+          recipientPubkey: listing.pubKey,
+          listingAnchor: listingAnchor,
+          createdAt: ctx.timestampDaysAfter(4),
+        ),
+      );
+    }
+  }
+
+  // Award other listing-specific badges at a lower rate (~15%).
   final listingBadges = [
     ('eco_friendly', anchorByIdentifier['eco_friendly']!),
     ('instant_book', anchorByIdentifier['instant_book']!),
@@ -132,9 +151,8 @@ BadgeSeedData buildBadges({
     final listingAnchor = listing.anchor;
     if (listingAnchor == null) continue;
 
-    // Each listing-level badge has a ~50% chance of being awarded.
     for (final (_, badgeAnchor) in listingBadges) {
-      if (rng.nextDouble() < 0.5) {
+      if (rng.nextDouble() < 0.15) {
         awards.add(
           _buildAward(
             issuerKey: issuerKey,

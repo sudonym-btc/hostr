@@ -77,7 +77,7 @@ Listing _buildListing({
     ],
     location: 'test-location',
     type: ListingType.house,
-    amenities: Amenities(),
+    specifications: Specifications(),
     allowBarter: allowBarter,
     allowSelfSignedReservation: allowSelfSignedReservation,
     requiresEscrow: requiresEscrow,

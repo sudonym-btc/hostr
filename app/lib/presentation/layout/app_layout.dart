@@ -113,13 +113,13 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
   }
 
   return [
-      const AppNavigationDestination(
-        label: 'Explore',
-        icon: Icons.travel_explore,
-        route: ExploreRoute(),
-      ),
-      const AppNavigationDestination(
-        label: 'Trips',
+    const AppNavigationDestination(
+      label: 'Explore',
+      icon: Icons.travel_explore,
+      route: ExploreRoute(),
+    ),
+    const AppNavigationDestination(
+      label: 'Trips',
       icon: Icons.flight,
       route: TripsRoute(),
     ),

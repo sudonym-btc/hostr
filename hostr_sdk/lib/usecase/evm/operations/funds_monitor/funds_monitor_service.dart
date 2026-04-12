@@ -347,10 +347,13 @@ class FundsMonitorService {
 
   Future<void> _seedMonitors() => _logger.span('_seedMonitors', () async {
     for (final chain in _evm.configuredChains) {
-      // Seed native balances.
       try {
-        final funded = await chain.getAddressesWithBalance();
-        for (final entry in funded) {
+        final boltzTokens = chain.swaps?.chainInfo.tokens ?? {};
+        final (:nativeFunded, :tokenFunded) = await chain.scanAllHDBalances(
+          tokens: boltzTokens,
+        );
+
+        for (final entry in nativeFunded) {
           final key = entry.address.eip55With0x.toLowerCase();
           _addressToAccountIndex[key] = entry.accountIndex;
           chain.balanceMonitor.trackAddress(
@@ -358,28 +361,17 @@ class FundsMonitorService {
             reason: 'seed:native',
           );
         }
-      } catch (e) {
-        _logger.w('Seed native scan failed for ${chain.config.id}: $e');
-      }
 
-      // Seed ERC-20 balances.
-      final boltzTokens = chain.swaps?.chainInfo.tokens;
-      if (boltzTokens != null && boltzTokens.isNotEmpty) {
-        try {
-          final tokenFunded = await chain.getAddressesWithTokenBalances(
-            boltzTokens,
+        for (final entry in tokenFunded) {
+          final key = entry.address.eip55With0x.toLowerCase();
+          _addressToAccountIndex[key] = entry.accountIndex;
+          chain.balanceMonitor.trackAddress(
+            entry.address,
+            reason: 'seed:erc20',
           );
-          for (final entry in tokenFunded) {
-            final key = entry.address.eip55With0x.toLowerCase();
-            _addressToAccountIndex[key] = entry.accountIndex;
-            chain.balanceMonitor.trackAddress(
-              entry.address,
-              reason: 'seed:erc20',
-            );
-          }
-        } catch (e) {
-          _logger.w('Seed ERC-20 scan failed for ${chain.config.id}: $e');
         }
+      } catch (e) {
+        _logger.w('Seed scan failed for ${chain.config.id}: $e');
       }
     }
   });

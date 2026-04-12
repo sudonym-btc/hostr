@@ -2,8 +2,9 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/logic/forms/bool_field_controller.dart';
 import 'package:hostr/logic/forms/image_field_controller.dart';
-import 'package:hostr/logic/forms/listing_amenity_field_controller.dart';
 import 'package:hostr/logic/forms/listing_price_field_controller.dart';
+import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
+import 'package:hostr/logic/forms/sats_amount_field_controller.dart';
 import 'package:hostr/logic/forms/text_field_controller.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
@@ -27,10 +28,12 @@ class EditListingController extends UpsertFormController {
         v == null || v.trim().isEmpty ? 'Description is required' : null,
   );
   final ListingPriceFieldController priceField = ListingPriceFieldController();
-  final ListingAmenityFieldController amenityField =
-      ListingAmenityFieldController();
+  final ListingSpecFieldController specField = ListingSpecFieldController();
   final BoolFieldController activeField = BoolFieldController(initial: true);
   final BoolFieldController barterField = BoolFieldController();
+  final SatsAmountFieldController securityDepositField =
+      SatsAmountFieldController();
+  final SatsAmountFieldController minPaymentField = SatsAmountFieldController();
   final LocationController locationController = LocationController();
 
   EditListingController() {
@@ -38,9 +41,11 @@ class EditListingController extends UpsertFormController {
     registerField(titleField);
     registerField(descriptionField);
     registerField(priceField);
-    registerField(amenityField);
+    registerField(specField);
     registerField(activeField);
     registerField(barterField);
+    registerField(securityDepositField);
+    registerField(minPaymentField);
     registerField(locationController);
   }
 
@@ -53,9 +58,11 @@ class EditListingController extends UpsertFormController {
     titleField.setState(data?.title ?? '');
     descriptionField.setState(data?.description ?? '');
     locationController.setState(data?.location ?? '');
-    amenityField.setState(data?.amenities ?? Amenities());
+    specField.setState(data?.specifications ?? Specifications());
     activeField.setState(data?.active ?? true);
     barterField.setState(data?.allowBarter ?? false);
+    securityDepositField.setState(data?.securityDeposit);
+    minPaymentField.setState(data?.minPaymentAmount);
     priceField.setState(data?.prices ?? []);
     notifyListeners();
   }
@@ -98,8 +105,10 @@ class EditListingController extends UpsertFormController {
       quantity: current.quantity,
       type: current.listingType,
       images: images,
-      amenities: amenityField.amenities,
+      specifications: specField.specifications,
       requiresEscrow: current.requiresEscrow,
+      securityDeposit: securityDepositField.amount,
+      minPaymentAmount: minPaymentField.amount,
       minStay: current.minStay,
       checkIn: current.checkIn ?? '15:0',
       checkOut: current.checkOut ?? '11:0',

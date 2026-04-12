@@ -563,6 +563,7 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
     required void Function(T)? onData,
     void Function(Object, StackTrace?)? onError,
     required String? name,
+    List<String>? relays,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#liveSubscription, [], {
@@ -570,6 +571,7 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
               #onData: onData,
               #onError: onError,
               #name: name,
+              #relays: relays,
             }),
             returnValue: _FakeLiveSubscriptionHandle_6(
               this,
@@ -578,6 +580,7 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
                 #onData: onData,
                 #onError: onError,
                 #name: name,
+                #relays: relays,
               }),
             ),
           )

@@ -43,7 +43,7 @@ Listing _listing({
     priceSats: pricePerNightSats,
     location: 'test-location',
     type: ListingType.house,
-    amenities: Amenities(),
+    specifications: Specifications(),
     allowBarter: allowBarter,
     allowSelfSignedReservation: allowSelfSignedReservation,
     requiresEscrow: requiresEscrow,

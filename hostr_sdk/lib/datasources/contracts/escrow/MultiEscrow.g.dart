@@ -89,7 +89,7 @@ class MultiEscrow extends _i1.GeneratedContract {
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[4];
-    assert(checkSignature(function, 'af6eb856'));
+    assert(checkSignature(function, '36607958'));
     final params = [
       args.tradeId,
       args.paymentFactor,
@@ -126,14 +126,14 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<BigInt> balances(
-    ({_i2.EthereumAddress $param5, _i2.EthereumAddress $param6}) args, {
+    ({_i2.EthereumAddress $param6, _i2.EthereumAddress $param7}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[6];
     assert(checkSignature(function, 'c23f001f'));
     final params = [
-      args.$param5,
       args.$param6,
+      args.$param7,
     ];
     final response = await read(
       function,
@@ -184,7 +184,7 @@ class MultiEscrow extends _i1.GeneratedContract {
     _i1.Transaction? transaction,
   }) async {
     final function = self.abi.functions[8];
-    assert(checkSignature(function, 'c6763cea'));
+    assert(checkSignature(function, '49173398'));
     final params = [
       args.tradeId,
       args.buyer,
@@ -324,12 +324,12 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<BigInt> totalPending(
-    ({_i2.EthereumAddress $param25}) args, {
+    ({_i2.EthereumAddress $param27}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[15];
     assert(checkSignature(function, 'c1b64f74'));
-    final params = [args.$param25];
+    final params = [args.$param27];
     final response = await read(
       function,
       params,
@@ -342,12 +342,12 @@ class MultiEscrow extends _i1.GeneratedContract {
   /// set, the function will be evaluated in the specified block. By default, the
   /// latest on-chain block will be used.
   Future<Trades> trades(
-    ({_i3.Uint8List $param26}) args, {
+    ({_i3.Uint8List $param28}) args, {
     _i1.BlockNum? atBlock,
   }) async {
     final function = self.abi.functions[16];
     assert(checkSignature(function, '00162420'));
-    final params = [args.$param26];
+    final params = [args.$param28];
     final response = await read(
       function,
       params,

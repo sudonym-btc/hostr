@@ -704,6 +704,248 @@ describe("MultiEscrow", function () {
     });
   });
 
+  // ── Security deposit (bond) tests ────────────────────────────────────
+
+  describe("Security deposit (bond)", function () {
+    it("creates a trade with zero bond", async function () {
+      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount: 0n,
+        escrowFee,
+        unlockAt: futureUnlockAt,
+        label: "zero-bond-create",
+      });
+
+      const activeTrade = await escrow.activeTrade(tradeId);
+      expect(activeTrade.isActive).to.equal(true);
+      expect(activeTrade.trade.paymentAmount).to.equal(amount);
+      expect(activeTrade.trade.bondAmount).to.equal(0n);
+    });
+
+    it("release with zero bond credits only payment to buyer", async function () {
+      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount: 0n,
+        escrowFee,
+        unlockAt: futureUnlockAt,
+        label: "zero-bond-release",
+      });
+
+      const sig = await signRelease(seller, domain, tradeId, seller.address);
+      await escrow.releaseToCounterparty(tradeId, seller.address, sig);
+
+      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
+      const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
+      expect(buyerBal).to.equal(amount - escrowFee);
+      expect(arbiterBal).to.equal(escrowFee);
+    });
+
+    it("claim with zero bond sends all payment to seller", async function () {
+      const { escrow, buyer, seller, arbiter, amount, escrowFee, pastUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount: 0n,
+        escrowFee,
+        unlockAt: pastUnlockAt,
+        label: "zero-bond-claim",
+      });
+
+      const sig = await signClaim(seller, domain, tradeId);
+      await escrow.claim(tradeId, sig);
+
+      const sellerBal = await escrow.balances(seller.address, hre.ethers.ZeroAddress);
+      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
+      const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
+      expect(sellerBal).to.equal(amount - escrowFee);
+      expect(buyerBal).to.equal(0n); // no bond → nothing returned to buyer
+      expect(arbiterBal).to.equal(escrowFee);
+    });
+
+    it("arbitrate with zero bond only splits payment", async function () {
+      const { escrow, buyer, seller, arbiter, amount, escrowFee, futureUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount: 0n,
+        escrowFee,
+        unlockAt: futureUnlockAt,
+        label: "zero-bond-arbitrate",
+      });
+
+      const paymentFactor = 600n;
+      const bondFactor = 500n; // irrelevant when bond is 0
+      const paymentAfterFee = amount - escrowFee;
+      const sellerPayment = (paymentAfterFee * paymentFactor) / 1000n;
+      const buyerPayment  = paymentAfterFee - sellerPayment;
+
+      const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
+      await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
+
+      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(sellerPayment);
+      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(buyerPayment);
+      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+    });
+
+    it("claim returns bond to buyer while payment goes to seller", async function () {
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, pastUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount,
+        escrowFee,
+        unlockAt: pastUnlockAt,
+        label: "bond-claim-split",
+      });
+
+      const sig = await signClaim(seller, domain, tradeId);
+      await escrow.claim(tradeId, sig);
+
+      // payment - fee → seller, bond → buyer
+      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(amount - escrowFee);
+      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(bondAmount);
+      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+    });
+
+    it("arbitrate splits payment and bond independently", async function () {
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount,
+        escrowFee,
+        unlockAt: futureUnlockAt,
+        label: "bond-arbitrate-split",
+      });
+
+      // 80% of payment to seller, 30% of bond to seller
+      const paymentFactor = 800n;
+      const bondFactor = 300n;
+      const paymentAfterFee = amount - escrowFee;
+      const sellerPayment = (paymentAfterFee * paymentFactor) / 1000n;
+      const buyerPayment  = paymentAfterFee - sellerPayment;
+      const sellerBond = (bondAmount * bondFactor) / 1000n;
+      const buyerBond  = bondAmount - sellerBond;
+
+      const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
+      await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
+
+      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(sellerPayment + sellerBond);
+      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(buyerPayment + buyerBond);
+      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+    });
+
+    it("release sends payment + bond to buyer", async function () {
+      const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createNativeTrade({
+        escrow,
+        buyer,
+        seller,
+        arbiter,
+        amount,
+        bondAmount,
+        escrowFee,
+        unlockAt: futureUnlockAt,
+        label: "bond-release-all",
+      });
+
+      const sig = await signRelease(seller, domain, tradeId, seller.address);
+      await escrow.releaseToCounterparty(tradeId, seller.address, sig);
+
+      // Release returns everything (minus fee) to buyer
+      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(amount + bondAmount - escrowFee);
+      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+    });
+
+    it("ERC20 trade with bond: claim returns bond to buyer", async function () {
+      const { escrow, token, buyer, seller, arbiter, erc20Amount, erc20BondAmount, erc20EscrowFee, pastUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createERC20Trade({
+        escrow,
+        token,
+        buyer,
+        seller,
+        arbiter,
+        amount: erc20Amount,
+        bondAmount: erc20BondAmount,
+        escrowFee: erc20EscrowFee,
+        unlockAt: pastUnlockAt,
+        label: "erc20-bond-claim",
+      });
+
+      const sig = await signClaim(seller, domain, tradeId);
+      await escrow.claim(tradeId, sig);
+
+      const tokenAddress = await token.getAddress();
+      expect(await escrow.balances(seller.address, tokenAddress)).to.equal(erc20Amount - erc20EscrowFee);
+      expect(await escrow.balances(buyer.address, tokenAddress)).to.equal(erc20BondAmount);
+      expect(await escrow.balances(arbiter.address, tokenAddress)).to.equal(erc20EscrowFee);
+    });
+
+    it("ERC20 trade with zero bond: claim gives nothing to buyer", async function () {
+      const { escrow, token, buyer, seller, arbiter, erc20Amount, erc20EscrowFee, pastUnlockAt, domain } =
+        await loadFixture(deployFixture);
+
+      const tradeId = await createERC20Trade({
+        escrow,
+        token,
+        buyer,
+        seller,
+        arbiter,
+        amount: erc20Amount,
+        bondAmount: 0n,
+        escrowFee: erc20EscrowFee,
+        unlockAt: pastUnlockAt,
+        label: "erc20-zero-bond-claim",
+      });
+
+      const sig = await signClaim(seller, domain, tradeId);
+      await escrow.claim(tradeId, sig);
+
+      const tokenAddress = await token.getAddress();
+      expect(await escrow.balances(seller.address, tokenAddress)).to.equal(erc20Amount - erc20EscrowFee);
+      expect(await escrow.balances(buyer.address, tokenAddress)).to.equal(0n);
+      expect(await escrow.balances(arbiter.address, tokenAddress)).to.equal(erc20EscrowFee);
+    });
+  });
+
   // ── Admin tests ─────────────────────────────────────────────────────
 
   describe("Admin", function () {

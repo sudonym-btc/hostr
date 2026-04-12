@@ -312,6 +312,9 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
   @override
   final TokenAmount amount;
 
+  /// The security-deposit (bond) locked alongside the payment, if any.
+  final TokenAmount? bondAmount;
+
   /// The unix timestamp (seconds) after which the buyer can claim back funds.
   final int unlockAt;
 
@@ -323,6 +326,7 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
     super.contract,
     required this.transactionHash,
     required this.amount,
+    this.bondAmount,
     required this.unlockAt,
   });
 }

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
-import 'package:hostr/logic/forms/listing_amenity_field_controller.dart';
+import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
+import 'package:hostr/logic/forms/sats_amount_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 
 import 'image_picker.dart';
@@ -113,7 +114,7 @@ class BarterInput extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: Text(AppLocalizations.of(context)!.allowBarter),
           subtitle: Text(
-            'Allowing barter allows users to submit reservation requests below your listed price, which you can then accept or decline.',
+            'Allows users to submit reservation requests below the listed price, which you can then accept or decline.',
           ),
           value: controller.barterField.value,
           onChanged: controller.barterField.setValue,
@@ -168,31 +169,31 @@ class DescriptionInput extends StatelessWidget {
   }
 }
 
-class AmenitiesInput extends StatefulWidget {
+class SpecificationsInput extends StatefulWidget {
   final EditListingController controller;
 
-  const AmenitiesInput({super.key, required this.controller});
+  const SpecificationsInput({super.key, required this.controller});
 
   @override
-  State<AmenitiesInput> createState() => _AmenitiesInputState();
+  State<SpecificationsInput> createState() => _SpecificationsInputState();
 }
 
-class _AmenitiesInputState extends State<AmenitiesInput> {
-  final TextEditingController _amenityController = TextEditingController();
-  final FocusNode _amenityFocusNode = FocusNode();
+class _SpecificationsInputState extends State<SpecificationsInput> {
+  final TextEditingController _specController = TextEditingController();
+  final FocusNode _specFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _amenityFocusNode.addListener(() {
-      if (_amenityFocusNode.hasFocus && _amenityController.text.isEmpty) {
-        _amenityController.value = const TextEditingValue(
+    _specFocusNode.addListener(() {
+      if (_specFocusNode.hasFocus && _specController.text.isEmpty) {
+        _specController.value = const TextEditingValue(
           text: ' ',
           selection: TextSelection.collapsed(offset: 1),
         );
         Future.microtask(() {
           if (mounted) {
-            _amenityController.value = const TextEditingValue(
+            _specController.value = const TextEditingValue(
               text: '',
               selection: TextSelection.collapsed(offset: 0),
             );
@@ -207,15 +208,17 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
 
   @override
   void dispose() {
-    _amenityController.dispose();
-    _amenityFocusNode.dispose();
+    _specController.dispose();
+    _specFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final options = ListingAmenityFieldController.amenityKeys();
-    final selected = widget.controller.amenityField.selectedKeys;
+    final boolOptions = ListingSpecFieldController.booleanSpecKeys();
+    final selected = widget.controller.specField.selectedBoolKeys;
+    final valuedSpecKeys = ListingSpecFieldController.valuedSpecKeys();
+    final valuedSpecs = widget.controller.specField.valuedSpecs;
     final chipPadding = EdgeInsets.symmetric(
       horizontal: kDefaultPadding.toDouble() / 2,
       vertical: kDefaultPadding.toDouble() / 4,
@@ -225,23 +228,84 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Valued specs (number inputs) ──────────────────────────────
+        ...valuedSpecKeys.map((key) {
+          final value = valuedSpecs[key] ?? 0;
+          return Padding(
+            padding: EdgeInsets.only(bottom: kDefaultPadding.toDouble() / 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    convertToTitleCase(key),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                IconButton.filled(
+                  onPressed: value > 0
+                      ? () {
+                          setState(() {
+                            widget.controller.specField.updateValuedSpec(
+                              key,
+                              value - 1,
+                            );
+                          });
+                        }
+                      : null,
+                  icon: const Icon(Icons.remove, size: 18),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(36, 36),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    '$value',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                IconButton.filled(
+                  onPressed: () {
+                    setState(() {
+                      widget.controller.specField.updateValuedSpec(
+                        key,
+                        value + 1,
+                      );
+                    });
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(36, 36),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        if (valuedSpecKeys.isNotEmpty) Gap.vertical.sm(),
+
+        // ── Boolean specs (chip picker) ───────────────────────────────
         Wrap(
           spacing: kDefaultPadding.toDouble() / 3,
           runSpacing: kDefaultPadding.toDouble() / 3,
           children: [
-            ...selected.map((amenity) {
+            ...selected.map((spec) {
               return InputChip(
-                label: Text(convertToTitleCase(amenity)),
-                shape: getShapeForAmenity(context, amenity),
-                backgroundColor: getColorForAmenity(context, amenity),
+                label: Text(convertToTitleCase(spec)),
+                shape: getShapeForSpec(context, spec),
+                backgroundColor: getColorForSpec(context, spec),
                 padding: chipPadding,
                 labelPadding: chipLabelPadding,
-                // visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 onDeleted: () {
                   setState(() {
-                    final next = Set<String>.from(selected)..remove(amenity);
-                    widget.controller.amenityField.updateSelected(next);
+                    final next = Set<String>.from(selected)..remove(spec);
+                    widget.controller.specField.updateSelectedBool(next);
                   });
                 },
               );
@@ -249,15 +313,15 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
             SizedBox(
               width: double.infinity,
               child: RawAutocomplete<String>(
-                textEditingController: _amenityController,
-                focusNode: _amenityFocusNode,
+                textEditingController: _specController,
+                focusNode: _specFocusNode,
                 displayStringForOption: (option) => convertToTitleCase(option),
                 optionsBuilder: (TextEditingValue value) {
-                  if (!_amenityFocusNode.hasFocus) {
+                  if (!_specFocusNode.hasFocus) {
                     return const Iterable<String>.empty();
                   }
                   final query = value.text.trim().toLowerCase();
-                  final available = options.where(
+                  final available = boolOptions.where(
                     (option) => !selected.contains(option),
                   );
 
@@ -270,11 +334,11 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                   );
                 },
                 onSelected: (selection) {
-                  _amenityController.clear();
-                  _amenityFocusNode.unfocus();
+                  _specController.clear();
+                  _specFocusNode.unfocus();
                   setState(() {
                     final next = Set<String>.from(selected)..add(selection);
-                    widget.controller.amenityField.updateSelected(next);
+                    widget.controller.specField.updateSelectedBool(next);
                   });
                 },
                 fieldViewBuilder:
@@ -289,7 +353,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                         alignment: Alignment.centerLeft,
                         child: IntrinsicWidth(
                           child: InputChip(
-                            shape: getShapeForAmenity(context, 'add_amenity'),
+                            shape: getShapeForSpec(context, 'add_spec'),
                             backgroundColor: Theme.of(
                               context,
                             ).colorScheme.surface,
@@ -337,7 +401,7 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
                                             ),
                                         isDense: true,
                                         isCollapsed: true,
-                                        hintText: 'Add amenity',
+                                        hintText: 'Add feature',
                                       ),
                                     ),
                                   ),
@@ -379,6 +443,169 @@ class _AmenitiesInputState extends State<AmenitiesInput> {
           ],
         ),
       ],
+    );
+  }
+}
+
+// ── Sats amount inputs ────────────────────────────────────────────────
+
+class _SatsAmountInput extends StatelessWidget {
+  final SatsAmountFieldController controller;
+  final String hintText;
+  final String? suffixText;
+
+  const _SatsAmountInput({
+    required this.controller,
+    required this.hintText,
+    this.suffixText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller.textController,
+      validator: controller.validate,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        ThousandsSeparatorFormatter(),
+      ],
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixText: '₿ ',
+        suffixText: suffixText,
+      ),
+    );
+  }
+}
+
+class SecurityDepositInput extends StatelessWidget {
+  final EditListingController controller;
+
+  const SecurityDepositInput({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SatsAmountInput(
+      controller: controller.securityDepositField,
+      hintText: '0',
+      suffixText: 'sats',
+    );
+  }
+}
+
+class MinPaymentInput extends StatelessWidget {
+  final EditListingController controller;
+
+  const MinPaymentInput({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SatsAmountInput(
+      controller: controller.minPaymentField,
+      hintText: '0',
+      suffixText: 'sats',
+    );
+  }
+}
+
+/// Collapsible section for advanced listing settings.
+class AdvancedSettingsSection extends StatefulWidget {
+  final EditListingController controller;
+
+  const AdvancedSettingsSection({super.key, required this.controller});
+
+  @override
+  State<AdvancedSettingsSection> createState() =>
+      _AdvancedSettingsSectionState();
+}
+
+class _AdvancedSettingsSectionState extends State<AdvancedSettingsSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                Text(
+                  'Advanced',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.expand_more,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: _buildContent(context),
+          crossFadeState: _expanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Security deposit',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SecurityDepositInput(controller: widget.controller),
+          const SizedBox(height: 4),
+          Text(
+            'Amount held in escrow as a damage deposit, returned after checkout.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Minimum payment',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          MinPaymentInput(controller: widget.controller),
+          const SizedBox(height: 4),
+          Text(
+            'Lowest payment amount you will accept for a reservation.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -89,6 +89,22 @@ class EditProfileRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [ExploreScreen]
+class ExploreRoute extends PageRouteInfo<void> {
+  const ExploreRoute({List<PageRouteInfo>? children})
+    : super(ExploreRoute.name, initialChildren: children);
+
+  static const String name = 'ExploreRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const ExploreScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [FiltersScreen]
 class FiltersRoute extends PageRouteInfo<void> {
   const FiltersRoute({List<PageRouteInfo>? children})
@@ -258,22 +274,6 @@ class RootRoute extends PageRouteInfo<void> {
     name,
     builder: (data) {
       return RootScreen();
-    },
-  );
-}
-
-/// generated route for
-/// [SearchScreen]
-class SearchRoute extends PageRouteInfo<void> {
-  const SearchRoute({List<PageRouteInfo>? children})
-    : super(SearchRoute.name, initialChildren: children);
-
-  static const String name = 'SearchRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      return const SearchScreen();
     },
   );
 }
