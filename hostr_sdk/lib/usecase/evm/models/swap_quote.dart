@@ -7,10 +7,12 @@ import 'fee_breakdown.dart';
 /// Unified quote for both swap-in (Lightning → on-chain) and swap-out
 /// (on-chain → Lightning).
 ///
-/// Replaces the former `SwapInQuote` and `SwapOutQuote` classes with a
-/// single type that both quote-service methods return. Follows the Boltz
-/// web app pattern: one model for any direction, with an optional
-/// [dexQuote] when a DEX hop is needed (e.g. tBTC ↔ USDT).
+/// Models pure Boltz swap economics: amounts, fees, gas, and an optional
+/// DEX hop. Application-layer concerns (e.g. escrow fees) belong on a
+/// wrapper such as `EscrowFundQuote`, not here.
+///
+/// Follows the Boltz web app pattern: one model for any direction, with
+/// an optional [dexQuote] when a DEX hop is needed (e.g. tBTC ↔ USDT).
 class SwapQuote {
   /// Boltz fee estimate (limits + per-swap fee), from one pair fetch.
   final BoltzFeeEstimate boltzEstimate;
@@ -20,9 +22,6 @@ class SwapQuote {
 
   /// Whether the gas fee is covered by a paymaster.
   final bool gasSponsored;
-
-  /// Escrow operator fee (zero for plain swaps).
-  final TokenAmount escrowFee;
 
   /// What the user sends — the Lightning invoice amount (swap-in) or
   /// the on-chain lock amount (swap-out). Equivalent to the former
@@ -44,7 +43,6 @@ class SwapQuote {
     required this.boltzEstimate,
     required this.gasFee,
     required this.gasSponsored,
-    required this.escrowFee,
     required this.sendAmount,
     required this.receiveAmount,
     this.dexQuote,
@@ -59,9 +57,8 @@ class SwapQuote {
     max: TokenAmount.fromDenominated(boltzEstimate.limitsMax, token),
   );
 
-  /// Unified fee breakdown for UI display.
+  /// Fee breakdown for UI display (swap + gas only, no escrow fee).
   FeeBreakdown get feeBreakdown => FeeBreakdown(
-    escrowFee: escrowFee,
     swapFee: swapFee,
     gasFee: gasFee,
     gasSponsored: gasSponsored,

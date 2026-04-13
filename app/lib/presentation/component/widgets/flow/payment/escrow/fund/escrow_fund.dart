@@ -251,10 +251,11 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
                       "+ ${formatAmount(fees.swapFee)} in swap fees",
                       style: subtleStyle,
                     ),
-                    Text(
-                      "+ ${formatTokenAmount(fees.escrowFee)} in escrow fees",
-                      style: subtleStyle,
-                    ),
+                    if (fees.escrowFee != null)
+                      Text(
+                        "+ ${formatTokenAmount(fees.escrowFee!)} in escrow fees",
+                        style: subtleStyle,
+                      ),
                   ],
                 );
               },

@@ -10,9 +10,12 @@ const blossomUrl = 'https://blossom.hostr.network';
 const tipsAddress = 'paco@walletofsatoshi.com';
 const googleMapsApiKey = '';
 
-const bootstrapRelays = <String>['wss://relay.damus.io'];
+const bootstrapRelays = <String>[
+  'wss://relay.damus.io',
+];
 
-const bootstrapEscrowPubkeys = <String>[];
+const bootstrapEscrowPubkeys = <String>[
+];
 
 const telemetryEnabled = false;
 const telemetryEndpoint = '';
@@ -26,6 +29,7 @@ const evmConfig = EvmConfig(
       chainId: 42161,
       rpcUrl: 'https://arb1.arbitrum.io/rpc',
       nativeDenomination: 'ETH',
+      boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
         bundlerUrl: 'https://paymaster.hostr.network/rpc',
         entryPointAddress: '',
@@ -49,3 +53,4 @@ const evmConfig = EvmConfig(
     ),
   ],
 );
+

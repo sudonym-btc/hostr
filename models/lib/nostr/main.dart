@@ -20,6 +20,7 @@ export 'seen_messages.dart';
 export 'seen_status.dart';
 export 'serializable.dart';
 export 'tag_builder.dart';
+export 'tag_promotion.dart';
 export 'type_json_content.dart';
 export 'type_parent.dart';
 export 'typing_indicator.dart';

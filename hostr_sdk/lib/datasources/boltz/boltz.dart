@@ -15,7 +15,12 @@ class BoltzClient {
   late Boltz gBoltzCli;
   final BoltzConfig boltzConfig;
   BoltzClient(this.boltzConfig, this.logger)
-    : gBoltzCli = Boltz.create(baseUrl: Uri.parse(boltzConfig.apiUrl));
+    : gBoltzCli = Boltz.create(
+        baseUrl: Uri.parse(boltzConfig.apiUrl),
+        interceptors: [
+          HeadersInterceptor({'referral': 'boltz_webapp_desktop'}),
+        ],
+      );
 
   /// WebSocket URL derived from the API URL.
   String get wsUrl => boltzConfig.wsUrl;

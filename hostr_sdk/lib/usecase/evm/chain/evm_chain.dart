@@ -1162,17 +1162,8 @@ class EvmChain {
   // ── Quote factories ─────────────────────────────────────────────────────
 
   /// Build a [SwapQuote] for [params] on this chain (swap-in direction).
-  ///
-  /// [escrowFee] is forwarded to [SwapQuoteService.buildSwapInQuote] and should
-  /// only be set by [EscrowFundPreparer]; plain swap-in callers omit it.
-  Future<SwapQuote> swapInQuote({
-    required SwapInParams params,
-    TokenAmount? escrowFee,
-  }) => quoteService.buildSwapInQuote(
-    chain: this,
-    params: params,
-    escrowFee: escrowFee,
-  );
+  Future<SwapQuote> swapInQuote({required SwapInParams params}) =>
+      quoteService.buildSwapInQuote(chain: this, params: params);
 
   /// Build a [SwapQuote] for [params] on this chain (swap-out direction).
   Future<SwapQuote> swapOutQuote({required SwapOutParams params}) =>

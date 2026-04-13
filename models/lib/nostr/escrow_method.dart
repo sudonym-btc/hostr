@@ -26,18 +26,36 @@ class AcceptedPaymentForm {
   /// `"30:0x000…000"` (native RBTC), or `"30:0xdAC17…"` (ERC-20).
   final String tokenTagId;
 
+  /// Optional application identifier used to scope payment forms so that
+  /// [EscrowMethods.ensureEscrowMethod] can replace all forms belonging to
+  /// a given app atomically instead of only appending.
+  ///
+  /// Wire format: `["a", "<denomination>", "<tokenTagId>", "<appId>"]`
+  /// The 4th element is omitted when `null` for backwards compatibility.
+  final String? appId;
+
   const AcceptedPaymentForm({
     required this.denomination,
     required this.tokenTagId,
+    this.appId,
   });
 
-  /// Serialize to a 3-element Nostr tag.
-  List<String> toTag() => ['a', denomination, tokenTagId];
+  /// Serialize to a Nostr tag (3 or 4 elements depending on [appId]).
+  List<String> toTag() => [
+        'a',
+        denomination,
+        tokenTagId,
+        if (appId != null) appId!,
+      ];
 
   /// Parse from a raw Nostr tag (must have ≥ 3 elements with `tag[0] == 'a'`).
   static AcceptedPaymentForm? fromTag(List<String> tag) {
     if (tag.length < 3 || tag[0] != 'a') return null;
-    return AcceptedPaymentForm(denomination: tag[1], tokenTagId: tag[2]);
+    return AcceptedPaymentForm(
+      denomination: tag[1],
+      tokenTagId: tag[2],
+      appId: tag.length >= 4 ? tag[3] : null,
+    );
   }
 
   @override
@@ -45,13 +63,15 @@ class AcceptedPaymentForm {
       identical(this, other) ||
       other is AcceptedPaymentForm &&
           denomination == other.denomination &&
-          tokenTagId == other.tokenTagId;
+          tokenTagId == other.tokenTagId &&
+          appId == other.appId;
 
   @override
-  int get hashCode => denomination.hashCode ^ tokenTagId.hashCode;
+  int get hashCode => Object.hash(denomination, tokenTagId, appId);
 
   @override
-  String toString() => 'AcceptedPaymentForm($denomination, $tokenTagId)';
+  String toString() =>
+      'AcceptedPaymentForm($denomination, $tokenTagId${appId != null ? ', $appId' : ''})';
 }
 
 class EscrowMethod extends Event {
@@ -81,7 +101,7 @@ class EscrowMethod extends Event {
   List<AcceptedPaymentForm> get acceptedPaymentForms {
     return tags
         .where((t) => t.length >= 3 && t[0] == 'a')
-        .map((t) => AcceptedPaymentForm(denomination: t[1], tokenTagId: t[2]))
+        .map((t) => AcceptedPaymentForm.fromTag(t)!)
         .toList();
   }
 

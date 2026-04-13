@@ -62,6 +62,48 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   static const List<int> kinds = [kNostrKindListing];
   static final EventTagsParser<ListingTags> _tagParser = ListingTags.new;
 
+  // ── Tag promotions (single-letter relay-indexed duplicates) ────────
+  //
+  // Each rule duplicates a multi-letter tag as a single-letter indexed
+  // tag so relays can filter on it via NIP-01.  Different letters give
+  // us free AND across filter dimensions.
+  //
+  // | Letter | Dimension     | Source tag example                    |
+  // |--------|---------------|---------------------------------------|
+  // | T      | Listing type  | ['type', 'house']        → ['T','house']  |
+  // | s      | Bool features | ['spec', 'pool']         → ['s','pool']   |
+  // | c      | Max guests    | ['spec','max_guests','4'] → ['c','4']     |
+  // | b      | Beds          | ['spec','beds','2']       → ['b','2']     |
+  // | B      | Bedrooms      | ['spec','bedrooms','2']   → ['B','2']     |
+  // | R      | Bathrooms     | ['spec','bathrooms','2']  → ['R','2']     |
+
+  static const List<TagPromotion> promotions = [
+    TagPromotion.direct(source: 'type', target: 'T'),
+    TagPromotion.boolean(source: 'spec', target: 's'),
+    TagPromotion.valued(source: 'spec', match: 'max_guests', target: 'c'),
+    TagPromotion.valued(source: 'spec', match: 'beds', target: 'b'),
+    TagPromotion.valued(source: 'spec', match: 'bedrooms', target: 'B'),
+    TagPromotion.valued(source: 'spec', match: 'bathrooms', target: 'R'),
+  ];
+
+  /// Letters emitted by [promotions] — stripped during [rebuild] so they
+  /// can be re-generated from the authoritative multi-letter tags.
+  static final Set<String> _promotedLetters =
+      TagPromotion.targetLetters(promotions);
+
+  /// Returns a [ListingFilterBuilder] pre-configured with this event's
+  /// kind and promotion rules.
+  ///
+  /// ```dart
+  /// final filter = Listing.buildFilter()
+  ///   .listingTypes([ListingType.house])
+  ///   .minGuests(2)
+  ///   .features(['pool', 'beachfront'])
+  ///   .build();
+  /// ```
+  static ListingFilterBuilder buildFilter() =>
+      ListingFilterBuilder(promotions, kind: kNostrKindListing);
+
   @override
   EventTags get tagSource => parsedTags;
 
@@ -136,6 +178,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addOptionalDenominatedAmount(
                   'minPaymentAmount', minPaymentAmount)
               ..addSpecifications(specifications)
+              // Emit single-letter promoted duplicates for relay indexing.
+              ..addAll(TagPromotion.promoteAll([
+                ['type', type.name],
+                ...specifications.toTags(),
+              ], promotions))
               ..addAll(extraTags))
             .build(),
       ),
@@ -173,30 +220,31 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     List<List<String>>? extraTags,
   }) {
     // Preserve non-promoted tags (d, g, etc.)
+    // Also strip single-letter promoted tags — they'll be regenerated.
+    final stripKeys = {
+      'title',
+      'image',
+      't',
+      'active',
+      'allowBarter',
+      'minStay',
+      'checkIn',
+      'checkOut',
+      'location',
+      'quantity',
+      'type',
+      'requiresEscrow',
+      'allowSelfSignedReservation',
+      'price',
+      'cancellationPolicy',
+      'spec',
+      'amenity', // back-compat: strip legacy amenity tags on rebuild
+      'securityDeposit',
+      'minPaymentAmount',
+      ..._promotedLetters,
+    };
     final preserved = parsedTags.tags
-        .where((t) =>
-            t.isNotEmpty &&
-            !const {
-              'title',
-              'image',
-              't',
-              'active',
-              'allowBarter',
-              'minStay',
-              'checkIn',
-              'checkOut',
-              'location',
-              'quantity',
-              'type',
-              'requiresEscrow',
-              'allowSelfSignedReservation',
-              'price',
-              'cancellationPolicy',
-              'spec',
-              'amenity', // back-compat: strip legacy amenity tags on rebuild
-              'securityDeposit',
-              'minPaymentAmount',
-            }.contains(t.first))
+        .where((t) => t.isNotEmpty && !stripKeys.contains(t.first))
         .toList();
 
     return Listing(
@@ -233,6 +281,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                       ? null
                       : minPaymentAmount ?? this.minPaymentAmount)
               ..addSpecifications(specifications ?? this.specifications)
+              // Emit single-letter promoted duplicates for relay indexing.
+              ..addAll(TagPromotion.promoteAll([
+                ['type', (type ?? this.listingType).name],
+                ...(specifications ?? this.specifications).toTags(),
+              ], promotions))
               ..addAll(extraTags ?? const []))
             .build(),
       ),

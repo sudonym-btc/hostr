@@ -84,7 +84,11 @@ class EscrowFundPreparer {
   Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
     final resolved = await _resolveSignerAndBuildCalls();
     final (quote, _) = await _buildQuote(resolved);
-    return quote.feeBreakdown;
+    final escrowFundQuote = EscrowFundQuote(
+      swapQuote: quote,
+      escrowFee: resolved.escrowFee,
+    );
+    return escrowFundQuote.feeBreakdown;
   });
 
   // ── Internal: shared signer + call resolution ─────────────────────
@@ -183,7 +187,6 @@ class EscrowFundPreparer {
     final quote = await getIt<SwapQuoteService>().buildSwapInQuote(
       chain: configuredChain,
       params: swapInParams,
-      escrowFee: resolved.escrowFee,
     );
     // Return both — swapInParams.postClaimCalls may now contain prepended DEX
     // calls injected by buildSwapInQuote (approve bridgeToken + router.execute)

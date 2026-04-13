@@ -33,6 +33,7 @@ class DaemonHandler {
     server.registerMethod(kRpcListServices, _listServices);
     server.registerMethod(kRpcGetService, _getService);
     server.registerMethod(kRpcUpdateService, _updateService);
+    server.registerMethod(kRpcDeleteService, _deleteService);
     server.registerMethod(kRpcGetProfile, _getProfile);
     server.registerMethod(kRpcUpdateProfile, _updateProfile);
     server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
@@ -347,6 +348,38 @@ class DaemonHandler {
     );
 
     await hostr.escrows.upsert(updated);
+    return {'ok': true};
+  }
+
+  Future<Map<String, dynamic>> _deleteService(
+      json_rpc.Parameters params) async {
+    final pubkey = hostr.auth.activeKeyPair!.publicKey;
+    final serviceId = params['serviceId'].asString;
+
+    final existing = await hostr.escrows.getById(serviceId);
+
+    // Build the 'd' tag value for the parameterized-replaceable event so the
+    // relay can match and remove it.  Prefer an existing 'd' tag; fall back
+    // to the contract address which is the canonical identifier.
+    final dTag = existing.tags
+            .where((t) => t.isNotEmpty && t[0] == 'd')
+            .map((t) => t.length > 1 ? t[1] : '')
+            .firstOrNull ??
+        existing.contractAddress;
+
+    // NIP-09 deletion event.
+    final deletion = Nip01Event(
+      pubKey: pubkey,
+      kind: 5,
+      tags: [
+        ['e', existing.id],
+        ['a', '${existing.kind}:$pubkey:$dTag'],
+        ['k', '${existing.kind}'],
+      ],
+      content: 'Escrow service deleted by operator',
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    );
+    await hostr.escrows.delete(EscrowService.fromNostrEvent(deletion));
     return {'ok': true};
   }
 
