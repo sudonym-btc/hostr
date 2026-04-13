@@ -6,6 +6,7 @@ import 'package:models/main.dart';
 class LocationController extends FormFieldController {
   final TextEditingController textController;
   final FocusNode focusNode;
+  final bool required;
 
   List<H3Tag> _h3Tags = const [];
   String? _h3Error;
@@ -14,7 +15,7 @@ class LocationController extends FormFieldController {
   String _lastResolvedText = '';
   String _originalText = '';
 
-  LocationController({String initialText = ''})
+  LocationController({String initialText = '', this.required = true})
     : textController = TextEditingController(text: initialText),
       focusNode = FocusNode() {
     textController.addListener(_onTextChanged);
@@ -27,16 +28,24 @@ class LocationController extends FormFieldController {
   LocationSuggestion? get selectedSuggestion => _selectedSuggestion;
   String get lastResolvedText => _lastResolvedText;
 
+  /// Whether the field is empty (no text entered).
+  bool get _isEmpty => textController.text.trim().isEmpty;
+
   // ── FormFieldController overrides ───────────────────────────────
   @override
   bool get isDirty => textController.text.trim() != _originalText;
 
   @override
-  bool get isValid => !_isResolvingH3 && _h3Error == null;
+  bool get isValid {
+    if (!required && _isEmpty) return true;
+    return !_isResolvingH3 && _h3Error == null;
+  }
 
   @override
-  bool get canSubmit =>
-      !_isResolvingH3 && _h3Error == null && _h3Tags.isNotEmpty;
+  bool get canSubmit {
+    if (!required && _isEmpty) return true;
+    return !_isResolvingH3 && _h3Error == null && _h3Tags.isNotEmpty;
+  }
 
   /// Set the initial/reset state. After this call [isDirty] is `false`.
   void setState(String text) {
@@ -62,7 +71,7 @@ class LocationController extends FormFieldController {
     if (_h3Error != null) {
       return _h3Error;
     }
-    if (value == null || value.trim().isEmpty) {
+    if (required && (value == null || value.trim().isEmpty)) {
       return emptyMessage;
     }
     return null;

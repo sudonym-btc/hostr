@@ -63,7 +63,7 @@ class _FakeEvm extends Fake implements Evm {
 }
 
 Listing _listing({
-  bool allowBarter = true,
+  bool negotiable = true,
   int pricePerNightSats = 100000,
   DenominatedAmount? securityDeposit,
 }) => _f.listing(
@@ -76,7 +76,7 @@ Listing _listing({
   location: 'test-location',
   type: ListingType.house,
   specifications: Specifications(),
-  allowBarter: allowBarter,
+  negotiable: negotiable,
   allowSelfSignedReservation: true,
   requiresEscrow: true,
   securityDeposit: securityDeposit,

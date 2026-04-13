@@ -55,7 +55,7 @@ class ReservationExpectedAmount {
   final bool hasOffListAmount;
   final bool isBelowListing;
   final bool sellerCommitOk;
-  final bool barterEnabled;
+  final bool negotiationAllowed;
   final bool usesNegotiatedAmount;
 
   const ReservationExpectedAmount({
@@ -65,7 +65,7 @@ class ReservationExpectedAmount {
     required this.hasOffListAmount,
     required this.isBelowListing,
     required this.sellerCommitOk,
-    required this.barterEnabled,
+    required this.negotiationAllowed,
     required this.usesNegotiatedAmount,
   });
 
@@ -74,8 +74,8 @@ class ReservationExpectedAmount {
     if (!sellerCommitOk) {
       return 'Missing valid host commitment for negotiated amount';
     }
-    if (isBelowListing && !barterEnabled) {
-      return 'Listing does not allow below-listing barter';
+    if (isBelowListing && !negotiationAllowed) {
+      return 'Listing does not allow negotiation below listing price';
     }
     return null;
   }
@@ -128,9 +128,9 @@ class Reservation
         negotiatedAmount.value < listingPrice.value;
     final sellerCommitOk =
         !hasOffListAmount ? true : verifyCommit(listingAuthor);
-    final barterEnabled = !isBelowListing || listing.allowBarter;
+    final negotiationAllowed = !isBelowListing || listing.negotiable;
     final usesNegotiatedAmount =
-        hasOffListAmount && sellerCommitOk && barterEnabled;
+        hasOffListAmount && sellerCommitOk && negotiationAllowed;
 
     return ReservationExpectedAmount(
       listingPrice: listingPrice,
@@ -139,7 +139,7 @@ class Reservation
       hasOffListAmount: hasOffListAmount,
       isBelowListing: isBelowListing,
       sellerCommitOk: sellerCommitOk,
-      barterEnabled: barterEnabled,
+      negotiationAllowed: negotiationAllowed,
       usesNegotiatedAmount: usesNegotiatedAmount,
     );
   }
@@ -348,11 +348,11 @@ class Reservation
       if (expectedAmount.hasOffListAmount) {
         if (expectedAmount.isBelowListing) {
           setField(
-            'barterEnabled',
-            expectedAmount.barterEnabled,
-            expectedAmount.barterEnabled
+            'negotiationAllowed',
+            expectedAmount.negotiationAllowed,
+            expectedAmount.negotiationAllowed
                 ? null
-                : 'Listing does not allow below-listing barter',
+                : 'Listing does not allow negotiation below listing price',
           );
         }
         setField(

@@ -82,7 +82,7 @@ class ReservationRequestActions {
       }
 
       if (!latestOfferSentByUs &&
-          listing.allowBarter &&
+          listing.negotiable &&
           !latestOfferAcceptsPrevious) {
         canCounter = true;
         switch (role) {

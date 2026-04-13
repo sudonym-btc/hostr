@@ -832,11 +832,11 @@ abstract class AppLocalizations {
   /// **'No permission'**
   String get noPermission;
 
-  /// No description provided for @allowBarter.
+  /// No description provided for @negotiable.
   ///
   /// In en, this message translates to:
-  /// **'Allow Barter'**
-  String get allowBarter;
+  /// **'Negotiable'**
+  String get negotiable;
 
   /// No description provided for @start.
   ///

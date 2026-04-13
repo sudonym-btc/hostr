@@ -179,7 +179,27 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
            return Column(
              mainAxisSize: MainAxisSize.min,
              children: [
-               Gap.vertical.custom(kSpace8),
+               Gap.vertical.xl(),
+               if (denominations.length > 1)
+                 Align(
+                   alignment: Alignment.centerRight,
+                   child: Padding(
+                     padding: const EdgeInsets.only(right: 16),
+                     child: _CurrencyCycleButton(
+                       denominations: denominations,
+                       activeDenomination: activeDenomination,
+                       onCycle: (newDenom) {
+                         final newDecimals = decimalsForDenomination(newDenom);
+                         field.didChange(
+                           DenominatedAmount.zero(newDenom, newDecimals),
+                         );
+                         amountInput.onDenominationChanged?.call(newDenom);
+                       },
+                     ),
+                   ),
+                 )
+               else
+                 Gap.vertical.xl(),
                Center(
                  child: Column(
                    mainAxisSize: MainAxisSize.min,
@@ -210,31 +230,7 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
                    ],
                  ),
                ),
-               // ── Denomination selector ─────────────────────────────
-               if (denominations.length > 1) ...[
-                 Gap.vertical.custom(kSpace3),
-                 Center(
-                   child: SegmentedButton<String>(
-                     segments: denominations
-                         .map(
-                           (d) =>
-                               ButtonSegment<String>(value: d, label: Text(d)),
-                         )
-                         .toList(),
-                     selected: {activeDenomination},
-                     onSelectionChanged: (selected) {
-                       final newDenom = selected.first;
-                       final newDecimals = decimalsForDenomination(newDenom);
-                       field.didChange(
-                         DenominatedAmount.zero(newDenom, newDecimals),
-                       );
-                       amountInput.onDenominationChanged?.call(newDenom);
-                     },
-                     showSelectedIcon: false,
-                   ),
-                 ),
-               ],
-               Gap.vertical.custom(kSpace5),
+               Gap.vertical.xl(),
                Center(
                  child: ConstrainedBox(
                    constraints: const BoxConstraints(
@@ -485,6 +481,61 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Strike-style currency cycle button ────────────────────────────────────
+
+/// A circular-arrow icon with the *next* currency's symbol inside.
+class _CurrencyCycleButton extends StatelessWidget {
+  final List<String> denominations;
+  final String activeDenomination;
+  final ValueChanged<String> onCycle;
+
+  const _CurrencyCycleButton({
+    required this.denominations,
+    required this.activeDenomination,
+    required this.onCycle,
+  });
+
+  static const _symbols = <String, String>{'BTC': '₿', 'USD': '\$', 'ETH': 'Ξ'};
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = denominations.indexOf(activeDenomination);
+    final nextIndex = (currentIndex + 1) % denominations.length;
+    final nextDenom = denominations[nextIndex];
+    final symbol = _symbols[nextDenom] ?? nextDenom;
+    final theme = Theme.of(context);
+
+    return IconButton(
+      tooltip: 'Switch to $nextDenom',
+      onPressed: () => onCycle(nextDenom),
+      icon: SizedBox(
+        width: 38,
+        height: 38,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              Icons.sync_outlined,
+              size: 38,
+              color: theme.colorScheme.onSurfaceVariant,
+              weight: 200,
+              grade: 0.1,
+            ),
+            Text(
+              symbol,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

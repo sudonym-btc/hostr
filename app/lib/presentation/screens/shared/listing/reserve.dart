@@ -132,7 +132,7 @@ class _ReserveState extends State<Reserve> {
                                   ).textTheme.titleMedium,
                                 ),
                               ),
-                              if (widget.listing.allowBarter)
+                              if (widget.listing.negotiable)
                                 IconButton(
                                   tooltip: 'Edit amount',
                                   visualDensity: VisualDensity.compact,

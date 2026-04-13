@@ -144,10 +144,10 @@ class PriceInput extends StatelessWidget {
   }
 }
 
-class BarterInput extends StatelessWidget {
+class NegotiableInput extends StatelessWidget {
   final EditListingController controller;
 
-  const BarterInput({super.key, required this.controller});
+  const NegotiableInput({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -156,12 +156,12 @@ class BarterInput extends StatelessWidget {
       builder: (context, _) {
         return SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
-          title: Text(AppLocalizations.of(context)!.allowBarter),
+          title: Text(AppLocalizations.of(context)!.negotiable),
           subtitle: Text(
             'Allows users to submit reservation requests below the listed price, which you can then accept or decline.',
           ),
-          value: controller.barterField.value,
-          onChanged: controller.barterField.setValue,
+          value: controller.negotiableField.value,
+          onChanged: controller.negotiableField.setValue,
         );
       },
     );
@@ -277,57 +277,15 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
           final value = valuedSpecs[key] ?? 0;
           return Padding(
             padding: EdgeInsets.only(bottom: kDefaultPadding.toDouble() / 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    convertToTitleCase(key),
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                IconButton.filled(
-                  onPressed: value > 0
-                      ? () {
-                          setState(() {
-                            widget.controller.specField.updateValuedSpec(
-                              key,
-                              value - 1,
-                            );
-                          });
-                        }
-                      : null,
-                  icon: const Icon(Icons.remove, size: 18),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(36, 36),
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    '$value',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                IconButton.filled(
-                  onPressed: () {
-                    setState(() {
-                      widget.controller.specField.updateValuedSpec(
-                        key,
-                        value + 1,
-                      );
-                    });
-                  },
-                  icon: const Icon(Icons.add, size: 18),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(36, 36),
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ],
+            child: IntFieldSelector(
+              label: convertToTitleCase(key),
+              value: value,
+              onChanged: (v) {
+                setState(() {
+                  widget.controller.specField.updateValuedSpec(key, v ?? 0);
+                });
+              },
+              min: 0,
             ),
           );
         }),

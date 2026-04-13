@@ -78,7 +78,33 @@ class EditListingViewState extends State<EditListingView> {
           FormLabel(label: 'Title'),
           TitleInput(controller: controller),
           Gap.vertical.md(),
-          FormLabel(label: 'Address'),
+          Row(
+            children: [
+              FormLabel(label: 'Address'),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.info_outline, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Location privacy',
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Location privacy'),
+                    content: const Text(
+                      'Only the approximate location is shared. The exact address is stored encrypted. If you are not comfortable with this, you can input a nearby address.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           LocationInput(
             controller: controller.locationController,
             hintText: '123 City Road, London',
@@ -93,7 +119,7 @@ class EditListingViewState extends State<EditListingView> {
             controller: controller,
             possibleDenominations: const ['BTC', 'USD'],
           ),
-          BarterInput(controller: controller),
+          NegotiableInput(controller: controller),
           Gap.vertical.md(),
           FormLabel(label: 'Specifications'),
           Gap.vertical.md(),

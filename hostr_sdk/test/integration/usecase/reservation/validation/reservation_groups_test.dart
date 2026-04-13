@@ -4,7 +4,7 @@
 /// These tests exercise:
 /// - All permutations of reservation transitions (negotiate, commit, cancel).
 /// - Payment proof validation: escrow (on-chain) and zap receipt.
-/// - Barter: buyer must attach seller-signed negotiation when price < listing.
+/// - Negotiation: buyer must attach seller-signed negotiation when price < listing.
 /// - Self-signed proof: must fail when `allowSelfSignedReservation = false`
 ///   and no seller reservation exists.
 /// - Cancelled pairs are [Valid] protocol outcomes (filter via
@@ -54,7 +54,7 @@ final _twoEthWei = BigInt.parse('2000000000000000000');
 Listing _buildListing({
   required KeyPair host,
   bool allowSelfSignedReservation = false,
-  bool allowBarter = false,
+  bool negotiable = false,
   bool requiresEscrow = false,
   BigInt? pricePerNight,
 }) {
@@ -78,7 +78,7 @@ Listing _buildListing({
     location: 'test-location',
     type: ListingType.house,
     specifications: Specifications(),
-    allowBarter: allowBarter,
+    negotiable: negotiable,
     allowSelfSignedReservation: allowSelfSignedReservation,
     requiresEscrow: requiresEscrow,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
@@ -1129,13 +1129,13 @@ void main() {
     });
   });
 
-  // ─── Group 6: Barter validation ───────────────────────────────────────
+  // ─── Group 6: Negotiation validation ───────────────────────────────────────
 
-  group('verifyGroup — barter scenarios', () {
+  group('verifyGroup — negotiation scenarios', () {
     test(
       'buyer offers lower price without seller ack → Invalid (no proof)',
       () {
-        final listing = _buildListing(host: host, allowBarter: true);
+        final listing = _buildListing(host: host, negotiable: true);
 
         // Buyer negotiates at a lower price than listing
         final nego = _buildNegotiate(
@@ -1152,7 +1152,7 @@ void main() {
     );
 
     test('buyer offers lower price WITH seller ack → Valid', () {
-      final listing = _buildListing(host: host, allowBarter: true);
+      final listing = _buildListing(host: host, negotiable: true);
 
       final nego = _buildNegotiate(
         listing: listing,
@@ -1173,42 +1173,45 @@ void main() {
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
-    test('buyer offers listing price with zap proof (no barter) → Valid', () {
-      final listing = _buildListing(
-        host: host,
-        allowBarter: false,
-        allowSelfSignedReservation: true,
-      );
-      final hosterProfile = _buildProfileEvent(
-        key: host,
-        lud16: 'host@hostr.development',
-      );
+    test(
+      'buyer offers listing price with zap proof (no negotiation) → Valid',
+      () {
+        final listing = _buildListing(
+          host: host,
+          negotiable: false,
+          allowSelfSignedReservation: true,
+        );
+        final hosterProfile = _buildProfileEvent(
+          key: host,
+          lud16: 'host@hostr.development',
+        );
 
-      final nego = _buildNegotiate(listing: listing, buyer: buyer);
-      final expectedCost = listing
-          .cost(start: nego.start, end: nego.end)
-          .value
-          .toInt();
+        final nego = _buildNegotiate(listing: listing, buyer: buyer);
+        final expectedCost = listing
+            .cost(start: nego.start, end: nego.end)
+            .value
+            .toInt();
 
-      final proof = _buildZapPaymentProof(
-        listing: listing,
-        hosterProfile: hosterProfile,
-        amountSats: expectedCost,
-        signerKey: host,
-        lnurl: 'host@hostr.development',
-      );
+        final proof = _buildZapPaymentProof(
+          listing: listing,
+          hosterProfile: hosterProfile,
+          amountSats: expectedCost,
+          signerKey: host,
+          lnurl: 'host@hostr.development',
+        );
 
-      final commit = _buildSelfSignedCommit(
-        negotiate: nego,
-        listing: listing,
-        buyer: buyer,
-        proof: proof,
-      );
+        final commit = _buildSelfSignedCommit(
+          negotiate: nego,
+          listing: listing,
+          buyer: buyer,
+          proof: proof,
+        );
 
-      final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
-      expect(result, isA<Valid<ReservationGroup>>());
-    });
+        final pair = ReservationGroup(reservations: [commit]);
+        final result = ReservationGroups.verifyGroup(pair);
+        expect(result, isA<Valid<ReservationGroup>>());
+      },
+    );
   });
 
   // ─── Group 7: toReservationGroups grouping → verifyGroup pipeline ───────
