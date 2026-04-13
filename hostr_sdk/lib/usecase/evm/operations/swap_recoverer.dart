@@ -115,7 +115,9 @@ class SwapRecoverer {
         evmKey: evmKey,
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
-        amount: TokenAmount.zero(Token.native(data.chainId)),
+        amountSpec: AmountSpec.output(
+          TokenAmount.zero(Token.native(data.chainId)),
+        ),
         // Restore parent link from persisted data so notifications
         // update the same OS notification as the parent operation.
         parentOperationId: data.parentOperationId,
@@ -164,7 +166,6 @@ class SwapRecoverer {
         evmKey: evmKey,
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
-        amount: null,
       ),
       initialState: state,
     );

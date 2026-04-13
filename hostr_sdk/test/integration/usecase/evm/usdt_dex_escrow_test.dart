@@ -206,6 +206,25 @@ void main() {
               'Payment amount must be $expectedUsdtUnits USDT units (6-dec). '
               'Got: ${onChainTrade.paymentAmount}',
         );
+
+        // ── Wei-perfect: smart account USDT balance should be negligible ──
+        // The DEX swap may deliver slightly more USDT than quoted due to
+        // Uniswap V3 price improvement. The escrow contract only pulls the
+        // exact paymentAmount, so a tiny surplus can remain. Allow up to
+        // 1 000 units (0.001 USDT with 6-decimal precision).
+        final evmKey = await hostr.auth.hd.getActiveEvmKey();
+        final smartAccountAddress = await configured.getAccountAddress(evmKey);
+        final usdtBalanceAfter = await configured.getERC20Balance(
+          smartAccountAddress,
+          EthereumAddress.fromHex(_usdtAddress),
+        );
+        expect(
+          usdtBalanceAfter.value,
+          lessThan(BigInt.from(1000)),
+          reason:
+              'Smart account USDT balance must be < 1000 units (0.001 USDT) '
+              'after escrow deposit (got ${usdtBalanceAfter.value})',
+        );
       },
     );
   });
@@ -416,7 +435,7 @@ void main() {
         params: SwapOutParams(
           evmKey: userKey,
           accountIndex: 0,
-          amount: usdtAmount,
+          amountSpec: AmountSpec.input(usdtAmount),
         ),
         auth: hostr.auth,
         logger: CustomLogger(),
@@ -454,6 +473,23 @@ void main() {
         swapOut.state,
         isA<SwapOutCompleted>(),
         reason: 'Swap-out must reach SwapOutCompleted terminal state',
+      );
+
+      // ── Wei-perfect: smart account USDT balance should be negligible ───
+      // The DEX hop converts USDT → tBTC for the Boltz submarine swap.
+      // Uniswap V3 may not consume 100% of the input USDT due to tick
+      // boundaries or rounding, so a tiny residual can remain. Allow up to
+      // 1 000 units (0.001 USDT with 6-decimal precision).
+      final usdtBalanceAfter = await arbChain.getERC20Balance(
+        smartAccountAddress,
+        EthereumAddress.fromHex(_usdtAddress),
+      );
+      expect(
+        usdtBalanceAfter.value,
+        lessThan(BigInt.from(1000)),
+        reason:
+            'Smart account USDT balance must be < 1000 units (0.001 USDT) '
+            'after swap-out (got ${usdtBalanceAfter.value})',
       );
     });
   });

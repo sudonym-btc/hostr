@@ -67,7 +67,7 @@ class EscrowFundPreparer {
     return SwapInParams(
       evmKey: _signer,
       accountIndex: accountIndex,
-      amount: quote.sendAmount,
+      amountSpec: AmountSpec.output(quote.sendAmount),
       invoiceDescription: swapInvoiceDescription,
       claimAddress: resolved.claimAddress,
       parentOperationId: tradeId,
@@ -176,7 +176,7 @@ class EscrowFundPreparer {
     final swapInParams = SwapInParams(
       evmKey: _signer,
       accountIndex: accountIndex,
-      amount: resolved.fundingAmount,
+      amountSpec: AmountSpec.output(resolved.fundingAmount),
       // Pre-resolved address — prevents downstream helpers
       // (buildSwapInQuote, _buildClaimEstimationStateOverrides) from
       // issuing additional getAccountAddress RPC calls.

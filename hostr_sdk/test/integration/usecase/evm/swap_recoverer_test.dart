@@ -67,7 +67,11 @@ void main() {
         rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
     final swapIn = configured.swapIn(
-      params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
+      params: SwapInParams(
+        evmKey: evmKey,
+        accountIndex: 0,
+        amountSpec: AmountSpec.output(amount),
+      ),
       auth: hostr.auth,
       logger: CustomLogger(),
     );
@@ -106,7 +110,11 @@ void main() {
         rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
     final swapIn = configured.swapIn(
-      params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
+      params: SwapInParams(
+        evmKey: evmKey,
+        accountIndex: 0,
+        amountSpec: AmountSpec.output(amount),
+      ),
       auth: hostr.auth,
       logger: CustomLogger(),
     );

@@ -76,7 +76,7 @@ void main() {
       params: SwapOutParams(
         evmKey: userKey,
         accountIndex: 0,
-        amount: requestedAmount,
+        amountSpec: AmountSpec.input(requestedAmount),
       ),
       auth: hostr.auth,
       logger: CustomLogger(),
@@ -102,6 +102,20 @@ void main() {
     // StreamController (sync: false in Bloc 9) delivers stream events via
     // microtasks, so `emittedStates.last` may lag behind.
     expect(swapOut.state, isA<SwapOutCompleted>());
+
+    // ── Wei-perfect post-swap-out verification ──────────────────────────
+    // After Boltz claims the HTLC, the locker's EOA should have negligible
+    // native balance remaining (only gas dust from the lock tx change).
+    final balanceAfter = await rskChain.getBalance(userKey.address);
+    // The locked amount should be fully consumed. Remaining balance must
+    // be strictly less than what was locked (i.e. only gas change remains).
+    expect(
+      balanceAfter.value < requestedAmount.value,
+      isTrue,
+      reason:
+          'EOA balance after swap-out (${balanceAfter.value} wei) must be '
+          'less than the locked amount (${requestedAmount.value} wei)',
+    );
   });
 
   test(
@@ -129,7 +143,7 @@ void main() {
         params: SwapOutParams(
           evmKey: userKey,
           accountIndex: 0,
-          amount: requestedAmount,
+          amountSpec: AmountSpec.input(requestedAmount),
         ),
         auth: harness.hostr.auth,
         logger: CustomLogger(),

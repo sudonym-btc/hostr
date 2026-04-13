@@ -247,7 +247,9 @@ void main() {
 
         // Verify one of the ops carries an ERC-20 token amount.
         final erc20Ops = ops.where(
-          (op) => op.params.amount != null && op.params.amount!.token.isERC20,
+          (op) =>
+              op.params.amountSpec != null &&
+              op.params.amountSpec!.amount.token.isERC20,
         );
         expect(
           erc20Ops,
@@ -256,9 +258,9 @@ void main() {
         );
 
         final erc20Op = erc20Ops.first;
-        expect(erc20Op.params.amount!.value, equals(mintAmount));
+        expect(erc20Op.params.amountSpec!.amount.value, equals(mintAmount));
         expect(
-          erc20Op.params.amount!.token.address.toLowerCase(),
+          erc20Op.params.amountSpec!.amount.token.address.toLowerCase(),
           equals(tokenEntry.value.eip55With0x.toLowerCase()),
         );
       },
@@ -303,7 +305,9 @@ void main() {
 
       // ERC-20 op should be filtered out.
       final erc20Ops = ops.where(
-        (op) => op.params.amount != null && op.params.amount!.token.isERC20,
+        (op) =>
+            op.params.amountSpec != null &&
+            op.params.amountSpec!.amount.token.isERC20,
       );
       expect(
         erc20Ops,

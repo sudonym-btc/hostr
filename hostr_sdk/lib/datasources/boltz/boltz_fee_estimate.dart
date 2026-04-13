@@ -1,20 +1,36 @@
+import 'dart:math' as math;
+
 import 'package:models/main.dart';
 
 import '../swagger_generated/boltz.swagger.dart';
 
-/// Fee estimate for a Boltz swap, computed from pair data.
+/// Fee estimate for a Boltz swap, computed locally from pair rate data.
 ///
-/// Works for both reverse (swap-in) and submarine (swap-out) swaps.
-/// All amounts in BTC sats (8 decimals).
+/// Aligned with the [Boltz web-app fee formulas](https://github.com/BoltzExchange/boltz-web-app/blob/main/src/utils/calculate.ts):
+///
+/// | Direction   | Given side | Formula                                               |
+/// |-------------|------------|-------------------------------------------------------|
+/// | **Reverse** | receive    | `send = ceil((receive + minerFee) / (1 − pct/100))`  |
+/// | **Reverse** | send       | `receive = send − ceil(send × pct/100) − minerFee`   |
+/// | **Submarine** | receive  | `send = floor(receive + ceil(receive × pct/100) + minerFee)` |
+/// | **Submarine** | send     | `receive = floor((send − minerFee) / (1 + pct/100))` |
+///
+/// Reverse minerFee = `lockup + claim` (matches web app).
+/// Submarine minerFee = flat `pair.fees.minerFees`.
 class BoltzFeeEstimate {
-  /// Boltz percentage fee rate (e.g. 0.25 means 0.25%).
+  /// Boltz percentage fee rate (e.g. 0.25 means 0.25 %).
   final double percentageRate;
 
-  /// Fixed miner fee component in sats.
+  /// Combined fixed miner fee in sats (lockup + claim for reverse, flat for submarine).
   final int minerFeeSat;
 
-  /// Computed total fee in sats for the given amount.
-  final int totalFeeSat;
+  /// Locally-estimated amount the user **sends** (LN invoice for reverse,
+  /// on-chain lock for submarine).
+  final int sendSat;
+
+  /// Locally-estimated amount the user **receives** (on-chain for reverse,
+  /// LN invoice for submarine).
+  final int receiveSat;
 
   /// Minimum swap amount in sats (from Boltz pair limits).
   final int minSat;
@@ -25,48 +41,100 @@ class BoltzFeeEstimate {
   const BoltzFeeEstimate({
     required this.percentageRate,
     required this.minerFeeSat,
-    required this.totalFeeSat,
+    required this.sendSat,
+    required this.receiveSat,
     required this.minSat,
     required this.maxSat,
   });
 
-  /// Compute fees for a **reverse swap** (swap-in: Lightning → on-chain).
+  /// Total fee = send − receive.
+  int get totalFeeSat => sendSat - receiveSat;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Reverse swap (swap-in: Lightning → on-chain)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Given a desired **on-chain receive** amount, compute the LN send amount.
   ///
-  /// Given a desired [onchainSat] amount, computes how much the Lightning
-  /// invoice will exceed the on-chain amount.
-  ///
-  /// Boltz formula:
-  ///   `invoice = (onchain + lockupFee) / (1 − pct/100)`
-  ///   `fee = invoice − onchain`
-  factory BoltzFeeEstimate.reverseSwap(ReversePair pair, int onchainSat) {
+  /// Matches web-app `calculateSendAmount(receive, pct, miner, Reverse)`:
+  ///   `send = ceil((receive + minerFee) / (1 − pct/100))`
+  factory BoltzFeeEstimate.reverseFromReceive(
+    ReversePair pair,
+    int onchainSat,
+  ) {
     final pct = pair.fees.percentage;
-    final lockupFee = pair.fees.minerFees.lockup.ceil();
-    final invoiceSat = ((onchainSat + lockupFee) / (1.0 - pct / 100.0)).ceil();
+    final minerFee =
+        pair.fees.minerFees.lockup.ceil() + pair.fees.minerFees.claim.ceil();
+    final invoiceSat = ((onchainSat + minerFee) / (1.0 - pct / 100.0)).ceil();
     return BoltzFeeEstimate(
       percentageRate: pct,
-      minerFeeSat: lockupFee,
-      totalFeeSat: invoiceSat - onchainSat,
+      minerFeeSat: minerFee,
+      sendSat: invoiceSat,
+      receiveSat: onchainSat,
       minSat: pair.limits.minimal.ceil(),
       maxSat: pair.limits.maximal.floor(),
     );
   }
 
-  /// Compute fees for a **submarine swap** (swap-out: on-chain → Lightning).
+  /// Given a desired **LN send** amount, compute the on-chain receive amount.
   ///
-  /// Given a desired [invoiceSat] (Lightning receive amount), computes the
-  /// fee that Boltz deducts from the on-chain lock.
-  ///
-  /// Boltz formula:
-  ///   `fee = invoice × pct/100 + minerFees`
-  ///   `lockAmount = invoice + fee`
-  factory BoltzFeeEstimate.submarineSwap(SubmarinePair pair, int invoiceSat) {
+  /// Matches web-app `calculateReceiveAmount(send, pct, miner, Reverse)`:
+  ///   `receive = send − ceil(send × pct/100) − minerFee`
+  factory BoltzFeeEstimate.reverseFromSend(ReversePair pair, int invoiceSat) {
     final pct = pair.fees.percentage;
-    final minerFee = pair.fees.minerFees.ceil();
-    final fee = (invoiceSat * pct / 100.0).ceil() + minerFee;
+    final minerFee =
+        pair.fees.minerFees.lockup.ceil() + pair.fees.minerFees.claim.ceil();
+    final onchainSat =
+        invoiceSat - (invoiceSat * pct / 100.0).ceil() - minerFee;
     return BoltzFeeEstimate(
       percentageRate: pct,
       minerFeeSat: minerFee,
-      totalFeeSat: fee,
+      sendSat: invoiceSat,
+      receiveSat: math.max(0, onchainSat),
+      minSat: pair.limits.minimal.ceil(),
+      maxSat: pair.limits.maximal.floor(),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Submarine swap (swap-out: on-chain → Lightning)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Given a desired **LN receive** amount, compute the on-chain lock amount.
+  ///
+  /// Matches web-app `calculateSendAmount(receive, pct, miner, Submarine)`:
+  ///   `send = floor(receive + ceil(receive × pct/100) + minerFee)`
+  factory BoltzFeeEstimate.submarineFromReceive(
+    SubmarinePair pair,
+    int invoiceSat,
+  ) {
+    final pct = pair.fees.percentage;
+    final minerFee = pair.fees.minerFees.ceil();
+    final lockSat = (invoiceSat + (invoiceSat * pct / 100.0).ceil() + minerFee)
+        .floor();
+    return BoltzFeeEstimate(
+      percentageRate: pct,
+      minerFeeSat: minerFee,
+      sendSat: lockSat,
+      receiveSat: invoiceSat,
+      minSat: pair.limits.minimal.ceil(),
+      maxSat: pair.limits.maximal.floor(),
+    );
+  }
+
+  /// Given an **on-chain lock** (send) amount, compute the LN receive amount.
+  ///
+  /// Matches web-app `calculateReceiveAmount(send, pct, miner, Submarine)`:
+  ///   `receive = floor((send − minerFee) / (1 + pct/100))`
+  factory BoltzFeeEstimate.submarineFromSend(SubmarinePair pair, int lockSat) {
+    final pct = pair.fees.percentage;
+    final minerFee = pair.fees.minerFees.ceil();
+    final invoiceSat = ((lockSat - minerFee) / (1.0 + pct / 100.0)).floor();
+    return BoltzFeeEstimate(
+      percentageRate: pct,
+      minerFeeSat: minerFee,
+      sendSat: lockSat,
+      receiveSat: math.max(0, invoiceSat),
       minSat: pair.limits.minimal.ceil(),
       maxSat: pair.limits.maximal.floor(),
     );
@@ -96,5 +164,6 @@ class BoltzFeeEstimate {
   @override
   String toString() =>
       'BoltzFeeEstimate(pct=$percentageRate%, miner=$minerFeeSat, '
-      'total=$totalFeeSat, limits=$minSat–$maxSat)';
+      'send=$sendSat, receive=$receiveSat, fee=$totalFeeSat, '
+      'limits=$minSat–$maxSat)';
 }

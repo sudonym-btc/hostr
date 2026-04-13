@@ -15,6 +15,7 @@ import 'capabilities/aa_capability.dart';
 import 'capabilities/boltz_swap_provider.dart';
 import 'chain/evm_chain.dart';
 import 'chain/operations/swap_out/swap_out_operation.dart';
+import 'models/amount_spec.dart';
 import 'operations/swap_out/swap_out_models.dart';
 import 'operations/swap_quote_service.dart';
 import 'operations/swap_recoverer.dart';
@@ -221,7 +222,6 @@ class Evm {
                       params: SwapOutParams(
                         evmKey: evmKey,
                         accountIndex: accountIndex,
-                        amount: null,
                       ),
                       auth: _auth,
                       logger: _logger,
@@ -249,7 +249,7 @@ class Evm {
                         params: SwapOutParams(
                           evmKey: evmKey,
                           accountIndex: accountIndex,
-                          amount: erc20,
+                          amountSpec: AmountSpec.input(erc20),
                         ),
                         auth: _auth,
                         logger: _logger,
@@ -278,7 +278,6 @@ class Evm {
                   params: SwapOutParams(
                     evmKey: evmKey,
                     accountIndex: entry.accountIndex,
-                    amount: null,
                   ),
                   auth: _auth,
                   logger: _logger,
@@ -307,7 +306,7 @@ class Evm {
                     params: SwapOutParams(
                       evmKey: evmKey,
                       accountIndex: entry.accountIndex,
-                      amount: entry.balance,
+                      amountSpec: AmountSpec.input(entry.balance),
                     ),
                     auth: _auth,
                     logger: _logger,

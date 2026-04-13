@@ -11,6 +11,7 @@ export 'chain/evm_chain.dart';
 export 'config/evm_config.dart';
 export 'evm.dart';
 export 'evm_call.dart';
+export 'models/amount_spec.dart';
 export 'models/dex_quote.dart';
 export 'models/escrow_fund_quote.dart';
 export 'models/fee_breakdown.dart';

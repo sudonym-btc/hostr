@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:models/main.dart';
 
 import 'date_range_controller.dart';
 import 'location_controller.dart';
@@ -22,8 +23,17 @@ class SearchFormController extends ChangeNotifier {
 
   SearchFormState get state => _state;
 
+  // ── Derived getters ─────────────────────────────────────────────────
+  int? get guests => _state.guests;
+  ListingType? get listingType => _state.listingType;
+  bool get beachfront => _state.beachfront;
+
   bool get canSubmit =>
-      locationController.canSubmit || dateRangeController.hasValue;
+      locationController.canSubmit ||
+      dateRangeController.hasValue ||
+      _state.guests != null ||
+      _state.listingType != null ||
+      _state.beachfront;
 
   SearchFormState buildSubmitState() {
     return _state.copyWith(
@@ -37,8 +47,25 @@ class SearchFormController extends ChangeNotifier {
     return formKey.currentState?.validate() ?? false;
   }
 
+  // ── Updaters ────────────────────────────────────────────────────────
+
   void updateAvailabilityRange(DateTimeRange? range) {
     dateRangeController.update(range);
+  }
+
+  void updateGuests(int? value) {
+    _state = _state.copyWith(guests: value);
+    notifyListeners();
+  }
+
+  void updateListingType(ListingType? value) {
+    _state = _state.copyWith(listingType: value);
+    notifyListeners();
+  }
+
+  void updateBeachfront(bool value) {
+    _state = _state.copyWith(beachfront: value);
+    notifyListeners();
   }
 
   void _onDateRangeChanged() {
@@ -54,6 +81,8 @@ class SearchFormController extends ChangeNotifier {
   void clearAll() {
     locationController.clearAll();
     dateRangeController.clear();
+    _state = const SearchFormState();
+    notifyListeners();
   }
 
   @override

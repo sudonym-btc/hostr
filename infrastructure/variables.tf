@@ -96,4 +96,24 @@ variable "github_repo_owner_name" {
   default     = "sudonym-btc/hostr"
 }
 
+# ─── Snapshot schedule ───────────────────────────────────────────────────────
+
+variable "relay_disk_snapshot_enabled" {
+  description = "Whether to create a daily snapshot schedule for the relay persistent disk."
+  type        = bool
+  default     = true
+}
+
+variable "relay_disk_snapshot_max_retention_days" {
+  description = "Number of days to retain relay disk snapshots before automatic pruning."
+  type        = number
+  default     = 14
+}
+
+variable "relay_disk_snapshot_start_time" {
+  description = "UTC hour (HH:MM) when the daily snapshot should start."
+  type        = string
+  default     = "04:00"
+}
+
 

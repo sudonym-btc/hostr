@@ -42,8 +42,8 @@ import 'swap_out/swap_out_models.dart';
 /// DEX calldata is fetched from the Boltz Quote API
 /// (`/v2/quote/{chainKey}/in`, `/out`, `/encode`) and the [DexQuote] is
 /// stored on the returned [SwapQuote] for UI / debugging purposes.
-/// Slippage is applied at encode time (default 0.5 %) matching the Boltz
-/// web-app convention.
+/// Zero slippage tolerance is enforced at encode time — the DEX must
+/// deliver the exact quoted amount needed for the escrow deposit.
 @injectable
 class SwapQuoteService {
   // ═══════════════════════════════════════════════════════════════════════
@@ -191,7 +191,7 @@ class SwapQuoteService {
     ).roundUpToSats();
 
     // ── 4. Compute Boltz fees for the resolved amount ──
-    final boltzEstimate = BoltzFeeEstimate.reverseSwap(
+    final boltzEstimate = BoltzFeeEstimate.reverseFromReceive(
       pair,
       resolvedSwapAmount.getInSats.toInt(),
     );
@@ -227,8 +227,9 @@ class SwapQuoteService {
     required EvmChain chain,
     required SwapOutParams params,
   }) async {
-    final requestedTokenAddress = params.amount?.token.isERC20 == true
-        ? EthereumAddress.fromHex(params.amount!.token.address)
+    final requestedTokenAddress =
+        params.amountSpec?.amount.token.isERC20 == true
+        ? EthereumAddress.fromHex(params.amountSpec!.amount.token.address)
         : null;
 
     // ── DEX hop detection ──────────────────────────────────────────────────
@@ -251,7 +252,7 @@ class SwapQuoteService {
     final TokenAmount userBalance;
     if (needsDex) {
       userBalance =
-          params.amount ??
+          params.amountSpec?.amount ??
           await _getSwapBalance(chain, params, requestedTokenAddress);
 
       final bridgeAddress = _findBridgeTokenAddress(chain);
@@ -280,7 +281,7 @@ class SwapQuoteService {
       params.boltzTokenAddress = bridgeAddress;
     } else {
       userBalance =
-          params.amount ??
+          params.amountSpec?.amount ??
           await _getSwapBalance(chain, params, boltzTokenAddress);
     }
 
@@ -372,7 +373,7 @@ class SwapQuoteService {
 
     final estimatedGasFee = gasFeeRounded.toDenominated().rescale(8);
 
-    final boltzEstimate = BoltzFeeEstimate.submarineSwap(
+    final boltzEstimate = BoltzFeeEstimate.submarineFromReceive(
       pair,
       TokenAmountEvmExt(invoiceAmount).getInSats.toInt(),
     );
@@ -675,15 +676,16 @@ class SwapQuoteService {
   /// [Call]s suitable for injection into [SwapInParams.postClaimCalls] or
   /// [SwapOutParams.preLockCalls].
   ///
-  /// Applies 0.5 % slippage to [DexQuote.amountOut] when computing
-  /// `amountOutMin`, matching the Boltz web-app convention.
+  /// Uses [DexQuote.amountOut] as `amountOutMin` with zero slippage
+  /// tolerance — the DEX must deliver the exact amount needed for the
+  /// escrow deposit. If the price moves, the Router reverts and the
+  /// funds stay safely in the HTLC (swap-in) or smart account (swap-out).
   Future<Map<String, Call>> _encodeDexCalls({
     required EvmChain chain,
     required DexQuote dexQuote,
     required EthereumAddress recipient,
   }) async {
-    final amountOutMin =
-        (dexQuote.amountOut * BigInt.from(9950)) ~/ BigInt.from(10000);
+    final amountOutMin = dexQuote.amountOut;
     final currency =
         chain.swaps!.nativeCurrency ?? chain.swaps!.chainInfo.chainKey;
     final res = await chain.swaps!.boltzClient.gBoltzCli

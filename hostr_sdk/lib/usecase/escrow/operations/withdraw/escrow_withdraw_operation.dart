@@ -117,7 +117,7 @@ class EscrowWithdrawOperation {
         params: SwapOutParams(
           evmKey: evmKey,
           accountIndex: accountIndex,
-          amount: withdrawAmount,
+          amountSpec: AmountSpec.input(withdrawAmount),
           preLockCalls: {'withdraw': withdrawIntent},
         ),
       );
