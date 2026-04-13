@@ -209,10 +209,7 @@ class EscrowDaemon {
 
       _eventSub = streamer.stream.listen((event) {
         if (event is EscrowFundedEvent) {
-          _logger.i(
-            'Discovered trade: ${event.tradeId}  '
-            '${event.amount.getInSats} sats',
-          );
+          _logger.i('Discovered trade: ${event.tradeId}  ${event.amount}');
           _startTradeListener(event.tradeId);
         }
       }, onError: (e, st) => _logger.e('Arbiter event error: $e'));
@@ -247,14 +244,11 @@ class EscrowDaemon {
 
   void _onTradeEvent(EscrowEvent event) {
     if (event is EscrowFundedEvent) {
-      _logger.i(
-        'Trade funded: ${event.tradeId}  '
-        '${event.amount.getInSats} sats',
-      );
+      _logger.i('Trade funded: ${event.tradeId}  ${event.amount}');
       _trades[event.tradeId] = TradeSnapshot(
         tradeId: event.tradeId,
         status: TradeStatus.funded,
-        amountSats: event.amount.getInSats.toInt(),
+        amount: event.amount,
         lastTxHash: event.transactionHash,
         updatedAt: event.block.timestamp,
       );

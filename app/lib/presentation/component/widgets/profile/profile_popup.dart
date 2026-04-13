@@ -95,12 +95,14 @@ class ProfilePopupContent extends StatelessWidget {
   final ProfileMetadata? profile;
   final String pubkey;
   final Future<ReceivedHeartbeat?>? lastSeenFuture;
+  final bool showListingBadges;
 
   const ProfilePopupContent({
     super.key,
     required this.profile,
     required this.pubkey,
     this.lastSeenFuture,
+    this.showListingBadges = true,
   });
 
   @override
@@ -127,8 +129,10 @@ class ProfilePopupContent extends StatelessWidget {
         ),
         Gap.vertical.sm(),
         _PubkeyRow(pubkey: pubkey),
-        Gap.vertical.sm(),
-        ListingBadgesWidget(pubKey: pubkey),
+        if (showListingBadges) ...[
+          Gap.vertical.sm(),
+          ListingBadgesWidget(pubKey: pubkey),
+        ],
       ],
     );
   }

@@ -27,7 +27,10 @@ class SwapInParams {
   /// `[claim, ...postClaimCalls]` executes in one UserOp. The calls are
   /// persisted on [SwapInData] so recovery is automatic — no callback
   /// reconstruction needed.
-  final Map<String, Call>? postClaimCalls;
+  ///
+  /// Non-final so that [SwapQuoteService] can prepend DEX swap calls when
+  /// the requested token is not Boltz-supported (e.g. USDT).
+  Map<String, Call>? postClaimCalls;
 
   /// ERC-4337 state overrides applied when estimating gas for the
   /// `[claim, ...postClaimCalls]` UserOperation.

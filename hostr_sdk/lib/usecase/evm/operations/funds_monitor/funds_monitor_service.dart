@@ -8,7 +8,6 @@ import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
 import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
-import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../../nwc/nwc.dart';
@@ -397,7 +396,7 @@ class FundsMonitorService {
         'FundsMonitor sweep: ${items.length} item(s)\n'
         '${items.map((i) => '  • ${i.chain.config.id} '
             '${i.token.tagId} '
-            '${i.balance.getInSats} sats '
+            '${i.balance} '
             '@${i.address.eip55With0x} '
             '${i.isEscrowLocked ? "[escrow: ${i.contract!.address.eip55With0x}]" : "[EOA]"}').join('\n')}',
       );
@@ -437,9 +436,11 @@ class FundsMonitorService {
         final swapParams = await _swapOutParams(item);
         final quote = await item.chain.swapOutQuote(params: swapParams);
         final networkFees = quote.feeBreakdown.networkFees;
-        final feeRatio = networkFees.value == BigInt.zero
+        final feeRatio =
+            networkFees.value == BigInt.zero ||
+                item.balance.value == BigInt.zero
             ? 0.0
-            : networkFees.value.toDouble() / item.balance.getInSats.toDouble();
+            : networkFees.value.toDouble() / item.balance.value.toDouble();
 
         if (feeRatio > maxFeeRatio) {
           _logger.d(
@@ -470,7 +471,7 @@ class FundsMonitorService {
     _logger.i(
       'FundsMonitor: executing swap-out — '
       '${item.chain.config.id} ${item.token.tagId} '
-      '${item.balance.getInSats} sats '
+      '${item.balance} '
       '@${item.address.eip55With0x}'
       '${item.isEscrowLocked ? " [escrow: ${item.contract!.address.eip55With0x}]" : " [EOA]"}',
     );

@@ -62,18 +62,19 @@ class EscrowFundPreparer {
   /// and return ready-to-go [SwapInParams].
   Future<SwapInParams> prepare() => logger.span('prepare', () async {
     final resolved = await _resolveSignerAndBuildCalls();
-    final quote = await _buildQuote(resolved);
-
-    final claimAddress = await configuredChain.getAccountAddress(_signer);
+    final (quote, quotedParams) = await _buildQuote(resolved);
 
     return SwapInParams(
       evmKey: _signer,
       accountIndex: accountIndex,
       amount: quote.sendAmount,
       invoiceDescription: swapInvoiceDescription,
-      claimAddress: claimAddress,
+      claimAddress: resolved.claimAddress,
       parentOperationId: tradeId,
-      postClaimCalls: resolved.fundCalls,
+      // Use the params mutated by buildSwapInQuote — it prepends DEX hop calls
+      // (approve tBTC + UniversalRouter.execute) when the escrow token is not
+      // the Boltz bridge token (e.g. USDT listings).
+      postClaimCalls: quotedParams.postClaimCalls,
       postClaimStateOverrides: resolved.stateOverrides,
     );
   });
@@ -82,7 +83,7 @@ class EscrowFundPreparer {
 
   Future<FeeBreakdown> estimateFees() => logger.span('estimateFees', () async {
     final resolved = await _resolveSignerAndBuildCalls();
-    final quote = await _buildQuote(resolved);
+    final (quote, _) = await _buildQuote(resolved);
     return quote.feeBreakdown;
   });
 
@@ -100,79 +101,110 @@ class EscrowFundPreparer {
     _signer = signer;
     await contract.ensureDeployed();
 
-    // Resolve the funding token once — avoids redundant on-chain calls.
-    final fundingToken = await configuredChain.resolveBoltzFundingToken();
-    final fundingAmount = await configuredChain.resolveAmountInFundingToken(
-      params.amount,
-    );
+    // Resolve the escrow token — the on-chain token the seller accepts for
+    // the listing's denomination (e.g. USDT for a USD listing).
+    // Source of truth is the seller's EscrowMethod event when available;
+    // falls back to the Boltz bridge token (tBTC) otherwise.
+    final Token escrowToken;
+    final TokenAmount fundingAmount;
+    if (params.sellerEscrowMethod != null) {
+      escrowToken = await configuredChain.resolveEscrowToken(
+        params.amount,
+        params.sellerEscrowMethod!,
+      );
+      fundingAmount = configuredChain.scaleToToken(params.amount, escrowToken);
+    } else {
+      escrowToken = await configuredChain.resolveBridgeToken();
+      fundingAmount = await configuredChain.resolveAmountInFundingToken(
+        params.amount,
+      );
+    }
 
-    // Resolve the optional security deposit in the same funding token.
+    // Resolve the optional security deposit in the same escrow token.
     final TokenAmount? bondAmount = params.securityDeposit != null
-        ? await configuredChain.resolveAmountInFundingToken(
-            params.securityDeposit!,
-          )
+        ? configuredChain.scaleToToken(params.securityDeposit!, escrowToken)
         : null;
+
+    // Resolve the smart-account address once here — it is reused by
+    // _buildGasEstimationStateOverrides, _buildQuote, and prepare() so that
+    // getAccountAddress (which may involve an RPC round-trip on first call)
+    // is only invoked once per prepare/estimateFees call.
+    final claimAddress = await configuredChain.getAccountAddress(signer);
 
     final fundCalls = _buildFundCalls(
       params,
-      fundingToken,
+      escrowToken,
       fundingAmount,
       bondAmount,
     );
     final stateOverrides = await _buildGasEstimationStateOverrides(
       fundCalls,
-      signer,
-      fundingToken,
+      claimAddress,
+      escrowToken,
     );
 
-    // ── Escrow fee ──
-    final tokenAddress = fundingToken.isERC20 ? fundingToken.address : 'native';
+    // ── Escrow fee (in the escrow token, e.g. USDT for USD listings) ──
+    final tokenAddress = escrowToken.isERC20 ? escrowToken.address : 'native';
     final escrowFeeValue = params.escrowService.escrowFee(
       fundingAmount.value,
       tokenAddress: tokenAddress,
     );
-    final escrowFee = TokenAmount(value: escrowFeeValue, token: fundingToken);
+    final escrowFee = TokenAmount(value: escrowFeeValue, token: escrowToken);
 
     return _ResolvedCalls(
       fundCalls: fundCalls,
       fundingAmount: fundingAmount,
       escrowFee: escrowFee,
-      tokenAddress: fundingToken.isERC20
-          ? EthereumAddress.fromHex(fundingToken.address)
+      claimAddress: claimAddress,
+      tokenAddress: escrowToken.isERC20
+          ? EthereumAddress.fromHex(escrowToken.address)
           : null,
       stateOverrides: stateOverrides,
     );
   }
 
-  Future<SwapQuote> _buildQuote(_ResolvedCalls resolved) {
+  /// Builds the [SwapQuote] for the resolved calls and returns it together
+  /// with the [SwapInParams] object that [SwapQuoteService.buildSwapInQuote]
+  /// may have mutated (e.g. by prepending DEX hop calls to
+  /// [SwapInParams.postClaimCalls] when the escrow token is not the Boltz
+  /// bridge token).
+  Future<(SwapQuote, SwapInParams)> _buildQuote(_ResolvedCalls resolved) async {
     final swapInParams = SwapInParams(
       evmKey: _signer,
       accountIndex: accountIndex,
       amount: resolved.fundingAmount,
+      // Pre-resolved address — prevents downstream helpers
+      // (buildSwapInQuote, _buildClaimEstimationStateOverrides) from
+      // issuing additional getAccountAddress RPC calls.
+      claimAddress: resolved.claimAddress,
       postClaimCalls: resolved.fundCalls,
       postClaimStateOverrides: resolved.stateOverrides,
     );
-    return getIt<SwapQuoteService>().buildSwapInQuote(
+    final quote = await getIt<SwapQuoteService>().buildSwapInQuote(
       chain: configuredChain,
       params: swapInParams,
       escrowFee: resolved.escrowFee,
     );
+    // Return both — swapInParams.postClaimCalls may now contain prepended DEX
+    // calls injected by buildSwapInQuote (approve bridgeToken + router.execute)
+    // that must be included in the final SwapInParams for actual execution.
+    return (quote, swapInParams);
   }
 
   // ── Internal: call building ───────────────────────────────────────
 
   Map<String, Call> _buildFundCalls(
     EscrowFundParams params,
-    Token fundingToken,
+    Token escrowToken,
     TokenAmount fundingAmount,
     TokenAmount? bondAmount,
   ) {
     final fundCall = contract.fund(
-      _buildFundArgs(params, fundingToken, fundingAmount, bondAmount),
+      _buildFundArgs(params, escrowToken, fundingAmount, bondAmount),
     );
     final approveCall = _buildApproveCallIfNeeded(
       params,
-      fundingToken,
+      escrowToken,
       fundingAmount,
     );
     return {'ERC20.approve': ?approveCall, 'createTrade': fundCall};
@@ -235,7 +267,7 @@ class EscrowFundPreparer {
 
   Future<List<permissionless.StateOverride>?> _buildGasEstimationStateOverrides(
     Map<String, Call> calls,
-    EthPrivateKey signer,
+    EthereumAddress smartAccount,
     Token token,
   ) async {
     final params = this.params;
@@ -244,7 +276,6 @@ class EscrowFundPreparer {
     if (!token.isERC20) return null;
 
     final tokenAddress = EthereumAddress.fromHex(token.address);
-    final smartAccount = await configuredChain.getAccountAddress(signer);
     final escrowAddress = contract.address;
 
     final tokenConfig = configuredChain.config.tokenByAddress(token.address);
@@ -290,11 +321,17 @@ class _ResolvedCalls {
   final EthereumAddress? tokenAddress;
   final List<permissionless.StateOverride>? stateOverrides;
 
+  /// Pre-resolved smart-account (or EOA) address for this signer.
+  /// Passed into [SwapInParams.claimAddress] so downstream helpers
+  /// never need to call [EvmChain.getAccountAddress] again.
+  final EthereumAddress claimAddress;
+
   const _ResolvedCalls({
     required this.fundCalls,
     required this.fundingAmount,
     required this.escrowFee,
     required this.tokenAddress,
+    required this.claimAddress,
     this.stateOverrides,
   });
 }

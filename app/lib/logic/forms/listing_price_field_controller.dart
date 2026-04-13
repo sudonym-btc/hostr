@@ -4,14 +4,13 @@ import 'package:models/main.dart';
 
 /// Well-known decimal precision for each denomination.
 ///
-/// BTC uses 8 decimals (satoshis), USD uses 6 (micro-dollars),
-/// ETH uses 18 (wei).  Add entries here as new denominations
-/// are supported.
-const denominationDecimals = <String, int>{'BTC': 8, 'USD': 6, 'ETH': 18};
+/// Canonical map lives on [DenominatedAmount.denominationDecimals];
+/// this alias keeps existing call-sites unchanged.
+const denominationDecimals = DenominatedAmount.denominationDecimals;
 
 /// Returns the canonical decimal count for [denomination], defaulting to 8.
 int decimalsForDenomination(String denomination) =>
-    denominationDecimals[denomination] ?? 8;
+    DenominatedAmount.decimalsFor(denomination);
 
 /// Manages listing price state as a thin wrapper around [AmountFieldController].
 ///
@@ -79,8 +78,9 @@ class ListingPriceFieldController extends FormFieldController {
   }
 
   /// Set the amount directly (e.g. from the keypad bottom sheet).
+  /// Uses [AmountFieldController.setValue] so [isDirty] reflects the change.
   void setAmount(DenominatedAmount? value) {
-    amountField.setState(value);
+    amountField.setValue(value);
     notifyListeners();
   }
 

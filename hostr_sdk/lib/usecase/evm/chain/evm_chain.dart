@@ -1247,12 +1247,12 @@ class EvmChain {
   Future<int> resolveTokenDecimals(String address) async =>
       (await resolveToken(address)).decimals;
 
-  /// Resolve the concrete on-chain funding token from Boltz chain info.
+  /// The internal Boltz bridge token for this chain — the first ERC-20
+  /// natively supported by Boltz (e.g. tBTC on Arbitrum).
   ///
-  /// If Boltz has ERC-20 tokens configured for this chain, returns the first
-  /// one (with decimals resolved on-chain and cached in [_tokenRegistry]).
-  /// Otherwise returns the chain's native asset.
-  Future<Token> resolveBoltzFundingToken() async {
+  /// This is a Boltz-level concept used for swap routing. For the token
+  /// that an escrow should be funded in, use [resolveEscrowToken] instead.
+  Future<Token> resolveBridgeToken() async {
     final boltzTokens = swaps?.chainInfo.tokens ?? {};
     if (boltzTokens.isNotEmpty) {
       return resolveToken(boltzTokens.values.first.eip55With0x);
@@ -1260,20 +1260,46 @@ class EvmChain {
     return Token.native(config.chainId);
   }
 
-  /// Convert a [DenominatedAmount] (e.g. BTC sats) into a [TokenAmount]
-  /// denominated in the resolved Boltz funding token.
+  /// Resolve the on-chain token the escrow should be funded with, according
+  /// to the seller's [EscrowMethod] event.
   ///
-  /// Scales from the denomination's decimal precision to the token's
-  /// decimals.
-  Future<TokenAmount> resolveAmountInFundingToken(
+  /// Looks up [EscrowMethod.acceptedTokensFor] for the listing's denomination
+  /// (e.g. `"USD"`) and resolves the first EVM `tokenTagId` (format
+  /// `"chainId:address"`) with live on-chain decimals.  Falls back to
+  /// [resolveBridgeToken] when no on-chain token is declared for that
+  /// denomination.
+  ///
+  /// This is the correct source of truth — the seller declares which ERC-20
+  /// they accept, not the app config.
+  Future<Token> resolveEscrowToken(
     DenominatedAmount denominated,
+    EscrowMethod sellerMethod,
   ) async {
-    final token = await resolveBoltzFundingToken();
+    final accepted = sellerMethod.acceptedTokensFor(denominated.denomination);
+    for (final tagId in accepted) {
+      if (!tagId.contains(':')) continue; // skip Lightning 'BTC' sentinel
+      return resolveToken(tagId.substring(tagId.indexOf(':') + 1));
+    }
+    return resolveBridgeToken();
+  }
+
+  /// Convert [denominated] into a [TokenAmount] scaled to [token]'s decimals.
+  TokenAmount scaleToToken(DenominatedAmount denominated, Token token) {
     final scale = token.decimals - denominated.decimals;
     final value = scale <= 0
         ? denominated.value
         : denominated.value * BigInt.from(10).pow(scale);
     return TokenAmount(value: value, token: token);
+  }
+
+  /// @deprecated Use [resolveEscrowToken] + [scaleToToken] for escrow amounts.
+  /// Kept for existing swap-routing callers that explicitly want the Boltz
+  /// bridge token.
+  Future<TokenAmount> resolveAmountInFundingToken(
+    DenominatedAmount denominated,
+  ) async {
+    final token = await resolveBridgeToken();
+    return scaleToToken(denominated, token);
   }
 }
 

@@ -77,6 +77,8 @@ class AmountFieldController extends FormFieldController {
     notifyListeners();
   }
 
+  /// Initialise the field — sets both the display text and the baseline
+  /// used by [isDirty].  Call this when loading saved data.
   void setState(DenominatedAmount? value) {
     _denomination = value?.denomination ?? _denomination;
     _decimals = value?.decimals ?? decimalsForDenomination(_denomination);
@@ -90,6 +92,23 @@ class AmountFieldController extends FormFieldController {
       }
     } else {
       _originalValue = '';
+      textController.text = '';
+    }
+    notifyListeners();
+  }
+
+  /// Update the current value without resetting the [isDirty] baseline.
+  /// Call this for user-driven edits (e.g. keypad selection).
+  void setValue(DenominatedAmount? value) {
+    _denomination = value?.denomination ?? _denomination;
+    _decimals = value?.decimals ?? decimalsForDenomination(_denomination);
+    if (value != null && value.value > BigInt.zero) {
+      if (_isIntegerInput) {
+        textController.text = formatWithCommas(value.value.toString());
+      } else {
+        textController.text = value.toDecimalString();
+      }
+    } else {
       textController.text = '';
     }
     notifyListeners();

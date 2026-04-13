@@ -130,7 +130,19 @@ const kRpcRevokeBadge = 'revokeBadge';
 class TradeSummary {
   final String tradeId;
   final String status;
-  final int amountSats;
+
+  /// Raw token amount in the token's smallest unit, as a decimal string
+  /// (BigInt serialised to avoid JSON integer overflow).
+  final String amountWei;
+
+  /// EVM token address. `0x0000000000000000000000000000000000000000` = native.
+  final String tokenAddress;
+
+  /// Number of decimals for the token (e.g. 6 for USDT, 8 for tBTC, 18 for ETH).
+  final int tokenDecimals;
+
+  /// Human-readable symbol resolved by the daemon (e.g. "USDT", "tBTC", "ETH").
+  final String tokenSymbol;
   final String? txHash;
   final DateTime updatedAt;
   final bool disputed;
@@ -138,7 +150,10 @@ class TradeSummary {
   TradeSummary({
     required this.tradeId,
     required this.status,
-    required this.amountSats,
+    required this.amountWei,
+    required this.tokenAddress,
+    required this.tokenDecimals,
+    required this.tokenSymbol,
     this.txHash,
     required this.updatedAt,
     this.disputed = false,
@@ -147,7 +162,10 @@ class TradeSummary {
   Map<String, dynamic> toJson() => {
         'tradeId': tradeId,
         'status': status,
-        'amountSats': amountSats,
+        'amountWei': amountWei,
+        'tokenAddress': tokenAddress,
+        'tokenDecimals': tokenDecimals,
+        'tokenSymbol': tokenSymbol,
         'txHash': txHash,
         'updatedAt': updatedAt.toIso8601String(),
         'disputed': disputed,
@@ -156,7 +174,11 @@ class TradeSummary {
   factory TradeSummary.fromJson(Map<String, dynamic> json) => TradeSummary(
         tradeId: json['tradeId'] as String,
         status: json['status'] as String,
-        amountSats: json['amountSats'] as int,
+        amountWei: json['amountWei'] as String? ?? '${json['amountSats'] ?? 0}',
+        tokenAddress: json['tokenAddress'] as String? ??
+            '0x0000000000000000000000000000000000000000',
+        tokenDecimals: json['tokenDecimals'] as int? ?? 8,
+        tokenSymbol: json['tokenSymbol'] as String? ?? 'sat',
         txHash: json['txHash'] as String?,
         updatedAt: DateTime.parse(json['updatedAt'] as String),
         disputed: json['disputed'] as bool? ?? false,

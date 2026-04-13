@@ -83,10 +83,12 @@ class EscrowWithdrawOperation {
       }
 
       // ── Resolve withdrawn amount as TokenAmount ──
-      final fundingToken = await configuredChain.resolveBoltzFundingToken();
+      // Use the bridge token — the escrow contract always holds the Boltz
+      // ERC-20 (or native), regardless of listing denomination.
+      final escrowToken = await configuredChain.resolveBridgeToken();
       final withdrawAmount = TokenAmount(
         value: pendingAmountWei,
-        token: fundingToken,
+        token: escrowToken,
       );
 
       logger.i(

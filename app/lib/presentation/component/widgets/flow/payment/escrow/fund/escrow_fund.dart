@@ -62,13 +62,14 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     )..load();
   }
 
-  void _createPreparer(EscrowService escrow) {
+  void _createPreparer(EscrowService escrow, {EscrowMethod? sellerMethod}) {
     _preparer = getIt<Hostr>().escrow.fund(
       EscrowFundParams(
         negotiateReservation: widget.negotiateReservation,
         amount: widget.negotiateReservation.amount!,
         sellerProfile: widget.counterparty,
         escrowService: escrow,
+        sellerEscrowMethod: sellerMethod,
         listingName: widget.listingName,
       ),
     );
@@ -102,8 +103,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
           .where((s) => s is! SwapInInitialised)
           .take(1)
           .listen((_) {
-        if (mounted) setState(() => _swapOperation = swapOp);
-      });
+            if (mounted) setState(() => _swapOperation = swapOp);
+          });
     }
   }
 
@@ -134,7 +135,12 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
       child: BlocConsumer<EscrowSelectorCubit, EscrowSelectorState>(
         listener: (context, state) {
           if (state is EscrowSelectorLoaded && state.selectedEscrow != null) {
-            setState(() => _createPreparer(state.selectedEscrow!));
+            setState(
+              () => _createPreparer(
+                state.selectedEscrow!,
+                sellerMethod: state.result.sellerMethod,
+              ),
+            );
           }
         },
         builder: (context, selectorState) {
