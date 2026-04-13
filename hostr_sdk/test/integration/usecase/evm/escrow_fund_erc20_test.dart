@@ -202,14 +202,36 @@ void main() {
         reason: 'Trade payment amount must match',
       );
 
-      // ── 13. Verify escrow received the USDT ───────────────────────────
+      // ── 13. Wei-perfect: escrow received exactly paymentAmount ─────────
+      // The escrow fee is transferred to the fee recipient on createTrade,
+      // so the contract's token balance equals paymentAmount only.
       final escrowBalance = await tokenContract.balanceOf((
         account: escrowAddress,
       ));
       expect(
         escrowBalance,
-        greaterThanOrEqualTo(tradeAmount),
-        reason: 'Escrow contract should hold the funded USDT',
+        equals(tradeAmount),
+        reason:
+            'Escrow contract must hold exactly paymentAmount '
+            '($tradeAmount), got $escrowBalance',
+      );
+
+      // ── 14. Wei-perfect: buyer has correct residual balance ────────────
+      final buyerBalanceAfter = await tokenContract.balanceOf((
+        account: buyerAddress,
+      ));
+      // The buyer was funded with totalTokenCost * 2.
+      // createTrade pulls only paymentAmount + bondAmount = tradeAmount + 0,
+      // because the escrowFee is carved from paymentAmount at settlement, not
+      // pulled as a separate transfer.
+      // Remaining = totalTokenCost * 2 − tradeAmount.
+      final expectedRemaining = totalTokenCost * BigInt.two - tradeAmount;
+      expect(
+        buyerBalanceAfter,
+        equals(expectedRemaining),
+        reason:
+            'Buyer USDT balance must be exactly '
+            '$expectedRemaining after escrow fund, got $buyerBalanceAfter',
       );
     },
   );

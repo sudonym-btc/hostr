@@ -99,6 +99,47 @@ resource "google_project_iam_member" "compose_vm_log_writer" {
   member  = "serviceAccount:${google_service_account.compose_vm.email}"
 }
 
+# ─── Relay disk snapshot schedule ────────────────────────────────────────────
+
+resource "google_compute_resource_policy" "relay_snapshot_schedule" {
+  count   = var.relay_disk_snapshot_enabled ? 1 : 0
+  name    = "${local.project_base_name}-relay-snapshot"
+  project = var.project_id
+  region  = var.region
+
+  snapshot_schedule_policy {
+    schedule {
+      daily_schedule {
+        days_in_cycle = 1
+        start_time    = var.relay_disk_snapshot_start_time
+      }
+    }
+
+    retention_policy {
+      max_retention_days    = var.relay_disk_snapshot_max_retention_days
+      on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
+    }
+
+    snapshot_properties {
+      storage_locations = [var.region]
+      labels = {
+        env  = var.env
+        disk = "relay-data"
+      }
+    }
+  }
+
+  depends_on = [google_project_service.compute]
+}
+
+resource "google_compute_disk_resource_policy_attachment" "relay_snapshot" {
+  count   = var.relay_disk_snapshot_enabled ? 1 : 0
+  name    = google_compute_resource_policy.relay_snapshot_schedule[0].name
+  disk    = google_compute_disk.relay_data.name
+  project = var.project_id
+  zone    = var.compose_zone
+}
+
 resource "google_compute_disk" "relay_data" {
   name    = "${local.project_base_name}-relay-data"
   project = var.project_id

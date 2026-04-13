@@ -165,7 +165,11 @@ void main() {
           rbtcFromSats(BigInt.from(1000), chainId: configured.config.chainId);
 
       final swapIn = configured.swapIn(
-        params: SwapInParams(evmKey: evmKey, accountIndex: 0, amount: amount),
+        params: SwapInParams(
+          evmKey: evmKey,
+          accountIndex: 0,
+          amountSpec: AmountSpec.output(amount),
+        ),
         auth: hostr.auth,
         logger: CustomLogger(),
       );
@@ -243,7 +247,7 @@ void main() {
         params: SwapInParams(
           evmKey: await hostr.auth.hd.getActiveEvmKey(),
           accountIndex: 0,
-          amount: amount,
+          amountSpec: AmountSpec.output(amount),
         ),
         auth: hostr.auth,
         logger: CustomLogger(),
@@ -311,7 +315,7 @@ void main() {
         params: SwapOutParams(
           evmKey: userKey,
           accountIndex: 0,
-          amount: requestedAmount,
+          amountSpec: AmountSpec.input(requestedAmount),
         ),
         auth: hostr.auth,
         logger: CustomLogger(),
@@ -430,7 +434,7 @@ void main() {
         params: SwapOutParams(
           evmKey: userKey,
           accountIndex: 0,
-          amount: requestedAmount,
+          amountSpec: AmountSpec.input(requestedAmount),
         ),
         auth: hostr.auth,
         logger: CustomLogger(),

@@ -1,13 +1,19 @@
-import 'package:models/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../evm_call.dart';
+import '../../models/amount_spec.dart';
 
 class SwapOutParams {
   final EthPrivateKey evmKey;
   final int accountIndex;
-  final TokenAmount? amount;
+
+  /// The user's intended amount and side, or `null` to sweep the full balance.
+  ///
+  /// - `null` — fetch on-chain balance and send everything (`.input` semantic).
+  /// - [AmountSpec.input]  — "send exactly this much on-chain".
+  /// - [AmountSpec.output] — "receive exactly this much on Lightning" (future).
+  final AmountSpec? amountSpec;
 
   /// Extra [Call]s to prepend before the lock calls in a single UserOp.
   ///
@@ -25,11 +31,12 @@ class SwapOutParams {
 
   /// The Boltz-side token address to use for the submarine swap.
   ///
-  /// When [amount] refers to a non-Boltz token (e.g. USDT), [SwapQuoteService]
-  /// performs a DEX hop (USDT → tBTC) and sets this to the bridge token
-  /// address (tBTC).  All Boltz API calls must use this address rather than
-  /// the address derived from [amount.token] so the pair id resolves to
-  /// `TBTC/BTC` instead of the non-existent `USDT/BTC`.
+  /// When [amountSpec] refers to a non-Boltz token (e.g. USDT),
+  /// [SwapQuoteService] performs a DEX hop (USDT → tBTC) and sets this to
+  /// the bridge token address (tBTC).  All Boltz API calls must use this
+  /// address rather than the address derived from [amountSpec.amount.token]
+  /// so the pair id resolves to `TBTC/BTC` instead of the non-existent
+  /// `USDT/BTC`.
   ///
   /// Null when no DEX hop is needed (amount is already the bridge token or
   /// the chain's native asset).
@@ -38,7 +45,7 @@ class SwapOutParams {
   SwapOutParams({
     required this.evmKey,
     required this.accountIndex,
-    required this.amount,
+    this.amountSpec,
     this.preLockCalls,
     this.boltzTokenAddress,
   });

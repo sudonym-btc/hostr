@@ -27,7 +27,7 @@ class EvmSwapOutOperation extends SwapOutOperation {
     // holds the bridge token (tBTC). Use it for all Boltz API calls so the
     // pair id resolves to TBTC/BTC rather than the non-existent USDT/BTC.
     if (params.boltzTokenAddress != null) return params.boltzTokenAddress;
-    final amount = params.amount;
+    final amount = params.amountSpec?.amount;
     if (amount == null || !amount.token.isERC20) return null;
     return EthereumAddress.fromHex(amount.token.address);
   }

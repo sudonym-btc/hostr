@@ -7,7 +7,6 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 @RoutePage()
 class FiltersScreen extends StatefulWidget {
@@ -74,17 +73,42 @@ class _FiltersScreenState extends State<FiltersScreen> {
   }
 
   void _submit() {
-    if (!_controller.validate()) return;
+    // Location field has its own validator — only run it when text is present.
+    final hasLocationText = _controller.locationController.text
+        .trim()
+        .isNotEmpty;
+    if (hasLocationText && !_controller.validate()) return;
 
     final state = _controller.buildSubmitState();
     BlocProvider.of<DateRangeCubit>(
       context,
     ).updateDateRange(state.availabilityRange);
+
+    // Build relay-side filter using promoted single-letter tags.
+    final builder = Listing.buildFilter();
+
+    // Geohash (location).
+    if (state.h3Tags.isNotEmpty) {
+      builder.rawTags({'g': state.h3Tags.map((tag) => tag.index).toList()});
+    }
+
+    // Listing type.
+    if (state.listingType != null) {
+      builder.listingTypes([state.listingType!]);
+    }
+
+    // Guest capacity.
+    if (state.guests != null) {
+      builder.minGuests(state.guests!);
+    }
+
+    // Beachfront.
+    if (state.beachfront) {
+      builder.features(['beachfront']);
+    }
+
     context.read<FilterCubit>().updateFilter(
-      Filter(
-        kinds: [Listing.kinds[0]],
-        tags: {'g': state.h3Tags.map((tag) => tag.index).toList()},
-      ),
+      builder.build(),
       location: state.location,
     );
     Navigator.pop(context);
@@ -97,7 +121,10 @@ class _FiltersScreenState extends State<FiltersScreen> {
 
   bool get _hasActiveFilters =>
       _controller.locationController.text.trim().isNotEmpty ||
-      _controller.dateRangeController.hasValue;
+      _controller.dateRangeController.hasValue ||
+      _controller.guests != null ||
+      _controller.listingType != null ||
+      _controller.beachfront;
 
   void _clear() {
     _controller.clearAll();

@@ -549,11 +549,20 @@ class EvmSwapInOperation extends SwapInOperation {
         (params.claimAddress ?? await chain.getAccountAddress(params.evmKey))
             .eip55With0x;
     final description = params.invoiceDescription ?? 'Hostr Reservation';
+    final amountSats = params.amount.getInSats.toDouble();
     logger.i(
-      'Using swap claim address: $claimAddress, ${params.amount.getInSats} sats',
+      'Using swap claim address: $claimAddress, $amountSats sats '
+      '(side: ${params.amountSpec.side})',
     );
     return chain.swaps!.reverseSubmarine(
-      onchainAmount: params.amount.getInSats.toDouble(),
+      // .output → user specified on-chain delivery → Boltz gets onchainAmount
+      // .input  → user specified LN invoice amount → Boltz gets invoiceAmount
+      onchainAmount: params.amountSpec.side == AmountSide.output
+          ? amountSats
+          : null,
+      invoiceAmount: params.amountSpec.side == AmountSide.input
+          ? amountSats
+          : null,
       claimAddress: claimAddress,
       preimageHash: preimage.hash,
       description: description,

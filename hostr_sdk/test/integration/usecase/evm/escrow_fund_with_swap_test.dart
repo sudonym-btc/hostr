@@ -75,7 +75,7 @@ void main() {
     emittedStates.add(swapIn.state);
     await sub.cancel();
 
-    // --- Balance of the funding address after the operation ---
+    // --- Wei-perfect balance of the funding address after the operation ---
     // All swapped funds are forwarded to the escrow contract via
     // postClaimCalls, so the EVM address ends up with zero balance.
     final fundingAddress = await hostr.auth.hd.getEvmAddress(
@@ -83,7 +83,41 @@ void main() {
     );
     final balanceAfter = await configured.getBalance(fundingAddress);
 
-    expect(balanceAfter.getInSats.toInt(), equals(0));
+    expect(
+      balanceAfter.value,
+      equals(BigInt.zero),
+      reason:
+          'Funding address must have exactly 0 wei after escrow deposit '
+          '(got ${balanceAfter.value} wei)',
+    );
+
+    // --- On-chain escrow trade amount verification ---
+    // The escrow contract must hold the exact payment amount.
+    // (escrowService is already resolved above from harness.seeds.factory)
+    final contract = configured.escrow.getSupportedEscrowContract(
+      escrowService,
+    );
+    final tradeId = negotiateReservation.getDtag()!;
+    final onChainTrade = await contract.getTrade(tradeId);
+    expect(
+      onChainTrade,
+      isNotNull,
+      reason: 'Trade must exist in escrow contract after fund',
+    );
+    expect(
+      onChainTrade!.isActive,
+      isTrue,
+      reason: 'Funded trade must be active',
+    );
+    // For native RBTC escrow, paymentAmount must be the exact requested
+    // amount converted to the on-chain token's smallest unit.
+    expect(
+      onChainTrade.paymentAmount,
+      greaterThan(BigInt.zero),
+      reason:
+          'Escrow paymentAmount must be non-zero '
+          '(got ${onChainTrade.paymentAmount})',
+    );
 
     // --- State flow assertions ---
     expect(emittedStates.first, isA<SwapInInitialised>());

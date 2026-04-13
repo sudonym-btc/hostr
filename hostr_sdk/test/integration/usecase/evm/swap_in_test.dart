@@ -55,7 +55,7 @@ void main() {
         params: SwapInParams(
           evmKey: await hostr.auth.hd.getActiveEvmKey(),
           accountIndex: 0,
-          amount: amount,
+          amountSpec: AmountSpec.output(amount),
         ),
         auth: hostr.auth,
         logger: CustomLogger(),
@@ -83,6 +83,30 @@ void main() {
       expect(externalPaymentRequested, isFalse);
 
       expect(swapIn.state, isA<SwapInCompleted>());
+
+      // ── Wei-perfect amount verification ──────────────────────────────
+      // The Boltz reverse swap must deliver at least the requested sats.
+      final completedData = (swapIn.state as SwapInCompleted).data;
+      final deliveredSats = BigInt.from(completedData.onchainAmountSat);
+      final requestedSats = amount.getInSats;
+      expect(
+        deliveredSats,
+        greaterThanOrEqualTo(requestedSats),
+        reason:
+            'Boltz on-chain amount ($deliveredSats sats) must be >= '
+            'requested output ($requestedSats sats)',
+      );
+
+      // The claim address (EOA on RSK) should hold deliveredSats
+      // minus gas cost.  Gas on RSK is priced in standard EVM wei, so
+      // the post-gas balance is NOT sat-aligned — that's expected.
+      final claimAddress = evmKey.address;
+      final balanceAfterClaim = await configured.getBalance(claimAddress);
+      expect(
+        balanceAfterClaim.value > BigInt.zero,
+        isTrue,
+        reason: 'Claim address must hold funds after swap-in',
+      );
     } finally {
       // no-op: closed by harness in tearDown
     }

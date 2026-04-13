@@ -4,11 +4,26 @@ import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
 import '../../evm_call.dart';
+import '../../models/amount_spec.dart';
 
 class SwapInParams {
   final EthPrivateKey evmKey;
   final int accountIndex;
+
+  /// Declares which side of the swap the user-specified amount refers to.
+  ///
+  /// - [AmountSide.output] — "deliver exactly X on-chain" (e.g. escrow fund).
+  ///   Boltz API receives `onchainAmount`.
+  /// - [AmountSide.input] — "spend exactly X from Lightning".
+  ///   Boltz API receives `invoiceAmount`.
+  final AmountSpec amountSpec;
+
+  /// Working amount — initialised from [amountSpec.amount].
+  ///
+  /// [SwapQuoteService.buildSwapInQuote] may mutate this to the bridge-token
+  /// equivalent when a DEX hop is needed (e.g. USDT → tBTC).
   TokenAmount amount;
+
   TokenAmount? minAmount;
   TokenAmount? maxAmount;
   final String? invoiceDescription;
@@ -44,7 +59,7 @@ class SwapInParams {
   SwapInParams({
     required this.evmKey,
     required this.accountIndex,
-    required this.amount,
+    required this.amountSpec,
     this.minAmount,
     this.maxAmount,
     this.invoiceDescription,
@@ -53,5 +68,5 @@ class SwapInParams {
     this.parentOperationId,
     this.postClaimCalls,
     this.postClaimStateOverrides,
-  });
+  }) : amount = amountSpec.amount;
 }

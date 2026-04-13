@@ -18,6 +18,7 @@ import '../../../user_subscriptions/user_subscriptions.dart';
 import '../../chain/evm_balance_types.dart';
 import '../../chain/evm_chain.dart';
 import '../../evm.dart';
+import '../../models/amount_spec.dart';
 import '../operation_state_store.dart';
 import '../swap_out/swap_out_models.dart';
 import '../swap_out/swap_out_state.dart';
@@ -540,7 +541,7 @@ class FundsMonitorService {
     return SwapOutParams(
       evmKey: item.keypair,
       accountIndex: item.accountIndex,
-      amount: item.isEscrowLocked ? item.balance : null,
+      amountSpec: item.isEscrowLocked ? AmountSpec.input(item.balance) : null,
       preLockCalls: preLockCalls,
     );
   }
