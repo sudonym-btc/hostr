@@ -102,7 +102,10 @@ class EditListingViewState extends State<EditListingView> {
           FormLabel(label: 'Description'),
           DescriptionInput(controller: controller),
           Gap.vertical.md(),
-          AdvancedSettingsSection(controller: controller),
+          // AdvancedSettingsSection(
+          //   controller: controller,
+          //   possibleDenominations: const ['BTC', 'USD'],
+          // ),
           if (widget.a != null) ...[
             Gap.vertical.md(),
             ActiveInput(controller: controller),

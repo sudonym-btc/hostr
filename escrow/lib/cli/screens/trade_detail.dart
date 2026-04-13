@@ -37,12 +37,20 @@ Future<Navigation> tradeDetailScreen(
 
   final cached = data['cached'] as Map<String, dynamic>?;
   if (cached != null) {
-    final amount = cached['amountSats'] is int
-        ? formatSats(cached['amountSats'] as int)
-        : '${cached['amountSats']}';
+    // Support both new token-aware fields and legacy amountSats for old daemons.
+    final String amountStr;
+    if (cached.containsKey('amountWei')) {
+      amountStr = formatTokenAmount(
+        cached['amountWei'] as String,
+        cached['tokenDecimals'] as int? ?? 8,
+        cached['tokenSymbol'] as String? ?? 'sat',
+      );
+    } else {
+      amountStr = '${formatSats(cached['amountSats'] as int? ?? 0)} sats';
+    }
     print(kvTable({
       'Status': colorStatus('${cached['status']}'),
-      'Amount': '$amount sats',
+      'Amount': amountStr,
       'Last tx': '${cached['txHash'] ?? '—'}',
       'Updated': '${cached['updatedAt']}',
     }));

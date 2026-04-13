@@ -38,7 +38,11 @@ Future<Navigation> tradeListScreen(DaemonClient client) async {
   final options = trades.map((t) {
     final short =
         t.tradeId.length > 12 ? '${t.tradeId.substring(0, 12)}…' : t.tradeId;
-    final sats = formatSats(t.amountSats).padLeft(12);
+    final amount = formatTokenAmount(
+      t.amountWei,
+      t.tokenDecimals,
+      t.tokenSymbol,
+    ).padLeft(18);
     final status = colorStatus(t.status.padRight(12));
     final disputed = t.disputed
         ? Style()
@@ -47,7 +51,7 @@ Future<Navigation> tradeListScreen(DaemonClient client) async {
             .render('⚠ disputed'.padRight(12))
         : ''.padRight(12);
     final time = kDimStyle.render(relativeTime(t.updatedAt));
-    return '$short  $sats sats  $status  $disputed  $time';
+    return '$short  $amount  $status  $disputed  $time';
   }).toList();
 
   final idx = SelectOrBack(prompt: 'Trades', options: options).interact();

@@ -1,28 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
-import 'package:hostr_sdk/hostr_sdk.dart' show TokenDisplayInfo;
 import 'package:models/main.dart';
 
 import 'image_picker.dart';
-
-/// Resolve display info (symbol, etc.) for a denomination string.
-TokenDisplayInfo _displayInfoFor(String denomination) {
-  switch (denomination) {
-    case 'BTC':
-      return TokenDisplayInfo.btc;
-    case 'USD':
-      return TokenDisplayInfo.usd;
-    case 'ETH':
-      return TokenDisplayInfo.eth;
-    default:
-      return TokenDisplayInfo(denomination: denomination, symbol: denomination);
-  }
-}
 
 class ImagesInput extends StatelessWidget {
   final EditListingController controller;
@@ -509,15 +493,15 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
 
 // ── Amount inputs ─────────────────────────────────────────────────────
 
-class _AmountInput extends StatelessWidget {
+class _AmountTapInput extends StatelessWidget {
   final AmountFieldController controller;
   final String hintText;
-  final String? suffixText;
+  final List<String> possibleDenominations;
 
-  const _AmountInput({
+  const _AmountTapInput({
     required this.controller,
     required this.hintText,
-    this.suffixText,
+    this.possibleDenominations = const [],
   });
 
   @override
@@ -525,64 +509,82 @@ class _AmountInput extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final denom = controller.denomination;
-        final info = _displayInfoFor(denom);
-        final isInteger = denom == 'BTC';
+        final displayAmount =
+            controller.amount ??
+            DenominatedAmount.zero(
+              controller.denomination,
+              controller.decimals,
+            );
 
-        return TextFormField(
-          key: ValueKey('amount_$denom'),
-          controller: controller.textController,
-          validator: controller.validate,
-          keyboardType: isInteger
-              ? TextInputType.number
-              : const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: isInteger
-              ? [
-                  FilteringTextInputFormatter.digitsOnly,
-                  ThousandsSeparatorFormatter(),
-                ]
-              : [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
-          decoration: InputDecoration(
-            hintText: hintText,
-            prefixText: '${info.symbol} ',
-            suffixText: suffixText,
+        return InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _openEditor(context),
+          child: InputDecorator(
+            decoration: InputDecoration(hintText: hintText),
+            child: Text(
+              formatAmount(displayAmount),
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ),
         );
       },
     );
   }
+
+  Future<void> _openEditor(BuildContext context) async {
+    final current =
+        controller.amount ??
+        DenominatedAmount.zero(controller.denomination, controller.decimals);
+
+    final result = await AmountEditorBottomSheet.show(
+      context,
+      initialAmount: current,
+      possibleDenominations: possibleDenominations,
+      onDenominationChanged: controller.setDenomination,
+    );
+
+    if (result != null) {
+      controller.setValue(result);
+    }
+  }
 }
 
 class SecurityDepositInput extends StatelessWidget {
   final EditListingController controller;
+  final List<String> possibleDenominations;
 
-  const SecurityDepositInput({super.key, required this.controller});
+  const SecurityDepositInput({
+    super.key,
+    required this.controller,
+    this.possibleDenominations = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
-    return _AmountInput(
+    return _AmountTapInput(
       controller: controller.securityDepositField,
-      hintText: '0',
-      suffixText: controller.securityDepositField.denomination == 'BTC'
-          ? 'sats'
-          : controller.securityDepositField.denomination.toLowerCase(),
+      hintText: 'Tap to set deposit',
+      possibleDenominations: possibleDenominations,
     );
   }
 }
 
 class MinPaymentInput extends StatelessWidget {
   final EditListingController controller;
+  final List<String> possibleDenominations;
 
-  const MinPaymentInput({super.key, required this.controller});
+  const MinPaymentInput({
+    super.key,
+    required this.controller,
+    this.possibleDenominations = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
-    return _AmountInput(
+    return _AmountTapInput(
       controller: controller.minPaymentField,
-      hintText: '0',
-      suffixText: controller.minPaymentField.denomination == 'BTC'
-          ? 'sats'
-          : controller.minPaymentField.denomination.toLowerCase(),
+      hintText: 'Tap to set minimum',
+      possibleDenominations: possibleDenominations,
     );
   }
 }
@@ -590,8 +592,13 @@ class MinPaymentInput extends StatelessWidget {
 /// Collapsible section for advanced listing settings.
 class AdvancedSettingsSection extends StatefulWidget {
   final EditListingController controller;
+  final List<String> possibleDenominations;
 
-  const AdvancedSettingsSection({super.key, required this.controller});
+  const AdvancedSettingsSection({
+    super.key,
+    required this.controller,
+    this.possibleDenominations = const [],
+  });
 
   @override
   State<AdvancedSettingsSection> createState() =>
@@ -658,7 +665,10 @@ class _AdvancedSettingsSectionState extends State<AdvancedSettingsSection> {
             ),
           ),
           const SizedBox(height: 4),
-          SecurityDepositInput(controller: widget.controller),
+          SecurityDepositInput(
+            controller: widget.controller,
+            possibleDenominations: widget.possibleDenominations,
+          ),
           const SizedBox(height: 4),
           Text(
             'Amount held in escrow as a damage deposit, returned after checkout.',
@@ -674,7 +684,10 @@ class _AdvancedSettingsSectionState extends State<AdvancedSettingsSection> {
             ),
           ),
           const SizedBox(height: 4),
-          MinPaymentInput(controller: widget.controller),
+          MinPaymentInput(
+            controller: widget.controller,
+            possibleDenominations: widget.possibleDenominations,
+          ),
           const SizedBox(height: 4),
           Text(
             'Lowest payment amount you will accept for a reservation.',

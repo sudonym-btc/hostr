@@ -71,9 +71,28 @@ class DaemonHandler {
       'trades': trades.map((t) {
         final json = t.toJson();
         json['disputed'] = threads.findByConversationTag(t.tradeId).isNotEmpty;
+        // Enrich with symbol, which requires chain config knowledge.
+        json['tokenSymbol'] = _resolveTokenSymbol(
+          json['tokenAddress'] as String,
+        );
         return json;
       }).toList(),
     };
+  }
+
+  /// Resolve a human-readable symbol for an EVM token address using the
+  /// configured chain's known-token registry and native denomination.
+  String _resolveTokenSymbol(String tokenAddress) {
+    const zeroAddr = '0x0000000000000000000000000000000000000000';
+    if (tokenAddress.toLowerCase() == zeroAddr) {
+      return daemon.context.configuredChain.config.nativeDenomination;
+    }
+    final normalized = tokenAddress.toLowerCase();
+    for (final e in daemon.context.configuredChain.config.tokens.entries) {
+      if (e.value.address.toLowerCase() == normalized) return e.key;
+    }
+    // Fallback: first 6 chars of address.
+    return '${tokenAddress.substring(0, 8)}…';
   }
 
   Future<Map<String, dynamic>> _getTrade(json_rpc.Parameters params) async {

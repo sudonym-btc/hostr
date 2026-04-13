@@ -362,6 +362,13 @@ class AppPane extends StatelessWidget {
   final PreferredSizeWidget Function(BuildContext context)? appBarBuilder;
   final SliverAppBar Function(BuildContext context)? sliverAppBarBuilder;
   final Widget child;
+
+  /// Optional list of sliver widgets to use inside the [CustomScrollView]
+  /// instead of the default [SliverToBoxAdapter] wrapping [child].
+  /// Only takes effect when [sliverAppBarBuilder] is set and the viewport
+  /// height is bounded (i.e. the sliver-chrome path is active).
+  final List<Widget>? sliverChildren;
+
   final Widget? bottomBar;
   final bool promoteChromeWhenStacked;
   final bool showWhenStacked;
@@ -389,6 +396,7 @@ class AppPane extends StatelessWidget {
     this.appBarBuilder,
     this.sliverAppBarBuilder,
     required this.child,
+    this.sliverChildren,
     this.bottomBar,
     this.promoteChromeWhenStacked = true,
     this.showWhenStacked = true,
@@ -497,7 +505,10 @@ class AppPane extends StatelessWidget {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             _buildSliverAppBar(context),
-            SliverToBoxAdapter(child: content),
+            if (sliverChildren != null)
+              ...sliverChildren!
+            else
+              SliverToBoxAdapter(child: content),
           ],
         );
       } else if (scrollable && constraints.hasBoundedHeight) {

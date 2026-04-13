@@ -42,30 +42,73 @@ class ProfileSummarySection extends StatelessWidget {
                   label: Text(AppLocalizations.of(context)!.editProfile),
                 ),
               )
-            : CustomPadding(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const ModeToggleWidget(),
-                    Gap.vertical.lg(),
-                    if ((profile!.metadata.about ?? '').isNotEmpty) ...[
-                      Text(
-                        profile!.metadata.about!,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-
-                    ProfilePopupContent(
-                      profile: profile,
-                      pubkey: profile!.pubKey,
-                    ),
-                  ],
-                ),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ProfileHeader(profile: profile!),
+                  CustomPadding(child: const ModeToggleWidget()),
+                ],
               ),
       ],
     );
+  }
+}
+
+class ProfileHeader extends StatelessWidget {
+  final ProfileMetadata profile;
+  const ProfileHeader({super.key, required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = profile.metadata.getName();
+    final picture = profile.metadata.picture;
+    final hasPicture = picture != null && picture.isNotEmpty;
+    final about = profile.metadata.about ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          AppAvatar.custom(
+            radius: 48,
+            image: hasPicture ? picture : null,
+            pubkey: hasPicture ? profile.pubKey : null,
+            label: name.isNotEmpty ? name : null,
+            icon: Icons.person,
+          ),
+          const SizedBox(height: 12),
+          if (about.isNotEmpty) ...[
+            Text(
+              about,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          ProfilePopupContent(
+            profile: profile,
+            pubkey: profile.pubKey,
+            showListingBadges: false,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The non-header scrollable body for the profile summary pane
+/// (mode toggle, etc). Used as a [SliverToBoxAdapter] child when the
+/// parallax sliver path is active.
+class ProfileSummaryBody extends StatelessWidget {
+  final ProfileMetadata profile;
+  const ProfileSummaryBody({super.key, required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPadding(child: const ModeToggleWidget());
   }
 }
 

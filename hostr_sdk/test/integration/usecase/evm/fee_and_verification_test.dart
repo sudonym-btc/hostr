@@ -574,7 +574,7 @@ void main() {
           key: hostKeyPair,
           evmAddress: hostEvmAddress,
         );
-        final fundingToken = await configured.resolveBoltzFundingToken();
+        final bridgeToken = await configured.resolveBridgeToken();
         final acceptedPaymentForms = <AcceptedPaymentForm>[
           AcceptedPaymentForm(
             denomination: 'BTC',
@@ -582,7 +582,7 @@ void main() {
           ),
           AcceptedPaymentForm(
             denomination: 'BTC',
-            tokenTagId: fundingToken.tagId,
+            tokenTagId: bridgeToken.tagId,
           ),
         ];
         final escrowMethod = _buildSignedEscrowMethod(

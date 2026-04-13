@@ -23,6 +23,27 @@ String formatSats(int sats) {
   return negative ? '-${buf.toString()}' : buf.toString();
 }
 
+/// Formats a raw wei/smallest-unit amount as a human-readable decimal string.
+///
+/// ```dart
+/// formatTokenAmount('20000000', 6, 'USDT')   // '20.000000 USDT'
+/// formatTokenAmount('500000',   8, 'tBTC')   // '0.00500000 tBTC'
+/// formatTokenAmount('1000000000000000000', 18, 'ETH') // '1.000000 ETH'
+/// ```
+String formatTokenAmount(String amountWei, int decimals, String symbol) {
+  if (decimals == 0) return '$amountWei $symbol';
+  final wei = BigInt.parse(amountWei);
+  final divisor = BigInt.from(10).pow(decimals);
+  final whole = wei ~/ divisor;
+  final rem = wei % divisor;
+  // Show up to 8 fractional digits; strip trailing zeros but keep at least 2.
+  final displayDecimals = decimals > 8 ? 8 : decimals;
+  final remStr = rem.toString().padLeft(decimals, '0');
+  final truncated = remStr.substring(0, displayDecimals);
+  final trimmed = truncated.replaceAll(RegExp(r'0+$'), '').padRight(2, '0');
+  return '$whole.$trimmed $symbol';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Style palette
 // ─────────────────────────────────────────────────────────────────────────────

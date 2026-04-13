@@ -14,9 +14,12 @@ class DexQuote {
   final BigInt amountOut;
 
   /// Opaque quote payload from Boltz Quote API — passed to `/encode`.
-  final Object data;
+  ///
+  /// Typed as [Map<String, dynamic>] to match [TokenQuote.data] from the
+  /// Boltz swagger client, allowing direct pass-through without casting.
+  final Map<String, dynamic> data;
 
-  const DexQuote({
+  DexQuote({
     required this.amountIn,
     required this.amountOut,
     required this.data,

@@ -6,6 +6,11 @@ class EscrowFundParams {
   final ProfileMetadata sellerProfile;
   final DenominatedAmount amount;
 
+  /// The seller's escrow-method event, used to determine which on-chain token
+  /// to fund the escrow with for the listing's denomination (e.g. USDT for
+  /// USD-priced listings). When null, falls back to the Boltz bridge token.
+  final EscrowMethod? sellerEscrowMethod;
+
   /// Optional security deposit from the listing. When present, the on-chain
   /// trade will include a `bondAmount` in addition to the payment amount.
   final DenominatedAmount? securityDeposit;
@@ -17,6 +22,7 @@ class EscrowFundParams {
     required this.negotiateReservation,
     required this.sellerProfile,
     required this.amount,
+    this.sellerEscrowMethod,
     this.securityDeposit,
     this.listingName,
   });

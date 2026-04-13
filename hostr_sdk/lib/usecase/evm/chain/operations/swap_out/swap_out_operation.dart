@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
+import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 
@@ -22,6 +23,10 @@ class EvmSwapOutOperation extends SwapOutOperation {
   final Payments payments;
 
   EthereumAddress? get _requestedTokenAddress {
+    // When a DEX hop was injected by buildSwapOutQuote, params.boltzTokenAddress
+    // holds the bridge token (tBTC). Use it for all Boltz API calls so the
+    // pair id resolves to TBTC/BTC rather than the non-existent USDT/BTC.
+    if (params.boltzTokenAddress != null) return params.boltzTokenAddress;
     final amount = params.amount;
     if (amount == null || !amount.token.isERC20) return null;
     return EthereumAddress.fromHex(amount.token.address);
@@ -487,10 +492,29 @@ class EvmSwapOutOperation extends SwapOutOperation {
     logger.i('Submarine swap created: ${swap.toString()}');
 
     final gasFee = quote.gasFee;
+
+    // In the DEX-hop case (USDT → tBTC → LN), the ERC20Swap contract locks
+    // tBTC — not the user's input token.  Resolve the bridge token so that
+    // SwapFundingRequirement scales the sats correctly (18-dec tBTC, not
+    // 6-dec USDT), and use the DEX output amount as the effective balance.
+    final Token lockToken;
+    final TokenAmount lockBalance;
+    if (params.boltzTokenAddress != null) {
+      lockToken = await chain.resolveToken(
+        params.boltzTokenAddress!.eip55With0x,
+      );
+      // dexQuote.amountOut is the tBTC the DEX delivers into the smart account.
+      final dexOut = quote.dexQuote?.amountOut ?? BigInt.zero;
+      lockBalance = TokenAmount(value: dexOut, token: lockToken);
+    } else {
+      lockToken = quote.sendAmount.token;
+      lockBalance = quote.sendAmount;
+    }
+
     final funding = SwapFundingRequirement.fromBoltzExpectedAmount(
       expectedAmountSat: swap.expectedAmount.ceil(),
-      fundingToken: quote.sendAmount.token,
-      balance: quote.sendAmount,
+      fundingToken: lockToken,
+      balance: lockBalance,
       gasFee: gasFee,
     );
     funding.validate();

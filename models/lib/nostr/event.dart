@@ -209,8 +209,7 @@ class EventTags {
           final amount = t[1];
           final denomination = t[2];
           final freq = t.length >= 4 ? FrequencyNip99.fromNip99(t[3]) : null;
-          // BTC denomination uses 8 decimals (satoshis) by default.
-          final decimals = denomination == 'BTC' ? 8 : 8;
+          final decimals = DenominatedAmount.decimalsFor(denomination);
           return Price(
             amount: DenominatedAmount.fromDecimal(
               amount,

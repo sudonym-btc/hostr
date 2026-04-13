@@ -12,6 +12,22 @@ import 'src/decimal_math.dart';
 /// - `"BTC"` → satoshis ([decimals] = 8)
 /// - `"USD"` → micro-dollars ([decimals] = 6, if convention)
 class DenominatedAmount {
+  /// Well-known decimal precision for each denomination.
+  ///
+  /// BTC uses 8 decimals (satoshis), USD uses 6 (micro-dollars),
+  /// ETH uses 18 (wei).  Add entries here as new denominations
+  /// are supported.
+  static const denominationDecimals = <String, int>{
+    'BTC': 8,
+    'USD': 6,
+    'ETH': 18,
+  };
+
+  /// Returns the canonical decimal count for [denomination],
+  /// defaulting to 8 for unknown denominations.
+  static int decimalsFor(String denomination) =>
+      denominationDecimals[denomination] ?? 8;
+
   /// Human-readable denomination identifier.
   ///
   /// By convention this matches the EscrowMethod "a"-tag denomination

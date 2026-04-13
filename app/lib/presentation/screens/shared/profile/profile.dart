@@ -6,7 +6,6 @@ import 'package:hostr/presentation/component/providers/nostr/profile.provider.da
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:hostr/presentation/screens/shared/profile/logout_modal.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -57,46 +56,37 @@ class ProfileScreen extends StatelessWidget {
     ];
   }
 
+  List<Widget>? _buildProfileSlivers(
+    BuildContext context,
+    ProfileMetadata? profile,
+  ) {
+    // Null profile falls through to the child (ProfileSummarySection) which
+    // shows the "set up your profile" empty state.
+    if (profile == null) return null;
+
+    return [
+      // Parallax header — scrolls at 65 % speed relative to the list content.
+      SliverLayoutBuilder(
+        builder: (context, constraints) {
+          return SliverToBoxAdapter(
+            child: Transform.translate(
+              offset: Offset(0, constraints.scrollOffset * 0.35),
+              child: ProfileHeader(profile: profile),
+            ),
+          );
+        },
+      ),
+      SliverToBoxAdapter(child: ProfileSummaryBody(profile: profile)),
+    ];
+  }
+
   SliverAppBar _buildAppBar(BuildContext context, ProfileMetadata? profile) {
-    bool hasPicture =
-        profile?.metadata.picture != null &&
-        profile!.metadata.picture!.isNotEmpty;
-    final surfaceColor = AppSurface.of(context);
     return SliverAppBar(
       automaticallyImplyLeading: false,
       pinned: true,
-      stretch: true,
-      expandedHeight: hasPicture ? 240 : null,
       title: Text(profile?.metadata.getName() ?? ''),
       actions: _buildActions(context),
       surfaceTintColor: Colors.transparent,
-      // backgroundColor: surfaceColor.withValues(alpha: 0.90),
-      flexibleSpace: hasPicture
-          ? FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  BlossomImage(
-                    image: profile.metadata.picture!,
-                    pubkey: profile.metadata.pubKey,
-                    fit: BoxFit.cover,
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          surfaceColor.withValues(alpha: 0.7),
-                          surfaceColor.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : null, // : noImageSetPlaceholder(context)
     );
   }
 
@@ -115,6 +105,7 @@ class ProfileScreen extends StatelessWidget {
                 flex: 2,
                 sliverAppBarBuilder: (context) =>
                     _buildAppBar(context, profile),
+                sliverChildren: _buildProfileSlivers(context, profile),
                 child: ProfileSummarySection(profile: profile),
               ),
               const AppPane(flex: 3, child: ProfileSettingsSection()),

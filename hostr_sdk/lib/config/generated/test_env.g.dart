@@ -28,7 +28,8 @@ const evmConfig = EvmConfig(
       id: 'arbitrum-regtest',
       chainId: 412346,
       rpcUrl: 'https://arbitrum.hostr.development',
-      nativeDenomination: 'BTC',
+      nativeDenomination: 'ETH',
+      boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
         bundlerUrl: 'https://paymaster.hostr.development',
         entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',

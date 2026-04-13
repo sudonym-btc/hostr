@@ -11,27 +11,29 @@ enum TradeStatus { funded, arbitrated, released, claimed, unknown }
 class TradeSnapshot {
   final String tradeId;
   final TradeStatus status;
-  final int amountSats;
+
+  /// The escrow token amount — may be USDT, tBTC, or native.
+  final TokenAmount amount;
   final String? lastTxHash;
   final DateTime updatedAt;
 
   TradeSnapshot({
     required this.tradeId,
     required this.status,
-    required this.amountSats,
+    required this.amount,
     this.lastTxHash,
     required this.updatedAt,
   });
 
   TradeSnapshot copyWith({
     TradeStatus? status,
-    int? amountSats,
+    TokenAmount? amount,
     String? lastTxHash,
     DateTime? updatedAt,
   }) => TradeSnapshot(
     tradeId: tradeId,
     status: status ?? this.status,
-    amountSats: amountSats ?? this.amountSats,
+    amount: amount ?? this.amount,
     lastTxHash: lastTxHash ?? this.lastTxHash,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -39,7 +41,9 @@ class TradeSnapshot {
   Map<String, dynamic> toJson() => {
     'tradeId': tradeId,
     'status': status.name,
-    'amountSats': amountSats,
+    'amountWei': amount.value.toString(),
+    'tokenAddress': amount.token.address,
+    'tokenDecimals': amount.token.decimals,
     'txHash': lastTxHash,
     'updatedAt': updatedAt.toIso8601String(),
   };

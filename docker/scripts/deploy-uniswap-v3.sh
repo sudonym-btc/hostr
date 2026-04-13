@@ -11,12 +11,19 @@
 #   Nonce 2 → UniswapV3Factory   0x2B574555158337Cd46d47c2Ca57E4698A1f04e70
 #   Nonce 3 → NonfungiblePosMgr  0xcA8b49076D1A8039599e24979abf819af784c27a
 #   Nonce 4 → QuoterV2           0xc039b3B46814D8388e5205D37Dd0D154D806F1f4
-#   Nonce 5 → SwapRouter02       0x2B15063A6F8a11d18404C801F295b1d19dCC8574
+#   Nonce 5 → Permit2            0x2B15063A6F8a11d18404C801F295b1d19dCC8574
+#   Nonce 6 → UnsupportedProto   0xDd8cb59289bF7e324a37F74f8abB16D9F133cb2e
+#   Nonce 7 → UniversalRouter    0x3f476891E3018329580DA8Cd03b6AA370F2Fb645
 #
 # After deployment:
 #   - Creates tBTC/USDT (fee=3000) pool
 #   - Initialises pool at $70,000/tBTC
 #   - Seeds full-range liquidity
+#
+# The Boltz sidecar generates DEX calldata targeting the Universal Router's
+# execute(bytes,bytes[]) interface.  Previous versions deployed SwapRouter02
+# here, which caused UserOp reverts because SwapRouter02 does not have the
+# execute(bytes,bytes[]) function.
 #
 # Called from arbitrum-init.sh after MockTBTC + MockUSDT deployment.
 #
@@ -42,13 +49,15 @@ UNI_DEPLOYER="0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
 # Pre-extracted creation bytecodes (mounted from host)
 BYTECODES="${BYTECODES_DIR:-/scripts/uniswap-v3-bytecodes}"
 
-# ── Expected deterministic addresses (Account #9, nonces 0-5) ────────────
+# ── Expected deterministic addresses (Account #9, nonces 0-7) ────────────
 WETH_ADDR="0x95bD8D42f30351685e96C62EDdc0d0613bf9a87A"
 MULTICALL3_ADDR="0x98eDDadCfde04dC22a0e62119617e74a6Bc77313"
 FACTORY_ADDR="0x2B574555158337Cd46d47c2Ca57E4698A1f04e70"
 NFT_POS_MGR="0xcA8b49076D1A8039599e24979abf819af784c27a"
 QUOTER_V2_ADDR="0xc039b3B46814D8388e5205D37Dd0D154D806F1f4"
-SWAP_ROUTER_ADDR="0x2B15063A6F8a11d18404C801F295b1d19dCC8574"
+PERMIT2_ADDR="0x2B15063A6F8a11d18404C801F295b1d19dCC8574"
+UNSUPPORTED_ADDR="0xDd8cb59289bF7e324a37F74f8abB16D9F133cb2e"
+UNIVERSAL_ROUTER_ADDR="0x3f476891E3018329580DA8Cd03b6AA370F2Fb645"
 
 # Zero address for unused constructor args
 ZERO="0x0000000000000000000000000000000000000000"
@@ -88,7 +97,7 @@ verify_deploy() {
 # ══════════════════════════════════════════════════════════════════════════
 
 # ── 1a. WETH9 (nonce 0) — forge create from inline Solidity ──────────────
-echo "▶ [1/6] Deploying WETH9..."
+echo "▶ [1/8] Deploying WETH9..."
 mkdir -p /tmp/uniswap/src
 
 cat > /tmp/uniswap/foundry.toml << 'FEOF'
@@ -160,7 +169,7 @@ WETH_DEPLOYED=$(echo "$WETH_OUT" | grep -i "Deployed to:" | awk '{print $NF}')
 verify_deploy "WETH9" "$WETH_DEPLOYED" "$WETH_ADDR"
 
 # ── 1b. Multicall3 (nonce 1) — forge create from inline Solidity ─────────
-echo "▶ [2/6] Deploying Multicall3..."
+echo "▶ [2/8] Deploying Multicall3..."
 
 cat > /tmp/uniswap/src/Multicall3.sol << 'SOLEOF'
 // SPDX-License-Identifier: MIT
@@ -258,7 +267,7 @@ MC_DEPLOYED=$(echo "$MC_OUT" | grep -i "Deployed to:" | awk '{print $NF}')
 verify_deploy "Multicall3" "$MC_DEPLOYED" "$MULTICALL3_ADDR"
 
 # ── 1c. UniswapV3Factory (nonce 2) — from pre-extracted bytecode ─────────
-echo "▶ [3/6] Deploying UniswapV3Factory..."
+echo "▶ [3/8] Deploying UniswapV3Factory..."
 FACTORY_BYTECODE=$(cat "$BYTECODES/UniswapV3Factory.hex")
 FACTORY_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
   --create "$FACTORY_BYTECODE" --json 2>&1)
@@ -266,7 +275,7 @@ FACTORY_DEPLOYED=$(echo "$FACTORY_TX" | grep -o '"contractAddress":"[^"]*"' | cu
 verify_deploy "UniswapV3Factory" "$FACTORY_DEPLOYED" "$FACTORY_ADDR"
 
 # ── 1d. NonfungiblePositionManager (nonce 3) ─────────────────────────────
-echo "▶ [4/6] Deploying NonfungiblePositionManager..."
+echo "▶ [4/8] Deploying NonfungiblePositionManager..."
 NFT_BYTECODE=$(cat "$BYTECODES/NonfungiblePositionManager.hex")
 # Constructor: (address _factory, address _WETH9, address _tokenDescriptor_)
 # Pass address(0) for tokenDescriptor — only used by tokenURI() which we don't need
@@ -278,7 +287,7 @@ NFT_DEPLOYED=$(echo "$NFT_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' 
 verify_deploy "NonfungiblePositionManager" "$NFT_DEPLOYED" "$NFT_POS_MGR"
 
 # ── 1e. QuoterV2 (nonce 4) ───────────────────────────────────────────────
-echo "▶ [5/6] Deploying QuoterV2..."
+echo "▶ [5/8] Deploying QuoterV2..."
 QUOTER_BYTECODE=$(cat "$BYTECODES/QuoterV2.hex")
 # Constructor: (address _factory, address _WETH9)
 CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address)" \
@@ -288,20 +297,42 @@ QUOTER_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
 QUOTER_DEPLOYED=$(echo "$QUOTER_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
 verify_deploy "QuoterV2" "$QUOTER_DEPLOYED" "$QUOTER_V2_ADDR"
 
-# ── 1f. SwapRouter02 (nonce 5) ───────────────────────────────────────────
-echo "▶ [6/6] Deploying SwapRouter02..."
-ROUTER_BYTECODE=$(cat "$BYTECODES/SwapRouter02.hex")
-# Constructor: (address _factoryV2, address _factoryV3, address _positionManager, address _WETH9)
-# Pass address(0) for V2 factory (no V2 routing needed)
-CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(address,address,address,address)" \
-  "$ZERO" "$FACTORY_ADDR" "$NFT_POS_MGR" "$WETH_ADDR")
+# ── 1f. Permit2 (nonce 5) ─────────────────────────────────────────────────
+echo "▶ [6/8] Deploying Permit2..."
+PERMIT2_BYTECODE=$(cat "$BYTECODES/Permit2.hex")
+PERMIT2_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "$PERMIT2_BYTECODE" --json 2>&1)
+PERMIT2_DEPLOYED=$(echo "$PERMIT2_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+verify_deploy "Permit2" "$PERMIT2_DEPLOYED" "$PERMIT2_ADDR"
+
+# ── 1g. UnsupportedProtocol (nonce 6) ────────────────────────────────────
+echo "▶ [7/8] Deploying UnsupportedProtocol..."
+UNSUPPORTED_BYTECODE=$(cat "$BYTECODES/UnsupportedProtocol.hex")
+UNSUPPORTED_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "$UNSUPPORTED_BYTECODE" --json 2>&1)
+UNSUPPORTED_DEPLOYED=$(echo "$UNSUPPORTED_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+verify_deploy "UnsupportedProtocol" "$UNSUPPORTED_DEPLOYED" "$UNSUPPORTED_ADDR"
+
+# ── 1h. UniversalRouter (nonce 7) ────────────────────────────────────────
+# The Boltz sidecar encodes DEX swaps targeting the Universal Router's
+# execute(bytes,bytes[]) function.  Constructor args: RouterParameters struct.
+echo "▶ [8/8] Deploying UniversalRouter..."
+ROUTER_BYTECODE=$(cat "$BYTECODES/UniversalRouter.hex")
+# poolInitCodeHash: standard UniswapV3Pool init code hash
+POOL_INIT_CODE_HASH="0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54"
+# RouterParameters(permit2, weth9, v2Factory, v3Factory, pairInitCodeHash,
+#                  poolInitCodeHash, v4PoolManager, v3NFTPositionManager,
+#                  v4PositionManager, spokePool)
+CONSTRUCTOR_ARGS=$(cast abi-encode \
+  "constructor((address,address,address,address,bytes32,bytes32,address,address,address,address))" \
+  "($PERMIT2_ADDR,$WETH_ADDR,$UNSUPPORTED_ADDR,$FACTORY_ADDR,0x0000000000000000000000000000000000000000000000000000000000000000,$POOL_INIT_CODE_HASH,$UNSUPPORTED_ADDR,$NFT_POS_MGR,$UNSUPPORTED_ADDR,$UNSUPPORTED_ADDR)")
 ROUTER_TX=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
   --create "${ROUTER_BYTECODE}$(echo "$CONSTRUCTOR_ARGS" | sed 's/^0x//')" --json 2>&1)
 ROUTER_DEPLOYED=$(echo "$ROUTER_TX" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
-verify_deploy "SwapRouter02" "$ROUTER_DEPLOYED" "$SWAP_ROUTER_ADDR"
+verify_deploy "UniversalRouter" "$ROUTER_DEPLOYED" "$UNIVERSAL_ROUTER_ADDR"
 
 echo ""
-echo "  All 6 contracts deployed ✓"
+echo "  All 8 contracts deployed ✓"
 
 # ══════════════════════════════════════════════════════════════════════════
 # PHASE 2: Create and initialise tBTC/USDT pool
@@ -439,7 +470,9 @@ echo "  Multicall3:             $MULTICALL3_ADDR"
 echo "  UniswapV3Factory:       $FACTORY_ADDR"
 echo "  NonfungiblePosMgr:      $NFT_POS_MGR"
 echo "  QuoterV2:               $QUOTER_V2_ADDR"
-echo "  SwapRouter02:           $SWAP_ROUTER_ADDR"
+echo "  Permit2:                $PERMIT2_ADDR"
+echo "  UnsupportedProtocol:    $UNSUPPORTED_ADDR"
+echo "  UniversalRouter:        $UNIVERSAL_ROUTER_ADDR"
 echo ""
 echo "  tBTC/USDT pool (3000):  $TBTC_USDT_POOL"
 echo "═══════════════════════════════════════════════"

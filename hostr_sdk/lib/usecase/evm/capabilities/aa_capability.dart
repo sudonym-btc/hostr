@@ -18,6 +18,13 @@ class AACapability {
   final String _nodeRpcUrl;
   final CustomLogger _logger;
 
+  /// Cache of EOA address → counterfactual smart-account address.
+  ///
+  /// The smart-account address is fully deterministic (CREATE2 from owner +
+  /// factory + chainId + entryPoint — all fixed per [AACapability] instance)
+  /// so it is safe to cache indefinitely per signer.
+  final Map<String, EthereumAddress> _addressCache = {};
+
   AACapability({
     required AAConfig aaConfig,
     required int chainId,
@@ -31,12 +38,22 @@ class AACapability {
   // ── Public API ──────────────────────────────────────────────────────
 
   /// Counterfactual Simple account address derived from [signer].
-  Future<EthereumAddress> getSmartAccountAddress(EthPrivateKey signer) =>
-      _logger.span('AACapability.getSmartAccountAddress', () async {
-        final publicClient = _initPublicClient();
-        final account = _initSimpleAccount(signer, publicClient: publicClient);
-        return account.getAddress();
-      });
+  ///
+  /// Memoised per signer — the CREATE2 address is deterministic for a fixed
+  /// (owner, factory, chainId, entryPoint) tuple, so the RPC round-trip only
+  /// happens once per signer per [AACapability] lifetime.
+  Future<EthereumAddress> getSmartAccountAddress(EthPrivateKey signer) async {
+    final cacheKey = signer.address.hex;
+    final cached = _addressCache[cacheKey];
+    if (cached != null) return cached;
+    return _logger.span('AACapability.getSmartAccountAddress', () async {
+      final publicClient = _initPublicClient();
+      final account = _initSimpleAccount(signer, publicClient: publicClient);
+      final address = await account.getAddress();
+      _addressCache[cacheKey] = address;
+      return address;
+    });
+  }
 
   /// Send one or more contract calls as a single batched UserOperation.
   ///
