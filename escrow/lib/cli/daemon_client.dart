@@ -163,6 +163,10 @@ class DaemonClient {
     });
   }
 
+  Future<void> deleteService(String serviceId) async {
+    await _rpc.sendRequest(kRpcDeleteService, {'serviceId': serviceId});
+  }
+
   // ── Profile ───────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getProfile() async {

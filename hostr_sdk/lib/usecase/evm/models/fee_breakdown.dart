@@ -10,8 +10,8 @@ import 'package:models/main.dart';
 /// the breakdown captures the full cost across all sub-operations.
 class FeeBreakdown {
   /// Escrow operator's service fee (in the trade token's units).
-  /// Zero for non-escrow operations (swap-in, swap-out).
-  final TokenAmount escrowFee;
+  /// `null` for non-escrow operations (swap-in, swap-out).
+  final TokenAmount? escrowFee;
 
   /// Boltz swap overhead as a chain-agnostic denomination (BTC sats).
   /// Zero when no swap is involved.
@@ -27,7 +27,7 @@ class FeeBreakdown {
   final bool gasSponsored;
 
   const FeeBreakdown({
-    required this.escrowFee,
+    this.escrowFee,
     required this.swapFee,
     required this.gasFee,
     this.gasSponsored = false,
@@ -47,7 +47,7 @@ class FeeBreakdown {
 
   @override
   String toString() =>
-      'FeeBreakdown(escrow=${escrowFee.toDecimalString()}, '
+      'FeeBreakdown(escrow=${escrowFee?.toDecimalString() ?? 'n/a'}, '
       'swap=${swapFee.toDecimalString()}, '
       'gas=${gasFee.toDecimalString()}, sponsored=$gasSponsored)';
 }

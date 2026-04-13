@@ -1,9 +1,10 @@
 import 'dart:io';
 
 import 'package:get_it/get_it.dart';
-import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+
+import 'env_config.dart';
 
 final getIt = GetIt.instance;
 
@@ -34,6 +35,8 @@ Future<void> setupInjection({
   CustomLogger? logger,
 }) async {
   await _ensureHydratedStorage();
+
+  final env = EnvConfig.forEnvironment(environment);
 
   if (getIt.isRegistered<Hostr>()) {
     await getIt.unregister<Hostr>(

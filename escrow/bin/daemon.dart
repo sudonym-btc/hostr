@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:escrow/daemon/handlers.dart';
 import 'package:escrow/daemon/rpc_socket_server.dart';
+import 'package:escrow/env_config.dart';
 import 'package:escrow/injection.dart';
 import 'package:escrow/shared/socket_config.dart';
-import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:models/stubs/main.dart';
@@ -53,6 +53,7 @@ void main(List<String> arguments) async {
   await hostr.auth.signin(privateKey);
 
   // ── 1. Bootstrap + Monitor via SDK ────────────────────────────────────────
+  final env = EnvConfig.forEnvironment(environment);
   final chain = env.evmConfig.chains.first;
   final daemon = EscrowDaemon(hostr: hostr);
   await daemon.bootstrap(EscrowDaemonConfig(

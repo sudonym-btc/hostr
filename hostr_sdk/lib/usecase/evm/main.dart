@@ -12,6 +12,7 @@ export 'config/evm_config.dart';
 export 'evm.dart';
 export 'evm_call.dart';
 export 'models/dex_quote.dart';
+export 'models/escrow_fund_quote.dart';
 export 'models/fee_breakdown.dart';
 export 'models/swap_quote.dart';
 export 'operations/funds_monitor/funds_item.dart';

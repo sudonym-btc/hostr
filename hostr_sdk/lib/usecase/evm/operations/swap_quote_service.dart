@@ -52,9 +52,8 @@ class SwapQuoteService {
 
   /// Build a [SwapQuote] for a swap-in (reverse swap).
   ///
-  /// [chain]     — EVM chain to estimate gas on.
-  /// [params]    — swap-in parameters (amount, keys, optional post-claim calls).
-  /// [escrowFee] — pass-through for escrow operations; zero for plain swaps.
+  /// [chain]  — EVM chain to estimate gas on.
+  /// [params] — swap-in parameters (amount, keys, optional post-claim calls).
   ///
   /// When [params.amount] refers to a non-Boltz token (e.g. USDT) this method
   /// injects a bridge→requested-token DEX step into [params.postClaimCalls]
@@ -64,7 +63,6 @@ class SwapQuoteService {
   Future<SwapQuote> buildSwapInQuote({
     required EvmChain chain,
     required SwapInParams params,
-    TokenAmount? escrowFee,
   }) async {
     final requestedTokenAddress = params.amount.token.isERC20
         ? EthereumAddress.fromHex(params.amount.token.address)
@@ -202,7 +200,6 @@ class SwapQuoteService {
       boltzEstimate: boltzEstimate,
       gasFee: gasFee,
       gasSponsored: gasEstimate.gasSponsored,
-      escrowFee: escrowFee ?? TokenAmount.zero(originalReceiveAmount.token),
       sendAmount: resolvedSwapAmount,
       receiveAmount: originalReceiveAmount,
       dexQuote: dexQuote,
@@ -392,7 +389,6 @@ class SwapQuoteService {
         Token.native(boltzToken.chainId),
       ),
       gasSponsored: gasEstimate.gasSponsored,
-      escrowFee: TokenAmount.zero(boltzToken),
       sendAmount: sendAmount,
       receiveAmount: invoiceAmount,
       dexQuote: dexQuote,

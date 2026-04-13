@@ -84,20 +84,43 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       final missingContracts = bytecodeHashes
           .where((hash) => !existingContracts.contains(hash))
           .toList();
-      final existingForms = existing.acceptedPaymentForms.toSet();
-      final missingForms = resolvedForms
-          .where((f) => !existingForms.contains(f))
+
+      // Determine the appId used by our resolved forms (if any).
+      // We strip all existing "a" tags that share this appId OR have no appId
+      // (legacy), then replace with the freshly-resolved set.
+      final appId = resolvedForms.isNotEmpty ? resolvedForms.first.appId : null;
+
+      // Existing "a" tags from other apps only — keep them.
+      final retainedForms = existing.tags
+          .where(
+            (t) =>
+                t.isNotEmpty && t[0] == 'a' && t.length >= 4 && t[3] != appId,
+          )
           .toList();
 
-      if (missingTrusted.isEmpty &&
-          missingContracts.isEmpty &&
-          missingForms.isEmpty) {
+      // Build the set of forms that will end up on the event.
+      final newFormsSet = {
+        ...retainedForms
+            .map((t) => AcceptedPaymentForm.fromTag(t))
+            .whereType<AcceptedPaymentForm>(),
+        ...resolvedForms,
+      };
+      final existingFormsSet = existing.acceptedPaymentForms.toSet();
+      final formsChanged =
+          newFormsSet.length != existingFormsSet.length ||
+          !newFormsSet.containsAll(existingFormsSet);
+
+      if (missingTrusted.isEmpty && missingContracts.isEmpty && !formsChanged) {
         return;
       }
 
-      final tags = [
-        for (final tag in existing.tags) [...tag],
-      ];
+      // Rebuild tags: keep all non-"a" tags, plus retained foreign-appId "a"
+      // tags, then append our fresh forms.
+      final tags = <List<String>>[];
+      for (final tag in existing.tags) {
+        if (tag.isNotEmpty && tag[0] == 'a') continue; // strip all "a" tags
+        tags.add([...tag]);
+      }
       // Ensure the d tag is present for parameterized replaceable events.
       if (!tags.any((t) => t.isNotEmpty && t[0] == 'd')) {
         tags.insert(0, ['d', '']);
@@ -108,7 +131,11 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       for (final contract in missingContracts) {
         tags.add(['c', contract]);
       }
-      for (final form in missingForms) {
+      // Re-add retained forms from other apps, then our fresh forms.
+      for (final tag in retainedForms) {
+        tags.add([...tag]);
+      }
+      for (final form in resolvedForms) {
         tags.add(form.toTag());
       }
 
@@ -185,10 +212,17 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
 /// plus configured stablecoins.
 ///
 /// For each chain, includes:
-///   - The native token denominated as `BTC` when live Boltz support exists.
+///   - The native token when live Boltz support exists, denominated per
+///     [EvmChainConfig.nativeDenomination] (e.g. `ETH` on Arbitrum, `BTC` on
+///     Rootstock).
 ///   - tBTC denominated as `BTC` when live Boltz support exists for the
 ///     configured tBTC token.
 ///   - USDT (if configured) denominated as `USD`.
+///
+/// All forms are tagged with `appId: 'hostr'` so they can be atomically
+/// replaced on subsequent calls to [EscrowMethods.ensureEscrowMethod].
+const _appId = 'hostr';
+
 List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
   final forms = <AcceptedPaymentForm>[];
   for (final chain in evm.configuredChains) {
@@ -197,8 +231,9 @@ List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
     if (swaps != null) {
       forms.add(
         AcceptedPaymentForm(
-          denomination: 'BTC',
+          denomination: chain.config.nativeDenomination,
           tokenTagId: Token.native(chain.config.chainId).tagId,
+          appId: _appId,
         ),
       );
 
@@ -209,6 +244,7 @@ List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
           AcceptedPaymentForm(
             denomination: tbtc.denomination,
             tokenTagId: '${chain.config.chainId}:${tbtc.address}',
+            appId: _appId,
           ),
         );
       }
@@ -220,6 +256,7 @@ List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
         AcceptedPaymentForm(
           denomination: usdt.denomination,
           tokenTagId: '${chain.config.chainId}:${usdt.address}',
+          appId: _appId,
         ),
       );
     }

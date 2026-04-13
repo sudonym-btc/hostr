@@ -55,6 +55,11 @@ const kRpcGetService = 'getService';
 /// Returns `{ "ok": true }`.
 const kRpcUpdateService = 'updateService';
 
+/// Delete (NIP-09) an escrow service event.
+/// Params: `{ "serviceId": String }`.
+/// Returns `{ "ok": true }`.
+const kRpcDeleteService = 'deleteService';
+
 // ── Profile ─────────────────────────────────────────────────────────────────
 
 /// Get the current user's profile metadata.

@@ -145,6 +145,19 @@ class TagBuilder {
     return this;
   }
 
+  /// Add tags and their single-letter promoted duplicates.
+  ///
+  /// For each tag, every matching [TagPromotion] rule emits an additional
+  /// indexed copy. The original multi-letter tags are always included.
+  TagBuilder addWithPromotions(
+    List<List<String>> tags,
+    List<TagPromotion> promotions,
+  ) {
+    _tags.addAll(tags);
+    _tags.addAll(TagPromotion.promoteAll(tags, promotions));
+    return this;
+  }
+
   // ── Merge / build ───────────────────────────────────────────────────
 
   TagBuilder addAll(List<List<String>> existing) {

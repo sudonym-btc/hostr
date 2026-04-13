@@ -52,6 +52,7 @@ Future<Navigation> serviceEditScreen(
     'Edit fee percent',
     'Edit min amount',
     'Edit max amount',
+    'Delete service',
     'Refresh',
   ];
 
@@ -95,6 +96,39 @@ Future<Navigation> serviceEditScreen(
       );
 
     case 3:
+      final confirmed = Confirm(
+        prompt:
+            'Delete this escrow service? This will broadcast a NIP-09 deletion.',
+        defaultValue: false,
+      ).interact();
+
+      if (!confirmed) {
+        print('  Cancelled.');
+        return Navigation(Screen.serviceEdit, selectedServiceId: serviceId);
+      }
+
+      final delSpinner = Spinner(
+        icon: '✓',
+        rightPrompt: (state) => switch (state) {
+          SpinnerStateType.inProgress => 'Deleting…',
+          SpinnerStateType.done => 'Service deleted',
+          SpinnerStateType.failed => 'Deletion failed',
+        },
+      ).interact();
+
+      try {
+        await client.deleteService(serviceId);
+        delSpinner.done();
+        print('');
+        return Navigation.to(Screen.serviceList);
+      } catch (e) {
+        delSpinner.failed();
+        print('  Error: $e');
+        print('');
+        return Navigation(Screen.serviceEdit, selectedServiceId: serviceId);
+      }
+
+    case 4:
     default:
       // Refresh — revisit this screen
       return Navigation(Screen.serviceEdit, selectedServiceId: serviceId);

@@ -10,7 +10,8 @@ const blossomUrl = 'https://blossom.staging.hostr.network';
 const tipsAddress = 'paco@walletofsatoshi.com';
 const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
 
-const bootstrapRelays = <String>[];
+const bootstrapRelays = <String>[
+];
 
 const bootstrapEscrowPubkeys = <String>[
   '84d4dd964730c6cd1b901b0bb60a60ca4fb085878efd577b7a3ad60872772c5e',
@@ -28,14 +29,14 @@ const evmConfig = EvmConfig(
       chainId: 42161,
       rpcUrl: 'https://arb1.arbitrum.io/rpc',
       nativeDenomination: 'ETH',
+      boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
-        bundlerUrl:
-            'https://api.pimlico.io/v2/42161/rpc?apikey=pim_G4g94ATqJrxcLBtjxFf67f',
+        bundlerUrl: 'https://api.pimlico.io/v2/42161/rpc?apikey=pim_G4g94ATqJrxcLBtjxFf67f',
         entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
         accountFactoryAddress: '0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985',
         paymasterAddress: 'pimlico',
       ),
-      escrowContractAddress: '0x02bB6c333085B01AD0FF690a2B0748DbD928Be71',
+      escrowContractAddress: '0xdb591e79BF14112Ff5CC606585221022b2fB64fa',
       tokens: {
         'tBTC': TokenConfig(
           address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40',
@@ -53,3 +54,4 @@ const evmConfig = EvmConfig(
     ),
   ],
 );
+

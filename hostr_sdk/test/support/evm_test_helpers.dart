@@ -196,9 +196,9 @@ void expectSwapFees(dynamic fees, {bool expectSwapFee = true}) {
     );
   }
   expect(
-    fees.escrowFee.value,
-    equals(BigInt.zero),
-    reason: 'Pure swap should have zero escrow fee',
+    fees.escrowFee,
+    isNull,
+    reason: 'Pure swap should have null escrow fee',
   );
   expect(
     fees.networkFees.value > BigInt.zero,
@@ -227,10 +227,11 @@ void expectEscrowFees(dynamic fees) {
     isTrue,
     reason: 'Escrow fund swap fee should be > 0, got ${fees.swapFee.value}',
   );
+  expect(fees.escrowFee, isNotNull, reason: 'Escrow fee should be present');
   expect(
-    fees.escrowFee.value > BigInt.zero,
+    fees.escrowFee!.value > BigInt.zero,
     isTrue,
-    reason: 'Escrow fee should be > 0, got ${fees.escrowFee.value}',
+    reason: 'Escrow fee should be > 0, got ${fees.escrowFee!.value}',
   );
 }
 
