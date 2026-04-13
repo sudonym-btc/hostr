@@ -145,6 +145,27 @@ SECRETS
 
 # RPC_URL is already set in the .env files for Arbitrum.
 # If an RSK_RPC_API_KEY secret is present, it is no longer used.
+
+# ── Render nginx OTLP proxy vhost with the API key ───────────────────
+# The template lives in docker/vhost.d/otlp-proxy.conf.tpl and uses
+# $${GOOGLE_TELEMETRY_API_KEY}. We write the rendered file as a
+# server-level vhost.d include for the app domain (both app.DOMAIN and
+# DOMAIN share one nginx-proxy server block).
+OTLP_TPL="/opt/hostr/docker/vhost.d/otlp-proxy.conf.tpl"
+if [[ -f "$${OTLP_TPL}" ]]; then
+  # Read DOMAIN from the env overlay
+  APP_DOMAIN="$(grep -m1 '^DOMAIN=' "$${ENV_FILE}" | cut -d= -f2-)"
+  APP_DOMAIN="$${APP_DOMAIN:-$(grep -m1 '^DOMAIN=' /opt/hostr/.env | cut -d= -f2-)}"
+
+  export GOOGLE_TELEMETRY_API_KEY
+  envsubst '$${GOOGLE_TELEMETRY_API_KEY}' \
+    < "$${OTLP_TPL}" \
+    > "/opt/hostr/docker/vhost.d/app.$${APP_DOMAIN}"
+  # Also write for the bare domain (same server block, both names checked)
+  cp "/opt/hostr/docker/vhost.d/app.$${APP_DOMAIN}" \
+     "/opt/hostr/docker/vhost.d/$${APP_DOMAIN}"
+  unset GOOGLE_TELEMETRY_API_KEY
+fi
 EOS
 chmod +x /usr/local/bin/hostr-fetch-secrets
 

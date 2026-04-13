@@ -42,21 +42,12 @@ ESCROW_PRIVATE_KEY="$(gcloud secrets versions access latest \
   --secret=ESCROW_PRIVATE_KEY \
   --project="$GCP_PROJECT")"
 
-# Optional: pull OTEL headers if you want telemetry locally
-if gcloud secrets versions access latest \
-    --secret=OTEL_EXPORTER_OTLP_HEADERS \
-    --project="$GCP_PROJECT" 2>/dev/null; then
-  OTEL_EXPORTER_OTLP_HEADERS="$(gcloud secrets versions access latest \
-    --secret=OTEL_EXPORTER_OTLP_HEADERS \
-    --project="$GCP_PROJECT")"
-fi
-
-# ── 3. Map env vars to what the daemon expects ──────────────────────
+# ── 3. Map env vars to what the daemon expects ──────────────────────────────────
 export NOSTR_RELAY="wss://relay.${DOMAIN}"
 export PRIVATE_KEY="$ESCROW_PRIVATE_KEY"
 export ENV="$ENV_NAME"
-export OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
-export OTEL_EXPORTER_OTLP_HEADERS="${OTEL_EXPORTER_OTLP_HEADERS:-}"
+# Point at the hosted nginx OTLP proxy (auth injected server-side)
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://app.${DOMAIN}/otlp"
 
 echo "──────────────────────────────────────"
 echo "  ENV:                      $ENV_NAME"

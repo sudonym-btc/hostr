@@ -21,7 +21,7 @@ locals {
   compose_runtime_secret_names = [
     "ESCROW_PRIVATE_KEY",
     "BLOSSOM_DASHBOARD_PASSWORD",
-    "OTEL_EXPORTER_OTLP_HEADERS",
+    "GOOGLE_TELEMETRY_API_KEY",
   ]
 
   # Stored in Secret Manager for bootstrap/admin workflows only.
@@ -51,6 +51,13 @@ resource "google_secret_manager_secret_version" "compose_runtime_seed" {
 
   secret      = google_secret_manager_secret.compose_runtime[each.key].id
   secret_data = var.compose_runtime_secret_values[each.key]
+}
+
+# Seed the telemetry API key from the Terraform-managed google_apikeys_key
+# so it's available to hostr-fetch-secrets without manual Secret Manager entry.
+resource "google_secret_manager_secret_version" "telemetry_api_key" {
+  secret      = google_secret_manager_secret.compose_runtime["GOOGLE_TELEMETRY_API_KEY"].id
+  secret_data = google_apikeys_key.telemetry.key_string
 }
 
 resource "google_secret_manager_secret" "aa_signer_private_key" {
@@ -96,6 +103,18 @@ resource "google_project_iam_member" "compose_vm_secret_access" {
 resource "google_project_iam_member" "compose_vm_log_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.compose_vm.email}"
+}
+
+resource "google_project_iam_member" "compose_vm_trace_agent" {
+  project = var.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = "serviceAccount:${google_service_account.compose_vm.email}"
+}
+
+resource "google_project_iam_member" "compose_vm_metric_writer" {
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${google_service_account.compose_vm.email}"
 }
 
