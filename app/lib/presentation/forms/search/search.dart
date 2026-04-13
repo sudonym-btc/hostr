@@ -17,10 +17,14 @@ class SearchForm extends StatefulWidget {
 }
 
 class _SearchFormState extends State<SearchForm> {
+  bool _showAdvanced = false;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    // If restoring state that already has advanced filters set, expand.
+    _showAdvanced = _hasAdvancedFilters;
   }
 
   @override
@@ -30,6 +34,14 @@ class _SearchFormState extends State<SearchForm> {
   }
 
   SearchFormController get _c => widget.controller;
+
+  bool get _hasAdvancedFilters =>
+      _c.beachfrontField.value ||
+      _c.kitchenField.value ||
+      _c.allowsPetsField.value ||
+      _c.bedroomsField.value != null ||
+      _c.bedsField.value != null ||
+      _c.bathroomsField.value != null;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +53,7 @@ class _SearchFormState extends State<SearchForm> {
           // ── Location ────────────────────────────────────────────
           FormLabel(label: 'Where are you going?'),
           Gap.vertical.md(),
-          AreaLocationInput(controller: widget.controller.locationController),
+          AreaLocationInput(controller: _c.locationField),
           Gap.vertical.lg(),
 
           // ── Date range ──────────────────────────────────────────
@@ -49,9 +61,7 @@ class _SearchFormState extends State<SearchForm> {
           Gap.vertical.md(),
           SizedBox(
             width: double.infinity,
-            child: DateRangeButtons(
-              controller: widget.controller.dateRangeController,
-            ),
+            child: DateRangeButtons(controller: _c.dateRangeField),
           ),
           Gap.vertical.lg(),
 
@@ -59,25 +69,64 @@ class _SearchFormState extends State<SearchForm> {
           FormLabel(label: 'Property type'),
           Gap.vertical.md(),
           _ListingTypeChips(
-            selected: _c.listingType,
-            onChanged: _c.updateListingType,
+            selected: _c.listingTypeField.value,
+            onChanged: _c.listingTypeField.setValue,
           ),
           Gap.vertical.lg(),
 
           // ── Guests ──────────────────────────────────────────────
           FormLabel(label: 'Guests'),
           Gap.vertical.md(),
-          _GuestCounter(value: _c.guests, onChanged: _c.updateGuests),
+          IntFieldSelector(
+            value: _c.guestsField.value,
+            onChanged: _c.guestsField.setValue,
+          ),
           Gap.vertical.lg(),
 
-          // ── Beachfront toggle ───────────────────────────────────
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Beachfront'),
-            subtitle: const Text('Only show beachfront properties'),
-            value: _c.beachfront,
-            onChanged: _c.updateBeachfront,
+          // ── Advanced section ────────────────────────────────────
+          _AdvancedHeader(
+            expanded: _showAdvanced,
+            onToggle: () => setState(() => _showAdvanced = !_showAdvanced),
           ),
+          if (_showAdvanced) ...[
+            Gap.vertical.md(),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Beachfront'),
+              value: _c.beachfrontField.value,
+              onChanged: _c.beachfrontField.setValue,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Kitchen'),
+              value: _c.kitchenField.value,
+              onChanged: _c.kitchenField.setValue,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Allows pets'),
+              value: _c.allowsPetsField.value,
+              onChanged: _c.allowsPetsField.setValue,
+            ),
+            Gap.vertical.md(),
+            IntFieldSelector(
+              label: 'Bedrooms',
+              value: _c.bedroomsField.value,
+              onChanged: _c.bedroomsField.setValue,
+            ),
+            Gap.vertical.md(),
+            IntFieldSelector(
+              label: 'Beds',
+              value: _c.bedsField.value,
+              onChanged: _c.bedsField.setValue,
+            ),
+            Gap.vertical.md(),
+            IntFieldSelector(
+              label: 'Bathrooms',
+              value: _c.bathroomsField.value,
+              onChanged: _c.bathroomsField.setValue,
+            ),
+          ],
         ],
       ),
     );
@@ -124,44 +173,34 @@ class _ListingTypeChips extends StatelessWidget {
   }
 }
 
-// ── Guest counter ───────────────────────────────────────────────────────────
+// ── Advanced section header ─────────────────────────────────────────────────
 
-class _GuestCounter extends StatelessWidget {
-  final int? value;
-  final ValueChanged<int?> onChanged;
+class _AdvancedHeader extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
 
-  const _GuestCounter({required this.value, required this.onChanged});
+  const _AdvancedHeader({required this.expanded, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        IconButton.outlined(
-          onPressed: value != null && value! > 1
-              ? () => onChanged(value! - 1)
-              : null,
-          icon: const Icon(Icons.remove),
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Text(
+              'Advanced',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const Spacer(),
+            Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 20),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            value?.toString() ?? 'Any',
-            style: theme.textTheme.titleMedium,
-          ),
-        ),
-        IconButton.outlined(
-          onPressed: () => onChanged((value ?? 0) + 1),
-          icon: const Icon(Icons.add),
-        ),
-        if (value != null) ...[
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: () => onChanged(null),
-            child: const Text('Any'),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

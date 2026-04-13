@@ -31,6 +31,23 @@ class SearchBoxWidget extends StatelessWidget {
 
     final color = AppSurface.stepped(context, 1);
 
+    // Count extra filters beyond location & date range.
+    // Promoted tag keys: T = type, c = guests, s = features.
+    // g = geohash (part of location) — excluded from the count.
+    final tags = filterState.filter?.tags ?? {};
+    final extraFilterCount = tags.keys.where((k) => k != 'g').length;
+
+    final whenText = dateRangeState.dateRange == null
+        ? AppLocalizations.of(context)!.when
+        : formatDateRangeShort(
+            dateRangeState.dateRange!,
+            Localizations.localeOf(context),
+          );
+
+    final subtitle = extraFilterCount > 0
+        ? '$whenText (+$extraFilterCount ${extraFilterCount == 1 ? 'filter' : 'filters'})'
+        : whenText;
+
     return Opacity(
       opacity: embedded ? 1 : 0.85,
       child: Material(
@@ -53,14 +70,7 @@ class SearchBoxWidget extends StatelessWidget {
                 context,
               ).textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.bold),
             ),
-            subtitle: Text(
-              dateRangeState.dateRange == null
-                  ? AppLocalizations.of(context)!.when
-                  : formatDateRangeShort(
-                      dateRangeState.dateRange!,
-                      Localizations.localeOf(context),
-                    ),
-            ),
+            subtitle: Text(subtitle),
             trailing: (hasActiveFilter || hasDateRange)
                 ? IconButton(
                     icon: const Icon(Icons.close),

@@ -391,7 +391,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noPermission => 'No permission';
 
   @override
-  String get allowBarter => 'Allow Barter';
+  String get negotiable => 'Negotiable';
 
   @override
   String get start => 'start';

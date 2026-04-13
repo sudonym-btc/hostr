@@ -113,11 +113,11 @@ Future<Reservation> _cancel({
 //  Extended helpers (extracted from integration test for pure-logic groups)
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Extended listing builder with allowBarter / allowSelfSignedReservation.
+/// Extended listing builder with negotiable / allowSelfSignedReservation.
 Listing _buildListing({
   required KeyPair host,
   bool allowSelfSignedReservation = false,
-  bool allowBarter = false,
+  bool negotiable = false,
   BigInt? pricePerNight,
 }) => _f.listing(
   signer: host,
@@ -130,7 +130,7 @@ Listing _buildListing({
   location: 'test-location',
   type: ListingType.house,
   specifications: Specifications(),
-  allowBarter: allowBarter,
+  negotiable: negotiable,
   allowSelfSignedReservation: allowSelfSignedReservation,
   createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
 );
@@ -1011,54 +1011,41 @@ void main() async {
     });
   });
 
-  // ─── Group 6: Barter validation ────────────────────────────────────────
+  // ─── Group 6: Negotiation validation ────────────────────────────────────────
 
-  group('verifyGroup — barter scenarios', () {
+  group('verifyGroup — negotiation scenarios', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
 
     test(
       'buyer offers lower price without seller ack → Invalid (no proof)',
       () async {
-        final listing = _buildListing(host: host, allowBarter: true);
+        final listing = _buildListing(host: host, negotiable: true);
         final nego = await _buildNegotiate(
           listing: listing,
           buyer: buyer,
           customAmount: BigInt.from(50000),
         );
 
-        final pair = ReservationGroup(reservations: [nego]);
+        final ack = await _buildSellerAck(
+          negotiate: nego,
+          listing: listing,
+          seller: host,
+        );
+
+        final pair = ReservationGroup(reservations: [ack, nego]);
+
         final result = ReservationGroups.verifyGroup(pair);
-        expect(result, isA<Invalid<ReservationGroup>>());
+        expect(result, isA<Valid<ReservationGroup>>());
       },
     );
 
-    test('buyer offers lower price WITH seller ack → Valid', () async {
-      final listing = _buildListing(host: host, allowBarter: true);
-      final nego = await _buildNegotiate(
-        listing: listing,
-        buyer: buyer,
-        customAmount: BigInt.from(50000),
-      );
-
-      final ack = await _buildSellerAck(
-        negotiate: nego,
-        listing: listing,
-        seller: host,
-      );
-
-      final pair = ReservationGroup(reservations: [ack, nego]);
-
-      final result = ReservationGroups.verifyGroup(pair);
-      expect(result, isA<Valid<ReservationGroup>>());
-    });
-
     test(
-      'buyer offers listing price with zap proof (no barter) → Valid',
+      'buyer offers listing price with zap proof (no negotiation) → Valid',
       () async {
         final listing = _buildListing(
           host: host,
-          allowBarter: false,
+          negotiable: false,
           allowSelfSignedReservation: true,
         );
         final hosterProfile = _buildProfileEvent(

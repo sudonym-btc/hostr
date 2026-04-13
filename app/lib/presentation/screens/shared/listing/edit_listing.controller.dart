@@ -30,7 +30,7 @@ class EditListingController extends UpsertFormController {
   final ListingPriceFieldController priceField = ListingPriceFieldController();
   final ListingSpecFieldController specField = ListingSpecFieldController();
   final BoolFieldController activeField = BoolFieldController(initial: true);
-  final BoolFieldController barterField = BoolFieldController();
+  final BoolFieldController negotiableField = BoolFieldController();
   final AmountFieldController securityDepositField = AmountFieldController();
   final AmountFieldController minPaymentField = AmountFieldController();
   final LocationController locationController = LocationController();
@@ -42,7 +42,7 @@ class EditListingController extends UpsertFormController {
     registerField(priceField);
     registerField(specField);
     registerField(activeField);
-    registerField(barterField);
+    registerField(negotiableField);
     registerField(securityDepositField);
     registerField(minPaymentField);
     registerField(locationController);
@@ -59,7 +59,7 @@ class EditListingController extends UpsertFormController {
     locationController.setState(data?.location ?? '');
     specField.setState(data?.specifications ?? Specifications());
     activeField.setState(data?.active ?? true);
-    barterField.setState(data?.allowBarter ?? false);
+    negotiableField.setState(data?.negotiable ?? false);
     securityDepositField.setState(data?.securityDeposit);
     minPaymentField.setState(data?.minPaymentAmount);
     priceField.setState(data?.prices ?? []);
@@ -99,7 +99,7 @@ class EditListingController extends UpsertFormController {
       description: description,
       price: priceField.buildUpdatedPrices(current.prices),
       active: activeField.value,
-      allowBarter: barterField.value,
+      negotiable: negotiableField.value,
       location: location,
       quantity: current.quantity,
       type: current.listingType,

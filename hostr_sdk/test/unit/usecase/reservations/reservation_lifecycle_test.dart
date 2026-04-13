@@ -5,7 +5,7 @@
 /// - Self-signed commit with escrow proof (allowSelfSignedReservation=true)
 /// - Seller-ack flow (allowSelfSignedReservation=false)
 /// - Buyer / seller cancel → ReservationGroupStatus accuracy
-/// - allowBarter × allowSelfSignedReservation matrix
+/// - negotiable × allowSelfSignedReservation matrix
 /// - Commit-terms validation and hash integrity
 /// - ReservationTransition validation across the lifecycle
 /// - Salt preservation for trade-specific pubkey recovery
@@ -28,7 +28,7 @@ final _f = EntityFactory();
 /// Build a signed [Listing] with configurable policy flags.
 Listing _listing({
   KeyPair? signer,
-  bool allowBarter = false,
+  bool negotiable = false,
   bool allowSelfSignedReservation = false,
   bool requiresEscrow = false,
   int pricePerNightSats = 100000,
@@ -44,7 +44,7 @@ Listing _listing({
     location: 'test-location',
     type: ListingType.house,
     specifications: Specifications(),
-    allowBarter: allowBarter,
+    negotiable: negotiable,
     allowSelfSignedReservation: allowSelfSignedReservation,
     requiresEscrow: requiresEscrow,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
@@ -514,18 +514,18 @@ void main() async {
     });
   });
 
-  // ── 6. allowBarter × allowSelfSignedReservation matrix ─────────────
+  // ── 6. negotiable × allowSelfSignedReservation matrix ─────────────
 
   group('Listing policy flag matrix', () {
-    for (final barter in [true, false]) {
+    for (final negotiable in [true, false]) {
       for (final selfSigned in [true, false]) {
-        test('allowBarter=$barter, allowSelfSignedReservation=$selfSigned '
+        test('negotiable=$negotiable, allowSelfSignedReservation=$selfSigned '
             'roundtrips', () {
           final listing = _listing(
-            allowBarter: barter,
+            negotiable: negotiable,
             allowSelfSignedReservation: selfSigned,
           );
-          expect(listing.allowBarter, barter);
+          expect(listing.negotiable, negotiable);
           expect(listing.allowSelfSignedReservation, selfSigned);
         });
       }
@@ -535,7 +535,7 @@ void main() async {
       'buyer self-signed commit accepted when allowSelfSigned=true',
       () async {
         final listing = _listing(
-          allowBarter: false,
+          negotiable: false,
           allowSelfSignedReservation: true,
         );
         final negotiate = await _negotiateReservation(
@@ -557,10 +557,10 @@ void main() async {
     );
 
     test(
-      'buyer commit without proof rejected regardless of allowBarter',
+      'buyer commit without proof rejected regardless of negotiable',
       () async {
         final listing = _listing(
-          allowBarter: true,
+          negotiable: true,
           allowSelfSignedReservation: false,
         );
         final negotiate = await _negotiateReservation(
@@ -1200,7 +1200,7 @@ void main() async {
     test('self-signed: negotiate → pay → commit → seller cancel', () async {
       final listing = _listing(
         allowSelfSignedReservation: true,
-        allowBarter: false,
+        negotiable: false,
       );
       const salt = 'e2e-self-signed-salt';
 
@@ -1277,7 +1277,7 @@ void main() async {
       () async {
         final listing = _listing(
           allowSelfSignedReservation: false,
-          allowBarter: true,
+          negotiable: true,
         );
         const salt = 'e2e-seller-ack-salt';
 
@@ -1294,7 +1294,7 @@ void main() async {
         );
         expect(negotiate.amount!.value, BigInt.from(80000));
 
-        // Step 2: Seller acks (agrees to barter price)
+        // Step 2: Seller acks (agrees to negotiated price)
         final sellerAck = await _sellerAckReservation(
           negotiate: negotiate,
           listing: listing,

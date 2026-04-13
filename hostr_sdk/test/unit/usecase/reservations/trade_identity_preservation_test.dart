@@ -132,7 +132,7 @@ Listing _listing() => _f.listing(
   location: 'test-location',
   type: ListingType.house,
   specifications: Specifications(),
-  allowBarter: true,
+  negotiable: true,
   allowSelfSignedReservation: true,
 );
 

@@ -130,7 +130,7 @@
   "workmanagerNotInitialized": "Workmanager not initialized",
   "workmanagerNotInitializedMessage": "Workmanager is not initialized, please initialize",
   "noPermission": "No permission",
-  "allowBarter": "Allow Barter",
+  "negotiable": "Negotiable",
   "start": "start",
   "end": "end",
   "addImage": "Add Image",

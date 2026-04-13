@@ -5,8 +5,8 @@ import 'package:ndk/ndk.dart';
 
 // ── Tag-read mixin ──────────────────────────────────────────────────────────
 // Defines all tag-promoted field getters ONCE. Mixed into both ListingTags
-// and Listing so callers can use either `listing.allowBarter` or
-// `listing.parsedTags.allowBarter`.
+// and Listing so callers can use either `listing.negotiable` or
+// `listing.parsedTags.negotiable`.
 
 mixin ListingTagRead {
   EventTags get tagSource;
@@ -16,7 +16,7 @@ mixin ListingTagRead {
   List<String> get images => tagSource.getTags('image');
 
   bool get active => tagSource.getTagBool('active', defaultValue: true);
-  bool get allowBarter => tagSource.getTagBool('allowBarter');
+  bool get negotiable => tagSource.getTagBool('negotiable');
   int get minStay => tagSource.getTagInt('minStay') ?? 1;
   String? get checkIn => tagSource.getTagValue('checkIn');
   String? get checkOut => tagSource.getTagValue('checkOut');
@@ -139,7 +139,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     required ListingType type,
     required Specifications specifications,
     bool active = true,
-    bool allowBarter = false,
+    bool negotiable = false,
     int minStay = 1,
     String checkIn = '15:0',
     String checkOut = '11:0',
@@ -162,7 +162,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addImages(images)
               ..add('t', 'accommodation')
               ..addBool('active', active)
-              ..addBool('allowBarter', allowBarter)
+              ..addBool('negotiable', negotiable)
               ..addInt('minStay', minStay)
               ..add('checkIn', checkIn)
               ..add('checkOut', checkOut)
@@ -194,7 +194,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   Listing rebuild({
     // Tag fields
     bool? active,
-    bool? allowBarter,
+    bool? negotiable,
     int? minStay,
     String? checkIn,
     String? checkOut,
@@ -226,7 +226,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       'image',
       't',
       'active',
-      'allowBarter',
+      'negotiable',
       'minStay',
       'checkIn',
       'checkOut',
@@ -257,7 +257,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addImages(images ?? this.images)
               ..add('t', 'accommodation')
               ..addBool('active', active ?? this.active)
-              ..addBool('allowBarter', allowBarter ?? this.allowBarter)
+              ..addBool('negotiable', negotiable ?? this.negotiable)
               ..addInt('minStay', minStay ?? this.minStay)
               ..add('checkIn', checkIn ?? this.checkIn ?? '15:0')
               ..add('checkOut', checkOut ?? this.checkOut ?? '11:0')

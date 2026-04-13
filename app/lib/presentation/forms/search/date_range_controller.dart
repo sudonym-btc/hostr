@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 
@@ -47,13 +48,15 @@ Future<DateTimeRange?> showResponsiveDateRangePicker({
 
 /// A reusable controller for a check-in / check-out date range field.
 ///
-/// Follows the same pattern as [LocationController] so it can be shared
-/// between the search filters form and the reservation widget.
-class DateRangeController extends ChangeNotifier {
+/// Extends [FormFieldController] so it can participate in aggregate
+/// dirty / valid / canSubmit tracking via [UpsertFormController].
+class DateRangeController extends FormFieldController {
   DateTimeRange? _dateRange;
+  DateTimeRange? _original;
 
   DateRangeController({DateTimeRange? initialDateRange})
-    : _dateRange = _normalizeDateRange(initialDateRange);
+    : _dateRange = _normalizeDateRange(initialDateRange),
+      _original = _normalizeDateRange(initialDateRange);
 
   /// The currently selected date range, or `null` if none.
   DateTimeRange? get dateRange => _dateRange;
@@ -61,9 +64,19 @@ class DateRangeController extends ChangeNotifier {
   /// Whether a date range has been selected.
   bool get hasValue => _dateRange != null;
 
+  @override
+  bool get isDirty => _dateRange != _original;
+
   /// Update the selected range (normalises start < end).
   void update(DateTimeRange? range) {
     _dateRange = _normalizeDateRange(range);
+    notifyListeners();
+  }
+
+  /// Set initial/reset state. After this call [isDirty] is `false`.
+  void setState(DateTimeRange? range) {
+    _dateRange = _normalizeDateRange(range);
+    _original = _dateRange;
     notifyListeners();
   }
 
