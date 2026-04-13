@@ -124,7 +124,6 @@ services:
       - PRIVATE_KEY=${ESCROW_PRIVATE_KEY}
       - ENV=${COMPOSE_PROFILES:-dev}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS:-}
     volumes:
       - ./docker/data/escrow:/data:ro
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro

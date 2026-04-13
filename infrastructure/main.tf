@@ -67,6 +67,58 @@ resource "google_project_service" "logging" {
   ]
 }
 
+resource "google_project_service" "cloudtrace" {
+  project = var.project_id
+  service = "cloudtrace.googleapis.com"
+
+  depends_on = [
+    google_project_iam_member.service_usage_admin,
+    google_project_iam_member.quota_administrator,
+  ]
+}
+
+resource "google_project_service" "monitoring" {
+  project = var.project_id
+  service = "monitoring.googleapis.com"
+
+  depends_on = [
+    google_project_iam_member.service_usage_admin,
+    google_project_iam_member.quota_administrator,
+  ]
+}
+
+# ─── Telemetry OTLP API Key ──────────────────────────────────────────────────
+# Restricted to trace + monitoring + logging APIs only.
+# The key value is stored in Secret Manager and injected into nginx at
+# deploy time by hostr-fetch-secrets (see compose_startup.sh.tftpl).
+
+resource "google_apikeys_key" "telemetry" {
+  provider = google-beta
+  project  = var.project_id
+
+  display_name = "Telemetry OTLP API Key"
+  name         = "telemetry-otlp-key-${var.env}"
+
+  restrictions {
+    api_targets {
+      service = "cloudtrace.googleapis.com"
+    }
+    api_targets {
+      service = "monitoring.googleapis.com"
+    }
+    api_targets {
+      service = "logging.googleapis.com"
+    }
+  }
+
+  depends_on = [
+    google_project_service.cloudtrace,
+    google_project_service.monitoring,
+    google_project_service.logging,
+    google_project_service.api_keys,
+  ]
+}
+
 # ─── Maps ────────────────────────────────────────────────────────────────────
 
 resource "google_project_service" "api_keys" {

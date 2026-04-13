@@ -79,7 +79,7 @@ variable "compose_source_ranges" {
 }
 
 variable "compose_runtime_secret_values" {
-  description = "Optional map to seed Secret Manager values (for example ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD, OTEL_EXPORTER_OTLP_HEADERS, AA_PAYMASTER_SIGNER_PRIVATE_KEY). The AA paymaster signer key is stored for bootstrap/admin use and is not fetched onto the runtime compose VM by default."
+  description = "Optional map to seed Secret Manager values (for example ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD, AA_PAYMASTER_SIGNER_PRIVATE_KEY). GOOGLE_TELEMETRY_API_KEY is auto-seeded by Terraform from the API key resource. The AA paymaster signer key is stored for bootstrap/admin use and is not fetched onto the runtime compose VM by default."
   type        = map(string)
   sensitive   = true
   default     = {}

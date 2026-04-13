@@ -48,6 +48,12 @@ Thumbs.db
 
 node_modules
 docker/data
+
+# Rendered at deploy time by hostr-fetch-secrets (contain API key)
+docker/vhost.d/app.*
+docker/vhost.d/staging.*
+docker/vhost.d/hostr.network
+
 /data
 redis
 
