@@ -113,13 +113,10 @@ class UserSubscriptions {
   /// All reviews authored by the current user. Static filter.
   late StreamWithStatus<Review> myReviews$;
 
-  /// All inbox messages for the current user.
-  late StreamWithStatus<Message> giftwraps$;
-
-  /// All inbox messages for the current user.
-  ///
-  /// This is sourced from [giftwraps$] for backward compatibility.
-  final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
+  final StreamWithStatus<Nip01Event> giftwraps$ =
+      StreamWithStatus<Nip01Event>();
+  late StreamWithStatus<Nip01Event>?
+  _giftwrapSource$; // NDK subscription, held for cleanup
 
   /// Combined payment events (zaps + escrow) across all trades.
   final StreamWithStatus<PaymentEvent> paymentEvents$ =
@@ -141,7 +138,6 @@ class UserSubscriptions {
   final List<StreamSubscription> _discoverySubscriptions = [];
   bool _started = false;
   bool get started => _started;
-  StreamWithStatus<Nip01Event>? _parsedGiftwraps$;
 
   StreamWithStatus<Filter>? _reservationFilterSource;
   StreamWithStatus<Filter>? _transitionFilterSource;
@@ -154,49 +150,21 @@ class UserSubscriptions {
     final myPubkey = _auth.getActiveKey().publicKey;
     _logger.d('UserSubscriptions starting for $myPubkey');
 
-    _parsedGiftwraps$ = _giftWraps.subscribeParsed(
+    _giftwrapSource$ = _giftWraps.subscribeParsed(
       Filter(pTags: [myPubkey]),
       name: 'user-giftwraps',
     );
-    giftwraps$ = StreamWithStatus<Message>(onClose: _parsedGiftwraps$!.close);
-    giftwraps$.addSubscription(
-      _parsedGiftwraps$!.replayStream.listen((event) {
-        if (event is Message) {
-          _logger.d(
-            'Inbox parsed message id=${event.id} thread=${Threads.threadIdentifierForMessage(event)} '
-            'child=${event.child.runtimeType}',
-          );
-          return;
-        }
 
-        _logger.w(
-          'Dropping parsed giftwrap event id=${event.id} kind=${event.kind} '
-          'type=${event.runtimeType} because inbox expects Message',
-        );
-      }, onError: giftwraps$.addError),
-    );
     giftwraps$.addSubscription(
-      _parsedGiftwraps$!.replayStream.whereType<Message>().listen(
+      _giftwrapSource$!.replayStream.listen(
         giftwraps$.add,
         onError: giftwraps$.addError,
       ),
     );
     giftwraps$.addSubscription(
-      _parsedGiftwraps$!.status.listen(
+      _giftwrapSource$!.status.listen(
         giftwraps$.addStatus,
         onError: giftwraps$.addError,
-      ),
-    );
-    messages$.addSubscription(
-      giftwraps$.replayStream.listen(
-        messages$.add,
-        onError: messages$.addError,
-      ),
-    );
-    messages$.addSubscription(
-      giftwraps$.status.listen(
-        messages$.addStatus,
-        onError: messages$.addError,
       ),
     );
 
@@ -222,10 +190,10 @@ class UserSubscriptions {
     );
 
     myTrips$ = allMyReservationGroupsCurrent$.where(
-      (item) => item.event.hostPubkey != myPubkey,
+      (item) => item.event.sellerPubkey != myPubkey,
     );
     myHostings$ = allMyReservationGroupsCurrent$.where(
-      (item) => item.event.hostPubkey == myPubkey,
+      (item) => item.event.sellerPubkey == myPubkey,
     );
 
     allTransitions$ = _transitions.expandableSubscribe(
@@ -265,8 +233,9 @@ class UserSubscriptions {
     }
     _discoverySubscriptions.clear();
 
-    await giftwraps$.close();
-    _parsedGiftwraps$ = null;
+    await giftwraps$.reset();
+    await _giftwrapSource$?.close();
+    _giftwrapSource$ = null;
     await myTrips$.close();
     await myHostings$.close();
     await allMyReservationGroupsCurrent$.close();
@@ -275,7 +244,6 @@ class UserSubscriptions {
     await allTransitions$.reset();
     await allHeartbeats$.reset();
     await myReviews$.reset();
-    await messages$.reset();
     await paymentEvents$.reset();
     await latestHeartbeats$.reset();
 
@@ -308,7 +276,6 @@ class UserSubscriptions {
     await allTransitions$.close();
     await allHeartbeats$.close();
     await myReviews$.close();
-    await messages$.close();
     await paymentEvents$.close();
     await latestHeartbeats$.close();
     await _isLive.close();
@@ -318,25 +285,27 @@ class UserSubscriptions {
     _logger.d("processing threads");
 
     _discoverySubscriptions.add(
-      messages$.replayStream.listen((message) {
-        _maybeExpandHeartbeatsForThread(message);
-        final child = message.child;
-        if (child is Reservation) {
-          _processReservationRequest(child);
-        } else if (child is EscrowServiceSelected) {
-          final tradeId = _tradeIdForMessage(message);
-          if (tradeId != null && tradeId.isNotEmpty) {
-            _maybeAddEscrowStream(child, tradeId);
+      giftwraps$.replayStream.listen((event) {
+        if (event is Message) {
+          _maybeExpandHeartbeatsForThread(event);
+          final child = event.child;
+          if (child is Reservation && child.isNegotiation) {
+            _processReservationRequest(child);
+          } else if (child is EscrowServiceSelected) {
+            final tradeId = _tradeIdForMessage(event);
+            if (tradeId != null && tradeId.isNotEmpty) {
+              _maybeAddEscrowStream(child, tradeId);
+            }
           }
         }
       }),
     );
 
     _discoverySubscriptions.add(
-      messages$.stream.listen(
-        (message) {
+      giftwraps$.replayStream.listen(
+        (event) {
           if (!_isLive.value) return;
-          if (message.pubKey == _auth.getActiveKey().publicKey) return;
+          if (event.pubKey == _auth.getActiveKey().publicKey) return;
           unawaited(_emitCurrentHeartbeat(reason: 'message-received'));
         },
         onError: (Object e, StackTrace st) {
@@ -350,7 +319,7 @@ class UserSubscriptions {
     );
 
     _discoverySubscriptions.add(
-      messages$.status.whereType<StreamStatusLive>().take(1).listen((_) {
+      giftwraps$.status.whereType<StreamStatusLive>().take(1).listen((_) {
         _logger.d('Threads live — marking filter sources live');
         _reservationFilterSource?.addStatus(StreamStatusLive());
         _transitionFilterSource?.addStatus(StreamStatusLive());
@@ -359,26 +328,26 @@ class UserSubscriptions {
     );
   });
 
-  void _maybeExpandHeartbeatsForThread(Message message) => _logger.spanSync(
-    '_maybeExpandHeartbeatsForThread',
-    () {
-      final myPubkey = _auth.getActiveKey().publicKey;
-      final threadKey = Threads.threadIdentifierForMessage(message);
-      bool changed = false;
+  void _maybeExpandHeartbeatsForThread(Message message) =>
+      _logger.spanSync('_maybeExpandHeartbeatsForThread', () {
+        final myPubkey = _auth.getActiveKey().publicKey;
+        final threadKey = Threads.threadIdentifierFor(message);
+        bool changed = false;
 
-      for (final pubkey in _counterpartyPubkeysForMessage(message, myPubkey)) {
-        final threadParticipantKey = '$threadKey:$pubkey';
-        if (!_knownThreadHeartbeatKeys.add(threadParticipantKey)) continue;
-        if (_knownHeartbeatPubkeys.add(pubkey)) {
-          changed = true;
+        final participants = <String>{message.pubKey, ...message.pTags}
+          ..removeWhere((p) => p.isEmpty || p == myPubkey);
+        for (final pubkey in participants) {
+          final threadParticipantKey = '$threadKey:$pubkey';
+          if (!_knownThreadHeartbeatKeys.add(threadParticipantKey)) continue;
+          if (_knownHeartbeatPubkeys.add(pubkey)) {
+            changed = true;
+          }
         }
-      }
 
-      if (changed) {
-        _emitHeartbeatFilter();
-      }
-    },
-  );
+        if (changed) {
+          _emitHeartbeatFilter();
+        }
+      });
 
   void _processReservationRequest(Reservation reservation) =>
       _logger.spanSync('_processReservationRequest', () {
@@ -443,27 +412,15 @@ class UserSubscriptions {
     latestHeartbeats$.replaceAll(latest);
   }
 
-  List<String> _counterpartyPubkeysForMessage(
-    Message message,
-    String myPubkey,
-  ) {
-    final participants = <String>{message.pubKey, ...message.pTags};
-    participants.removeWhere((pubkey) => pubkey.isEmpty || pubkey == myPubkey);
-    final counterparties = participants.toList()..sort();
-    return counterparties;
-  }
-
   String? _tradeIdForMessage(Message message) {
     final conversationTag = message.getFirstTag(kConversationTag);
     if (conversationTag != null && conversationTag.isNotEmpty) {
       return conversationTag;
     }
-
     final child = message.child;
     if (child is Reservation) {
       return child.getDtag();
     }
-
     return null;
   }
 
@@ -518,7 +475,7 @@ class UserSubscriptions {
 
   void _trackLiveness() => _logger.spanSync('_trackLiveness', () {
     final streams = <Stream<StreamStatus>>[
-      messages$.status,
+      giftwraps$.status,
       myReviews$.status,
       allMyReservations$.stream.status,
       allTransitions$.stream.status,

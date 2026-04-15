@@ -7,6 +7,7 @@ import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
@@ -117,18 +118,27 @@ class NegotiationWidget extends StatelessWidget {
   }
 
   Widget _statusChip(BuildContext context, {required String message}) {
-    return AppSurface(
-      steps: 1,
-      borderRadius: BorderRadius.circular(999),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Text(
+    return AppChip.neutral.xs(
+      label: Text(
         message,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
       ),
+      backgroundColor: AppSurface.stepped(context),
     );
+    // return AppSurface(
+    //   steps: 1,
+    //   borderRadius: BorderRadius.circular(999),
+    //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    //   child: Text(
+    //     message,
+    //     style: Theme.of(context).textTheme.bodySmall?.copyWith(
+    //       fontWeight: FontWeight.w600,
+    //       color: Theme.of(context).colorScheme.onSurface,
+    //     ),
+    //   ),
+    // );
   }
 
   // ─── Button helpers ────────────────────────────────────────────────
@@ -195,13 +205,13 @@ class NegotiationWidget extends StatelessWidget {
     }
     return FilledButton(
       key: const ValueKey('trade_action_pay'),
-      onPressed: tradeState.hostProfile == null
+      onPressed: tradeState.sellerProfile == null
           ? null
           : () => showAppModal(
               context,
               useRootNavigator: true,
               builder: (_) => EscrowFundWidget(
-                counterparty: tradeState.hostProfile!,
+                counterparty: tradeState.sellerProfile!,
                 negotiateReservation: (tradeState.stage as NegotiationStage)
                     .reservationRequests
                     .last,

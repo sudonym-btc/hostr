@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
 import '../../datasources/notification_log.dart';
@@ -13,7 +14,6 @@ import '../evm/operations/funds_monitor/funds_monitor_service.dart';
 import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
-import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../trades/trade.dart';
 import '../user_subscriptions/user_subscriptions.dart';
@@ -304,10 +304,11 @@ class BackgroundWorker {
   }
 
   void _bindMessagesProcessor() {
-    _mirrorStatus(_userSubscriptions.messages$, _messagesProcessor$);
+    final source = _userSubscriptions.giftwraps$;
+    _mirrorStatus(source, _messagesProcessor$);
     _messagesProcessor$.addSubscription(
-      _userSubscriptions.messages$.replayStream
-          .asyncMap(_signalFromMessage)
+      source.replayStream
+          .asyncMap(_signalFromEvent)
           .where((signal) => signal != null)
           .cast<_BackgroundSignal>()
           .listen(
@@ -442,20 +443,21 @@ class BackgroundWorker {
     _onchainOperationsRecoveryProcessor$.addStatus(StreamStatusLive());
   });
 
-  Future<_BackgroundSignal?> _signalFromMessage(Message message) async {
+  Future<_BackgroundSignal?> _signalFromEvent(Nip01Event raw) async {
+    if (raw is! Message) return null;
+    final message = raw;
     final myPubkey = _auth.getActiveKey().publicKey;
     if (message.pubKey == myPubkey) return null;
-    if (message.child is EscrowServiceSelected) return null;
     if (!_isAfterHeartbeatBoundary(message.createdAt)) return null;
 
     final senderName = await _resolveDisplayName(message.pubKey);
-    final threadId = Threads.threadIdentifierForMessage(message);
+    final label = message.child is Reservation
+        ? 'reservation proposal'
+        : 'message';
     return _BackgroundSignal(
       id: 'message:${message.id}',
-      body:
-          '$senderName sent you a ${message.child is Reservation ? 'reservation proposal' : 'message'}',
+      body: '$senderName sent you a $label',
       createdAt: message.createdAt,
-      payload: _threadPayload(threadId),
     );
   }
 

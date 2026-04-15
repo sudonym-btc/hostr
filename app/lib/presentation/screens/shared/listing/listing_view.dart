@@ -131,7 +131,7 @@ class _ListingViewContent extends StatelessWidget {
         hostKeyPair: activeKeyPair,
         onCancelBlockedReservation: (reservation) async {
           await getIt<Hostr>().reservations.cancel(
-            reservation,
+            ReservationGroup.fromReservation(reservation),
             getIt<Hostr>().auth.getActiveKey(),
           );
         },
@@ -250,10 +250,7 @@ class ListingViewBody extends StatelessWidget {
         Gap.vertical.sm(),
         reviewsSummaryWidget,
         Gap.vertical.sm(),
-        ListingBadgesWidget(
-          pubKey: listing.pubKey,
-          listingAnchor: listing.anchor,
-        ),
+        BadgesWidget(pubKey: listing.pubKey, listingAnchor: listing.anchor),
         Gap.vertical.sm(),
         SpecificationsWidget(specifications: listing.specifications),
         Gap.vertical.md(),

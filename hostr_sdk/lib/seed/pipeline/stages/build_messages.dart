@@ -245,7 +245,7 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
         signer: thread.guest.keyPair,
         listingAnchor: thread.listing.anchor!,
         threadAnchor: threadAnchor,
-        hostPubKey: thread.host.keyPair.publicKey,
+        sellerPubkey: thread.host.keyPair.publicKey,
         service: escrowProof.escrowService,
         sellerMethods: escrowProof.hostsEscrowMethods,
         dTag: 'seed-escrow-selected-${i + 1}',

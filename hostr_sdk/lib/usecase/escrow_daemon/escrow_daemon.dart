@@ -415,31 +415,14 @@ class EscrowDaemon {
   ) async {
     final keyPair = _hostr.auth.activeKeyPair!;
 
-    final reservation = Reservation.create(
-      pubKey: keyPair.publicKey,
-      dTag: group.tradeId,
-      listingAnchor: group.listingAnchor,
-      pTags: [
-        PTag.seller(group.hostPubkey),
-        PTag.buyer(buyer.pubKey),
-        PTag.escrow(keyPair.publicKey),
-      ],
-      start: buyer.start,
-      end: buyer.end,
-      stage: ReservationStage.commit,
-      quantity: buyer.quantity,
-      amount: buyer.amount,
-      recipient: buyer.recipient,
-    ).signAs(keyPair, Reservation.fromNostrEvent);
-
-    await _hostr.reservations.upsert(reservation);
+    final reservation = await _hostr.reservations.confirm(group, keyPair);
 
     // Update local group so we don't re-process.
     final groupId = ReservationGroup.groupIdFromEvent(reservation);
     _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
         .addReservation(reservation);
 
-    _logger.i('✓ Published escrow COMMIT for trade=${group.tradeId}');
+    _logger.i('✓ Published escrow CONFIRM for trade=${group.tradeId}');
   }
 
   Future<void> _publishEscrowCancellation(
@@ -448,24 +431,7 @@ class EscrowDaemon {
   ) async {
     final keyPair = _hostr.auth.activeKeyPair!;
 
-    final reservation = Reservation.create(
-      pubKey: keyPair.publicKey,
-      dTag: group.tradeId,
-      listingAnchor: group.listingAnchor,
-      pTags: [
-        PTag.seller(group.hostPubkey),
-        PTag.buyer(buyer.pubKey),
-        PTag.escrow(keyPair.publicKey),
-      ],
-      start: buyer.start,
-      end: buyer.end,
-      stage: ReservationStage.cancel,
-      quantity: buyer.quantity,
-      amount: buyer.amount,
-      recipient: buyer.recipient,
-    ).signAs(keyPair, Reservation.fromNostrEvent);
-
-    await _hostr.reservations.upsert(reservation);
+    final reservation = await _hostr.reservations.cancel(group, keyPair);
 
     // Update local group so we don't re-process.
     final groupId = ReservationGroup.groupIdFromEvent(reservation);

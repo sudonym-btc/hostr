@@ -66,7 +66,7 @@ class VerificationInput extends StatefulWidget {
       verify: (v, value) => v.verifyNip05Only(nip05: value, pubkey: pubkey),
       clearVerify: (v) => v.verifyNip05Only(nip05: '', pubkey: pubkey),
       statusRowBuilder: (v) =>
-          Nip05StatusRow(result: v.nip05Result, loading: v.nip05Loading),
+          Nip05Badges(result: v.nip05Result, loading: v.nip05Loading),
       isVerified: (v, value) =>
           !v.nip05Loading && (v.nip05Result?.valid ?? false),
     );
@@ -88,7 +88,7 @@ class VerificationInput extends StatefulWidget {
       verify: (v, value) => v.verifyLud16Only(lud16: value),
       clearVerify: (v) => v.verifyLud16Only(lud16: ''),
       statusRowBuilder: (v) =>
-          Lud16StatusRow(result: v.lud16Result, loading: v.lud16Loading),
+          Lud16Badges(result: v.lud16Result, loading: v.lud16Loading),
       isVerified: (v, value) =>
           !v.lud16Loading && (v.lud16Result?.reachable ?? false),
     );

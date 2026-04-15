@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
-  final ProfileMetadata? sender;
   final Message item;
   final bool isSentByMe;
 
@@ -14,7 +14,6 @@ class ThreadMessageWidget extends StatelessWidget {
 
   const ThreadMessageWidget({
     super.key,
-    required this.sender,
     required this.item,
     required this.isSentByMe,
     this.showSenderLabel = false,
@@ -23,8 +22,7 @@ class ThreadMessageWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final senderName =
-        sender?.metadata.name ?? sender?.metadata.displayName ?? '';
+
     return Align(
       alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
@@ -33,14 +31,20 @@ class ThreadMessageWidget extends StatelessWidget {
             : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (showSenderLabel && senderName.isNotEmpty)
+          if (showSenderLabel)
             Padding(
               padding: const EdgeInsets.only(bottom: 2, left: 4, right: 4),
-              child: Text(
-                senderName,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              child: ProfileProvider(
+                pubkey: item.pubKey,
+                builder: (context, profile) {
+                  if(profile.data == null) return SizedBox.shrink();
+                  return Text(
+                    profile.data!.metadata.getName(),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                },
               ),
             ),
           MessageContainer(

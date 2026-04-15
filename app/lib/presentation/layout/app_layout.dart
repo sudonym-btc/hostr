@@ -1,9 +1,11 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 const kAppCompactBreakpoint = 900.0;
 const kAppWideBreakpoint = 1100.0;
@@ -61,10 +63,14 @@ class AppNavigationDestination {
   final IconData icon;
   final PageRouteInfo route;
 
+  /// Optional reactive badge count shown on this nav item.
+  final Stream<int>? badgeStream;
+
   const AppNavigationDestination({
     required this.label,
     required this.icon,
     required this.route,
+    this.badgeStream,
   });
 }
 
@@ -99,10 +105,11 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
         icon: Icons.calendar_today,
         route: HostingsRoute(),
       ),
-      const AppNavigationDestination(
+      AppNavigationDestination(
         label: 'Inbox',
         icon: Icons.inbox,
-        route: InboxRoute(),
+        route: const InboxRoute(),
+        badgeStream: getIt<Hostr>().messaging.threads.unreadConversationCount$,
       ),
       const AppNavigationDestination(
         label: 'Profile',
@@ -123,10 +130,11 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
       icon: Icons.flight,
       route: TripsRoute(),
     ),
-    const AppNavigationDestination(
+    AppNavigationDestination(
       label: 'Inbox',
       icon: Icons.inbox,
-      route: InboxRoute(),
+      route: const InboxRoute(),
+      badgeStream: getIt<Hostr>().messaging.threads.unreadConversationCount$,
     ),
     const AppNavigationDestination(
       label: 'Profile',
@@ -706,7 +714,9 @@ class AppPaneLayout extends StatelessWidget {
       // bounded height — scroll widgets (ListView, etc.) and Center
       // both work without workarounds.
       // Multiple panes: stack in a SingleChildScrollView.
-      final singlePane = children.length == 1;
+      // NOTE: use stackedPanes.length, not children.length, because children
+      // may contain interleaved gap SizedBoxes.
+      final singlePane = stackedPanes.length == 1;
 
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

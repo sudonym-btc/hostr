@@ -70,9 +70,25 @@ class StatusStreamListWidget<T> extends StatefulWidget {
 }
 
 class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
+  // Tracks the stream instance the current StreamBuilder is subscribed to.
+  // When the parent passes a different StreamWithStatus (e.g. after
+  // logout → login, where userSubscriptions.start() replaces the late field
+  // with a new object), the key changes and Flutter tears down the old
+  // StreamBuilder and creates a fresh one subscribed to the new stream.
+  late StreamWithStatus<T> _trackedStream;
+
   @override
   void initState() {
     super.initState();
+    _trackedStream = widget.stream;
+  }
+
+  @override
+  void didUpdateWidget(covariant StatusStreamListWidget<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.stream, widget.stream)) {
+      setState(() => _trackedStream = widget.stream);
+    }
   }
 
   @override
@@ -83,15 +99,16 @@ class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: widget.stream.itemsStream,
+      key: ObjectKey(_trackedStream),
+      stream: _trackedStream.itemsStream,
       builder: (context, _) {
-        final items = List<T>.of(widget.stream.items);
+        final items = List<T>.of(_trackedStream.items);
         if (widget.sort != null) {
           items.sort(widget.sort);
         }
 
         // Only show centered loading if we have no results yet
-        if (widget.stream.status.value is! StreamStatusLive) {
+        if (_trackedStream.status.value is! StreamStatusLive) {
           return const Center(child: AppLoadingIndicator.large());
         }
 

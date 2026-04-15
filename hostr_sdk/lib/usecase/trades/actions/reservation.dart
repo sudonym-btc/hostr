@@ -47,19 +47,13 @@ class ReservationActions {
 
   Future<void> cancel() async {
     final keyPair = await trade.activeKeyPair();
-    final r =
-        trade.currentReservationGroups
-            .whereType<Valid<ReservationGroup>>()
-            .where((validation) => !validation.event.cancelled)
-            .expand((validation) => validation.event.reservations)
-            .toList()
-          ..sort((a, b) {
-            final aMatch = a.pubKey == keyPair.publicKey ? 0 : 1;
-            final bMatch = b.pubKey == keyPair.publicKey ? 0 : 1;
-            if (aMatch != bMatch) return aMatch.compareTo(bMatch);
-            return b.createdAt.compareTo(a.createdAt);
-          });
 
-    await reservations.cancel(r.first, keyPair);
+    await reservations.cancel(
+      trade.currentReservationGroups
+          .whereType<Valid<ReservationGroup>>()
+          .first
+          .event,
+      keyPair,
+    );
   }
 }

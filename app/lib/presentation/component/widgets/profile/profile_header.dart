@@ -109,22 +109,16 @@ class _ProfileHeaderWidgetState extends State<ProfileHeaderWidget> {
             ),
             if (metadata?.nip05 != null && metadata!.nip05!.isNotEmpty) ...[
               Gap.vertical.sm(),
-              Nip05Badge(
-                nip05: metadata.nip05,
+              Nip05Badges(
                 result: _verification.nip05Result,
                 loading: _verification.nip05Loading,
-                inline: true,
-                hideWhenEmpty: true,
               ),
             ],
             if (metadata?.lud16 != null && metadata!.lud16!.isNotEmpty) ...[
               Gap.vertical.xs(),
-              Lud16Badge(
-                lud16: metadata.lud16,
+              Lud16Badges(
                 result: _verification.lud16Result,
                 loading: _verification.lud16Loading,
-                inline: true,
-                hideWhenEmpty: true,
               ),
             ],
             if (about.isNotEmpty) Gap.vertical.xs(),

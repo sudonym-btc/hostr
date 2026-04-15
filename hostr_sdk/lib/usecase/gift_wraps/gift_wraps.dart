@@ -70,6 +70,7 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
         );
 
         final parsed = StreamWithStatus<Nip01Event>(onClose: raw.close);
+        final seen = <String>{};
         parsed.addSubscription(
           raw.replayStream
               .asyncMap(
@@ -77,6 +78,10 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
               )
               .where((event) => event != null)
               .cast<Nip01Event>()
+              // NIP-59: setSinceOnLiveFilter is disabled, so the relay may
+              // resend recent events when transitioning query → live.
+              // Deduplicate by inner-event ID before forwarding.
+              .where((event) => seen.add(event.id))
               .listen(parsed.add, onError: parsed.addError),
         );
         parsed.addSubscription(

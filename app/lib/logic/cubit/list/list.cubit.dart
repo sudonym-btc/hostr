@@ -210,15 +210,21 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   /// [item], or appends it if no match is found. This avoids a full
   /// reset+refetch and updates the UI immediately.
   void upsertItem(T item) {
+    print('upserting item $item into ListCubit<$T>');
     if (isClosed) return;
     final dTag = item.getDtag();
+    print('item dtag: $dTag');
     final resultsRaw = List<T>.from(state.resultsRaw);
 
     bool replaced = false;
     if (dTag != null) {
       for (var i = 0; i < resultsRaw.length; i++) {
+        print(
+          'checking existing item ${resultsRaw[i]} with dtag ${resultsRaw[i].getDtag()} and pubkey ${resultsRaw[i].pubKey}',
+        );
         if (resultsRaw[i].getDtag() == dTag &&
             resultsRaw[i].pubKey == item.pubKey) {
+          print('found match, replacing item at index $i');
           resultsRaw[i] = item;
           replaced = true;
           break;
@@ -229,7 +235,9 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     if (!replaced) {
       resultsRaw.add(item);
     }
-
+    print(
+      'emitting ${applySort(applyPostResultFilter(state.copyWith(resultsRaw: resultsRaw, results: resultsRaw), postResultFilterCubit?.state.filter), sortCubit?.state.comparator).results}',
+    );
     emit(
       applySort(
         applyPostResultFilter(

@@ -1285,7 +1285,7 @@ class EntityFactory {
     required KeyPair signer,
     required String listingAnchor,
     required String threadAnchor,
-    required String hostPubKey,
+    required String sellerPubkey,
     required EscrowService service,
     required EscrowMethod sellerMethods,
     String? dTag,
@@ -1296,7 +1296,7 @@ class EntityFactory {
       tags: EscrowServiceSelectedTags([
         [kListingRefTag, listingAnchor],
         [kThreadRefTag, threadAnchor],
-        ['p', hostPubKey],
+        ['p', sellerPubkey],
         ['d', dTag ?? _nextDTag('escrow-selected')],
       ]),
       createdAt: createdAt ?? _defaultCreatedAt(),

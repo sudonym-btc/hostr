@@ -9,6 +9,7 @@ import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart'
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 @RoutePage()
 class HostingsScreen extends StatefulWidget {
@@ -52,88 +53,7 @@ class HostingsScreenState extends State<HostingsScreen> {
           child: Text('Manage Listings'),
         ),
       ),
-      builder: (item) {
-        final pair = item.event;
-
-        return CustomPadding.horizontal.lg(
-          child: CustomPadding.vertical.md(
-            child: FutureBuilder<String?>(
-              future: getIt<Hostr>().trade(pair.tradeId).resolveGuestPubkey(),
-              builder: (context, snapshot) {
-                final guestPubkey = snapshot.data;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        switch (snapshot.connectionState) {
-                          ConnectionState.waiting => const Align(
-                            alignment: Alignment.centerLeft,
-                            child: AppLoadingIndicator.small(),
-                          ),
-                          _ when snapshot.hasError => const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Icon(Icons.error_outline, size: 18),
-                          ),
-                          _ when guestPubkey == null => const SizedBox.shrink(),
-                          _ => ProfileProvider(
-                            pubkey: guestPubkey,
-                            builder: (context, profileSnapshot) {
-                              final guestName =
-                                  profileSnapshot.data?.metadata.getName() ??
-                                  guestPubkey.substring(0, 8);
-                              return Text(
-                                guestName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              );
-                            },
-                          ),
-                        },
-
-                        Text(
-                          ' hosted at ',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ],
-                    ),
-                    Gap.vertical.md(),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TradeHeader(
-                        tradeId: pair.tradeId,
-                        showActions: false,
-                        showImages: true,
-                        compact: true,
-                        onTap: () {
-                          final anchor = getIt<Hostr>().messaging.threads
-                              .findPreferredConversationIdByTradeId(
-                                pair.tradeId,
-                              );
-                          if (anchor != null) {
-                            AutoRouter.of(
-                              context,
-                            ).push(ThreadRoute(anchor: anchor));
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
+      builder: (item) => _HostingListItem(group: item),
     );
 
     return AppPageGutter(
@@ -151,6 +71,108 @@ class HostingsScreenState extends State<HostingsScreen> {
             child: content,
           ),
         ],
+      ),
+    );
+  }
+}
+// ─── Per-item widget ─────────────────────────────────────────────────────────
+
+/// Stable StatefulWidget so that [_guestFuture] is only created once
+/// per item, not on every parent rebuild.
+class _HostingListItem extends StatefulWidget {
+  final Validation<ReservationGroup> group;
+
+  const _HostingListItem({required this.group});
+
+  @override
+  State<_HostingListItem> createState() => _HostingListItemState();
+}
+
+class _HostingListItemState extends State<_HostingListItem> {
+  late final Future<String?> _guestFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _guestFuture = getIt<Hostr>()
+        .trade(widget.group.event.tradeId)
+        .resolveGuestPubkey();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pair = widget.group.event;
+
+    return CustomPadding.horizontal.lg(
+      child: CustomPadding.vertical.md(
+        child: FutureBuilder<String?>(
+          future: _guestFuture,
+          builder: (context, snapshot) {
+            final guestPubkey = snapshot.data;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    switch (snapshot.connectionState) {
+                      ConnectionState.waiting => const Align(
+                        alignment: Alignment.centerLeft,
+                        child: AppLoadingIndicator.small(),
+                      ),
+                      _ when snapshot.hasError => const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Icon(Icons.error_outline, size: 18),
+                      ),
+                      _ when guestPubkey == null => const SizedBox.shrink(),
+                      _ => ProfileProvider(
+                        pubkey: guestPubkey,
+                        builder: (context, profileSnapshot) {
+                          final guestName =
+                              profileSnapshot.data?.metadata.getName() ??
+                              guestPubkey.substring(0, 8);
+                          return Text(
+                            guestName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          );
+                        },
+                      ),
+                    },
+                    Text(
+                      ' hosted at ',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                Gap.vertical.md(),
+                SizedBox(
+                  width: double.infinity,
+                  child: TradeHeader(
+                    tradeId: pair.tradeId,
+                    showActions: false,
+                    showImages: true,
+                    compact: true,
+                    onTap: () {
+                      final anchor = getIt<Hostr>().messaging.threads
+                          .findPreferredConversationIdByTradeId(pair.tradeId);
+                      if (anchor != null) {
+                        AutoRouter.of(
+                          context,
+                        ).push(ThreadRoute(anchor: anchor));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

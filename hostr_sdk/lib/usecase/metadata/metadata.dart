@@ -6,7 +6,6 @@ import 'package:ndk/ndk.dart' hide Requests;
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
-import '../requests/requests.dart';
 
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
@@ -14,6 +13,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
 
   final Auth _auth;
   final Ndk _ndk;
+
   MetadataUseCase({
     required Auth auth,
     required Ndk ndk,
@@ -24,55 +24,16 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
        super(kind: Metadata.kKind);
 
   Future<ProfileMetadata?> loadMetadata(
-    String pubkey,
-  ) => logger.span('loadMetadata', () async {
-    // Query bootstrap relays explicitly so the request reaches all configured
-    // relays (including well-known public ones like nos.lol / purplepag.es).
-    // Without this, the JIT engine only routes to the target pubkey's NIP-65
-    // write relays, which may not have the latest profile.
-    final relays = _ndk.config.bootstrapRelays;
-
-    // We can't use NDK metadata use case, since it does not return custom fields/tags
-    final metadatas = await requests
-        .query(
-          filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
-          timeout: metadataLoadTimeout,
-          name: 'Metadata-load-$pubkey',
-          relays: relays,
-        )
-        .toList();
-
-    if (metadatas.isNotEmpty) {
-      return ProfileMetadata.fromNostrEvent(
-        metadatas.reduce((a, b) => a.createdAt >= b.createdAt ? a : b),
-      );
+    String pubkey, {
+    bool forceRefresh = false,
+  }) => logger.span('loadMetadata', () async {
+    final metadata = await _ndk.metadata.loadMetadata(
+      pubkey,
+      forceRefresh: forceRefresh,
+    );
+    if (metadata != null) {
+      return ProfileMetadata.fromNostrEvent(metadata.toEvent());
     }
-
-    // TODO: Remove this cache fallback and implement a proper metadata-loading
-    // strategy that reliably resolves the latest profile from relays.
-    // Fallback to local NDK cache when the relay query returns no results.
-    // This helps in cases where metadata exists locally but is temporarily
-    // unavailable from the current relay query path.
-    final cachedMetadatas = await _ndk.requests
-        .query(
-          name: Requests.capQueryName('Metadata-load-cache-$pubkey'),
-          filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 20),
-          cacheRead: true,
-          cacheWrite: true,
-          timeout: metadataLoadTimeout,
-        )
-        .stream
-        .toList();
-
-    if (cachedMetadatas.isNotEmpty) {
-      logger.w(
-        'Metadata relay query returned empty for $pubkey, using cached metadata (${cachedMetadatas.length} hit(s))',
-      );
-      return ProfileMetadata.fromNostrEvent(
-        cachedMetadatas.reduce((a, b) => a.createdAt >= b.createdAt ? a : b),
-      );
-    }
-
     return null;
   });
 

@@ -9,7 +9,6 @@ import 'package:hostr/presentation/component/widgets/escrow/escrow_services_moda
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
     show AddWalletWidget;
-import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
@@ -65,11 +64,11 @@ class ProfileHeader extends StatelessWidget {
     final hasPicture = picture != null && picture.isNotEmpty;
     final about = profile.metadata.about ?? '';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+    return CustomPadding(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Gap.vertical.lg(),
           AppAvatar.custom(
             radius: 48,
             image: hasPicture ? picture : null,
@@ -77,22 +76,24 @@ class ProfileHeader extends StatelessWidget {
             label: name.isNotEmpty ? name : null,
             icon: Icons.person,
           ),
-          const SizedBox(height: 12),
-          if (about.isNotEmpty) ...[
-            Text(
-              about,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 4),
-          ],
-          ProfilePopupContent(
-            profile: profile,
-            pubkey: profile.pubKey,
-            showListingBadges: false,
-          ),
+          Gap.vertical.lg(),
+          // Gap.vertical.lg(),
+          // if (about.isNotEmpty) ...[
+          //   Text(
+          //     about,
+          //     textAlign: TextAlign.center,
+          //     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          //       color: Theme.of(context).colorScheme.onSurfaceVariant,
+          //     ),
+          //   ),
+          //   Gap.vertical.lg(),
+          // ],
+          // ProfilePopupContent(
+          //   profile: profile,
+          //   pubkey: profile.pubKey,
+          //   showListingBadges: false,
+          //   showNPub: false,
+          // ),
         ],
       ),
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:provider/provider.dart';
 
 enum _ThreadReplyStatus { initial, loading, success, error }
 
@@ -98,8 +98,8 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
     });
 
     try {
-      final threadCubit = context.read<ThreadCubit>();
-      await threadCubit.thread.replyTextAndWait(_replyController.text);
+      final thread = context.read<Thread>();
+      await thread.replyTextAndWait(_replyController.text);
 
       if (!mounted) return;
       setState(() {
@@ -118,21 +118,17 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
   @override
   Widget build(BuildContext context) {
     final isLoading = _status == _ThreadReplyStatus.loading;
-
-    String? label;
-    final counterpartyCubits = context.read<ThreadCubit>().counterpartyCubits;
-
-    if (counterpartyCubits.length > 1) {
-      label =
-          "Sending to ${counterpartyCubits.values.map((e) => e.state.data?.metadata.getName() ?? 'Loading').join(', ')}";
-    }
+    final thread = context.read<Thread>();
+    final counterpartyCount = thread.state.value.counterpartyPubkeys.length;
 
     return SafeArea(
       child: ThreadReplyView(
         controller: _replyController,
         isLoading: isLoading,
         errorText: _status == _ThreadReplyStatus.error ? _error : null,
-        label: label,
+        label: counterpartyCount > 1
+            ? 'Sending to $counterpartyCount participants'
+            : null,
         hintText: AppLocalizations.of(context)!.typeAMessage,
         onChanged: (_) {
           setState(() {});

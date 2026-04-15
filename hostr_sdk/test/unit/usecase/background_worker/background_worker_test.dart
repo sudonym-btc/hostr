@@ -17,6 +17,7 @@ import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
+import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -32,7 +33,9 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   int startCount = 0;
 
   @override
-  final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
+  StreamWithStatus<Nip01Event> get giftwraps$ => _giftwraps;
+  final StreamWithStatus<Nip01Event> _giftwraps =
+      StreamWithStatus<Nip01Event>();
 
   @override
   final StreamWithStatus<Validation<ReservationGroup>> myHostings$ =
@@ -120,7 +123,10 @@ class _FakeListings extends Fake implements Listings {
 
 class _FakeMetadataUseCase extends Fake implements MetadataUseCase {
   @override
-  Future<ProfileMetadata?> loadMetadata(String pubkey) async => null;
+  Future<ProfileMetadata?> loadMetadata(
+    String pubkey, {
+    bool forceRefresh = false,
+  }) async => null;
 }
 
 class _FakeOperationStateStore extends Fake implements OperationStateStore {
@@ -195,7 +201,7 @@ void main() {
   tearDown(() async {
     await worker.stop();
     await heartbeats.source.close();
-    await userSubscriptions.messages$.close();
+    await userSubscriptions._giftwraps.close();
     await userSubscriptions.myHostings$.close();
     await userSubscriptions.myTrips$.close();
   });
@@ -214,7 +220,7 @@ void main() {
       userSubscriptions.myHostings$.replaceAll([
         Valid(ReservationGroup(reservations: [guestReservation])),
       ]);
-      userSubscriptions.messages$.addStatus(StreamStatusLive());
+      userSubscriptions._giftwraps.addStatus(StreamStatusLive());
       userSubscriptions.myHostings$.addStatus(StreamStatusLive());
       userSubscriptions.myTrips$.addStatus(StreamStatusLive());
       heartbeats.source.addStatus(StreamStatusQueryComplete());
@@ -233,7 +239,7 @@ void main() {
   test(
     'watch starts long-running maintenance and stop tears it down',
     () async {
-      userSubscriptions.messages$.addStatus(StreamStatusLive());
+      userSubscriptions._giftwraps.addStatus(StreamStatusLive());
       userSubscriptions.myHostings$.addStatus(StreamStatusLive());
       userSubscriptions.myTrips$.addStatus(StreamStatusLive());
       heartbeats.source.addStatus(StreamStatusQueryComplete());

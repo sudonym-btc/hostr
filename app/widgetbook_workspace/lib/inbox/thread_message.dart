@@ -6,8 +6,6 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import '../seed_data.dart';
 
-final _hostProfile = ProfileMetadata.fromNostrEvent(MOCK_PROFILES.first);
-final _guestProfile = ProfileMetadata.fromNostrEvent(MOCK_PROFILES[1]);
 final _scenario = MOCK_THREAD_SCENARIOS.first;
 
 Message _buildTextMessage({required bool sentByHost}) {
@@ -29,11 +27,7 @@ Widget threadMessageSent(BuildContext context) {
   final message = _buildTextMessage(sentByHost: true);
   return Padding(
     padding: const EdgeInsets.all(16),
-    child: ThreadMessageWidget(
-      sender: _hostProfile,
-      item: message,
-      isSentByMe: true,
-    ),
+    child: ThreadMessageWidget(item: message, isSentByMe: true),
   );
 }
 
@@ -45,11 +39,7 @@ Widget threadMessageReceived(BuildContext context) {
   final message = _buildTextMessage(sentByHost: false);
   return Padding(
     padding: const EdgeInsets.all(16),
-    child: ThreadMessageWidget(
-      sender: _guestProfile,
-      item: message,
-      isSentByMe: false,
-    ),
+    child: ThreadMessageWidget(item: message, isSentByMe: false),
   );
 }
 
@@ -62,7 +52,6 @@ Widget reservationRequestSent(BuildContext context) {
   return Padding(
     padding: const EdgeInsets.all(16),
     child: ThreadReservationRequestWidget(
-      sender: _guestProfile,
       item: reservationMessage,
       isSentByMe: true,
     ),
@@ -78,7 +67,6 @@ Widget reservationRequestReceived(BuildContext context) {
   return Padding(
     padding: const EdgeInsets.all(16),
     child: ThreadReservationRequestWidget(
-      sender: _guestProfile,
       item: reservationMessage,
       isSentByMe: false,
     ),

@@ -4,16 +4,19 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
 import '../../injection.dart';
 import '../../util/main.dart';
+import '../auth/auth.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'thread.dart';
 
 @Singleton()
 class Threads {
   final CustomLogger _logger;
+  final Auth _auth;
   final UserSubscriptions _userSubscriptions;
 
   final StreamController<Thread> threadController =
@@ -23,33 +26,60 @@ class Threads {
   final BehaviorSubject<StreamStatus> _statusSubject =
       BehaviorSubject<StreamStatus>.seeded(StreamStatusIdle());
   Stream<StreamStatus> get status => _statusSubject.stream;
-  StreamWithStatus<Message> get messages$ => _userSubscriptions.messages$;
-  List<Message> _state = const [];
-  List<Message> get state => _state;
+
+  /// Raw parsedGiftwraps
+  final StreamWithStatus<Nip01Event> events$ = StreamWithStatus<Nip01Event>();
+
+  List<Nip01Event> _state = const [];
+  List<Nip01Event> get state => _state;
+
+  /// Tracks IDs of all events processed — prevents duplicate routing.
+  final Set<String> _processedIds = {};
 
   final Map<String, Thread> threads = {};
 
-  /// O(1) duplicate guard — tracks every message id we have already ingested.
-  final Set<String> _seenIds = {};
+  /// Number of conversations with unread messages;
+  final BehaviorSubject<int> _unreadCount = BehaviorSubject<int>.seeded(0);
+  Stream<int> get unreadConversationCount$ => _unreadCount.stream;
+
+  void _recomputeUnreadCount() {
+    final keyPair = _auth.activeKeyPair;
+    if (keyPair == null) return;
+    final myPubkey = keyPair.publicKey;
+    var count = 0;
+    for (final thread in threads.values) {
+      if (thread.state.value.events.isEmpty) continue;
+      if (thread.state.value.unreadCount(myPubkey) > 0) count++;
+    }
+    if (count != _unreadCount.value) {
+      _unreadCount.add(count);
+    }
+  }
 
   StreamSubscription? _statusSubscription;
-  StreamSubscription<Message>? _messageSubscription;
+  StreamSubscription? _eventSubscription;
+  final Map<String, StreamSubscription> _threadStateSubscriptions = {};
 
   Threads({
+    required Auth auth,
     required UserSubscriptions userSubscriptions,
     required CustomLogger logger,
-  }) : _userSubscriptions = userSubscriptions,
+  }) : _auth = auth,
+       _userSubscriptions = userSubscriptions,
        _logger = logger.scope('threads') {
-    _statusSubscription = messages$.status
+    _statusSubscription = _userSubscriptions.giftwraps$.status
         .distinct((a, b) => a.runtimeType == b.runtimeType)
         .listen((status) {
           _statusSubject.add(status);
+          events$.addStatus(status);
           _logger.d("Thread stats $status");
           if (status is StreamStatusQueryComplete) {
             _logger.d('Threads query complete');
           }
         });
-    _messageSubscription = messages$.replayStream.listen(processMessage);
+    _eventSubscription = _userSubscriptions.giftwraps$.replayStream.listen(
+      processEvent,
+    );
   }
 
   Future<void> stop() => _logger.span('stop', () async {
@@ -57,27 +87,24 @@ class Threads {
       await thread.close();
     }
     threads.clear();
-    _seenIds.clear();
   });
 
-  /// Fully resets messaging state, clearing both in-memory threads and
-  /// the persisted [HydratedCubit] storage. Call on sign-out so a
-  /// subsequent login starts with a clean slate.
   Future<void> reset() => _logger.span('reset', () async {
     await stop();
-    _seenIds.clear();
     _state = const [];
+    _processedIds.clear();
+    _unreadCount.add(0);
     _statusSubject.add(StreamStatusIdle());
+    await events$.reset();
   });
 
-  /// Waits for a message with the specified ID to be received.
-  /// Listens to the replay subject which captures all messages.
-  Future<Message> awaitMessageId(String expectedId) =>
-      _logger.span('awaitMessageId', () async {
-        _logger.d('Awaiting message with id $expectedId');
-        return messages$.replayStream.firstWhere(
-          (message) => message.id == expectedId,
-        );
+  /// Waits for an event with the specified ID to appear in the processed stream.
+  Future<Nip01Event> awaitEventId(String expectedId) =>
+      _logger.span('awaitEventId', () async {
+        _logger.d('Awaiting event with id $expectedId');
+        return events$.replayStream
+            .doOnData((item) => _logger.d('Received event ${item.id}'))
+            .firstWhere((event) => event.id == expectedId);
       });
 
   static List<String> normalizeParticipants(Iterable<String> participants) =>
@@ -94,11 +121,13 @@ class Threads {
     return crypto.sha256.convert(utf8.encode(preimage)).toString();
   }
 
-  static String threadIdentifierForMessage(Message message) =>
+  /// Compute thread anchor from any event carrying DM routing tags.
+  /// Works uniformly for [Message] and [SeenStatus].
+  static String threadIdentifierFor<T extends Nip01Event>(T event) =>
       conversationIdentifier([
-        message.pubKey,
-        ...message.pTags,
-      ], conversationTag: message.getFirstTag(kConversationTag) ?? '');
+        event.pubKey,
+        ...event.pTags,
+      ], conversationTag: event.getFirstTag(kConversationTag) ?? '');
 
   Thread ensureConversation({
     required Iterable<String> participants,
@@ -115,7 +144,12 @@ class Threads {
       conversationTag: tag,
       participants: participants,
     );
-    if (created) threadController.add(thread);
+    if (created) {
+      threadController.add(thread);
+      _threadStateSubscriptions[anchor] = thread.state.listen(
+        (_) => _recomputeUnreadCount(),
+      );
+    }
     return thread;
   }
 
@@ -139,45 +173,64 @@ class Threads {
     return anchor != null ? threads[anchor] : null;
   }
 
-  void processMessage(
-    Message message,
-  ) => _logger.spanSync('processMessage', () {
+  /// Route a raw event from [UserSubscriptions.parsedGiftwraps$] to the
+  /// appropriate thread.
+  ///
+  /// The incoming stream contains [Nip01Event] (with children intact).
+  /// Thread routing is computed uniformly from the envelope's
+  /// DM routing tags via [threadIdentifierFor].
+  ///
+  /// For [Message] events, children are unwrapped here:
+  /// - [Reservation] child → stored as [Reservation] in the thread
+  /// - [EscrowServiceSelected] child → stored as [EscrowServiceSelected]
+  /// - No child / plain text → stored as [Message]
+  ///
+  /// Unwrapped events are emitted on [_processedEvents$] for downstream
+  /// consumers (reservations, background worker, inbox list).
+  void processEvent(Nip01Event raw) => _logger.spanSync('processEvent', () {
+    // Ignore duplicate events — the relay or subscription layer may deliver
+    // the same event more than once (e.g. stored + live).
+    if (!_processedIds.add(raw.id)) return;
+
+    final routingParticipants = [raw.pubKey, ...raw.pTags];
     _logger.d(
-      'Received message ${message.id}, content: ${message.content.runtimeType}',
+      'Received ${raw.runtimeType} ${raw.id} routing ${routingParticipants}',
     );
-    if (!_seenIds.add(message.id)) return;
 
+    // Route to (or create) the thread using the envelope's DM routing tags.
     final thread = ensureConversation(
-      participants: [message.pubKey, ...message.pTags],
-      conversationTag: message.getFirstTag(kConversationTag) ?? '',
+      participants: routingParticipants,
+      conversationTag: raw.getFirstTag(kConversationTag) ?? '',
     );
-    thread.messages.add(message);
+    thread.addRoutingParticipants(routingParticipants);
 
-    // Insert in sorted order (by createdAt) instead of copying + re-sorting
-    // the entire list on every message.
-    final list = [...state];
+    thread.process(raw);
+
+    events$.add(raw);
+
+    // Maintain sorted global state list.
+    final list = [..._state];
     var lo = 0;
     var hi = list.length;
     while (lo < hi) {
       final mid = (lo + hi) >> 1;
-      if (list[mid].createdAt <= message.createdAt) {
+      if (list[mid].createdAt <= raw.createdAt) {
         lo = mid + 1;
       } else {
         hi = mid;
       }
     }
-    list.insert(lo, message);
+    list.insert(lo, raw);
     _state = List.unmodifiable(list);
   });
 
-  /// Get the most recent timestamp from all cached threads.
-  /// Returns null if no messages cached.
+  /// Get the most recent timestamp from all cached events.
   int? getMostRecentTimestamp() =>
       _logger.spanSync('getMostRecentTimestamp', () {
         int? maxTimestamp;
-        for (final message in state) {
-          if (maxTimestamp == null || message.createdAt > maxTimestamp) {
-            maxTimestamp = message.createdAt;
+        for (final event in state) {
+          if (maxTimestamp == null || event.createdAt > maxTimestamp) {
+            maxTimestamp = event.createdAt;
           }
         }
         return maxTimestamp;
@@ -186,15 +239,20 @@ class Threads {
   Future<void> close() => _logger.span('close', () async {
     await _statusSubscription?.cancel();
     _statusSubscription = null;
-    await _messageSubscription?.cancel();
-    _messageSubscription = null;
+    await _eventSubscription?.cancel();
+    _eventSubscription = null;
+    for (final sub in _threadStateSubscriptions.values) {
+      await sub.cancel();
+    }
+    _threadStateSubscriptions.clear();
     await stop();
     for (final thread in threads.values) {
       await thread.close();
     }
     threads.clear();
-    _seenIds.clear();
     await threadController.close();
     await _statusSubject.close();
+    await _unreadCount.close();
+    await events$.close();
   });
 }

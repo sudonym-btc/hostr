@@ -61,7 +61,7 @@ class PaymentTimelineItem extends StatelessWidget {
     if (event is ReservationTransition) {
       final transitionEvent = event as ReservationTransition;
       final pubKey = transitionEvent.pubKey;
-      final hostPubkey = reservationGroup?.hostPubkey;
+      final sellerPubkey = reservationGroup?.sellerPubkey;
       final escrowPubkey = reservationGroup?.escrowPubkey;
 
       String _roleLabel({
@@ -70,7 +70,7 @@ class PaymentTimelineItem extends StatelessWidget {
         required String guest,
       }) {
         if (pubKey == escrowPubkey) return escrow;
-        if (pubKey == hostPubkey) return host;
+        if (pubKey == sellerPubkey) return host;
         return guest;
       }
 
@@ -83,6 +83,7 @@ class PaymentTimelineItem extends StatelessWidget {
             guest: 'Guest cancelled reservation',
           );
           break;
+        case ReservationTransitionType.confirm:
         case ReservationTransitionType.commit:
           title = _roleLabel(
             host: 'Host confirmed reservation',

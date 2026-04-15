@@ -10,7 +10,6 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../profile/verification/verification_badges.dart';
 import 'actions/commit.dart';
 import 'payment_status_chip.dart';
 
@@ -33,7 +32,7 @@ class TradeHeaderView extends StatelessWidget {
   // ─── Convenience accessors ───────────────────────────────────────
 
   Listing get listing => tradeState.listing;
-  ProfileMetadata? get listingProfile => tradeState.hostProfile;
+  ProfileMetadata? get listingProfile => tradeState.sellerProfile;
   DateTime? get start => tradeState.start;
   DateTime? get end => tradeState.end;
   DenominatedAmount? get amount => tradeState.amount;
@@ -41,7 +40,7 @@ class TradeHeaderView extends StatelessWidget {
   String? get availabilityReason => tradeState.availabilityReason;
   List<TradeAction> get actions => tradeState.actions;
   String get tradeId => tradeState.tradeId;
-  String get hostPubKey => tradeState.hostPubKey;
+  String get sellerPubkey => tradeState.sellerPubkey;
   StreamWithStatus<PaymentEvent> get paymentEventsStream =>
       tradeState.streams.paymentEvents;
   StreamWithStatus<Validation<ReservationGroup>>? get reservationStream =>
@@ -66,13 +65,9 @@ class TradeHeaderView extends StatelessWidget {
   Widget? _buildAvailabilityBanner(BuildContext context) {
     return switch (availability) {
       TradeAvailability.available => null,
-      TradeAvailability.cancelled => StatusChip(
-        label: 'Cancelled',
-        color: Theme.of(context).colorScheme.error,
-      ),
-      TradeAvailability.unavailable => StatusChip(
-        label: 'Unavailable',
-        color: Theme.of(context).colorScheme.error,
+      TradeAvailability.cancelled => AppChip.error.xs(label: Text('Cancelled')),
+      TradeAvailability.unavailable => AppChip.error.xs(
+        label: Text('Unavailable'),
       ),
       TradeAvailability.invalidReservation => Padding(
         padding: const EdgeInsets.only(top: 4),
@@ -117,7 +112,7 @@ class TradeHeaderView extends StatelessWidget {
         }
       },
     );
-    final statusBanners = [?availabilityBanner, paymentStatusChip];
+    final statusBanners = [paymentStatusChip, ?availabilityBanner];
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -64,6 +64,8 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     List<String>? relays,
     Duration? timeout,
     String? name,
+    bool cacheRead = true,
+    bool cacheWrite = true,
   }) async* {
     for (final event in events) {
       if (matchEvent(event, filter)) {

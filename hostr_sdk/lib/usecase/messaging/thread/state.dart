@@ -3,117 +3,132 @@ import 'package:models/main.dart';
 class ThreadState {
   final String ourPubkey;
   final String anchor;
-  final List<Message> messages;
+
+  /// All non-receipt events in the thread: [Message] (plain text DMs),
+  /// [Reservation], [EscrowServiceSelected]. SeenReceipts are handled
+  /// separately via [seenUntil].
+  final List<Event> events;
+
   final List<String> counterpartyPubkeys;
-  final bool read;
   final bool received;
 
-  /// Cached sorted copy of [messages], recomputed only when messages change.
-  final List<Message> sortedMessages;
+  /// Maps pubkey → highest `seen_until` timestamp from their kind:16 receipts.
+  final Map<String, int> seenUntil;
 
-  /// Cached set of all pubkeys that appear in messages, recomputed only when messages change.
+  /// Cached sorted copy of [events], recomputed only when events change.
+  final List<Event> sortedEvents;
+
+  /// Cached set of all pubkeys that appear in events.
   final List<String> participantPubkeys;
 
+  // ── Readable events ──
+
+  /// Events that contribute to read/unread state: plain-text [Message]s and
+  /// reservation-proposal [Message]s (child is [Reservation]).
+  /// Excludes [EscrowServiceSelected] children and [SeenStatus] events.
+  List<Message> get readableEvents => events
+      .whereType<Message>()
+      .where((m) => m.child == null || m.child is Reservation)
+      .toList();
+
+  // ── Read status ──
+
+  /// Have ALL counterparties read our latest sent readable message?
+  bool get read {
+    if (counterpartyPubkeys.isEmpty) return false;
+    final ourLatest = readableEvents
+        .where((e) => e.pubKey == ourPubkey)
+        .map((e) => e.createdAt)
+        .fold(0, (int a, int b) => a > b ? a : b);
+    if (ourLatest == 0) return false;
+    return counterpartyPubkeys.every((cp) => (seenUntil[cp] ?? 0) >= ourLatest);
+  }
+
+  /// How many readable events are unread for a given pubkey.
+  int unreadCount(String pubkey) {
+    final seen = seenUntil[pubkey] ?? 0;
+    return readableEvents
+        .where((e) => e.pubKey != pubkey && e.createdAt > seen)
+        .length;
+  }
+
+  /// Whether there are counterparty readable events newer than our last seen receipt.
+  bool get shouldSendReceipt {
+    final ourSeen = seenUntil[ourPubkey] ?? 0;
+    final latestCounterparty = readableEvents
+        .where((e) => e.pubKey != ourPubkey)
+        .map((e) => e.createdAt)
+        .fold(0, (int a, int b) => a > b ? a : b);
+    return latestCounterparty > ourSeen;
+  }
+
+  // ── Typed accessors ──
+
   List<EscrowServiceSelected> get selectedEscrows {
-    final items = messages
-        .map((message) => message.child)
-        .whereType<EscrowServiceSelected>()
-        .toList();
-
-    /// Deduplicate by escrow service ID, keeping the most recent selection for each service
     Map<String, EscrowServiceSelected> mapper = {};
-    for (final item in items) {
-      final key = item.service.id;
-      mapper[key] = item;
+    for (final item in events.whereType<EscrowServiceSelected>()) {
+      mapper[item.service.id] = item;
     }
-
     return mapper.values.toList();
   }
 
-  /// Messages whose child is a negotiate-stage [Reservation] (replaces the
-  /// old `reservationRequestMessages` backed by `ReservationRequest`).
-  List<Message> get reservationRequestMessages => messages
-      .where(
-        (message) =>
-            message.child is Reservation &&
-            (message.child as Reservation).isNegotiation,
-      )
-      .toList();
-
-  /// Negotiate-stage [Reservation]s extracted from messages. This is the
-  /// unified replacement for the old `List<ReservationRequest>` getter.
-  List<Reservation> get reservationRequests => reservationRequestMessages
-      .map((element) => element.child)
+  List<Reservation> get reservationRequests => events
+      .whereType<Message>()
+      .map((e) => e.child)
       .whereType<Reservation>()
       .toList();
 
-  List<Message> get textMessages =>
-      messages.where((message) => message.child == null).toList();
+  List<Message> get textMessages => events
+      .whereType<Message>()
+      .where((element) => element.child == null)
+      .toList();
 
-  static List<String> _computeParticipantPubkeys(List<Message> messages) {
-    final pubkeys = <String>{};
-    for (final msg in messages) {
-      pubkeys.add(msg.pubKey);
-      pubkeys.addAll(msg.pTags);
-    }
-    return pubkeys.toList();
+  Reservation get lastReservationRequest => reservationRequests.last;
+
+  Event? get getLatestEvent {
+    if (sortedEvents.isEmpty) return null;
+    return sortedEvents.last;
   }
 
-  /// The most recent negotiate-stage [Reservation] in the thread.
-  Reservation get lastReservationRequest {
-    return reservationRequests.last;
-  }
-
-  Message getLastMessageOrReservationRequest() {
-    final latest = getLatestMessage;
+  Event getLastEventOrReservationRequest() {
+    final latest = getLatestEvent;
     if (latest != null) return latest;
 
-    final rr = reservationRequestMessages;
-    if (rr.isNotEmpty) {
-      return rr.last;
-    }
+    final rr = reservationRequests;
+    if (rr.isNotEmpty) return rr.last;
 
-    throw Exception('No messages or reservation requests found in thread');
-  }
-
-  static List<Message> _computeSortedMessages(List<Message> messages) {
-    final msgs = [...messages];
-    msgs.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return msgs;
-  }
-
-  Message? get getLatestMessage {
-    final messagesList = [...reservationRequestMessages, ...textMessages]
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    if (messagesList.isEmpty) return null;
-    return messagesList.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
+    throw Exception('No events or reservation requests found in thread');
   }
 
   DateTime get getLastDateTime {
-    final latest = getLatestMessage;
-    return DateTime.fromMillisecondsSinceEpoch(
-      latest!.createdAt * 1000,
-      isUtc: true,
-    );
+    final readable = readableEvents;
+    final ts = readable.isNotEmpty
+        ? readable.map((e) => e.createdAt).reduce((a, b) => a > b ? a : b)
+        : getLatestEvent?.createdAt ?? 0;
+    return DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
   }
 
   bool get isLastMessageOurs {
-    final latest = getLatestMessage;
+    final latest = getLatestEvent;
     return latest?.pubKey == ourPubkey;
+  }
+
+  static List<Event> _computeSortedEvents(List<Event> events) {
+    final evts = [...events];
+    evts.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return evts;
   }
 
   ThreadState({
     required this.ourPubkey,
     required this.anchor,
-    required this.messages,
+    required this.events,
     required this.counterpartyPubkeys,
-    this.read = false,
     this.received = false,
-    List<Message>? sortedMessages,
-    List<String>? participantPubkeys,
-  }) : sortedMessages = sortedMessages ?? _computeSortedMessages(messages),
-       participantPubkeys =
-           participantPubkeys ?? _computeParticipantPubkeys(messages);
+    this.seenUntil = const {},
+    List<Event>? sortedEvents,
+    required this.participantPubkeys,
+  }) : sortedEvents = sortedEvents ?? _computeSortedEvents(events);
 
   factory ThreadState.initial({
     required String ourPubkey,
@@ -122,39 +137,33 @@ class ThreadState {
     return ThreadState(
       ourPubkey: ourPubkey,
       anchor: anchor,
-      messages: const [],
+      events: const [],
       counterpartyPubkeys: [],
-      read: false,
       received: false,
-      sortedMessages: const [],
+      seenUntil: const {},
+      sortedEvents: const [],
       participantPubkeys: const [],
     );
   }
 
-  Message? get latestMessageOrReservationRequest {
-    final messagesList = [...reservationRequestMessages, ...textMessages]
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    if (messagesList.isEmpty) return null;
-    return messagesList.reduce((a, b) => a.createdAt > b.createdAt ? a : b);
-  }
-
   ThreadState copyWith({
-    List<Message>? messages,
+    List<Event>? events,
+    List<String>? participantPubkeys,
     List<String>? counterpartyPubkeys,
-    bool? read,
     bool? received,
+    Map<String, int>? seenUntil,
   }) {
-    final newMessages = messages ?? this.messages;
-    final messagesChanged = !identical(newMessages, this.messages);
+    final newEvents = events ?? this.events;
+    final eventsChanged = !identical(newEvents, this.events);
     return ThreadState(
       ourPubkey: ourPubkey,
       anchor: anchor,
-      messages: newMessages,
+      events: newEvents,
       counterpartyPubkeys: counterpartyPubkeys ?? this.counterpartyPubkeys,
-      read: read ?? this.read,
       received: received ?? this.received,
-      sortedMessages: messagesChanged ? null : sortedMessages,
-      participantPubkeys: messagesChanged ? null : participantPubkeys,
+      seenUntil: seenUntil ?? this.seenUntil,
+      sortedEvents: eventsChanged ? null : sortedEvents,
+      participantPubkeys: participantPubkeys ?? this.participantPubkeys,
     );
   }
 }

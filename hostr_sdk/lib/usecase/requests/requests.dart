@@ -25,6 +25,8 @@ abstract class RequestsModel {
     Duration? timeout,
     List<String>? relays,
     String? name,
+    bool cacheRead = true,
+    bool cacheWrite = true,
   });
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
@@ -155,14 +157,16 @@ class Requests extends RequestsModel {
     required Filter filter,
     Duration? timeout,
     List<String>? relays,
+    bool cacheRead = true,
+    bool cacheWrite = true,
   }) {
     return _connectedStream(
       open: () => ndk.requests
           .query(
             name: capQueryName(name),
             filter: cleanTags(filter),
-            cacheRead: false,
-            cacheWrite: false,
+            cacheRead: cacheRead,
+            cacheWrite: cacheWrite,
             timeout: timeout,
             explicitRelays: relays,
           )
@@ -271,6 +275,8 @@ class Requests extends RequestsModel {
     List<String>? relays,
     Duration? timeout,
     String? name,
+    bool cacheRead = true,
+    bool cacheWrite = true,
   }) => _logger.spanSync('query', () {
     final key = _filterKey(filter);
 
@@ -287,6 +293,8 @@ class Requests extends RequestsModel {
               filter: filter,
               timeout: timeout,
               relays: relays,
+              cacheRead: cacheRead,
+              cacheWrite: cacheWrite,
             )
             .doOnListen(() {
               final now = DateTime.now().toIso8601String();

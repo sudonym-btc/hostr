@@ -13,12 +13,14 @@ import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
+import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   @override
-  final StreamWithStatus<Message> messages$ = StreamWithStatus<Message>();
+  final StreamWithStatus<Nip01Event> giftwraps$ =
+      StreamWithStatus<Nip01Event>();
 
   @override
   final StreamWithStatus<ReceivedHeartbeat> latestHeartbeats$ =
@@ -27,14 +29,14 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   @override
   bool get started => true;
 
-  void emit(Message event) => messages$.add(event);
+  void emit(Message event) => giftwraps$.add(event);
 
-  void emitStatus(StreamStatus status) => messages$.addStatus(status);
+  void emitStatus(StreamStatus status) => giftwraps$.addStatus(status);
 
   void emitHeartbeat(ReceivedHeartbeat event) => latestHeartbeats$.add(event);
 
   Future<void> close() async {
-    await messages$.close();
+    await giftwraps$.close();
     await latestHeartbeats$.close();
   }
 }
@@ -128,6 +130,7 @@ void main() {
     });
 
     threads = Threads(
+      auth: auth,
       userSubscriptions: userSubscriptions,
       logger: CustomLogger(),
     );
@@ -161,11 +164,17 @@ void main() {
 
       expect(threads.threads.length, 1);
       expect(threads.threads.containsKey(conversationId), isTrue);
-      expect(threads.threads[conversationId]!.state.value.messages.length, 1);
+      expect(
+        threads.threads[conversationId]!.state.value.events
+            .whereType<Message>()
+            .length,
+        1,
+      );
 
       userSubscriptions.emit(
         _textMessage(
           id: 'm-2',
+
           sender: MockKeys.hoster.publicKey,
           recipients: [MockKeys.guest.publicKey],
           conversationTag: 'trade-1',
@@ -175,11 +184,17 @@ void main() {
       await _pump();
 
       expect(threads.threads.length, 1);
-      expect(threads.threads[conversationId]!.state.value.messages.length, 2);
+      expect(
+        threads.threads[conversationId]!.state.value.events
+            .whereType<Message>()
+            .length,
+        2,
+      );
 
       userSubscriptions.emit(
         _textMessage(
           id: 'm-3',
+
           sender: MockKeys.guest.publicKey,
           recipients: [MockKeys.hoster.publicKey],
           conversationTag: 'trade-1',
@@ -189,7 +204,12 @@ void main() {
       await _pump();
 
       expect(threads.threads.length, 1);
-      expect(threads.threads[conversationId]!.state.value.messages.length, 3);
+      expect(
+        threads.threads[conversationId]!.state.value.events
+            .whereType<Message>()
+            .length,
+        3,
+      );
       expect(createdAnchors, [conversationId]);
 
       await sub.cancel();
@@ -224,11 +244,15 @@ void main() {
     expect(threads.threads.containsKey(firstConversationId), isTrue);
     expect(threads.threads.containsKey(secondConversationId), isTrue);
     expect(
-      threads.threads[firstConversationId]!.state.value.messages.length,
+      threads.threads[firstConversationId]!.state.value.events
+          .whereType<Message>()
+          .length,
       1,
     );
     expect(
-      threads.threads[secondConversationId]!.state.value.messages.length,
+      threads.threads[secondConversationId]!.state.value.events
+          .whereType<Message>()
+          .length,
       1,
     );
   });
@@ -280,7 +304,12 @@ void main() {
 
     expect(threads.state.length, 1);
     expect(threads.threads.length, 1);
-    expect(threads.threads[conversationId]!.state.value.messages.length, 1);
+    expect(
+      threads.threads[conversationId]!.state.value.events
+          .whereType<Message>()
+          .length,
+      1,
+    );
   });
 
   test(
@@ -294,7 +323,7 @@ void main() {
         userSubscriptions: userSubscriptions,
       );
 
-      thread.messages.add(
+      thread.process(
         _textMessage(
           id: 'existing',
           sender: MockKeys.hoster.publicKey,

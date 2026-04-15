@@ -286,13 +286,7 @@ class _FakeNip01Event_37 extends _i1.SmartFake implements _i6.Nip01Event {
     : super(parent, parentInvocation);
 }
 
-class _FakeMessage_38<T extends _i9.Event<_i9.EventTags>> extends _i1.SmartFake
-    implements _i9.Message<T> {
-  _FakeMessage_38(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
-}
-
-class _FakePayOperation_39<
+class _FakePayOperation_38<
   T extends _i22.PayParameters,
   RD extends _i22.ResolvedDetails,
   CD extends _i22.CallbackDetails,
@@ -300,17 +294,17 @@ class _FakePayOperation_39<
 >
     extends _i1.SmartFake
     implements _i23.PayOperation<T, RD, CD, CmpD> {
-  _FakePayOperation_39(Object parent, Invocation parentInvocation)
+  _FakePayOperation_38(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeEvmChain_40 extends _i1.SmartFake implements _i24.EvmChain {
-  _FakeEvmChain_40(Object parent, Invocation parentInvocation)
+class _FakeEvmChain_39 extends _i1.SmartFake implements _i24.EvmChain {
+  _FakeEvmChain_39(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeRelayStorage_41 extends _i1.SmartFake implements _i25.RelayStorage {
-  _FakeRelayStorage_41(Object parent, Invocation parentInvocation)
+class _FakeRelayStorage_40 extends _i1.SmartFake implements _i25.RelayStorage {
+  _FakeRelayStorage_40(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -516,6 +510,8 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
     List<String>? relays,
     Duration? timeout,
     String? name,
+    bool? cacheRead = true,
+    bool? cacheWrite = true,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#query, [], {
@@ -523,6 +519,8 @@ class MockRequests extends _i1.Mock implements _i8.Requests {
               #relays: relays,
               #timeout: timeout,
               #name: name,
+              #cacheRead: cacheRead,
+              #cacheWrite: cacheWrite,
             }),
             returnValue: _i26.Stream<T>.empty(),
           )
@@ -624,9 +622,16 @@ class MockMetadataUseCase extends _i1.Mock implements _i28.MetadataUseCase {
           as _i26.Stream<_i9.ProfileMetadata>);
 
   @override
-  _i26.Future<_i9.ProfileMetadata?> loadMetadata(String? pubkey) =>
+  _i26.Future<_i9.ProfileMetadata?> loadMetadata(
+    String? pubkey, {
+    bool? forceRefresh = false,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#loadMetadata, [pubkey]),
+            Invocation.method(
+              #loadMetadata,
+              [pubkey],
+              {#forceRefresh: forceRefresh},
+            ),
             returnValue: _i26.Future<_i9.ProfileMetadata?>.value(),
           )
           as _i26.Future<_i9.ProfileMetadata?>);
@@ -1472,15 +1477,15 @@ class MockReservations extends _i1.Mock implements _i16.Reservations {
 
   @override
   _i26.Future<_i9.Reservation> cancel(
-    _i9.Reservation? reservation,
+    _i9.ReservationGroup? reservationGroup,
     _i5.KeyPair? keyPair,
   ) =>
       (super.noSuchMethod(
-            Invocation.method(#cancel, [reservation, keyPair]),
+            Invocation.method(#cancel, [reservationGroup, keyPair]),
             returnValue: _i26.Future<_i9.Reservation>.value(
               _FakeReservation_25(
                 this,
-                Invocation.method(#cancel, [reservation, keyPair]),
+                Invocation.method(#cancel, [reservationGroup, keyPair]),
               ),
             ),
           )
@@ -2627,7 +2632,7 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
           as _i26.Future<_i6.Nip01Event>);
 
   @override
-  _i26.Future<_i9.Message<_i9.Event<_i9.EventTags>>> broadcastTextAndAwait({
+  _i26.Future<_i6.Nip01Event> broadcastTextAndAwait({
     required String? content,
     required List<List<String>>? tags,
     required List<String>? recipientPubkeys,
@@ -2638,19 +2643,18 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
               #tags: tags,
               #recipientPubkeys: recipientPubkeys,
             }),
-            returnValue:
-                _i26.Future<_i9.Message<_i9.Event<_i9.EventTags>>>.value(
-                  _FakeMessage_38<_i9.Event<_i9.EventTags>>(
-                    this,
-                    Invocation.method(#broadcastTextAndAwait, [], {
-                      #content: content,
-                      #tags: tags,
-                      #recipientPubkeys: recipientPubkeys,
-                    }),
-                  ),
-                ),
+            returnValue: _i26.Future<_i6.Nip01Event>.value(
+              _FakeNip01Event_37(
+                this,
+                Invocation.method(#broadcastTextAndAwait, [], {
+                  #content: content,
+                  #tags: tags,
+                  #recipientPubkeys: recipientPubkeys,
+                }),
+              ),
+            ),
           )
-          as _i26.Future<_i9.Message<_i9.Event<_i9.EventTags>>>);
+          as _i26.Future<_i6.Nip01Event>);
 
   @override
   _i26.Future<List<_i26.Future<List<_i27.RelayBroadcastResponse>>>>
@@ -2673,7 +2677,7 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
           as _i26.Future<List<_i26.Future<List<_i27.RelayBroadcastResponse>>>>);
 
   @override
-  _i26.Future<_i9.Message<_i9.Event<_i9.EventTags>>> broadcastEventAndWait({
+  _i26.Future<_i6.Nip01Event> broadcastEventAndWait({
     required _i6.Nip01Event? event,
     required List<List<String>>? tags,
     required List<String>? recipientPubkeys,
@@ -2684,19 +2688,18 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
               #tags: tags,
               #recipientPubkeys: recipientPubkeys,
             }),
-            returnValue:
-                _i26.Future<_i9.Message<_i9.Event<_i9.EventTags>>>.value(
-                  _FakeMessage_38<_i9.Event<_i9.EventTags>>(
-                    this,
-                    Invocation.method(#broadcastEventAndWait, [], {
-                      #event: event,
-                      #tags: tags,
-                      #recipientPubkeys: recipientPubkeys,
-                    }),
-                  ),
-                ),
+            returnValue: _i26.Future<_i6.Nip01Event>.value(
+              _FakeNip01Event_37(
+                this,
+                Invocation.method(#broadcastEventAndWait, [], {
+                  #event: event,
+                  #tags: tags,
+                  #recipientPubkeys: recipientPubkeys,
+                }),
+              ),
+            ),
           )
-          as _i26.Future<_i9.Message<_i9.Event<_i9.EventTags>>>);
+          as _i26.Future<_i6.Nip01Event>);
 
   @override
   _i26.Future<List<_i26.Future<List<_i27.RelayBroadcastResponse>>>>
@@ -2717,6 +2720,23 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
                 >.value(<_i26.Future<List<_i27.RelayBroadcastResponse>>>[]),
           )
           as _i26.Future<List<_i26.Future<List<_i27.RelayBroadcastResponse>>>>);
+
+  @override
+  _i26.Future<void> broadcastSeenReceipt({
+    required int? seenUntil,
+    required List<List<String>>? tags,
+    required List<String>? recipientPubkeys,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#broadcastSeenReceipt, [], {
+              #seenUntil: seenUntil,
+              #tags: tags,
+              #recipientPubkeys: recipientPubkeys,
+            }),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
 }
 
 /// A class which mocks [ReservationRequests].
@@ -2987,7 +3007,7 @@ class MockPayments extends _i1.Mock implements _i40.Payments {
       (super.noSuchMethod(
             Invocation.method(#pay, [params]),
             returnValue:
-                _FakePayOperation_39<
+                _FakePayOperation_38<
                   _i22.PayParameters,
                   _i22.ResolvedDetails,
                   _i22.CallbackDetails,
@@ -3045,7 +3065,7 @@ class MockEvm extends _i1.Mock implements _i41.Evm {
   _i24.EvmChain getChainForEscrowService(_i9.EscrowService? service) =>
       (super.noSuchMethod(
             Invocation.method(#getChainForEscrowService, [service]),
-            returnValue: _FakeEvmChain_40(
+            returnValue: _FakeEvmChain_39(
               this,
               Invocation.method(#getChainForEscrowService, [service]),
             ),
@@ -3137,7 +3157,7 @@ class MockRelays extends _i1.Mock implements _i44.Relays {
   _i25.RelayStorage get relayStorage =>
       (super.noSuchMethod(
             Invocation.getter(#relayStorage),
-            returnValue: _FakeRelayStorage_41(
+            returnValue: _FakeRelayStorage_40(
               this,
               Invocation.getter(#relayStorage),
             ),

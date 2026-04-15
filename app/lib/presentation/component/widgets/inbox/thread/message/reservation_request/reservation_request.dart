@@ -8,7 +8,6 @@ class ThreadReservationRequestWidget extends ThreadMessageWidget {
 
   const ThreadReservationRequestWidget({
     super.key,
-    required super.sender,
     required super.item,
     required super.isSentByMe,
   });

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_view.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -24,10 +22,7 @@ Widget threadViewScenario(BuildContext context) {
     auth: getIt<Hostr>().auth,
     userSubscriptions: getIt<Hostr>().userSubscriptions,
   );
-  thread.messages.add(scenario.requestMessage);
+  thread.process(scenario.requestMessage);
 
-  return BlocProvider<ThreadCubit>(
-    create: (_) => ThreadCubit(thread: thread),
-    child: const ThreadView(),
-  );
+  return const ThreadView();
 }

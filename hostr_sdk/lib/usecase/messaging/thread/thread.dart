@@ -23,14 +23,19 @@ class Thread {
   final List<StreamSubscription> _stateSubscriptions = [];
 
   final String anchor;
-  final StreamWithStatus<Message> messages = StreamWithStatus<Message>();
-  String conversationTag = '';
 
-  bool _isTradeCandidate(ThreadState current) => current.messages.any(
-    (message) =>
-        message.child is Reservation &&
-        (message.child as Reservation).isNegotiation,
-  );
+  final StreamWithStatus<Nip01Event> events = StreamWithStatus<Nip01Event>();
+
+  /// Participants derived from the Message envelopes at routing time.
+  /// Populated by [addRoutingParticipants] called from [Threads].
+  final Set<String> _knownParticipants = {};
+
+  String conversationTag = '';
+  final Map<String, int> _seenUntil = {};
+  Timer? _seenReceiptDebounce;
+
+  bool _isTradeCandidate(ThreadState current) =>
+      current.events.any((e) => e is Reservation);
 
   bool get isTradeCandidate =>
       conversationTag.isNotEmpty || _isTradeCandidate(state.value);
@@ -52,7 +57,8 @@ class Thread {
          ),
        ) {
     _stateSubscriptions.add(
-      messages.stream.listen((_) {
+      events.stream.listen((event) {
+        if (event is SeenStatus) _processSeenReceipt(event);
         _emitState();
       }),
     );
@@ -63,42 +69,66 @@ class Thread {
     );
   }
 
+  /// Record participants derived from the DM envelope at routing time.
+  void addRoutingParticipants(Iterable<String> pubkeys) {
+    _knownParticipants.addAll(pubkeys.where((p) => p.isNotEmpty));
+  }
+
+  /// Single entry point for all thread events.
+  void process(Nip01Event event) {
+    events.add(event);
+  }
+
+  void _processSeenReceipt(SeenStatus status) {
+    final pubkey = status.pubKey;
+    final timestamp = status.seenUntil;
+    if (timestamp == null || pubkey.isEmpty) return;
+
+    final existing = _seenUntil[pubkey] ?? 0;
+    if (timestamp > existing) {
+      _seenUntil[pubkey] = timestamp;
+      _emitState();
+    }
+  }
+
   void _emitState() => _logger.spanSync('_emitState', () {
     if (state.isClosed) return;
     final keyPair = _auth.activeKeyPair;
     if (keyPair == null) return;
-    final nextMessages = messages.items;
+    final nextEvents = events.items.whereType<Event>().toList();
     final nextParticipantPubkeys = <String>{
-      for (final message in nextMessages) ...message.pTags,
-      for (final message in nextMessages) message.pubKey,
+      ..._knownParticipants,
+      ...addedParticipants,
     }.toList();
 
     state.add(
       state.value.copyWith(
-        messages: nextMessages,
+        events: nextEvents,
+        participantPubkeys: _knownParticipants.toList(),
         counterpartyPubkeys: nextParticipantPubkeys
             .where((pubkey) => pubkey != keyPair.publicKey)
             .toList(),
         received: _computeReceived(
-          messages: nextMessages,
+          events: nextEvents,
           counterpartyPubkeys: nextParticipantPubkeys
               .where((pubkey) => pubkey != keyPair.publicKey)
               .toList(),
         ),
+        seenUntil: Map.unmodifiable(_seenUntil),
       ),
     );
   });
 
   bool _computeReceived({
-    required List<Message> messages,
+    required List<Event> events,
     required List<String> counterpartyPubkeys,
   }) {
-    if (messages.isEmpty || counterpartyPubkeys.isEmpty) {
+    if (events.isEmpty || counterpartyPubkeys.isEmpty) {
       return false;
     }
 
-    final latestMessageCreatedAt = messages
-        .map((message) => message.createdAt)
+    final latestCreatedAt = events
+        .map((e) => e.createdAt)
         .reduce((a, b) => a > b ? a : b);
     final latestHeartbeats = {
       for (final heartbeat in _userSubscriptions.latestHeartbeats$.items)
@@ -107,7 +137,7 @@ class Thread {
 
     return counterpartyPubkeys.every((pubkey) {
       final heartbeat = latestHeartbeats[pubkey];
-      return heartbeat != null && heartbeat.createdAt >= latestMessageCreatedAt;
+      return heartbeat != null && heartbeat.createdAt >= latestCreatedAt;
     });
   }
 
@@ -115,9 +145,9 @@ class Thread {
 
   String? get tradeId {
     if (conversationTag.isNotEmpty) return conversationTag;
-    for (final m in state.value.messages.reversed) {
-      if (m.child is Reservation) {
-        final id = (m.child as Reservation).getDtag();
+    for (final e in state.value.events.reversed) {
+      if (e is Reservation) {
+        final id = e.getDtag();
         if (id != null && id.isNotEmpty) return id;
       }
     }
@@ -130,9 +160,15 @@ class Thread {
     ...addedParticipants,
   }.where((p) => p.isNotEmpty).length;
 
-  int get lastActivityTimestamp => messages.items.isEmpty
-      ? 0
-      : messages.items.map((m) => m.createdAt).reduce((a, b) => a > b ? a : b);
+  int get lastActivityTimestamp {
+    final readable = state.value.readableEvents;
+    if (readable.isNotEmpty) {
+      return readable.map((e) => e.createdAt).reduce((a, b) => a > b ? a : b);
+    }
+    final items = events.items;
+    if (items.isEmpty) return 0;
+    return items.map((e) => e.createdAt).reduce((a, b) => a > b ? a : b);
+  }
 
   void configureConversation({
     required String conversationTag,
@@ -175,7 +211,7 @@ class Thread {
     );
   });
 
-  Future<Message> replyTextAndWait(String content) =>
+  Future<Nip01Event> replyTextAndWait(String content) =>
       _logger.span('replyTextAndWait', () async {
         return _messaging.broadcastTextAndAwait(
           content: content.trim(),
@@ -196,11 +232,41 @@ class Thread {
     );
   });
 
+  Future<void> broadcastSeenReceipt<T extends Nip01Event>() =>
+      _logger.span('broadcastSeenReceipt', () async {
+        return _messaging.broadcastSeenReceipt(
+          seenUntil: state.value.sortedEvents.last.createdAt,
+          tags: [..._conversationTags],
+          recipientPubkeys: _knownParticipants.toList(),
+        );
+      });
+
+  /// Mark this conversation as read. Debounces by 1 second to avoid
+  /// sending receipts for accidental taps.
+  void markAsRead() {
+    _seenReceiptDebounce?.cancel();
+    _seenReceiptDebounce = Timer(
+      const Duration(seconds: 1),
+      () => _sendSeenReceipt(),
+    );
+  }
+
+  Future<void> _sendSeenReceipt() => _logger.span('_sendSeenReceipt', () async {
+    if (!state.value.shouldSendReceipt) return;
+    if (_recipientPubkeys.isEmpty) return;
+
+    final sorted = state.value.sortedEvents;
+    if (sorted.isEmpty) return;
+
+    await broadcastSeenReceipt();
+  });
+
   Future<void> close() => _logger.span('close', () async {
+    _seenReceiptDebounce?.cancel();
     for (final s in _stateSubscriptions) {
       await s.cancel();
     }
     await state.close();
-    await messages.close();
+    await events.close();
   });
 }

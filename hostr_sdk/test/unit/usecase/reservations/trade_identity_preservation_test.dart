@@ -42,6 +42,8 @@ class _FakeRequests extends Fake implements Requests {
     Duration? timeout,
     List<String>? relays,
     String? name,
+    bool cacheRead = true,
+    bool cacheWrite = true,
   }) => const Stream.empty();
 
   @override

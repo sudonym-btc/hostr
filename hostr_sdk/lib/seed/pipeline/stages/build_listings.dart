@@ -73,11 +73,38 @@ List<Listing> buildListings({
           host.hasEvm &&
           lr.nextDouble() < config.threadStages.paidViaEscrowRatio;
 
+      // Build the price list — always include a BTC price, and add a USDT
+      // price for ~25% of listings when a USDT contract address is configured.
+      final dailySats = 50 * 1000 + lr.nextInt(200 * 1000);
+      final addUsdt = config.usdtAddress != null && lr.nextDouble() < 0.25;
+      // $20–$149 per day expressed in USDT micro-units (config.usdtDecimals).
+      final usdtDailyUnits = addUsdt
+          ? (20 + lr.nextInt(130)) * pow(10, config.usdtDecimals).toInt()
+          : 0;
+
       final listing = f.listing(
         signer: host.keyPair,
         dTag: 'seed-listing-$listingIndex',
         seed: listingIndex,
-        priceSats: 50 * 1000 + lr.nextInt(200 * 1000),
+        price: [
+          Price(
+            amount: DenominatedAmount(
+              value: BigInt.from(dailySats),
+              denomination: 'BTC',
+              decimals: 8,
+            ),
+            frequency: Frequency.daily,
+          ),
+          if (addUsdt)
+            Price(
+              amount: DenominatedAmount(
+                value: BigInt.from(usdtDailyUnits),
+                denomination: 'USD',
+                decimals: config.usdtDecimals,
+              ),
+              frequency: Frequency.daily,
+            ),
+        ],
         quantity: 1 + lr.nextInt(2),
         requiresEscrow: requiresEscrow,
         extraTags: [
