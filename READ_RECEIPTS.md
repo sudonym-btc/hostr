@@ -4,6 +4,8 @@
 > **Decision:** Use the same gift-wrap pipeline as regular DMs. One seen
 > receipt per read session, sent as the chronologically last event in the
 > conversation. Never set an expiration tag — these wraps persist forever.
+> **No local persistence.** All seen state is derived from the kind:16
+> gift wraps present in the thread.
 
 ---
 
@@ -194,14 +196,12 @@ SeenStatus.create(
 User opens a conversation (or scrolls to bottom)
         │
         ▼
-  ┌─ Check: are there counterparty messages newer than localSeenUntil?
+  ┌─ Check: are there counterparty messages newer than
+  │  seenUntil[ourPubkey]?  (our own latest seen receipt in this thread)
   │     │
   │    NO ──▶ Do nothing (already up to date)
   │     │
   │    YES
-  │     ▼
-  │  Update localSeenUntil = max(counterparty message timestamps)
-  │     │
   │     ▼
   │  Check: is the latest event in this conversation already
   │  our own kind:16 seen receipt?
@@ -212,16 +212,18 @@ User opens a conversation (or scrolls to bottom)
   │     ▼
   │  Create SeenStatus rumor (kind:16)
   │     │
-  │     ├──▶ seen_until = timestamp of latest message in conversation
-  │     ├──▶ p = counterparty pubkey
+  │     ├──▶ seen_until = createdAt of latest message in conversation
+  │     ├──▶ p = counterparty pubkey (one receipt per counterparty)
   │     │
   │     ▼
   │  Gift-wrap via Messaging._broadcastRumour()
   │     │
-  │     ├──▶ Wrap to counterparty (they learn we read their messages)
-  │     └──▶ Wrap to self (so our other clients can sync our read state)
+  │     ├──▶ Wrap to each counterparty (they learn we read their messages)
+  │     └──▶ Wrap to self (so our own seenUntil map gets updated on
+  │          re-subscription — this IS the persistence mechanism)
   │
-  └─ Emit updated ThreadState with new localSeenUntil
+  └─ Thread picks up the new kind:16 wrap → updates seenUntil[ourPubkey]
+     → recomputes unreadCount → emits new state
 ```
 
 **Key details:**
@@ -234,8 +236,15 @@ User opens a conversation (or scrolls to bottom)
   event by `createdAt` is our own kind:16 → skip.
 - Debounce: if the user rapidly opens/closes threads, debounce the send by
   ~1–2 seconds to avoid sending receipts for accidental taps.
+- **No local persistence.** When the app restarts and re-subscribes to gift
+  wraps, it receives our own kind:16 receipts from the relay, rebuilding
+  the `seenUntil` map. The relay _is_ the persistence layer.
 
-### Flow 2: Receiving a Counterparty's Seen Receipt (they read our messages)
+### Flow 2: Receiving a Seen Receipt (any pubkey — counterparty or self)
+
+All kind:16 wraps are processed identically regardless of who sent them.
+The `seenUntil` map is keyed by the rumor's pubkey, so our own receipts
+and counterparty receipts are handled by the same codepath.
 
 ```
 Gift wrap arrives via user subscription
@@ -253,55 +262,42 @@ Gift wrap arrives via user subscription
                 ▼
           Parse SeenStatus from rumor
                 │
-                ├──▶ Extract counterpartyPubKey (the "p" tag — that's us)
-                ├──▶ Extract seenUntil timestamp
+                ├──▶ senderPubkey = rumor.pubkey (who sent this receipt)
+                ├──▶ seenUntil = the timestamp value
                 │
                 ▼
           Route to the Thread for this conversation
                 │
                 ▼
-          Update ThreadState:
+          Update seenUntil map:
                 │
-                ├──▶ counterpartySeenUntil = max(existing, new seenUntil)
+                ├──▶ seenUntil[senderPubkey] = max(existing, new value)
                 │    (high-water mark — never decreases)
                 │
-                └──▶ read = (counterpartySeenUntil >= our latest sent message's createdAt)
+                ▼
+          Recompute derived state:
+                │
+                ├──▶ unreadCount(ourPubkey): messages from others
+                │    with createdAt > seenUntil[ourPubkey]
+                │
+                └──▶ read: seenUntil[counterparty] >= our latest sent msg
                 │
                 ▼
-          Emit state → UI shows ✓✓
+          Emit state → UI updates (badge / ✓✓)
 ```
 
 **Key details:**
 
-- The `counterpartySeenUntil` value only ever increases. If we receive an
-  older seen receipt (e.g. from a delayed relay sync), we ignore it.
-- The `read` boolean on `ThreadState` is `true` when the counterparty's
-  `seenUntil` is ≥ the `createdAt` of our most recently sent message.
-- When we wrap the seen receipt to _ourselves_, our other clients receive it
-  too. This lets us sync our own `localSeenUntil` across devices: if the
-  inner rumor is from our own pubkey and is kind:16, update `localSeenUntil`
-  for that thread.
-
-### Flow 3: Receiving Our Own Seen Receipt (cross-device sync)
-
-```
-Gift wrap arrives, inner rumor kind:16, rumor.pubkey == our pubkey
-        │
-        ▼
-  This is a receipt WE sent from another device
-        │
-        ▼
-  Extract seenUntil, identify the thread via the "p" tag
-        │
-        ▼
-  Update localSeenUntil = max(existing, seenUntil)
-        │
-        ▼
-  Recompute unreadCount for that thread
-```
-
-This gives us cross-device read sync for free — read on phone, see it
-reflected on desktop — because seen receipts are wrapped to self.
+- The `seenUntil` map value for any pubkey only ever increases. Older
+  receipts (e.g. from delayed relay sync) are ignored.
+- When `rumor.pubkey == ourPubkey`, it's either a receipt we just sent or
+  one from another device (cross-device sync). Either way, it updates
+  `seenUntil[ourPubkey]` and recomputes `unreadCount`.
+- When `rumor.pubkey == counterpartyPubkey`, it updates
+  `seenUntil[counterparty]` and recomputes the `read` flag.
+- Cross-device sync comes for free: read on phone → seen receipt wraps to
+  self → desktop re-subscribes → picks up the receipt → `seenUntil[ourPubkey]`
+  is up to date → unread count is correct.
 
 ---
 
@@ -309,30 +305,38 @@ reflected on desktop — because seen receipts are wrapped to self.
 
 ### Per-thread unread count
 
-**Local-first**, computed entirely from local state:
+**Relay-derived** — computed from the `seenUntil` map that the Thread builds
+from kind:16 gift wraps in its event stream:
 
 ```
-unreadCount = thread.messages
-  .where(msg.pubKey != ourPubkey)            // only counterparty messages
-  .where(msg.createdAt > localSeenUntil)     // newer than our last read
-  .length
+int unreadCount(String pubkey) {
+  final seen = seenUntil[pubkey] ?? 0;
+  return messages
+    .where((m) => m.pubKey != pubkey)       // messages from others
+    .where((m) => m.createdAt > seen)        // newer than this pubkey's last read
+    .length;
+}
 ```
 
-**`localSeenUntil`** is a per-thread unix timestamp stored in local persistence
-(e.g. `HydratedStorage` / shared preferences / Hive). It tracks the timestamp
-up to which we've read messages in this conversation.
+Call it with our own pubkey to get our unread count:
+
+```
+thread.unreadCount(auth.publicKey)  // → 3 unread messages in this conversation
+```
 
 **Lifecycle:**
 
-1. Thread is created → `localSeenUntil = 0` → all counterparty messages are unread
-2. User opens the thread → `localSeenUntil` = latest message's `createdAt`
+1. Thread is created, no kind:16 wraps yet → `seenUntil[ourPubkey]` is `null`
+   → `unreadCount(ourPubkey)` = all counterparty messages (everything is unread)
+2. User opens the thread → app sends a kind:16 seen receipt
+   → wrap arrives back (self-wrap) → `seenUntil[ourPubkey]` updates
    → `unreadCount` drops to 0
-3. New messages arrive while thread is open → `localSeenUntil` updates in
-   real-time as messages appear on screen
-4. User leaves thread → `localSeenUntil` is persisted
-5. New messages arrive while thread is closed → `unreadCount` increases
-6. Cross-device sync: if we receive our own kind:16 with a higher
-   `seenUntil`, update `localSeenUntil` and recompute
+3. New messages arrive while thread is open → user sends another receipt
+   (if needed, per the guard rule) → count stays at 0
+4. New messages arrive while thread is closed → they're newer than
+   `seenUntil[ourPubkey]` → `unreadCount` increases
+5. App restarts → re-subscribes to gift wraps → receives all kind:16 wraps
+   from relay → `seenUntil` map is rebuilt → counts are correct
 
 **Important:** `kind:16` seen receipt events themselves should NOT count
 toward `unreadCount`. They're metadata, not user-visible messages. When
@@ -340,14 +344,16 @@ computing unread count, filter to only `kind:14` DM messages.
 
 ### Global unread count (inbox badge)
 
-```
-totalUnread = threads.values.sum(thread.unreadCount)
+```dart
+convosWithUnread = threads.where(
+  (thread) => thread.unreadCount(auth.publicKey) > 0,
+).length;
 ```
 
-Or, if only a count of unread _conversations_ is needed:
+Or a total message count:
 
-```
-unreadConversationCount = threads.values.where(thread.unreadCount > 0).length
+```dart
+totalUnread = threads.fold(0, (sum, t) => sum + t.unreadCount(auth.publicKey));
 ```
 
 This powers the inbox tab badge / notification count.
@@ -398,10 +404,10 @@ Thread.state$ (BehaviorSubject<ThreadState>)
         ▼
   ThreadCubit maps to ThreadCubitState
         │
-        ├──▶ threadState.read         → InboxItemView.read
-        ├──▶ threadState.received     → InboxItemView.received    (existing)
-        ├──▶ threadState.unreadCount  → InboxItemView.unreadCount (new)
-        └──▶ threadState.isLastMessageOurs → InboxItemView.sentByUs
+        ├──▶ threadState.read                         → InboxItemView.read
+        ├──▶ threadState.received                     → InboxItemView.received    (existing)
+        ├──▶ threadState.unreadCount(ourPubkey)       → InboxItemView.unreadCount (new)
+        └──▶ threadState.isLastMessageOurs            → InboxItemView.sentByUs
 ```
 
 ---
@@ -447,18 +453,22 @@ an optional tap-to-expand that shows the timestamp.
 ```
 ThreadState
     │
-    ├──▶ counterpartySeenUntil: int?     (from their latest kind:16)
-    ├──▶ messages: List<Message>          (kind:14 DMs only — seen receipts filtered out)
+    ├──▶ seenUntil: Map<String, int>    (pubkey → seen_until timestamp)
+    ├──▶ messages: List<Message>         (kind:14 DMs only — seen receipts filtered out)
     │
     ▼
   For each message bubble:
     │
     ├──▶ msg.pubKey == ourPubkey?
     │       │
-    │      YES ──▶ isRead = msg.createdAt <= counterpartySeenUntil
-    │       │         │
-    │       │        YES ──▶ show ✓✓ (or "Read") below bubble
-    │       │        NO  ──▶ show ✓ if received, else nothing
+    │      YES ──▶ Check all counterparty pubkeys:
+    │       │       for each cp in counterpartyPubkeys:
+    │       │         isRead = seenUntil[cp] != null
+    │       │                  && msg.createdAt <= seenUntil[cp]
+    │       │       │
+    │       │       ALL read  ──▶ show ✓✓ (or "Read")
+    │       │       SOME read ──▶ show ✓✓ with partial indicator (group chats)
+    │       │       NONE read ──▶ show ✓ if received, else nothing
     │       │
     │      NO ──▶ It's their message, no read indicator needed
 ```
@@ -471,8 +481,8 @@ view. When building the list of messages for display:
 - Include: `kind:14` DM messages
 - Exclude: `kind:16` seen status events
 
-The seen receipt data is consumed as _state_ (updating `counterpartySeenUntil`
-and `localSeenUntil`), not displayed as _content_.
+The seen receipt data is consumed as _state_ (updating the `seenUntil` map),
+not displayed as _content_.
 
 ---
 
@@ -485,35 +495,62 @@ final bool read;       // currently always false — never set
 final bool received;   // set by _computeReceived() via heartbeat
 ```
 
-### New / modified fields
+### New field: `seenUntil` map
 
 ```dart
-// Persisted locally — tracks our own read position
-final int localSeenUntil;            // unix timestamp, default 0
+/// Maps pubkey → highest seen_until timestamp from their kind:16 receipts.
+/// Derived entirely from the kind:16 gift wraps in this thread's event stream.
+/// No local persistence — rebuilt from relay on every subscription.
+final Map<String, int> seenUntil;    // default: {}
+```
 
-// From counterparty's latest kind:16 seen receipt
-final int? counterpartySeenUntil;    // unix timestamp, null until first receipt
+This single map replaces the old `localSeenUntil` + `counterpartySeenUntil`
+concept. Every participant's read position lives in the same structure:
 
-// Computed
-int get unreadCount => messages
-    .where((m) => m.pubKey != ourPubkey && m.createdAt > localSeenUntil)
-    .length;
+- `seenUntil[ourPubkey]` — how far WE have read (from our own self-wrapped receipts)
+- `seenUntil[counterparty1]` — how far counterparty 1 has read
+- `seenUntil[counterparty2]` — how far counterparty 2 has read (group chats)
 
-// Updated: now actually computed from counterpartySeenUntil
+### Computed properties
+
+```dart
+/// How many messages are unread for a given pubkey.
+/// Call with ourPubkey for our unread count.
+int unreadCount(String pubkey) {
+  final seen = seenUntil[pubkey] ?? 0;
+  return messages
+      .where((m) => m.pubKey != pubkey && m.createdAt > seen)
+      .length;
+}
+
+/// Have ALL counterparties read our latest sent message?
 bool get read {
-  if (counterpartySeenUntil == null) return false;
+  if (counterpartyPubkeys.isEmpty) return false;
   final ourLatest = messages
       .where((m) => m.pubKey == ourPubkey)
       .map((m) => m.createdAt)
       .fold(0, (a, b) => a > b ? a : b);
-  return ourLatest > 0 && counterpartySeenUntil! >= ourLatest;
+  if (ourLatest == 0) return false;
+  return counterpartyPubkeys.every(
+    (cp) => (seenUntil[cp] ?? 0) >= ourLatest,
+  );
 }
 ```
 
 ### `copyWith` update
 
-Add `localSeenUntil` and `counterpartySeenUntil` to the existing `copyWith`
-method. Both should use high-water-mark semantics: never decrease.
+Add `seenUntil` to the existing `copyWith` method. When updating, merge with
+high-water-mark semantics:
+
+```dart
+Map<String, int> mergeSeenUntil(Map<String, int> existing, Map<String, int> incoming) {
+  final merged = Map<String, int>.from(existing);
+  for (final entry in incoming.entries) {
+    merged[entry.key] = max(merged[entry.key] ?? 0, entry.value);
+  }
+  return merged;
+}
+```
 
 ---
 
@@ -554,8 +591,8 @@ UserSubscriptions (subscription)
               identified by the "p" tag + pubkey combination
                 │
                 ▼
-              Thread updates counterpartySeenUntil (or localSeenUntil
-              if the receipt is from our own pubkey — cross-device sync)
+              Thread updates seenUntil[rumor.pubkey]
+              (same codepath for counterparty receipts and our own)
 ```
 
 ### Sending pipeline
@@ -592,32 +629,26 @@ conversation is already our own seen receipt.**
 
 ### How to track this
 
-The Thread needs to know about the most recent event _including_ seen receipts,
-even though seen receipts are filtered out of the visible message list. Two
-approaches:
+Since the `seenUntil` map is derived from gift wraps in the thread, and the
+Thread already tracks the latest message timestamp, the guard is a simple
+comparison:
 
-**Approach A: Track `ourLatestSeenReceiptAt` separately**
+```dart
+bool get shouldSendReceipt {
+  final ourSeen = seenUntil[ourPubkey] ?? 0;
+  final latestCounterpartyMsg = messages
+      .where((m) => m.pubKey != ourPubkey)
+      .map((m) => m.createdAt)
+      .fold(0, (a, b) => a > b ? a : b);
 
-Store the `createdAt` timestamp of our most recently sent `kind:16` for this
-thread. Compare it against the latest DM's `createdAt`:
-
+  // Are there counterparty messages newer than what we've seen?
+  return latestCounterpartyMsg > ourSeen;
+}
 ```
-shouldSendReceipt =
-    hasUnreadCounterpartyMessages
-    && (ourLatestSeenReceiptAt == null
-        || latestMessage.createdAt > ourLatestSeenReceiptAt)
-```
 
-This is simpler — we don't need to mix seen receipts into the message list.
-
-**Approach B: Include seen receipts in the raw event list**
-
-Keep a parallel list of all events (DMs + receipts) and check the tail.
-More general but adds complexity.
-
-**Recommendation: Approach A.** Add `ourLatestSeenReceiptAt: int?` to
-`ThreadState`. Update it when we send a receipt, and when we receive our own
-receipt via cross-device sync. The guard check is a simple timestamp comparison.
+If `seenUntil[ourPubkey]` is already ≥ the latest counterparty message, we've
+already sent a receipt for this state — don't send another. This naturally
+deduplicates because our own receipt's `seen_until` value is in the map.
 
 ---
 
@@ -635,15 +666,15 @@ receipt via cross-device sync. The guard check is a simple timestamp comparison.
 
 | #   | File                                                                                      | Change                                                                                                                                                  |
 | --- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4   | `hostr_sdk/lib/usecase/messaging/thread/state.dart`                                       | Add `localSeenUntil`, `counterpartySeenUntil`, `ourLatestSeenReceiptAt`, computed `unreadCount`, updated `read` getter, updated `copyWith`              |
-| 5   | `hostr_sdk/lib/usecase/messaging/thread/thread.dart`                                      | Call `SeenService` on state changes; add `markAsRead()` method; subscribe to incoming seen receipts; guard logic for "should send receipt"              |
+| 4   | `hostr_sdk/lib/usecase/messaging/thread/state.dart`                                       | Add `seenUntil` map (`Map<String, int>`), `unreadCount(String pubkey)` method, computed `read` getter, updated `copyWith` with high-water-mark merge    |
+| 5   | `hostr_sdk/lib/usecase/messaging/thread/thread.dart`                                      | Process kind:16 wraps to build `seenUntil` map; add `markAsRead()` method; `shouldSendReceipt` guard logic; call `SeenService` to send receipts         |
 | 6   | `hostr_sdk/lib/usecase/user_subscriptions/user_subscriptions.dart`                        | Route incoming `kind:16` rumours to `SeenService` (or emit on a new `seenReceipts$` stream alongside `messages$`)                                       |
 | 7   | `hostr_sdk/lib/usecase/messaging/messaging.dart`                                          | Add `broadcastSeenReceipt()` method (creates kind:16 rumor, wraps, broadcasts — or this lives in `SeenService` calling the existing `_broadcastRumour`) |
 | 8   | `hostr_sdk/lib/usecase/messaging/threads.dart`                                            | Route kind:16 events to threads for state update (or delegate to `SeenService`)                                                                         |
 | 9   | `app/lib/presentation/component/widgets/inbox/inbox_item.dart`                            | Show ✓✓ when `read == true`; show unread count badge; bold styling for unread conversations                                                             |
 | 10  | `app/lib/presentation/component/widgets/inbox/inbox_thread_list.dart`                     | Pass `unreadCount` through to inbox items                                                                                                               |
-| 11  | `app/lib/logic/cubit/messaging/thread.cubit.dart`                                         | Call `thread.markAsRead()` when user views thread; expose `unreadCount` and `counterpartySeenUntil` to the UI                                           |
-| 12  | `app/lib/presentation/screens/shared/inbox/thread/thread.dart` (or message bubble widget) | Show ✓✓ / "Read" indicator on our sent messages based on `counterpartySeenUntil`                                                                        |
+| 11  | `app/lib/logic/cubit/messaging/thread.cubit.dart`                                         | Call `thread.markAsRead()` when user views thread; expose `unreadCount(ourPubkey)` and `seenUntil` map to the UI                                        |
+| 12  | `app/lib/presentation/screens/shared/inbox/thread/thread.dart` (or message bubble widget) | Show ✓✓ / "Read" indicator on our sent messages based on `seenUntil[counterparty]`                                                                      |
 
 ### Models — no changes needed
 
@@ -654,72 +685,43 @@ receipt via cross-device sync. The guard check is a simple timestamp comparison.
 
 ---
 
-## Persistence
-
-### What needs to persist locally
-
-| Data                                | Storage                            | Reason                                                                                                                                              |
-| ----------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `localSeenUntil` per thread         | HydratedStorage / shared prefs     | Survives app restart. Without this, all conversations show as unread on relaunch.                                                                   |
-| `counterpartySeenUntil` per thread  | Not persisted — derived from relay | On app launch, we re-subscribe and receive the counterparty's latest kind:16. State is reconstructed from the relay.                                |
-| `ourLatestSeenReceiptAt` per thread | HydratedStorage / shared prefs     | Needed for the "last message" dedup guard. Could also be derived from relay (we receive our own receipts), but local is faster for the guard check. |
-
-### Key for local storage
-
-Use the thread's anchor (conversation identifier hash) as the key:
-
-```
-"seen:$anchor:localSeenUntil"  → int
-"seen:$anchor:ourLatestReceiptAt"  → int
-```
-
----
-
 ## Risks & Mitigations
 
-| Risk                                              | Mitigation                                                                                                                                                                                                                                       |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Bloat from non-replaceable wraps**              | Bounded by "one per read session" rule. ~20–50 receipts per conversation lifetime. Acceptable overhead on top of DM wraps. Relay can GC old receipts as future optimization.                                                                     |
-| **No merged NIP — hostr-only feature**            | All custom kinds in `kHostrOnlyKinds`, forced to hostr relay. No interop expectation with Amethyst/Coracle. We can change the scheme without migration.                                                                                          |
-| **Late-arriving messages after seen receipt**     | `seen_until` is a timestamp high-water mark. A message arriving late with an earlier timestamp will be correctly marked as read if `createdAt ≤ seen_until`. A message with a _later_ timestamp won't be falsely marked — it's genuinely unread. |
-| **Clock skew**                                    | Nostr events use server-validated unix timestamps. Minor skew (seconds) doesn't affect UX. Major skew (minutes) is a general Nostr problem, not specific to read receipts.                                                                       |
-| **Cross-device sync delay**                       | Self-wrapped receipts propagate through the relay. If a user reads on phone, desktop will sync when it next receives events. Small delay is acceptable.                                                                                          |
-| **Privacy: relay operator sees kind:1059 volume** | Already the case for DMs. Seen receipts are indistinguishable from DMs to the relay (both are kind:1059 gift wraps). No additional metadata leaked.                                                                                              |
-| **Privacy: counterparty knows when we read**      | Inherent to read receipts. Could add a user preference to disable sending seen receipts (still track unread counts locally).                                                                                                                     |
+| Risk                                              | Mitigation                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bloat from non-replaceable wraps**              | Bounded by "one per read session" rule. ~20–50 receipts per conversation lifetime. Acceptable overhead on top of DM wraps. Relay can GC old receipts as future optimization.                                                                                                       |
+| **No merged NIP — hostr-only feature**            | All custom kinds in `kHostrOnlyKinds`, forced to hostr relay. No interop expectation with Amethyst/Coracle. We can change the scheme without migration.                                                                                                                            |
+| **Late-arriving messages after seen receipt**     | `seen_until` is a timestamp high-water mark. A message arriving late with an earlier timestamp will be correctly marked as read if `createdAt ≤ seen_until`. A message with a _later_ timestamp won't be falsely marked — it's genuinely unread.                                   |
+| **Clock skew**                                    | Nostr events use server-validated unix timestamps. Minor skew (seconds) doesn't affect UX. Major skew (minutes) is a general Nostr problem, not specific to read receipts.                                                                                                         |
+| **Cross-device sync delay**                       | Self-wrapped receipts propagate through the relay. If a user reads on phone, desktop will sync when it next receives events. Small delay is acceptable.                                                                                                                            |
+| **Privacy: relay operator sees kind:1059 volume** | Already the case for DMs. Seen receipts are indistinguishable from DMs to the relay (both are kind:1059 gift wraps). No additional metadata leaked.                                                                                                                                |
+| **Privacy: counterparty knows when we read**      | Inherent to read receipts. Could add a user preference to disable sending seen receipts (unread counts would still work if we track the "last opened" timestamp ephemerally in memory while the thread is open, but counts wouldn't survive app restart without our own receipts). |
 
 ---
 
 ## Phasing
 
-### Phase 0 — Local unread counts (quick win, no relay interaction)
+### Phase 1 — Send & receive seen receipts + unread counts
 
-- [ ] Add `localSeenUntil` to `ThreadState` + `copyWith`
-- [ ] Compute `unreadCount` getter in `ThreadState`
-- [ ] Persist `localSeenUntil` in local storage
-- [ ] Update `localSeenUntil` when user opens thread / scrolls to bottom
-- [ ] Show unread badge count on `InboxItemView`
-- [ ] Bold/dim styling for unread vs read conversations
-
-This gives users unread counts **immediately** with zero protocol work. Purely
-local — the counterparty doesn't know you've read their messages, but your own
-inbox shows accurate badges.
-
-### Phase 1 — Send & receive seen receipts
-
-- [ ] `SeenService`: create `kind:16` rumor, gift-wrap, broadcast
-- [ ] Implement the "last message" guard (don't send if last event is our receipt)
+- [ ] Add `seenUntil` map (`Map<String, int>`) to `ThreadState` + `copyWith`
+- [ ] Add `unreadCount(String pubkey)` method to `ThreadState`
+- [ ] Compute `read` getter from `seenUntil` map vs our latest sent message
+- [ ] Process incoming kind:16 gift wraps in Thread → update `seenUntil` map
+- [ ] `SeenService`: create `kind:16` rumor, gift-wrap, broadcast (no expiration)
+- [ ] `shouldSendReceipt` guard (compare `seenUntil[ourPubkey]` vs latest counterparty msg)
 - [ ] Debounce seen receipt sends (~1–2s)
 - [ ] Route incoming `kind:16` rumours through `UserSubscriptions`
-- [ ] Update `counterpartySeenUntil` on `ThreadState`
-- [ ] Compute `read` from `counterpartySeenUntil` vs our latest sent message
+- [ ] Show unread badge count on `InboxItemView`
 - [ ] Show ✓✓ in `InboxItemView` when `read == true`
-- [ ] Cross-device sync: process own kind:16 receipts to update `localSeenUntil`
-- [ ] Unit tests for `SeenService`, guard logic, state computation
+- [ ] Bold/dim styling for unread vs read conversations
+- [ ] `Threads`: expose `convosWithUnread` count
+- [ ] Unit tests for `SeenService`, guard logic, state computation, map merging
 
 ### Phase 2 — Thread view read indicators
 
 - [ ] Show ✓✓ / "Read" on our sent messages in the message thread view
 - [ ] Show on the last read message only (not every message)
+- [ ] Support multi-counterparty threads (group read indicators)
 - [ ] Optional: tap to see "Read at HH:MM" timestamp
 
 ### Phase 3 — Typing indicator (future, deferred)

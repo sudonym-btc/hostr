@@ -121,26 +121,10 @@ BadgeSeedData buildBadges({
     }
   }
 
-  // Award listing-specific badges to ~half the listings.
-  // Award 'verified' to ~half the listings.
-  for (final listing in listings) {
-    final listingAnchor = listing.anchor;
-    if (listingAnchor == null) continue;
-
-    if (rng.nextDouble() < 0.5) {
-      awards.add(
-        _buildAward(
-          issuerKey: issuerKey,
-          definitionAnchor: verifiedAnchor,
-          recipientPubkey: listing.pubKey,
-          listingAnchor: listingAnchor,
-          createdAt: ctx.timestampDaysAfter(4),
-        ),
-      );
-    }
-  }
-
-  // Award other listing-specific badges at a lower rate (~15%).
+  // Award listing-specific badges at a lower rate (~15%).
+  // Note: 'verified' is a host-level badge only — awarding it with a
+  // listingAnchor would duplicate it for hosts with multiple listings
+  // (listing.pubKey == host.pubKey).
   final listingBadges = [
     ('eco_friendly', anchorByIdentifier['eco_friendly']!),
     ('instant_book', anchorByIdentifier['instant_book']!),

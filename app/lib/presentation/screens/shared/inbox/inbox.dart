@@ -2,12 +2,10 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/widgets/inbox/inbox_thread_list.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 
 @RoutePage()
 class InboxScreen extends StatefulWidget {
@@ -18,36 +16,6 @@ class InboxScreen extends StatefulWidget {
 }
 
 class _InboxScreenState extends State<InboxScreen> {
-  /// Cached cubits keyed by thread anchor so profile metadata survives
-  /// navigation between the thread list and individual threads.
-  final Map<String, ThreadCubit> _cubits = {};
-
-  ThreadCubit cubitFor(Thread thread) {
-    return _cubits.putIfAbsent(
-      thread.anchor,
-      () => ThreadCubit(thread: thread),
-    );
-  }
-
-  /// Close cubits whose threads are no longer in the list.
-  void pruneStale(Set<String> activeAnchors) {
-    final stale = _cubits.keys
-        .where((k) => !activeAnchors.contains(k))
-        .toList();
-    for (final key in stale) {
-      _cubits.remove(key)?.close();
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final cubit in _cubits.values) {
-      cubit.close();
-    }
-    _cubits.clear();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return AutoRouter(
@@ -81,8 +49,6 @@ class _InboxScreenState extends State<InboxScreen> {
                   promoteChromeWhenStacked: true,
                   child: InboxThreadList(
                     selectedAnchor: selectedAnchor,
-                    cubitFor: cubitFor,
-                    pruneStale: pruneStale,
                     onThreadSelected: (anchor) {
                       router.navigate(
                         InboxRoute(children: [ThreadRoute(anchor: anchor)]),

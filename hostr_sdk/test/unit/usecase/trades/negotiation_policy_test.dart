@@ -53,7 +53,7 @@ void main() {
     final start = DateTime.utc(2026, 1, 1);
     final end = DateTime.utc(2026, 1, 2);
     final listing = _listing();
-    final hostPubkey = MockKeys.hoster.publicKey;
+    final sellerPubkey = MockKeys.hoster.publicKey;
     final guestPubkey = MockKeys.guest.publicKey;
 
     test('host gets accept and counter when guest sent latest offer', () {
@@ -68,7 +68,7 @@ void main() {
           ),
         ],
         listing,
-        hostPubkey,
+        sellerPubkey,
         TradeRole.host,
       );
 
@@ -88,7 +88,7 @@ void main() {
           ),
         ],
         listing,
-        hostPubkey,
+        sellerPubkey,
         TradeRole.host,
       );
 

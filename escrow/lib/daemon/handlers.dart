@@ -215,10 +215,11 @@ class DaemonHandler {
     return {
       'threads': threads.entries.map((e) {
         final state = e.value.state.value;
-        final lastMsg = state.sortedMessages.lastOrNull;
+        final messages = state.sortedEvents.whereType<Message>().toList();
+        final lastMsg = messages.lastOrNull;
         return ThreadSummary(
           anchor: e.key,
-          messageCount: state.messages.length,
+          messageCount: messages.length,
           participants: state.participantPubkeys,
           lastMessage: lastMsg?.content,
           lastMessageAt: lastMsg != null
@@ -242,7 +243,8 @@ class DaemonHandler {
       'threadId': threadId,
       'conversationTag': thread.conversationTag,
       'participants': state.participantPubkeys,
-      'messages': state.sortedMessages
+      'messages': state.sortedEvents
+          .whereType<Message>()
           .map((m) => ThreadMessage(
                 id: m.id,
                 pubKey: m.pubKey,

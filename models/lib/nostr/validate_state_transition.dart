@@ -46,6 +46,8 @@ const _allowedTransitions = <(ReservationStage, ReservationStage)>{
   (ReservationStage.negotiate, ReservationStage.commit),
   (ReservationStage.negotiate, ReservationStage.cancel),
   (ReservationStage.commit, ReservationStage.cancel),
+  // Escrow confirm: re-stamps a committed reservation after payment validation.
+  (ReservationStage.commit, ReservationStage.commit),
 };
 
 /// Maps [ReservationTransitionType] to its expected `(from, to)` stage pair(s).
@@ -60,6 +62,9 @@ const _typeToStages =
   ReservationTransitionType.cancel: {
     (ReservationStage.negotiate, ReservationStage.cancel),
     (ReservationStage.commit, ReservationStage.cancel),
+  },
+  ReservationTransitionType.confirm: {
+    (ReservationStage.commit, ReservationStage.commit),
   },
 };
 

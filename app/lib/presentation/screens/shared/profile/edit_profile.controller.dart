@@ -74,14 +74,10 @@ class EditProfileController extends UpsertFormController {
 
     await getIt<Hostr>().metadata.upsert(profile);
 
-    // Notify listeners (e.g. ProfileProvider) that metadata was updated.
-    final updated = await getIt<Hostr>().metadata.loadMetadata(
-      getIt<Hostr>().auth.activeKeyPair!.publicKey,
-    );
-    if (updated != null) {
-      setState(updated);
-      getIt<Hostr>().metadata.notifyUpdate(updated);
-    }
+    // Use the freshly-built profile directly — no round-trip to the NDK cache
+    // which may still hold the old value.
+    setState(profile);
+    getIt<Hostr>().metadata.notifyUpdate(profile);
   }
 
   static String? _validateEmailLike(String? value, {required String label}) {

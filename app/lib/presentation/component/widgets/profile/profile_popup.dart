@@ -96,6 +96,7 @@ class ProfilePopupContent extends StatelessWidget {
   final String pubkey;
   final Future<ReceivedHeartbeat?>? lastSeenFuture;
   final bool showListingBadges;
+  final bool showNPub;
 
   const ProfilePopupContent({
     super.key,
@@ -103,6 +104,7 @@ class ProfilePopupContent extends StatelessWidget {
     required this.pubkey,
     this.lastSeenFuture,
     this.showListingBadges = true,
+    this.showNPub = true,
   });
 
   @override
@@ -113,26 +115,44 @@ class ProfilePopupContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (showListingBadges) ...[BadgesWidget(pubKey: pubkey)],
         if (lastSeenFuture != null) _LastSeenRow(future: lastSeenFuture!),
-        Gap.vertical.sm(),
-        VerifiedNip05Badge(
-          nip05: metadata?.nip05,
-          pubkey: profile?.pubKey ?? pubkey,
-          inline: false,
-          hideWhenEmpty: false,
-        ),
-        Gap.vertical.sm(),
-        VerifiedLud16Badge(
-          lud16: metadata?.lud16,
-          inline: false,
-          hideWhenEmpty: false,
-        ),
-        Gap.vertical.sm(),
-        _PubkeyRow(pubkey: pubkey),
-        if (showListingBadges) ...[
+        if (metadata?.nip05 != null && metadata?.nip05?.isNotEmpty == true) ...[
           Gap.vertical.sm(),
-          ListingBadgesWidget(pubKey: pubkey),
+          VerifiedNip05Badge(
+            nip05: metadata?.nip05,
+            pubkey: profile?.pubKey ?? pubkey,
+          ),
         ],
+        if (metadata?.lud16 != null && metadata?.lud16?.isNotEmpty == true) ...[
+          Gap.vertical.sm(),
+
+          VerifiedLud16Badge(lud16: metadata?.lud16),
+        ],
+        if (metadata?.website != null) ...[
+          Gap.vertical.sm(),
+
+          Row(
+            children: [
+              Icon(
+                Icons.link,
+                size: kIconSm,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              Gap.horizontal.xs(),
+              Expanded(
+                child: Text(
+                  metadata!.website!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (showNPub) _PubkeyRow(pubkey: pubkey),
       ],
     );
   }
@@ -175,8 +195,14 @@ class _LastSeenRow extends StatelessWidget {
               Gap.horizontal.sm(),
               RelativeTimeText(
                 dateTime: heartbeat.receivedAt,
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.outline,
+                ),
+                builder: (context, text) => Text(
+                  'Last seen $text ago',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
               ),
             ],
@@ -222,7 +248,6 @@ class _PubkeyRow extends StatelessWidget {
               child: Text(
                 truncated,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: 'monospace',
                   color: theme.colorScheme.outline,
                 ),
               ),

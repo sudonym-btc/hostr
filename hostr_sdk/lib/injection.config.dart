@@ -54,7 +54,7 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_in_tracker.dart'
 import 'package:hostr_sdk/usecase/evm/operations/swap_out_tracker.dart'
     as _i673;
 import 'package:hostr_sdk/usecase/evm/operations/swap_quote_service.dart'
-    as _i686;
+    as _i603;
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
@@ -125,7 +125,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final hostrSdkModule = _$HostrSdkModule();
-    gh.factory<_i686.SwapQuoteService>(() => _i686.SwapQuoteService());
+    gh.factory<_i603.SwapQuoteService>(() => _i603.SwapQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
     gh.singleton<_i995.AppDatabase>(() => hostrSdkModule.appDatabase);
@@ -518,39 +518,8 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.singleton<_i768.Threads>(
       () => _i768.Threads(
-        userSubscriptions: gh<_i576.UserSubscriptions>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.factoryParam<_i378.Thread, String, dynamic>(
-      (anchor, _) => _i378.Thread(
-        anchor,
-        logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
-        messaging: gh<_i1019.Messaging>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
-      ),
-    );
-    gh.singleton<_i1016.FundsMonitorService>(
-      () => _i1016.FundsMonitorService(
-        gh<_i305.Evm>(),
-        gh<_i576.UserSubscriptions>(),
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i842.OperationStateStore>(),
-        gh<_i794.UserConfigStore>(),
-        gh<_i686.SwapQuoteService>(),
-        gh<_i331.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i850.PaymentProofOrchestrator>(
-      () => _i850.PaymentProofOrchestrator(
-        userSubs: gh<_i576.UserSubscriptions>(),
-        threads: gh<_i768.Threads>(),
-        auth: gh<_i1000.Auth>(),
-        reservations: gh<_i326.Reservations>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );
@@ -579,6 +548,27 @@ extension GetItInjectableX on _i174.GetIt {
         reservations: gh<_i326.Reservations>(),
       ),
     );
+    gh.singleton<_i1016.FundsMonitorService>(
+      () => _i1016.FundsMonitorService(
+        gh<_i305.Evm>(),
+        gh<_i576.UserSubscriptions>(),
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i842.OperationStateStore>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i603.SwapQuoteService>(),
+        gh<_i331.CustomLogger>(),
+      ),
+    );
+    gh.factoryParam<_i378.Thread, String, dynamic>(
+      (anchor, _) => _i378.Thread(
+        anchor,
+        logger: gh<_i331.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+        messaging: gh<_i1019.Messaging>(),
+        userSubscriptions: gh<_i576.UserSubscriptions>(),
+      ),
+    );
     gh.singleton<_i843.BackgroundWorker>(
       () => _i843.BackgroundWorker(
         auth: gh<_i1000.Auth>(),
@@ -590,6 +580,17 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
         operationStore: gh<_i842.OperationStateStore>(),
         notificationLog: gh<_i226.NotificationLog>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i850.PaymentProofOrchestrator>(
+      () => _i850.PaymentProofOrchestrator(
+        userSubs: gh<_i576.UserSubscriptions>(),
+        threads: gh<_i768.Threads>(),
+        auth: gh<_i1000.Auth>(),
+        reservations: gh<_i326.Reservations>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );

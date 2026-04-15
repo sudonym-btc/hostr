@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
@@ -64,9 +63,8 @@ class Hostr {
   Trade trade(String tradeId) {
     final thread = messaging.threads.findPreferredThreadByTradeId(tradeId);
     final listingAnchor =
-        thread?.messages.items
-            .where((m) => m.child is Reservation)
-            .map((m) => (m.child as Reservation).parsedTags.listingAnchor)
+        thread?.state.value.reservationRequests
+            .map((e) => e.parsedTags.listingAnchor)
             .where((a) => a.isNotEmpty)
             .firstOrNull ??
         userSubscriptions.allMyReservations$.stream.items

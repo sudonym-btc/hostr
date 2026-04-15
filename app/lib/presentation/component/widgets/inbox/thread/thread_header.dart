@@ -1,18 +1,13 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/presentation/main.dart';
+import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
 import 'package:models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
-  final List<ProfileMetadata> counterparties;
   final Widget? trailing;
   final ValueChanged<ProfileMetadata>? onCounterpartyTap;
-  const ThreadHeaderWidget({
-    super.key,
-    required this.counterparties,
-    this.trailing,
-    this.onCounterpartyTap,
-  });
+  const ThreadHeaderWidget({super.key, this.trailing, this.onCounterpartyTap});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +20,7 @@ class ThreadHeaderWidget extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.all(0),
       leading: ProfileAvatars.sm(
-        profiles: counterparties,
+        profiles: context.read<Thread>().state.value.counterpartyPubkeys,
         onProfileTap: onCounterpartyTap,
       ),
       title: RichText(
@@ -34,7 +29,11 @@ class ThreadHeaderWidget extends StatelessWidget {
         text: TextSpan(
           style: titleStyle,
           children: _buildCounterpartySpans(
-            counterparties: counterparties,
+            counterparties: context
+                .read<Thread>()
+                .state
+                .value
+                .counterpartyPubkeys,
             valueOf: (counterparty) => counterparty.metadata.getName(),
             baseStyle: titleStyle,
           ),
@@ -61,7 +60,7 @@ class ThreadHeaderWidget extends StatelessWidget {
   }
 
   List<InlineSpan> _buildCounterpartySpans({
-    required List<ProfileMetadata> counterparties,
+    required List<String> counterparties,
     required String Function(ProfileMetadata) valueOf,
     TextStyle? baseStyle,
   }) {
@@ -77,13 +76,20 @@ class ThreadHeaderWidget extends StatelessWidget {
       }
 
       spans.add(
-        TextSpan(
-          text: valueOf(counterparty),
-          style: linkStyle,
-          recognizer: onCounterpartyTap == null
-              ? null
-              : (TapGestureRecognizer()
-                  ..onTap = () => onCounterpartyTap!(counterparty)),
+        WidgetSpan(
+          child: ProfileProvider(
+            pubkey: counterparty,
+            builder: (context, profile) => GestureDetector(
+              onTap: onCounterpartyTap != null && profile.data != null
+                  ? () => onCounterpartyTap!(profile.data!)
+                  : null,
+              child: Text(
+                profile.data?.metadata.getName() ?? '',
+                style: linkStyle,
+                overflow: TextOverflow.visible, // important
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -93,7 +99,7 @@ class ThreadHeaderWidget extends StatelessWidget {
 }
 
 class ProfileAvatars extends StatelessWidget {
-  final List<ProfileMetadata> profiles;
+  final List<String> profiles;
   final ValueChanged<ProfileMetadata>? onProfileTap;
 
   /// Circle radius in logical pixels (matches [AppAvatar] presets).
@@ -163,19 +169,24 @@ class ProfileAvatars extends StatelessWidget {
         child: Stack(
           children: profiles.indexed
               .map(
-                (entry) => Positioned(
-                  left: entry.$1 * overlap,
-                  child: GestureDetector(
-                    onTap: onProfileTap != null
-                        ? () => onProfileTap!(entry.$2)
-                        : null,
-                    child: AppAvatar.custom(
-                      radius: radius,
-                      image: entry.$2.metadata.picture,
-                      pubkey: entry.$2.pubKey,
-                      label: entry.$2.metadata.name ?? '',
-                    ),
-                  ),
+                (entry) => ProfileProvider(
+                  pubkey: entry.$2,
+                  builder: (context, profile) => profile.data != null
+                      ? Positioned(
+                          left: entry.$1 * overlap,
+                          child: GestureDetector(
+                            onTap: onProfileTap != null
+                                ? () => onProfileTap!(profile.data!)
+                                : null,
+                            child: AppAvatar.custom(
+                              radius: radius,
+                              image: profile.data?.metadata.picture,
+                              pubkey: profile.data?.pubKey,
+                              label: profile.data?.metadata.name ?? '',
+                            ),
+                          ),
+                        )
+                      : const SizedBox(),
                 ),
               )
               .toList(),

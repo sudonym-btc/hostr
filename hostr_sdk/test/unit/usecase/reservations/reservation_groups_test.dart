@@ -427,7 +427,7 @@ void main() async {
       final pair = ReservationGroup(reservations: [ack]);
 
       expect(pair.listingAnchor, listing.anchor);
-      expect(pair.hostPubkey, listing.pubKey);
+      expect(pair.sellerPubkey, listing.pubKey);
     });
 
     test('buyer-only negotiate (no proof) → Invalid', () async {

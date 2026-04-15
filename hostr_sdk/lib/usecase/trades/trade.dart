@@ -57,8 +57,8 @@ class Trade extends Cubit<TradeState> {
   /// Listing anchor — provided as a hint for immediate fetching.
   final String listingAnchor;
 
-  /// Host pubkey derived from listing anchor.
-  final String hostPubKey;
+  /// Seller pubkey derived from listing anchor.
+  final String sellerPubkey;
 
   /// Our role in this trade.
   final TradeRole role;
@@ -101,7 +101,7 @@ class Trade extends Cubit<TradeState> {
        _reservationGroups = reservationGroups,
        _threads = threads,
        thread = threads.findPreferredThreadByTradeId(tradeId),
-       hostPubKey = getPubKeyFromAnchor(listingAnchor),
+       sellerPubkey = getPubKeyFromAnchor(listingAnchor),
        role =
            getPubKeyFromAnchor(listingAnchor) == auth.getActiveKey().publicKey
            ? TradeRole.host
@@ -127,6 +127,11 @@ class Trade extends Cubit<TradeState> {
           'ReservationGroup status: ${reservationGroup$.status.value}, '
           'Payments status: ${payments$.status.value}, '
           'Transitions status: ${transitions$.status.value}',
+        );
+        logger.d(
+          'ReservationGroup seller: ${reservationGroup$.items.lastOrNull?.event.sellerReservation}, '
+          'ReservationGroup buyer: ${reservationGroup$.items.lastOrNull?.event.buyerReservation}, '
+          'ReservationGroup escrow: ${reservationGroup$.items.lastOrNull?.event.escrowReservation}, ',
         );
         final allLive = statuses.every((s) => s is StreamStatusLive);
         if (allLive && !(subscriptionsLive$.value)) {
@@ -168,7 +173,7 @@ class Trade extends Cubit<TradeState> {
     }
     _listing = fetchedListing;
 
-    _hostProfile = await _metadata.loadMetadata(hostPubKey);
+    _hostProfile = await _metadata.loadMetadata(sellerPubkey);
 
     _wirePipeline();
   });
@@ -354,8 +359,8 @@ class Trade extends Cubit<TradeState> {
 
     return TradeReady(
       listing: listing,
-      hostProfile: hostProfile,
-      hostPubKey: hostPubKey,
+      sellerProfile: hostProfile,
+      sellerPubkey: sellerPubkey,
       role: role,
       tradeId: tradeId,
       listingAnchor: listingAnchor,

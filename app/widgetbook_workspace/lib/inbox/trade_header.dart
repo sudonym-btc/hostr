@@ -30,8 +30,8 @@ Widget tradeHeaderKnobs(BuildContext context) {
       child: TradeHeaderView(
         tradeState: TradeReady(
           listing: listing,
-          hostProfile: listingProfile,
-          hostPubKey: listing.pubKey,
+          sellerProfile: listingProfile,
+          sellerPubkey: listing.pubKey,
           role: TradeRole.guest,
           tradeId: 'mock-trade-id',
           listingAnchor: listing.anchor ?? 'mock-anchor',

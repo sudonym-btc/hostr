@@ -65,14 +65,14 @@ class Messaging {
         .toList();
   });
 
-  Future<Message> broadcastTextAndAwait({
+  Future<Nip01Event> broadcastTextAndAwait({
     required String content,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
   }) => _logger.span('broadcastTextAndAwait', () async {
     final rumor = await getRumour(content, tags, recipientPubkeys);
     await _broadcastRumour(rumor, recipientPubkeys);
-    return threads.awaitMessageId(rumor.id);
+    return threads.awaitEventId(rumor.id);
   });
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastText({
@@ -87,14 +87,14 @@ class Messaging {
     return _broadcastRumour(rumor, recipientPubkeys);
   });
 
-  Future<Message> broadcastEventAndWait({
+  Future<Nip01Event> broadcastEventAndWait({
     required Nip01Event event,
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
   }) => _logger.span('broadcastEventAndWait', () async {
     final rumor = await getRumour(event.toString(), tags, recipientPubkeys);
     await _broadcastRumour(rumor, recipientPubkeys);
-    return threads.awaitMessageId(rumor.id);
+    return threads.awaitEventId(rumor.id);
   });
 
   Future<List<Future<List<RelayBroadcastResponse>>>> broadcastEvent({
@@ -107,5 +107,27 @@ class Messaging {
       tags: tags,
       recipientPubkeys: recipientPubkeys,
     );
+  });
+
+  /// Broadcasts a kind:16 seen receipt gift-wrapped to each recipient + self.
+  /// No expiration is set on the gift wrap.
+  Future<void> broadcastSeenReceipt({
+    required int seenUntil,
+    required List<List<String>> tags,
+    required List<String> recipientPubkeys,
+  }) => _logger.span('broadcastSeenReceipt', () async {
+    _logger.d(
+      'Broadcasting seen receipt seenUntil=$seenUntil to $recipientPubkeys',
+    );
+    final rumor = await _ndk.giftWrap.createRumor(
+      content: '',
+      kind: kNostrKindSeenStatus,
+      tags: [
+        ...tags,
+        ...recipientPubkeys.map((pubkey) => ['p', pubkey]),
+        ['seen_until', seenUntil.toString()],
+      ],
+    );
+    await _broadcastRumour(rumor, recipientPubkeys);
   });
 }

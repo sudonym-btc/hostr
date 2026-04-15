@@ -128,66 +128,78 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<StartupGateCubit, StartupGateState>(
-      listener: (context, state) async {
-        if (state is! StartupGateReady) {
-          // Gate left Ready (reset → Initial/InProgress) — allow the
-          // next Ready to be processed.
-          _handlingReady = false;
-          return;
-        }
-        if (_handlingReady) {
-          _gateLog.d('StartupGate: skipping duplicate Ready');
-          return;
-        }
-        _handlingReady = true;
-
-        _gateLog.d(
-          'StartupGate: Ready '
-          '(hasMetadata=${state.hasMetadata}, '
-          'hasPending=${getIt<PendingNavigation>().hasPending})',
-        );
-
-        await _applyStartupReadyEffects(context, state);
-        if (!mounted) return;
-
-        if (!state.hasMetadata) {
-          // Profile incomplete — navigate to edit-profile.
-          // Using navigate() (not push()) so auto_route properly nests
-          // EditProfileRoute under AppShellRoute in the route tree.
-          // Set ProfileRoute as the pending target so that after save,
-          // EditProfile.onSave consumes it and lands on the profile tab
-          // instead of trying to pop into an empty stack.
-          if (!getIt<PendingNavigation>().hasPending) {
-            getIt<PendingNavigation>().set(ProfileRoute());
+    final background = Theme.of(context).colorScheme.surfaceContainerLowest;
+    return ColoredBox(
+      color: background,
+      child: BlocConsumer<StartupGateCubit, StartupGateState>(
+        listener: (context, state) async {
+          if (state is! StartupGateReady) {
+            // Gate left Ready (reset → Initial/InProgress) — allow the
+            // next Ready to be processed.
+            _handlingReady = false;
+            return;
           }
-          _gateLog.d(
-            'StartupGate: navigating to EditProfileRoute (no metadata)',
-          );
-          context.router.navigate(EditProfileRoute());
-          return;
-        }
+          if (_handlingReady) {
+            _gateLog.d('StartupGate: skipping duplicate Ready');
+            return;
+          }
+          _handlingReady = true;
 
-        // All prerequisites met — consume and navigate to the
-        // pending destination (e.g. the listing from a reserve flow).
-        _consumeAndNavigate(context);
-      },
-      builder: (context, state) {
-        return switch (state) {
-          StartupGateError(:final message) => _ErrorView(
-            message: message,
-            onRetry: () {
-              context.read<StartupGateCubit>().reset();
-              context.read<StartupGateCubit>().run();
-            },
-          ),
-          StartupGateReady() => const AutoRouter(),
-          StartupGateInProgress() => _SplashProgressView(state: state),
-          _ => const _SplashProgressView(
-            state: StartupGateInProgress(currentStep: StartupStep.relay),
-          ),
-        };
-      },
+          _gateLog.d(
+            'StartupGate: Ready '
+            '(hasMetadata=${state.hasMetadata}, '
+            'hasPending=${getIt<PendingNavigation>().hasPending})',
+          );
+
+          await _applyStartupReadyEffects(context, state);
+          if (!mounted) return;
+
+          if (!state.hasMetadata) {
+            // Profile incomplete — navigate to edit-profile.
+            // Using navigate() (not push()) so auto_route properly nests
+            // EditProfileRoute under AppShellRoute in the route tree.
+            // Set ProfileRoute as the pending target so that after save,
+            // EditProfile.onSave consumes it and lands on the profile tab
+            // instead of trying to pop into an empty stack.
+            if (!getIt<PendingNavigation>().hasPending) {
+              getIt<PendingNavigation>().set(ProfileRoute());
+            }
+            _gateLog.d(
+              'StartupGate: navigating to EditProfileRoute (no metadata)',
+            );
+            context.router.navigate(EditProfileRoute());
+            return;
+          }
+
+          // All prerequisites met — consume and navigate to the
+          // pending destination (e.g. the listing from a reserve flow).
+          _consumeAndNavigate(context);
+        },
+        builder: (context, state) {
+          final child = switch (state) {
+            StartupGateError(:final message) => _ErrorView(
+              key: const ValueKey('error'),
+              message: message,
+              onRetry: () {
+                context.read<StartupGateCubit>().reset();
+                context.read<StartupGateCubit>().run();
+              },
+            ),
+            StartupGateReady() => const AutoRouter(key: ValueKey('ready')),
+            StartupGateInProgress() => _SplashProgressView(
+              key: ValueKey(state.currentStep),
+              state: state,
+            ),
+            _ => _SplashProgressView(
+              key: const ValueKey('initial'),
+              state: const StartupGateInProgress(
+                currentStep: StartupStep.relay,
+              ),
+            ),
+          };
+          return child;
+        },
+      ),
     );
   }
 }
@@ -198,7 +210,7 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
 /// with a single animated step label below it that switches between steps.
 class _SplashProgressView extends StatelessWidget {
   final StartupGateInProgress state;
-  const _SplashProgressView({required this.state});
+  const _SplashProgressView({super.key, required this.state});
 
   String _logoAssetForTheme(Brightness brightness) {
     return brightness == Brightness.dark
@@ -212,45 +224,21 @@ class _SplashProgressView extends StatelessWidget {
     final label = state.currentStep.label;
     final key = state.currentStep.name;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Logo – same asset as the native splash.
-            Image.asset(
-              _logoAssetForTheme(theme.brightness),
-              width: 120,
-              height: 120,
-              fit: BoxFit.contain,
-            ),
-            Gap.vertical.lg(),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Logo – same asset as the native splash.
+          Image.asset(
+            _logoAssetForTheme(theme.brightness),
+            width: 120,
+            height: 120,
+            fit: BoxFit.contain,
+          ),
+          Gap.vertical.lg(),
 
-            // Single animated step indicator that switches between steps.
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              transitionBuilder: (child, animation) {
-                final slide =
-                    Tween<Offset>(
-                      begin: const Offset(0, 0.4),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                    );
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: slide, child: child),
-                );
-              },
-              child: _StepIndicator(
-                key: ValueKey(key),
-                label: label,
-                theme: theme,
-              ),
-            ),
-          ],
-        ),
+          _StepIndicator(label: label, theme: theme),
+        ],
       ),
     );
   }
@@ -286,43 +274,41 @@ class _StepIndicator extends StatelessWidget {
 class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({super.key, required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      body: Center(
-        child: CustomPadding.horizontal.lg(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: kIconHero,
-                color: theme.colorScheme.error,
+    return Center(
+      child: CustomPadding.horizontal.lg(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: kIconHero,
+              color: theme.colorScheme.error,
+            ),
+            Gap.vertical.md(),
+            Text(
+              AppLocalizations.of(context)!.somethingWentWrong,
+              style: theme.textTheme.titleMedium,
+            ),
+            Gap.vertical.sm(),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
               ),
-              Gap.vertical.md(),
-              Text(
-                AppLocalizations.of(context)!.somethingWentWrong,
-                style: theme.textTheme.titleMedium,
-              ),
-              Gap.vertical.sm(),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              Gap.vertical.custom(kSpace5),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: Text(AppLocalizations.of(context)!.retryButton),
-              ),
-            ],
-          ),
+            ),
+            Gap.vertical.custom(kSpace5),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: Text(AppLocalizations.of(context)!.retryButton),
+            ),
+          ],
         ),
       ),
     );

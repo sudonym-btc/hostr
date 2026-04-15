@@ -56,37 +56,11 @@ class ProfileScreen extends StatelessWidget {
     ];
   }
 
-  List<Widget>? _buildProfileSlivers(
-    BuildContext context,
-    ProfileMetadata? profile,
-  ) {
-    // Null profile falls through to the child (ProfileSummarySection) which
-    // shows the "set up your profile" empty state.
-    if (profile == null) return null;
-
-    return [
-      // Parallax header — scrolls at 65 % speed relative to the list content.
-      SliverLayoutBuilder(
-        builder: (context, constraints) {
-          return SliverToBoxAdapter(
-            child: Transform.translate(
-              offset: Offset(0, constraints.scrollOffset * 0.35),
-              child: ProfileHeader(profile: profile),
-            ),
-          );
-        },
-      ),
-      SliverToBoxAdapter(child: ProfileSummaryBody(profile: profile)),
-    ];
-  }
-
-  SliverAppBar _buildAppBar(BuildContext context, ProfileMetadata? profile) {
-    return SliverAppBar(
+  AppBar _buildAppBar(BuildContext context, ProfileMetadata? profile) {
+    return AppBar(
       automaticallyImplyLeading: false,
-      pinned: true,
       title: Text(profile?.metadata.getName() ?? ''),
       actions: _buildActions(context),
-      surfaceTintColor: Colors.transparent,
     );
   }
 
@@ -103,9 +77,7 @@ class ProfileScreen extends StatelessWidget {
             panes: [
               AppPane(
                 flex: 2,
-                sliverAppBarBuilder: (context) =>
-                    _buildAppBar(context, profile),
-                sliverChildren: _buildProfileSlivers(context, profile),
+                appBarBuilder: (context) => _buildAppBar(context, profile),
                 child: ProfileSummarySection(profile: profile),
               ),
               const AppPane(flex: 3, child: ProfileSettingsSection()),

@@ -85,7 +85,7 @@ class ReservationGroup {
   /// The reservation published by the listing owner (host / seller).
   Reservation? get sellerReservation {
     if (reservations.isEmpty) return null;
-    final host = hostPubkey;
+    final host = sellerPubkey;
     return reservations.where((r) => r.pubKey == host).lastOrNull;
   }
 
@@ -95,7 +95,7 @@ class ReservationGroup {
   /// the resolved escrow pubkey.
   Reservation? get buyerReservation {
     if (reservations.isEmpty) return null;
-    final host = hostPubkey;
+    final host = sellerPubkey;
     final ep = escrowPubkey;
     return reservations
         .where((r) => r.pubKey != host && (ep == null || r.pubKey != ep))
@@ -110,7 +110,7 @@ class ReservationGroup {
   Reservation? get escrowReservation {
     final ep = escrowPubkey;
     if (ep == null) return null;
-    final host = hostPubkey;
+    final host = sellerPubkey;
     if (ep == host) return null;
     return reservations.where((r) => r.pubKey == ep).lastOrNull;
   }
@@ -129,7 +129,7 @@ class ReservationGroup {
     throw StateError('No reservation in group carries a listing anchor');
   }
 
-  String get hostPubkey => getPubKeyFromAnchor(listingAnchor);
+  String get sellerPubkey => getPubKeyFromAnchor(listingAnchor);
 
   /// The buyer (guest) pubkey, resolved from the buyer's reservation.
   String? get buyerPubkey => buyerReservation?.pubKey;

@@ -76,6 +76,24 @@ class _AppShellScreenState extends State<AppShellScreen>
     );
   }
 
+  /// Wraps [icon] with a [Badge] that reactively shows a count from
+  /// [badgeStream]. Returns the icon unchanged when no stream is provided.
+  Widget _badgedIcon({required Widget icon, Stream<int>? badgeStream}) {
+    if (badgeStream == null) return icon;
+    return StreamBuilder<int>(
+      stream: badgeStream,
+      initialData: 0,
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return Badge(
+          isLabelVisible: count > 0,
+          label: Text(count.toString()),
+          child: icon,
+        );
+      },
+    );
+  }
+
   Widget _buildBottomNav(
     BuildContext context, {
     required StackRouter router,
@@ -86,11 +104,14 @@ class _AppShellScreenState extends State<AppShellScreen>
     final items = [
       for (final destination in destinations)
         _navItem(
-          icon: Icon(
-            destination.icon,
-            size: destination.route.routeName == ExploreRoute.name
-                ? kIconLg
-                : kIconMd,
+          icon: _badgedIcon(
+            icon: Icon(
+              destination.icon,
+              size: destination.route.routeName == ExploreRoute.name
+                  ? kIconLg
+                  : kIconMd,
+            ),
+            badgeStream: destination.badgeStream,
           ),
           label: destination.label,
         ),
@@ -121,6 +142,12 @@ class _AppShellScreenState extends State<AppShellScreen>
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
+    // While the nav bar is already animating, ignore scroll notifications.
+    // Without this guard, the size change from SizeTransition adjusting the
+    // nav bar height fires additional ScrollUpdateNotifications that trigger
+    // further controller calls, creating a show↔hide feedback loop.
+    if (_navController.isAnimating) return false;
+
     if (notification is ScrollUpdateNotification) {
       // If the content isn't actually scrollable, always keep the nav visible.
       if (notification.metrics.maxScrollExtent <= 0) {
@@ -130,11 +157,9 @@ class _AppShellScreenState extends State<AppShellScreen>
       final delta = notification.scrollDelta ?? 0;
       if (delta > 0 && notification.dragDetails != null) {
         // Only hide during an active user drag — not during programmatic
-        // or ballistic (fling / layout-settling) scrolls which can fire
-        // on initial load when data arrives and populates the list.
+        // or ballistic (fling / layout-settling) scrolls.
         _navController.reverse();
       } else if (delta < 0) {
-        // Always allow showing the nav on scroll-up from any source.
         _navController.forward();
       }
     }
@@ -183,6 +208,7 @@ class _AppShellScreenState extends State<AppShellScreen>
               return _SidebarNavItem(
                 label: destination.label,
                 icon: destination.icon,
+                badgeStream: destination.badgeStream,
                 selected: index == safeSelectedIndex,
                 onTap: () => onDestinationSelected(index),
               );
@@ -365,12 +391,14 @@ class _AppShellScreenState extends State<AppShellScreen>
 class _SidebarNavItem extends StatelessWidget {
   final String label;
   final IconData icon;
+  final Stream<int>? badgeStream;
   final bool selected;
   final VoidCallback onTap;
 
   const _SidebarNavItem({
     required this.label,
     required this.icon,
+    this.badgeStream,
     required this.selected,
     required this.onTap,
   });
@@ -398,7 +426,7 @@ class _SidebarNavItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: foregroundColor),
+              _buildBadgedIcon(foregroundColor),
               const SizedBox(width: kSpace3),
               Expanded(
                 child: Text(
@@ -413,6 +441,23 @@ class _SidebarNavItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBadgedIcon(Color color) {
+    final baseIcon = Icon(icon, color: color);
+    if (badgeStream == null) return baseIcon;
+    return StreamBuilder<int>(
+      stream: badgeStream,
+      initialData: 0,
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return Badge(
+          isLabelVisible: count > 0,
+          label: Text(count.toString()),
+          child: baseIcon,
+        );
+      },
     );
   }
 }

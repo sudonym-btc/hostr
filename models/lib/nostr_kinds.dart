@@ -48,6 +48,7 @@ const kNostrKindProfileBadges = 30008;
 /// broadcast to external relays. The [Requests.broadcast] guard uses this set
 /// to force these events onto the hostr relay only.
 const kHostrOnlyKinds = <int>{
+  kNostrKindSeenStatus,
   kNostrKindListing,
   kNostrKindReservation,
   kNostrKindReview,

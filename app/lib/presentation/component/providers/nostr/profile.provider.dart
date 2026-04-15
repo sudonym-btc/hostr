@@ -10,7 +10,10 @@ import 'package:provider/single_child_widget.dart';
 /// whenever [MetadataUseCase.updates] fires (e.g. after an edit).
 class ProfileProvider extends SingleChildStatefulWidget {
   final String pubkey;
-  final Function(BuildContext context, AsyncSnapshot<ProfileMetadata?> profile)?
+  final Widget Function(
+    BuildContext context,
+    AsyncSnapshot<ProfileMetadata?> profile,
+  )?
   builder;
   final Function(ProfileMetadata? metadata)? onDone;
 
@@ -33,10 +36,12 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
   void initState() {
     super.initState();
     _future = _load();
-    _updatesSub = getIt<Hostr>().metadata.updates.listen((_) {
-      if (mounted) {
+    _updatesSub = getIt<Hostr>().metadata.updates.listen((updatedProfile) {
+      if (!mounted) return;
+      if (updatedProfile.pubKey == widget.pubkey) {
+        widget.onDone?.call(updatedProfile);
         setState(() {
-          _future = _load();
+          _future = Future.value(updatedProfile);
         });
       }
     });

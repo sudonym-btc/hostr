@@ -82,8 +82,8 @@ class PaymentProofOrchestrator {
         if (tradeId == null || tradeId.isEmpty) return;
 
         final listingAnchor = reservation.parsedTags.listingAnchor;
-        final hostPubkey = getPubKeyFromAnchor(listingAnchor);
-        if (reservation.pubKey != hostPubkey) {
+        final sellerPubkey = getPubKeyFromAnchor(listingAnchor);
+        if (reservation.pubKey != sellerPubkey) {
           _processedTradeIds.add(tradeId);
         }
       });
@@ -133,14 +133,14 @@ class PaymentProofOrchestrator {
     final listingAnchor = lastRequest.parsedTags.listingAnchor;
 
     final myPubkey = _auth.getActiveKey().publicKey;
-    final hostPubkey = getPubKeyFromAnchor(listingAnchor);
-    if (myPubkey == hostPubkey) {
+    final sellerPubkey = getPubKeyFromAnchor(listingAnchor);
+    if (myPubkey == sellerPubkey) {
       _logger.d('PaymentProofOrchestrator: we are host for $tradeId, skipping');
       _processedTradeIds.add(tradeId);
       return;
     }
 
-    if (_hasBuyerReservation(tradeId, hostPubkey)) {
+    if (_hasBuyerReservation(tradeId, sellerPubkey)) {
       _processedTradeIds.add(tradeId);
       return;
     }
@@ -181,7 +181,7 @@ class PaymentProofOrchestrator {
       );
 
       final activeKeyPair = _deriveKeyPair(
-        hostPubkey: listing.pubKey,
+        sellerPubkey: listing.pubKey,
         tradeId: tradeId,
         lastRequest: lastRequest,
       );
@@ -220,12 +220,12 @@ class PaymentProofOrchestrator {
     }
   });
 
-  bool _hasBuyerReservation(String tradeId, String hostPubkey) =>
+  bool _hasBuyerReservation(String tradeId, String sellerPubkey) =>
       _logger.spanSync('_hasBuyerReservation', () {
         final reservations = _userSubs.allMyReservations$.stream.items;
         return reservations.any((r) {
           final rTradeId = r.getDtag();
-          return rTradeId == tradeId && r.pubKey != hostPubkey;
+          return rTradeId == tradeId && r.pubKey != sellerPubkey;
         });
       });
 
@@ -238,12 +238,12 @@ class PaymentProofOrchestrator {
       Uri(scheme: 'hostr', host: 'thread', pathSegments: [threadId]).toString();
 
   KeyPair _deriveKeyPair({
-    required String hostPubkey,
+    required String sellerPubkey,
     required String tradeId,
     required Reservation lastRequest,
   }) => _logger.spanSync('_deriveKeyPair', () {
     final myPubkey = _auth.getActiveKey().publicKey;
-    if (hostPubkey == myPubkey) {
+    if (sellerPubkey == myPubkey) {
       return _auth.getActiveKey();
     }
     return tweakKeyPair(

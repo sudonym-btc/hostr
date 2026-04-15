@@ -38,6 +38,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
     // Update the list item in-place when a listing is mutated elsewhere.
     _updatesSub = getIt<Hostr>().listings.updates.listen((listing) {
+      print('Update sub printed, upserting $listing');
       _listCubit.upsertItem(listing);
     });
   }

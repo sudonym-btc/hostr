@@ -388,13 +388,10 @@ class Reservations extends CrudUseCase<Reservation>
 
     _myReservations = response;
 
-    final reservationsStream = messaging.threads.messages$.replayStream
-        .where(
-          (message) =>
-              message.child is Reservation &&
-              (message.child as Reservation).isNegotiation,
-        )
-        .map((message) => message.child as Reservation)
+    final reservationsStream = messaging.threads.events$.replayStream
+        .whereType<Message>()
+        .map((message) => message.child)
+        .whereType<Reservation>()
         .asyncMap((negotiateReservation) async {
           logger.d(
             'Processing negotiate reservation: $negotiateReservation, ${negotiateReservation.getFirstTag('a')}',
@@ -497,27 +494,122 @@ class Reservations extends CrudUseCase<Reservation>
     return signedReservation;
   }
 
-  Future<Reservation> cancel(Reservation reservation, KeyPair keyPair) async {
-    if (reservation.cancelled) {
-      throw Exception('Reservation is already cancelled');
+  // @todo: move to reservationGroup?
+  // @todo: cancel / confirm reservation methods should use the same logic. Escrow must confirm when acknowledging transaction correct, host can confirm when they manually approve a transaction
+  // cancel and confirm just change the stage of the reservation, so they should share logic
+  Future<Reservation> cancel(
+    ReservationGroup reservationGroup,
+    KeyPair keyPair,
+  ) async {
+    if (reservationGroup.cancelled) {
+      throw Exception('ReservationGroup is already cancelled');
     }
-    final updated = reservation
-        .copy(
-          createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          id: null,
-          content: reservation.parsedContent.copyWith(
-            stage: ReservationStage.cancel,
-          ),
-          pubKey: keyPair.publicKey,
-        )
-        .signAs(keyPair, Reservation.fromNostrEvent);
+    final myReservation = reservationGroup.reservations
+        .where((r) => r.pubKey == keyPair.publicKey)
+        .firstOrNull;
+    final blank = Reservation.create(
+      pubKey: keyPair.publicKey,
+      dTag: reservationGroup.tradeId,
+      listingAnchor: reservationGroup.listingAnchor,
+      stage: ReservationStage.cancel,
+      pTags: [
+        reservationGroup.sellerPubkey != null
+            ? PTag.seller(reservationGroup.sellerPubkey)
+            : null,
+        reservationGroup.buyerPubkey != null
+            ? PTag.buyer(reservationGroup.buyerPubkey!)
+            : null,
+        reservationGroup.escrowPubkey != null
+            ? PTag.escrow(reservationGroup.escrowPubkey!)
+            : null,
+      ].whereType<PTag>().toList(),
+    ).signAs(keyPair, Reservation.fromNostrEvent);
+    final updated = myReservation == null
+        ? blank
+        : myReservation
+              .copy(
+                createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                id: null,
+                content: myReservation.parsedContent.copyWith(
+                  stage: ReservationStage.cancel,
+                ),
+
+                pubKey: keyPair.publicKey,
+              )
+              .signAs(keyPair, Reservation.fromNostrEvent);
     logger.d('Cancelling reservation: $updated');
     await _upsertWithTransition(
       reservation: updated,
       transitionType: ReservationTransitionType.cancel,
-      fromStage: reservation.stage,
+      fromStage: myReservation?.stage ?? ReservationStage.negotiate,
       toStage: ReservationStage.cancel,
-      commitTermsHash: reservation.commitHash(),
+      commitTermsHash: updated.commitHash(),
+    );
+    return updated;
+  }
+
+  /// Confirms a committed reservation, signalling that payment proof has been
+  /// validated.
+  ///
+  /// Mirrors [cancel]: the caller re-publishes their copy of the reservation
+  /// in the [ReservationStage.commit] stage and emits a
+  /// [ReservationTransitionType.confirm] transition.
+  ///
+  /// Typically invoked by the escrow daemon after verifying the on-chain /
+  /// lightning settlement. Host or buyer can also call this to manually
+  /// acknowledge a transaction.
+  ///
+  /// The set of `p` tags is preserved from [reservationGroup] so all
+  /// participants remain in scope.
+  Future<Reservation> confirm(
+    ReservationGroup reservationGroup,
+    KeyPair keyPair,
+  ) async {
+    if (reservationGroup.cancelled) {
+      throw Exception('ReservationGroup is already cancelled — cannot confirm');
+    }
+    if (reservationGroup.stage != ReservationStage.commit) {
+      throw Exception('ReservationGroup is not yet committed — cannot confirm');
+    }
+    final myReservation = reservationGroup.reservations
+        .where((r) => r.pubKey == keyPair.publicKey)
+        .firstOrNull;
+    final blank = Reservation.create(
+      pubKey: keyPair.publicKey,
+      dTag: reservationGroup.tradeId,
+      listingAnchor: reservationGroup.listingAnchor,
+      stage: ReservationStage.commit,
+      pTags: [
+        reservationGroup.sellerPubkey != null
+            ? PTag.seller(reservationGroup.sellerPubkey)
+            : null,
+        reservationGroup.buyerPubkey != null
+            ? PTag.buyer(reservationGroup.buyerPubkey!)
+            : null,
+        reservationGroup.escrowPubkey != null
+            ? PTag.escrow(reservationGroup.escrowPubkey!)
+            : null,
+      ].whereType<PTag>().toList(),
+    ).signAs(keyPair, Reservation.fromNostrEvent);
+    final updated = myReservation == null
+        ? blank
+        : myReservation
+              .copy(
+                createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                id: null,
+                content: myReservation.parsedContent.copyWith(
+                  stage: ReservationStage.commit,
+                ),
+                pubKey: keyPair.publicKey,
+              )
+              .signAs(keyPair, Reservation.fromNostrEvent);
+    logger.d('Confirming reservation: $updated');
+    await _upsertWithTransition(
+      reservation: updated,
+      transitionType: ReservationTransitionType.confirm,
+      fromStage: ReservationStage.commit,
+      toStage: ReservationStage.commit,
+      commitTermsHash: updated.commitHash(),
     );
     return updated;
   }

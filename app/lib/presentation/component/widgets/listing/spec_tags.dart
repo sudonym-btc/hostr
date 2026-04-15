@@ -7,20 +7,12 @@ Color getColorForSpec(BuildContext context, String spec) {
   return AppSurface.stepped(context, 2);
 }
 
-@Deprecated('Use getColorForSpec instead')
-Color getColorForAmenity(BuildContext context, String amenity) =>
-    getColorForSpec(context, amenity);
-
 OutlinedBorder getShapeForSpec(BuildContext context, String spec) {
   return RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(50.0),
     side: BorderSide(color: AppSurface.stepped(context, 4), width: 1.0),
   );
 }
-
-@Deprecated('Use getShapeForSpec instead')
-OutlinedBorder getShapeForAmenity(BuildContext context, String amenity) =>
-    getShapeForSpec(context, amenity);
 
 class SpecificationsWidget extends StatelessWidget {
   final Specifications specifications;
@@ -49,7 +41,7 @@ class SpecificationsWidget extends StatelessWidget {
     final chips = <Widget>[
       // Valued specs first — shown as "Label: Value"
       ...valuedEntries.map((entry) {
-        return Chip(
+        return AppChip(
           label: Text('${convertToTitleCase(entry.key)}: ${entry.value}'),
           shape: getShapeForSpec(context, entry.key),
           backgroundColor: getColorForSpec(context, entry.key),
@@ -57,7 +49,7 @@ class SpecificationsWidget extends StatelessWidget {
       }),
       // Boolean specs
       ...boolKeys.map((spec) {
-        return Chip(
+        return AppChip(
           label: Text(convertToTitleCase(spec)),
           shape: getShapeForSpec(context, spec),
           backgroundColor: getColorForSpec(context, spec),
@@ -71,7 +63,7 @@ class SpecificationsWidget extends StatelessWidget {
       runSpacing: spacing.chipRunSpacing,
       toggleChipBuilder: (label, onTap) => GestureDetector(
         onTap: onTap,
-        child: Chip(
+        child: AppChip(
           label: Text(label),
           shape: getShapeForSpec(context, ''),
           backgroundColor: getColorForSpec(context, ''),

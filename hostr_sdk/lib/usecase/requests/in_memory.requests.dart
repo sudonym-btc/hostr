@@ -137,6 +137,8 @@ class InMemoryRequests extends Requests implements RequestsModel {
     List<String>? relays,
     Duration? timeout,
     String? name,
+    bool cacheRead = true,
+    bool cacheWrite = true,
   }) async* {
     // Return matching events then close
     final snapshot = List<Nip01Event>.of(_events);

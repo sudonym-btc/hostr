@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_chip.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-
-import '../profile/verification/verification_badges.dart';
 
 class PaymentStatusChip extends StatelessWidget {
   final PaymentEvent? state;
@@ -10,20 +9,15 @@ class PaymentStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     Widget child;
     if (state is EscrowFundedEvent) {
-      child = StatusChip(
-        label: 'Paid',
-        color: colorScheme.secondary,
-        foregroundColor: colorScheme.onSecondary,
-      );
+      child = AppChip.success.xs(label: Text('Paid'));
     } else if (state is EscrowReleasedEvent) {
-      child = StatusChip(label: 'Funds Released', color: colorScheme.primary);
+      child = AppChip.neutral.xs(label: Text('Funds Released'));
     } else if (state is EscrowArbitratedEvent) {
-      child = StatusChip(label: 'Arbitrated', color: colorScheme.primary);
+      child = AppChip.neutral.xs(label: Text('Arbitrated'));
     } else if (state is EscrowClaimedEvent) {
-      child = StatusChip(label: 'Claimed', color: colorScheme.primary);
+      child = AppChip.neutral.xs(label: Text('Claimed'));
     } else {
       child = const SizedBox.shrink();
     }

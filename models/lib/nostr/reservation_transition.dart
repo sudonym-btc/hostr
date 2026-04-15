@@ -84,6 +84,14 @@ enum ReservationTransitionType {
 
   /// Any party cancels (negotiate → cancel, or commit → cancel).
   cancel,
+
+  /// Escrow confirms payment proof is valid (commit → commit).
+  ///
+  /// Published by the escrow service after verifying that the buyer's
+  /// payment proof matches the on-chain / lightning settlement. This
+  /// re-stamps the reservation in the commit stage, signalling all parties
+  /// that funds are secured.
+  confirm,
 }
 
 class ReservationTransitionContent extends EventContent {

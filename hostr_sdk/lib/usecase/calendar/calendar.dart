@@ -177,9 +177,9 @@ class Calendar {
         if (!_isFuture(group)) return;
 
         try {
-          final hostProfile = await _metadata.loadMetadata(group.hostPubkey);
+          final hostProfile = await _metadata.loadMetadata(group.sellerPubkey);
           final hostName =
-              hostProfile?.metadata.getName() ?? _shortKey(group.hostPubkey);
+              hostProfile?.metadata.getName() ?? _shortKey(group.sellerPubkey);
 
           final listingName = await _resolveListingName(group.listingAnchor);
           final entry = _buildEntry(

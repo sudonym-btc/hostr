@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/claim/escrow_claim.dart';
@@ -93,7 +92,7 @@ class CommitMenu extends StatelessWidget {
                       _ReservationRecords(
                         validatedReservationGroup: reservationValidation.last,
                         listing: tradeState.listing,
-                        hostPubKey: tradeState.hostPubKey,
+                        sellerPubkey: tradeState.sellerPubkey,
                       ),
                     ],
                   ],
@@ -146,30 +145,33 @@ class CommitMenu extends StatelessWidget {
                 ),
               );
             case TradeAction.messageEscrow:
+              final escrowPubkey = trade.getEscrowPubkey();
+              if (escrowPubkey == null) return null;
+              // Skip if escrow is already participating in this conversation.
+              final currentThread = context.read<Thread>();
+              if (currentThread.state.value.participantPubkeys.contains(
+                escrowPubkey,
+              )) {
+                return null;
+              }
               return (
                 label: 'Message Escrow',
                 icon: Icons.support_agent_outlined,
                 onTap: () {
-                  final pubkey = trade.getEscrowPubkey();
-                  if (pubkey != null) {
-                    final currentThread = context.read<ThreadCubit>().thread;
-                    final myPubkey = getIt<Hostr>().auth
-                        .getActiveKey()
-                        .publicKey;
-                    final nextThread = getIt<Hostr>().messaging.threads
-                        .ensureConversation(
-                          participants: {
-                            myPubkey,
-                            ...currentThread.state.value.participantPubkeys,
-                            ...currentThread.addedParticipants,
-                            pubkey,
-                          },
-                          conversationTag: trade.tradeId,
-                        );
-                    AutoRouter.of(
-                      context,
-                    ).push(ThreadRoute(anchor: nextThread.anchor));
-                  }
+                  final myPubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
+                  final nextThread = getIt<Hostr>().messaging.threads
+                      .ensureConversation(
+                        participants: {
+                          myPubkey,
+                          ...currentThread.state.value.participantPubkeys,
+                          ...currentThread.addedParticipants,
+                          escrowPubkey,
+                        },
+                        conversationTag: trade.tradeId,
+                      );
+                  AutoRouter.of(
+                    context,
+                  ).push(ThreadRoute(anchor: nextThread.anchor));
                 },
               );
             case TradeAction.refund:
@@ -177,11 +179,12 @@ class CommitMenu extends StatelessWidget {
                 label: 'Refund',
                 icon: Icons.undo_outlined,
                 onTap: () {
-                  final cubit = context.read<ThreadCubit>();
-                  final selectedEscrows =
-                      cubit.state.threadState.selectedEscrows;
-                  if (selectedEscrows.isEmpty) return;
-                  final escrowService = selectedEscrows.first.service;
+                  final escrowService = trade.reservationGroup$.items
+                      .expand((v) => v.event.reservations)
+                      .map((r) => r.proof?.escrowProof?.escrowService)
+                      .whereType<EscrowService>()
+                      .firstOrNull;
+                  if (escrowService == null) return;
                   final releaseOp = getIt<Hostr>().escrow.release(
                     EscrowReleaseParams(
                       escrowService: escrowService,
@@ -199,11 +202,12 @@ class CommitMenu extends StatelessWidget {
                 label: 'Claim',
                 icon: Icons.download_outlined,
                 onTap: () {
-                  final cubit = context.read<ThreadCubit>();
-                  final selectedEscrows =
-                      cubit.state.threadState.selectedEscrows;
-                  if (selectedEscrows.isEmpty) return;
-                  final escrowService = selectedEscrows.first.service;
+                  final escrowService = trade.reservationGroup$.items
+                      .expand((v) => v.event.reservations)
+                      .map((r) => r.proof?.escrowProof?.escrowService)
+                      .whereType<EscrowService>()
+                      .firstOrNull;
+                  if (escrowService == null) return;
                   final claimOp = getIt<Hostr>().escrow.claim(
                     EscrowClaimParams(
                       escrowService: escrowService,
@@ -260,12 +264,12 @@ class CommitMenu extends StatelessWidget {
 class _ReservationRecords extends StatelessWidget {
   final Validation<ReservationGroup> validatedReservationGroup;
   final Listing listing;
-  final String hostPubKey;
+  final String sellerPubkey;
 
   const _ReservationRecords({
     required this.validatedReservationGroup,
     required this.listing,
-    required this.hostPubKey,
+    required this.sellerPubkey,
   });
 
   @override

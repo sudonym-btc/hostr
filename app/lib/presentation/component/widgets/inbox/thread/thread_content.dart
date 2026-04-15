@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/logic/cubit/messaging/thread.cubit.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-
-Set<Type> kHiddenMessageTypes = {EscrowServiceSelected, Reservation};
+import 'package:provider/provider.dart';
 
 class ThreadContent extends StatefulWidget {
-  final List<ProfileMetadata> participants;
-  const ThreadContent({super.key, required this.participants});
+  const ThreadContent({super.key});
 
   @override
   State<ThreadContent> createState() => _ThreadContentState();
@@ -20,6 +16,7 @@ class ThreadContent extends StatefulWidget {
 
 class _ThreadContentState extends State<ThreadContent> {
   final ScrollController _scrollController = ScrollController();
+  int _prevEventCount = 0;
 
   void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,6 +40,10 @@ class _ThreadContentState extends State<ThreadContent> {
   void initState() {
     super.initState();
     _scrollToBottom(animated: false);
+    // Mark the conversation as read when it's opened.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<Thread>().markAsRead();
+    });
   }
 
   @override
@@ -52,54 +53,23 @@ class _ThreadContentState extends State<ThreadContent> {
   }
 
   /// Returns the pubkeys that appear for the first time at [index].
-  /// Index 0 is skipped — the first message establishes initial participants
+  /// Index 0 is skipped — the first event establishes initial participants
   /// and does not count as a "join" event.
-  List<String> _newParticipantsAt(int index, List<Message> messages) {
+  List<String> _newParticipantsAt(int index, List<Event> events) {
     if (index == 0) return const [];
     final seenBefore = <String>{};
     for (var i = 0; i < index; i++) {
-      seenBefore.add(messages[i].pubKey);
-      seenBefore.addAll(messages[i].pTags);
+      seenBefore.add(events[i].pubKey);
+      seenBefore.addAll(events[i].pTags);
     }
-    final current = {messages[index].pubKey, ...messages[index].pTags};
+    final current = {events[index].pubKey, ...events[index].pTags};
     return current.difference(seenBefore).toList();
   }
 
-  /// Resolves a human-readable display name for [pubkey].
-  /// Returns "You" for the active user, the profile name if available,
-  /// or a truncated pubkey as fallback.
-  String _displayName(String pubkey) {
-    final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
-    if (pubkey == activePubKey) return 'You';
-    ProfileMetadata? profile;
-    try {
-      profile = widget.participants.firstWhere((p) => p.pubKey == pubkey);
-    } catch (_) {
-      // Not yet loaded or escrow bot — fall back to truncated key.
-    }
-    final name = profile?.metadata.name ?? profile?.metadata.displayName;
-    return (name != null && name.isNotEmpty)
-        ? name
-        : '${pubkey.substring(0, 8)}…';
-  }
-
-  /// Whether [message] is a visible text message (i.e. would be rendered
-  /// by [_buildMessage]).
-  bool _isVisibleMessage(Message message) {
-    if (message.child == null) return true; // plain text
-
-    // Structured messages still depend on sender/profile-specific rendering.
-    final hasSender = widget.participants.any(
-      (p) => p.pubKey == message.pubKey,
-    );
-    if (!hasSender) return false;
-
-    if (message.child is EscrowServiceSelected) return false;
-    if (message.child is Reservation &&
-        (message.child as Reservation).isNegotiation) {
-      return false;
-    }
-    return true; // unknown type still renders
+  /// Whether [event] is a visible event (i.e. would be rendered
+  /// by [_buildEvent]).
+  bool _isVisibleEvent(Event event) {
+    return event is Message && event.child == null;
   }
 
   /// Whether [message] should show a profile header (avatar + timestamp).
@@ -108,16 +78,14 @@ class _ThreadContentState extends State<ThreadContent> {
   /// sender is unambiguous. Otherwise, show it when it's the first visible
   /// message or more than 1 hour after the previous *visible* message.
   bool _showProfileHeader(
-    Message message,
-    List<Message> reversed,
+    Event event,
+    List<Event> reversed,
     int index, {
     required bool alwaysShow,
   }) {
-    // Walk backwards (older) through the reversed list to find the previous
-    // visible message.
-    Message? previous;
+    Event? previous;
     for (var i = index + 1; i < reversed.length; i++) {
-      if (_isVisibleMessage(reversed[i])) {
+      if (_isVisibleEvent(reversed[i])) {
         previous = reversed[i];
         break;
       }
@@ -125,11 +93,11 @@ class _ThreadContentState extends State<ThreadContent> {
     if (previous == null) return true;
 
     if (alwaysShow) {
-      return previous.pubKey != message.pubKey;
+      return previous.pubKey != event.pubKey;
     }
 
     final currentTime = DateTime.fromMillisecondsSinceEpoch(
-      message.createdAt * 1000,
+      event.createdAt * 1000,
     );
     final previousTime = DateTime.fromMillisecondsSinceEpoch(
       previous.createdAt * 1000,
@@ -137,17 +105,9 @@ class _ThreadContentState extends State<ThreadContent> {
     return currentTime.difference(previousTime).inHours >= 1;
   }
 
-  /// Finds the [ProfileMetadata] for a given pubkey from the participants list.
-  ProfileMetadata? _findProfile(String pubkey) {
-    try {
-      return widget.participants.firstWhere((p) => p.pubKey == pubkey);
-    } catch (_) {
-      return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final thread = context.read<Thread>();
     return CustomPadding(
       bottom: 0,
       top: 0,
@@ -155,19 +115,50 @@ class _ThreadContentState extends State<ThreadContent> {
         mainAxisSize: MainAxisSize.max,
         children: [
           Expanded(
-            child: BlocConsumer<ThreadCubit, ThreadCubitState>(
-              listenWhen: (previous, current) {
-                return current.threadState.sortedMessages.length >
-                    previous.threadState.sortedMessages.length;
-              },
-              listener: (context, state) {
-                _scrollToBottom();
-              },
-              builder: (context, state) {
-                final messages = state.threadState.sortedMessages;
-                final reversed = messages.reversed.toList();
+            child: StreamBuilder<ThreadState>(
+              stream: thread.state,
+              initialData: thread.state.value,
+              builder: (context, snapshot) {
+                final state = snapshot.data!;
+                final prevLength = _prevEventCount;
+                final currentLength = state.sortedEvents.length;
+                if (currentLength > prevLength) {
+                  _scrollToBottom();
+                  thread.markAsRead();
+                }
+                _prevEventCount = currentLength;
+
+                final events = state.readableEvents;
+                final reversed = events.reversed.toList();
                 final alwaysShowProfileHeader =
-                    state.threadState.participantPubkeys.length > 2;
+                    state.participantPubkeys.length > 2;
+
+                final myPubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
+                final seenUntil = state.seenUntil;
+                final counterparties = state.counterpartyPubkeys;
+                String? lastReadMessageId;
+                if (counterparties.isNotEmpty) {
+                  int? minSeen;
+                  for (final cp in counterparties) {
+                    final seen = seenUntil[cp];
+                    if (seen == null) {
+                      minSeen = null;
+                      break;
+                    }
+                    if (minSeen == null || seen < minSeen) {
+                      minSeen = seen;
+                    }
+                  }
+                  if (minSeen != null) {
+                    for (final evt in events.reversed) {
+                      if (evt.pubKey == myPubKey && evt.createdAt <= minSeen) {
+                        lastReadMessageId = evt.id;
+                        break;
+                      }
+                    }
+                  }
+                }
+
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,
@@ -177,45 +168,49 @@ class _ThreadContentState extends State<ThreadContent> {
                   padding: const EdgeInsets.symmetric(vertical: kSpace4),
                   itemCount: reversed.length,
                   itemBuilder: (listContext, index) {
-                    final message = reversed[index];
+                    final event = reversed[index];
                     final showHeader = _showProfileHeader(
-                      message,
+                      event,
                       reversed,
                       index,
                       alwaysShow: alwaysShowProfileHeader,
                     );
-                    // Map back to the chronological index for join-banner logic.
-                    final chronoIndex = messages.length - 1 - index;
-                    final newPubkeys = _newParticipantsAt(
-                      chronoIndex,
-                      messages,
-                    );
-                    final messageWidget = _buildMessage(
-                      context,
-                      message: message,
-                    );
+                    final chronoIndex = events.length - 1 - index;
+                    final newPubkeys = _newParticipantsAt(chronoIndex, events);
+                    final messageWidget = _buildEvent(context, event: event);
                     if (messageWidget == null) {
                       return Container();
                     }
                     final activePubKey = getIt<Hostr>().auth
                         .getActiveKey()
                         .publicKey;
-                    final isSentByMe = message.pubKey == activePubKey;
+                    final isSentByMe = event.pubKey == activePubKey;
                     return Column(
                       children: [
                         if (index != reversed.length - 1) Gap.vertical.md(),
                         for (final pubkey in newPubkeys)
-                          _JoinedBanner(name: _displayName(pubkey)),
+                          _JoinedBanner(pubkey: pubkey),
                         if (showHeader)
                           _MessageProfileHeader(
-                            profile: _findProfile(message.pubKey),
-                            name: _displayName(message.pubKey),
+                            pubkey: event.pubKey,
                             timestamp: DateTime.fromMillisecondsSinceEpoch(
-                              message.createdAt * 1000,
+                              event.createdAt * 1000,
                             ),
                             isSentByMe: isSentByMe,
                           ),
                         messageWidget,
+                        if (isSentByMe && event.id == lastReadMessageId)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 2, right: 4),
+                              child: Icon(
+                                Icons.done_all,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
                       ],
                     );
                   },
@@ -228,78 +223,72 @@ class _ThreadContentState extends State<ThreadContent> {
     );
   }
 
-  Widget? _buildMessage(
+  Widget? _buildEvent(
     BuildContext context, {
-    required Message message,
+    required Event event,
     bool showSenderLabel = false,
   }) {
-    final sender = _findProfile(message.pubKey);
     final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
-    final isSentByMe = message.pubKey == activePubKey;
+    final isSentByMe = event.pubKey == activePubKey;
 
-    if (message.child is EscrowServiceSelected) {
-      return null;
-    } else if (message.child is Reservation &&
-        (message.child as Reservation).isNegotiation) {
-      return null;
-      // return ThreadReservationRequestWidget(
-      //   sender: sender,
-      //   item: message,
-      //   isSentByMe: isSentByMe,
-      // );
+    if (event is Message && event.child == null) {
+      if (event.content.trim().isNotEmpty) {
+        return ThreadMessageWidget(
+          item: event,
+          isSentByMe: isSentByMe,
+          showSenderLabel: showSenderLabel && !isSentByMe,
+        );
+      }
+      return Text(AppLocalizations.of(context)!.unknownMessageType);
     }
-
-    if (message.content.trim().isNotEmpty) {
-      return ThreadMessageWidget(
-        sender: sender,
-        item: message,
-        isSentByMe: isSentByMe,
-        showSenderLabel: showSenderLabel && !isSentByMe,
-      );
-    }
-
-    return Text(AppLocalizations.of(context)!.unknownMessageType);
+    // Reservation, EscrowServiceSelected, SeenStatus — not rendered.
+    return null;
   }
 }
 
 /// Profile avatar + timestamp shown when > 1 hour has passed since the
 /// previous message.
 class _MessageProfileHeader extends StatelessWidget {
-  final ProfileMetadata? profile;
-  final String name;
+  final String pubkey;
   final DateTime timestamp;
   final bool isSentByMe;
 
   const _MessageProfileHeader({
-    required this.profile,
-    required this.name,
+    required this.pubkey,
     required this.timestamp,
     required this.isSentByMe,
   });
 
   @override
   Widget build(BuildContext context) {
-    final picture = profile?.metadata.picture;
-    final avatar = AppAvatar.xs(
-      image: picture,
-      pubkey: profile?.pubKey,
-      label: name.isNotEmpty ? name : '?',
-    );
-    final label = Text(
-      '$name · ${formatDateLong(timestamp)}',
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    );
     return Padding(
       padding: const EdgeInsets.only(top: kSpace4, bottom: kSpace2),
-      child: Row(
-        mainAxisAlignment: isSentByMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        children: isSentByMe
-            ? [label, const SizedBox(width: 8), avatar]
-            : [avatar, const SizedBox(width: 8), label],
+      child: ProfileProvider(
+        pubkey: pubkey,
+        builder: (context, profile) {
+          if (profile.data == null) return SizedBox.shrink();
+          final picture = profile.data!.metadata.picture;
+          final name = profile.data!.metadata.getName();
+          final avatar = AppAvatar.xs(
+            image: picture,
+            pubkey: profile.data!.pubKey,
+            label: name.isNotEmpty ? name : '?',
+          );
+          final label = Text(
+            '$name · ${formatDateLong(timestamp)}',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          );
+          return Row(
+            mainAxisAlignment: isSentByMe
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            children: isSentByMe
+                ? [label, const SizedBox(width: 8), avatar]
+                : [avatar, const SizedBox(width: 8), label],
+          );
+        },
       ),
     );
   }
@@ -307,8 +296,8 @@ class _MessageProfileHeader extends StatelessWidget {
 
 /// A centred divider row shown when a new participant joins the thread.
 class _JoinedBanner extends StatelessWidget {
-  final String name;
-  const _JoinedBanner({required this.name});
+  final String pubkey;
+  const _JoinedBanner({required this.pubkey});
 
   @override
   Widget build(BuildContext context) {
@@ -318,11 +307,18 @@ class _JoinedBanner extends StatelessWidget {
           Expanded(child: Container()),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              '$name joined',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.tertiary,
-              ),
+            child: ProfileProvider(
+              pubkey: pubkey,
+              builder: (context, profile) {
+                if (profile.data == null) return SizedBox.shrink();
+                final name = profile.data!.metadata.getName();
+                return Text(
+                  '$name joined',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.tertiary,
+                  ),
+                );
+              },
             ),
           ),
           Expanded(child: Container()),

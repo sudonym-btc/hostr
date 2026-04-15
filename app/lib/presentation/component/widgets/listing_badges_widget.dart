@@ -19,15 +19,11 @@ import 'package:timeago/timeago.dart' as timeago;
 /// - `p` tag → [pubKey] (the badge recipient — typically the host)
 /// - `a` tag → [listingAnchor] (the specific listing this badge targets),
 ///   when provided
-class ListingBadgesWidget extends StatelessWidget {
+class BadgesWidget extends StatelessWidget {
   final String pubKey;
   final String? listingAnchor;
 
-  const ListingBadgesWidget({
-    required this.pubKey,
-    this.listingAnchor,
-    super.key,
-  });
+  const BadgesWidget({required this.pubKey, this.listingAnchor, super.key});
 
   @override
   Widget build(BuildContext context) {
