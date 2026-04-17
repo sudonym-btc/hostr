@@ -19,7 +19,7 @@ const bootstrapEscrowPubkeys = <String>[
 ];
 
 const telemetryEnabled = true;
-const telemetryEndpoint = '/otlp';
+const telemetryEndpoint = 'https://app.hostr.network/otlp';
 const telemetryServiceName = 'hostr-app';
 
 const evmConfig = EvmConfig(
