@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:hostr_sdk/hostr_sdk.dart' show CryptoProvider;
 import 'package:webcrypto/webcrypto.dart' as wc;
 
+import 'nip44_ecdh.dart' if (dart.library.js_interop) 'nip44_ecdh_web.dart';
+
 /// [CryptoProvider] backed by the `webcrypto` package which delegates to
 /// platform-native crypto (Web Crypto API on web, BoringSSL/CommonCrypto on
 /// mobile).  Much faster than the pure-Dart implementation for hot paths
@@ -41,11 +43,12 @@ class FlutterCryptoProvider implements CryptoProvider {
     return Uint8List.fromList(derived);
   }
 
-  /// Web Crypto API has no secp256k1 support.
-  /// The SDK will compute the key via NDK's pure-Dart ECDH and cache it.
+  /// On web, delegates to `@noble/curves` via JS interop for fast secp256k1
+  /// ECDH (<1 ms per key). On other platforms returns `null` — the SDK will
+  /// fall back to NDK's pure-Dart ECDH (fast enough with native AOT).
   @override
   Future<Uint8List?> nip44ConversationKey(
     String privKeyHex,
     String xOnlyPubKeyHex,
-  ) async => null;
+  ) async => nip44ConversationKeyWeb(privKeyHex, xOnlyPubKeyHex);
 }

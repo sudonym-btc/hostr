@@ -9,6 +9,7 @@ const relayUrl = 'wss://relay.staging.hostr.network';
 const blossomUrl = 'https://blossom.staging.hostr.network';
 const tipsAddress = 'paco@walletofsatoshi.com';
 const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
+const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
 const bootstrapRelays = <String>[
 ];

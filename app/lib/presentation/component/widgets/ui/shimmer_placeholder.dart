@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 class ShimmerPlaceholder extends StatefulWidget {
   final bool loading;
@@ -47,16 +48,11 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
 
   @override
   Widget build(BuildContext context) {
-    final surface = Theme.of(context).colorScheme.surface;
+    final surface = AppSurface.stepped(context);
+    final highlight = AppSurface.stepped(context, 3);
     if (!widget.loading) {
       return widget.child;
     }
-
-    final highlight = Color.lerp(
-      surface,
-      Theme.of(context).colorScheme.surfaceContainerHigh,
-      0.4,
-    )!;
 
     return AnimatedBuilder(
       animation: _controller,

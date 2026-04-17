@@ -7,6 +7,7 @@ import 'datasources/app_database_platform.dart';
 import 'datasources/storage.dart';
 import 'usecase/calendar/calendar.dart';
 import 'usecase/evm/config/evm_config.dart';
+import 'util/coinlib_gift_wrap.dart';
 import 'util/custom_logger.dart';
 import 'util/telemetry.dart';
 
@@ -90,19 +91,19 @@ class CoinlibEventSigner implements EventSigner {
   Future<String?> encryptNip44({
     required String plaintext,
     required String recipientPubKey,
-  }) => _nip04Delegate.encryptNip44(
-    plaintext: plaintext,
-    recipientPubKey: recipientPubKey,
-  );
+  }) async {
+    if (privateKey == null || privateKey!.isEmpty) return null;
+    return coinlibEncryptNip44(plaintext, privateKey!, recipientPubKey);
+  }
 
   @override
   Future<String?> decryptNip44({
     required String ciphertext,
     required String senderPubKey,
-  }) => _nip04Delegate.decryptNip44(
-    ciphertext: ciphertext,
-    senderPubKey: senderPubKey,
-  );
+  }) async {
+    if (privateKey == null || privateKey!.isEmpty) return null;
+    return coinlibDecryptNip44(ciphertext, privateKey!, senderPubKey);
+  }
 
   final _pendingRequestsController =
       BehaviorSubject<List<PendingSignerRequest>>.seeded([]);

@@ -69,7 +69,7 @@ List<Listing> buildListings({
       // alter listing prices or other on-chain-relevant attributes.
       final lr = _listingRng(ctx.seed, listingIndex);
 
-      final requiresEscrow =
+      final instantBook =
           host.hasEvm &&
           lr.nextDouble() < config.threadStages.paidViaEscrowRatio;
 
@@ -106,7 +106,7 @@ List<Listing> buildListings({
             ),
         ],
         quantity: 1 + lr.nextInt(2),
-        requiresEscrow: requiresEscrow,
+        instantBook: instantBook,
         extraTags: [
           ['d', count.toString()],
         ],

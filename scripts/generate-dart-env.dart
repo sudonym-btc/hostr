@@ -114,6 +114,7 @@ String _generateDart(String target, Map<String, String> vars) {
   buf.writeln('const blossomUrl = ${q('BLOSSOM_URL')};');
   buf.writeln('const tipsAddress = ${q('TIPS_ADDRESS')};');
   buf.writeln('const googleMapsApiKey = ${q('GOOGLE_MAPS_API_KEY')};');
+  buf.writeln('const hostrSocialNpub = ${q('HOSTR_SOCIAL_NPUB')};');
   buf.writeln();
 
   // ── Bootstrap relays (comma-separated → List<String>) ──

@@ -30,7 +30,7 @@ Listing _listing({
   KeyPair? signer,
   bool negotiable = false,
   bool allowSelfSignedReservation = false,
-  bool requiresEscrow = false,
+  bool instantBook = true,
   int pricePerNightSats = 100000,
 }) {
   final key = signer ?? MockKeys.hoster;
@@ -46,7 +46,7 @@ Listing _listing({
     specifications: Specifications(),
     negotiable: negotiable,
     allowSelfSignedReservation: allowSelfSignedReservation,
-    requiresEscrow: requiresEscrow,
+    instantBook: instantBook,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   );
 }

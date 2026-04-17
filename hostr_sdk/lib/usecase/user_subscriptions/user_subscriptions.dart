@@ -81,46 +81,68 @@ class UserSubscriptions {
        _logger = logger.scope('subscriptions');
 
   // ── Public streams ────────────────────────────────────────────────────
+  //
+  // All public streams are **final**. On start() we reset them and pipe in
+  // fresh sources; on reset() we just reset them. This keeps the object
+  // identity stable so downstream listeners (widgets, background workers)
+  // never need to re-subscribe after a logout → login cycle.
 
   /// All reservations for trades the user is involved in (by trade ID / d-tag).
-  late ExpandableSubscription<Reservation> allMyReservations$;
+  late final ExpandableSubscription<Reservation> allMyReservations$ =
+      _reservations.createExpandable(name: 'user-reservations');
 
   /// Validated reservation groups derived from [allMyReservations$].
   /// Each group is grouped by trade ID and validated (proof-checked) via
-  /// [ReservationGroups.verifyFromSource].
-  late StreamWithStatus<List<Validation<ReservationGroup>>>
-  allMyReservationGroups$;
-
-  /// Latest validated reservation groups flattened from [allMyReservationGroups$].
-  late StreamWithStatus<Validation<ReservationGroup>>
-  allMyReservationGroupsCurrent$;
+  /// [ReservationGroups.verifyFromSource]. Per-item stream — each emission
+  /// is a single [Validation<ReservationGroup>] (upserted by group ID).
+  final StreamWithStatus<Validation<ReservationGroup>> allMyReservationGroups$ =
+      StreamWithStatus();
 
   /// Reservation groups where the current user is the **guest** (not the host).
-  late StreamWithStatus<Validation<ReservationGroup>> myTrips$;
+  final StreamWithStatus<Validation<ReservationGroup>> myTrips$ =
+      StreamWithStatus();
+
+  /// Accumulated deduplicated list of trips, keyed by trade ID.
+  late final StreamWithStatus<List<Validation<ReservationGroup>>> myTripsList$ =
+      myTrips$.accumulateByKey((v) => v.event.tradeId);
 
   /// Reservation groups where the current user is the **host**.
-  late StreamWithStatus<Validation<ReservationGroup>> myHostings$;
+  final StreamWithStatus<Validation<ReservationGroup>> myHostings$ =
+      StreamWithStatus();
+
+  /// Accumulated deduplicated list of hostings, keyed by trade ID.
+  late final StreamWithStatus<List<Validation<ReservationGroup>>>
+  myHostingsList$ = myHostings$.accumulateByKey((v) => v.event.tradeId);
 
   /// All reservation transitions across every trade the user is in.
-  late ExpandableSubscription<ReservationTransition> allTransitions$;
+  late final ExpandableSubscription<ReservationTransition> allTransitions$ =
+      _transitions.createExpandable(name: 'user-transitions');
 
   /// All heartbeat events discovered for counterparties in known threads.
-  late ExpandableSubscription<ReceivedHeartbeat> allHeartbeats$;
+  late final ExpandableSubscription<ReceivedHeartbeat> allHeartbeats$ =
+      _heartbeats.createExpandable(name: 'user-heartbeats');
 
   /// Latest heartbeat per discovered counterparty pubkey.
-  late StreamWithStatus<ReceivedHeartbeat> latestHeartbeats$;
+  final StreamWithStatus<ReceivedHeartbeat> latestHeartbeats$ =
+      StreamWithStatus();
 
   /// All reviews authored by the current user. Static filter.
-  late StreamWithStatus<Review> myReviews$;
+  final StreamWithStatus<Review> myReviews$ = StreamWithStatus();
 
   final StreamWithStatus<Nip01Event> giftwraps$ =
       StreamWithStatus<Nip01Event>();
-  late StreamWithStatus<Nip01Event>?
+  StreamWithStatus<Nip01Event>?
   _giftwrapSource$; // NDK subscription, held for cleanup
 
   /// Combined payment events (zaps + escrow) across all trades.
   final StreamWithStatus<PaymentEvent> paymentEvents$ =
       StreamWithStatus<PaymentEvent>();
+
+  // Intermediate derived sources created in start(), held for cleanup.
+  StreamWithStatus<Validation<ReservationGroup>>? _reservationGroupsSource;
+  StreamWithStatus<Validation<ReservationGroup>>? _tripsSource;
+  StreamWithStatus<Validation<ReservationGroup>>? _hostingsSource;
+  StreamWithStatus<Review>? _reviewsSource;
 
   /// Emits `true` once all required streams are live.
   final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
@@ -155,57 +177,45 @@ class UserSubscriptions {
       name: 'user-giftwraps',
     );
 
-    giftwraps$.addSubscription(
-      _giftwrapSource$!.replayStream.listen(
-        giftwraps$.add,
-        onError: giftwraps$.addError,
-      ),
-    );
-    giftwraps$.addSubscription(
-      _giftwrapSource$!.status.listen(
-        giftwraps$.addStatus,
-        onError: giftwraps$.addError,
-      ),
-    );
+    giftwraps$.pipeFrom(_giftwrapSource$!);
 
-    myReviews$ = _reviews.subscribe(
+    _reviewsSource = _reviews.subscribe(
       Filter(authors: [myPubkey]),
       name: 'user-reviews',
     );
+    myReviews$.pipeFrom(_reviewsSource!);
 
     _reservationFilterSource = StreamWithStatus<Filter>();
     _transitionFilterSource = StreamWithStatus<Filter>();
     _heartbeatFilterSource = StreamWithStatus<Filter>();
 
-    allMyReservations$ = _reservations.expandableSubscribe(
+    await _reservations.startExpandable(
+      allMyReservations$,
       _reservationFilterSource!,
-      name: 'user-reservations',
     );
 
-    allMyReservationGroups$ = _reservationGroups.verifyFromSource(
+    _reservationGroupsSource = _reservationGroups.verifyFromSource(
       source: allMyReservations$.stream,
     );
-    allMyReservationGroupsCurrent$ = allMyReservationGroups$.currentItemsBy(
-      (item) => item.event.tradeId,
-    );
+    allMyReservationGroups$.pipeFrom(_reservationGroupsSource!);
 
-    myTrips$ = allMyReservationGroupsCurrent$.where(
+    _tripsSource = allMyReservationGroups$.where(
       (item) => item.event.sellerPubkey != myPubkey,
     );
-    myHostings$ = allMyReservationGroupsCurrent$.where(
+    myTrips$.pipeFrom(_tripsSource!);
+    _hostingsSource = allMyReservationGroups$.where(
       (item) => item.event.sellerPubkey == myPubkey,
     );
+    myHostings$.pipeFrom(_hostingsSource!);
 
-    allTransitions$ = _transitions.expandableSubscribe(
+    await _transitions.startExpandable(
+      allTransitions$,
       _transitionFilterSource!,
-      name: 'user-transitions',
     );
 
-    allHeartbeats$ = _heartbeats.expandableSubscribe(
-      _heartbeatFilterSource!,
-      name: 'user-heartbeats',
-    );
-    latestHeartbeats$ = StreamWithStatus<ReceivedHeartbeat>();
+    await _heartbeats.startExpandable(allHeartbeats$, _heartbeatFilterSource!);
+
+    // Should be a scan!
     latestHeartbeats$.addSubscription(
       allHeartbeats$.stream.replayStream.listen(
         _trackLatestHeartbeat,
@@ -233,13 +243,25 @@ class UserSubscriptions {
     }
     _discoverySubscriptions.clear();
 
+    // Close intermediate derived sources first (they subscribe to the
+    // public streams, so closing them before reset avoids stale listeners).
+    await _hostingsSource?.close();
+    _hostingsSource = null;
+    await _tripsSource?.close();
+    _tripsSource = null;
+    await _reservationGroupsSource?.close();
+    _reservationGroupsSource = null;
+    await _reviewsSource?.close();
+    _reviewsSource = null;
+
     await giftwraps$.reset();
     await _giftwrapSource$?.close();
     _giftwrapSource$ = null;
-    await myTrips$.close();
-    await myHostings$.close();
-    await allMyReservationGroupsCurrent$.close();
-    await allMyReservationGroups$.close();
+    await myHostingsList$.reset();
+    await myHostings$.reset();
+    await myTripsList$.reset();
+    await myTrips$.reset();
+    await allMyReservationGroups$.reset();
     await allMyReservations$.reset();
     await allTransitions$.reset();
     await allHeartbeats$.reset();
@@ -276,8 +298,14 @@ class UserSubscriptions {
     await allTransitions$.close();
     await allHeartbeats$.close();
     await myReviews$.close();
+    await myTripsList$.close();
+    await myTrips$.close();
+    await myHostingsList$.close();
+    await myHostings$.close();
+    await allMyReservationGroups$.close();
     await paymentEvents$.close();
     await latestHeartbeats$.close();
+    await giftwraps$.close();
     await _isLive.close();
   });
 
@@ -407,9 +435,8 @@ class UserSubscriptions {
     }
 
     _latestHeartbeatsByPubkey[heartbeat.pubKey] = heartbeat;
-    final latest = _latestHeartbeatsByPubkey.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    latestHeartbeats$.replaceAll(latest);
+    // Add the latest heartbeat; consumers use .items for the full deduped list.
+    latestHeartbeats$.add(heartbeat);
   }
 
   String? _tradeIdForMessage(Message message) {

@@ -217,9 +217,9 @@ void main() {
         createdAt: 100,
       );
 
-      userSubscriptions.myHostings$.replaceAll([
+      userSubscriptions.myHostings$.add(
         Valid(ReservationGroup(reservations: [guestReservation])),
-      ]);
+      );
       userSubscriptions._giftwraps.addStatus(StreamStatusLive());
       userSubscriptions.myHostings$.addStatus(StreamStatusLive());
       userSubscriptions.myTrips$.addStatus(StreamStatusLive());

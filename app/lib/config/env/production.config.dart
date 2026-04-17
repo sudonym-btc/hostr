@@ -20,5 +20,7 @@ class ProductionConfig extends Config {
   @override
   String get tipsAddress => env.tipsAddress;
   @override
+  String get hostrSocialNpub => env.hostrSocialNpub;
+  @override
   String get googleMapsApiKey => env.googleMapsApiKey;
 }

@@ -2,41 +2,44 @@ import 'dart:async';
 
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show Filter;
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
+import '../../../../config.dart';
 import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../auth/auth.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../../../nwc/nwc.dart';
-import '../../../payments/payments.dart';
+import '../../../escrows/escrows.dart';
 import '../../../trade_account_allocator/trade_account_allocator.dart';
 import '../../../user_config/user_config_store.dart';
 import '../../../user_subscriptions/user_subscriptions.dart';
-import '../../chain/evm_balance_types.dart';
 import '../../chain/evm_chain.dart';
 import '../../evm.dart';
 import '../../models/amount_spec.dart';
 import '../operation_state_store.dart';
 import '../swap_out/swap_out_models.dart';
 import '../swap_out/swap_out_state.dart';
-import '../swap_quote_service.dart';
 import 'funds_item.dart';
 
-/// Combined balance monitor and auto-withdrawal service.
+/// Monitors fund balances and auto-sweeps them to Lightning.
 ///
-/// Replaces both [AutoWithdrawService] and [WithdrawalOrchestrator].
+/// ## Design
 ///
-/// ## Streams
+/// On startup, [scan] performs a one-time HD address derivation and batched
+/// RPC balance fetch across all configured EVM chains (native + Boltz ERC-20
+/// tokens). It also queries known escrow contracts for locked balances. The
+/// results are emitted as [FundsItem]s via [fundsStream$].
 ///
-/// - **[fundsStream$]** — all currently sweepable [FundsItem]s across all
-///   chains. Items with [FundsItem.contract] != null represent escrow-locked
-///   funds that need a pre-lock `withdraw()` call bundled into the swap-out.
+/// There is **no ongoing per-block monitoring** by default. Balances are
+/// refreshed only when explicitly requested via [refetchAccount] (e.g. after
+/// a swap-in or swap-out completes).
 ///
-/// - **[displayBalance$]** — per-token sums derived from [fundsStream$], for
-///   display in the UI.
+/// For future use, [trackAddress]/[untrackAddress] and [trackToken] delegate
+/// to [EvmBalanceMonitor] on the relevant chain for per-block monitoring, but
+/// this is unused in the current flow.
 ///
 /// ## Sweep path
 ///
@@ -59,7 +62,6 @@ class FundsMonitorService {
   final TradeAccountAllocator _tradeAccountAllocator;
   final OperationStateStore _stateStore;
   final UserConfigStore _userConfigStore;
-  final SwapQuoteService _quoteService;
   final CustomLogger _logger;
 
   // ── Observable state ────────────────────────────────────────────────────
@@ -75,25 +77,24 @@ class FundsMonitorService {
 
   // ── Internal state ───────────────────────────────────────────────────────
 
-  /// Live EOA/smart-wallet balances keyed by (addressLower, tokenAddressLower).
-  final Map<(String, String), FundsItem> _eoaItems = {};
-  final BehaviorSubject<List<FundsItem>> _eoaSubject = BehaviorSubject.seeded(
-    [],
-  );
+  /// Smart-wallet / EOA balances keyed by (addressLower, tokenAddressLower).
+  final Map<(String, String), FundsItem> _walletItems = {};
+  final BehaviorSubject<List<FundsItem>> _walletSubject =
+      BehaviorSubject.seeded([]);
 
-  /// Live escrow balances keyed by (addressLower, tokenAddressLower).
+  /// Escrow-locked balances keyed by (addressLower, tokenAddressLower).
   final Map<(String, String), FundsItem> _escrowItems = {};
   final BehaviorSubject<List<FundsItem>> _escrowSubject =
       BehaviorSubject.seeded([]);
 
-  /// Address → account index (populated during seeding + new address tracking).
+  /// Address → account index (populated during scan + refetch).
   final Map<String, int> _addressToAccountIndex = {};
 
   bool _swapInProgress = false;
-
-  StreamSubscription? _balanceSub;
   StreamSubscription? _eventSub;
   StreamSubscription? _sweepSub;
+
+  Completer<void>? _scanCompleter;
 
   bool _started = false;
 
@@ -104,17 +105,16 @@ class FundsMonitorService {
     this._tradeAccountAllocator,
     this._stateStore,
     this._userConfigStore,
-    this._quoteService,
     CustomLogger logger,
   ) : _logger = logger.scope('funds-monitor');
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
-  /// Start the service.
+  /// Start the service and kick off the initial [scan].
   ///
-  /// 1. Seeds each chain's [EvmBalanceMonitor] with currently-funded addresses.
-  /// 2. Subscribes to monitor updates → [fundsStream$].
-  /// 3. Subscribes to escrow settlement events → [fundsStream$].
+  /// 1. Builds the funds observable streams.
+  /// 2. Runs a one-time [scan] (HD balance + escrow contract balances).
+  /// 3. Subscribes to escrow settlement events for reactive refresh.
   /// 4. Starts sweep listener.
   ///
   /// Idempotent.
@@ -123,18 +123,31 @@ class FundsMonitorService {
     _started = true;
 
     _buildFundsStream();
-    _unawaited(_seedMonitors());
+    _scanCompleter = Completer<void>();
+    scan().then(
+      (_) {
+        if (!(_scanCompleter?.isCompleted ?? true)) _scanCompleter?.complete();
+      },
+      onError: (Object e) {
+        _logger.w('Initial scan failed: $e');
+        if (!(_scanCompleter?.isCompleted ?? true)) _scanCompleter?.complete();
+      },
+    );
     _startEventListener();
     _startSweepListener();
   });
+
+  /// Await the initial [scan]. Returns immediately if already completed or
+  /// not yet started.
+  Future<void> seedAndAwait() async {
+    await _scanCompleter?.future;
+  }
 
   /// Stop the service. Safe to call when not started.
   Future<void> stop() => _logger.span('stop', () async {
     if (!_started) return;
     _started = false;
 
-    await _balanceSub?.cancel();
-    _balanceSub = null;
     await _eventSub?.cancel();
     _eventSub = null;
     await _sweepSub?.cancel();
@@ -147,11 +160,12 @@ class FundsMonitorService {
   /// Reset state and restart (e.g. after user logs out → log in).
   Future<void> reset() => _logger.span('reset', () async {
     await stop();
-    _eoaItems.clear();
-    _eoaSubject.add([]);
+    _walletItems.clear();
+    _walletSubject.add([]);
     _escrowItems.clear();
     _escrowSubject.add([]);
     _addressToAccountIndex.clear();
+    _scanCompleter = null;
   });
 
   /// Force an immediate sweep check (skips debounce).
@@ -160,10 +174,215 @@ class FundsMonitorService {
     await _sweep(items);
   });
 
-  /// Register an address → account index mapping and start tracking it.
+  // ══════════════════════════════════════════════════════════════════════════
+  // One-time scan
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Derive HD addresses across all configured chains, batch-fetch native +
+  /// ERC-20 balances, and query escrow contract balances. Results are emitted
+  /// as [FundsItem]s via [fundsStream$].
   ///
-  /// Call this whenever a new address becomes relevant (e.g. after
-  /// [SwapInOperation] completes with a specific EOA address).
+  /// This is the primary balance-discovery mechanism. It runs once at startup
+  /// and can be called again to do a full refresh.
+  Future<void> scan() => _logger.span('scan', () async {
+    for (final chain in _evm.configuredChains) {
+      try {
+        await _scanChain(chain);
+      } catch (e) {
+        _logger.w('Scan failed for ${chain.config.id}: $e');
+      }
+    }
+
+    // Fetch escrow contract balances.
+    await _scanEscrowContracts();
+  });
+
+  /// Scan a single chain: derive HD addresses, batch-fetch native + ERC-20
+  /// balances for all Boltz tokens, and record as [FundsItem]s.
+  Future<void> _scanChain(EvmChain chain) async {
+    final boltzTokens = chain.swaps?.chainInfo.tokens ?? {};
+    final (:nativeFunded, :tokenFunded) = await chain.scanAllHDBalances(
+      tokens: boltzTokens,
+    );
+
+    for (final entry in nativeFunded) {
+      final key = entry.address.eip55With0x.toLowerCase();
+      _addressToAccountIndex[key] = entry.accountIndex;
+      final nativeToken = Token.native(chain.config.chainId);
+      final mapKey = (key, nativeToken.address.toLowerCase());
+      _walletItems[mapKey] = FundsItem(
+        address: entry.address,
+        keypair: entry.keypair,
+        accountIndex: entry.accountIndex,
+        token: nativeToken,
+        balance: entry.balance,
+        chain: chain,
+        blockNumber: 0,
+        isSmartAddress: entry.isSmartAddress,
+      );
+    }
+
+    for (final entry in tokenFunded) {
+      final key = entry.address.eip55With0x.toLowerCase();
+      _addressToAccountIndex[key] = entry.accountIndex;
+      final tokenKey = entry.tokenAddress.eip55With0x.toLowerCase();
+      final mapKey = (key, tokenKey);
+      _walletItems[mapKey] = FundsItem(
+        address: entry.address,
+        keypair: entry.keypair,
+        accountIndex: entry.accountIndex,
+        token: entry.balance.token,
+        balance: entry.balance,
+        chain: chain,
+        blockNumber: 0,
+        isSmartAddress: entry.isSmartAddress,
+      );
+    }
+
+    _walletSubject.add(_walletItems.values.toList());
+  }
+
+  /// Query all known escrow contracts for locked balances across all chains.
+  ///
+  /// Discovers escrow services by fetching [EscrowService] events from
+  /// bootstrap escrow pubkeys, then calls `allBalances` on each contract.
+  Future<void> _scanEscrowContracts() =>
+      _logger.span('_scanEscrowContracts', () async {
+        final escrows = getIt<Escrows>();
+        final config = getIt<HostrConfig>();
+        if (config.bootstrapEscrowPubkeys.isEmpty) return;
+
+        // Fetch known escrow service events.
+        final services = await escrows.list(
+          Filter(
+            kinds: EscrowService.kinds,
+            authors: config.bootstrapEscrowPubkeys,
+          ),
+        );
+
+        for (final service in services) {
+          try {
+            final chain = _evm.getChainByChainId(service.chainId);
+            if (chain == null) continue;
+
+            final contract = chain.escrow.getSupportedEscrowContract(service);
+
+            // Check all known account indices for balances.
+            final seenIndices = <int>{};
+            for (final index in _addressToAccountIndex.values) {
+              if (!seenIndices.add(index)) continue;
+              try {
+                final keypair = await _auth.hd.getActiveEvmKey(
+                  accountIndex: index,
+                );
+                await _refreshEscrowBalances(
+                  contract: contract,
+                  chain: chain,
+                  keypair: keypair,
+                  accountIndex: index,
+                );
+              } catch (e) {
+                _logger.w(
+                  'Escrow balance scan failed for account $index '
+                  'on ${chain.config.id}: $e',
+                );
+              }
+            }
+          } catch (e) {
+            _logger.w('Escrow scan failed for service ${service.id}: $e');
+          }
+        }
+      });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Targeted refetch
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Re-fetch wallet + escrow balances for a specific account on a given
+  /// chain. Call this after a swap-in or swap-out completes.
+  Future<void> refetchAccount(EvmChain chain, int accountIndex) => _logger.span(
+    'refetchAccount(${chain.config.id}, $accountIndex)',
+    () async {
+      final keypair = await _auth.hd.getActiveEvmKey(
+        accountIndex: accountIndex,
+      );
+      final smartAddress = chain.aa != null
+          ? await chain.aa!.getSmartAccountAddress(keypair)
+          : null;
+      final address = smartAddress ?? keypair.address;
+      final isSmartAddress = smartAddress != null;
+
+      // Re-scan wallet balances for this address.
+      final boltzTokens = chain.swaps?.chainInfo.tokens ?? {};
+      final addrKey = address.eip55With0x.toLowerCase();
+
+      // Native balance.
+      final nativeBalances = await chain.getBalancesBatch([address]);
+      final nativeToken = Token.native(chain.config.chainId);
+      final nativeBal = nativeBalances[address];
+      final nativeMapKey = (addrKey, nativeToken.address.toLowerCase());
+      if (nativeBal != null && nativeBal.value > BigInt.zero) {
+        _walletItems[nativeMapKey] = FundsItem(
+          address: address,
+          keypair: keypair,
+          accountIndex: accountIndex,
+          token: nativeToken,
+          balance: nativeBal,
+          chain: chain,
+          blockNumber: 0,
+          isSmartAddress: isSmartAddress,
+        );
+      } else {
+        _walletItems.remove(nativeMapKey);
+      }
+
+      // ERC-20 balances.
+      for (final tokenEntry in boltzTokens.entries) {
+        try {
+          final results = await chain.getERC20BalancesBatch([
+            (owner: address, token: tokenEntry.value),
+          ]);
+          final balance = results.isNotEmpty ? results.first : null;
+          final tokenKey = tokenEntry.value.eip55With0x.toLowerCase();
+          final mapKey = (addrKey, tokenKey);
+          if (balance != null && balance.value > BigInt.zero) {
+            _walletItems[mapKey] = FundsItem(
+              address: address,
+              keypair: keypair,
+              accountIndex: accountIndex,
+              token: balance.token,
+              balance: balance,
+              chain: chain,
+              blockNumber: 0,
+              isSmartAddress: isSmartAddress,
+            );
+          } else {
+            _walletItems.remove(mapKey);
+          }
+        } catch (e) {
+          _logger.w(
+            'Refetch ERC20 ${tokenEntry.key} failed for account '
+            '$accountIndex on ${chain.config.id}: $e',
+          );
+        }
+      }
+
+      _walletSubject.add(_walletItems.values.toList());
+
+      // Also refresh escrow balances for this account.
+      await _scanEscrowContracts();
+    },
+  );
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Track / untrack (delegates to EvmBalanceMonitor — unused for now)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Register an address for per-block monitoring on a specific chain.
+  ///
+  /// This starts the chain's [EvmBalanceMonitor] if not already running and
+  /// adds the address to its tracked set. Currently unused — the default
+  /// flow uses [scan] + [refetchAccount] instead.
   void trackAddress(
     EthereumAddress address,
     int accountIndex, {
@@ -181,95 +400,26 @@ class FundsMonitorService {
   // ── Stream construction ──────────────────────────────────────────────────
 
   void _buildFundsStream() {
-    // Merge BalanceUpdate streams from all chain monitors.
-    _balanceSub =
-        Rx.merge(
-          _evm.configuredChains.map(
-            (c) => c.balanceMonitor.balanceUpdates.stream,
-          ),
-        ).listen(
-          _onBalanceUpdate,
-          onError: (Object e) => _logger.w('Balance update error: $e'),
-        );
-
-    // Combined stream: latest EOA snapshot + latest escrow snapshot.
-    // shareReplay so both the sweep listener and displayBalance$ (and any
-    // future subscriber) can listen without hitting "already listened to".
+    // Combined stream: latest wallet snapshot + latest escrow snapshot.
     fundsStream$ = Rx.combineLatest2(
-      _eoaSubject.stream,
+      _walletSubject.stream,
       _escrowSubject.stream,
-      (eoaItems, escrowItems) => [...eoaItems, ...escrowItems],
+      (walletItems, escrowItems) => [...walletItems, ...escrowItems],
     ).shareReplay(maxSize: 1);
 
-    // shareReplay so the UI can re-subscribe on widget remount.
     displayBalance$ = fundsStream$
         .map(_groupByToken)
         .distinct()
         .shareReplay(maxSize: 1);
   }
 
-  void _onBalanceUpdate(BalanceUpdate update) {
-    final addrKey = update.address.eip55With0x.toLowerCase();
-    final tokenKey = update.token.address.toLowerCase();
-    final mapKey = (addrKey, tokenKey);
-
-    final accountIndex = _addressToAccountIndex[addrKey];
-    if (accountIndex == null) {
-      // Address not registered — ignore (shouldn't happen after seeding).
-      return;
-    }
-
-    if (update.balance.value == BigInt.zero) {
-      _eoaItems.remove(mapKey);
-    } else {
-      // Resolve keypair lazily — use a placeholder for the stream update
-      // and populate asynchronously.
-      _unawaited(_resolveAndUpsertEoaItem(update, accountIndex, mapKey));
-      return;
-    }
-
-    _eoaSubject.add(_eoaItems.values.toList());
-  }
-
-  Future<void> _resolveAndUpsertEoaItem(
-    BalanceUpdate update,
-    int accountIndex,
-    (String, String) mapKey,
-  ) async {
-    try {
-      final keypair = await _auth.hd.getActiveEvmKey(
-        accountIndex: accountIndex,
-      );
-
-      // Find the chain for this update.
-      final chain = _evm.configuredChains.firstWhere(
-        (c) => c.balanceMonitor.trackedAddresses.any(
-          (a) =>
-              a.address.eip55With0x.toLowerCase() ==
-              update.address.eip55With0x.toLowerCase(),
-        ),
-        orElse: () => _evm.configuredChains.first,
-      );
-
-      _eoaItems[mapKey] = FundsItem(
-        address: update.address,
-        keypair: keypair,
-        accountIndex: accountIndex,
-        token: update.token,
-        balance: update.balance,
-        chain: chain,
-        blockNumber: update.blockNumber,
-      );
-      _eoaSubject.add(_eoaItems.values.toList());
-    } catch (e) {
-      _logger.w('Failed to resolve keypair for EOA item: $e');
-    }
-  }
-
-  // ── Settlement event → escrow FundsItem ─────────────────────────────────
+  // ── Settlement event → escrow FundsItem refresh ─────────────────────────
 
   void _startEventListener() {
-    _eventSub = _userSubs.paymentEvents$.replayStream
+    // Use .stream (not .replayStream) — historical balances are already
+    // covered by the startup scan. Replaying all past settlement events
+    // triggers expensive HD key derivation for every counterparty tradeId.
+    _eventSub = _userSubs.paymentEvents$.stream
         .whereType<EscrowEvent>()
         .where(
           (e) =>
@@ -289,11 +439,13 @@ class FundsMonitorService {
     if (chain == null || contract == null) return;
 
     try {
+      // Skip events whose tradeId doesn't belong to this user's HD tree.
       final accountIndex =
           await _tradeAccountAllocator.tryFindTradeAccountIndexByTradeId(
             event.tradeId,
           ) ??
           0;
+
       final keypair = await _auth.hd.getActiveEvmKey(
         accountIndex: accountIndex,
       );
@@ -319,17 +471,26 @@ class FundsMonitorService {
   }) async {
     final balanceMap = await contract.allBalances(beneficiary: keypair.address);
 
-    final addrKey = keypair.address.eip55With0x.toLowerCase();
+    final smartAddr = chain.aa != null
+        ? await chain.aa!.getSmartAccountAddress(keypair)
+        : null;
+    final effectiveAddress = smartAddr ?? keypair.address;
+    final addrKey = effectiveAddress.eip55With0x.toLowerCase();
 
-    // Remove stale entries for this address (tokens that may now be zero).
-    _escrowItems.removeWhere((key, _) => key.$1 == addrKey);
+    // Remove stale entries for this address + contract.
+    final contractKey = contract.address.eip55With0x.toLowerCase();
+    _escrowItems.removeWhere(
+      (key, item) =>
+          key.$1 == addrKey &&
+          item.contract?.address.eip55With0x.toLowerCase() == contractKey,
+    );
 
     // Upsert non-zero balances.
     for (final entry in balanceMap.entries) {
       final token = await chain.resolveToken(entry.key.eip55With0x);
       final tokenKey = entry.key.eip55With0x.toLowerCase();
       _escrowItems[(addrKey, tokenKey)] = FundsItem(
-        address: keypair.address,
+        address: effectiveAddress,
         keypair: keypair,
         accountIndex: accountIndex,
         token: token,
@@ -337,44 +498,12 @@ class FundsMonitorService {
         chain: chain,
         blockNumber: 0,
         contract: contract,
+        isSmartAddress: smartAddr != null,
       );
     }
 
     _escrowSubject.add(_escrowItems.values.toList());
   }
-
-  // ── Seeding ──────────────────────────────────────────────────────────────
-
-  Future<void> _seedMonitors() => _logger.span('_seedMonitors', () async {
-    for (final chain in _evm.configuredChains) {
-      try {
-        final boltzTokens = chain.swaps?.chainInfo.tokens ?? {};
-        final (:nativeFunded, :tokenFunded) = await chain.scanAllHDBalances(
-          tokens: boltzTokens,
-        );
-
-        for (final entry in nativeFunded) {
-          final key = entry.address.eip55With0x.toLowerCase();
-          _addressToAccountIndex[key] = entry.accountIndex;
-          chain.balanceMonitor.trackAddress(
-            entry.address,
-            reason: 'seed:native',
-          );
-        }
-
-        for (final entry in tokenFunded) {
-          final key = entry.address.eip55With0x.toLowerCase();
-          _addressToAccountIndex[key] = entry.accountIndex;
-          chain.balanceMonitor.trackAddress(
-            entry.address,
-            reason: 'seed:erc20',
-          );
-        }
-      } catch (e) {
-        _logger.w('Seed scan failed for ${chain.config.id}: $e');
-      }
-    }
-  });
 
   // ── Sweep listener ───────────────────────────────────────────────────────
 
@@ -387,27 +516,30 @@ class FundsMonitorService {
         );
   }
 
-  Future<void> _sweep(
-    List<FundsItem> items,
-  ) => _logger.span('_sweep', () async {
-    if (items.isEmpty) {
-      _logger.d('FundsMonitor sweep: no items');
-    } else {
-      _logger.d(
-        'FundsMonitor sweep: ${items.length} item(s)\n'
-        '${items.map((i) => '  • ${i.chain.config.id} '
-            '${i.token.tagId} '
-            '${i.balance} '
-            '@${i.address.eip55With0x} '
-            '${i.isEscrowLocked ? "[escrow: ${i.contract!.address.eip55With0x}]" : "[EOA]"}').join('\n')}',
-      );
-    }
-    for (final item in items) {
-      if (!await _passesGates(item)) continue;
+  Future<void> _sweep(List<FundsItem> items) =>
+      _logger.span('_sweep', () async {
+        if (items.isEmpty) {
+          _logger.d('FundsMonitor sweep: no items');
+        } else {
+          _logger.d(
+            'FundsMonitor sweep: ${items.length} item(s)\n'
+            '${items.map((i) => '  • ${i.chain.config.id} '
+                '${i.token.tagId} '
+                '${i.balance} '
+                '@${i.address.eip55With0x} '
+                '${i.isEscrowLocked
+                    ? "[escrow: ${i.contract!.address.eip55With0x}]"
+                    : i.isSmartAddress
+                    ? "[smart-wallet]"
+                    : "[EOA]"}').join('\n')}',
+          );
+        }
+        for (final item in items) {
+          if (!await _passesGates(item)) continue;
 
-      await _executeSwapOut(item);
-    }
-  });
+          await _executeSwapOut(item);
+        }
+      });
 
   Future<bool> _passesGates(FundsItem item) async {
     try {
@@ -474,17 +606,14 @@ class FundsMonitorService {
       '${item.chain.config.id} ${item.token.tagId} '
       '${item.balance} '
       '@${item.address.eip55With0x}'
-      '${item.isEscrowLocked ? " [escrow: ${item.contract!.address.eip55With0x}]" : " [EOA]"}',
+      '${item.isEscrowLocked
+          ? " [escrow: ${item.contract!.address.eip55With0x}]"
+          : item.isSmartAddress
+          ? " [smart-wallet]"
+          : " [EOA]"}',
     );
     try {
-      final swapOp = item.chain.swapOut(
-        params: await _swapOutParams(item),
-        auth: getIt<Auth>(),
-        logger: _logger,
-        nwc: getIt<Nwc>(),
-        payments: getIt<Payments>(),
-        quoteService: _quoteService,
-      );
+      final swapOp = item.chain.swapOut(params: await _swapOutParams(item));
 
       await swapOp.execute();
 
@@ -492,15 +621,15 @@ class FundsMonitorService {
         _logger.i(
           'FundsMonitor: swap-out completed on ${item.chain.config.id}',
         );
-        // Re-fetch escrow balances so the subject reflects the withdrawal.
-        if (item.isEscrowLocked) {
-          await _refreshEscrowBalances(
-            contract: item.contract!,
-            chain: item.chain,
-            keypair: item.keypair,
-            accountIndex: item.accountIndex,
-          );
-        }
+
+        // Immediately evict the swapped item so it disappears from the
+        // fund list right away, even before the refetch confirms zero
+        // balance on-chain.
+        _removeFundsItem(item);
+
+        // Re-fetch all balances for this account so the subjects reflect
+        // the withdrawal.
+        await refetchAccount(item.chain, item.accountIndex);
       } else if (swapOp.state is SwapOutFailed) {
         final failed = swapOp.state as SwapOutFailed;
         _logger.e(
@@ -541,12 +670,29 @@ class FundsMonitorService {
     return SwapOutParams(
       evmKey: item.keypair,
       accountIndex: item.accountIndex,
-      amountSpec: item.isEscrowLocked ? AmountSpec.input(item.balance) : null,
+      amountSpec: AmountSpec.input(item.balance),
       preLockCalls: preLockCalls,
     );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Remove a specific [FundsItem] from the wallet or escrow maps and
+  /// re-emit the updated lists. Used after a successful swap-out so the
+  /// item disappears immediately rather than lingering until refetch.
+  void _removeFundsItem(FundsItem item) {
+    final addrKey = item.address.eip55With0x.toLowerCase();
+    final tokenKey = item.token.address.toLowerCase();
+    final mapKey = (addrKey, tokenKey);
+
+    if (item.isEscrowLocked) {
+      _escrowItems.remove(mapKey);
+      _escrowSubject.add(_escrowItems.values.toList());
+    } else {
+      _walletItems.remove(mapKey);
+      _walletSubject.add(_walletItems.values.toList());
+    }
+  }
 
   static List<TokenAmount> _groupByToken(List<FundsItem> items) {
     final map = <String, TokenAmount>{};
@@ -559,10 +705,5 @@ class FundsMonitorService {
       );
     }
     return map.values.toList();
-  }
-
-  // ignore: prefer_void_to_null
-  static void _unawaited(Future<void> future) {
-    future.ignore();
   }
 }

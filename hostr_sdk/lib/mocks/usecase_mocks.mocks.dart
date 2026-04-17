@@ -622,6 +622,18 @@ class MockMetadataUseCase extends _i1.Mock implements _i28.MetadataUseCase {
           as _i26.Stream<_i9.ProfileMetadata>);
 
   @override
+  _i26.Future<List<_i27.RelayBroadcastResponse>> upsert(
+    _i9.ProfileMetadata? event,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#upsert, [event]),
+            returnValue: _i26.Future<List<_i27.RelayBroadcastResponse>>.value(
+              <_i27.RelayBroadcastResponse>[],
+            ),
+          )
+          as _i26.Future<List<_i27.RelayBroadcastResponse>>);
+
+  @override
   _i26.Future<_i9.ProfileMetadata?> loadMetadata(
     String? pubkey, {
     bool? forceRefresh = false,
@@ -635,6 +647,23 @@ class MockMetadataUseCase extends _i1.Mock implements _i28.MetadataUseCase {
             returnValue: _i26.Future<_i9.ProfileMetadata?>.value(),
           )
           as _i26.Future<_i9.ProfileMetadata?>);
+
+  @override
+  _i26.Future<_i27.UserRelayList?> refreshNip65(String? pubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#refreshNip65, [pubkey]),
+            returnValue: _i26.Future<_i27.UserRelayList?>.value(),
+          )
+          as _i26.Future<_i27.UserRelayList?>);
+
+  @override
+  _i26.Future<void> ensureUserConfig(String? pubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#ensureUserConfig, [pubkey]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
 
   @override
   _i26.Future<void> ensureEvmAddress() =>
@@ -703,6 +732,38 @@ class MockMetadataUseCase extends _i1.Mock implements _i28.MetadataUseCase {
           as _i8.ExpandableSubscription<_i9.ProfileMetadata>);
 
   @override
+  _i8.ExpandableSubscription<_i9.ProfileMetadata> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.ProfileMetadata>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.ProfileMetadata>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.ProfileMetadata>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
+
+  @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
       (super.noSuchMethod(
             Invocation.method(#kindFilter, [filter]),
@@ -712,18 +773,6 @@ class MockMetadataUseCase extends _i1.Mock implements _i28.MetadataUseCase {
             ),
           )
           as _i6.Filter);
-
-  @override
-  _i26.Future<List<_i27.RelayBroadcastResponse>> upsert(
-    _i9.ProfileMetadata? event,
-  ) =>
-      (super.noSuchMethod(
-            Invocation.method(#upsert, [event]),
-            returnValue: _i26.Future<List<_i27.RelayBroadcastResponse>>.value(
-              <_i27.RelayBroadcastResponse>[],
-            ),
-          )
-          as _i26.Future<List<_i27.RelayBroadcastResponse>>);
 
   @override
   _i26.Future<List<_i27.RelayBroadcastResponse>> delete(
@@ -1177,6 +1226,38 @@ class MockListings extends _i1.Mock implements _i15.Listings {
           as _i8.ExpandableSubscription<_i9.Listing>);
 
   @override
+  _i8.ExpandableSubscription<_i9.Listing> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.Listing>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.Listing>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.Listing>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
+
+  @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
       (super.noSuchMethod(
             Invocation.method(#kindFilter, [filter]),
@@ -1376,28 +1457,6 @@ class MockReservations extends _i1.Mock implements _i16.Reservations {
           as Map<String, List<_i9.Reservation>>);
 
   @override
-  _i7.StreamWithStatus<_i7.Validation<_i9.Reservation>>
-  subscribeUncancelledReservations({
-    required _i9.Listing? listing,
-    Duration? debounce = const Duration(milliseconds: 350),
-  }) =>
-      (super.noSuchMethod(
-            Invocation.method(#subscribeUncancelledReservations, [], {
-              #listing: listing,
-              #debounce: debounce,
-            }),
-            returnValue:
-                _FakeStreamWithStatus_5<_i7.Validation<_i9.Reservation>>(
-                  this,
-                  Invocation.method(#subscribeUncancelledReservations, [], {
-                    #listing: listing,
-                    #debounce: debounce,
-                  }),
-                ),
-          )
-          as _i7.StreamWithStatus<_i7.Validation<_i9.Reservation>>);
-
-  @override
   _i26.Future<Map<String, _i9.ReservationGroup>> queryReservationGroups({
     required _i9.Listing? listing,
   }) =>
@@ -1486,6 +1545,22 @@ class MockReservations extends _i1.Mock implements _i16.Reservations {
               _FakeReservation_25(
                 this,
                 Invocation.method(#cancel, [reservationGroup, keyPair]),
+              ),
+            ),
+          )
+          as _i26.Future<_i9.Reservation>);
+
+  @override
+  _i26.Future<_i9.Reservation> confirm(
+    _i9.ReservationGroup? reservationGroup,
+    _i5.KeyPair? keyPair,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#confirm, [reservationGroup, keyPair]),
+            returnValue: _i26.Future<_i9.Reservation>.value(
+              _FakeReservation_25(
+                this,
+                Invocation.method(#confirm, [reservationGroup, keyPair]),
               ),
             ),
           )
@@ -1668,6 +1743,38 @@ class MockReservations extends _i1.Mock implements _i16.Reservations {
             ),
           )
           as _i8.ExpandableSubscription<_i9.Reservation>);
+
+  @override
+  _i8.ExpandableSubscription<_i9.Reservation> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.Reservation>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.Reservation>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.Reservation>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
 
   @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
@@ -1931,6 +2038,38 @@ class MockEscrows extends _i1.Mock implements _i20.Escrows {
           as _i8.ExpandableSubscription<_i9.EscrowService>);
 
   @override
+  _i8.ExpandableSubscription<_i9.EscrowService> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.EscrowService>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.EscrowService>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.EscrowService>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
+
+  @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
       (super.noSuchMethod(
             Invocation.method(#kindFilter, [filter]),
@@ -2136,6 +2275,38 @@ class MockEscrowMethods extends _i1.Mock implements _i36.EscrowMethods {
           as _i8.ExpandableSubscription<_i9.EscrowMethod>);
 
   @override
+  _i8.ExpandableSubscription<_i9.EscrowMethod> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.EscrowMethod>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.EscrowMethod>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.EscrowMethod>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
+
+  @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
       (super.noSuchMethod(
             Invocation.method(#kindFilter, [filter]),
@@ -2317,6 +2488,38 @@ class MockBadgeDefinitions extends _i1.Mock implements _i37.BadgeDefinitions {
             ),
           )
           as _i8.ExpandableSubscription<_i9.BadgeDefinition>);
+
+  @override
+  _i8.ExpandableSubscription<_i9.BadgeDefinition> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.BadgeDefinition>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.BadgeDefinition>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.BadgeDefinition>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
 
   @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
@@ -2503,6 +2706,38 @@ class MockBadgeAwards extends _i1.Mock implements _i38.BadgeAwards {
             ),
           )
           as _i8.ExpandableSubscription<_i9.BadgeAward>);
+
+  @override
+  _i8.ExpandableSubscription<_i9.BadgeAward> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i9.BadgeAward>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i9.BadgeAward>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i9.BadgeAward>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
 
   @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
@@ -2887,6 +3122,38 @@ class MockReservationRequests extends _i1.Mock
           as _i8.ExpandableSubscription<_i6.Nip01Event>);
 
   @override
+  _i8.ExpandableSubscription<_i6.Nip01Event> createExpandable({
+    required String? name,
+    Duration? debounceDuration = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#createExpandable, [], {
+              #name: name,
+              #debounceDuration: debounceDuration,
+            }),
+            returnValue: _FakeExpandableSubscription_9<_i6.Nip01Event>(
+              this,
+              Invocation.method(#createExpandable, [], {
+                #name: name,
+                #debounceDuration: debounceDuration,
+              }),
+            ),
+          )
+          as _i8.ExpandableSubscription<_i6.Nip01Event>);
+
+  @override
+  _i26.Future<void> startExpandable(
+    _i8.ExpandableSubscription<_i6.Nip01Event>? subscription,
+    _i7.StreamWithStatus<_i6.Filter>? filterSource,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#startExpandable, [subscription, filterSource]),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
+
+  @override
   _i6.Filter kindFilter(_i6.Filter? filter) =>
       (super.noSuchMethod(
             Invocation.method(#kindFilter, [filter]),
@@ -3165,6 +3432,19 @@ class MockRelays extends _i1.Mock implements _i44.Relays {
           as _i25.RelayStorage);
 
   @override
+  _i26.Future<String> relayHintFor(String? pubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#relayHintFor, [pubkey]),
+            returnValue: _i26.Future<String>.value(
+              _i30.dummyValue<String>(
+                this,
+                Invocation.method(#relayHintFor, [pubkey]),
+              ),
+            ),
+          )
+          as _i26.Future<String>);
+
+  @override
   _i26.Future<void> add(String? url) =>
       (super.noSuchMethod(
             Invocation.method(#add, [url]),
@@ -3212,13 +3492,12 @@ class MockRelays extends _i1.Mock implements _i44.Relays {
           as _i26.Stream<Map<String, _i27.RelayConnectivity<dynamic>>>);
 
   @override
-  _i26.Future<void> syncNip65(String? pubkey) =>
+  _i26.Future<bool> syncNip65(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#syncNip65, [pubkey]),
-            returnValue: _i26.Future<void>.value(),
-            returnValueForMissingStub: _i26.Future<void>.value(),
+            returnValue: _i26.Future<bool>.value(false),
           )
-          as _i26.Future<void>);
+          as _i26.Future<bool>);
 
   @override
   _i26.Future<void> publishNip65({

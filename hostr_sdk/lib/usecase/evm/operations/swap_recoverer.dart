@@ -5,8 +5,6 @@ import '../../../injection.dart';
 import '../../../util/main.dart';
 import '../../auth/auth.dart';
 import '../../background_worker/background_worker.dart';
-import '../../nwc/nwc.dart';
-import '../../payments/payments.dart';
 import '../chain/operations/swap_in/swap_in_operation.dart';
 import '../chain/operations/swap_out/swap_out_operation.dart';
 import '../main.dart';
@@ -109,8 +107,8 @@ class SwapRecoverer {
 
     final cubit = EvmSwapInOperation(
       chain: configuredChain,
-      auth: _auth,
-      logger: _logger,
+      auth: configuredChain.auth,
+      logger: configuredChain.logger,
       params: SwapInParams(
         evmKey: evmKey,
         accountIndex: data.accountIndex,
@@ -157,11 +155,11 @@ class SwapRecoverer {
 
     final cubit = EvmSwapOutOperation(
       chain: configuredChain,
-      auth: _auth,
-      logger: _logger,
-      nwc: getIt<Nwc>(),
-      payments: getIt<Payments>(),
-      quoteService: getIt<SwapQuoteService>(),
+      auth: configuredChain.auth,
+      logger: configuredChain.logger,
+      nwc: configuredChain.nwc,
+      payments: configuredChain.payments,
+      quoteService: configuredChain.quoteService,
       params: SwapOutParams(
         evmKey: evmKey,
         accountIndex: data.accountIndex,

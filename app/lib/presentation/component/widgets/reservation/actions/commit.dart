@@ -5,8 +5,6 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/escrow/claim/escrow_claim.dart';
-import 'package:hostr/presentation/component/widgets/flow/payment/escrow/release/escrow_release.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -175,51 +173,9 @@ class CommitMenu extends StatelessWidget {
                 },
               );
             case TradeAction.refund:
-              return (
-                label: 'Refund',
-                icon: Icons.undo_outlined,
-                onTap: () {
-                  final escrowService = trade.reservationGroup$.items
-                      .expand((v) => v.event.reservations)
-                      .map((r) => r.proof?.escrowProof?.escrowService)
-                      .whereType<EscrowService>()
-                      .firstOrNull;
-                  if (escrowService == null) return;
-                  final releaseOp = getIt<Hostr>().escrow.release(
-                    EscrowReleaseParams(
-                      escrowService: escrowService,
-                      tradeId: trade.tradeId,
-                    ),
-                  );
-                  showAppModal(
-                    context,
-                    builder: (_) => ReleaseFlowWidget(cubit: releaseOp),
-                  );
-                },
-              );
+              return null; // Hidden for now
             case TradeAction.claim:
-              return (
-                label: 'Claim',
-                icon: Icons.download_outlined,
-                onTap: () {
-                  final escrowService = trade.reservationGroup$.items
-                      .expand((v) => v.event.reservations)
-                      .map((r) => r.proof?.escrowProof?.escrowService)
-                      .whereType<EscrowService>()
-                      .firstOrNull;
-                  if (escrowService == null) return;
-                  final claimOp = getIt<Hostr>().escrow.claim(
-                    EscrowClaimParams(
-                      escrowService: escrowService,
-                      tradeId: trade.tradeId,
-                    ),
-                  );
-                  showAppModal(
-                    context,
-                    builder: (_) => ClaimFlowWidget(cubit: claimOp),
-                  );
-                },
-              );
+              return null; // Hidden for now
             case TradeAction.review:
               final commitStage = tradeState.stage;
               if (commitStage is! CommitStage) return null;

@@ -68,8 +68,21 @@ class PaymentViewWidget extends StatelessWidget {
   }
 }
 
-class PaymentConfirmWidget extends StatelessWidget {
+class PaymentConfirmWidget extends StatefulWidget {
   const PaymentConfirmWidget({super.key});
+
+  @override
+  State<PaymentConfirmWidget> createState() => _PaymentConfirmWidgetState();
+}
+
+class _PaymentConfirmWidgetState extends State<PaymentConfirmWidget> {
+  /// Local display amount kept in 8-decimal BTC (sats).
+  /// Initialised from the cubit once resolved, then owned by the widget.
+  DenominatedAmount? _displayAmount;
+
+  /// Normalise any BTC-family amount to 8-decimal sats.
+  static DenominatedAmount _normaliseToBtcSats(DenominatedAmount raw) =>
+      raw.decimals != 8 ? raw.rescale(8) : raw;
 
   @override
   Widget build(BuildContext context) {
@@ -79,13 +92,18 @@ class PaymentConfirmWidget extends StatelessWidget {
         final effectiveMin = resolved?.effectiveMinAmount ?? 0;
         final effectiveMax = resolved?.effectiveMaxAmount ?? 0;
         final isEditable = resolved != null && effectiveMin < effectiveMax;
-        final currentAmount =
+
+        // Seed the local amount from the cubit on first resolve.
+        final rawAmount =
             state.params.amount?.toDenominated() ??
             DenominatedAmount(
               denomination: 'BTC',
               value: BigInt.zero,
               decimals: 8,
             );
+        _displayAmount ??= _normaliseToBtcSats(rawAmount);
+
+        final currentAmount = _displayAmount!;
 
         final isReady = state is PayResolved;
         final isCallbackComplete = state is PayCallbackComplete;
@@ -132,6 +150,9 @@ class PaymentConfirmWidget extends StatelessWidget {
                           ),
                         );
                         if (result != null && context.mounted) {
+                          // Update local display immediately …
+                          setState(() => _displayAmount = result);
+                          // … then push to the cubit for the actual payment.
                           context.read<PayOperation>().updateAmount(
                             rbtcFromSats(result.value),
                           );

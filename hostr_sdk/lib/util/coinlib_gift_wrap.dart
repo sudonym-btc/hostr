@@ -38,7 +38,9 @@ final Map<String, Uint8List> _convKeyCache = {};
 /// Clears the cached NIP-44 conversation keys.
 ///
 /// Call this when the active keypair changes (sign-out / account switch).
-void clearNip44ConvKeyCache() => _convKeyCache.clear();
+void clearNip44ConvKeyCache() {
+  _convKeyCache.clear();
+}
 
 /// Returns the NIP-44 conversation key for [privKeyHex] x [xOnlyPubKeyHex],
 /// using the [cryptoProvider] when available and caching the result.

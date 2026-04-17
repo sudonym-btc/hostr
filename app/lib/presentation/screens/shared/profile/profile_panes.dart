@@ -1,19 +1,18 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/escrow/escrow_services_modal.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/nostr_wallet_connect/add_wallet.dart'
-    show AddWalletWidget;
+import 'package:hostr/presentation/component/widgets/flow/payment/swap/out/swap_out.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import 'dev.dart';
 import 'mode_toggle.dart';
@@ -118,28 +117,30 @@ class ProfileSettingsSection extends StatelessWidget {
 
   List<Widget> _buildSections(BuildContext context) {
     return [
-      Section(
-        title: AppLocalizations.of(context)!.wallet,
-        action: OutlinedButton(
-          onPressed: () {
-            showAppModal(context, builder: (_) => AddWalletWidget());
-          },
-          child: Text(AppLocalizations.of(context)!.connect),
-        ),
-        body: NostrWalletConnectContainerWidget(),
-      ),
+      // TODO: Re-enable wallet section
+      // Section(
+      //   title: AppLocalizations.of(context)!.wallet,
+      //   action: OutlinedButton(
+      //     onPressed: () {
+      //       showAppModal(context, builder: (_) => AddWalletWidget());
+      //     },
+      //     child: Text(AppLocalizations.of(context)!.connect),
+      //   ),
+      //   body: NostrWalletConnectContainerWidget(),
+      // ),
       const Section(title: 'Relays', body: RelayListWidget()),
-      BlocProvider(
-        create: (_) => TrustedEscrowsCubit(hostr: getIt<Hostr>())..load(),
-        child: BlocBuilder<TrustedEscrowsCubit, TrustedEscrowsState>(
-          builder: (context, state) {
-            return Section(
-              title: 'Escrows',
-              body: _TrustedEscrowsBody(state: state),
-            );
-          },
-        ),
-      ),
+      // TODO: Re-enable escrows section
+      // BlocProvider(
+      //   create: (_) => TrustedEscrowsCubit(hostr: getIt<Hostr>())..load(),
+      //   child: BlocBuilder<TrustedEscrowsCubit, TrustedEscrowsState>(
+      //     builder: (context, state) {
+      //       return Section(
+      //         title: 'Escrows',
+      //         body: _TrustedEscrowsBody(state: state),
+      //       );
+      //     },
+      //   ),
+      // ),
       Section(
         title: 'Balance',
         action: IconButton(
@@ -155,34 +156,9 @@ class ProfileSettingsSection extends StatelessWidget {
             );
           },
         ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            MoneyInFlightWidget(),
-            Gap.vertical.sm(),
-            StreamBuilder<HostrUserConfig>(
-              stream: getIt<Hostr>().userConfig.stream,
-              builder: (context, snapshot) {
-                final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
-                return SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Auto-withdraw'),
-                  subtitle: const Text(
-                    'Automatically sweep received funds into your Lightning wallet',
-                  ),
-                  value: enabled,
-                  onChanged: (value) async {
-                    final current = await getIt<Hostr>().userConfig.state;
-                    await getIt<Hostr>().userConfig.update(
-                      current.copyWith(autoWithdrawEnabled: value),
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-        ),
+        body: const _BalanceSectionBody(),
       ),
+      Section(title: 'Auto-withdraw', body: const _AutoWithdrawSectionBody()),
     ];
   }
 
@@ -234,6 +210,378 @@ class ProfileSettingsSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [...sections, Gap.vertical.md(), footer],
+        );
+      },
+    );
+  }
+}
+
+// ── Balance section: individual FundsItem list ─────────────────────────────
+
+class _BalanceSectionBody extends StatefulWidget {
+  const _BalanceSectionBody();
+
+  @override
+  State<_BalanceSectionBody> createState() => _BalanceSectionBodyState();
+}
+
+class _BalanceSectionBodyState extends State<_BalanceSectionBody> {
+  late final Stream<List<FundsItem>> _fundsStream;
+  late final TokenDisplayResolver _resolver;
+
+  @override
+  void initState() {
+    super.initState();
+    final hostr = getIt<Hostr>();
+    _fundsStream = hostr.fundsMonitor.fundsStream$;
+    _resolver = TokenDisplayResolver(
+      hostr.evm.configuredChains.map((c) => c.config),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<FundsItem>>(
+      stream: _fundsStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const AppLoadingIndicator.medium();
+        }
+
+        final items = snapshot.data!;
+        if (items.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No funds on-chain',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final item in items)
+              _FundsItemTile(item: item, resolver: _resolver),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FundsItemTile extends StatelessWidget {
+  final FundsItem item;
+  final TokenDisplayResolver resolver;
+
+  const _FundsItemTile({required this.item, required this.resolver});
+
+  String _shortAddress(String address) {
+    if (address.length <= 12) return address;
+    return '${address.substring(0, 6)}…${address.substring(address.length - 4)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final info = resolver.resolve(item.token);
+    final tokenName = info.denomination.isNotEmpty
+        ? info.denomination
+        : item.token.tagId;
+    final formattedAmount = formatAmount(
+      item.balance.toDenominated(denomination: info.denomination),
+      exact: false,
+    );
+    final address = item.address.eip55With0x;
+    final addressType = item.isSmartAddress ? 'Smart' : 'EOA';
+    final subtitle = item.isEscrowLocked
+        ? '${_shortAddress(address)} · $addressType · Escrow'
+        : '${_shortAddress(address)} · $addressType';
+
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        item.isEscrowLocked
+            ? Icons.lock_outline
+            : Icons.account_balance_wallet_outlined,
+        size: 20,
+      ),
+      title: Text(
+        '$formattedAmount  $tokenName',
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: OutlinedButton(
+        onPressed: () => _initiateWithdraw(context),
+        child: const Text('Withdraw'),
+      ),
+    );
+  }
+
+  Future<void> _initiateWithdraw(BuildContext context) async {
+    // Build swap-out params the same way as FundsMonitorService._swapOutParams
+    Map<String, Call>? preLockCalls;
+    if (item.isEscrowLocked) {
+      final destination = await item.chain.getAccountAddress(item.keypair);
+      final tokenAddress = EthereumAddress.fromHex(item.token.address);
+      preLockCalls = {
+        'withdraw': item.contract!.withdraw(
+          WithdrawArgs(
+            token: tokenAddress,
+            ethKey: item.keypair,
+            beneficiary: item.keypair.address,
+            destination: destination,
+          ),
+        ),
+      };
+    }
+
+    final params = SwapOutParams(
+      evmKey: item.keypair,
+      accountIndex: item.accountIndex,
+      amountSpec: item.isEscrowLocked ? AmountSpec.input(item.balance) : null,
+      preLockCalls: preLockCalls,
+    );
+
+    final swapOp = item.chain.swapOut(params: params);
+
+    if (!context.mounted) return;
+    showAppModal(context, builder: (_) => SwapOutFlowWidget(cubit: swapOp));
+  }
+}
+
+// ── Auto-withdraw section: swap tracker list ───────────────────────────────
+
+class _AutoWithdrawSectionBody extends StatefulWidget {
+  const _AutoWithdrawSectionBody();
+
+  @override
+  State<_AutoWithdrawSectionBody> createState() =>
+      _AutoWithdrawSectionBodyState();
+}
+
+class _AutoWithdrawSectionBodyState extends State<_AutoWithdrawSectionBody> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Auto-withdraw toggle
+        StreamBuilder<HostrUserConfig>(
+          stream: getIt<Hostr>().userConfig.stream,
+          builder: (context, snapshot) {
+            final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
+            return SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto-withdraw'),
+              subtitle: const Text(
+                'Automatically sweep received funds into your Lightning wallet',
+              ),
+              value: enabled,
+              onChanged: (value) async {
+                final current = await getIt<Hostr>().userConfig.state;
+                await getIt<Hostr>().userConfig.update(
+                  current.copyWith(autoWithdrawEnabled: value),
+                );
+              },
+            );
+          },
+        ),
+        Gap.vertical.sm(),
+        // Swap-In operations
+        _SwapTrackerSection<SwapInOperation>(
+          title: 'Swap-In',
+          stream: getIt<Hostr>().swapInTracker.stream,
+          tileBuilder: (id, op) => _SwapInTile(id: id, operation: op),
+        ),
+        // Swap-Out operations
+        _SwapTrackerSection<SwapOutOperation>(
+          title: 'Swap-Out',
+          stream: getIt<Hostr>().swapOutTracker.stream,
+          tileBuilder: (id, op) => _SwapOutTile(id: id, operation: op),
+        ),
+      ],
+    );
+  }
+}
+
+class _SwapTrackerSection<T> extends StatelessWidget {
+  final String title;
+  final Stream<Map<String, T>> stream;
+  final Widget Function(String id, T op) tileBuilder;
+
+  const _SwapTrackerSection({
+    required this.title,
+    required this.stream,
+    required this.tileBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Map<String, T>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final ops = snapshot.data ?? {};
+        if (ops.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            for (final entry in ops.entries)
+              tileBuilder(entry.key, entry.value),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SwapInTile extends StatelessWidget {
+  final String id;
+  final SwapInOperation operation;
+
+  const _SwapInTile({required this.id, required this.operation});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SwapInState>(
+      stream: operation.stream,
+      initialData: operation.state,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? operation.state;
+        final data = state.data;
+        final stateName = state.stateName;
+        final errorMessage = state is SwapInFailed
+            ? state.error.toString()
+            : null;
+        final amountSats = data?.onchainAmountSat;
+        final postCalls = data?.postClaimCalls?.length ?? 0;
+        final boltzId = data?.boltzId ?? id;
+        final short = boltzId.length > 8
+            ? '${boltzId.substring(0, 8)}…'
+            : boltzId;
+
+        return ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            errorMessage != null ? Icons.error_outline : Icons.arrow_downward,
+            color: errorMessage != null
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+          title: Text(
+            '↓ $short${amountSats != null ? '  ₿ $amountSats sats' : ''}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            [
+              stateName,
+              if (postCalls > 0) '$postCalls post-claim call(s)',
+              if (errorMessage != null) errorMessage,
+            ].join(' · '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: errorMessage != null
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SwapOutTile extends StatelessWidget {
+  final String id;
+  final SwapOutOperation operation;
+
+  const _SwapOutTile({required this.id, required this.operation});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SwapOutState>(
+      stream: operation.stream,
+      initialData: operation.state,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? operation.state;
+        final data = state.data;
+        final stateName = state.stateName;
+        final errorMessage = state is SwapOutFailed
+            ? state.error.toString()
+            : null;
+        final preCalls = data?.preLockCalls?.length ?? 0;
+        final boltzId = data?.boltzId ?? id;
+        final short = boltzId.length > 8
+            ? '${boltzId.substring(0, 8)}…'
+            : boltzId;
+
+        String? amountDisplay;
+        if (data != null) {
+          try {
+            final weiHex = data.lockedAmountWeiHex;
+            final wei = BigInt.parse(weiHex, radix: 16);
+            if (wei > BigInt.zero) {
+              amountDisplay = '${wei.toString()} wei';
+            }
+          } catch (_) {}
+        }
+
+        return ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            errorMessage != null ? Icons.error_outline : Icons.arrow_upward,
+            color: errorMessage != null
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.tertiary,
+            size: 20,
+          ),
+          title: Text(
+            '↑ $short${amountDisplay != null ? '  $amountDisplay' : ''}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            [
+              stateName,
+              if (preCalls > 0) '$preCalls pre-lock call(s)',
+              if (data?.lastBoltzStatus != null) data!.lastBoltzStatus!,
+              if (errorMessage != null) errorMessage,
+            ].join(' · '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: errorMessage != null
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         );
       },
     );

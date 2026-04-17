@@ -88,11 +88,7 @@ void main() {
       final swapInParams = await preparer.prepare();
       final configured = preparer.configuredChain;
 
-      final swapIn = configured.swapIn(
-        params: swapInParams,
-        auth: hostr.auth,
-        logger: CustomLogger(),
-      );
+      final swapIn = configured.swapIn(params: swapInParams);
 
       final emittedStates = <SwapInState>[swapIn.state];
       final sub = swapIn.stream.listen(emittedStates.add);
@@ -157,11 +153,7 @@ void main() {
         final swapInParams = await preparer.prepare();
         final configured = preparer.configuredChain;
 
-        final swapIn = configured.swapIn(
-          params: swapInParams,
-          auth: hostr.auth,
-          logger: CustomLogger(),
-        );
+        final swapIn = configured.swapIn(params: swapInParams);
 
         await swapIn.execute();
 
@@ -437,11 +429,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.input(usdtAmount),
         ),
-        auth: hostr.auth,
-        logger: CustomLogger(),
-        nwc: hostr.nwc,
-        payments: hostr.payments,
-        quoteService: SwapQuoteService(),
       );
 
       final emittedStates = <SwapOutState>[swapOut.state];

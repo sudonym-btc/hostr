@@ -344,6 +344,9 @@ class Seeder {
         ? thread.request.amount!.value * BigInt.from(10).pow(decimalDiff)
         : thread.request.amount!.value;
 
+    // For seeding, use the reservation end date as unlockAt WITHOUT the
+    // maxDisputePeriod offset.  This allows immediate settlement in the
+    // seeder; real funding uses the offset via EscrowFundPreparer.
     final unlockAt = BigInt.from(
       thread.request.end != null
           ? thread.request.end!.toUtc().millisecondsSinceEpoch ~/ 1000
@@ -379,6 +382,7 @@ class Seeder {
           tradeId: tradeId,
           outcome: plan.escrowOutcome!,
           settlerPrivateKey: settlerKey,
+          unlockAt: unlockAt,
         ),
       );
     }

@@ -24,33 +24,50 @@ enum StreamPhase { querying, queryComplete, live, error, idle }
 
 // ── StreamWithStatus ──────────────────────────────────────────────────
 
-/// A per-item event source with a lifecycle status side-channel.
+/// An append-only per-item event source with a lifecycle status side-channel.
 ///
-/// ## Read API
+/// ## Design
 ///
-/// - [items]        — current accumulated items (synchronous).
-/// - [status]       — lifecycle as a [ValueStream<StreamStatus>].
-/// - [stream]       — per-item broadcast of new arrivals.
-/// - [replayStream] — emits current [items] then continues with [stream].
+/// Items are accumulated in a plain [List<T>] (`_items`).  A
+/// [PublishSubject<T>] (`_stream`) broadcasts per-item arrivals.
+/// A [BehaviorSubject<StreamStatus>] (`_status`) tracks lifecycle.
 ///
-/// ## Write API
+/// All reads are derived from these two subjects:
+///
+/// - [items]        — current list (synchronous snapshot).
+/// - [itemsStream]  — emits the full list after every [add] (replays current
+///                    value on listen via [BehaviorSubject]).
+/// - [stream]       — per-item broadcast of *new* arrivals only.
+/// - [replayStream] — current [items] expanded into individual events,
+///                    then continues with [stream].
+///
+/// ## Write API (append-only)
 ///
 /// - [add] / [addAll]   — append items.
 /// - [addStatus]        — update lifecycle status.
 /// - [addError]         — error on both channels.
-/// - [replaceAll]       — wholesale-replace the item list.
 ///
 /// ## Operators
 ///
-/// - [where]    — filtered child (does not own parent).
-/// - [asyncMap] — async-transformed child (does not own parent).
-/// - [combineAll]  — merge multiple streams into a new combined stream.
+/// - [where]    — filtered child.
+/// - [map]      — sync-transformed child.
+/// - [asyncMap] — async-transformed child.
+/// - [scan]     — accumulator child.
+/// - [combineAll] / [combine] — merge multiple sources.
+/// - [pipeFrom] — 1:1 mirror from another [StreamWithStatus].
 class StreamWithStatus<T> {
   Function? onClose;
 
-  final PublishSubject<T> _perItem = PublishSubject<T>();
+  /// Per-item broadcast subject.
+  final PublishSubject<T> _stream = PublishSubject<T>();
+
+  /// Running accumulation of items, exposed as a [BehaviorSubject] so
+  /// [itemsStream] replays the current list on subscribe.
+  final BehaviorSubject<List<T>> _items$;
+
+  /// Lifecycle status (Idle → Querying → QueryComplete / Live).
   final BehaviorSubject<StreamStatus> _status;
-  List<T> _items;
+
   final List<StreamSubscription> _subs = [];
   final Map<int, StreamStatus> _combinedSourceStatuses = {};
   int _nextCombinedSourceId = 0;
@@ -59,8 +76,8 @@ class StreamWithStatus<T> {
 
   /// Creates an empty stream in [StreamStatusIdle].
   StreamWithStatus({this.onClose})
-    : _status = BehaviorSubject.seeded(StreamStatusIdle()),
-      _items = const [];
+    : _items$ = BehaviorSubject.seeded(const []),
+      _status = BehaviorSubject.seeded(StreamStatusIdle());
 
   /// Runs [query], then [live] if provided.
   ///
@@ -92,28 +109,28 @@ class StreamWithStatus<T> {
 
   // ── Read API ──────────────────────────────────────────────────────
 
-  /// Current accumulated items.
-  List<T> get items => _items;
+  /// Current accumulated items (synchronous snapshot).
+  List<T> get items => _items$.value;
 
   /// Lifecycle status as a [ValueStream] (replays latest on subscribe).
   ValueStream<StreamStatus> get status => _status;
 
   /// Per-item broadcast of new arrivals only.
-  Stream<T> get stream => _perItem.stream;
+  Stream<T> get stream => _stream.stream;
 
-  /// Emits the current items list whenever items or status change.
-  /// [status] being a [BehaviorSubject] ensures an immediate emission on listen.
-  Stream<List<T>> get itemsStream =>
-      Rx.merge<dynamic>([_perItem, _status]).map((_) => _items);
+  /// Emits the full item list on every change.
+  /// Being a [BehaviorSubject], replays current value on listen.
+  Stream<List<T>> get itemsStream => _items$.stream;
 
-  /// Emits all current [items] synchronously, then continues with [stream].
+  /// Emits current [items] as individual events, then continues with [stream].
   Stream<T> get replayStream {
     late StreamController<T> controller;
     StreamSubscription<T>? sub;
     controller = StreamController<T>(
       sync: true,
       onListen: () {
-        for (final item in _items) {
+        final snapshot = items;
+        for (final item in snapshot) {
           controller.add(item);
         }
         sub = stream.listen(
@@ -127,17 +144,23 @@ class StreamWithStatus<T> {
     return controller.stream;
   }
 
-  // ── Write API ─────────────────────────────────────────────────────
+  // ── Write API (append-only) ───────────────────────────────────────
 
-  /// Appends [item] and fires on [stream].
+  /// Appends [item] and notifies all listeners.
   void add(T item) {
-    if (_perItem.isClosed) return;
-    _items = List.unmodifiable([..._items, item]);
-    _perItem.add(item);
+    if (_stream.isClosed) return;
+    _items$.add(List.unmodifiable([...items, item]));
+    _stream.add(item);
   }
 
-  /// Appends all [items].
-  void addAll(List<T> items) => items.forEach(add);
+  /// Appends all [newItems].
+  void addAll(List<T> newItems) {
+    if (_stream.isClosed || newItems.isEmpty) return;
+    _items$.add(List.unmodifiable([...items, ...newItems]));
+    for (final item in newItems) {
+      _stream.add(item);
+    }
+  }
 
   /// Updates lifecycle status.
   void addStatus(StreamStatus s) {
@@ -147,14 +170,7 @@ class StreamWithStatus<T> {
   /// Sets error status and pushes error through [stream].
   void addError(Object error, [StackTrace? stackTrace]) {
     addStatus(StreamStatusError(error, stackTrace));
-    if (!_perItem.isClosed) _perItem.addError(error, stackTrace);
-  }
-
-  /// Wholesale-replaces the accumulated items and notifies [itemsStream]
-  /// listeners. Individual per-item events are **not** fired.
-  void replaceAll(List<T> items) {
-    _items = List.unmodifiable(items);
-    if (!_status.isClosed) _status.add(_status.value);
+    if (!_stream.isClosed) _stream.addError(error, stackTrace);
   }
 
   /// Registers a subscription for cleanup on [close] / [reset].
@@ -163,50 +179,26 @@ class StreamWithStatus<T> {
   // ── Operators ─────────────────────────────────────────────────────
 
   /// Returns a child whose items are filtered by [test].
-  ///
-  /// Closing the child does **not** close this stream.
   StreamWithStatus<T> where(bool Function(T) test) {
     final child = StreamWithStatus<T>();
-    child._items = List.unmodifiable(_items.where(test).toList());
-    child._subs.add(
-      itemsStream.listen((items) {
-        child.replaceAll(items.where(test).toList());
-      }, onError: child.addError),
+    child.addStatus(status.value);
+    child.addSubscription(
+      replayStream.where(test).listen(child.add, onError: child.addError),
     );
-    child._subs.add(
-      stream.where(test).listen((item) {
-        if (!child._perItem.isClosed) {
-          child._perItem.add(item);
-        }
-      }, onError: child.addError),
-    );
-    child._subs.add(
-      status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(child.addStatus, onError: child.addError),
+    child.addSubscription(
+      status.listen(child.addStatus, onError: child.addError),
     );
     return child;
   }
 
-  /// Returns a child whose per-item events are synchronously transformed.
-  ///
-  /// Closing the child does **not** close this stream.
+  /// Returns a child whose items are synchronously transformed.
   StreamWithStatus<R> map<R>(R Function(T) fn) {
     final child = StreamWithStatus<R>();
-    child._items = List.unmodifiable(_items.map(fn).toList());
-    child._subs.add(
-      itemsStream.listen((items) {
-        child.replaceAll(items.map(fn).toList());
-      }, onError: child.addError),
+    child.addStatus(status.value);
+    child.addSubscription(
+      replayStream.map(fn).listen(child.add, onError: child.addError),
     );
-    child._subs.add(
-      stream.map(fn).listen((item) {
-        if (!child._perItem.isClosed) {
-          child._perItem.add(item);
-        }
-      }, onError: child.addError),
-    );
-    child._subs.add(
+    child.addSubscription(
       status
           .distinct((a, b) => a.runtimeType == b.runtimeType)
           .listen(child.addStatus, onError: child.addError),
@@ -219,17 +211,17 @@ class StreamWithStatus<T> {
   /// "Completion" statuses ([StreamStatusLive], [StreamStatusQueryComplete])
   /// are deferred until all in-flight async operations finish, so the child
   /// never advertises "live" while work is still pending.
-  ///
-  /// Closing the child does **not** close this stream.
   StreamWithStatus<R> asyncMap<R>(FutureOr<R> Function(T) fn) {
     final child = StreamWithStatus<R>();
+    child.addStatus(status.value);
     var pending = 0;
 
-    child._subs.add(
-      stream.listen((item) {
+    child.addSubscription(
+      replayStream.listen((item) {
         pending++;
         Future<R>.value(fn(item))
             .then((mapped) {
+              if (child._stream.isClosed) return;
               child.add(mapped);
             })
             .catchError((Object e, StackTrace st) {
@@ -242,9 +234,8 @@ class StreamWithStatus<T> {
       }, onError: (Object e, StackTrace st) => child.addError(e, st)),
     );
 
-    child._subs.add(
+    child.addSubscription(
       status.distinct((a, b) => a.runtimeType == b.runtimeType).listen((s) {
-        // will be picked up from status.value when pending hits 0
         if (pending > 0) return;
         child.addStatus(s);
       }),
@@ -254,10 +245,6 @@ class StreamWithStatus<T> {
   }
 
   /// Returns a new stream that merges items and status from [sources].
-  ///
-  /// Items from all sources are collected. Per-item events are forwarded.
-  /// Status is recomputed from all sources via [recomputeStatus].
-  /// Closing the combined stream does **not** close the sources.
   static StreamWithStatus<T> combineAll<T>(List<StreamWithStatus<T>> sources) {
     final combined = StreamWithStatus<T>();
 
@@ -274,15 +261,14 @@ class StreamWithStatus<T> {
 
   /// Merges [source] into this stream, forwarding its current items,
   /// future per-item events, and lifecycle status.
-  ///
-  /// This is the in-place counterpart to [combineAll]. It lets additional
-  /// sources be attached over time, while still detaching closed children so
-  /// they do not permanently hold the parent in a stale state.
   void combine(StreamWithStatus<T> source) {
     final sourceId = _nextCombinedSourceId++;
     _combinedSourceStatuses[sourceId] = source.status.value;
 
-    _items = List.unmodifiable([..._items, ...source.items]);
+    // Replay existing items from source.
+    if (source.items.isNotEmpty) {
+      addAll(source.items);
+    }
     addStatus(recomputeStatus(_combinedSourceStatuses.values));
 
     var detached = false;
@@ -319,32 +305,55 @@ class StreamWithStatus<T> {
   }
 
   /// Returns a child that accumulates per-item events with [accumulator],
-  /// starting from [seed]. Emits the running accumulator as a single-item
-  /// list after each item.
-  ///
-  /// This is RxDart's `scan` — like JS `reduce` but emits intermediate
-  /// values.
-  ///
-  /// ```dart
-  /// source.scan(<String, ReservationGroup>{}, (acc, item) {
-  ///   return {...acc, item.tradeId: item};
-  /// });
-  /// ```
-  ///
-  /// Closing the child does **not** close this stream.
+  /// starting from [seed]. Each emission replaces the single-item list
+  /// with the latest accumulator value.
   StreamWithStatus<R> scan<R>(R seed, R Function(R acc, T item) accumulator) {
     final child = StreamWithStatus<R>();
+    child.addStatus(status.value);
     var acc = seed;
-    child._items = List.unmodifiable([acc]);
-    child._subs.add(
-      stream.listen((item) {
+    child.add(acc);
+    child.addSubscription(
+      replayStream.listen((item) {
         acc = accumulator(acc, item);
-        child._items = List.unmodifiable([acc]);
-        child._perItem.add(acc);
+        // Reset and re-add so the child always has exactly one item.
+        child._items$.add(List.unmodifiable([acc]));
+        child._stream.add(acc);
       }, onError: (Object e, StackTrace st) => child.addError(e, st)),
     );
-    child._subs.add(status.listen(child.addStatus));
+    child.addSubscription(status.listen(child.addStatus));
     return child;
+  }
+
+  /// Returns a child that accumulates per-item events into a [Map<K, T>]
+  /// keyed by [keyOf], emitting the map's values as a [List<T>] after each
+  /// update.
+  ///
+  /// This is a convenience wrapper around [scan] for the common
+  /// "upsert-by-key" pattern.
+  StreamWithStatus<List<T>> accumulateByKey<K>(K Function(T item) keyOf) {
+    return scan<List<T>>([], (acc, item) {
+      final map = {for (final existing in acc) keyOf(existing): existing};
+      map[keyOf(item)] = item;
+      return map.values.toList();
+    });
+  }
+
+  // ── Piping ──────────────────────────────────────────────────────
+
+  /// Pipes items and status from [source] into this stream (1:1 mirror).
+  ///
+  /// Replays all existing items from the source, then forwards future
+  /// per-item events. Status is also forwarded.
+  ///
+  /// Typical usage: keep a **final** `StreamWithStatus` as the public API,
+  /// call [reset] on logout, then [pipeFrom] a fresh source on login.
+  void pipeFrom(StreamWithStatus<T> source) {
+    addSubscription(source.replayStream.listen(add, onError: addError));
+    addSubscription(
+      source.status
+          .distinct((a, b) => a.runtimeType == b.runtimeType)
+          .listen(addStatus, onError: addError),
+    );
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────
@@ -355,8 +364,8 @@ class StreamWithStatus<T> {
       await sub.cancel();
     }
     _subs.clear();
-    _items = const [];
     _combinedSourceStatuses.clear();
+    if (!_items$.isClosed) _items$.add(const []);
     if (!_status.isClosed) _status.add(StreamStatusIdle());
     await onClose?.call();
     onClose = null;
@@ -370,12 +379,13 @@ class StreamWithStatus<T> {
     _subs.clear();
     _combinedSourceStatuses.clear();
     await onClose?.call();
-    await _perItem.close();
+    await _stream.close();
+    await _items$.close();
     await _status.close();
   }
 
   Map<String, dynamic> toJson() => {
-    'items': _items.map((e) => e.toString()).toList(),
+    'items': items.map((e) => e.toString()).toList(),
   };
 }
 
@@ -396,120 +406,4 @@ StreamStatus recomputeStatus(Iterable<StreamStatus> statuses) {
     return StreamStatusQueryComplete();
   }
   return StreamStatusIdle();
-}
-
-extension StreamWithStatusListX<T> on StreamWithStatus<List<T>> {
-  /// Emits the latest inner list from this snapshot stream.
-  Stream<List<T>> get latestItemsStream =>
-      itemsStream.map((snapshots) => snapshots.lastOrNull ?? <T>[]);
-
-  /// Exposes the latest snapshot's items as a normal current-items stream.
-  StreamWithStatus<T> currentItems() {
-    final current = StreamWithStatus<T>();
-
-    final latest = items.lastOrNull;
-    if (latest != null) {
-      current.replaceAll(latest);
-    }
-
-    current.addSubscription(
-      latestItemsStream.listen(current.replaceAll, onError: current.addError),
-    );
-    current.addSubscription(
-      status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(current.addStatus, onError: current.addError),
-    );
-
-    return current;
-  }
-
-  /// Exposes the latest snapshot's items as a deduplicated current-items
-  /// stream keyed by [keyOf].
-  ///
-  /// - [items] always contains the most recent snapshot, deduplicated by key.
-  /// - [stream] emits only items whose keyed value is new or changed compared
-  ///   with the previous snapshot.
-  StreamWithStatus<T> currentItemsBy<K>(K Function(T item) keyOf) {
-    final current = StreamWithStatus<T>();
-
-    Map<K, T> latestByKey = {
-      for (final item in items.lastOrNull ?? <T>[]) keyOf(item): item,
-    };
-
-    if (latestByKey.isNotEmpty) {
-      current.replaceAll(latestByKey.values.toList());
-    }
-
-    void syncLatest(List<T> latest) {
-      final nextByKey = <K, T>{for (final item in latest) keyOf(item): item};
-      final changed = <T>[];
-
-      for (final entry in nextByKey.entries) {
-        if (latestByKey[entry.key] != entry.value) {
-          changed.add(entry.value);
-        }
-      }
-
-      latestByKey = nextByKey;
-      current.replaceAll(nextByKey.values.toList());
-
-      for (final item in changed) {
-        if (!current._perItem.isClosed) {
-          current._perItem.add(item);
-        }
-      }
-    }
-
-    current.addSubscription(
-      latestItemsStream.listen(syncLatest, onError: current.addError),
-    );
-    current.addSubscription(
-      status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(current.addStatus, onError: current.addError),
-    );
-
-    return current;
-  }
-
-  /// Filters items inside the latest snapshot.
-  StreamWithStatus<T> whereItems(bool Function(T item) test) {
-    final filtered = StreamWithStatus<T>();
-    final latest = items.lastOrNull ?? <T>[];
-    filtered.replaceAll(latest.where(test).toList());
-
-    filtered.addSubscription(
-      latestItemsStream.listen((items) {
-        filtered.replaceAll(items.where(test).toList());
-      }, onError: filtered.addError),
-    );
-    filtered.addSubscription(
-      status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(filtered.addStatus, onError: filtered.addError),
-    );
-
-    return filtered;
-  }
-
-  /// Maps items inside the latest snapshot.
-  StreamWithStatus<R> mapItems<R>(R Function(T item) fn) {
-    final mapped = StreamWithStatus<R>();
-    final latest = items.lastOrNull ?? <T>[];
-    mapped.replaceAll(latest.map(fn).toList());
-
-    mapped.addSubscription(
-      latestItemsStream.listen((items) {
-        mapped.replaceAll(items.map(fn).toList());
-      }, onError: mapped.addError),
-    );
-    mapped.addSubscription(
-      status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(mapped.addStatus, onError: mapped.addError),
-    );
-
-    return mapped;
-  }
 }

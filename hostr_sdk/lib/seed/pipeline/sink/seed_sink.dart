@@ -54,10 +54,15 @@ class SettleTrade {
   /// Private key of the settler (host for claim/release, arbiter for arbitrate).
   final String settlerPrivateKey;
 
+  /// Unix timestamp (seconds) after which the host may claim.
+  /// Used by [InfrastructureSink] to warp Anvil time when needed.
+  final BigInt? unlockAt;
+
   const SettleTrade({
     required this.tradeId,
     required this.outcome,
     required this.settlerPrivateKey,
+    this.unlockAt,
   });
 }
 

@@ -13,6 +13,8 @@ abstract class Config {
   bool get useSecureKeyValueStorage => true;
   String get googleMapsApiKey;
   String get tipsAddress => 'tips@lnbits.hostr.development';
+  String get hostrSocialNpub => '';
+  String get hostrTwitterHandle => 'HostrNetwork';
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 

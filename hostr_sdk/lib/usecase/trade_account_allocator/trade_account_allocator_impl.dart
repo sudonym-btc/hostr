@@ -33,45 +33,41 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
        _logger = logger.scope('trade_account_allocator');
 
   @override
-  Future<int> reserveNextTradeIndex() => _logger.span(
-    'reserveNextTradeIndex',
-    () async {
-      await _cache.ensureLoaded();
+  Future<int> reserveNextTradeIndex() =>
+      _logger.span('reserveNextTradeIndex', () async {
+        await _cache.ensureTradeIdsLoaded();
 
-      var accountIndex = _auth.storedMaxAccountIndex + 1;
+        var accountIndex = _auth.storedMaxAccountIndex + 1;
 
-      while (true) {
-        // Derive (and cache) the entry for this candidate index.
-        final entry = _cache.containsIndex(accountIndex)
-            ? _cache.entryAt(accountIndex)!
-            : await _cache.put(accountIndex);
+        while (true) {
+          // Derive (and cache) the full entry for this candidate index.
+          final entry = await _cache.ensureFullEntry(accountIndex);
 
-        final tradeExists = await _tradeExists(entry.tradeId);
-        final addressUsed = await _evmAddressIsUsed(
-          bip.EthereumAddress.fromHex(entry.evmAddress),
-        );
+          final tradeExists = await _tradeExists(entry.tradeId);
+          final addressUsed = await _evmAddressIsUsed(
+            bip.EthereumAddress.fromHex(entry.evmAddress!),
+          );
 
-        if (!tradeExists && !addressUsed) {
-          break;
+          if (!tradeExists && !addressUsed) {
+            break;
+          }
+
+          accountIndex++;
         }
 
-        accountIndex++;
-      }
+        // Persist the chosen index into the cache (may already be there).
+        if (!_cache.containsIndex(accountIndex)) {
+          await _cache.put(accountIndex);
+        }
 
-      // Persist the chosen index into the cache (may already be there).
-      if (!_cache.containsIndex(accountIndex)) {
-        await _cache.put(accountIndex);
-      }
-
-      await _auth.updateMaxAccountIndex(accountIndex);
-      return accountIndex;
-    },
-  );
+        await _auth.updateMaxAccountIndex(accountIndex);
+        return accountIndex;
+      });
 
   @override
   Future<int> findTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 128,
+    int maxScan = 20,
   }) => _logger.span('findTradeAccountIndexByTradeId', () async {
     final index = await tryFindTradeAccountIndexByTradeId(
       tradeId,
@@ -86,20 +82,22 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   @override
   Future<int?> tryFindTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 128,
+    int maxScan = 20,
   }) async {
-    await _cache.ensureLoaded();
+    await _cache.ensureTradeIdsLoaded();
 
     // O(1) cache hit.
     final cached = _cache.indexByTradeId(tradeId);
     if (cached != null) return cached;
 
-    // Cache miss — fall back to linear scan for indices beyond the
-    // cache (e.g. if maxScan exceeds storedMaxAccountIndex).
+    // Cache miss — lightweight scan using only getTradeId.
     final upperBound = _scanUpperBound(maxScan);
     for (var index = 0; index < upperBound; index++) {
-      if (_cache.containsIndex(index)) continue; // already checked
-      if (await _hd.getTradeId(accountIndex: index) == tradeId) {
+      if (_cache.containsIndex(index)) continue;
+      final derivedTradeId = await _hd.getTradeId(accountIndex: index);
+      // Cache the tradeId for future lookups (no salt/evmAddress yet).
+      _cache.putTradeIdOnly(index, derivedTradeId);
+      if (derivedTradeId == tradeId) {
         return index;
       }
     }
@@ -107,7 +105,7 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   }
 
   @override
-  Future<int> findTradeAccountIndexBySalt(String salt, {int maxScan = 128}) =>
+  Future<int> findTradeAccountIndexBySalt(String salt, {int maxScan = 20}) =>
       _logger.span('findTradeAccountIndexBySalt', () async {
         final index = await tryFindTradeAccountIndexBySalt(
           salt,
@@ -122,19 +120,20 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   @override
   Future<int?> tryFindTradeAccountIndexBySalt(
     String salt, {
-    int maxScan = 128,
+    int maxScan = 20,
   }) async {
     await _cache.ensureLoaded();
 
-    // O(1) cache hit.
+    // O(1) cache hit (only works for fully-derived entries).
     final cached = _cache.indexBySalt(salt);
     if (cached != null) return cached;
 
-    // Cache miss — fall back to linear scan for uncached indices.
+    // Cache miss — lightweight scan using only getTradeSalt.
     final upperBound = _scanUpperBound(maxScan);
     for (var index = 0; index < upperBound; index++) {
-      if (_cache.containsIndex(index)) continue; // already checked
+      if (_cache.containsIndex(index)) continue;
       if (await _hd.getTradeSalt(accountIndex: index) == salt) {
+        await _cache.put(index);
         return index;
       }
     }

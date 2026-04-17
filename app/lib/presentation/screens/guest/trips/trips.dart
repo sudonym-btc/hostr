@@ -32,7 +32,7 @@ class _TripsScreenState extends State<TripsScreen> {
   @override
   Widget build(BuildContext context) {
     final content = StatusStreamListWidget(
-      stream: getIt<Hostr>().userSubscriptions.myTrips$,
+      stream: getIt<Hostr>().userSubscriptions.myTripsList$,
       itemKeyBuilder: (item) => ValueKey(item.event.tradeId),
       sort: ReservationStatusSections.compare,
       sectionHeaderBuilder: ReservationStatusSections.buildHeader,

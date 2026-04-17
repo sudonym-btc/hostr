@@ -40,6 +40,11 @@ class FundsItem {
   /// call in the swap-out operation.
   final SupportedEscrowContract? contract;
 
+  /// Whether [address] is a smart-account (ERC-4337) address rather than
+  /// a plain EOA. Determined by whether the chain has account-abstraction
+  /// capability enabled.
+  final bool isSmartAddress;
+
   /// Whether this item represents escrow-locked funds.
   bool get isEscrowLocked => contract != null;
 
@@ -52,6 +57,7 @@ class FundsItem {
     required this.chain,
     required this.blockNumber,
     this.contract,
+    this.isSmartAddress = false,
   });
 
   /// Cache key — unique per (address, token, contract address).
@@ -64,5 +70,6 @@ class FundsItem {
   @override
   String toString() =>
       'FundsItem(addr=${address.eip55With0x}, token=${token.address}, '
-      'balance=${balance.value}, escrow=${contract != null})';
+      'balance=${balance.value}, escrow=${contract != null}, '
+      'smartAddress=$isSmartAddress)';
 }

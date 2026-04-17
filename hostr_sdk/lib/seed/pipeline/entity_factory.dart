@@ -649,7 +649,7 @@ Specifications _buildListingSpecifications(Random r) {
 /// Use directly in unit tests:
 /// ```dart
 /// final f = EntityFactory();
-/// final listing = f.listing(title: 'Beach House', requiresEscrow: true);
+/// final listing = f.listing(title: 'Beach House', instantBook: true);
 /// final profile = await f.profile(displayName: 'Alice');
 /// final reservation = f.reservation(listing: listing);
 /// ```
@@ -703,7 +703,7 @@ class EntityFactory {
     ListingType? type,
     List<String>? images,
     Specifications? specifications,
-    bool? requiresEscrow,
+    bool? instantBook,
     bool? allowSelfSignedReservation,
     bool? negotiable,
     int? minStay,
@@ -713,6 +713,7 @@ class EntityFactory {
     List<CancellationPolicy>? cancellationPolicy,
     DenominatedAmount? securityDeposit,
     DenominatedAmount? minPaymentAmount,
+    int? maxDisputePeriod,
     List<List<String>>? extraTags,
     int? createdAt,
     Random? rng,
@@ -812,7 +813,7 @@ class EntityFactory {
           seedImages ??
           ['https://picsum.photos/seed/$resolvedDTag/1200/800'],
       specifications: specifications ?? seedAmenities ?? Specifications(),
-      requiresEscrow: requiresEscrow ?? false,
+      instantBook: instantBook ?? true,
       allowSelfSignedReservation: allowSelfSignedReservation ?? false,
       negotiable: negotiable ?? false,
       minStay: minStay ?? 1,
@@ -822,6 +823,7 @@ class EntityFactory {
       cancellationPolicy: cancellationPolicy ?? const [],
       securityDeposit: securityDeposit,
       minPaymentAmount: minPaymentAmount,
+      maxDisputePeriod: maxDisputePeriod,
       extraTags: mergedExtraTags,
       createdAt: createdAt ?? _defaultCreatedAt(),
     ).signAs(kp, Listing.fromNostrEvent);

@@ -33,8 +33,6 @@ class DevWidget extends StatelessWidget {
                     evmKey: evmKey,
                     accountIndex: 0,
                   ),
-                  auth: getIt<Hostr>().auth,
-                  logger: CustomLogger(),
                 ),
               ),
             );

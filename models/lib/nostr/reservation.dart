@@ -25,22 +25,27 @@ enum ReservationStage {
 /// left empty when a role is specified.
 class PTag {
   final String pubkey;
+
+  /// Optional relay URL hint (NIP-01 3rd position) to help clients
+  /// discover this participant's events without a separate NIP-65 lookup.
+  final String relayHint;
   final String? role;
 
-  const PTag(this.pubkey, [this.role]);
+  const PTag(this.pubkey, {this.relayHint = '', this.role});
 
   /// Creates a tag for the seller (host) participant.
-  const PTag.seller(this.pubkey) : role = 'seller';
+  const PTag.seller(this.pubkey, {this.relayHint = ''}) : role = 'seller';
 
   /// Creates a tag for the buyer (guest) participant.
-  const PTag.buyer(this.pubkey) : role = 'buyer';
+  const PTag.buyer(this.pubkey, {this.relayHint = ''}) : role = 'buyer';
 
   /// Creates a tag for the escrow service participant.
-  const PTag.escrow(this.pubkey) : role = 'escrow';
+  const PTag.escrow(this.pubkey, {this.relayHint = ''}) : role = 'escrow';
 
   /// Converts to a raw Nostr tag array.
+  /// Format: `["p", <pubkey>, <relay-hint>, <role>]`
   List<String> toTag() =>
-      role != null ? ['p', pubkey, '', role!] : ['p', pubkey];
+      role != null ? ['p', pubkey, relayHint, role!] : ['p', pubkey, relayHint];
 }
 
 class ReservationTags extends EventTags

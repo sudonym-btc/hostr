@@ -55,7 +55,7 @@ Listing _buildListing({
   required KeyPair host,
   bool allowSelfSignedReservation = false,
   bool negotiable = false,
-  bool requiresEscrow = false,
+  bool instantBook = true,
   BigInt? pricePerNight,
 }) {
   return Listing.create(
@@ -80,7 +80,7 @@ Listing _buildListing({
     specifications: Specifications(),
     negotiable: negotiable,
     allowSelfSignedReservation: allowSelfSignedReservation,
-    requiresEscrow: requiresEscrow,
+    instantBook: instantBook,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   ).signAs(host, Listing.fromNostrEvent);
 }
@@ -632,7 +632,7 @@ void main() {
         listing = _buildListing(
           host: host,
           allowSelfSignedReservation: true,
-          requiresEscrow: true,
+          instantBook: true,
         );
         escrowService = await _buildEscrowService();
         escrowTrust = _buildEscrowTrust(host: host);

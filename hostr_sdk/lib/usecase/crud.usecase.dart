@@ -42,7 +42,7 @@ class CrudUseCase<T extends Nip01Event> {
 
   StreamWithStatus<T> subscribe(Filter f, {String? name}) =>
       logger.spanSync('subscribe', () {
-        return requests.subscribe(
+        return requests.subscribe<T>(
           filter: getCombinedFilter(f, Filter(kinds: [kind])),
           name: name != null ? '$T-$name' : '$T',
         );
@@ -87,6 +87,35 @@ class CrudUseCase<T extends Nip01Event> {
       filterSource: kindMerged,
       debounceDuration: debounceDuration,
     );
+  }
+
+  /// Creates an idle [ExpandableSubscription] that is not yet connected to
+  /// a filter source. Call [startExpandable] to begin listening.
+  ExpandableSubscription<T> createExpandable({
+    required String name,
+    Duration debounceDuration = const Duration(milliseconds: 500),
+  }) {
+    return ExpandableSubscription<T>.idle(
+      requests: requests,
+      logger: logger,
+      name: '$T-$name',
+      debounceDuration: debounceDuration,
+    );
+  }
+
+  /// (Re)starts an existing [ExpandableSubscription] with a new filter
+  /// source. Resets the subscription's internal state, then re-subscribes.
+  ///
+  /// The entity [kind] is automatically merged into each filter emitted by
+  /// [filterSource].
+  Future<void> startExpandable(
+    ExpandableSubscription<T> subscription,
+    StreamWithStatus<Filter> filterSource,
+  ) async {
+    final kindMerged = filterSource.map<Filter>(
+      (filter) => getCombinedFilter(filter, Filter(kinds: [kind])),
+    );
+    await subscription.restart(kindMerged);
   }
 
   /// Merges the entity [kind] into [filter] — useful when callers need to

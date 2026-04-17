@@ -16,7 +16,6 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import 'block_dates.dart';
-import 'blocked_reservations.dart';
 import 'listing_error_view.dart';
 import 'listing_location_map.dart';
 import 'reviews.dart' as listing_sections;
@@ -157,8 +156,7 @@ class ListingViewBody extends StatelessWidget {
   final Widget reviewsSummaryWidget;
   final Widget reviewsListWidget;
   final Widget? reserveBottomBar;
-  final StreamWithStatus<List<Validation<ReservationGroup>>>
-  verifiedGroupsStream;
+  final StreamWithStatus<Validation<ReservationGroup>> verifiedGroupsStream;
   final KeyPair? hostKeyPair;
   final ValueChanged<Reservation> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
@@ -259,17 +257,18 @@ class ListingViewBody extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         ListingLocationMapSection(listing: listing),
-        if (isOwner) ...[
-          Gap.vertical.lg(),
-          BlockedReservations(
-            reservationGroupItemsStream: ListingDependenciesProvider.of(
-              context,
-            ).reservationGroupItems,
-            hostKeyPair: hostKeyPair,
-            onCancelBlockedReservation: onCancelBlockedReservation,
-            onBlockDates: onBlockDates,
-          ),
-        ],
+        // TODO: Re-enable Block Dates section
+        // if (isOwner) ...[
+        //   Gap.vertical.lg(),
+        //   BlockedReservations(
+        //     reservationGroupItemsStream: ListingDependenciesProvider.of(
+        //       context,
+        //     ).reservationGroupItems,
+        //     hostKeyPair: hostKeyPair,
+        //     onCancelBlockedReservation: onCancelBlockedReservation,
+        //     onBlockDates: onBlockDates,
+        //   ),
+        // ],
       ],
     );
   }

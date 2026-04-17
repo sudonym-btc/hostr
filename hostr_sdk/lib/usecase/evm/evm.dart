@@ -77,6 +77,14 @@ class Evm {
   /// Call this once after construction. It's separated from the constructor
   /// because it's async.
   Future<void> init() => _logger.span('init', () async {
+    // Attach late dependencies now that DI is fully wired.
+    final nwc = getIt<Nwc>();
+    final payments = getIt<Payments>();
+    for (final chain in configuredChains) {
+      chain.nwc = nwc;
+      chain.payments = payments;
+    }
+
     if (_boltzClient == null) {
       _logger.i('No Boltz config — skipping swap discovery');
       return;
@@ -127,10 +135,9 @@ class Evm {
       _logger.e('Boltz discovery failed (chains remain swap-less): $e');
     }
 
-    // Start each chain's balance monitor after Boltz tokens are registered.
-    for (final chain in configuredChains) {
-      chain.balanceMonitor.start();
-    }
+    // Balance monitors are NOT auto-started. The FundsMonitorService.scan()
+    // handles the initial balance sweep directly. Per-block monitoring via
+    // EvmBalanceMonitor.start() is available but opt-in.
   });
 
   EvmChain getChainForEscrowService(EscrowService service) =>
@@ -223,11 +230,6 @@ class Evm {
                         evmKey: evmKey,
                         accountIndex: accountIndex,
                       ),
-                      auth: _auth,
-                      logger: _logger,
-                      nwc: getIt<Nwc>(),
-                      payments: getIt<Payments>(),
-                      quoteService: getIt<SwapQuoteService>(),
                     ),
                   );
                 }
@@ -251,11 +253,6 @@ class Evm {
                           accountIndex: accountIndex,
                           amountSpec: AmountSpec.input(erc20),
                         ),
-                        auth: _auth,
-                        logger: _logger,
-                        nwc: getIt<Nwc>(),
-                        payments: getIt<Payments>(),
-                        quoteService: getIt<SwapQuoteService>(),
                       ),
                     );
                   }
@@ -279,11 +276,6 @@ class Evm {
                     evmKey: evmKey,
                     accountIndex: entry.accountIndex,
                   ),
-                  auth: _auth,
-                  logger: _logger,
-                  nwc: getIt<Nwc>(),
-                  payments: getIt<Payments>(),
-                  quoteService: getIt<SwapQuoteService>(),
                 ),
               );
             }
@@ -308,11 +300,6 @@ class Evm {
                       accountIndex: entry.accountIndex,
                       amountSpec: AmountSpec.input(entry.balance),
                     ),
-                    auth: _auth,
-                    logger: _logger,
-                    nwc: getIt<Nwc>(),
-                    payments: getIt<Payments>(),
-                    quoteService: getIt<SwapQuoteService>(),
                   ),
                 );
               }

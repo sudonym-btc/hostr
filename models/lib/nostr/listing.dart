@@ -24,7 +24,8 @@ mixin ListingTagRead {
   int get quantity => tagSource.getTagInt('quantity') ?? 1;
   ListingType get listingType =>
       tagSource.getTagEnum('type', ListingType.values) ?? ListingType.room;
-  bool get requiresEscrow => tagSource.getTagBool('requiresEscrow');
+  bool get instantBook =>
+      tagSource.getTagBool('instantBook', defaultValue: true);
   bool get allowSelfSignedReservation =>
       tagSource.getTagBool('allowSelfSignedReservation');
   List<Price> get prices => tagSource.getTagPrices();
@@ -45,6 +46,13 @@ mixin ListingTagRead {
   /// Stored as `['minPaymentAmount', amount, denomination, decimals]`.
   DenominatedAmount? get minPaymentAmount =>
       tagSource.getTagDenominatedAmount('minPaymentAmount');
+
+  /// Maximum time in seconds after the reservation end date that the escrow
+  /// must unlock at. Stored as `['maxDisputePeriod', '<seconds>']`.
+  /// Defaults to 2 weeks (1 209 600 s) when not set.
+  static const int defaultMaxDisputePeriod = 14 * 24 * 60 * 60; // 2 weeks
+  int get maxDisputePeriod =>
+      tagSource.getTagInt('maxDisputePeriod') ?? defaultMaxDisputePeriod;
 }
 
 // ── Tags class ──────────────────────────────────────────────────────────────
@@ -84,6 +92,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     TagPromotion.valued(source: 'spec', match: 'beds', target: 'b'),
     TagPromotion.valued(source: 'spec', match: 'bedrooms', target: 'B'),
     TagPromotion.valued(source: 'spec', match: 'bathrooms', target: 'R'),
+    TagPromotion.direct(source: 'instantBook', target: 'I'),
   ];
 
   /// Letters emitted by [promotions] — stripped during [rebuild] so they
@@ -144,11 +153,12 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     String checkIn = '15:0',
     String checkOut = '11:0',
     int quantity = 1,
-    bool requiresEscrow = false,
+    bool instantBook = true,
     bool allowSelfSignedReservation = false,
     List<CancellationPolicy> cancellationPolicy = const [],
     DenominatedAmount? securityDeposit,
     DenominatedAmount? minPaymentAmount,
+    int? maxDisputePeriod,
     List<List<String>> extraTags = const [],
     int? createdAt,
   }) {
@@ -169,7 +179,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add('location', location)
               ..addInt('quantity', quantity)
               ..addEnum('type', type)
-              ..addBool('requiresEscrow', requiresEscrow)
+              ..addBool('instantBook', instantBook)
               ..addBool(
                   'allowSelfSignedReservation', allowSelfSignedReservation)
               ..addPrices(price)
@@ -177,10 +187,12 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addOptionalDenominatedAmount('securityDeposit', securityDeposit)
               ..addOptionalDenominatedAmount(
                   'minPaymentAmount', minPaymentAmount)
+              ..addOptionalInt('maxDisputePeriod', maxDisputePeriod)
               ..addSpecifications(specifications)
               // Emit single-letter promoted duplicates for relay indexing.
               ..addAll(TagPromotion.promoteAll([
                 ['type', type.name],
+                ['instantBook', instantBook.toString()],
                 ...specifications.toTags(),
               ], promotions))
               ..addAll(extraTags))
@@ -201,7 +213,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     String? location,
     int? quantity,
     ListingType? type,
-    bool? requiresEscrow,
+    bool? instantBook,
     bool? allowSelfSignedReservation,
     List<Price>? prices,
     List<CancellationPolicy>? cancellationPolicy,
@@ -210,6 +222,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     bool clearSecurityDeposit = false,
     DenominatedAmount? minPaymentAmount,
     bool clearMinPaymentAmount = false,
+    int? maxDisputePeriod,
+    bool clearMaxDisputePeriod = false,
     // Content fields
     String? title,
     String? description,
@@ -233,7 +247,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       'location',
       'quantity',
       'type',
-      'requiresEscrow',
+      'instantBook',
       'allowSelfSignedReservation',
       'price',
       'cancellationPolicy',
@@ -241,6 +255,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       'amenity', // back-compat: strip legacy amenity tags on rebuild
       'securityDeposit',
       'minPaymentAmount',
+      'maxDisputePeriod',
       ..._promotedLetters,
     };
     final preserved = parsedTags.tags
@@ -264,7 +279,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add('location', location ?? this.location)
               ..addInt('quantity', quantity ?? this.quantity)
               ..addEnum('type', type ?? this.listingType)
-              ..addBool('requiresEscrow', requiresEscrow ?? this.requiresEscrow)
+              ..addBool('instantBook', instantBook ?? this.instantBook)
               ..addBool('allowSelfSignedReservation',
                   allowSelfSignedReservation ?? this.allowSelfSignedReservation)
               ..addPrices(prices ?? this.prices)
@@ -280,10 +295,17 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                   clearMinPaymentAmount
                       ? null
                       : minPaymentAmount ?? this.minPaymentAmount)
+              ..addOptionalInt(
+                  'maxDisputePeriod',
+                  clearMaxDisputePeriod
+                      ? null
+                      : maxDisputePeriod ??
+                          tagSource.getTagInt('maxDisputePeriod'))
               ..addSpecifications(specifications ?? this.specifications)
               // Emit single-letter promoted duplicates for relay indexing.
               ..addAll(TagPromotion.promoteAll([
                 ['type', (type ?? this.listingType).name],
+                ['instantBook', (instantBook ?? this.instantBook).toString()],
                 ...(specifications ?? this.specifications).toTags(),
               ], promotions))
               ..addAll(extraTags ?? const []))

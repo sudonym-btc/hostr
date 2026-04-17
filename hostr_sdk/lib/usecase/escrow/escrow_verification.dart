@@ -272,6 +272,22 @@ class EscrowVerification {
       }
     }
 
+    // ── Max claim period verification ─────────────────────────────────
+    // Ensure the on-chain unlockAt does not exceed the reservation end
+    // date plus the listing's maxDisputePeriod.
+    final reservationEnd = reservation.end;
+    if (reservationEnd != null) {
+      final maxDisputePeriod = proof.listing.maxDisputePeriod;
+      final maxUnlockAt =
+          reservationEnd.millisecondsSinceEpoch ~/ 1000 + maxDisputePeriod;
+      if (fundedEvent.unlockAt > maxUnlockAt) {
+        return EscrowVerificationResult.invalid(
+          'Escrow unlockAt (${fundedEvent.unlockAt}) exceeds reservation end '
+          '+ maxDisputePeriod ($maxUnlockAt)',
+        );
+      }
+    }
+
     logger.d(
       'Escrow verified for trade ${reservation.getDtag()}: '
       'funded event ${fundedEvent.transactionHash}, '

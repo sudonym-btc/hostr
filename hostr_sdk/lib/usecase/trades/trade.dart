@@ -68,13 +68,14 @@ class Trade extends Cubit<TradeState> {
   final StreamWithStatus<Validation<ReservationGroup>> reservationGroup$;
   final StreamWithStatus<PaymentEvent> payments$;
   final StreamWithStatus<ReservationTransition> transitions$;
+  final StreamWithStatus<Review> myReviews$;
 
   final BehaviorSubject<bool> subscriptionsLive$ = BehaviorSubject.seeded(
     false,
   );
 
   /// Listing-level reservation stream — only started during negotiation.
-  StreamWithStatus<List<Validation<ReservationGroup>>>? allListingReservations$;
+  StreamWithStatus<Validation<ReservationGroup>>? allListingReservations$;
 
   // ── Internal bookkeeping ───────────────────────────────────────────
 
@@ -106,7 +107,7 @@ class Trade extends Cubit<TradeState> {
            getPubKeyFromAnchor(listingAnchor) == auth.getActiveKey().publicKey
            ? TradeRole.host
            : TradeRole.guest,
-       reservationGroup$ = userSubscriptions.allMyReservationGroups$.whereItems(
+       reservationGroup$ = userSubscriptions.allMyReservationGroups$.where(
          (item) => item.event.tradeId == tradeId,
        ),
        payments$ = userSubscriptions.paymentEvents$.where(
@@ -115,7 +116,14 @@ class Trade extends Cubit<TradeState> {
        transitions$ = userSubscriptions.allTransitions$.stream.where(
          (t) => t.parsedTags.tradeId == tradeId,
        ),
+       myReviews$ = userSubscriptions.myReviews$.where(
+         (review) => review.parsedTags.listingAnchor == listingAnchor,
+       ),
        super(const TradeInitialising()) {
+    _logger.d('Payment events: ${userSubscriptions.paymentEvents$.items}');
+    userSubscriptions.paymentEvents$.replayStream.listen((event) {
+      _logger.d('${event.tradeId} ${tradeId} payment event: ${event} (})');
+    });
     _subscriptions.add(
       Rx.combineLatest3(
         reservationGroup$.status,
@@ -192,18 +200,26 @@ class Trade extends Cubit<TradeState> {
         : Stream<ThreadState?>.value(null);
 
     _combineSubscription =
-        Rx.combineLatest5(
+        Rx.combineLatest6(
           reservationGroup$.itemsStream,
           payments$.itemsStream,
           transitions$.itemsStream,
-          allListingReservations$!.latestItemsStream,
+          allListingReservations$!
+              .accumulateByKey((g) => g.event.groupId)
+              .itemsStream
+              .map(
+                (snapshots) =>
+                    snapshots.lastOrNull ?? <Validation<ReservationGroup>>[],
+              ),
           threadState$,
+          myReviews$.itemsStream,
           (
             List<Validation<ReservationGroup>> ownReservations,
             List<PaymentEvent> payments,
             List<ReservationTransition> transitions,
             List<Validation<ReservationGroup>> allListingReservations,
             ThreadState? threadState,
+            List<Review> myReviews,
           ) {
             return _resolve(
               listing: listing,
@@ -215,6 +231,7 @@ class Trade extends Cubit<TradeState> {
               transitions: transitions,
               allListingReservations: allListingReservations,
               threadState: threadState,
+              myReviews: myReviews,
             );
           },
         ).listen(
@@ -239,6 +256,7 @@ class Trade extends Cubit<TradeState> {
     required List<ReservationTransition> transitions,
     required List<Validation<ReservationGroup>> allListingReservations,
     required ThreadState? threadState,
+    List<Review> myReviews = const [],
   }) => _logger.spanSync('_resolve', () {
     thread = _threads.findPreferredThreadByTradeId(tradeId);
 
@@ -347,6 +365,7 @@ class Trade extends Cubit<TradeState> {
           reservationStreamStatus: ownReservationsStatus,
           payments: payments,
           role: role,
+          myReviews: myReviews,
         ),
       );
     }

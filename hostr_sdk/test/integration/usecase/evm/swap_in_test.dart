@@ -57,8 +57,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.output(amount),
         ),
-        auth: hostr.auth,
-        logger: CustomLogger(),
       );
 
       final emittedStates = <SwapInState>[swapIn.state];

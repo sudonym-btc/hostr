@@ -5,6 +5,7 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
+import '../relays/relays.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 
 /// Use-case for creating negotiate-stage [Reservation] events (formerly
@@ -14,13 +15,16 @@ import '../trade_account_allocator/trade_account_allocator.dart';
 class ReservationRequests extends CrudUseCase {
   final Auth _auth;
   final TradeAccountAllocator _tradeAccountAllocator;
+  final Relays _relays;
   ReservationRequests({
     required super.requests,
     required super.logger,
     required Auth auth,
     required TradeAccountAllocator tradeAccountAllocator,
+    required Relays relays,
   }) : _auth = auth,
        _tradeAccountAllocator = tradeAccountAllocator,
+       _relays = relays,
        super(kind: Reservation.kinds[0]);
 
   static String getReservationRequestId({
@@ -75,8 +79,16 @@ class ReservationRequests extends CrudUseCase {
       tweakMaterial: tweakMaterial,
       recipient: recipientKey.publicKey,
       pTags: [
-        PTag.seller(getPubKeyFromAnchor(listing.anchor!)),
-        PTag.buyer(recipientKey.publicKey),
+        PTag.seller(
+          getPubKeyFromAnchor(listing.anchor!),
+          relayHint: await _relays.relayHintFor(
+            getPubKeyFromAnchor(listing.anchor!),
+          ),
+        ),
+        PTag.buyer(
+          recipientKey.publicKey,
+          relayHint: await _relays.relayHintFor(recipientKey.publicKey),
+        ),
       ],
     ).signAs(recipientKey.keyPair, Reservation.fromNostrEvent);
   });
@@ -102,11 +114,21 @@ class ReservationRequests extends CrudUseCase {
       tweakMaterial: previousRequest.tweakMaterial,
       recipient: previousRequest.recipient,
       pTags: [
-        PTag.seller(getPubKeyFromAnchor(listingAnchor)),
+        PTag.seller(
+          getPubKeyFromAnchor(listingAnchor),
+          relayHint: await _relays.relayHintFor(
+            getPubKeyFromAnchor(listingAnchor),
+          ),
+        ),
         PTag.buyer(
           signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)
               ? previousRequest.pubKey
               : signerKeyPair.publicKey,
+          relayHint: await _relays.relayHintFor(
+            signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)
+                ? previousRequest.pubKey
+                : signerKeyPair.publicKey,
+          ),
         ),
       ],
     );
