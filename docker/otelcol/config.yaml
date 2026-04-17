@@ -1,0 +1,30 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        # CORS is handled upstream by nginx
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 64
+
+exporters:
+  googlecloud:
+    # Authenticates via GCE metadata server (VM service account ADC).
+    # VM SA compose-vm@hostr-staging-d4c52998.iam.gserviceaccount.com
+    # already has roles/cloudtrace.agent — no extra config needed.
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [googlecloud]

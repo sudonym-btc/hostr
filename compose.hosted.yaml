@@ -75,6 +75,17 @@ services:
       - staging
       - prod
 
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./docker/otelcol/config.yaml:/etc/otelcol/config.yaml:ro
+    expose:
+      - "4318"
+    restart: unless-stopped
+    networks:
+      - default
+
   escrow:
     image: ${DOCKER_REGISTRY}/escrow:latest
     entrypoint: ["daemon"]
