@@ -91,6 +91,7 @@ class Telemetry {
     this.otlpEndpoint,
     this.otlpHeaders = const {},
     String? serviceVersion,
+    String? gcpProjectId,
   }) {
     _configureOtelLogging();
 
@@ -98,6 +99,8 @@ class Telemetry {
       Attribute.fromString('service.name', serviceName),
       if (serviceVersion != null)
         Attribute.fromString('service.version', serviceVersion),
+      if (gcpProjectId != null)
+        Attribute.fromString('gcp.project_id', gcpProjectId),
     ]);
 
     final processors = <SpanProcessor>[];
@@ -109,7 +112,12 @@ class Telemetry {
         name: 'hostr.telemetry',
       );
       processors.add(
-        SimpleSpanProcessor(CollectorExporter(exportUri, headers: otlpHeaders)),
+        SimpleSpanProcessor(
+          CollectorExporter(
+            exportUri,
+            headers: otlpHeaders,
+          ),
+        ),
       );
     }
 
