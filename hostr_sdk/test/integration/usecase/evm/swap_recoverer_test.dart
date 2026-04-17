@@ -72,8 +72,6 @@ void main() {
         accountIndex: 0,
         amountSpec: AmountSpec.output(amount),
       ),
-      auth: hostr.auth,
-      logger: CustomLogger(),
     );
 
     await swapIn.execute();
@@ -115,8 +113,6 @@ void main() {
         accountIndex: 0,
         amountSpec: AmountSpec.output(amount),
       ),
-      auth: hostr.auth,
-      logger: CustomLogger(),
     );
 
     await swapIn.execute();

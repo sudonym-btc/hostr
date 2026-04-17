@@ -109,11 +109,6 @@ class EscrowWithdrawOperation {
 
       // ── Create swap-out with preLockCalls ──
       return configuredChain.swapOut(
-        auth: auth,
-        logger: logger,
-        nwc: nwc,
-        payments: payments,
-        quoteService: quoteService,
         params: SwapOutParams(
           evmKey: evmKey,
           accountIndex: accountIndex,

@@ -9,6 +9,7 @@ const relayUrl = 'wss://relay.hostr.network';
 const blossomUrl = 'https://blossom.hostr.network';
 const tipsAddress = 'paco@walletofsatoshi.com';
 const googleMapsApiKey = '';
+const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
 const bootstrapRelays = <String>[
   'wss://relay.damus.io',
@@ -17,8 +18,8 @@ const bootstrapRelays = <String>[
 const bootstrapEscrowPubkeys = <String>[
 ];
 
-const telemetryEnabled = false;
-const telemetryEndpoint = '';
+const telemetryEnabled = true;
+const telemetryEndpoint = '/otlp';
 const telemetryServiceName = 'hostr-app';
 
 const evmConfig = EvmConfig(

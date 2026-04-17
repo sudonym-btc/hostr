@@ -91,6 +91,18 @@ class ExpandableSubscription<T extends Nip01Event> {
     _subscribeToFilterSource(filterSource);
   }
 
+  /// Creates an idle subscription that is not yet connected to a filter
+  /// source. Call [restart] to begin.
+  ExpandableSubscription.idle({
+    required Requests requests,
+    required CustomLogger logger,
+    required String name,
+    Duration debounceDuration = const Duration(milliseconds: 500),
+  }) : _requests = requests,
+       _logger = logger,
+       _name = name,
+       _debounceDuration = debounceDuration;
+
   // ── Public API ──────────────────────────────────────────────────────
 
   /// Tear down everything. [stream] is closed and cannot be reused.
@@ -130,6 +142,15 @@ class ExpandableSubscription<T extends Nip01Event> {
     await stream.reset();
     _logger.d('ExpandableSubscription[$_name] reset');
   });
+
+  /// Resets all internal state then re-subscribes to [filterSource].
+  ///
+  /// The public [stream] object is preserved (just reset), so existing
+  /// listeners stay attached and receive events from the new source.
+  Future<void> restart(StreamWithStatus<Filter> filterSource) async {
+    await reset();
+    _subscribeToFilterSource(filterSource);
+  }
 
   // ── Filter source wiring ────────────────────────────────────────────
 

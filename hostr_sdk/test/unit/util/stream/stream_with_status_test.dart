@@ -93,18 +93,6 @@ void main() {
       await stream.close();
     });
 
-    test('replaceAll wholesale-replaces items', () async {
-      final stream = StreamWithStatus<int>();
-      stream.add(1);
-      stream.add(2);
-      expect(stream.items, [1, 2]);
-
-      stream.replaceAll([10, 20, 30]);
-      expect(stream.items, [10, 20, 30]);
-
-      await stream.close();
-    });
-
     test('reset clears items and sets idle', () async {
       final stream = StreamWithStatus<int>();
       stream.addStatus(StreamStatusLive());
@@ -140,17 +128,18 @@ void main() {
       await source.close();
     });
 
-    test('where() stays in sync with replaceAll()', () async {
+    test('where() accumulates filtered items over time', () async {
       final source = StreamWithStatus<int>();
       final even = source.where((i) => i.isEven);
 
-      source.replaceAll([1, 2, 3, 4]);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(even.items, [2, 4]);
+      source.add(1);
+      source.add(2);
+      source.add(3);
+      source.add(4);
+      source.add(6);
 
-      source.replaceAll([2, 6]);
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(even.items, [2, 6]);
+      expect(even.items, [2, 4, 6]);
 
       await even.close();
       await source.close();
@@ -247,100 +236,39 @@ void main() {
     });
   });
 
-  group('StreamWithStatus<List<T>> helpers', () {
-    test('latestItemsStream emits the latest snapshot contents', () async {
-      final source = StreamWithStatus<List<int>>();
-      final seen = <List<int>>[];
+  group('accumulateByKey', () {
+    test('accumulates items by key, upserting on each emission', () async {
+      final source = StreamWithStatus<MapEntry<String, int>>();
+      final accumulated = source.accumulateByKey((e) => e.key);
 
-      final sub = source.latestItemsStream.listen(seen.add);
-
-      source.add([1, 2]);
-      source.add([1, 2, 3]);
+      source.add(const MapEntry('a', 1));
+      source.add(const MapEntry('b', 2));
+      source.add(const MapEntry('a', 3)); // upserts 'a'
 
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(seen, isNotEmpty);
-      expect(seen.last, [1, 2, 3]);
+      // Should have two items: a=3, b=2
+      expect(accumulated.items.last.length, 2);
+      expect(accumulated.items.last.map((e) => '${e.key}=${e.value}').toSet(), {
+        'a=3',
+        'b=2',
+      });
 
-      await sub.cancel();
+      await accumulated.close();
       await source.close();
     });
 
-    test('currentItems exposes the latest snapshot as current items', () async {
-      final source = StreamWithStatus<List<int>>();
-      final current = source.currentItems();
+    test('forwards status from parent', () async {
+      final source = StreamWithStatus<MapEntry<String, int>>();
+      final accumulated = source.accumulateByKey((e) => e.key);
 
-      source.add([1, 2]);
-      source.add([2, 4]);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
-      expect(current.items, [2, 4]);
-
-      await current.close();
-      await source.close();
-    });
-
-    test('currentItemsBy emits only changed keyed items', () async {
-      final source = StreamWithStatus<List<int>>();
-      final current = source.currentItemsBy((item) => item % 10);
-      final seen = <int>[];
-
-      final sub = current.stream.listen(seen.add);
-
-      source.add([11, 22]);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(current.items, [11, 22]);
-      expect(seen, [11, 22]);
-
-      source.add([11, 23, 34]);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(current.items, [11, 23, 34]);
-      expect(seen, [11, 22, 23, 34]);
-
-      source.add([11, 23, 34]);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(current.items, [11, 23, 34]);
-      expect(seen, [11, 22, 23, 34]);
-
-      await sub.cancel();
-      await current.close();
-      await source.close();
-    });
-
-    test(
-      'currentItemsBy and where do not duplicate items across snapshots',
-      () async {
-        final source = StreamWithStatus<List<int>>();
-        final current = source.currentItemsBy((item) => item);
-        final filtered = current.where((item) => item.isEven);
-
-        source.add([2]);
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        expect(filtered.items, [2]);
-
-        source.add([2, 4]);
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        expect(filtered.items, [2, 4]);
-
-        await filtered.close();
-        await current.close();
-        await source.close();
-      },
-    );
-
-    test('whereItems filters within the latest snapshot', () async {
-      final source = StreamWithStatus<List<int>>();
-      final even = source.whereItems((i) => i.isEven);
-
-      source.add([1, 2, 3]);
-      source.add([2, 4, 5]);
+      source.addStatus(StreamStatusLive());
 
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(even.items, [2, 4]);
+      expect(accumulated.status.value, isA<StreamStatusLive>());
 
-      await even.close();
+      await accumulated.close();
       await source.close();
     });
   });

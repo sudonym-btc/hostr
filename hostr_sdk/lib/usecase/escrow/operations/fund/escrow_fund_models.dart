@@ -15,6 +15,10 @@ class EscrowFundParams {
   /// trade will include a `bondAmount` in addition to the payment amount.
   final DenominatedAmount? securityDeposit;
 
+  /// Maximum time in seconds after the reservation end date that the escrow
+  /// unlocks at. When null the default (2 weeks) is used.
+  final int? maxDisputePeriod;
+
   final String? listingName;
 
   EscrowFundParams({
@@ -24,6 +28,7 @@ class EscrowFundParams {
     required this.amount,
     this.sellerEscrowMethod,
     this.securityDeposit,
+    this.maxDisputePeriod,
     this.listingName,
   });
 

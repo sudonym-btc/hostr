@@ -7,18 +7,26 @@ import '../deterministic_keys/deterministic_keys.dart';
 
 /// A single cached trade-account entry mapping an HD account index to its
 /// deterministic identifiers.
+///
+/// Entries can be **partial** (only [tradeId] populated) or **full** (all
+/// fields populated).  Partial entries are created during lightweight scans
+/// that only need tradeId lookups, and are promoted to full entries lazily
+/// when salt / evmAddress are needed.
 class TradeAccountEntry {
   final int accountIndex;
   final String tradeId;
-  final String salt;
-  final String evmAddress;
+  final String? salt;
+  final String? evmAddress;
 
   const TradeAccountEntry({
     required this.accountIndex,
     required this.tradeId,
-    required this.salt,
-    required this.evmAddress,
+    this.salt,
+    this.evmAddress,
   });
+
+  /// Whether this entry has all fields populated.
+  bool get isFull => salt != null && evmAddress != null;
 }
 
 /// Pure in-memory indexed cache for trade account derivations.
@@ -32,9 +40,11 @@ class TradeAccountEntry {
 ///
 /// ## Solution
 ///
-/// On first access per pubkey, this cache eagerly derives all entries for
-/// indices `0..maxAccountIndex` and stores them in indexed maps for O(1)
-/// lookups by tradeId, salt, or evmAddress.
+/// On first access per pubkey, this cache eagerly derives **tradeIds only**
+/// for indices `0..maxAccountIndex` (cheap — one HMAC-SHA256 per index).
+/// Salt and evmAddress are derived lazily on demand via [ensureFullEntry]
+/// or [put].  Indexed maps provide O(1) lookups by tradeId, salt, or
+/// evmAddress.
 ///
 /// The cache lives only in memory — derivation is deterministic from the
 /// HD master key so it can always be rebuilt cheaply on app restart.
@@ -49,6 +59,9 @@ class TradeAccountCache {
   /// Pubkey for which the in-memory cache is currently loaded.
   String? _loadedPubkey;
 
+  /// Whether all entries have been fully promoted (salt + evmAddress).
+  bool _fullyLoaded = false;
+
   // ── In-memory indices ───────────────────────────────────────────────
 
   /// accountIndex → entry
@@ -57,10 +70,10 @@ class TradeAccountCache {
   /// tradeId → accountIndex
   final Map<String, int> _byTradeId = {};
 
-  /// salt → accountIndex
+  /// salt → accountIndex  (only populated for full entries)
   final Map<String, int> _bySalt = {};
 
-  /// evmAddress (lowercase) → accountIndex
+  /// evmAddress (lowercase) → accountIndex  (only populated for full entries)
   final Map<String, int> _byEvmAddress = {};
 
   TradeAccountCache({
@@ -75,12 +88,13 @@ class TradeAccountCache {
   // Public API
   // ══════════════════════════════════════════════════════════════════════
 
-  /// Ensure the cache is populated for the current user.
+  /// Ensure the cache has **tradeIds** for all indices
+  /// `0..storedMaxAccountIndex`.
   ///
-  /// Derives all entries for indices `0..storedMaxAccountIndex` on first
-  /// call (or when the active pubkey changes). Subsequent calls for the
-  /// same pubkey are no-ops.
-  Future<void> ensureLoaded() async {
+  /// This is the lightweight initial load — only one derivation per index.
+  /// Salt and evmAddress are NOT derived here; use [ensureLoaded] or
+  /// [ensureFullEntry] for that.
+  Future<void> ensureTradeIdsLoaded() async {
     final pubkey = _currentPubkey();
     if (pubkey == null) return;
     if (_loadedPubkey == pubkey) return;
@@ -91,21 +105,46 @@ class TradeAccountCache {
     final maxAccountIndex = _auth.storedMaxAccountIndex;
     if (maxAccountIndex < 0) return;
 
-    _logger.d('Deriving ${maxAccountIndex + 1} trade account entries');
+    _logger.d('Deriving ${maxAccountIndex + 1} tradeIds');
     for (var i = 0; i <= maxAccountIndex; i++) {
-      final entry = await _deriveEntry(i);
-      _indexEntry(entry);
+      if (_byIndex.containsKey(i)) continue;
+      final tradeId = await _hd.getTradeId(accountIndex: i);
+      _indexPartialEntry(TradeAccountEntry(accountIndex: i, tradeId: tradeId));
     }
-    _logger.d('Cache ready: ${_byIndex.length} entries');
+    _logger.d('TradeId cache ready: ${_byIndex.length} entries');
+  }
+
+  /// Ensure the cache is **fully** populated (tradeId + salt + evmAddress)
+  /// for all indices `0..storedMaxAccountIndex`.
+  ///
+  /// Calls [ensureTradeIdsLoaded] first, then backfills salt and evmAddress
+  /// for any partial entries.
+  Future<void> ensureLoaded() async {
+    await ensureTradeIdsLoaded();
+    if (_fullyLoaded) return;
+
+    final partial = _byIndex.values.where((e) => !e.isFull).toList();
+    if (partial.isNotEmpty) {
+      _logger.d('Backfilling ${partial.length} entries with salt + evmAddress');
+      for (final entry in partial) {
+        await _promoteEntry(entry.accountIndex);
+      }
+    }
+    _fullyLoaded = true;
   }
 
   /// Look up an account index by trade ID. Returns `null` on miss.
   int? indexByTradeId(String tradeId) => _byTradeId[tradeId];
 
   /// Look up an account index by salt. Returns `null` on miss.
+  ///
+  /// Only finds entries that have been fully derived (via [ensureLoaded],
+  /// [put], or [ensureFullEntry]).
   int? indexBySalt(String salt) => _bySalt[salt];
 
   /// Look up an account index by EVM address. Returns `null` on miss.
+  ///
+  /// Only finds entries that have been fully derived.
   int? indexByEvmAddress(bip.EthereumAddress address) =>
       _byEvmAddress[address.eip55With0x.toLowerCase()];
 
@@ -118,17 +157,37 @@ class TradeAccountCache {
   /// Number of cached entries.
   int get length => _byIndex.length;
 
-  /// Whether [accountIndex] is already in the cache.
+  /// Whether [accountIndex] is already in the cache (partial or full).
   bool containsIndex(int accountIndex) => _byIndex.containsKey(accountIndex);
 
-  /// Derive and index a new entry for [accountIndex].
+  /// Insert a **partial** entry (tradeId only) into the cache.
+  ///
+  /// Use this during lightweight scans that only need tradeId matching.
+  /// The entry can be promoted to full later via [ensureFullEntry] or [put].
+  void putTradeIdOnly(int accountIndex, String tradeId) {
+    if (_byIndex.containsKey(accountIndex)) return; // already cached
+    _indexPartialEntry(
+      TradeAccountEntry(accountIndex: accountIndex, tradeId: tradeId),
+    );
+  }
+
+  /// Ensure the entry at [accountIndex] is fully populated.
+  ///
+  /// If the entry is partial, derives salt + evmAddress and promotes it.
+  /// If absent, derives everything from scratch.
+  /// Returns the full entry.
+  Future<TradeAccountEntry> ensureFullEntry(int accountIndex) async {
+    final existing = _byIndex[accountIndex];
+    if (existing != null && existing.isFull) return existing;
+    return _promoteEntry(accountIndex);
+  }
+
+  /// Derive and index a **full** entry for [accountIndex].
   ///
   /// Called by [TradeAccountAllocatorImpl.reserveNextTradeIndex] after
   /// choosing an index, so the cache stays in sync without a full reload.
   Future<TradeAccountEntry> put(int accountIndex) async {
-    final entry = await _deriveEntry(accountIndex);
-    _indexEntry(entry);
-    return entry;
+    return _promoteEntry(accountIndex);
   }
 
   /// Clear the in-memory cache. Useful on logout.
@@ -146,25 +205,44 @@ class TradeAccountCache {
     _bySalt.clear();
     _byEvmAddress.clear();
     _loadedPubkey = null;
+    _fullyLoaded = false;
   }
 
-  void _indexEntry(TradeAccountEntry entry) {
+  /// Index a partial entry (tradeId only).
+  void _indexPartialEntry(TradeAccountEntry entry) {
     _byIndex[entry.accountIndex] = entry;
     _byTradeId[entry.tradeId] = entry.accountIndex;
-    _bySalt[entry.salt] = entry.accountIndex;
-    _byEvmAddress[entry.evmAddress.toLowerCase()] = entry.accountIndex;
   }
 
-  Future<TradeAccountEntry> _deriveEntry(int accountIndex) async {
-    final tradeId = await _hd.getTradeId(accountIndex: accountIndex);
-    final salt = await _hd.getTradeSalt(accountIndex: accountIndex);
-    final evmAddress = await _hd.getEvmAddress(accountIndex: accountIndex);
+  /// Index a full entry (all fields).
+  void _indexFullEntry(TradeAccountEntry entry) {
+    _byIndex[entry.accountIndex] = entry;
+    _byTradeId[entry.tradeId] = entry.accountIndex;
+    if (entry.salt != null) _bySalt[entry.salt!] = entry.accountIndex;
+    if (entry.evmAddress != null) {
+      _byEvmAddress[entry.evmAddress!.toLowerCase()] = entry.accountIndex;
+    }
+  }
 
-    return TradeAccountEntry(
+  /// Promote a partial (or absent) entry to a full entry by deriving
+  /// any missing fields.
+  Future<TradeAccountEntry> _promoteEntry(int accountIndex) async {
+    final existing = _byIndex[accountIndex];
+    final tradeId =
+        existing?.tradeId ?? await _hd.getTradeId(accountIndex: accountIndex);
+    final salt =
+        existing?.salt ?? await _hd.getTradeSalt(accountIndex: accountIndex);
+    final evmAddress =
+        existing?.evmAddress ??
+        (await _hd.getEvmAddress(accountIndex: accountIndex)).eip55With0x;
+
+    final entry = TradeAccountEntry(
       accountIndex: accountIndex,
       tradeId: tradeId,
       salt: salt,
-      evmAddress: evmAddress.eip55With0x,
+      evmAddress: evmAddress,
     );
+    _indexFullEntry(entry);
+    return entry;
   }
 }

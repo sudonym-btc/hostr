@@ -56,7 +56,7 @@ class ReservationGroups {
   /// Unlike [subscribeVerified], the caller owns the [source] lifetime —
   /// passing `closeSourceOnClose: false` (the default) keeps the shared
   /// stream alive when this view is closed.
-  StreamWithStatus<List<Validation<ReservationGroup>>> verifyFromSource({
+  StreamWithStatus<Validation<ReservationGroup>> verifyFromSource({
     required StreamWithStatus<Reservation> source,
     Duration debounce = const Duration(milliseconds: 350),
     bool closeSourceOnClose = false,
@@ -77,7 +77,7 @@ class ReservationGroups {
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists. This is the mode escrow arbitration uses.
-  StreamWithStatus<List<Validation<ReservationGroup>>> subscribeVerified({
+  StreamWithStatus<Validation<ReservationGroup>> subscribeVerified({
     required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
@@ -105,7 +105,7 @@ class ReservationGroups {
   /// When [forceValidateSelfSigned] is `true`, buyer-published reservations
   /// are always checked for a valid payment proof — even when a seller
   /// confirmation already exists.
-  StreamWithStatus<List<Validation<ReservationGroup>>> queryVerified({
+  StreamWithStatus<Validation<ReservationGroup>> queryVerified({
     required String listingAnchor,
     Duration debounce = const Duration(milliseconds: 350),
     bool forceValidateSelfSigned = false,
@@ -250,35 +250,36 @@ class ReservationGroups {
 
   // ── Stream plumbing ─────────────────────────────────────────────────
 
-  StreamWithStatus<List<Validation<ReservationGroup>>> _buildValidatedStream({
+  StreamWithStatus<Validation<ReservationGroup>> _buildValidatedStream({
     required StreamWithStatus<Reservation> source,
     required Duration debounce,
     required bool closeSourceOnClose,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationGroup group)? forceValidatePredicate,
   }) {
-    final groups = <String, Validation<ReservationGroup>>{};
-    final snapshots = source.asyncMap<List<Validation<ReservationGroup>>>((
+    final groups = <String, ReservationGroup>{};
+    final result = source.asyncMap<Validation<ReservationGroup>>((
       item,
     ) async {
       final tradeId = item.getDtag() ?? item.id; // for logging only
       final groupId = ReservationGroup.groupIdFromEvent(item);
       final existing = groups[groupId];
       final updated = existing != null
-          ? existing.event.addReservation(item)
+          ? existing.addReservation(item)
           : ReservationGroup.fromReservation(item);
+      groups[groupId] = updated;
       final shouldForceValidate =
           forceValidatePredicate?.call(updated) ?? forceValidateSelfSigned;
 
-      groups[groupId] = await verifyGroupOnChain(
+      final validated = await verifyGroupOnChain(
         updated,
         forceValidateSelfSigned: shouldForceValidate,
         escrowVerification: escrowVerification,
       );
 
-      if (groups[groupId] is Invalid) {
+      if (validated is Invalid) {
         _logger.w(
-          'Group for trade $tradeId is invalid: ${(groups[groupId] as Invalid).reason}',
+          'Group for trade $tradeId is invalid: ${(validated as Invalid).reason}',
         );
         _logger.w('Buyer reservation: ${updated.buyerReservation}');
         _logger.w(
@@ -290,34 +291,13 @@ class ReservationGroups {
         _logger.d('Group for trade $tradeId is valid');
       }
 
-      return groups.values.toList();
+      return validated;
     });
 
     if (closeSourceOnClose) {
-      snapshots.onClose = () => source.close();
+      result.onClose = () => source.close();
     }
 
-    final response = StreamWithStatus<List<Validation<ReservationGroup>>>(
-      onClose: () => snapshots.close(),
-    );
-
-    final latest = snapshots.items.lastOrNull;
-    if (latest != null) {
-      response.replaceAll([latest]);
-    }
-
-    response.addSubscription(
-      snapshots.latestItemsStream.listen(
-        (latest) => response.replaceAll([latest]),
-        onError: response.addError,
-      ),
-    );
-    response.addSubscription(
-      snapshots.status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(response.addStatus, onError: response.addError),
-    );
-
-    return response;
+    return result;
   }
 }

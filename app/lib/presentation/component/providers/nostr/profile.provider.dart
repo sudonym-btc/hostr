@@ -5,6 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:provider/single_child_widget.dart';
+import 'package:rxdart/rxdart.dart';
 
 /// Provides the user's [ProfileMetadata] and automatically refreshes
 /// whenever [MetadataUseCase.updates] fires (e.g. after an edit).
@@ -31,12 +32,16 @@ class ProfileProvider extends SingleChildStatefulWidget {
 class _ProfileProviderState extends SingleChildState<ProfileProvider> {
   late Future<ProfileMetadata?> _future;
   StreamSubscription? _updatesSub;
+  StreamSubscription? _relaySub;
+  Set<String>? _knownRelayUrls;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
-    _updatesSub = getIt<Hostr>().metadata.updates.listen((updatedProfile) {
+    final hostr = getIt<Hostr>();
+
+    _updatesSub = hostr.metadata.updates.listen((updatedProfile) {
       if (!mounted) return;
       if (updatedProfile.pubKey == widget.pubkey) {
         widget.onDone?.call(updatedProfile);
@@ -45,13 +50,42 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
         });
       }
     });
+
+    // When a new relay connects, force-refresh the profile in case
+    // a newer version exists on that relay.
+    _relaySub = hostr.relays
+        .connectivity()
+        .debounceTime(const Duration(seconds: 2))
+        .listen((relays) {
+          final urls = relays.keys.toSet();
+          if (_knownRelayUrls != null &&
+              urls.difference(_knownRelayUrls!).isNotEmpty) {
+            if (!mounted) return;
+            setState(() {
+              _future = _refreshNip65ThenLoad();
+            });
+          }
+          _knownRelayUrls = urls;
+        });
   }
 
-  Future<ProfileMetadata?> _load() {
-    return getIt<Hostr>().metadata.loadMetadata(widget.pubkey).then((m) {
-      widget.onDone?.call(m);
-      return m;
-    });
+  Future<ProfileMetadata?> _load({bool forceRefresh = false}) {
+    return getIt<Hostr>().metadata
+        .loadMetadata(widget.pubkey, forceRefresh: forceRefresh)
+        .then((m) {
+          widget.onDone?.call(m);
+          print('Loaded profile metadata for ${widget.pubkey}: $m');
+          return m;
+        });
+  }
+
+  /// Refreshes the NIP-65 relay list so the JIT engine discovers the
+  /// pubkey's write relays, then force-refreshes the profile metadata.
+  Future<ProfileMetadata?> _refreshNip65ThenLoad() async {
+    print(
+      'relay lists: ${(await getIt<Hostr>().metadata.refreshNip65(widget.pubkey))?.urls}',
+    );
+    return _load(forceRefresh: true);
   }
 
   @override
@@ -67,6 +101,7 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
   @override
   void dispose() {
     _updatesSub?.cancel();
+    _relaySub?.cancel();
     super.dispose();
   }
 

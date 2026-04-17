@@ -170,8 +170,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.output(amount),
         ),
-        auth: hostr.auth,
-        logger: CustomLogger(),
       );
 
       // ── Fee estimation ──
@@ -249,8 +247,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.output(amount),
         ),
-        auth: hostr.auth,
-        logger: CustomLogger(),
       );
 
       // ── Fee estimation ──
@@ -317,11 +313,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.input(requestedAmount),
         ),
-        auth: hostr.auth,
-        logger: CustomLogger(),
-        nwc: hostr.nwc,
-        payments: hostr.payments,
-        quoteService: SwapQuoteService(),
       );
 
       // ── Fee estimation ──
@@ -436,11 +427,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.input(requestedAmount),
         ),
-        auth: hostr.auth,
-        logger: CustomLogger(),
-        nwc: hostr.nwc,
-        payments: hostr.payments,
-        quoteService: SwapQuoteService(),
       );
 
       // ── Fee estimation ──
@@ -547,11 +533,7 @@ void main() {
           amountWei: BigInt.from(2) * BigInt.from(10).pow(18),
         );
 
-        final swapIn = configured.swapIn(
-          params: swapInParams,
-          auth: hostr.auth,
-          logger: CustomLogger(),
-        );
+        final swapIn = configured.swapIn(params: swapInParams);
         final emittedStates = <SwapInState>[swapIn.state];
         final sub = swapIn.stream.listen(emittedStates.add);
 

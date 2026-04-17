@@ -7,7 +7,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'emty_results.dart';
 
 class StatusStreamListWidget<T> extends StatefulWidget {
-  final StreamWithStatus<T> stream;
+  final StreamWithStatus<List<T>> stream;
   final Widget Function(T) builder;
   final Key? Function(T item)? itemKeyBuilder;
   final int Function(T a, T b)? sort;
@@ -70,45 +70,21 @@ class StatusStreamListWidget<T> extends StatefulWidget {
 }
 
 class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
-  // Tracks the stream instance the current StreamBuilder is subscribed to.
-  // When the parent passes a different StreamWithStatus (e.g. after
-  // logout → login, where userSubscriptions.start() replaces the late field
-  // with a new object), the key changes and Flutter tears down the old
-  // StreamBuilder and creates a fresh one subscribed to the new stream.
-  late StreamWithStatus<T> _trackedStream;
-
-  @override
-  void initState() {
-    super.initState();
-    _trackedStream = widget.stream;
-  }
-
-  @override
-  void didUpdateWidget(covariant StatusStreamListWidget<T> oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.stream, widget.stream)) {
-      setState(() => _trackedStream = widget.stream);
-    }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      key: ObjectKey(_trackedStream),
-      stream: _trackedStream.itemsStream,
+      stream: widget.stream.itemsStream,
       builder: (context, _) {
-        final items = List<T>.of(_trackedStream.items);
+        // The stream holds a single accumulated list as its latest item.
+        final items = List<T>.of(
+          widget.stream.items.isNotEmpty ? widget.stream.items.last : [],
+        );
         if (widget.sort != null) {
           items.sort(widget.sort);
         }
 
         // Only show centered loading if we have no results yet
-        if (_trackedStream.status.value is! StreamStatusLive) {
+        if (widget.stream.status.value is! StreamStatusLive) {
           return const Center(child: AppLoadingIndicator.large());
         }
 

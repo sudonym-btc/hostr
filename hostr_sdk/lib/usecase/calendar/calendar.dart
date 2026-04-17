@@ -109,7 +109,7 @@ class Calendar {
     _logger.d('Calendar: subscribed to hosting and trip updates');
 
     _subscriptions.add(
-      _userSubscriptions.myHostings$.itemsStream.listen(
+      _userSubscriptions.myHostingsList$.stream.listen(
         _onHostingSnapshot,
         onError: (e, st) => _logger.w(
           'Calendar: hostings stream error',
@@ -120,7 +120,7 @@ class Calendar {
     );
 
     _subscriptions.add(
-      _userSubscriptions.myTrips$.itemsStream.listen(
+      _userSubscriptions.myTripsList$.stream.listen(
         _onTripSnapshot,
         onError: (e, st) =>
             _logger.w('Calendar: trips stream error', error: e, stackTrace: st),

@@ -46,6 +46,13 @@ services:
     healthcheck:
       start_period: 10s
 
+  # Ensure elementsd has created its cookie file before scripts starts,
+  # otherwise the entrypoint's `chmod -R 777 /root/.elements` fails.
+  scripts:
+    depends_on:
+      elementsd:
+        condition: service_healthy
+
   anvil:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
     environment:

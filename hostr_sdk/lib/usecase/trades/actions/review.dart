@@ -18,6 +18,7 @@ class ReviewActions {
     required StreamStatus reservationStreamStatus,
     required List<PaymentEvent> payments,
     required TradeRole role,
+    List<Review> myReviews = const [],
   }) {
     if (role != TradeRole.guest) return const [];
 
@@ -29,6 +30,13 @@ class ReviewActions {
     if (reservationGroup.reservations.isEmpty) return const [];
     if (reservationGroup.cancelled) return const [];
     if (!reservationGroup.isCompleted) return const [];
+
+    // Max one review per user per trade: check if we already left one
+    // for any reservation in this group.
+    final alreadyReviewed = myReviews.any((review) {
+      return review.getFirstTag(kReservationRefTag) == reservationGroup.tradeId;
+    });
+    if (alreadyReviewed) return const [];
 
     return [TradeAction.review];
   }

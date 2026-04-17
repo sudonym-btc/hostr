@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:ndk/ndk.dart' show Ndk;
-import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import 'config.dart';
 import 'injection.dart';
@@ -11,6 +10,7 @@ import 'util/custom_logger.dart' show CustomLogger;
 class Hostr {
   final HostrConfig config;
   final CustomLogger logger;
+
   Hostr({required this.config, String environment = Env.prod})
     : logger = config.logger {
     configureInjection(environment, config: config);
@@ -133,60 +133,28 @@ class Hostr {
         // Fetch the user's NIP-65 relay list and connect to those relays.
         // This also populates NDK's cache so the outbox/inbox model works
         // automatically for subsequent broadcasts and queries.
-        await relays.syncNip65(pubkey);
+        final hasNip65 = await relays.syncNip65(pubkey);
 
-        // Ensure the hostr relay is in the user's published NIP-65 list.
-        await relays.publishNip65(
-          hostrRelay: config.hostrRelay,
-          pubkey: pubkey,
-        );
-
-        // Ensure the user's escrow method list includes trusted arbiters,
-        // supported contract bytecodes, and accepted payment forms.
-        // Resolve bytecode hashes by fetching on-chain code for each
-        // configured chain's escrow contract address.
-        final bytecodeHashes = <String>{};
-        for (final chain in evm.configuredChains) {
+        // If syncNip65 found an existing relay list the user is a
+        // returning user with healthy connectivity — safe to run ensures
+        // now. New users (no NIP-65 yet) will trigger ensures when they
+        // save their profile for the first time via MetadataUseCase.upsert.
+        if (hasNip65) {
+          await metadata.ensureUserConfig(pubkey);
+        } else {
           logger.i(
-            'Getting bytecode hashes for ${chain.config.id} - ${chain.config.escrowContractAddress}',
+            'No NIP-65 relay list found — skipping ensure calls until '
+            'profile is saved.',
           );
-          final addr = chain.config.escrowContractAddress;
-          if (addr == null || addr.isEmpty) {
-            logger.w('No escrow contract address for chain ${chain.config.id}');
-            continue;
-          }
-          try {
-            bytecodeHashes.add(
-              await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-                chain.client,
-                EthereumAddress.fromHex(addr),
-              ),
-            );
-          } catch (e) {
-            logger.w(
-              'Could not resolve bytecode hash for $addr on '
-              '${chain.config.id}: $e',
-            );
-          }
         }
-        await escrowMethods.ensureEscrowMethod(
-          trustedEscrowPubkeys: config.bootstrapEscrowPubkeys,
-          bytecodeHashes: bytecodeHashes,
-        );
+
         // Start user-scoped Nostr subscriptions and the payment-proof
         // orchestrator. UserSubscriptions must start first so its streams
         // are live before the orchestrator subscribes to them.
         await userSubscriptions.start();
         paymentProofOrchestrator.start();
         fundsMonitor.start();
-        // Ensure the user's profile has an EVM address tag.
-        metadata.ensureEvmAddress();
         nwc.start();
-
-        // Ensure the user's blossom server list includes the bootstrap servers.
-        // Await this during login to avoid races where media upload happens
-        // before the list is visible/available.
-        await blossom.ensureBlossomServer(pubkey);
         await backgroundWorker.watch(onProgress: _onProgressFromConfig());
 
         await calendar.start();
@@ -260,7 +228,7 @@ class Hostr {
     // teardown race we are trying to avoid (a subscription tries to
     // read/write while its transport is already closing), producing an
     // intermittent `SocketException: Reading from a closed socket`.
-    final ndk = getIt<Ndk>();
+    //
     await ndk.requests.closeAllSubscription();
     await ndk.relays.closeAllTransports();
     await ndk.accounts.dispose();

@@ -105,7 +105,7 @@ class EditListingController extends UpsertFormController {
       type: current.listingType,
       images: images,
       specifications: specField.specifications,
-      requiresEscrow: current.requiresEscrow,
+      instantBook: current.instantBook,
       securityDeposit: securityDepositField.amount,
       minPaymentAmount: minPaymentField.amount,
       minStay: current.minStay,

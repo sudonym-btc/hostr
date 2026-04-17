@@ -36,6 +36,7 @@ class _SearchFormState extends State<SearchForm> {
   SearchFormController get _c => widget.controller;
 
   bool get _hasAdvancedFilters =>
+      _c.listingTypeField.value != null ||
       _c.beachfrontField.value ||
       _c.kitchenField.value ||
       _c.allowsPetsField.value ||
@@ -65,15 +66,6 @@ class _SearchFormState extends State<SearchForm> {
           ),
           Gap.vertical.lg(),
 
-          // ── Listing type ────────────────────────────────────────
-          FormLabel(label: 'Property type'),
-          Gap.vertical.md(),
-          _ListingTypeChips(
-            selected: _c.listingTypeField.value,
-            onChanged: _c.listingTypeField.setValue,
-          ),
-          Gap.vertical.lg(),
-
           // ── Guests ──────────────────────────────────────────────
           FormLabel(label: 'Guests'),
           Gap.vertical.md(),
@@ -90,6 +82,13 @@ class _SearchFormState extends State<SearchForm> {
           ),
           if (_showAdvanced) ...[
             Gap.vertical.md(),
+            FormLabel(label: 'Property type'),
+            Gap.vertical.md(),
+            _ListingTypeChips(
+              selected: _c.listingTypeField.value,
+              onChanged: _c.listingTypeField.setValue,
+            ),
+            Gap.vertical.lg(),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Beachfront'),

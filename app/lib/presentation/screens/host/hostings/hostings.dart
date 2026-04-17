@@ -33,7 +33,7 @@ class HostingsScreenState extends State<HostingsScreen> {
   @override
   Widget build(BuildContext context) {
     final content = StatusStreamListWidget(
-      stream: getIt<Hostr>().userSubscriptions.myHostings$,
+      stream: getIt<Hostr>().userSubscriptions.myHostingsList$,
       itemKeyBuilder: (item) => ValueKey(item.event.tradeId),
       sort: ReservationStatusSections.compare,
       sectionHeaderBuilder: ReservationStatusSections.buildHeader,

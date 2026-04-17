@@ -255,7 +255,8 @@ class EscrowFundPreparer {
       sellerEvmAddress: params.sellerProfile.evmAddress!,
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end != null
-          ? params.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000
+          ? params.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000 +
+                (params.maxDisputePeriod ?? ListingTagRead.defaultMaxDisputePeriod)
           : DateTime.now()
                     .add(const Duration(days: 30))
                     .millisecondsSinceEpoch ~/

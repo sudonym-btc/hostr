@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/verification_input.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
@@ -10,8 +11,10 @@ import 'package:hostr/presentation/screens/shared/profile/edit_profile.controlle
 import 'package:hostr/route/pending_navigation.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 import '../listing/image_picker.dart';
+import 'welcome_pane.dart';
 
 @RoutePage()
 class EditProfileScreen extends StatelessWidget {
@@ -35,6 +38,8 @@ Widget noImageSetPlaceholder(BuildContext context) =>
 
 class EditProfileViewState extends State<EditProfileView> {
   final EditProfileController controller = EditProfileController();
+  bool _isNewProfile = false;
+  bool _modalShown = false;
 
   List<Widget> buildFormFields() {
     return [
@@ -118,6 +123,30 @@ class EditProfileViewState extends State<EditProfileView> {
     ];
   }
 
+  void _onProfileLoaded(ProfileMetadata? metadata) {
+    controller.setState(metadata);
+    final isNew = metadata == null;
+    if (isNew != _isNewProfile) {
+      setState(() => _isNewProfile = isNew);
+    }
+  }
+
+  void _showWelcomeModalIfNeeded() {
+    if (!_isNewProfile || _modalShown) return;
+    final layout = AppLayoutSpec.of(context);
+    if (layout.isExpanded) return; // shown as pane instead
+    _modalShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showAppModal(
+        context,
+        builder: (_) => WelcomePaneContent(
+          onDismiss: () => Navigator.of(context, rootNavigator: true).pop(),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final body = GestureDetector(
@@ -125,12 +154,13 @@ class EditProfileViewState extends State<EditProfileView> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: ProfileProvider(
         pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-        onDone: (metadata) => controller.setState(metadata),
+        onDone: _onProfileLoaded,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: AppLoadingIndicator.large());
           }
           if (snapshot.connectionState == ConnectionState.done) {
+            _showWelcomeModalIfNeeded();
             final fields = buildFormFields();
             return AdaptiveList(children: fields);
           }
@@ -177,6 +207,14 @@ class EditProfileViewState extends State<EditProfileView> {
                 bottomBar: bottomBar,
                 child: body,
               ),
+              if (_isNewProfile)
+                AppPane(
+                  flex: 3,
+                  showWhenStacked: false,
+                  child: Center(
+                    child: SingleChildScrollView(child: WelcomePaneContent()),
+                  ),
+                ),
             ],
           ),
         ),

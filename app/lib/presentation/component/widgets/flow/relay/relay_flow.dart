@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
+
+import 'add_relay.controller.dart';
 
 class RelayFlowWidget extends StatelessWidget {
   final Function() onClose;
@@ -25,93 +25,89 @@ class RelayAddStep extends StatefulWidget {
 }
 
 class _RelayAddStepState extends State<RelayAddStep> {
-  final TextEditingController _urlController = TextEditingController();
-  bool _isConnecting = false;
+  final AddRelayController controller = AddRelayController();
   String? _errorMessage;
-  final CustomLogger logger = CustomLogger();
 
   @override
   void dispose() {
-    _urlController.dispose();
+    controller.dispose();
     super.dispose();
   }
 
   Future<void> _connectRelay() async {
-    final url = _urlController.text.trim();
-
-    if (url.isEmpty) {
+    final saved = await controller.save();
+    if (saved && mounted) {
+      Navigator.of(context).pop();
+    } else if (!saved && mounted) {
       setState(() {
-        _errorMessage = 'Please enter a relay URL';
+        _errorMessage = controller.urlField.validate(controller.urlField.text);
       });
-      return;
-    }
-
-    // Basic validation
-    if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
-      setState(() {
-        _errorMessage = 'URL must start with ws:// or wss://';
-      });
-      return;
-    }
-
-    setState(() {
-      _isConnecting = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await getIt<Hostr>().relays.add(url);
-    } catch (e) {
-      logger.e('Failed to connect to relay: $e');
-      if (mounted) {
-        setState(() {
-          _isConnecting = false;
-          _errorMessage = 'Failed to connect: ${e.toString()}';
-        });
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      title: 'Add Relay',
-      content: CustomPadding.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        child: TextField(
-          controller: _urlController,
-          enabled: !_isConnecting,
-          decoration: InputDecoration(
-            labelText: 'Relay URL',
-            hintText: 'wss://relay.example.com',
-            errorText: _errorMessage,
-            border: const OutlineInputBorder(),
+    return Form(
+      key: controller.formKey,
+      child: ModalBottomSheet(
+        title: 'Add Relay',
+        content: CustomPadding.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // FormLabel(label: 'Relay URL'),
+              TextFormField(
+                controller: controller.urlField.textController,
+                enabled: !controller.isSaving,
+                validator: controller.urlField.validate,
+                decoration: const InputDecoration(
+                  hintText: 'wss://relay.example.com',
+                ),
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                onFieldSubmitted: controller.isSaving
+                    ? null
+                    : (_) => _connectRelay(),
+              ),
+              if (_errorMessage != null) ...[
+                Gap.vertical.sm(),
+                Text(
+                  _errorMessage!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
           ),
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          onSubmitted: _isConnecting ? null : (_) => _connectRelay(),
         ),
-      ),
-      buttons: Row(
-        children: [
-          Expanded(
-            child: FilledButton(
-              onPressed: _isConnecting ? null : _connectRelay,
-              child: _isConnecting
-                  ? const AppLoadingIndicator.small(color: Colors.white)
-                  : Text(AppLocalizations.of(context)!.connect),
-            ),
+        buttons: ListenableBuilder(
+          listenable: controller.submitListenable,
+          builder: (context, _) => Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: controller.isSaving ? null : _connectRelay,
+                  child: controller.isSaving
+                      ? const AppLoadingIndicator.small(color: Colors.white)
+                      : Text(AppLocalizations.of(context)!.connect),
+                ),
+              ),
+              Gap.horizontal.custom(kSpace3),
+              Expanded(
+                child: TextButton(
+                  onPressed: controller.isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: Text(AppLocalizations.of(context)!.cancel),
+                ),
+              ),
+            ],
           ),
-          Gap.horizontal.custom(kSpace3),
-          Expanded(
-            child: TextButton(
-              onPressed: _isConnecting
-                  ? null
-                  : () => Navigator.of(context).pop(),
-              child: Text(AppLocalizations.of(context)!.cancel),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -26,7 +26,31 @@ class Relays {
     required CustomLogger logger,
   }) : _ndk = ndk,
        _relayStorage = relayStorage,
-       _logger = logger;
+       _logger = logger.scope('relays');
+
+  /// Returns a relay URL hint for the given [pubkey] by looking up their
+  /// NIP-65 write relays. Returns the first write relay found, or empty
+  /// string if none is cached.
+  Future<String> relayHintFor(String pubkey) async {
+    try {
+      final relayList = await _ndk.userRelayLists.getSingleUserRelayList(
+        pubkey,
+      );
+      if (relayList != null) {
+        final writeUrls = relayList.relays.entries
+            .where(
+              (e) =>
+                  e.value == ReadWriteMarker.readWrite ||
+                  e.value == ReadWriteMarker.writeOnly,
+            )
+            .map((e) => e.key);
+        if (writeUrls.isNotEmpty) return writeUrls.first;
+      }
+    } catch (_) {
+      // Lookup failure — return empty hint
+    }
+    return '';
+  }
 
   Future<void> add(String url) => _logger.span('add', () async {
     _logger.d('Adding relay: $url');
@@ -121,7 +145,7 @@ class Relays {
   /// Fetches the user's NIP-65 relay list and connects to any relays
   /// not already connected. This populates NDK's cache so the outbox/inbox
   /// model works automatically for broadcasts and queries.
-  Future<void> syncNip65(String pubkey) => logger.span('syncNip65', () async {
+  Future<bool> syncNip65(String pubkey) => logger.span('syncNip65', () async {
     logger.i('Syncing NIP-65 relay list for $pubkey');
     try {
       final relayList = await ndk.userRelayLists.getSingleUserRelayList(
@@ -130,7 +154,7 @@ class Relays {
       );
       if (relayList == null || relayList.urls.isEmpty) {
         logger.i('No NIP-65 relay list found for $pubkey');
-        return;
+        return false;
       }
       logger.i('Found ${relayList.urls.length} relays in NIP-65 list');
 
@@ -147,8 +171,10 @@ class Relays {
               }),
             ),
       );
+      return true;
     } catch (e) {
       logger.e('Error syncing NIP-65 relay list: $e');
+      return false;
     }
   });
 
@@ -172,7 +198,7 @@ class Relays {
       await ndk.userRelayLists.broadcastAddNip65Relay(
         relayUrl: hostrRelay,
         marker: ReadWriteMarker.readWrite,
-        broadcastRelays: ndk.relays.connectedRelays.map((r) => r.url),
+        broadcastRelays: [hostrRelay],
       );
 
       final after = await ndk.userRelayLists.getSingleUserRelayList(pubkey);
@@ -207,7 +233,7 @@ class MockRelays extends Relays {
   /// `ndk.userRelayLists.getSingleUserRelayList(pubkey)` returns
   /// instantly from cache — zero WebSocket IO.
   @override
-  Future<void> syncNip65(String pubkey) async {
+  Future<bool> syncNip65(String pubkey) async {
     logger.i('MockRelays: syncing NIP-65 from InMemoryRequests for $pubkey');
     final requests = getIt<Requests>();
     Nip01Event? latest;
@@ -220,7 +246,7 @@ class MockRelays extends Relays {
     }
     if (latest == null) {
       logger.i('MockRelays: no NIP-65 event found for $pubkey');
-      return;
+      return false;
     }
     final nip65 = Nip65.fromEvent(latest);
     final userRelayList = UserRelayList.fromNip65(nip65);
@@ -228,6 +254,7 @@ class MockRelays extends Relays {
     logger.i(
       'MockRelays: cached ${userRelayList.urls.length} relays for $pubkey',
     );
+    return true;
   }
 
   /// No relay to publish NIP-65 to.

@@ -9,7 +9,7 @@ import 'package:rxdart/rxdart.dart';
 class ListingDependencies {
   Listing listing;
   final StreamWithStatus<Validation<Review>> verifiedReviews;
-  final StreamWithStatus<List<Validation<ReservationGroup>>>
+  final StreamWithStatus<Validation<ReservationGroup>>
   verifiedReservationGroups;
 
   factory ListingDependencies.forListing(Listing listing) {
@@ -45,7 +45,11 @@ class ListingDependencies {
       .shareReplay(maxSize: 1);
 
   late final Stream<List<Validation<ReservationGroup>>> reservationGroupItems =
-      verifiedReservationGroups.latestItemsStream.shareReplay(maxSize: 1);
+      verifiedReservationGroups
+          .accumulateByKey((g) => g.event.groupId)
+          .itemsStream
+          .map((snapshots) => snapshots.lastOrNull ?? <Validation<ReservationGroup>>[])
+          .shareReplay(maxSize: 1);
 
   late final Stream<int> reviewCount = reviewItems
       .map((items) => items.whereType<Valid<Review>>().length)

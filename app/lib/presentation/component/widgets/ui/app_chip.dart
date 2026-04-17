@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 // ─── Size tokens ─────────────────────────────────────────────
 
@@ -105,15 +106,16 @@ class AppChip extends StatelessWidget {
 
   Color? _resolveBackgroundColor(ColorScheme cs, BuildContext context) {
     if (backgroundColor != null) return backgroundColor;
+    double alpha = 0.12;
     final base = switch (_variant) {
       _ChipVariant.none => null,
-      _ChipVariant.neutral => null,
-      _ChipVariant.success => Colors.green,
-      _ChipVariant.error => cs.error,
-      _ChipVariant.warning => _kWarningColor,
-      _ChipVariant.info => cs.primary,
+      _ChipVariant.neutral => AppSurface.stepped(context, 2),
+      _ChipVariant.success => Colors.green.withValues(alpha: alpha),
+      _ChipVariant.error => cs.error.withValues(alpha: alpha),
+      _ChipVariant.warning => _kWarningColor.withValues(alpha: alpha),
+      _ChipVariant.info => cs.primary.withValues(alpha: alpha),
     };
-    return base?.withValues(alpha: 0.12);
+    return base;
   }
 
   Color? _resolveLabelColor(ColorScheme cs, BuildContext context) {

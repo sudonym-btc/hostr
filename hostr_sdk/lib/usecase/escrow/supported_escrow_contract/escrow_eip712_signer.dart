@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:coinlib/coinlib.dart' as coinlib;
 import 'package:eip712/eip712.dart' as eip712;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
@@ -154,21 +155,30 @@ class EscrowEip712Signer {
   // ── Helpers ──────────────────────────────────────────────────────
 
   /// Hash, sign, and pack into a 65-byte `r ‖ s ‖ v` signature.
+  ///
+  /// Uses coinlib's native secp256k1 backend (FFI) for fast ECDSA signing
+  /// instead of web3dart's pure-Dart pointyCastle implementation.
   Uint8List _sign(eip712.TypedMessage typedData, EthPrivateKey signer) {
     final hash = eip712.hashTypedData(
       typedData: typedData,
       version: eip712.TypedDataVersion.v4,
     );
-    final sig = sign(hash, signer.privateKey);
-    final r = padUint8ListTo32(unsignedIntToBytes(sig.r));
-    final s = padUint8ListTo32(unsignedIntToBytes(sig.s));
+    final privKey = coinlib.ECPrivateKey(signer.privateKey, compressed: false);
+    final sig = coinlib.ECDSARecoverableSignature.sign(
+      privKey,
+      Uint8List.fromList(hash),
+    );
+
+    // sig.signature.compact is the 64-byte [r (32) ‖ s (32)] representation.
+    // sig.recid is the recovery id (0 or 1). Ethereum v = recid + 27.
+    final compact = sig.signature.compact;
 
     // Pack as 65-byte `r (32) ‖ s (32) ‖ v (1)` — the format expected by
     // OpenZeppelin's `ECDSA.tryRecover(bytes32,bytes)`.
     final packed = Uint8List(65);
-    packed.setRange(0, 32, r);
-    packed.setRange(32, 64, s);
-    packed[64] = sig.v;
+    packed.setRange(0, 32, compact.sublist(0, 32));
+    packed.setRange(32, 64, compact.sublist(32, 64));
+    packed[64] = sig.recid + 27;
     return packed;
   }
 }

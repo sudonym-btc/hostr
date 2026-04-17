@@ -25,7 +25,7 @@ Widget listingViewBodyDateSelected(BuildContext context) {
           ),
           reviewsListWidget: const SizedBox.shrink(),
           verifiedGroupsStream:
-              StreamWithStatus<List<Validation<ReservationGroup>>>(),
+              StreamWithStatus<Validation<ReservationGroup>>(),
           hostKeyPair: null,
           onCancelBlockedReservation: (_) {},
           onBlockDates: () {},
@@ -51,7 +51,7 @@ Widget listingViewBodyNoDateSelected(BuildContext context) {
           ),
           reviewsListWidget: const SizedBox.shrink(),
           verifiedGroupsStream:
-              StreamWithStatus<List<Validation<ReservationGroup>>>(),
+              StreamWithStatus<Validation<ReservationGroup>>(),
           hostKeyPair: null,
           onCancelBlockedReservation: (_) {},
           onBlockDates: () {},

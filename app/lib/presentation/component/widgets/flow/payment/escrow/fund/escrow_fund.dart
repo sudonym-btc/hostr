@@ -85,11 +85,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     final swapParams = await preparer.prepare();
 
     // Create the swap operation (self-registers in SwapInTracker).
-    final swapOp = preparer.configuredChain.swapIn(
-      auth: getIt<Hostr>().auth,
-      logger: preparer.logger,
-      params: swapParams,
-    );
+    final swapOp = preparer.configuredChain.swapIn(params: swapParams);
 
     // Transition to swap flow and auto-execute — the user already confirmed
     // in EscrowFundConfirmWidget so there is no need to show the

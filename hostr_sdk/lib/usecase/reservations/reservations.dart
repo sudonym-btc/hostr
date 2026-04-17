@@ -13,6 +13,7 @@ import '../can_verify.dart';
 import '../crud.usecase.dart';
 import '../listings/listings.dart';
 import '../messaging/messaging.dart';
+import '../relays/relays.dart';
 import '../reservation_transitions/reservation_transitions.dart';
 
 class Commitment {
@@ -35,6 +36,7 @@ class Reservations extends CrudUseCase<Reservation>
   final Auth _auth;
   final ReservationTransitions _transitions;
   final Listings _listings;
+  final Relays _relays;
   Messaging get messaging => _messaging;
   Auth get auth => _auth;
   ReservationTransitions get transitions => _transitions;
@@ -48,10 +50,12 @@ class Reservations extends CrudUseCase<Reservation>
     required Auth auth,
     required ReservationTransitions transitions,
     required Listings listings,
+    required Relays relays,
   }) : _messaging = messaging,
        _auth = auth,
        _transitions = transitions,
        _listings = listings,
+       _relays = relays,
        super(kind: Reservation.kinds[0]);
 
   /// Query all reservations for a given trade id (d-tag).
@@ -98,222 +102,6 @@ class Reservations extends CrudUseCase<Reservation>
       }
     }
     return grouped;
-  }
-
-  StreamWithStatus<Validation<Reservation>> subscribeUncancelledReservations({
-    required Listing listing,
-    Duration debounce = const Duration(milliseconds: 350),
-  }) {
-    final source = subscribe(
-      Filter(
-        tags: {
-          kListingRefTag: [listing.anchor!],
-        },
-      ),
-    );
-
-    return _batchValidate(
-      source: source,
-      debounce: debounce,
-      validator: (items) {
-        final trimmed = _trimCommitmentsWithCancellation(items);
-        return _validateListingSnapshot(
-          listing: listing,
-          reservations: trimmed,
-        );
-      },
-    );
-  }
-
-  /// Batch-validates all accumulated items whenever the source changes.
-  ///
-  /// Unlike per-item [validateStream], this re-validates the entire batch
-  /// on each change — necessary for reservation validation where the
-  /// validity of one item depends on the presence of others (e.g. host
-  /// confirmations making guest reservations valid).
-  StreamWithStatus<Validation<Reservation>> _batchValidate({
-    required StreamWithStatus<Reservation> source,
-    required Duration debounce,
-    required Future<List<Validation<Reservation>>> Function(
-      List<Reservation> items,
-    )
-    validator,
-  }) {
-    final result = StreamWithStatus<Validation<Reservation>>(
-      onClose: () => source.close(),
-    );
-
-    var pending = false;
-    StreamStatus? deferredStatus;
-
-    void maybeForwardDeferredStatus() {
-      if (!pending && deferredStatus != null) {
-        result.addStatus(deferredStatus!);
-        deferredStatus = null;
-      }
-    }
-
-    result.addSubscription(
-      source.itemsStream.debounceTime(debounce).listen((_) async {
-        pending = true;
-        try {
-          final results = await validator(source.items);
-          result.replaceAll(results);
-        } catch (e, st) {
-          result.addError(e, st);
-        } finally {
-          pending = false;
-          maybeForwardDeferredStatus();
-        }
-      }),
-    );
-
-    result.addSubscription(
-      source.status.distinct((a, b) => a.runtimeType == b.runtimeType).listen((
-        s,
-      ) {
-        if (s is StreamStatusQuerying || s is StreamStatusError) {
-          result.addStatus(s);
-          return;
-        }
-        deferredStatus = s;
-        maybeForwardDeferredStatus();
-      }),
-    );
-
-    return result;
-  }
-
-  List<Reservation> _trimCommitmentsWithCancellation(
-    List<Reservation> reservations,
-  ) {
-    final cancelledCommitments = reservations
-        .where((reservation) => reservation.cancelled)
-        .map((reservation) => _tradeIdFor(reservation))
-        .toSet();
-
-    if (cancelledCommitments.isEmpty) {
-      return reservations;
-    }
-
-    return reservations
-        .where(
-          (reservation) =>
-              !cancelledCommitments.contains(_tradeIdFor(reservation)),
-        )
-        .toList();
-  }
-
-  Future<List<Validation<Reservation>>> _validateListingSnapshot({
-    required Listing listing,
-    required List<Reservation> reservations,
-  }) async {
-    final grouped = <String, List<Reservation>>{};
-    for (final reservation in reservations) {
-      grouped.putIfAbsent(_tradeIdFor(reservation), () => []).add(reservation);
-    }
-
-    final results = <Validation<Reservation>>[];
-    final latestGuestsNeedingValidation = <String, Reservation>{};
-
-    for (final entry in grouped.entries) {
-      final group = [...entry.value]
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      final hostReservations = group
-          .where((reservation) => reservation.pubKey == listing.pubKey)
-          .toList();
-
-      if (hostReservations.isNotEmpty) {
-        // Host confirmation exists for this commitment hash.
-        // Per product rules, skip guest proof validation and mark all valid.
-        for (final reservation in group) {
-          results.add(Valid(reservation));
-        }
-        continue;
-      }
-
-      final guestReservations = group
-          .where((reservation) => reservation.pubKey != listing.pubKey)
-          .toList();
-
-      if (guestReservations.isEmpty) {
-        for (final reservation in group) {
-          results.add(
-            Invalid(
-              reservation,
-              'No host confirmation and no guest reservation found for trade',
-            ),
-          );
-        }
-        continue;
-      }
-
-      latestGuestsNeedingValidation[entry.key] = guestReservations.last;
-    }
-
-    // Batch point for RPC-based proof validation.
-    // Today we use Reservation.validate(...), but this can be replaced with
-    // batched EVM RPC checks keyed by commitment hash.
-    final latestGuestValidation = <String, ValidationResult>{};
-    for (final entry in latestGuestsNeedingValidation.entries) {
-      latestGuestValidation[entry.key] = Reservation.validate(entry.value);
-    }
-
-    for (final entry in grouped.entries) {
-      final commitmentHash = entry.key;
-      final group = [...entry.value]
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-      final hostExists = group.any(
-        (reservation) => reservation.pubKey == listing.pubKey,
-      );
-      if (hostExists) {
-        continue; // already appended above
-      }
-
-      final latestGuest = latestGuestsNeedingValidation[commitmentHash];
-      if (latestGuest == null) {
-        continue;
-      }
-
-      final validation = latestGuestValidation[commitmentHash];
-      final reason = _validationReason(validation);
-
-      for (final reservation in group) {
-        if (reservation.id == latestGuest.id) {
-          if (validation?.isValid == true) {
-            results.add(Valid(reservation));
-          } else {
-            results.add(
-              Invalid(reservation, reason ?? 'Reservation proof is invalid'),
-            );
-          }
-        } else {
-          results.add(
-            Invalid(
-              reservation,
-              'Superseded by latest guest reservation for trade',
-            ),
-          );
-        }
-      }
-    }
-
-    return results;
-  }
-
-  String? _validationReason(ValidationResult? result) {
-    if (result == null || result.isValid) {
-      return null;
-    }
-
-    for (final field in result.fields.values) {
-      if (!field.ok) {
-        return field.message;
-      }
-    }
-
-    return 'Validation failed';
   }
 
   static Reservation? seniorReservations(List<Reservation> reservations) {
@@ -423,14 +211,18 @@ class Reservations extends CrudUseCase<Reservation>
     String guestPubkey,
     String saltedPubkey,
   ) async {
+    final sellerHint = await _relays.relayHintFor(
+      auth.activeKeyPair!.publicKey,
+    );
+    final buyerHint = await _relays.relayHintFor(saltedPubkey);
     final reservation = Reservation.create(
       pubKey: auth.activeKeyPair!.publicKey,
       dTag: request.getDtag()!,
       listingAnchor: request.parsedTags.listingAnchor,
       threadAnchor: anchor,
       pTags: [
-        PTag.seller(auth.activeKeyPair!.publicKey),
-        PTag.buyer(saltedPubkey),
+        PTag.seller(auth.activeKeyPair!.publicKey, relayHint: sellerHint),
+        PTag.buyer(saltedPubkey, relayHint: buyerHint),
       ],
       start: request.start,
       end: request.end,
@@ -458,16 +250,22 @@ class Reservations extends CrudUseCase<Reservation>
     final threadAnchor = negotiateReservation.getFirstTag(kThreadRefTag);
     final listingAnchor = negotiateReservation.parsedTags.listingAnchor;
 
+    final sellerPk = getPubKeyFromAnchor(listingAnchor);
+    final sellerHint = await _relays.relayHintFor(sellerPk);
+    final buyerHint = await _relays.relayHintFor(activeKeyPair.publicKey);
+    final escrowPk = proof.escrowProof?.escrowService.escrowPubkey;
+    final escrowHint = escrowPk != null
+        ? await _relays.relayHintFor(escrowPk)
+        : '';
     final reservation = Reservation.create(
       pubKey: activeKeyPair.publicKey,
       dTag: tradeId!,
       listingAnchor: listingAnchor,
       threadAnchor: threadAnchor,
       pTags: [
-        PTag.seller(getPubKeyFromAnchor(listingAnchor)),
-        PTag.buyer(activeKeyPair.publicKey),
-        if (proof.escrowProof != null)
-          PTag.escrow(proof.escrowProof!.escrowService.escrowPubkey),
+        PTag.seller(sellerPk, relayHint: sellerHint),
+        PTag.buyer(activeKeyPair.publicKey, relayHint: buyerHint),
+        if (escrowPk != null) PTag.escrow(escrowPk, relayHint: escrowHint),
       ],
       start: negotiateReservation.start,
       end: negotiateReservation.end,
@@ -494,6 +292,27 @@ class Reservations extends CrudUseCase<Reservation>
     return signedReservation;
   }
 
+  /// Builds [PTag]s with relay hints for all participants in a
+  /// [ReservationGroup]. Used by [cancel] and [confirm].
+  Future<List<PTag>> _pTagsForGroup(ReservationGroup group) async {
+    return [
+      PTag.seller(
+        group.sellerPubkey,
+        relayHint: await _relays.relayHintFor(group.sellerPubkey),
+      ),
+      if (group.buyerPubkey != null)
+        PTag.buyer(
+          group.buyerPubkey!,
+          relayHint: await _relays.relayHintFor(group.buyerPubkey!),
+        ),
+      if (group.escrowPubkey != null)
+        PTag.escrow(
+          group.escrowPubkey!,
+          relayHint: await _relays.relayHintFor(group.escrowPubkey!),
+        ),
+    ];
+  }
+
   // @todo: move to reservationGroup?
   // @todo: cancel / confirm reservation methods should use the same logic. Escrow must confirm when acknowledging transaction correct, host can confirm when they manually approve a transaction
   // cancel and confirm just change the stage of the reservation, so they should share logic
@@ -507,22 +326,13 @@ class Reservations extends CrudUseCase<Reservation>
     final myReservation = reservationGroup.reservations
         .where((r) => r.pubKey == keyPair.publicKey)
         .firstOrNull;
+    final pTags = await _pTagsForGroup(reservationGroup);
     final blank = Reservation.create(
       pubKey: keyPair.publicKey,
       dTag: reservationGroup.tradeId,
       listingAnchor: reservationGroup.listingAnchor,
       stage: ReservationStage.cancel,
-      pTags: [
-        reservationGroup.sellerPubkey != null
-            ? PTag.seller(reservationGroup.sellerPubkey)
-            : null,
-        reservationGroup.buyerPubkey != null
-            ? PTag.buyer(reservationGroup.buyerPubkey!)
-            : null,
-        reservationGroup.escrowPubkey != null
-            ? PTag.escrow(reservationGroup.escrowPubkey!)
-            : null,
-      ].whereType<PTag>().toList(),
+      pTags: pTags,
     ).signAs(keyPair, Reservation.fromNostrEvent);
     final updated = myReservation == null
         ? blank
@@ -574,22 +384,13 @@ class Reservations extends CrudUseCase<Reservation>
     final myReservation = reservationGroup.reservations
         .where((r) => r.pubKey == keyPair.publicKey)
         .firstOrNull;
+    final pTags = await _pTagsForGroup(reservationGroup);
     final blank = Reservation.create(
       pubKey: keyPair.publicKey,
       dTag: reservationGroup.tradeId,
       listingAnchor: reservationGroup.listingAnchor,
       stage: ReservationStage.commit,
-      pTags: [
-        reservationGroup.sellerPubkey != null
-            ? PTag.seller(reservationGroup.sellerPubkey)
-            : null,
-        reservationGroup.buyerPubkey != null
-            ? PTag.buyer(reservationGroup.buyerPubkey!)
-            : null,
-        reservationGroup.escrowPubkey != null
-            ? PTag.escrow(reservationGroup.escrowPubkey!)
-            : null,
-      ].whereType<PTag>().toList(),
+      pTags: pTags,
     ).signAs(keyPair, Reservation.fromNostrEvent);
     final updated = myReservation == null
         ? blank
@@ -651,11 +452,16 @@ class Reservations extends CrudUseCase<Reservation>
       end: end,
       hostKey: auth.activeKeyPair!,
     );
+    final sellerHint = await _relays.relayHintFor(
+      auth.activeKeyPair!.publicKey,
+    );
     final reservation = Reservation.create(
       pubKey: auth.activeKeyPair!.publicKey,
       dTag: nonce,
       listingAnchor: listingAnchor,
-      pTags: [PTag.seller(auth.activeKeyPair!.publicKey)],
+      pTags: [
+        PTag.seller(auth.activeKeyPair!.publicKey, relayHint: sellerHint),
+      ],
       stage: ReservationStage.commit,
       start: start,
       end: end,

@@ -64,6 +64,12 @@ class EvmChain {
   /// building a full operation.
   final SwapQuoteService quoteService;
 
+  /// Nostr Wallet Connect — used by swap-out operations to pay invoices.
+  late final Nwc nwc;
+
+  /// Payment tracking — used by swap-out operations to record payments.
+  late final Payments payments;
+
   /// Balance monitor — tracks a dynamic set of addresses and tokens,
   /// emitting [BalanceUpdate]s on each block tick.
   late final EvmBalanceMonitor balanceMonitor;
@@ -761,14 +767,16 @@ class EvmChain {
   /// [_maxScanIndex] addresses by **balance only**.  Addresses that received
   /// funds via swap-in never send a transaction (nonce stays 0), so
   /// nonce-based gap detection would miss them.
-  static const _maxScanIndex = 20;
+  static const _maxScanIndex = 5;
 
   Future<
     List<({EthereumAddress address, int accountIndex, TokenAmount balance})>
   >
   getAddressesWithBalance() => logger.span('getAddressesWithBalance', () async {
     final allAddresses = await _deriveHDAddresses();
-    final addrList = allAddresses.map((a) => a.address).toList(growable: false);
+    final addrList = allAddresses
+        .map((a) => a.smartAddress ?? a.eoaAddress)
+        .toList(growable: false);
 
     final batch = RpcBatch();
     final balances = batch.getBalances(addrList, chainId: config.chainId);
@@ -776,9 +784,13 @@ class EvmChain {
 
     return [
       for (final entry in allAddresses)
-        if (balances.value[entry.address] case final bal?
-            when bal.value > BigInt.zero)
-          (address: entry.address, accountIndex: entry.index, balance: bal),
+        if (balances.value[entry.smartAddress ?? entry.eoaAddress]
+            case final bal? when bal.value > BigInt.zero)
+          (
+            address: entry.smartAddress ?? entry.eoaAddress,
+            accountIndex: entry.index,
+            balance: bal,
+          ),
     ];
   });
 
@@ -835,7 +847,12 @@ class EvmChain {
 
         for (final tokenEntry in tokens.entries) {
           final pairs = addresses
-              .map((a) => (owner: a.address, token: tokenEntry.value))
+              .map(
+                (a) => (
+                  owner: a.smartAddress ?? a.eoaAddress,
+                  token: tokenEntry.value,
+                ),
+              )
               .toList(growable: false);
           handles[tokenEntry.key] = (
             result: batch.getERC20Balances(pairs, tokenResolver: resolveToken),
@@ -863,7 +880,7 @@ class EvmChain {
             final balance = h.result.value[i];
             if (balance != null && balance.value > BigInt.zero) {
               funded.add((
-                address: addresses[i].address,
+                address: addresses[i].smartAddress ?? addresses[i].eoaAddress,
                 accountIndex: addresses[i].index,
                 balance: balance,
                 tokenName: tokenName,
@@ -884,15 +901,25 @@ class EvmChain {
   /// HTTP round-trip via [RpcBatchBuilder].
   Future<
     ({
-      List<({EthereumAddress address, int accountIndex, TokenAmount balance})>
+      List<
+        ({
+          EthereumAddress address,
+          EthPrivateKey keypair,
+          int accountIndex,
+          TokenAmount balance,
+          bool isSmartAddress,
+        })
+      >
       nativeFunded,
       List<
         ({
           EthereumAddress address,
+          EthPrivateKey keypair,
           int accountIndex,
           TokenAmount balance,
           String tokenName,
           EthereumAddress tokenAddress,
+          bool isSmartAddress,
         })
       >
       tokenFunded,
@@ -902,7 +929,10 @@ class EvmChain {
     Map<String, EthereumAddress> tokens = const {},
   }) => logger.span('scanAllHDBalances', () async {
     final addresses = await _deriveHDAddresses();
-    final addrList = addresses.map((a) => a.address).toList(growable: false);
+    // Query the smart-account address when available, otherwise EOA.
+    final addrList = addresses
+        .map((a) => a.smartAddress ?? a.eoaAddress)
+        .toList(growable: false);
 
     // One batch: native balances + all ERC-20 balanceOf calls.
     final batch = RpcBatch();
@@ -915,7 +945,12 @@ class EvmChain {
         >{};
     for (final tokenEntry in tokens.entries) {
       final pairs = addresses
-          .map((a) => (owner: a.address, token: tokenEntry.value))
+          .map(
+            (a) => (
+              owner: a.smartAddress ?? a.eoaAddress,
+              token: tokenEntry.value,
+            ),
+          )
           .toList(growable: false);
       tokenHandles[tokenEntry.key] = (
         result: batch.getERC20Balances(pairs, tokenResolver: resolveToken),
@@ -929,9 +964,15 @@ class EvmChain {
     // Collect native balances.
     final nativeFunded = [
       for (final entry in addresses)
-        if (nativeResult.value[entry.address] case final bal?
-            when bal.value > BigInt.zero)
-          (address: entry.address, accountIndex: entry.index, balance: bal),
+        if (nativeResult.value[entry.smartAddress ?? entry.eoaAddress]
+            case final bal? when bal.value > BigInt.zero)
+          (
+            address: entry.smartAddress ?? entry.eoaAddress,
+            keypair: entry.keypair,
+            accountIndex: entry.index,
+            balance: bal,
+            isSmartAddress: entry.smartAddress != null,
+          ),
     ];
 
     // Collect ERC-20 balances.
@@ -939,10 +980,12 @@ class EvmChain {
         <
           ({
             EthereumAddress address,
+            EthPrivateKey keypair,
             int accountIndex,
             TokenAmount balance,
             String tokenName,
             EthereumAddress tokenAddress,
+            bool isSmartAddress,
           })
         >[];
     for (final entry in tokenHandles.entries) {
@@ -952,11 +995,13 @@ class EvmChain {
         final balance = h.result.value[i];
         if (balance != null && balance.value > BigInt.zero) {
           tokenFunded.add((
-            address: addresses[i].address,
+            address: addresses[i].smartAddress ?? addresses[i].eoaAddress,
+            keypair: addresses[i].keypair,
             accountIndex: addresses[i].index,
             balance: balance,
             tokenName: tokenName,
             tokenAddress: h.tokenAddr,
+            isSmartAddress: addresses[i].smartAddress != null,
           ));
         }
       }
@@ -965,16 +1010,59 @@ class EvmChain {
     return (nativeFunded: nativeFunded, tokenFunded: tokenFunded);
   });
 
-  /// Derive all HD addresses in the scan window.
-  Future<List<({int index, EthereumAddress address})>> _deriveHDAddresses() =>
-      Future.wait(
-        List.generate(_maxScanIndex, (i) async {
+  /// Derive all HD addresses (EOA + optional smart-account) in the scan window.
+  ///
+  /// Keys are derived **sequentially** with event-loop yields between each
+  /// derivation so the UI thread stays responsive (BIP-32 EC math takes
+  /// ~500 ms per key in DDC debug mode). Smart-account addresses are then
+  /// resolved in a single concurrent batch since they're I/O-bound RPCs.
+  Future<
+    List<
+      ({
+        int index,
+        EthPrivateKey keypair,
+        EthereumAddress eoaAddress,
+        EthereumAddress? smartAddress,
+      })
+    >
+  >
+  _deriveHDAddresses() async {
+    // 1. Derive EVM keys sequentially — each is CPU-bound EC point math.
+    final keys = <({int index, EthPrivateKey key})>[];
+    for (var i = 0; i < _maxScanIndex; i++) {
+      final keypair = await auth.hd.getActiveEvmKey(accountIndex: i);
+      keys.add((index: i, key: keypair));
+      // Yield to the event loop so the UI can paint between derivations.
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    // 2. Resolve smart-account addresses concurrently (I/O-bound RPCs).
+    if (aa != null) {
+      final results = await Future.wait(
+        keys.map((k) async {
+          final smartAddress = await aa!.getSmartAccountAddress(k.key);
           return (
-            index: i,
-            address: await auth.hd.getEvmAddress(accountIndex: i),
+            index: k.index,
+            keypair: k.key,
+            eoaAddress: k.key.address,
+            smartAddress: smartAddress,
           );
         }),
       );
+      return results;
+    }
+
+    return keys
+        .map(
+          (k) => (
+            index: k.index,
+            keypair: k.key,
+            eoaAddress: k.key.address,
+            smartAddress: null as EthereumAddress?,
+          ),
+        )
+        .toList();
+  }
 
   Future<List<dynamic>> call(
     ContractAbi abi,
@@ -1146,11 +1234,7 @@ class EvmChain {
   // ── Swap factories ──────────────────────────────────────────────────
 
   /// Create a swap-in (reverse submarine swap) operation for this chain.
-  SwapInOperation swapIn({
-    required SwapInParams params,
-    required Auth auth,
-    required CustomLogger logger,
-  }) {
+  SwapInOperation swapIn({required SwapInParams params}) {
     return EvmSwapInOperation(
       chain: this,
       auth: auth,
@@ -1172,11 +1256,6 @@ class EvmChain {
   /// Create a swap-out (submarine swap) operation for this chain.
   EvmSwapOutOperation swapOut({
     required SwapOutParams params,
-    required Auth auth,
-    required CustomLogger logger,
-    required Nwc nwc,
-    required Payments payments,
-    required SwapQuoteService quoteService,
     SwapOutState? initialState,
   }) {
     return EvmSwapOutOperation(

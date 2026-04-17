@@ -78,11 +78,6 @@ void main() {
         accountIndex: 0,
         amountSpec: AmountSpec.input(requestedAmount),
       ),
-      auth: hostr.auth,
-      logger: CustomLogger(),
-      nwc: hostr.nwc,
-      payments: hostr.payments,
-      quoteService: SwapQuoteService(),
     );
 
     final emittedStates = <SwapOutState>[swapOut.state];
@@ -145,11 +140,6 @@ void main() {
           accountIndex: 0,
           amountSpec: AmountSpec.input(requestedAmount),
         ),
-        auth: harness.hostr.auth,
-        logger: CustomLogger(),
-        nwc: harness.hostr.nwc,
-        payments: harness.hostr.payments,
-        quoteService: SwapQuoteService(),
       );
       final states1 = <SwapOutState>[swapOut1.state];
       final sub1 = swapOut1.stream.listen(states1.add);

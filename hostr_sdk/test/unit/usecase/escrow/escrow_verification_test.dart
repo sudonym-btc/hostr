@@ -66,6 +66,7 @@ Listing _listing({
   bool negotiable = true,
   int pricePerNightSats = 100000,
   DenominatedAmount? securityDeposit,
+  int? maxDisputePeriod,
 }) => _f.listing(
   signer: MockKeys.hoster,
   dTag: 'listing-escrow-verify',
@@ -78,8 +79,9 @@ Listing _listing({
   specifications: Specifications(),
   negotiable: negotiable,
   allowSelfSignedReservation: true,
-  requiresEscrow: true,
+  instantBook: true,
   securityDeposit: securityDeposit,
+  maxDisputePeriod: maxDisputePeriod,
   createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -187,6 +189,7 @@ EscrowFundedEvent _fundedEvent({
   required String txHash,
   required int amountSats,
   int? bondAmountSats,
+  int unlockAt = 0,
 }) {
   return EscrowFundedEvent(
     tradeId: tradeId,
@@ -196,7 +199,7 @@ EscrowFundedEvent _fundedEvent({
     bondAmount: bondAmountSats != null
         ? rbtcFromSats(BigInt.from(bondAmountSats))
         : null,
-    unlockAt: 0,
+    unlockAt: unlockAt,
   );
 }
 
@@ -516,4 +519,178 @@ void main() {
     expect(result.isValid, isTrue);
     expect(result.fundedEvent!.bondAmount!.value, greaterThan(BigInt.zero));
   });
+
+  // ── Max claim period verification ─────────────────────────────────
+
+  test(
+    'valid when unlockAt is within maxDisputePeriod of reservation end',
+    () async {
+      // Reservation end: DateTime(2026, 3, 2) — use same value for endUnix.
+      final endUnix =
+          DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
+      const oneWeek = 7 * 24 * 60 * 60;
+
+      final listing = _listing(maxDisputePeriod: oneWeek);
+      const txHash = '0xclaim-period-ok';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            unlockAt: endUnix + oneWeek, // exactly at the limit
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isTrue);
+    },
+  );
+
+  test(
+    'invalid when unlockAt exceeds maxDisputePeriod after reservation end',
+    () async {
+      final endUnix =
+          DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
+      const oneWeek = 7 * 24 * 60 * 60;
+
+      final listing = _listing(maxDisputePeriod: oneWeek);
+      const txHash = '0xclaim-period-exceeded';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            unlockAt: endUnix + oneWeek + 1, // 1 second over the limit
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('unlockAt'));
+      expect(result.reason, contains('maxDisputePeriod'));
+    },
+  );
+
+  test(
+    'uses default 2-week maxDisputePeriod when listing does not set one',
+    () async {
+      final endUnix =
+          DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
+      const twoWeeks = 14 * 24 * 60 * 60;
+
+      final listing = _listing(); // no explicit maxDisputePeriod → default
+      const txHash = '0xclaim-period-default';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      // Exactly at 2-week limit → valid
+      final contractOk = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            unlockAt: endUnix + twoWeeks,
+          ),
+        ),
+      );
+      final verificationOk = EscrowVerification(
+        evm: _FakeEvm(
+          _FakeConfiguredEvmChain(_FakeEscrowCapability(contractOk)),
+        ),
+        logger: CustomLogger(),
+      );
+      final resultOk = await verificationOk.verify(reservation: reservation);
+      expect(resultOk.isValid, isTrue);
+
+      // 1 second over → invalid
+      final contractBad = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            unlockAt: endUnix + twoWeeks + 1,
+          ),
+        ),
+      );
+      final verificationBad = EscrowVerification(
+        evm: _FakeEvm(
+          _FakeConfiguredEvmChain(_FakeEscrowCapability(contractBad)),
+        ),
+        logger: CustomLogger(),
+      );
+      final resultBad = await verificationBad.verify(reservation: reservation);
+      expect(resultBad.isValid, isFalse);
+      expect(resultBad.reason, contains('maxDisputePeriod'));
+    },
+  );
+
+  test(
+    'valid when unlockAt is before reservation end (within claim period)',
+    () async {
+      final endUnix =
+          DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
+
+      final listing = _listing(maxDisputePeriod: 86400); // 1 day
+      const txHash = '0xclaim-period-early';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: null,
+        proof: proof,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 100000,
+            unlockAt: endUnix - 3600, // before end date
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isTrue);
+    },
+  );
 }

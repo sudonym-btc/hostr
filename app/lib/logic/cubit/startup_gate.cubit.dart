@@ -9,7 +9,8 @@ enum StartupStep {
   relay('Connecting to relays'),
   relayList('Fetching relay list'),
   metadata('Loading profile'),
-  messages('Syncing messages');
+  messages('Syncing messages'),
+  funds('Scanning funds');
 
   final String label;
   const StartupStep(this.label);
@@ -114,6 +115,11 @@ class StartupGateCubit extends Cubit<StartupGateState> {
       _emitStep(StartupStep.messages, completed);
       await _waitForThreadSync();
       completed.add(StartupStep.messages);
+
+      // ── Step 5: Scan funds ─────────────────────────────────────────────
+      _emitStep(StartupStep.funds, completed);
+      // await _hostr.fundsMonitor.seedAndAwait();
+      completed.add(StartupStep.funds);
 
       // ── Done ───────────────────────────────────────────────────────────
       emit(StartupGateReady(hasMetadata: metadata != null));
