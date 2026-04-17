@@ -7,6 +7,7 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/escrow/escrow_services_modal.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/out/swap_out.dart';
+import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
@@ -76,23 +77,23 @@ class ProfileHeader extends StatelessWidget {
             icon: Icons.person,
           ),
           Gap.vertical.lg(),
-          // Gap.vertical.lg(),
-          // if (about.isNotEmpty) ...[
-          //   Text(
-          //     about,
-          //     textAlign: TextAlign.center,
-          //     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          //       color: Theme.of(context).colorScheme.onSurfaceVariant,
-          //     ),
-          //   ),
-          //   Gap.vertical.lg(),
-          // ],
-          // ProfilePopupContent(
-          //   profile: profile,
-          //   pubkey: profile.pubKey,
-          //   showListingBadges: false,
-          //   showNPub: false,
-          // ),
+          Gap.vertical.lg(),
+          if (about.isNotEmpty) ...[
+            Text(
+              about,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Gap.vertical.lg(),
+          ],
+          ProfilePopupContent(
+            profile: profile,
+            pubkey: profile.pubKey,
+            showListingBadges: false,
+            showNPub: false,
+          ),
         ],
       ),
     );
