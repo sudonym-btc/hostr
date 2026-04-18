@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -40,7 +41,7 @@ class DevWidget extends StatelessWidget {
             },
           ),
         ),
-        BackgroundTasks(),
+        if (!kIsWeb) BackgroundTasks(),
         FilledButton(
           onPressed: () async {
             final evmKey = await getIt<Hostr>().auth.hd.getActiveEvmKey();

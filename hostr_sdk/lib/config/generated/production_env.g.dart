@@ -8,11 +8,18 @@ const boltzApiUrl = 'https://api.boltz.exchange/v2';
 const relayUrl = 'wss://relay.hostr.network';
 const blossomUrl = 'https://blossom.hostr.network';
 const tipsAddress = 'paco@walletofsatoshi.com';
-const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
+const googleMapsApiKey = 'AIzaSyDNGEtiR-EV4xvc3EWuXCQCErtZirG2VNE';
 const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
 const bootstrapRelays = <String>[
   'wss://relay.damus.io',
+  'wss://relay.nostr.band',
+  'wss://relay.current.fyi',
+  'wss://purplepag.es',
+  'wss://nos.lol',
+  'wss://relay.primal.net',
+  'wss://offchain.pub',
+  'wss://nostr.bitcoiner.social',
 ];
 
 const bootstrapEscrowPubkeys = <String>[
@@ -34,7 +41,7 @@ const evmConfig = EvmConfig(
       nativeDenomination: 'ETH',
       boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
-        bundlerUrl: 'https://paymaster.hostr.network/rpc',
+        bundlerUrl: 'https://api.pimlico.io/v2/42161/rpc?apikey=pim_G4g94ATqJrxcLBtjxFf67f',
         entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
         accountFactoryAddress: '0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985',
         paymasterAddress: 'pimlico',
