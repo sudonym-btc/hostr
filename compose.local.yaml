@@ -48,6 +48,22 @@ x-templates:
 services:
   # ── Overrides for shared-base services ──────────────────────────────────
 
+  tls-init:
+    image: alpine:3.20
+    volumes:
+      - ./docker/certs:/certs
+      - ./docker/tls/ca:/ca
+      - ./docker/tls:/scripts:ro
+    environment:
+      - DOMAIN=${DOMAIN}
+    entrypoint: ["sh", "/scripts/generate-dev-certs.sh"]
+    restart: "no"
+
+  nginx-proxy:
+    depends_on:
+      tls-init:
+        condition: service_completed_successfully
+
   app:
     volumes:
       - ./app/build/web:/usr/share/nginx/html:ro

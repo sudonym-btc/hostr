@@ -112,12 +112,7 @@ class Telemetry {
         name: 'hostr.telemetry',
       );
       processors.add(
-        SimpleSpanProcessor(
-          CollectorExporter(
-            exportUri,
-            headers: otlpHeaders,
-          ),
-        ),
+        SimpleSpanProcessor(CollectorExporter(exportUri, headers: otlpHeaders)),
       );
     }
 

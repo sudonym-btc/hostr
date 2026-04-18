@@ -91,7 +91,10 @@ rm -rf /opt/hostr/docker/data/relay   && ln -sfn /mnt/relay-data   /opt/hostr/do
 rm -rf /opt/hostr/docker/data/blossom && ln -sfn /mnt/blossom-data /opt/hostr/docker/data/blossom
 
 # Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
-mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d
+mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d /opt/hostr/docker/tls/ca
+# Pre-create ca.crt as a file so Docker doesn't auto-create it as a directory
+# when mounting it into the escrow container before tls-init has run.
+touch /opt/hostr/docker/tls/ca/ca.crt
 
 cat >/usr/local/bin/hostr-fetch-secrets <<'EOS'
 #!/usr/bin/env bash
@@ -127,9 +130,21 @@ get_secret() {
 }
 
 ENV_FILE="/opt/hostr/.env.runtime"
-cp /opt/hostr/.env "$${ENV_FILE}"
-if [[ -f "/opt/hostr/.env.$${ENV_FILE_SUFFIX}" ]]; then
-  cat "/opt/hostr/.env.$${ENV_FILE_SUFFIX}" >> "$${ENV_FILE}"
+# Merge base + overlay so that overlay values win over base values.
+# Strategy: collect all keys from the overlay, strip them from the base, then append the overlay.
+BASE_ENV="/opt/hostr/.env"
+OVERLAY_ENV="/opt/hostr/.env.$${ENV_FILE_SUFFIX}"
+if [[ -f "$${OVERLAY_ENV}" ]]; then
+  # Build a grep pattern of keys defined in the overlay (strip comments/blanks first)
+  OVERLAY_KEYS="$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$${OVERLAY_ENV}" | cut -d= -f1 | paste -sd'|')"
+  if [[ -n "$${OVERLAY_KEYS}" ]]; then
+    grep -Ev "^($${OVERLAY_KEYS})=" "$${BASE_ENV}" > "$${ENV_FILE}" || true
+  else
+    cp "$${BASE_ENV}" "$${ENV_FILE}"
+  fi
+  cat "$${OVERLAY_ENV}" >> "$${ENV_FILE}"
+else
+  cp "$${BASE_ENV}" "$${ENV_FILE}"
 fi
 
 while IFS= read -r secret_name; do

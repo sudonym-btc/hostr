@@ -114,8 +114,27 @@ class _ReserveState extends State<Reserve> {
                           enforceContiguousAvailability: true,
                         ),
                       ),
-                      if (dateState.dateRange != null) ...[
-                        Gap.horizontal.sm(),
+                      Gap.horizontal.sm(),
+                      if (dateState.dateRange == null) ...[
+                        // No dates selected — show base price / period.
+                        if (widget.listing.prices.isNotEmpty)
+                          Flexible(
+                            child: Text(
+                              () {
+                                final p = widget.listing.prices.first;
+                                final amt = formatAmount(
+                                  p.amount,
+                                  exact: false,
+                                );
+                                final freq = p.frequency?.nip99Name;
+                                return freq != null ? '$amt / $freq' : amt;
+                              }(),
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium!
+                                  .copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                      ] else ...[
                         Flexible(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -127,9 +146,10 @@ class _ReserveState extends State<Reserve> {
                                     exact: false,
                                   ),
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium!
+                                      .copyWith(fontWeight: FontWeight.bold),
                                 ),
                               ),
                               if (widget.listing.negotiable)

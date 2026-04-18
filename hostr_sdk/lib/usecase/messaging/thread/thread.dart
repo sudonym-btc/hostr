@@ -58,14 +58,23 @@ class Thread {
        ) {
     _stateSubscriptions.add(
       events.stream.listen((event) {
-        if (event is SeenStatus) _processSeenReceipt(event);
-        _emitState();
+        if (event is SeenStatus) {
+          _processSeenReceipt(event);
+        } else {
+          _processEvent(event);
+        }
       }),
     );
     _stateSubscriptions.add(
-      _userSubscriptions.latestHeartbeats$.itemsStream.listen((_) {
-        _emitState();
-      }),
+      _userSubscriptions.latestHeartbeats$.stream
+          .where(
+            (heartbeat) =>
+                _knownParticipants.contains(heartbeat.pubKey) ||
+                addedParticipants.contains(heartbeat.pubKey),
+          )
+          .listen((_) {
+            _processHeartbeat();
+          }),
     );
   }
 
@@ -87,34 +96,68 @@ class Thread {
     final existing = _seenUntil[pubkey] ?? 0;
     if (timestamp > existing) {
       _seenUntil[pubkey] = timestamp;
-      _emitState();
+      if (state.isClosed) return;
+      state.add(state.value.copyWith(seenUntil: Map.unmodifiable(_seenUntil)));
     }
   }
 
-  void _emitState() => _logger.spanSync('_emitState', () {
-    if (state.isClosed) return;
-    final keyPair = _auth.activeKeyPair;
-    if (keyPair == null) return;
-    final nextEvents = events.items.whereType<Event>().toList();
-    final nextParticipantPubkeys = <String>{
-      ..._knownParticipants,
-      ...addedParticipants,
-    }.toList();
+  /// Binary-inserts [event] into an already-sorted list, returning a new list.
+  List<Event> _insertSorted(List<Event> sorted, Event event) {
+    int lo = 0, hi = sorted.length;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (sorted[mid].createdAt <= event.createdAt) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return [...sorted.sublist(0, lo), event, ...sorted.sublist(lo)];
+  }
 
+  /// Called when a new non-SeenStatus event arrives. Binary-inserts the event
+  /// into the already-sorted [state.value.events] — O(log n) search + O(n) copy
+  /// instead of a full O(n log n) resort on every emission.
+  void _processEvent(Nip01Event rawEvent) =>
+      _logger.spanSync('_processEvent', () {
+        if (state.isClosed) return;
+        final keyPair = _auth.activeKeyPair;
+        if (keyPair == null) return;
+        if (rawEvent is! Event) return;
+
+        final nextEvents = _insertSorted(state.value.events, rawEvent);
+        final nextParticipantPubkeys = <String>{
+          ..._knownParticipants,
+          ...addedParticipants,
+        }.toList();
+        final nextCounterpartyPubkeys = nextParticipantPubkeys
+            .where((pubkey) => pubkey != keyPair.publicKey)
+            .toList();
+
+        state.add(
+          state.value.copyWith(
+            events: nextEvents,
+            participantPubkeys: _knownParticipants.toList(),
+            counterpartyPubkeys: nextCounterpartyPubkeys,
+            received: _computeReceived(
+              events: nextEvents,
+              counterpartyPubkeys: nextCounterpartyPubkeys,
+            ),
+            seenUntil: Map.unmodifiable(_seenUntil),
+          ),
+        );
+      });
+
+  /// Called when a relevant heartbeat arrives. Only recomputes [received] —
+  /// the event list is unchanged.
+  void _processHeartbeat() => _logger.spanSync('_processHeartbeat', () {
+    if (state.isClosed) return;
     state.add(
       state.value.copyWith(
-        events: nextEvents,
-        participantPubkeys: _knownParticipants.toList(),
-        counterpartyPubkeys: nextParticipantPubkeys
-            .where((pubkey) => pubkey != keyPair.publicKey)
-            .toList(),
         received: _computeReceived(
-          events: nextEvents,
-          counterpartyPubkeys: nextParticipantPubkeys
-              .where((pubkey) => pubkey != keyPair.publicKey)
-              .toList(),
+          events: state.value.events,
+          counterpartyPubkeys: state.value.counterpartyPubkeys,
         ),
-        seenUntil: Map.unmodifiable(_seenUntil),
       ),
     );
   });
@@ -235,7 +278,7 @@ class Thread {
   Future<void> broadcastSeenReceipt<T extends Nip01Event>() =>
       _logger.span('broadcastSeenReceipt', () async {
         return _messaging.broadcastSeenReceipt(
-          seenUntil: state.value.sortedEvents.last.createdAt,
+          seenUntil: state.value.events.last.createdAt,
           tags: [..._conversationTags],
           recipientPubkeys: _knownParticipants.toList(),
         );
@@ -255,7 +298,7 @@ class Thread {
     if (!state.value.shouldSendReceipt) return;
     if (_recipientPubkeys.isEmpty) return;
 
-    final sorted = state.value.sortedEvents;
+    final sorted = state.value.events;
     if (sorted.isEmpty) return;
 
     await broadcastSeenReceipt();

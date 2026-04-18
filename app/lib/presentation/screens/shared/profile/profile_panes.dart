@@ -589,6 +589,7 @@ class _SwapOutTile extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _TrustedEscrowsBody extends StatelessWidget {
   final TrustedEscrowsState state;
 

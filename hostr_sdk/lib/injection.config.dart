@@ -422,29 +422,6 @@ extension GetItInjectableX on _i174.GetIt {
         evm: gh<_i305.Evm>(),
       ),
     );
-    gh.singleton<_i1068.TradeAccountAllocator>(
-      () => _i698.TradeAccountAllocatorImpl(
-        auth: gh<_i1000.Auth>(),
-        hd: gh<_i149.DeterministicKeys>(),
-        evm: gh<_i305.Evm>(),
-        reservations: gh<_i326.Reservations>(),
-        cache: gh<_i202.TradeAccountCache>(),
-        logger: gh<_i331.CustomLogger>(),
-      ),
-    );
-    gh.factoryParam<
-      _i654.EscrowClaimOperation,
-      _i676.EscrowClaimParams,
-      dynamic
-    >(
-      (params, _) => _i654.EscrowClaimOperation(
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i785.Evm>(),
-        gh<_i331.CustomLogger>(),
-        params,
-      ),
-    );
     gh.singleton<_i149.MetadataUseCase>(
       () => _i149.MetadataUseCase(
         auth: gh<_i1000.Auth>(),
@@ -469,28 +446,6 @@ extension GetItInjectableX on _i174.GetIt {
         config: gh<_i910.HostrConfig>(),
       ),
     );
-    gh.factoryParam<_i743.EscrowFundPreparer, _i560.EscrowFundParams?, dynamic>(
-      (params, _) => _i743.EscrowFundPreparer(
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i785.Evm>(),
-        gh<_i331.CustomLogger>(),
-        params,
-      ),
-    );
-    gh.factoryParam<
-      _i460.EscrowReleaseOperation,
-      _i526.EscrowReleaseParams,
-      dynamic
-    >(
-      (params, _) => _i460.EscrowReleaseOperation(
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i785.Evm>(),
-        gh<_i331.CustomLogger>(),
-        params,
-      ),
-    );
     gh.singleton<_i576.UserSubscriptions>(
       () => _i576.UserSubscriptions(
         auth: gh<_i1000.Auth>(),
@@ -512,26 +467,6 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i331.CustomLogger>(),
         port: gh<_i733.CalendarPort>(),
-      ),
-    );
-    gh.singleton<_i49.ReservationRequests>(
-      () => _i49.ReservationRequests(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-        tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
-        relays: gh<_i883.Relays>(),
-      ),
-    );
-    gh.singleton<_i1016.FundsMonitorService>(
-      () => _i1016.FundsMonitorService(
-        gh<_i305.Evm>(),
-        gh<_i576.UserSubscriptions>(),
-        gh<_i1000.Auth>(),
-        gh<_i1068.TradeAccountAllocator>(),
-        gh<_i842.OperationStateStore>(),
-        gh<_i794.UserConfigStore>(),
-        gh<_i331.CustomLogger>(),
       ),
     );
     gh.singleton<_i768.Threads>(
@@ -566,6 +501,39 @@ extension GetItInjectableX on _i174.GetIt {
         reservations: gh<_i326.Reservations>(),
       ),
     );
+    gh.singleton<_i1068.TradeAccountAllocator>(
+      () => _i698.TradeAccountAllocatorImpl(
+        auth: gh<_i1000.Auth>(),
+        hd: gh<_i149.DeterministicKeys>(),
+        evm: gh<_i305.Evm>(),
+        reservations: gh<_i326.Reservations>(),
+        threads: gh<_i768.Threads>(),
+        cache: gh<_i202.TradeAccountCache>(),
+        logger: gh<_i331.CustomLogger>(),
+      ),
+    );
+    gh.factoryParam<_i743.EscrowFundPreparer, _i560.EscrowFundParams?, dynamic>(
+      (params, _) => _i743.EscrowFundPreparer(
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i785.Evm>(),
+        gh<_i331.CustomLogger>(),
+        params,
+      ),
+    );
+    gh.factoryParam<
+      _i460.EscrowReleaseOperation,
+      _i526.EscrowReleaseParams,
+      dynamic
+    >(
+      (params, _) => _i460.EscrowReleaseOperation(
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i785.Evm>(),
+        gh<_i331.CustomLogger>(),
+        params,
+      ),
+    );
     gh.factoryParam<_i378.Thread, String, dynamic>(
       (anchor, _) => _i378.Thread(
         anchor,
@@ -573,6 +541,50 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         messaging: gh<_i1019.Messaging>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
+      ),
+    );
+    gh.singleton<_i850.PaymentProofOrchestrator>(
+      () => _i850.PaymentProofOrchestrator(
+        userSubs: gh<_i576.UserSubscriptions>(),
+        threads: gh<_i768.Threads>(),
+        auth: gh<_i1000.Auth>(),
+        reservations: gh<_i326.Reservations>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i49.ReservationRequests>(
+      () => _i49.ReservationRequests(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+        tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
+        relays: gh<_i883.Relays>(),
+      ),
+    );
+    gh.singleton<_i1016.FundsMonitorService>(
+      () => _i1016.FundsMonitorService(
+        gh<_i305.Evm>(),
+        gh<_i576.UserSubscriptions>(),
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i842.OperationStateStore>(),
+        gh<_i794.UserConfigStore>(),
+        gh<_i331.CustomLogger>(),
+      ),
+    );
+    gh.factoryParam<
+      _i654.EscrowClaimOperation,
+      _i676.EscrowClaimParams,
+      dynamic
+    >(
+      (params, _) => _i654.EscrowClaimOperation(
+        gh<_i1000.Auth>(),
+        gh<_i1068.TradeAccountAllocator>(),
+        gh<_i785.Evm>(),
+        gh<_i331.CustomLogger>(),
+        params,
       ),
     );
     gh.singleton<_i843.BackgroundWorker>(
@@ -586,17 +598,6 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
         operationStore: gh<_i842.OperationStateStore>(),
         notificationLog: gh<_i226.NotificationLog>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
-    gh.singleton<_i850.PaymentProofOrchestrator>(
-      () => _i850.PaymentProofOrchestrator(
-        userSubs: gh<_i576.UserSubscriptions>(),
-        threads: gh<_i768.Threads>(),
-        auth: gh<_i1000.Auth>(),
-        reservations: gh<_i326.Reservations>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i372.CustomLogger>(),
       ),
     );

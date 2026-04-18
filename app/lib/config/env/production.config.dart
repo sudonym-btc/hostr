@@ -9,6 +9,17 @@ import 'base.config.dart';
 class ProductionConfig extends Config {
   @override
   List<String> get bootstrapEscrowPubkeys => env.bootstrapEscrowPubkeys;
+
+  @override
+  Telemetry buildTelemetry() => Telemetry(
+    serviceName: env.telemetryServiceName,
+    enableExport: env.telemetryEnabled,
+    otlpEndpoint: env.telemetryEndpoint.isNotEmpty
+        ? env.telemetryEndpoint
+        : null,
+    gcpProjectId: env.gcpProjectId.isNotEmpty ? env.gcpProjectId : null,
+  );
+
   @override
   List<String> relays = env.bootstrapRelays;
   @override

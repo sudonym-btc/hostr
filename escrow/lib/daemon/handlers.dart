@@ -215,7 +215,7 @@ class DaemonHandler {
     return {
       'threads': threads.entries.map((e) {
         final state = e.value.state.value;
-        final messages = state.sortedEvents.whereType<Message>().toList();
+        final messages = state.events.whereType<Message>().toList();
         final lastMsg = messages.lastOrNull;
         return ThreadSummary(
           anchor: e.key,
@@ -243,7 +243,7 @@ class DaemonHandler {
       'threadId': threadId,
       'conversationTag': thread.conversationTag,
       'participants': state.participantPubkeys,
-      'messages': state.sortedEvents
+      'messages': state.events
           .whereType<Message>()
           .map((m) => ThreadMessage(
                 id: m.id,

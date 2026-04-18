@@ -5,6 +5,8 @@ import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
+import 'package:hostr_sdk/usecase/messaging/thread.dart';
+import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator_impl.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.dart';
@@ -129,6 +131,11 @@ class _FakeReservation extends Fake implements Reservation {}
 
 final _dummyReservation = _FakeReservation();
 
+class _FakeThreads extends Fake implements Threads {
+  @override
+  List<Thread> findByConversationTag(String tag) => [];
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────
 
 void main() {
@@ -154,6 +161,7 @@ void main() {
       hd: hd,
       evm: evm,
       reservations: reservations,
+      threads: _FakeThreads(),
       cache: cache,
       logger: logger,
     );
@@ -177,6 +185,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -195,6 +204,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -214,6 +224,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -233,6 +244,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -256,6 +268,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -281,6 +294,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -335,6 +349,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );
@@ -357,6 +372,7 @@ void main() {
         hd: hd,
         evm: evm,
         reservations: reservations,
+        threads: _FakeThreads(),
         cache: cache,
         logger: logger,
       );

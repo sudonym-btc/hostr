@@ -169,6 +169,7 @@ void main() {
         auth: FakeAuth(),
         transitions: FakeTransitions(),
         listings: listings,
+        relays: FakeRelays(),
       );
       reviews = Reviews(
         requests: fakeRequests,

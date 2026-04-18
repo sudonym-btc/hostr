@@ -148,6 +148,8 @@ String _generateDart(String target, Map<String, String> vars) {
   buf.writeln(
     "const telemetryServiceName = '${_escape(telemetryServiceName.isEmpty ? 'hostr-app' : telemetryServiceName)}';",
   );
+  final gcpProjectId = v('GCP_PROJECT_ID');
+  buf.writeln("const gcpProjectId = '${_escape(gcpProjectId)}';");
   buf.writeln();
 
   // ── Per-chain EVM config (EVM_CHAINS + EVM_CHAIN_<ID>_*) ──

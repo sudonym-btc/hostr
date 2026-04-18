@@ -41,14 +41,14 @@ class ListingDependencies {
   });
 
   late final Stream<List<Validation<Review>>> reviewItems = verifiedReviews
-      .itemsStream
+      .accumulateByKey((r) => r.event.id)
+      .replayStream
       .shareReplay(maxSize: 1);
 
   late final Stream<List<Validation<ReservationGroup>>> reservationGroupItems =
       verifiedReservationGroups
           .accumulateByKey((g) => g.event.groupId)
-          .itemsStream
-          .map((snapshots) => snapshots.lastOrNull ?? <Validation<ReservationGroup>>[])
+          .replayStream
           .shareReplay(maxSize: 1);
 
   late final Stream<int> reviewCount = reviewItems

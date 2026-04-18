@@ -21,6 +21,7 @@ const bootstrapEscrowPubkeys = <String>[
 const telemetryEnabled = true;
 const telemetryEndpoint = 'https://app.hostr.network/otlp';
 const telemetryServiceName = 'hostr-app';
+const gcpProjectId = 'hostr-production-d3ba05b4';
 
 const evmConfig = EvmConfig(
   boltz: BoltzConfig(apiUrl: boltzApiUrl),

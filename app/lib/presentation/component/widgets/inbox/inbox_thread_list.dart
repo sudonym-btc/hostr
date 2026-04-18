@@ -19,7 +19,7 @@ class InboxThreadList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: getIt<Hostr>().messaging.threads.events$.itemsStream,
+      stream: getIt<Hostr>().messaging.threads.events$.stream,
       builder: (context, snapshot) {
         final threads =
             getIt<Hostr>().messaging.threads.threads.values
