@@ -4,10 +4,6 @@
 #   docker compose -f compose.yaml -f compose.hosted.yaml ...
 
 services:
-  tls-init:
-    entrypoint: ["true"]
-    restart: "no"
-
   anvil:
     profiles:
       - never
