@@ -84,7 +84,8 @@ services:
 
   escrow:
     image: ${DOCKER_REGISTRY}/escrow:latest
-    entrypoint: ["daemon"]
+    build:
+      target: production
     depends_on:
       nginx-proxy:
         condition: service_healthy
