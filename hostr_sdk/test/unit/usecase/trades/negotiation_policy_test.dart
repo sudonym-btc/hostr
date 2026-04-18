@@ -160,8 +160,8 @@ void main() {
 
       expect(policy.canPay, isTrue);
       expect(policy.canCounter, isTrue);
-      expect(policy.counterMin?.value, BigInt.from(90001));
-      expect(policy.counterMax?.value, BigInt.from(100000));
+      expect(policy.counterMin?.value, BigInt.from(80001));
+      expect(policy.counterMax?.value, BigInt.from(90000));
     });
 
     test('guest cannot counter when host accepts their last offer', () {
@@ -263,8 +263,8 @@ void main() {
         );
 
         expect(policy.canCounter, isTrue);
-        expect(policy.counterMin?.value, BigInt.from(85001));
-        expect(policy.counterMax?.value, BigInt.from(100000));
+        expect(policy.counterMin?.value, BigInt.from(70001));
+        expect(policy.counterMax?.value, BigInt.from(85000));
       },
     );
 

@@ -88,17 +88,25 @@ class ReservationRequestActions {
       if (!latestOfferSentByUs &&
           listing.negotiable &&
           !latestOfferAcceptsPrevious) {
-        canCounter = true;
         switch (role) {
           case TradeRole.host:
+            // Host can only decrease their asking price: min stays just above
+            // the guest's latest offer; max is the host's own previous offer
+            // (or listing price if this is their first counter).
+            canCounter = true;
             counterMin = _incrementAmount(latestAmount);
-            counterMax = listingPrice;
+            counterMax = lastOfferByUs?.amount ?? listingPrice;
           case TradeRole.guest:
-            // The guest is countering the host's offer: they can't offer more
-            // than the host just offered (max = host's last offer) and can't
-            // backtrack below their own previous offer (min = guest's last offer).
-            counterMin = lastOfferByUs?.amount;
-            counterMax = latestAmount;
+            // Guest can only increase their offer toward the host's offer.
+            // If the host is already at listing price there is nothing to
+            // negotiate — the guest can only pay or walk.
+            if (!latestMeetsListing) {
+              canCounter = true;
+              counterMin = lastOfferByUs != null
+                  ? _incrementAmount(lastOfferByUs.amount!)
+                  : null;
+              counterMax = latestAmount;
+            }
         }
       }
     }
