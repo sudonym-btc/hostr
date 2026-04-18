@@ -216,6 +216,19 @@ class _AppShellScreenState extends State<AppShellScreen>
             separatorBuilder: (_, _) => const SizedBox(height: kSpace2),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: kSpace3),
+          child: Text(
+            kCommitSha,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontFamily: 'monospace',
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.35),
+            ),
+          ),
+        ),
       ],
     );
   }

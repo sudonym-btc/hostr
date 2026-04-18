@@ -36,3 +36,6 @@ const kAnimationCurve = Curves.easeInOut;
 
 /// Per-item stagger delay for list entry animations.
 const kStaggerDelay = Duration(milliseconds: 60);
+
+/// The git commit SHA baked in at build time via --dart-define=COMMIT_SHA.
+const kCommitSha = String.fromEnvironment('COMMIT_SHA', defaultValue: 'dev');

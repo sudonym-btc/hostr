@@ -270,6 +270,14 @@ class InfrastructureSink implements SeedSink {
       verifyingContract: EthereumAddress.fromHex(contractAddress),
     );
 
+    // Use a generous fixed gas limit for all settle calls.
+    // web3dart's eth_estimateGas produces a tight estimate; with concurrent
+    // Future.wait execution the estimate can be stale (state changes between
+    // estimate and mine), causing OOG failures (revert with empty revert data).
+    // 300 000 gas is well above the typical settle cost (~60-80 k) and well
+    // below Anvil's block gas limit.
+    const settleGasLimit = 3000000;
+
     String txHash;
     if (intent.outcome == EscrowOutcome.arbitrated) {
       final credentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
@@ -304,7 +312,11 @@ class InfrastructureSink implements SeedSink {
           signature: signature,
         ),
         credentials: credentials,
-        transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
+        transaction: Transaction(
+          nonce: nonce,
+          gasPrice: gasPrice,
+          maxGas: settleGasLimit,
+        ),
       );
     } else if (intent.outcome == EscrowOutcome.claimedByHost) {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
@@ -316,7 +328,11 @@ class InfrastructureSink implements SeedSink {
       txHash = await _escrow().claim(
         (tradeId: tradeIdBytes, signature: signature),
         credentials: credentials,
-        transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
+        transaction: Transaction(
+          nonce: nonce,
+          gasPrice: gasPrice,
+          maxGas: settleGasLimit,
+        ),
       );
     } else {
       final credentials = await deriveEvmKey(intent.settlerPrivateKey);
@@ -333,7 +349,11 @@ class InfrastructureSink implements SeedSink {
           signature: signature,
         ),
         credentials: credentials,
-        transaction: Transaction(nonce: nonce, gasPrice: gasPrice),
+        transaction: Transaction(
+          nonce: nonce,
+          gasPrice: gasPrice,
+          maxGas: settleGasLimit,
+        ),
       );
     }
 

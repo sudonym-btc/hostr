@@ -49,6 +49,7 @@
     // Hardhat Solidity: only analyse the escrow contracts, not vendored deps
     "hardhat.telemetry": false,
     "solidity.packageDefaultDependenciesDirectory": "",
+    "terminal.integrated.stickyScroll.enabled": false,
   },
   "extensions": {
     "recommendations": [
