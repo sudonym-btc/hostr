@@ -110,8 +110,6 @@ services:
       - PRIVATE_KEY=${ESCROW_PRIVATE_KEY}
       - ENV=${COMPOSE_PROFILES:-dev}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      - RPC_URL=${RPC_URL:-}
-      - ESCROW_CONTRACT_ADDRESS=${EVM_CHAIN_ARBITRUM_ESCROW_CONTRACT_ADDRESS:-}
     volumes:
       - ./docker/data/escrow:/data:ro
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
