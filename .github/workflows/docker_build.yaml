@@ -55,6 +55,7 @@ jobs:
       - name: Build & push escrow
         run: |
           docker build \
+            --target production \
             -t "${{ steps.meta.outputs.registry }}/escrow:${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/escrow:latest" \
             -f escrow/Dockerfile .
