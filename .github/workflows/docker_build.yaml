@@ -94,6 +94,7 @@ jobs:
           docker build \
             --build-arg APP_PROFILE="${{ steps.appenv.outputs.APP_PROFILE }}" \
             --build-arg GOOGLE_MAPS_API_KEY="${{ steps.appenv.outputs.GOOGLE_MAPS_API_KEY }}" \
+            --build-arg COMMIT_SHA="${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/app:${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/app:latest" \
             -f app/Dockerfile.web .

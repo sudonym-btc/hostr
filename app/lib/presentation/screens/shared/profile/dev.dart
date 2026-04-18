@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -9,6 +10,8 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'background_tasks.dart';
 
+const String _kCommitSha = String.fromEnvironment('COMMIT_SHA', defaultValue: 'dev');
+
 class DevWidget extends StatelessWidget {
   const DevWidget({super.key});
 
@@ -17,6 +20,21 @@ class DevWidget extends StatelessWidget {
     return ExpansionTile(
       title: Text(AppLocalizations.of(context)!.dev),
       children: [
+        ListTile(
+          dense: true,
+          title: const Text('Build'),
+          subtitle: Text(_kCommitSha, style: const TextStyle(fontFamily: 'monospace')),
+          trailing: IconButton(
+            icon: const Icon(Icons.copy, size: 16),
+            tooltip: 'Copy commit SHA',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _kCommitSha));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Commit SHA copied'), duration: Duration(seconds: 1)),
+              );
+            },
+          ),
+        ),
         BackgroundTasks(),
         FilledButton(
           onPressed: () async {
