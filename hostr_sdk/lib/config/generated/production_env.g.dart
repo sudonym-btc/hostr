@@ -8,7 +8,7 @@ const boltzApiUrl = 'https://api.boltz.exchange/v2';
 const relayUrl = 'wss://relay.hostr.network';
 const blossomUrl = 'https://blossom.hostr.network';
 const tipsAddress = 'paco@walletofsatoshi.com';
-const googleMapsApiKey = '';
+const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
 const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
 const bootstrapRelays = <String>[
@@ -16,6 +16,7 @@ const bootstrapRelays = <String>[
 ];
 
 const bootstrapEscrowPubkeys = <String>[
+  '807dbcdedc31a47cea61e7331e691df29320506a245eb5df89ff54b7c4f09cec',
 ];
 
 const telemetryEnabled = true;
@@ -34,10 +35,11 @@ const evmConfig = EvmConfig(
       boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
         bundlerUrl: 'https://paymaster.hostr.network/rpc',
-        entryPointAddress: '',
-        accountFactoryAddress: '',
-        paymasterAddress: '',
+        entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
+        accountFactoryAddress: '0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985',
+        paymasterAddress: 'pimlico',
       ),
+      escrowContractAddress: '0xdb591e79BF14112Ff5CC606585221022b2fB64fa',
       tokens: {
         'tBTC': TokenConfig(
           address: '0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40',
