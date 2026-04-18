@@ -477,6 +477,74 @@ class Reservations extends CrudUseCase<Reservation>
     return reservation;
   }
 
+  /// Subscribes to all reservations for [listing] and emits only those whose
+  /// tradeId has NOT been cancelled.
+  ///
+  /// Events are collected within a [debounce] window; after the window closes
+  /// the full buffer is scanned: any tradeId with a [ReservationStage.cancel]
+  /// entry is dropped in its entirety, and the surviving reservations are
+  /// emitted as [Valid] items.
+  StreamWithStatus<Validation<Reservation>> subscribeUncancelledReservations({
+    required Listing listing,
+    Duration debounce = const Duration(milliseconds: 500),
+  }) {
+    final response = StreamWithStatus<Validation<Reservation>>();
+    final anchor = listing.anchor;
+    if (anchor == null) {
+      response.addStatus(StreamStatusLive());
+      return response;
+    }
+
+    final raw = subscribe(
+      Filter(
+        tags: {
+          kListingRefTag: [anchor],
+        },
+      ),
+      name: 'uncancelled-$anchor',
+    );
+
+    // tradeId → list of all seen reservations for that tradeId.
+    final Map<String, List<Reservation>> buffer = {};
+    // tradeIds that have already been emitted (or are cancelled).
+    final Set<String> handled = {};
+    Timer? timer;
+
+    void flush() {
+      for (final entry in buffer.entries) {
+        final tradeId = entry.key;
+        if (handled.contains(tradeId)) continue;
+        final reservations = entry.value;
+        if (reservations.any((r) => r.stage == ReservationStage.cancel)) {
+          handled.add(tradeId);
+          continue;
+        }
+        final latest = reservations.reduce(
+          (a, b) => a.createdAt >= b.createdAt ? a : b,
+        );
+        response.add(Valid(latest));
+        handled.add(tradeId);
+      }
+    }
+
+    response.addSubscription(
+      raw.replayStream.listen((reservation) {
+        final tradeId = reservation.getDtag() ?? reservation.id;
+        buffer.putIfAbsent(tradeId, () => []).add(reservation);
+        if (debounce == Duration.zero) {
+          timer?.cancel();
+          Timer.run(flush);
+        } else {
+          timer?.cancel();
+          timer = Timer(debounce, flush);
+        }
+      }, onError: response.addError),
+    );
+    response.addSubscription(raw.status.listen(response.addStatus));
+
+    return response;
+  }
+
   /// Soft cleanup for logout: cancel the subscription and null out the
   /// stream so [subscribeToMyReservations] creates a fresh one on next
   /// login.

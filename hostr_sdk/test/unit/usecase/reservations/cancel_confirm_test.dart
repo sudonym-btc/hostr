@@ -95,14 +95,15 @@ class _FakeAuth extends Fake implements Auth {
 
 class _RecordingTransitions extends Fake implements ReservationTransitions {
   final List<
-      ({
-        ReservationTransitionType type,
-        ReservationStage from,
-        ReservationStage to,
-        String? commitTermsHash,
-        String? reason,
-      })
-  > recorded = [];
+    ({
+      ReservationTransitionType type,
+      ReservationStage from,
+      ReservationStage to,
+      String? commitTermsHash,
+      String? reason,
+    })
+  >
+  recorded = [];
 
   @override
   Future<ReservationTransition> record({
@@ -201,9 +202,7 @@ ReservationGroup _buildCommittedGroup({
   return group;
 }
 
-ReservationGroup _buildNegotiateGroup({
-  required String tradeId,
-}) {
+ReservationGroup _buildNegotiateGroup({required String tradeId}) {
   final listingAnchor = _f
       .listing(
         signer: MockKeys.hoster,
@@ -249,6 +248,7 @@ void main() {
       auth: _FakeAuth(MockKeys.hoster),
       transitions: transitions,
       listings: FakeListings(),
+      relays: FakeRelays(),
     );
   });
 
@@ -267,55 +267,62 @@ void main() {
       expect(published.stage, ReservationStage.cancel);
     });
 
-    test('preserves the tradeId (d-tag) in the published reservation', () async {
-      const tradeId = 'trade-cancel-dtag';
-      final group = _buildCommittedGroup(tradeId: tradeId);
+    test(
+      'preserves the tradeId (d-tag) in the published reservation',
+      () async {
+        const tradeId = 'trade-cancel-dtag';
+        final group = _buildCommittedGroup(tradeId: tradeId);
 
-      await reservations.cancel(group, MockKeys.hoster);
+        await reservations.cancel(group, MockKeys.hoster);
 
-      final published = Reservation.fromNostrEvent(
-        requests.broadcastedEvents.first,
-      );
-      expect(published.getDtag(), tradeId);
-    });
+        final published = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
+        expect(published.getDtag(), tradeId);
+      },
+    );
 
-    test('preserves all p-tags (seller, buyer, escrow) from the group',
-        () async {
-      final group = _buildCommittedGroup(
-        tradeId: 'trade-cancel-ptags',
-        includeEscrow: true,
-      );
+    test(
+      'preserves all p-tags (seller, buyer, escrow) from the group',
+      () async {
+        final group = _buildCommittedGroup(
+          tradeId: 'trade-cancel-ptags',
+          includeEscrow: true,
+        );
 
-      await reservations.cancel(group, MockKeys.hoster);
+        await reservations.cancel(group, MockKeys.hoster);
 
-      final published = Reservation.fromNostrEvent(
-        requests.broadcastedEvents.first,
-      );
-      expect(
-        published.parsedTags.getTagValueByMarker('p', 'seller'),
-        MockKeys.hoster.publicKey,
-      );
-      expect(
-        published.parsedTags.getTagValueByMarker('p', 'buyer'),
-        MockKeys.guest.publicKey,
-      );
-      expect(
-        published.parsedTags.getTagValueByMarker('p', 'escrow'),
-        MockKeys.escrow.publicKey,
-      );
-    });
+        final published = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
+        expect(
+          published.parsedTags.getTagValueByMarker('p', 'seller'),
+          MockKeys.hoster.publicKey,
+        );
+        expect(
+          published.parsedTags.getTagValueByMarker('p', 'buyer'),
+          MockKeys.guest.publicKey,
+        );
+        expect(
+          published.parsedTags.getTagValueByMarker('p', 'escrow'),
+          MockKeys.escrow.publicKey,
+        );
+      },
+    );
 
-    test('records a cancel transition (fromStage=commit, toStage=cancel)',
-        () async {
-      final group = _buildCommittedGroup(tradeId: 'trade-cancel-trans');
+    test(
+      'records a cancel transition (fromStage=commit, toStage=cancel)',
+      () async {
+        final group = _buildCommittedGroup(tradeId: 'trade-cancel-trans');
 
-      await reservations.cancel(group, MockKeys.hoster);
+        await reservations.cancel(group, MockKeys.hoster);
 
-      expect(transitions.recorded, hasLength(1));
-      final t = transitions.recorded.first;
-      expect(t.type, ReservationTransitionType.cancel);
-      expect(t.to, ReservationStage.cancel);
-    });
+        expect(transitions.recorded, hasLength(1));
+        final t = transitions.recorded.first;
+        expect(t.type, ReservationTransitionType.cancel);
+        expect(t.to, ReservationStage.cancel);
+      },
+    );
 
     test('also records cancel from negotiate stage', () async {
       final group = _buildNegotiateGroup(tradeId: 'trade-cancel-neg');
@@ -372,57 +379,63 @@ void main() {
       expect(published.stage, ReservationStage.commit);
     });
 
-    test('preserves the tradeId (d-tag) in the published reservation', () async {
-      const tradeId = 'trade-confirm-dtag';
-      final group = _buildCommittedGroup(tradeId: tradeId);
+    test(
+      'preserves the tradeId (d-tag) in the published reservation',
+      () async {
+        const tradeId = 'trade-confirm-dtag';
+        final group = _buildCommittedGroup(tradeId: tradeId);
 
-      await reservations.confirm(group, MockKeys.escrow);
+        await reservations.confirm(group, MockKeys.escrow);
 
-      final published = Reservation.fromNostrEvent(
-        requests.broadcastedEvents.first,
-      );
-      expect(published.getDtag(), tradeId);
-    });
-
-    test('preserves all p-tags (seller, buyer, escrow) from the group',
-        () async {
-      final group = _buildCommittedGroup(
-        tradeId: 'trade-confirm-ptags',
-        includeEscrow: true,
-      );
-
-      await reservations.confirm(group, MockKeys.escrow);
-
-      final published = Reservation.fromNostrEvent(
-        requests.broadcastedEvents.first,
-      );
-      expect(
-        published.parsedTags.getTagValueByMarker('p', 'seller'),
-        MockKeys.hoster.publicKey,
-      );
-      expect(
-        published.parsedTags.getTagValueByMarker('p', 'buyer'),
-        MockKeys.guest.publicKey,
-      );
-      expect(
-        published.parsedTags.getTagValueByMarker('p', 'escrow'),
-        MockKeys.escrow.publicKey,
-      );
-    });
+        final published = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
+        expect(published.getDtag(), tradeId);
+      },
+    );
 
     test(
-        'records a confirm transition (fromStage=commit, toStage=commit, type=confirm)',
-        () async {
-      final group = _buildCommittedGroup(tradeId: 'trade-confirm-trans');
+      'preserves all p-tags (seller, buyer, escrow) from the group',
+      () async {
+        final group = _buildCommittedGroup(
+          tradeId: 'trade-confirm-ptags',
+          includeEscrow: true,
+        );
 
-      await reservations.confirm(group, MockKeys.escrow);
+        await reservations.confirm(group, MockKeys.escrow);
 
-      expect(transitions.recorded, hasLength(1));
-      final t = transitions.recorded.first;
-      expect(t.type, ReservationTransitionType.confirm);
-      expect(t.from, ReservationStage.commit);
-      expect(t.to, ReservationStage.commit);
-    });
+        final published = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
+        expect(
+          published.parsedTags.getTagValueByMarker('p', 'seller'),
+          MockKeys.hoster.publicKey,
+        );
+        expect(
+          published.parsedTags.getTagValueByMarker('p', 'buyer'),
+          MockKeys.guest.publicKey,
+        );
+        expect(
+          published.parsedTags.getTagValueByMarker('p', 'escrow'),
+          MockKeys.escrow.publicKey,
+        );
+      },
+    );
+
+    test(
+      'records a confirm transition (fromStage=commit, toStage=commit, type=confirm)',
+      () async {
+        final group = _buildCommittedGroup(tradeId: 'trade-confirm-trans');
+
+        await reservations.confirm(group, MockKeys.escrow);
+
+        expect(transitions.recorded, hasLength(1));
+        final t = transitions.recorded.first;
+        expect(t.type, ReservationTransitionType.confirm);
+        expect(t.from, ReservationStage.commit);
+        expect(t.to, ReservationStage.commit);
+      },
+    );
 
     test('sets the published reservation pubkey to the signer', () async {
       final group = _buildCommittedGroup(tradeId: 'trade-confirm-signer');
@@ -465,47 +478,49 @@ void main() {
       );
     });
 
-    test('p-tags for cancel and confirm are identical for the same group',
-        () async {
-      final group = _buildCommittedGroup(
-        tradeId: 'trade-ptags-compare',
-        includeEscrow: true,
-      );
+    test(
+      'p-tags for cancel and confirm are identical for the same group',
+      () async {
+        final group = _buildCommittedGroup(
+          tradeId: 'trade-ptags-compare',
+          includeEscrow: true,
+        );
 
-      // Confirm
-      await reservations.confirm(group, MockKeys.escrow);
-      final confirmPublished = Reservation.fromNostrEvent(
-        requests.broadcastedEvents.first,
-      );
+        // Confirm
+        await reservations.confirm(group, MockKeys.escrow);
+        final confirmPublished = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
 
-      requests.broadcastedEvents.clear();
-      transitions.recorded.clear();
+        requests.broadcastedEvents.clear();
+        transitions.recorded.clear();
 
-      // Re-create a fresh committed group
-      final group2 = _buildCommittedGroup(
-        tradeId: 'trade-ptags-compare2',
-        includeEscrow: true,
-      );
+        // Re-create a fresh committed group
+        final group2 = _buildCommittedGroup(
+          tradeId: 'trade-ptags-compare2',
+          includeEscrow: true,
+        );
 
-      // Cancel
-      await reservations.cancel(group2, MockKeys.escrow);
-      final cancelPublished = Reservation.fromNostrEvent(
-        requests.broadcastedEvents.first,
-      );
+        // Cancel
+        await reservations.cancel(group2, MockKeys.escrow);
+        final cancelPublished = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
 
-      // Both should have the same p-tag structure
-      expect(
-        confirmPublished.parsedTags.getTagValueByMarker('p', 'seller'),
-        cancelPublished.parsedTags.getTagValueByMarker('p', 'seller'),
-      );
-      expect(
-        confirmPublished.parsedTags.getTagValueByMarker('p', 'buyer'),
-        cancelPublished.parsedTags.getTagValueByMarker('p', 'buyer'),
-      );
-      expect(
-        confirmPublished.parsedTags.getTagValueByMarker('p', 'escrow'),
-        cancelPublished.parsedTags.getTagValueByMarker('p', 'escrow'),
-      );
-    });
+        // Both should have the same p-tag structure
+        expect(
+          confirmPublished.parsedTags.getTagValueByMarker('p', 'seller'),
+          cancelPublished.parsedTags.getTagValueByMarker('p', 'seller'),
+        );
+        expect(
+          confirmPublished.parsedTags.getTagValueByMarker('p', 'buyer'),
+          cancelPublished.parsedTags.getTagValueByMarker('p', 'buyer'),
+        );
+        expect(
+          confirmPublished.parsedTags.getTagValueByMarker('p', 'escrow'),
+          cancelPublished.parsedTags.getTagValueByMarker('p', 'escrow'),
+        );
+      },
+    );
   });
 }

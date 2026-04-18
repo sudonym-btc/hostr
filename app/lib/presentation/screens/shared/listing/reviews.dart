@@ -1,47 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
-
-StreamWithStatus<Validation<Review>> subscribeVerifiedListingReviews(
-  String listingAnchor,
-) {
-  return getIt<Hostr>().reviews.queryVerified(
-    filter: Filter(
-      tags: {
-        kListingRefTag: [listingAnchor],
-      },
-    ),
-  );
-}
-
-Stream<int> buildReviewCountStream(
-  StreamWithStatus<Validation<Review>> reviewsStream,
-) {
-  return reviewsStream.itemsStream.map(
-    (items) => items.whereType<Valid<Review>>().length,
-  );
-}
-
-Stream<double> buildAverageReviewRatingStream(
-  StreamWithStatus<Validation<Review>> reviewsStream,
-) {
-  return reviewsStream.itemsStream.map((items) {
-    final reviews = items
-        .whereType<Valid<Review>>()
-        .map((validation) => validation.event)
-        .toList();
-    if (reviews.isEmpty) {
-      return 0.0;
-    }
-
-    final total = reviews.fold<double>(0, (sum, review) => sum + review.rating);
-    return total / reviews.length;
-  });
-}
+import 'package:rxdart/rxdart.dart';
 
 class ListingReviewsList extends StatelessWidget {
   final StreamWithStatus<Validation<Review>> reviewsStream;
@@ -57,11 +19,23 @@ class ListingReviewsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Validation<Review>>>(
-      stream: itemsStream ?? reviewsStream.itemsStream,
+    // Combine items + status so the builder re-runs whenever either changes.
+    final combinedStream =
+        Rx.combineLatest2<
+          List<Validation<Review>>,
+          StreamStatus,
+          (List<Validation<Review>>, StreamStatus)
+        >(
+          itemsStream ?? reviewsStream.itemsStream,
+          reviewsStream.status,
+          (items, status) => (items, status),
+        );
+
+    return StreamBuilder<(List<Validation<Review>>, StreamStatus)>(
+      stream: combinedStream,
       builder: (context, snapshot) {
-        final items = snapshot.data ?? [];
-        final reviewsStatus = reviewsStream.status.value;
+        final items = snapshot.data?.$1 ?? [];
+        final reviewsStatus = snapshot.data?.$2 ?? reviewsStream.status.value;
         final reviewsLoading =
             reviewsStatus is StreamStatusIdle ||
             reviewsStatus is StreamStatusQuerying;

@@ -17,6 +17,7 @@ class StagingConfig extends Config {
     otlpEndpoint: env.telemetryEndpoint.isNotEmpty
         ? env.telemetryEndpoint
         : null,
+    gcpProjectId: env.gcpProjectId.isNotEmpty ? env.gcpProjectId : null,
   );
 
   @override

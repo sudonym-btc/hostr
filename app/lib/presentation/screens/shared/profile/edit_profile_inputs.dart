@@ -96,7 +96,7 @@ class _Nip05InputState extends State<Nip05Input> {
           ),
         ),
         Gap.vertical.xs(),
-        Nip05StatusRow(
+        Nip05Badges(
           result: _verification.nip05Result,
           loading: _verification.nip05Loading,
         ),
@@ -191,7 +191,7 @@ class _LnurlInputState extends State<LnurlInput> {
           ),
         ),
         Gap.vertical.xs(),
-        Lud16StatusRow(
+        Lud16Badges(
           result: _verification.lud16Result,
           loading: _verification.lud16Loading,
         ),

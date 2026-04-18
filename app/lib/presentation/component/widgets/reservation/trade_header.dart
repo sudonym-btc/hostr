@@ -100,19 +100,6 @@ class TradeHeaderView extends StatelessWidget {
 
   Widget _buildSummary(BuildContext context, {required bool showImages}) {
     final theme = Theme.of(context);
-    final availabilityBanner = _buildAvailabilityBanner(context);
-    final paymentStatusChip = StreamBuilder<PaymentEvent>(
-      stream: paymentEventsStream.replayStream,
-      builder: (context, snapshot) {
-        final event = snapshot.data;
-        if (event != null) {
-          return PaymentStatusChip(state: event);
-        } else {
-          return const SizedBox.shrink();
-        }
-      },
-    );
-    final statusBanners = [paymentStatusChip, ?availabilityBanner];
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -179,14 +166,31 @@ class TradeHeaderView extends StatelessWidget {
                     );
                   },
                 ),
-                if (statusBanners.isNotEmpty)
-                  SizedBox(height: compact ? kSpace1 : kSpace2),
-                if (statusBanners.isNotEmpty)
-                  Wrap(
-                    spacing: kSpace2,
-                    runSpacing: kSpace2,
-                    children: statusBanners,
-                  ),
+                StreamBuilder<PaymentEvent>(
+                  stream: paymentEventsStream.replayStream,
+                  builder: (context, snapshot) {
+                    final paymentChip = snapshot.data != null
+                        ? PaymentStatusChip(state: snapshot.data!)
+                        : null;
+                    final availabilityBanner = _buildAvailabilityBanner(
+                      context,
+                    );
+                    final chips = [?paymentChip, ?availabilityBanner];
+                    if (chips.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(height: compact ? kSpace1 : kSpace2),
+                        Wrap(
+                          spacing: kSpace2,
+                          runSpacing: kSpace2,
+                          children: chips,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
           ),

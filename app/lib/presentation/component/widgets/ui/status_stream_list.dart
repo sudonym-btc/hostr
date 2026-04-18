@@ -3,6 +3,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:rxdart/rxdart.dart';
 
 import 'emty_results.dart';
 
@@ -72,19 +73,26 @@ class StatusStreamListWidget<T> extends StatefulWidget {
 class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: widget.stream.itemsStream,
-      builder: (context, _) {
-        // The stream holds a single accumulated list as its latest item.
-        final items = List<T>.of(
-          widget.stream.items.isNotEmpty ? widget.stream.items.last : [],
+    // Combine items + status so the builder re-runs whenever either changes.
+    final combinedStream =
+        Rx.combineLatest2<List<T>, StreamStatus, (List<T>, StreamStatus)>(
+          widget.stream.replayStream,
+          widget.stream.status,
+          (items, status) => (items, status),
         );
+
+    return StreamBuilder(
+      stream: combinedStream,
+      builder: (context, snapshot) {
+        // The stream holds a single accumulated list as its latest item.
+        final items = List<T>.of(snapshot.data?.$1 ?? []);
+        final status = snapshot.data?.$2 ?? widget.stream.status.value;
         if (widget.sort != null) {
           items.sort(widget.sort);
         }
 
         // Only show centered loading if we have no results yet
-        if (widget.stream.status.value is! StreamStatusLive) {
+        if (status is! StreamStatusLive) {
           return const Center(child: AppLoadingIndicator.large());
         }
 

@@ -81,6 +81,10 @@ class Trade extends Cubit<TradeState> {
 
   final List<StreamSubscription> _subscriptions = [];
   StreamSubscription? _combineSubscription;
+  // accumulateByKey children — stored so they can be closed in close().
+  StreamWithStatus<List<Validation<ReservationGroup>>>? _ownReservationsList$;
+  StreamWithStatus<List<Validation<ReservationGroup>>>?
+  _allListingReservationsList$;
   Listing? _listing;
   ProfileMetadata? _hostProfile;
   bool _bootstrapped = false;
@@ -201,16 +205,14 @@ class Trade extends Cubit<TradeState> {
 
     _combineSubscription =
         Rx.combineLatest6(
-          reservationGroup$.itemsStream,
+          (_ownReservationsList$ = reservationGroup$.accumulateByKey(
+            (g) => g.event.groupId,
+          )).replayStream,
           payments$.itemsStream,
           transitions$.itemsStream,
-          allListingReservations$!
-              .accumulateByKey((g) => g.event.groupId)
-              .itemsStream
-              .map(
-                (snapshots) =>
-                    snapshots.lastOrNull ?? <Validation<ReservationGroup>>[],
-              ),
+          (_allListingReservationsList$ = allListingReservations$!
+                  .accumulateByKey((g) => g.event.groupId))
+              .replayStream,
           threadState$,
           myReviews$.itemsStream,
           (
@@ -592,6 +594,8 @@ class Trade extends Cubit<TradeState> {
       await sub.cancel();
     }
     if (_bootstrapped) {
+      await _ownReservationsList$?.close();
+      await _allListingReservationsList$?.close();
       await allListingReservations$?.close();
       await reservationGroup$.close();
       await payments$.close();

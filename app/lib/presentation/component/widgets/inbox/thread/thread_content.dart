@@ -121,7 +121,7 @@ class _ThreadContentState extends State<ThreadContent> {
               builder: (context, snapshot) {
                 final state = snapshot.data!;
                 final prevLength = _prevEventCount;
-                final currentLength = state.sortedEvents.length;
+                final currentLength = state.events.length;
                 if (currentLength > prevLength) {
                   _scrollToBottom();
                   thread.markAsRead();

@@ -15,9 +15,6 @@ class ThreadState {
   /// Maps pubkey → highest `seen_until` timestamp from their kind:16 receipts.
   final Map<String, int> seenUntil;
 
-  /// Cached sorted copy of [events], recomputed only when events change.
-  final List<Event> sortedEvents;
-
   /// Cached set of all pubkeys that appear in events.
   final List<String> participantPubkeys;
 
@@ -86,8 +83,8 @@ class ThreadState {
   Reservation get lastReservationRequest => reservationRequests.last;
 
   Event? get getLatestEvent {
-    if (sortedEvents.isEmpty) return null;
-    return sortedEvents.last;
+    if (events.isEmpty) return null;
+    return events.last;
   }
 
   Event getLastEventOrReservationRequest() {
@@ -113,12 +110,6 @@ class ThreadState {
     return latest?.pubKey == ourPubkey;
   }
 
-  static List<Event> _computeSortedEvents(List<Event> events) {
-    final evts = [...events];
-    evts.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return evts;
-  }
-
   ThreadState({
     required this.ourPubkey,
     required this.anchor,
@@ -126,9 +117,8 @@ class ThreadState {
     required this.counterpartyPubkeys,
     this.received = false,
     this.seenUntil = const {},
-    List<Event>? sortedEvents,
     required this.participantPubkeys,
-  }) : sortedEvents = sortedEvents ?? _computeSortedEvents(events);
+  });
 
   factory ThreadState.initial({
     required String ourPubkey,
@@ -141,7 +131,6 @@ class ThreadState {
       counterpartyPubkeys: [],
       received: false,
       seenUntil: const {},
-      sortedEvents: const [],
       participantPubkeys: const [],
     );
   }
@@ -153,16 +142,13 @@ class ThreadState {
     bool? received,
     Map<String, int>? seenUntil,
   }) {
-    final newEvents = events ?? this.events;
-    final eventsChanged = !identical(newEvents, this.events);
     return ThreadState(
       ourPubkey: ourPubkey,
       anchor: anchor,
-      events: newEvents,
+      events: events ?? this.events,
       counterpartyPubkeys: counterpartyPubkeys ?? this.counterpartyPubkeys,
       received: received ?? this.received,
       seenUntil: seenUntil ?? this.seenUntil,
-      sortedEvents: eventsChanged ? null : sortedEvents,
       participantPubkeys: participantPubkeys ?? this.participantPubkeys,
     );
   }

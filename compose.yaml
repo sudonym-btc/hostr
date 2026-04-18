@@ -15,17 +15,6 @@
 #   docker compose -f compose.yaml -f compose.hosted.yaml up
 
 services:
-  tls-init:
-    image: alpine:3.20
-    volumes:
-      - ./docker/certs:/certs
-      - ./docker/tls/ca:/ca
-      - ./docker/tls:/scripts:ro
-    environment:
-      - DOMAIN=${DOMAIN}
-    entrypoint: ["sh", "/scripts/generate-dev-certs.sh"]
-    restart: "no"
-
   anvil:
     image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:latest}
     networks:
@@ -33,9 +22,6 @@ services:
 
   nginx-proxy:
     image: jwilder/nginx-proxy
-    depends_on:
-      tls-init:
-        condition: service_completed_successfully
     ports:
       - 80:80
       - 443:443

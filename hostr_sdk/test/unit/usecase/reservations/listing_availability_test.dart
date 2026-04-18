@@ -65,6 +65,7 @@ void main() {
         auth: FakeAuth(),
         transitions: FakeTransitions(),
         listings: Listings(requests: relay, logger: CustomLogger()),
+        relays: FakeRelays(),
       );
       listing = _fixtureListing();
       start = DateTime(2026, 2, 1);

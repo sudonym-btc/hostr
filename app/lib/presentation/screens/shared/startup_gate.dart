@@ -222,7 +222,6 @@ class _SplashProgressView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = state.currentStep.label;
-    final key = state.currentStep.name;
 
     return Center(
       child: Column(
@@ -248,7 +247,7 @@ class _StepIndicator extends StatelessWidget {
   final String label;
   final ThemeData theme;
 
-  const _StepIndicator({super.key, required this.label, required this.theme});
+  const _StepIndicator({required this.label, required this.theme});
 
   @override
   Widget build(BuildContext context) {

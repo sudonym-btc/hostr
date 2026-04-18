@@ -7,6 +7,9 @@ library;
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
+import 'package:hostr_sdk/usecase/messaging/thread.dart';
+import 'package:hostr_sdk/usecase/messaging/threads.dart';
+import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -61,3 +64,15 @@ class FakeListings extends Fake implements Listings {}
 
 /// No-op fake for [Ndk].
 class FakeNdk extends Fake implements Ndk {}
+
+/// No-op fake for [Relays].
+class FakeRelays extends Fake implements Relays {
+  @override
+  Future<String> relayHintFor(String pubkey) async => '';
+}
+
+/// No-op fake for [Threads] — reports no in-memory threads.
+class FakeThreads extends Fake implements Threads {
+  @override
+  List<Thread> findByConversationTag(String tag) => [];
+}

@@ -56,7 +56,11 @@ class ReservationRequestActions {
         ? null
         : _lastOfferByOtherPubkey(reservationRequests, ourPubkey);
     final listingPrice = latestOffer != null
-        ? listing.cost(start: latestOffer.start, end: latestOffer.end, quantity: latestOffer.quantity)
+        ? listing.cost(
+            start: latestOffer.start,
+            end: latestOffer.end,
+            quantity: latestOffer.quantity,
+          )
         : null;
     final latestOfferSentByUs = latestOffer?.pubKey == ourPubkey;
     final latestOfferAcceptsPrevious = _isAcceptedCounterpartOffer(
@@ -90,18 +94,11 @@ class ReservationRequestActions {
             counterMin = _incrementAmount(latestAmount);
             counterMax = listingPrice;
           case TradeRole.guest:
-            final lowerBound = _maxAmount([
-              latestAmount,
-              if (lastOfferByUs?.amount != null) lastOfferByUs!.amount!,
-            ]);
-            final upperBound = _maxAmount([
-              listingPrice,
-              if (lastOfferByThem?.amount != null) lastOfferByThem!.amount!,
-            ]);
-            counterMin = lowerBound != null
-                ? _incrementAmount(lowerBound)
-                : null;
-            counterMax = upperBound;
+            // The guest is countering the host's offer: they can't offer more
+            // than the host just offered (max = host's last offer) and can't
+            // backtrack below their own previous offer (min = guest's last offer).
+            counterMin = lastOfferByUs?.amount;
+            counterMax = latestAmount;
         }
       }
     }
@@ -173,17 +170,6 @@ class ReservationRequestActions {
         denomination: amount.denomination,
         decimals: amount.decimals,
       );
-
-  static DenominatedAmount? _maxAmount(List<DenominatedAmount> amounts) {
-    if (amounts.isEmpty) return null;
-    var max = amounts.first;
-    for (final amount in amounts.skip(1)) {
-      if (amount.denomination == max.denomination && amount.value > max.value) {
-        max = amount;
-      }
-    }
-    return max;
-  }
 
   Future<void> counter() async {
     throw UnimplementedError(

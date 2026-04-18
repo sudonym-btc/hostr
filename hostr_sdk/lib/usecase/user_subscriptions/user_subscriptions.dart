@@ -103,16 +103,20 @@ class UserSubscriptions {
       StreamWithStatus();
 
   /// Accumulated deduplicated list of trips, keyed by trade ID.
-  late final StreamWithStatus<List<Validation<ReservationGroup>>> myTripsList$ =
-      myTrips$.accumulateByKey((v) => v.event.tradeId);
+  /// Long-lived stable reference; re-piped from a fresh accumulator each
+  /// login session via [_myTripsListSource].
+  final StreamWithStatus<List<Validation<ReservationGroup>>> myTripsList$ =
+      StreamWithStatus();
 
   /// Reservation groups where the current user is the **host**.
   final StreamWithStatus<Validation<ReservationGroup>> myHostings$ =
       StreamWithStatus();
 
   /// Accumulated deduplicated list of hostings, keyed by trade ID.
-  late final StreamWithStatus<List<Validation<ReservationGroup>>>
-  myHostingsList$ = myHostings$.accumulateByKey((v) => v.event.tradeId);
+  /// Long-lived stable reference; re-piped from a fresh accumulator each
+  /// login session via [_myHostingsListSource].
+  final StreamWithStatus<List<Validation<ReservationGroup>>> myHostingsList$ =
+      StreamWithStatus();
 
   /// All reservation transitions across every trade the user is in.
   late final ExpandableSubscription<ReservationTransition> allTransitions$ =
@@ -141,7 +145,9 @@ class UserSubscriptions {
   // Intermediate derived sources created in start(), held for cleanup.
   StreamWithStatus<Validation<ReservationGroup>>? _reservationGroupsSource;
   StreamWithStatus<Validation<ReservationGroup>>? _tripsSource;
+  StreamWithStatus<List<Validation<ReservationGroup>>>? _myTripsListSource;
   StreamWithStatus<Validation<ReservationGroup>>? _hostingsSource;
+  StreamWithStatus<List<Validation<ReservationGroup>>>? _myHostingsListSource;
   StreamWithStatus<Review>? _reviewsSource;
 
   /// Emits `true` once all required streams are live.
@@ -203,10 +209,15 @@ class UserSubscriptions {
       (item) => item.event.sellerPubkey != myPubkey,
     );
     myTrips$.pipeFrom(_tripsSource!);
+    _myTripsListSource = myTrips$.accumulateByKey((v) => v.event.tradeId);
+    myTripsList$.pipeFrom(_myTripsListSource!);
+
     _hostingsSource = allMyReservationGroups$.where(
       (item) => item.event.sellerPubkey == myPubkey,
     );
     myHostings$.pipeFrom(_hostingsSource!);
+    _myHostingsListSource = myHostings$.accumulateByKey((v) => v.event.tradeId);
+    myHostingsList$.pipeFrom(_myHostingsListSource!);
 
     await _transitions.startExpandable(
       allTransitions$,
@@ -245,8 +256,12 @@ class UserSubscriptions {
 
     // Close intermediate derived sources first (they subscribe to the
     // public streams, so closing them before reset avoids stale listeners).
+    await _myHostingsListSource?.close();
+    _myHostingsListSource = null;
     await _hostingsSource?.close();
     _hostingsSource = null;
+    await _myTripsListSource?.close();
+    _myTripsListSource = null;
     await _tripsSource?.close();
     _tripsSource = null;
     await _reservationGroupsSource?.close();

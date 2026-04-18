@@ -157,6 +157,7 @@ void main() {
       logger: CustomLogger(),
       auth: auth,
       tradeAccountAllocator: tradeAccountAllocator,
+      relays: FakeRelays(),
     );
 
     reservations = Reservations(
@@ -166,6 +167,7 @@ void main() {
       auth: auth,
       transitions: transitions,
       listings: FakeListings(),
+      relays: FakeRelays(),
     );
   });
 
