@@ -12,6 +12,14 @@ const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
 const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
 const bootstrapRelays = <String>[
+  'wss://relay.damus.io',
+  'wss://relay.nostr.band',
+  'wss://relay.current.fyi',
+  'wss://purplepag.es',
+  'wss://nos.lol',
+  'wss://relay.primal.net',
+  'wss://offchain.pub',
+  'wss://nostr.bitcoiner.social',
 ];
 
 const bootstrapEscrowPubkeys = <String>[
