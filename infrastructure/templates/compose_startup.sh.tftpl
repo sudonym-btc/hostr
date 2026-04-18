@@ -217,6 +217,11 @@ docker compose \
   -f compose.hosted.yaml \
   pull --ignore-buildable
 
+# Force-pull hosted registry images that --ignore-buildable may skip due to
+# merged build: keys in the base compose.yaml (e.g. escrow inherits build context).
+docker pull "${docker_registry}/app:latest"
+docker pull "${docker_registry}/escrow:latest"
+
 docker compose \
   --env-file /opt/hostr/.env.runtime \
   --profile "$${COMPOSE_PROFILE}" \
