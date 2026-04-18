@@ -49,28 +49,6 @@ services:
     environment:
       - LETSENCRYPT_HOST=app.${DOMAIN},${DOMAIN}
 
-  paymaster:
-    image: accountabstraction/bundler:0.7.0
-    command:
-      - --port
-      - "3000"
-      - --network
-      - ${EVM_CHAIN_ARBITRUM_RPC_URL}
-      - --entryPoint
-      - ${EVM_CHAIN_ARBITRUM_AA_ENTRY_POINT_ADDRESS}
-      - --unsafe
-    depends_on:
-      nginx-proxy:
-        condition: service_healthy
-    environment:
-      LETSENCRYPT_HOST: paymaster.${DOMAIN}
-    restart: unless-stopped
-    networks:
-      - default
-    profiles:
-      - staging
-      - prod
-
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.123.0
     command: ["--config=/etc/otelcol/config.yaml"]
