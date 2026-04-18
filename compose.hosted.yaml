@@ -84,8 +84,6 @@ services:
 
   escrow:
     image: ${DOCKER_REGISTRY}/escrow:latest
-    build:
-      target: production
     depends_on:
       nginx-proxy:
         condition: service_healthy
