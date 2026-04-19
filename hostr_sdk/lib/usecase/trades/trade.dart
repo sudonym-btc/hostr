@@ -126,7 +126,7 @@ class Trade extends Cubit<TradeState> {
        super(const TradeInitialising()) {
     _logger.d('Payment events: ${userSubscriptions.paymentEvents$.items}');
     userSubscriptions.paymentEvents$.replayStream.listen((event) {
-      _logger.d('${event.tradeId} ${tradeId} payment event: ${event} (})');
+      _logger.d('${event.tradeId} $tradeId payment event: $event');
     });
     _subscriptions.add(
       Rx.combineLatest3(
@@ -338,8 +338,7 @@ class Trade extends Cubit<TradeState> {
 
       // Commit actions: cancel, refund, claim, messageEscrow.
       final allTradeReservations = ownReservations
-          .whereType<Valid<ReservationGroup>>()
-          .expand((v) => v.event.reservations)
+          .expand((validation) => validation.event.reservations)
           .toList();
 
       final validTradeReservations = ownReservations

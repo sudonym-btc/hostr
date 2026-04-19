@@ -1143,6 +1143,540 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =0{0 stays} =1{1 stay} other{{count} stays}}'**
   String stayCount(int count);
+
+  /// No description provided for @specificationAirconditioning.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Air conditioning} =1{Air conditioning} other{Air conditioning}}'**
+  String specificationAirconditioning(num count);
+
+  /// No description provided for @specificationAllowsPets.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Pets allowed} =1{Pets allowed} other{Pets allowed}}'**
+  String specificationAllowsPets(num count);
+
+  /// No description provided for @specificationBathrooms.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Bathrooms} =1{1 bathroom} other{{count} bathrooms}}'**
+  String specificationBathrooms(num count);
+
+  /// No description provided for @specificationBathtub.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Bathtubs} =1{1 bathtub} other{{count} bathtubs}}'**
+  String specificationBathtub(num count);
+
+  /// No description provided for @specificationBeds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Beds} =1{1 bed} other{{count} beds}}'**
+  String specificationBeds(num count);
+
+  /// No description provided for @specificationBedrooms.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Bedrooms} =1{1 bedroom} other{{count} bedrooms}}'**
+  String specificationBedrooms(num count);
+
+  /// No description provided for @specificationMaxGuests.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Max guests} =1{1 guest max} other{{count} guests max}}'**
+  String specificationMaxGuests(num count);
+
+  /// No description provided for @specificationTv.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{TV} =1{1 TV} other{{count} TVs}}'**
+  String specificationTv(num count);
+
+  /// No description provided for @specificationCrib.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Crib} =1{Crib} other{Cribs}}'**
+  String specificationCrib(num count);
+
+  /// No description provided for @specificationTumbleDryer.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Tumble dryer} =1{Tumble dryer} other{Tumble dryers}}'**
+  String specificationTumbleDryer(num count);
+
+  /// No description provided for @specificationWasher.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Washer} =1{Washer} other{Washers}}'**
+  String specificationWasher(num count);
+
+  /// No description provided for @specificationElevator.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Elevator} =1{Elevator} other{Elevators}}'**
+  String specificationElevator(num count);
+
+  /// No description provided for @specificationFreeParking.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Free parking} =1{Free parking} other{Free parking}}'**
+  String specificationFreeParking(num count);
+
+  /// No description provided for @specificationGym.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Gym} =1{Gym} other{Gyms}}'**
+  String specificationGym(num count);
+
+  /// No description provided for @specificationHairDryer.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Hair dryer} =1{Hair dryer} other{Hair dryers}}'**
+  String specificationHairDryer(num count);
+
+  /// No description provided for @specificationHeating.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Heating} =1{Heating} other{Heating}}'**
+  String specificationHeating(num count);
+
+  /// No description provided for @specificationHighChair.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{High chair} =1{High chair} other{High chairs}}'**
+  String specificationHighChair(num count);
+
+  /// No description provided for @specificationWirelessInternet.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Wi-Fi} =1{Wi-Fi} other{Wi-Fi}}'**
+  String specificationWirelessInternet(num count);
+
+  /// No description provided for @specificationIron.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Iron} =1{Iron} other{Irons}}'**
+  String specificationIron(num count);
+
+  /// No description provided for @specificationJacuzzi.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Jacuzzi} =1{Jacuzzi} other{Jacuzzis}}'**
+  String specificationJacuzzi(num count);
+
+  /// No description provided for @specificationKitchen.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Kitchen} =1{Kitchen} other{Kitchens}}'**
+  String specificationKitchen(num count);
+
+  /// No description provided for @specificationOutletCovers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Outlet covers} =1{Outlet cover} other{Outlet covers}}'**
+  String specificationOutletCovers(num count);
+
+  /// No description provided for @specificationPool.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Pool} =1{Pool} other{Pools}}'**
+  String specificationPool(num count);
+
+  /// No description provided for @specificationPrivateEntrance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Private entrance} =1{Private entrance} other{Private entrances}}'**
+  String specificationPrivateEntrance(num count);
+
+  /// No description provided for @specificationSmokingAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Smoking allowed} =1{Smoking allowed} other{Smoking allowed}}'**
+  String specificationSmokingAllowed(num count);
+
+  /// No description provided for @specificationBreakfast.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Breakfast} =1{Breakfast} other{Breakfast}}'**
+  String specificationBreakfast(num count);
+
+  /// No description provided for @specificationFireplace.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Fireplace} =1{Fireplace} other{Fireplaces}}'**
+  String specificationFireplace(num count);
+
+  /// No description provided for @specificationSmokeDetector.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Smoke detector} =1{Smoke detector} other{Smoke detectors}}'**
+  String specificationSmokeDetector(num count);
+
+  /// No description provided for @specificationEssentials.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Essentials} =1{Essentials} other{Essentials}}'**
+  String specificationEssentials(num count);
+
+  /// No description provided for @specificationShampoo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Shampoo} =1{Shampoo} other{Shampoo}}'**
+  String specificationShampoo(num count);
+
+  /// No description provided for @specificationInfantsAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Infants allowed} =1{Infants allowed} other{Infants allowed}}'**
+  String specificationInfantsAllowed(num count);
+
+  /// No description provided for @specificationChildrenAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Children allowed} =1{Children allowed} other{Children allowed}}'**
+  String specificationChildrenAllowed(num count);
+
+  /// No description provided for @specificationHangers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Hangers} =1{Hanger} other{Hangers}}'**
+  String specificationHangers(num count);
+
+  /// No description provided for @specificationFlatSmoothPathwayToFrontDoor.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Flat, smooth pathway to front door} =1{Flat, smooth pathway to front door} other{Flat, smooth pathways to front door}}'**
+  String specificationFlatSmoothPathwayToFrontDoor(num count);
+
+  /// No description provided for @specificationGrabRailsInShowerAndToilet.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Grab rails in shower and toilet} =1{Grab rail in shower and toilet} other{Grab rails in shower and toilet}}'**
+  String specificationGrabRailsInShowerAndToilet(num count);
+
+  /// No description provided for @specificationOven.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Oven} =1{Oven} other{Ovens}}'**
+  String specificationOven(num count);
+
+  /// No description provided for @specificationBbq.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{BBQ} =1{BBQ} other{BBQs}}'**
+  String specificationBbq(num count);
+
+  /// No description provided for @specificationBalcony.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Balcony} =1{Balcony} other{Balconies}}'**
+  String specificationBalcony(num count);
+
+  /// No description provided for @specificationPatio.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Patio} =1{Patio} other{Patios}}'**
+  String specificationPatio(num count);
+
+  /// No description provided for @specificationDishwasher.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Dishwasher} =1{Dishwasher} other{Dishwashers}}'**
+  String specificationDishwasher(num count);
+
+  /// No description provided for @specificationRefrigerator.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Refrigerator} =1{Refrigerator} other{Refrigerators}}'**
+  String specificationRefrigerator(num count);
+
+  /// No description provided for @specificationGardenOrBackyard.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Garden or backyard} =1{Garden or backyard} other{Gardens or backyards}}'**
+  String specificationGardenOrBackyard(num count);
+
+  /// No description provided for @specificationMicrowave.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Microwave} =1{Microwave} other{Microwaves}}'**
+  String specificationMicrowave(num count);
+
+  /// No description provided for @specificationCoffeeMaker.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Coffee maker} =1{Coffee maker} other{Coffee makers}}'**
+  String specificationCoffeeMaker(num count);
+
+  /// No description provided for @specificationDishesAndSilverware.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Dishes and silverware} =1{Dishes and silverware} other{Dishes and silverware}}'**
+  String specificationDishesAndSilverware(num count);
+
+  /// No description provided for @specificationStove.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Stove} =1{Stove} other{Stoves}}'**
+  String specificationStove(num count);
+
+  /// No description provided for @specificationFireExtinguisher.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Fire extinguisher} =1{Fire extinguisher} other{Fire extinguishers}}'**
+  String specificationFireExtinguisher(num count);
+
+  /// No description provided for @specificationCarbonMonoxideDetector.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Carbon monoxide detector} =1{Carbon monoxide detector} other{Carbon monoxide detectors}}'**
+  String specificationCarbonMonoxideDetector(num count);
+
+  /// No description provided for @specificationLuggageDropoffAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Luggage drop-off allowed} =1{Luggage drop-off allowed} other{Luggage drop-off allowed}}'**
+  String specificationLuggageDropoffAllowed(num count);
+
+  /// No description provided for @specificationBeachEssentials.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Beach essentials} =1{Beach essentials} other{Beach essentials}}'**
+  String specificationBeachEssentials(num count);
+
+  /// No description provided for @specificationBeachfront.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Beachfront} =1{Beachfront} other{Beachfront}}'**
+  String specificationBeachfront(num count);
+
+  /// No description provided for @specificationBabyMonitor.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Baby monitor} =1{Baby monitor} other{Baby monitors}}'**
+  String specificationBabyMonitor(num count);
+
+  /// No description provided for @specificationBabysitterRecommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Babysitter recommendations} =1{Babysitter recommendation} other{Babysitter recommendations}}'**
+  String specificationBabysitterRecommendations(num count);
+
+  /// No description provided for @specificationChildrensBooksAndToys.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Children\'s books and toys} =1{Children\'s book and toy} other{Children\'s books and toys}}'**
+  String specificationChildrensBooksAndToys(num count);
+
+  /// No description provided for @specificationGameConsole.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Game console} =1{Game console} other{Game consoles}}'**
+  String specificationGameConsole(num count);
+
+  /// No description provided for @specificationStreetParking.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Street parking} =1{Street parking} other{Street parking}}'**
+  String specificationStreetParking(num count);
+
+  /// No description provided for @specificationPaidParking.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Paid parking} =1{Paid parking} other{Paid parking}}'**
+  String specificationPaidParking(num count);
+
+  /// No description provided for @specificationHotWater.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Hot water} =1{Hot water} other{Hot water}}'**
+  String specificationHotWater(num count);
+
+  /// No description provided for @specificationLakeAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Lake access} =1{Lake access} other{Lake access}}'**
+  String specificationLakeAccess(num count);
+
+  /// No description provided for @specificationSingleLevelHome.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Single-level home} =1{Single-level home} other{Single-level homes}}'**
+  String specificationSingleLevelHome(num count);
+
+  /// No description provided for @specificationWaterfront.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Waterfront} =1{Waterfront} other{Waterfront}}'**
+  String specificationWaterfront(num count);
+
+  /// No description provided for @specificationFirstAidKit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{First aid kit} =1{First aid kit} other{First aid kits}}'**
+  String specificationFirstAidKit(num count);
+
+  /// No description provided for @specificationHandheldShowerHead.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Handheld shower head} =1{Handheld shower head} other{Handheld shower heads}}'**
+  String specificationHandheldShowerHead(num count);
+
+  /// No description provided for @specificationHomeStepFreeAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Step-free home access} =1{Step-free home access} other{Step-free home access}}'**
+  String specificationHomeStepFreeAccess(num count);
+
+  /// No description provided for @specificationLockOnBedroomDoor.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Lock on bedroom door} =1{Lock on bedroom door} other{Locks on bedroom doors}}'**
+  String specificationLockOnBedroomDoor(num count);
+
+  /// No description provided for @specificationMobileHoist.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Mobile hoist} =1{Mobile hoist} other{Mobile hoists}}'**
+  String specificationMobileHoist(num count);
+
+  /// No description provided for @specificationPathToEntranceLitAtNight.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Path to entrance lit at night} =1{Path to entrance lit at night} other{Paths to entrance lit at night}}'**
+  String specificationPathToEntranceLitAtNight(num count);
+
+  /// No description provided for @specificationPoolHoist.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Pool hoist} =1{Pool hoist} other{Pool hoists}}'**
+  String specificationPoolHoist(num count);
+
+  /// No description provided for @specificationEvCharger.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{EV charger} =1{EV charger} other{EV chargers}}'**
+  String specificationEvCharger(num count);
+
+  /// No description provided for @specificationRollinShower.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Roll-in shower} =1{Roll-in shower} other{Roll-in showers}}'**
+  String specificationRollinShower(num count);
+
+  /// No description provided for @specificationShowerChair.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Shower chair} =1{Shower chair} other{Shower chairs}}'**
+  String specificationShowerChair(num count);
+
+  /// No description provided for @specificationTubWithShowerBench.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Tub with shower bench} =1{Tub with shower bench} other{Tubs with shower benches}}'**
+  String specificationTubWithShowerBench(num count);
+
+  /// No description provided for @specificationWideClearanceToBed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Wide clearance to bed} =1{Wide clearance to bed} other{Wide clearances to beds}}'**
+  String specificationWideClearanceToBed(num count);
+
+  /// No description provided for @specificationWideClearanceToShowerAndToilet.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Wide clearance to shower and toilet} =1{Wide clearance to shower and toilet} other{Wide clearances to showers and toilets}}'**
+  String specificationWideClearanceToShowerAndToilet(num count);
+
+  /// No description provided for @specificationWideHallwayClearance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Wide hallway clearance} =1{Wide hallway clearance} other{Wide hallway clearances}}'**
+  String specificationWideHallwayClearance(num count);
+
+  /// No description provided for @specificationBabyBath.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Baby bath} =1{Baby bath} other{Baby baths}}'**
+  String specificationBabyBath(num count);
+
+  /// No description provided for @specificationChangingTable.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Changing table} =1{Changing table} other{Changing tables}}'**
+  String specificationChangingTable(num count);
+
+  /// No description provided for @specificationRoomDarkeningShades.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Room-darkening shades} =1{Room-darkening shade} other{Room-darkening shades}}'**
+  String specificationRoomDarkeningShades(num count);
+
+  /// No description provided for @specificationStairGates.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Stair gates} =1{Stair gate} other{Stair gates}}'**
+  String specificationStairGates(num count);
+
+  /// No description provided for @specificationTableCornerGuards.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Table corner guards} =1{Table corner guard} other{Table corner guards}}'**
+  String specificationTableCornerGuards(num count);
+
+  /// No description provided for @specificationExtraPillowsAndBlankets.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Extra pillows and blankets} =1{Extra pillow and blanket} other{Extra pillows and blankets}}'**
+  String specificationExtraPillowsAndBlankets(num count);
+
+  /// No description provided for @specificationSkiInSkiOut.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Ski-in/ski-out} =1{Ski-in/ski-out} other{Ski-in/ski-out}}'**
+  String specificationSkiInSkiOut(num count);
+
+  /// No description provided for @specificationWindowGuards.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Window guards} =1{Window guard} other{Window guards}}'**
+  String specificationWindowGuards(num count);
+
+  /// No description provided for @specificationDisabledParkingSpot.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Disabled parking spot} =1{Disabled parking spot} other{Disabled parking spots}}'**
+  String specificationDisabledParkingSpot(num count);
+
+  /// No description provided for @specificationGrabRailsInToilet.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Grab rails in toilet} =1{Grab rail in toilet} other{Grab rails in toilet}}'**
+  String specificationGrabRailsInToilet(num count);
+
+  /// No description provided for @specificationEventsAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Events allowed} =1{Events allowed} other{Events allowed}}'**
+  String specificationEventsAllowed(num count);
+
+  /// No description provided for @specificationCommonSpacesShared.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Shared common spaces} =1{Shared common space} other{Shared common spaces}}'**
+  String specificationCommonSpacesShared(num count);
+
+  /// No description provided for @specificationBathroomShared.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Shared bathroom} =1{Shared bathroom} other{Shared bathrooms}}'**
+  String specificationBathroomShared(num count);
+
+  /// No description provided for @specificationSecurityCameras.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Security cameras} =1{Security camera} other{Security cameras}}'**
+  String specificationSecurityCameras(num count);
 }
 
 class _AppLocalizationsDelegate

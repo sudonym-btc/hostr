@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,11 +12,8 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 /// The startup gate shell.
 ///
-/// Wraps the main app content and blocks rendering until the bootstrap
-/// sequence completes (relay connect, metadata sync, etc.). On cold start
-/// it runs automatically. After sign-in it detects the auth state transition
-/// to [LoggedIn] and re-runs the bootstrap, showing the splash again while
-/// syncing.
+/// Wraps the main app content and blocks rendering until Hostr's startup
+/// coordinator reports that the active public/user startup profile is ready.
 @RoutePage()
 class StartupShellScreen extends StatefulWidget {
   const StartupShellScreen({super.key});
@@ -29,35 +24,15 @@ class StartupShellScreen extends StatefulWidget {
 
 class _StartupShellScreenState extends State<StartupShellScreen> {
   late final StartupGateCubit _gateCubit;
-  late final StreamSubscription<AuthState> _authSub;
-  AuthState? _prevAuthState;
 
   @override
   void initState() {
     super.initState();
-    _gateCubit = StartupGateCubit(hostr: getIt<Hostr>())..run();
-
-    // Re-gate only on a genuine logout → login transition (i.e. sign-in),
-    // not on the initial emission.
-    _authSub = getIt<Hostr>().auth.authState.listen((authState) {
-      final prev = _prevAuthState;
-      _prevAuthState = authState;
-
-      final isNewLogin =
-          authState == const LoggedIn() &&
-          prev != null &&
-          prev != const LoggedIn();
-
-      if (isNewLogin && _gateCubit.state is! StartupGateInProgress) {
-        _gateCubit.reset();
-        _gateCubit.run();
-      }
-    });
+    _gateCubit = StartupGateCubit(startup: getIt<Hostr>().startup);
   }
 
   @override
   void dispose() {
-    _authSub.cancel();
     _gateCubit.close();
     super.dispose();
   }
@@ -181,19 +156,18 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
               key: const ValueKey('error'),
               message: message,
               onRetry: () {
-                context.read<StartupGateCubit>().reset();
-                context.read<StartupGateCubit>().run();
+                context.read<StartupGateCubit>().retry();
               },
             ),
             StartupGateReady() => const AutoRouter(key: ValueKey('ready')),
             StartupGateInProgress() => _SplashProgressView(
-              key: ValueKey(state.currentStep),
+              key: ValueKey(state.items),
               state: state,
             ),
             _ => _SplashProgressView(
               key: const ValueKey('initial'),
               state: const StartupGateInProgress(
-                currentStep: StartupStep.relay,
+                items: startupGateInitialItems,
               ),
             ),
           };
@@ -221,7 +195,7 @@ class _SplashProgressView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = state.currentStep.label;
+    final label = state.currentItem.label;
 
     return Center(
       child: Column(

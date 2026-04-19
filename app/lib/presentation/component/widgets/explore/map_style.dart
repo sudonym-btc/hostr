@@ -1,54 +1,12 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
-String _colorToHex(Color color) {
-  final r = (color.r * 255).round().toRadixString(16).padLeft(2, '0');
-  final g = (color.g * 255).round().toRadixString(16).padLeft(2, '0');
-  final b = (color.b * 255).round().toRadixString(16).padLeft(2, '0');
-  return '#$r$g$b';
-}
-
-String _lerpHex(Color a, Color b, double t) =>
-    _colorToHex(Color.lerp(a, b, t)!);
-
-({
-  String water,
-  String land,
-  String road,
-  String park,
-  String labelFill,
-  String labelStroke,
-  String outline,
-})
-_mapPalette(BuildContext context, bool isDarkMode) {
-  final cs = Theme.of(context).colorScheme;
-
-  if (isDarkMode) {
-    return (
-      water: _lerpHex(cs.surface, cs.surfaceContainerLowest, 1 / 6),
-      land: _colorToHex(cs.surfaceContainer),
-      road: _lerpHex(cs.surface, cs.surfaceContainerLowest, 4 / 9),
-      park: _colorToHex(cs.surfaceContainerLow),
-      labelFill: _lerpHex(cs.surface, cs.onSurface, 80 / 255),
-      labelStroke: _lerpHex(cs.surface, cs.surfaceContainerLowest, 1 / 6),
-      outline: _lerpHex(cs.surfaceBright, cs.outlineVariant, 2 / 17),
-    );
-  }
-
-  return (
-    water: _colorToHex(cs.surfaceContainerLowest),
-    land: _colorToHex(cs.surfaceContainerHighest),
-    road: _colorToHex(cs.surfaceContainerHigh),
-    park: _colorToHex(cs.surfaceContainerLow),
-    labelFill: _colorToHex(cs.onSurfaceVariant),
-    labelStroke: _colorToHex(cs.surface),
-    outline: _colorToHex(cs.outlineVariant),
-  );
-}
+import 'cloud_map_style.dart';
 
 String getMapStyle(BuildContext context, bool isDarkMode) {
-  final palette = _mapPalette(context, isDarkMode);
+  final palette = cloudMapPaletteFromTheme(
+    Theme.of(context),
+    isDarkMode: isDarkMode,
+  );
   final water = palette.water;
   final land = palette.land;
   final road = palette.road;
@@ -182,121 +140,10 @@ String getMapStyle(BuildContext context, bool isDarkMode) {
 }
 
 String getCloudMapStyle(BuildContext context, bool isDarkMode) {
-  final palette = _mapPalette(context, isDarkMode);
+  final palette = cloudMapPaletteFromTheme(
+    Theme.of(context),
+    isDarkMode: isDarkMode,
+  );
 
-  return jsonEncode({
-    'monochrome': true,
-    'variant': isDarkMode ? 'dark' : 'light',
-    'backgroundColor': palette.land,
-    'styles': [
-      {
-        'id': 'infrastructure.railwayTrack',
-        'geometry': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.roadNetwork.road',
-        'geometry': {
-          'fillColor': palette.road,
-          'strokeColor': palette.outline,
-          'strokeWidth': 1,
-        },
-        'label': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.roadNetwork.road.arterial',
-        'geometry': {'visible': false},
-        'label': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.roadNetwork.road.highway',
-        'geometry': {
-          'visible': true,
-          'fillColor': palette.road,
-          'strokeColor': palette.outline,
-          'strokeWidth': 1,
-        },
-        'label': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.roadNetwork.road.local',
-        'geometry': {'visible': false},
-        'label': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.roadNetwork.roadShield',
-        'label': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.transitStation',
-        'label': {'visible': false},
-      },
-      {
-        'id': 'infrastructure.urbanArea',
-        'geometry': {'visible': false},
-      },
-      {
-        'id': 'natural.land',
-        'geometry': {
-          'visible': true,
-          'fillOpacity': 1,
-          'fillColor': palette.land,
-        },
-      },
-      {
-        'id': 'natural.land.landCover',
-        'geometry': {'fillOpacity': 1, 'fillColor': palette.land},
-      },
-      {
-        'id': 'natural.land.landCover.ice',
-        'geometry': {
-          'visible': false,
-          'fillOpacity': 1,
-          'fillColor': palette.land,
-        },
-      },
-      {
-        'id': 'natural.water',
-        'geometry': {'fillColor': palette.water},
-        'label': {
-          'textFillColor': palette.outline,
-          'textStrokeColor': palette.water,
-        },
-      },
-      {
-        'id': 'pointOfInterest',
-        'geometry': {'fillColor': palette.road},
-        'label': {
-          'visible': false,
-          'pinFillColor': palette.outline,
-          'textFillColor': palette.labelFill,
-          'textStrokeColor': palette.water,
-        },
-      },
-      {
-        'id': 'pointOfInterest.recreation.park',
-        'geometry': {'visible': false, 'fillColor': palette.park},
-        'label': {
-          'visible': false,
-          'textFillColor': palette.labelFill,
-          'textStrokeColor': palette.park,
-        },
-      },
-      {
-        'id': 'political',
-        'geometry': {'fillColor': palette.water},
-        'label': {
-          'textFillColor': palette.labelFill,
-          'textStrokeColor': palette.water,
-        },
-      },
-      {
-        'id': 'political.border',
-        'geometry': {'visible': false},
-      },
-      {
-        'id': 'political.landParcel',
-        'geometry': {'visible': false},
-      },
-    ],
-  });
+  return encodeCloudMapStyle(isDarkMode: isDarkMode, palette: palette);
 }

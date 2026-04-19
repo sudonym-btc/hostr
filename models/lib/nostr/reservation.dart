@@ -53,6 +53,19 @@ class ReservationTags extends EventTags
   ReservationTags(super.tags);
 }
 
+// TODO(protocol): Add encrypted buyer-contact capsules for public reservations.
+// Public reservations should be able to expose a trade-scoped buyer pubkey while
+// hiding the buyer's real DM pubkey from public observers. Proposal:
+// - Keep role-marked participant tags for seller, escrow, and buyer alias.
+// - Add one encrypted contact tag per authorized recipient, e.g. seller and
+//   escrow, encrypted with NIP-44 or the app's current DM encryption primitive.
+// - Capsule payload should include trade id, listing anchor, buyer alias pubkey,
+//   buyer real pubkey, buyer relay hints, seller pubkey, escrow pubkey, expiry,
+//   and a buyer-real-key signature binding all of those fields.
+// - Seller/escrow can then recover real DM participants from the public
+//   reservation alone, while public observers only see the buyer alias.
+// - Clients must not trust an unencrypted buyer-real-pubkey tag; the decrypted
+//   capsule signature is the authority.
 class ReservationExpectedAmount {
   final DenominatedAmount listingPrice;
   final DenominatedAmount? negotiatedAmount;
@@ -125,17 +138,19 @@ class Reservation
     final listingPrice =
         listing.cost(start: start, end: end, quantity: quantity);
     final negotiatedAmount = amount;
+    final sameDenomination =
+        negotiatedAmount?.denomination == listingPrice.denomination;
     final hasOffListAmount = negotiatedAmount != null &&
-        negotiatedAmount.denomination == listingPrice.denomination &&
-        negotiatedAmount.value != listingPrice.value;
+        (!sameDenomination || negotiatedAmount.value != listingPrice.value);
     final isBelowListing = negotiatedAmount != null &&
-        negotiatedAmount.denomination == listingPrice.denomination &&
+        sameDenomination &&
         negotiatedAmount.value < listingPrice.value;
     final sellerCommitOk =
         !hasOffListAmount ? true : verifyCommit(listingAuthor);
-    final negotiationAllowed = !isBelowListing || listing.negotiable;
-    final usesNegotiatedAmount =
-        hasOffListAmount && sellerCommitOk && negotiationAllowed;
+    final sellerAcceptedTerms = hasOffListAmount && sellerCommitOk;
+    final negotiationAllowed =
+        !isBelowListing || listing.negotiable || sellerAcceptedTerms;
+    final usesNegotiatedAmount = sellerAcceptedTerms && negotiationAllowed;
 
     return ReservationExpectedAmount(
       listingPrice: listingPrice,
@@ -660,10 +675,6 @@ class PaymentProof {
   Listing listing;
   ZapProof? zapProof;
   EscrowProof? escrowProof;
-
-  /// Include the signed seller negotiate reservation if buyer offering
-  /// sub-market price, so it can be seen that hoster accepted the offer.
-  Reservation? sellerNegotiateReservation;
 
   PaymentProof(
       {required this.hoster,

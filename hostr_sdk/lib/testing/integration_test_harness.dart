@@ -3,9 +3,9 @@ import 'dart:math';
 
 import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:logger/logger.dart';
+import 'package:models/bip340.dart';
 import 'package:models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart' hide ConsoleOutput;
-import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
@@ -167,8 +167,8 @@ class IntegrationTestHarness {
     );
 
     // Run Boltz chain discovery so swap providers are attached before any
-    // test tries to use swaps.  This mirrors what Hostr.connect() does but
-    // without the relay/auth subscription side-effects.
+    // test tries to use swaps. This mirrors startup EVM readiness without
+    // relay/auth subscription side effects.
     await resolvedHostr.evm.init();
 
     final harness = IntegrationTestHarness(

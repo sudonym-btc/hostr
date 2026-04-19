@@ -49,39 +49,34 @@ class ZapUsWidget extends StatelessWidget {
               ),
             ],
           ),
+          Gap.vertical.md(),
+          ZapListWidget(
+            lud16: tipsAddress,
+            builder: (p0) => ZapReceiptWidget(zap: p0),
+          ),
           Gap.vertical.sm(),
           Row(
             children: [
               const Spacer(),
               if (twitterHandle.isNotEmpty)
-                IconButton(
-                  tooltip: '@$twitterHandle',
-                  icon: CustomPaint(
-                    size: const Size(18, 18),
-                    painter: _XLogoPainter(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                TextButton(
+                  style: _socialButtonStyle(context),
                   onPressed: () => launchUrl(
                     Uri.parse('https://x.com/$twitterHandle'),
                     mode: LaunchMode.externalApplication,
                   ),
+                  child: Text('@$twitterHandle'),
                 ),
               if (socialNpub.isNotEmpty)
-                IconButton(
-                  tooltip: 'Nostr',
-                  icon: const Icon(Icons.electric_bolt, size: 20),
+                TextButton(
+                  style: _socialButtonStyle(context),
                   onPressed: () => launchUrl(
                     Uri.parse('https://njump.me/$socialNpub'),
                     mode: LaunchMode.externalApplication,
                   ),
+                  child: const Text('Nostr'),
                 ),
             ],
-          ),
-          Gap.vertical.md(),
-          ZapListWidget(
-            lud16: tipsAddress,
-            builder: (p0) => ZapReceiptWidget(zap: p0),
           ),
         ],
       ),
@@ -89,33 +84,17 @@ class ZapUsWidget extends StatelessWidget {
   }
 }
 
-/// Paints the 𝕏 (Twitter / X) logo as two crossing strokes.
-class _XLogoPainter extends CustomPainter {
-  final Color color;
-  const _XLogoPainter({required this.color});
+ButtonStyle _socialButtonStyle(BuildContext context) {
+  final color = Theme.of(context).colorScheme.onSurfaceVariant;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = size.width * 0.14
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    // Top-left → bottom-right stroke
-    canvas.drawLine(
-      Offset(size.width * 0.1, size.height * 0.1),
-      Offset(size.width * 0.9, size.height * 0.9),
-      paint,
-    );
-    // Top-right → bottom-left stroke
-    canvas.drawLine(
-      Offset(size.width * 0.9, size.height * 0.1),
-      Offset(size.width * 0.1, size.height * 0.9),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_XLogoPainter oldDelegate) => color != oldDelegate.color;
+  return TextButton.styleFrom(
+    foregroundColor: color,
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    minimumSize: const Size(0, 36),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+      decoration: TextDecoration.underline,
+      decorationColor: color,
+    ),
+  );
 }

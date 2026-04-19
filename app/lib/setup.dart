@@ -12,7 +12,11 @@ import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:models/main.dart'
-    show H3Engine, describeH3BackendSelection, describeSecp256k1Backend;
+    show
+        H3Engine,
+        describeH3BackendSelection,
+        describeSecp256k1Backend,
+        loadSecp256k1Backend;
 import 'package:workmanager/workmanager.dart';
 
 import 'crypto/flutter_crypto_provider.dart';
@@ -44,7 +48,12 @@ late String currentEnv;
 ///   - Hydrated storage (persisted bloc state)
 ///   - Dependency injection
 ///   - H3 geo runtime
-Future<void> initCore(String env, {CustomLogger? logger}) async {
+///   - SDK startup coordinator, unless [startStartup] is false
+Future<void> initCore(
+  String env, {
+  CustomLogger? logger,
+  bool startStartup = true,
+}) async {
   final log = (logger ?? CustomLogger()).scope('init-core');
   final total = Stopwatch()..start();
   var sw = Stopwatch()..start();
@@ -59,6 +68,10 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   sw.reset();
   configureOptimalRuntimeBackends();
   log.d('configureRuntimeBackends: ${sw.elapsedMilliseconds}ms');
+
+  sw.reset();
+  await loadSecp256k1Backend();
+  log.d('loadSecp256k1Backend: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
   configureInjection(env);
@@ -99,6 +112,12 @@ Future<void> initCore(String env, {CustomLogger? logger}) async {
   sw.reset();
   await getIt<Hostr>().initAuth();
   log.d('initAuth: ${sw.elapsedMilliseconds}ms');
+
+  if (startStartup) {
+    sw.reset();
+    getIt<Hostr>().startup.start();
+    log.d('startStartupCoordinator: ${sw.elapsedMilliseconds}ms');
+  }
   log.i('runtime backend secp256k1: ${describeSecp256k1Backend()}');
 
   total.stop();

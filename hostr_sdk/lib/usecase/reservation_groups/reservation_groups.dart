@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
@@ -58,8 +59,9 @@ class ReservationGroups {
   /// stream alive when this view is closed.
   StreamWithStatus<Validation<ReservationGroup>> verifyFromSource({
     required StreamWithStatus<Reservation> source,
-    Duration debounce = const Duration(milliseconds: 350),
+    Duration debounce = Duration.zero,
     bool closeSourceOnClose = false,
+    bool validate = true,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationGroup group)? forceValidatePredicate,
   }) => _logger.spanSync('verifyFromSource', () {
@@ -67,6 +69,7 @@ class ReservationGroups {
       source: source,
       debounce: debounce,
       closeSourceOnClose: closeSourceOnClose,
+      validate: validate,
       forceValidateSelfSigned: forceValidateSelfSigned,
       forceValidatePredicate: forceValidatePredicate,
     );
@@ -79,7 +82,7 @@ class ReservationGroups {
   /// confirmation already exists. This is the mode escrow arbitration uses.
   StreamWithStatus<Validation<ReservationGroup>> subscribeVerified({
     required String listingAnchor,
-    Duration debounce = const Duration(milliseconds: 350),
+    Duration debounce = Duration.zero,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationGroup group)? forceValidatePredicate,
   }) => _logger.spanSync('subscribeVerified', () {
@@ -107,7 +110,7 @@ class ReservationGroups {
   /// confirmation already exists.
   StreamWithStatus<Validation<ReservationGroup>> queryVerified({
     required String listingAnchor,
-    Duration debounce = const Duration(milliseconds: 350),
+    Duration debounce = Duration.zero,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationGroup group)? forceValidatePredicate,
   }) => _logger.spanSync('queryVerified', () {
@@ -254,49 +257,163 @@ class ReservationGroups {
     required StreamWithStatus<Reservation> source,
     required Duration debounce,
     required bool closeSourceOnClose,
+    bool validate = true,
     bool forceValidateSelfSigned = false,
     bool Function(ReservationGroup group)? forceValidatePredicate,
   }) {
     final groups = <String, ReservationGroup>{};
-    final result = source.asyncMap<Validation<ReservationGroup>>((
-      item,
-    ) async {
-      final tradeId = item.getDtag() ?? item.id; // for logging only
-      final groupId = ReservationGroup.groupIdFromEvent(item);
-      final existing = groups[groupId];
-      final updated = existing != null
-          ? existing.addReservation(item)
-          : ReservationGroup.fromReservation(item);
-      groups[groupId] = updated;
-      final shouldForceValidate =
-          forceValidatePredicate?.call(updated) ?? forceValidateSelfSigned;
+    final pendingItems = <Reservation>[];
+    final validationQueue = Queue<({String groupId, String tradeId})>();
+    final queuedGroupIds = <String>{};
+    Timer? debounceTimer;
+    StreamStatus? deferredStatus;
+    var processing = false;
+    var closed = false;
 
-      final validated = await verifyGroupOnChain(
-        updated,
-        forceValidateSelfSigned: shouldForceValidate,
-        escrowVerification: escrowVerification,
-      );
+    late final StreamSubscription<Reservation> itemSub;
+    late final StreamSubscription<StreamStatus> statusSub;
+
+    late final StreamWithStatus<Validation<ReservationGroup>> result;
+
+    Future<Validation<ReservationGroup>> validateGroup({
+      required ReservationGroup group,
+      required String tradeId,
+    }) async {
+      final Validation<ReservationGroup> validated;
+      if (validate) {
+        final shouldForceValidate =
+            forceValidatePredicate?.call(group) ?? forceValidateSelfSigned;
+
+        validated = await verifyGroupOnChain(
+          group,
+          forceValidateSelfSigned: shouldForceValidate,
+          escrowVerification: escrowVerification,
+        );
+      } else {
+        validated = Valid(group);
+      }
 
       if (validated is Invalid) {
         _logger.w(
           'Group for trade $tradeId is invalid: ${(validated as Invalid).reason}',
         );
-        _logger.w('Buyer reservation: ${updated.buyerReservation}');
-        _logger.w(
-          'Buyer reservation proof: ${updated.buyerReservation?.proof}',
-        );
-        _logger.w('Seller reservation: ${updated.sellerReservation}');
-        _logger.w('Escrow reservation: ${updated.escrowReservation}');
+        _logger.w('Buyer reservation: ${group.buyerReservation}');
+        _logger.w('Buyer reservation proof: ${group.buyerReservation?.proof}');
+        _logger.w('Seller reservation: ${group.sellerReservation}');
+        _logger.w('Escrow reservation: ${group.escrowReservation}');
       } else {
-        _logger.d('Group for trade $tradeId is valid');
+        _logger.d(
+          validate
+              ? 'Group for trade $tradeId is valid'
+              : 'Group for trade $tradeId accepted without validation',
+        );
       }
 
       return validated;
-    });
-
-    if (closeSourceOnClose) {
-      result.onClose = () => source.close();
     }
+
+    void maybeForwardDeferredStatus() {
+      if (!processing &&
+          pendingItems.isEmpty &&
+          validationQueue.isEmpty &&
+          debounceTimer == null &&
+          deferredStatus != null) {
+        result.addStatus(deferredStatus!);
+        deferredStatus = null;
+      }
+    }
+
+    void enqueueValidation(String groupId, String tradeId) {
+      if (!queuedGroupIds.add(groupId)) return;
+      validationQueue.add((groupId: groupId, tradeId: tradeId));
+    }
+
+    Future<void> processQueue() async {
+      if (processing) return;
+      processing = true;
+
+      try {
+        while (!closed && validationQueue.isNotEmpty) {
+          final job = validationQueue.removeFirst();
+          queuedGroupIds.remove(job.groupId);
+
+          // Always yield between group validations. The debounce window
+          // coalesces replay bursts; this yield keeps validation cooperative.
+          await Future<void>.delayed(Duration.zero);
+          if (closed) return;
+
+          final group = groups[job.groupId];
+          if (group == null) continue;
+
+          try {
+            result.add(await validateGroup(group: group, tradeId: job.tradeId));
+          } catch (error, stackTrace) {
+            result.addError(error, stackTrace);
+          }
+        }
+      } finally {
+        processing = false;
+        maybeForwardDeferredStatus();
+
+        if (!closed && validationQueue.isNotEmpty) {
+          unawaited(processQueue());
+        }
+      }
+    }
+
+    void flushPendingItems() {
+      debounceTimer = null;
+      if (closed) return;
+
+      final items = List<Reservation>.of(pendingItems);
+      pendingItems.clear();
+
+      for (final item in items) {
+        final tradeId = item.getDtag() ?? item.id; // for logging only
+        final groupId = ReservationGroup.groupIdFromEvent(item);
+        final existing = groups[groupId];
+        groups[groupId] = existing != null
+            ? existing.addReservation(item)
+            : ReservationGroup.fromReservation(item);
+        enqueueValidation(groupId, tradeId);
+      }
+
+      unawaited(processQueue());
+      maybeForwardDeferredStatus();
+    }
+
+    result = StreamWithStatus<Validation<ReservationGroup>>(
+      onClose: () async {
+        closed = true;
+        debounceTimer?.cancel();
+        await itemSub.cancel();
+        await statusSub.cancel();
+        if (closeSourceOnClose) {
+          await source.close();
+        }
+      },
+    );
+
+    itemSub = source.replayStream.listen((item) {
+      pendingItems.add(item);
+      debounceTimer?.cancel();
+      debounceTimer = Timer(debounce, flushPendingItems);
+    }, onError: result.addError);
+
+    statusSub = source.status.listen((status) {
+      if (status is StreamStatusError) {
+        result.addStatus(status);
+        return;
+      }
+
+      if (status is StreamStatusQueryComplete || status is StreamStatusLive) {
+        deferredStatus = status;
+        maybeForwardDeferredStatus();
+        return;
+      }
+
+      result.addStatus(status);
+    }, onError: result.addError);
 
     return result;
   }

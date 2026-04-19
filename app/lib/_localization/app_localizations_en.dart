@@ -585,4 +585,1072 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String specificationAirconditioning(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Air conditioning',
+      one: 'Air conditioning',
+      zero: 'Air conditioning',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationAllowsPets(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Pets allowed',
+      one: 'Pets allowed',
+      zero: 'Pets allowed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBathrooms(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bathrooms',
+      one: '1 bathroom',
+      zero: 'Bathrooms',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBathtub(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bathtubs',
+      one: '1 bathtub',
+      zero: 'Bathtubs',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBeds(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count beds',
+      one: '1 bed',
+      zero: 'Beds',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBedrooms(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bedrooms',
+      one: '1 bedroom',
+      zero: 'Bedrooms',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationMaxGuests(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count guests max',
+      one: '1 guest max',
+      zero: 'Max guests',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationTv(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count TVs',
+      one: '1 TV',
+      zero: 'TV',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationCrib(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Cribs',
+      one: 'Crib',
+      zero: 'Crib',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationTumbleDryer(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tumble dryers',
+      one: 'Tumble dryer',
+      zero: 'Tumble dryer',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWasher(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Washers',
+      one: 'Washer',
+      zero: 'Washer',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationElevator(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Elevators',
+      one: 'Elevator',
+      zero: 'Elevator',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationFreeParking(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Free parking',
+      one: 'Free parking',
+      zero: 'Free parking',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationGym(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Gyms',
+      one: 'Gym',
+      zero: 'Gym',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHairDryer(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Hair dryers',
+      one: 'Hair dryer',
+      zero: 'Hair dryer',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHeating(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Heating',
+      one: 'Heating',
+      zero: 'Heating',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHighChair(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'High chairs',
+      one: 'High chair',
+      zero: 'High chair',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWirelessInternet(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Wi-Fi',
+      one: 'Wi-Fi',
+      zero: 'Wi-Fi',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationIron(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Irons',
+      one: 'Iron',
+      zero: 'Iron',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationJacuzzi(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Jacuzzis',
+      one: 'Jacuzzi',
+      zero: 'Jacuzzi',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationKitchen(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kitchens',
+      one: 'Kitchen',
+      zero: 'Kitchen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationOutletCovers(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Outlet covers',
+      one: 'Outlet cover',
+      zero: 'Outlet covers',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationPool(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Pools',
+      one: 'Pool',
+      zero: 'Pool',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationPrivateEntrance(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Private entrances',
+      one: 'Private entrance',
+      zero: 'Private entrance',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationSmokingAllowed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Smoking allowed',
+      one: 'Smoking allowed',
+      zero: 'Smoking allowed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBreakfast(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Breakfast',
+      one: 'Breakfast',
+      zero: 'Breakfast',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationFireplace(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Fireplaces',
+      one: 'Fireplace',
+      zero: 'Fireplace',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationSmokeDetector(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Smoke detectors',
+      one: 'Smoke detector',
+      zero: 'Smoke detector',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationEssentials(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Essentials',
+      one: 'Essentials',
+      zero: 'Essentials',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationShampoo(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Shampoo',
+      one: 'Shampoo',
+      zero: 'Shampoo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationInfantsAllowed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Infants allowed',
+      one: 'Infants allowed',
+      zero: 'Infants allowed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationChildrenAllowed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Children allowed',
+      one: 'Children allowed',
+      zero: 'Children allowed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHangers(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Hangers',
+      one: 'Hanger',
+      zero: 'Hangers',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationFlatSmoothPathwayToFrontDoor(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Flat, smooth pathways to front door',
+      one: 'Flat, smooth pathway to front door',
+      zero: 'Flat, smooth pathway to front door',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationGrabRailsInShowerAndToilet(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Grab rails in shower and toilet',
+      one: 'Grab rail in shower and toilet',
+      zero: 'Grab rails in shower and toilet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationOven(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ovens',
+      one: 'Oven',
+      zero: 'Oven',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBbq(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'BBQs',
+      one: 'BBQ',
+      zero: 'BBQ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBalcony(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Balconies',
+      one: 'Balcony',
+      zero: 'Balcony',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationPatio(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Patios',
+      one: 'Patio',
+      zero: 'Patio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationDishwasher(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Dishwashers',
+      one: 'Dishwasher',
+      zero: 'Dishwasher',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationRefrigerator(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Refrigerators',
+      one: 'Refrigerator',
+      zero: 'Refrigerator',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationGardenOrBackyard(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Gardens or backyards',
+      one: 'Garden or backyard',
+      zero: 'Garden or backyard',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationMicrowave(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Microwaves',
+      one: 'Microwave',
+      zero: 'Microwave',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationCoffeeMaker(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Coffee makers',
+      one: 'Coffee maker',
+      zero: 'Coffee maker',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationDishesAndSilverware(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Dishes and silverware',
+      one: 'Dishes and silverware',
+      zero: 'Dishes and silverware',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationStove(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Stoves',
+      one: 'Stove',
+      zero: 'Stove',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationFireExtinguisher(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Fire extinguishers',
+      one: 'Fire extinguisher',
+      zero: 'Fire extinguisher',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationCarbonMonoxideDetector(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Carbon monoxide detectors',
+      one: 'Carbon monoxide detector',
+      zero: 'Carbon monoxide detector',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationLuggageDropoffAllowed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Luggage drop-off allowed',
+      one: 'Luggage drop-off allowed',
+      zero: 'Luggage drop-off allowed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBeachEssentials(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Beach essentials',
+      one: 'Beach essentials',
+      zero: 'Beach essentials',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBeachfront(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Beachfront',
+      one: 'Beachfront',
+      zero: 'Beachfront',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBabyMonitor(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Baby monitors',
+      one: 'Baby monitor',
+      zero: 'Baby monitor',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBabysitterRecommendations(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Babysitter recommendations',
+      one: 'Babysitter recommendation',
+      zero: 'Babysitter recommendations',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationChildrensBooksAndToys(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Children\'s books and toys',
+      one: 'Children\'s book and toy',
+      zero: 'Children\'s books and toys',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationGameConsole(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Game consoles',
+      one: 'Game console',
+      zero: 'Game console',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationStreetParking(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Street parking',
+      one: 'Street parking',
+      zero: 'Street parking',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationPaidParking(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Paid parking',
+      one: 'Paid parking',
+      zero: 'Paid parking',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHotWater(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Hot water',
+      one: 'Hot water',
+      zero: 'Hot water',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationLakeAccess(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Lake access',
+      one: 'Lake access',
+      zero: 'Lake access',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationSingleLevelHome(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Single-level homes',
+      one: 'Single-level home',
+      zero: 'Single-level home',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWaterfront(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Waterfront',
+      one: 'Waterfront',
+      zero: 'Waterfront',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationFirstAidKit(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'First aid kits',
+      one: 'First aid kit',
+      zero: 'First aid kit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHandheldShowerHead(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Handheld shower heads',
+      one: 'Handheld shower head',
+      zero: 'Handheld shower head',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationHomeStepFreeAccess(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Step-free home access',
+      one: 'Step-free home access',
+      zero: 'Step-free home access',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationLockOnBedroomDoor(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Locks on bedroom doors',
+      one: 'Lock on bedroom door',
+      zero: 'Lock on bedroom door',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationMobileHoist(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Mobile hoists',
+      one: 'Mobile hoist',
+      zero: 'Mobile hoist',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationPathToEntranceLitAtNight(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Paths to entrance lit at night',
+      one: 'Path to entrance lit at night',
+      zero: 'Path to entrance lit at night',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationPoolHoist(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Pool hoists',
+      one: 'Pool hoist',
+      zero: 'Pool hoist',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationEvCharger(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'EV chargers',
+      one: 'EV charger',
+      zero: 'EV charger',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationRollinShower(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Roll-in showers',
+      one: 'Roll-in shower',
+      zero: 'Roll-in shower',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationShowerChair(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Shower chairs',
+      one: 'Shower chair',
+      zero: 'Shower chair',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationTubWithShowerBench(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tubs with shower benches',
+      one: 'Tub with shower bench',
+      zero: 'Tub with shower bench',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWideClearanceToBed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Wide clearances to beds',
+      one: 'Wide clearance to bed',
+      zero: 'Wide clearance to bed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWideClearanceToShowerAndToilet(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Wide clearances to showers and toilets',
+      one: 'Wide clearance to shower and toilet',
+      zero: 'Wide clearance to shower and toilet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWideHallwayClearance(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Wide hallway clearances',
+      one: 'Wide hallway clearance',
+      zero: 'Wide hallway clearance',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBabyBath(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Baby baths',
+      one: 'Baby bath',
+      zero: 'Baby bath',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationChangingTable(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Changing tables',
+      one: 'Changing table',
+      zero: 'Changing table',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationRoomDarkeningShades(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Room-darkening shades',
+      one: 'Room-darkening shade',
+      zero: 'Room-darkening shades',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationStairGates(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Stair gates',
+      one: 'Stair gate',
+      zero: 'Stair gates',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationTableCornerGuards(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Table corner guards',
+      one: 'Table corner guard',
+      zero: 'Table corner guards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationExtraPillowsAndBlankets(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Extra pillows and blankets',
+      one: 'Extra pillow and blanket',
+      zero: 'Extra pillows and blankets',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationSkiInSkiOut(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ski-in/ski-out',
+      one: 'Ski-in/ski-out',
+      zero: 'Ski-in/ski-out',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationWindowGuards(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Window guards',
+      one: 'Window guard',
+      zero: 'Window guards',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationDisabledParkingSpot(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Disabled parking spots',
+      one: 'Disabled parking spot',
+      zero: 'Disabled parking spot',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationGrabRailsInToilet(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Grab rails in toilet',
+      one: 'Grab rail in toilet',
+      zero: 'Grab rails in toilet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationEventsAllowed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Events allowed',
+      one: 'Events allowed',
+      zero: 'Events allowed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationCommonSpacesShared(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Shared common spaces',
+      one: 'Shared common space',
+      zero: 'Shared common spaces',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationBathroomShared(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Shared bathrooms',
+      one: 'Shared bathroom',
+      zero: 'Shared bathroom',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String specificationSecurityCameras(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Security cameras',
+      one: 'Security camera',
+      zero: 'Security cameras',
+    );
+    return '$_temp0';
+  }
 }

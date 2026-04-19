@@ -36,8 +36,9 @@ class PriceMarkerBuilder {
     double borderWidth = 1,
   }) async {
     final effectiveBorderColor = borderColor ?? textColor.withAlpha(100);
+    final dprKey = (devicePixelRatio * 1000).round();
     final cacheKey =
-        '$priceText-${fillColor.value}-${textColor.value}-${effectiveBorderColor.value}-$showArrow-$isCluster-$borderWidth';
+        '$priceText-${fillColor.toARGB32()}-${textColor.toARGB32()}-${effectiveBorderColor.toARGB32()}-$showArrow-$isCluster-$borderWidth-dpr$dprKey';
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
     }

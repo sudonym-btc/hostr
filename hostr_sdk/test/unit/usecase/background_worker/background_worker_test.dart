@@ -46,7 +46,7 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
       StreamWithStatus<Validation<ReservationGroup>>();
 
   @override
-  Future<void> start() async {
+  Future<void> start({bool validateReservationGroups = true}) async {
     startCount++;
   }
 }
@@ -101,7 +101,7 @@ class _FakeFundsMonitorService extends Fake implements FundsMonitorService {
   int checkNowCount = 0;
 
   @override
-  void start() {
+  Future<void> start() async {
     startCount++;
   }
 
@@ -230,6 +230,7 @@ void main() {
       expect(result.hasNotifications, isTrue);
       expect(result.notifications.single, contains('reserved'));
       expect(heartbeats.upsertCount, 1);
+      expect(fundsMonitor.startCount, 1);
       expect(fundsMonitor.checkNowCount, 1);
       expect(evm.recoverCount, 1);
       expect(userSubscriptions.startCount, 1);
@@ -251,7 +252,7 @@ void main() {
 
       await worker.stop();
 
-      expect(fundsMonitor.stopCount, greaterThanOrEqualTo(1));
+      expect(fundsMonitor.stopCount, 0);
     },
   );
 }

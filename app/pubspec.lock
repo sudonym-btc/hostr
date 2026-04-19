@@ -747,10 +747,10 @@ packages:
     dependency: "direct main"
     description:
       name: google_maps_flutter
-      sha256: "0114a31e177f650f0972347d93122c42661a75b869561ff6a374cc42ff3af886"
+      sha256: fc714bf8072e2c121d4277cb6dca23bbfae954b6c7b5d6dd73f1bc8d09762921
       url: "https://pub.dev"
     source: hosted
-    version: "2.16.0"
+    version: "2.17.0"
   google_maps_flutter_android:
     dependency: transitive
     description:
@@ -1221,11 +1221,11 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/ndk"
-      ref: "fix/websocket-tostring"
-      resolved-ref: "390e06aa4760c29f79755a31120b42b03b270362"
+      ref: "codex/hostr-ndk-fixes"
+      resolved-ref: "77e5059f215b6165bbd31a1d158ff9db8897714f"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
-    version: "0.8.2-dev.1"
+    version: "0.8.2-dev.5"
   ndk_bip32_keys:
     dependency: transitive
     description:

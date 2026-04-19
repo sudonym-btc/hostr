@@ -21,10 +21,16 @@ class _InboxScreenState extends State<InboxScreen> {
     return AutoRouter(
       builder: (context, child) {
         final router = AutoRouter.of(context);
-        final hasSelectedThread = router.topRoute.name == ThreadRoute.name;
-        final selectedAnchor = hasSelectedThread
+        var selectedAnchor = router.topRoute.name == ThreadRoute.name
             ? router.topMatch.params.optString('anchor')
             : null;
+        for (final segment in router.currentSegments.reversed) {
+          if (segment.name == ThreadRoute.name) {
+            selectedAnchor = segment.params.optString('anchor');
+            break;
+          }
+        }
+        final hasSelectedThread = selectedAnchor != null;
         final isExpanded = AppLayoutSpec.of(context).isExpanded;
 
         // On compact viewports, let AutoRouter push ThreadScreen as a
@@ -50,9 +56,12 @@ class _InboxScreenState extends State<InboxScreen> {
                   child: InboxThreadList(
                     selectedAnchor: selectedAnchor,
                     onThreadSelected: (anchor) {
-                      router.navigate(
-                        InboxRoute(children: [ThreadRoute(anchor: anchor)]),
-                      );
+                      final route = ThreadRoute(anchor: anchor);
+                      if (hasSelectedThread) {
+                        router.replace(route);
+                      } else {
+                        router.push(route);
+                      }
                     },
                   ),
                 ),

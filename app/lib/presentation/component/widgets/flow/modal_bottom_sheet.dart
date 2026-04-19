@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 
 enum ModalBottomSheetType { error, normal, success }
 
@@ -17,7 +18,14 @@ Future<T?> showAppModal<T>(
   useSafeArea: useSafeArea,
   isDismissible: isDismissible,
   useRootNavigator: useRootNavigator,
-  builder: builder,
+  builder: (sheetContext) {
+    final surfaceColor =
+        AppSurface.maybeOf(context) ?? Theme.of(context).colorScheme.surface;
+    return AppSurface.inherit(
+      color: surfaceColor,
+      child: builder(sheetContext),
+    );
+  },
 );
 
 class ModalBottomSheet extends StatelessWidget {

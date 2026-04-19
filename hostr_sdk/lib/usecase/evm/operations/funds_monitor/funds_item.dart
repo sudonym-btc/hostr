@@ -5,7 +5,7 @@ import 'package:web3dart/web3dart.dart';
 import '../../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../chain/evm_chain.dart';
 
-/// One sweepable balance entry — either a plain EOA/smart-wallet balance
+/// One positive balance entry — either a plain EOA/smart-wallet balance
 /// or funds locked inside an escrow contract awaiting `withdraw()`.
 ///
 /// Every item carries a [keypair] (the key controlling [address]) and an
@@ -45,6 +45,12 @@ class FundsItem {
   /// capability enabled.
   final bool isSmartAddress;
 
+  /// Whether this positive balance is below the smallest sweepable unit.
+  ///
+  /// Boltz and Lightning operate in whole sats, so sub-sat EVM remainders
+  /// should be visible to the user but skipped by swap-out automation.
+  final bool dust;
+
   /// Whether this item represents escrow-locked funds.
   bool get isEscrowLocked => contract != null;
 
@@ -58,6 +64,7 @@ class FundsItem {
     required this.blockNumber,
     this.contract,
     this.isSmartAddress = false,
+    this.dust = false,
   });
 
   /// Cache key — unique per (address, token, contract address).
@@ -71,5 +78,5 @@ class FundsItem {
   String toString() =>
       'FundsItem(addr=${address.eip55With0x}, token=${token.address}, '
       'balance=${balance.value}, escrow=${contract != null}, '
-      'smartAddress=$isSmartAddress)';
+      'smartAddress=$isSmartAddress, dust=$dust)';
 }

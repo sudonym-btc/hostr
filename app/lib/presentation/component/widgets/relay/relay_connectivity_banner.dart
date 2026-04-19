@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/logic/cubit/relay_connectivity.cubit.dart';
 
 /// Listens to [RelayConnectivityCubit] and shows / hides a [SnackBar] when
-/// the Hostr relay is unavailable or more than 50% of relays are disconnected.
+/// fewer than 25% of configured relays are connected.
 class RelayConnectivityBanner extends StatefulWidget {
   final Widget child;
 

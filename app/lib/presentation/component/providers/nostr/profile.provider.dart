@@ -74,7 +74,6 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
         .loadMetadata(widget.pubkey, forceRefresh: forceRefresh)
         .then((m) {
           widget.onDone?.call(m);
-          print('Loaded profile metadata for ${widget.pubkey}: $m');
           return m;
         });
   }
@@ -82,9 +81,6 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
   /// Refreshes the NIP-65 relay list so the JIT engine discovers the
   /// pubkey's write relays, then force-refreshes the profile metadata.
   Future<ProfileMetadata?> _refreshNip65ThenLoad() async {
-    print(
-      'relay lists: ${(await getIt<Hostr>().metadata.refreshNip65(widget.pubkey))?.urls}',
-    );
     return _load(forceRefresh: true);
   }
 

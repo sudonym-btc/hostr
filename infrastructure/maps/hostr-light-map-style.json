@@ -4,6 +4,15 @@
   "backgroundColor": "#e6e6e6",
   "styles": [
     {
+      "id": "infrastructure",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
       "id": "infrastructure.railwayTrack",
       "geometry": {
         "visible": false

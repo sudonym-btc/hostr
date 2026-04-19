@@ -2,12 +2,11 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:coinlib/coinlib.dart';
 import 'package:convert/convert.dart';
+import 'package:models/bip340.dart' as models_bip340;
 import 'package:models/secp256k1.dart';
 import 'package:ndk/data_layer/models/nip_01_event_model.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
-import 'package:ndk/shared/nips/nip01/bip340.dart' as ndk_bip340;
 import 'package:ndk/shared/nips/nip44/nip44.dart';
 
 import 'crypto_provider.dart';
@@ -110,15 +109,9 @@ Future<String> coinlibDecryptNip44(
 
 /// Derives the x-only (32-byte hex) public key for [privKeyHex].
 ///
-/// Uses coinlib's WASM-backed key derivation when available, otherwise
-/// falls back to NDK's pure-Dart [Bip340.getPublicKey].
+/// Uses the shared fast-aware BIP-340 facade.
 String _ephemeralPublicKey(String privKeyHex) {
-  if (isFastSecp256k1BackendLoaded()) {
-    try {
-      return ECPrivateKey.fromHex(privKeyHex).pubkey.xhex;
-    } catch (_) {}
-  }
-  return ndk_bip340.Bip340.getPublicKey(privKeyHex);
+  return models_bip340.Bip340.getPublicKey(privKeyHex);
 }
 
 /// Full NIP-59 giftwrap using coinlib for Schnorr signing.

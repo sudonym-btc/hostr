@@ -67,8 +67,7 @@ class TradeActionResolver {
         .toList();
 
     final allTradeReservations = ownReservations
-        .whereType<Valid<ReservationGroup>>()
-        .expand((v) => v.event.reservations)
+        .expand((validation) => validation.event.reservations)
         .toList();
 
     final validTradeReservations = ownReservations

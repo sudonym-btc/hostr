@@ -84,8 +84,9 @@ services:
       - default
 
   blossom:
-    image: ghcr.io/hzrd149/blossom-server:6.0.1
+    image: ghcr.io/hzrd149/blossom-server:6.1.1
     platform: linux/amd64
+    restart: unless-stopped
     environment:
       - VIRTUAL_HOST=blossom.${DOMAIN}
       - VIRTUAL_PORT=3000

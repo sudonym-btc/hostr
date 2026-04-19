@@ -54,31 +54,50 @@ class IntFieldSelector extends StatelessWidget {
 
     final bool canIncrement = !(max != null && value != null && value! >= max!);
 
-    return Row(
-      children: [
-        if (label != null)
-          Expanded(child: Text(label!, style: theme.textTheme.bodyLarge)),
-        IconButton.outlined(
-          onPressed: onDecrement,
-          icon: const Icon(Icons.remove, size: 18),
-          visualDensity: VisualDensity.compact,
-        ),
-        SizedBox(
-          width: 40,
-          child: Text(
-            value?.toString() ?? (min != null ? min.toString() : 'Any'),
-            style: theme.textTheme.titleSmall,
-            textAlign: TextAlign.center,
-          ),
-        ),
-        IconButton.outlined(
-          onPressed: canIncrement
-              ? () => onChanged((value ?? min ?? 0) + 1)
-              : null,
-          icon: const Icon(Icons.add, size: 18),
-          visualDensity: VisualDensity.compact,
-        ),
-      ],
+    final valueText =
+        value?.toString() ?? (min != null ? min.toString() : 'Any');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final valueWidth = constraints.maxWidth >= 152 ? 56.0 : 40.0;
+
+        return Row(
+          children: [
+            if (label != null)
+              Expanded(
+                child: Text(
+                  label!,
+                  style: theme.textTheme.bodyLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            IconButton.outlined(
+              onPressed: onDecrement,
+              icon: const Icon(Icons.remove, size: 18),
+              visualDensity: VisualDensity.compact,
+            ),
+            SizedBox(
+              width: valueWidth,
+              child: Text(
+                valueText,
+                style: theme.textTheme.titleSmall,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+              ),
+            ),
+            IconButton.outlined(
+              onPressed: canIncrement
+                  ? () => onChanged((value ?? min ?? 0) + 1)
+                  : null,
+              icon: const Icon(Icons.add, size: 18),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        );
+      },
     );
   }
 }

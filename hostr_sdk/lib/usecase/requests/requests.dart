@@ -16,7 +16,6 @@ import '../../config.dart' show CoinlibEventSigner, HostrConfig;
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../relays/relays.dart';
 
 export 'expandable_subscription.dart';
 
@@ -152,10 +151,6 @@ class Requests extends RequestsModel {
   /// share its broadcast stream instead of opening another relay subscription.
   final Map<String, Stream<Nip01Event>> _inFlightQueries = {};
 
-  /// Lazily resolved relay service — avoids a circular constructor
-  /// dependency (Relays → Requests for MockRelays).
-  Relays get _relays => getIt<Relays>();
-
   Requests({required Ndk ndk, required CustomLogger logger, required Auth auth})
     : _ndk = ndk,
       _auth = auth,
@@ -199,11 +194,7 @@ class Requests extends RequestsModel {
   Stream<Nip01Event> _connectedStream({
     required Stream<Nip01Event> Function() open,
   }) {
-    return Rx.defer(() {
-      return Stream.fromFuture(
-        _relays.ensureConnected(),
-      ).asyncExpand((_) => open());
-    });
+    return Rx.defer(open);
   }
 
   Stream<T> _parseEvents<T extends Nip01Event>(Stream<Nip01Event> source) {

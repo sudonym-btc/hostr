@@ -60,18 +60,28 @@ class PaymentProofOrchestrator {
        _metadata = metadata,
        _logger = logger.scope('payment-proof');
 
-  void start() => _logger.spanSync('start', () {
+  Future<void> start() => _logger.span('start', () async {
     if (_started) return;
     _started = true;
     _logger.d('PaymentProofOrchestrator starting');
 
     _subscriptions.add(
-      _userSubs.allMyReservations$.stream.replayStream.listen(_onReservation),
+      _userSubs.allMyReservations$.stream.stream.listen(_onReservation),
     );
 
     _subscriptions.add(
-      _userSubs.paymentEvents$.replayStream.listen(_onPaymentEvent),
+      _userSubs.paymentEvents$.stream.listen((event) {
+        unawaited(_onPaymentEvent(event));
+      }),
     );
+
+    for (final reservation in _userSubs.allMyReservations$.stream.items) {
+      _onReservation(reservation);
+    }
+
+    for (final event in _userSubs.paymentEvents$.items) {
+      await _onPaymentEvent(event);
+    }
   });
 
   void _checkAndMarkExistingBuyerReservation(Reservation reservation) =>
@@ -93,12 +103,12 @@ class PaymentProofOrchestrator {
         _checkAndMarkExistingBuyerReservation(reservation);
       });
 
-  void _onPaymentEvent(PaymentEvent event) =>
-      _logger.spanSync('_onPaymentEvent', () {
+  Future<void> _onPaymentEvent(PaymentEvent event) =>
+      _logger.span('_onPaymentEvent', () async {
         if (event is ZapFundedEvent) {
-          _handleFundedEvent(tradeId: event.tradeId, funded: event);
+          await _handleFundedEvent(tradeId: event.tradeId, funded: event);
         } else if (event is EscrowFundedEvent) {
-          _handleFundedEvent(tradeId: event.tradeId, funded: event);
+          await _handleFundedEvent(tradeId: event.tradeId, funded: event);
         }
       });
 

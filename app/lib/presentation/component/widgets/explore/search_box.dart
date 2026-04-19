@@ -58,28 +58,53 @@ class SearchBoxWidget extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: borderRadius,
-          child: ListTile(
-            minVerticalPadding: 0,
-            leading: Icon(Icons.search),
-            titleAlignment: ListTileTitleAlignment.center,
-            title: Text(
-              filterState.location.isEmpty
-                  ? AppLocalizations.of(context)!.where
-                  : filterState.location,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.bold),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 64),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.search),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          filterState.location.isEmpty
+                              ? AppLocalizations.of(context)!.where
+                              : filterState.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyLarge!
+                              .copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (hasActiveFilter || hasDateRange)
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        context.read<DateRangeCubit>().updateDateRange(null);
+                        context.read<FilterCubit>().clear();
+                      },
+                    )
+                  else
+                    const Icon(Icons.filter_list),
+                ],
+              ),
             ),
-            subtitle: Text(subtitle),
-            trailing: (hasActiveFilter || hasDateRange)
-                ? IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      context.read<DateRangeCubit>().updateDateRange(null);
-                      context.read<FilterCubit>().clear();
-                    },
-                  )
-                : const Icon(Icons.filter_list),
           ),
         ),
       ),

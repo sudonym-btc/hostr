@@ -107,9 +107,13 @@ class TradeAccountCache {
 
     _logger.d('Deriving ${maxAccountIndex + 1} tradeIds');
     for (var i = 0; i <= maxAccountIndex; i++) {
-      if (_byIndex.containsKey(i)) continue;
+      if (_byIndex.containsKey(i)) {
+        await _yieldToEventLoop();
+        continue;
+      }
       final tradeId = await _hd.getTradeId(accountIndex: i);
       _indexPartialEntry(TradeAccountEntry(accountIndex: i, tradeId: tradeId));
+      await _yieldToEventLoop();
     }
     _logger.d('TradeId cache ready: ${_byIndex.length} entries');
   }
@@ -128,6 +132,7 @@ class TradeAccountCache {
       _logger.d('Backfilling ${partial.length} entries with salt + evmAddress');
       for (final entry in partial) {
         await _promoteEntry(entry.accountIndex);
+        await _yieldToEventLoop();
       }
     }
     _fullyLoaded = true;
@@ -245,4 +250,6 @@ class TradeAccountCache {
     _indexFullEntry(entry);
     return entry;
   }
+
+  Future<void> _yieldToEventLoop() => Future<void>.delayed(Duration.zero);
 }

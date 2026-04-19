@@ -55,6 +55,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       _scheduleOnchainOperations();
+    } else if (state == AppLifecycleState.resumed) {
+      unawaited(getIt<Hostr>().relays.reconnectNow());
     }
   }
 

@@ -52,6 +52,35 @@ class _ReserveState extends State<Reserve> {
     return _listingAmountFor(range);
   }
 
+  Widget _buildBasePrice(BuildContext context) {
+    final price = widget.listing.prices.first;
+    final amount = formatAmount(price.amount, exact: false);
+    final frequency = price.frequency?.nip99Name;
+    final amountStyle = Theme.of(
+      context,
+    ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      mainAxisSize: MainAxisSize.min,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Flexible(
+          child: Text(
+            amount,
+            overflow: TextOverflow.ellipsis,
+            style: amountStyle,
+          ),
+        ),
+        if (frequency != null)
+          Text(
+            ' / $frequency',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+      ],
+    );
+  }
+
   Future<void> _editAmount(BuildContext context, DateTimeRange range) async {
     final listingAmount = _listingAmountFor(range);
     final updated = await AmountEditorBottomSheet.show(
@@ -118,22 +147,7 @@ class _ReserveState extends State<Reserve> {
                       if (dateState.dateRange == null) ...[
                         // No dates selected — show base price / period.
                         if (widget.listing.prices.isNotEmpty)
-                          Flexible(
-                            child: Text(
-                              () {
-                                final p = widget.listing.prices.first;
-                                final amt = formatAmount(
-                                  p.amount,
-                                  exact: false,
-                                );
-                                final freq = p.frequency?.nip99Name;
-                                return freq != null ? '$amt / $freq' : amt;
-                              }(),
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium!
-                                  .copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
+                          Flexible(child: _buildBasePrice(context)),
                       ] else ...[
                         Flexible(
                           child: Row(

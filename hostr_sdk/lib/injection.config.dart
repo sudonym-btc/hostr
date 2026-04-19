@@ -43,6 +43,9 @@ import 'package:hostr_sdk/usecase/escrow/operations/release/escrow_release_opera
     as _i460;
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart' as _i445;
 import 'package:hostr_sdk/usecase/escrows/escrows.dart' as _i303;
+import 'package:hostr_sdk/usecase/evm/capabilities/aa_capability.dart' as _i937;
+import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart' as _i497;
+import 'package:hostr_sdk/usecase/evm/config/evm_config.dart' as _i704;
 import 'package:hostr_sdk/usecase/evm/evm.dart' as _i305;
 import 'package:hostr_sdk/usecase/evm/main.dart' as _i785;
 import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart'
@@ -84,6 +87,9 @@ import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transition
     as _i826;
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i326;
 import 'package:hostr_sdk/usecase/reviews/reviews.dart' as _i660;
+import 'package:hostr_sdk/usecase/startup/startup_coordinator.dart' as _i145;
+import 'package:hostr_sdk/usecase/startup/startup_core.dart' as _i716;
+import 'package:hostr_sdk/usecase/startup/startup_profiles.dart' as _i327;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i218;
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator.dart'
     as _i1068;
@@ -399,6 +405,9 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
       ),
     );
+    gh.singleton<_i716.StartupCore>(
+      () => _i716.StartupCore(relays: gh<_i883.Relays>(), evm: gh<_i305.Evm>()),
+    );
     gh.factory<_i249.SwapRecoverer>(
       () => _i249.SwapRecoverer(
         gh<_i785.OperationStateStore>(),
@@ -435,6 +444,9 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i331.CustomLogger>(),
       ),
     );
+    gh.singleton<_i327.PublicStartupProfile>(
+      () => _i327.PublicStartupProfile(core: gh<_i716.StartupCore>()),
+    );
     gh.singleton<_i226.Payments>(
       () => _i226.Payments(
         zaps: gh<_i1045.Zaps>(),
@@ -444,6 +456,13 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
         auth: gh<_i1000.Auth>(),
         config: gh<_i910.HostrConfig>(),
+      ),
+    );
+    gh.singleton<_i327.BackgroundStartupProfile>(
+      () => _i327.BackgroundStartupProfile(
+        core: gh<_i716.StartupCore>(),
+        auth: gh<_i1000.Auth>(),
+        relays: gh<_i883.Relays>(),
       ),
     );
     gh.singleton<_i576.UserSubscriptions>(
@@ -487,6 +506,17 @@ extension GetItInjectableX on _i174.GetIt {
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         reservationGroups: gh<_i533.ReservationGroups>(),
         threads: gh<_i768.Threads>(),
+      ),
+    );
+    gh.factoryParam<_i497.EvmChain, _i704.EvmChainConfig, _i937.AACapability?>(
+      (config, aa) => _i497.EvmChain(
+        config: config,
+        auth: gh<_i1000.Auth>(),
+        logger: gh<_i331.CustomLogger>(),
+        quoteService: gh<_i603.SwapQuoteService>(),
+        nwc: gh<_i588.Nwc>(),
+        payments: gh<_i226.Payments>(),
+        aa: aa,
       ),
     );
     gh.factory<_i395.PaymentActions>(
@@ -599,6 +629,31 @@ extension GetItInjectableX on _i174.GetIt {
         operationStore: gh<_i842.OperationStateStore>(),
         notificationLog: gh<_i226.NotificationLog>(),
         logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i327.UserStartupProfile>(
+      () => _i327.UserStartupProfile(
+        core: gh<_i716.StartupCore>(),
+        auth: gh<_i1000.Auth>(),
+        config: gh<_i910.HostrConfig>(),
+        relays: gh<_i883.Relays>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        userSubscriptions: gh<_i576.UserSubscriptions>(),
+        paymentProofOrchestrator: gh<_i850.PaymentProofOrchestrator>(),
+        fundsMonitor: gh<_i1016.FundsMonitorService>(),
+        nwc: gh<_i588.Nwc>(),
+        backgroundWorker: gh<_i843.BackgroundWorker>(),
+        calendar: gh<_i733.Calendar>(),
+        messaging: gh<_i1019.Messaging>(),
+        reservations: gh<_i326.Reservations>(),
+      ),
+    );
+    gh.singleton<_i145.StartupCoordinator>(
+      () => _i145.StartupCoordinator(
+        auth: gh<_i1000.Auth>(),
+        publicProfile: gh<_i327.PublicStartupProfile>(),
+        userProfile: gh<_i327.UserStartupProfile>(),
+        backgroundProfile: gh<_i327.BackgroundStartupProfile>(),
       ),
     );
     return this;

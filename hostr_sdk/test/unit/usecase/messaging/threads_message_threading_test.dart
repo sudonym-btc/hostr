@@ -350,4 +350,43 @@ void main() {
       await thread.close();
     },
   );
+
+  test(
+    'ensureConversation exposes intended recipients before first message',
+    () async {
+      final thread = threads.ensureConversation(
+        participants: {
+          MockKeys.guest.publicKey,
+          MockKeys.hoster.publicKey,
+          MockKeys.escrow.publicKey,
+        },
+        conversationTag: 'trade-empty',
+      );
+
+      expect(thread.state.value.events, isEmpty);
+      expect(
+        thread.state.value.participantPubkeys,
+        unorderedEquals([
+          MockKeys.guest.publicKey,
+          MockKeys.hoster.publicKey,
+          MockKeys.escrow.publicKey,
+        ]),
+      );
+      expect(
+        thread.state.value.counterpartyPubkeys,
+        unorderedEquals([MockKeys.hoster.publicKey, MockKeys.escrow.publicKey]),
+      );
+      expect(
+        thread.addedParticipants,
+        unorderedEquals([MockKeys.hoster.publicKey, MockKeys.escrow.publicKey]),
+      );
+
+      await thread.replyTextAndWait('first message');
+
+      expect(
+        messaging.lastRecipientPubkeys,
+        unorderedEquals([MockKeys.hoster.publicKey, MockKeys.escrow.publicKey]),
+      );
+    },
+  );
 }

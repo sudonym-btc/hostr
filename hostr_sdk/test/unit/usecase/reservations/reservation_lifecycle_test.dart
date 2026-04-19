@@ -32,6 +32,7 @@ Listing _listing({
   bool allowSelfSignedReservation = false,
   bool instantBook = true,
   int pricePerNightSats = 100000,
+  List<Price>? price,
 }) {
   final key = signer ?? MockKeys.hoster;
   return _f.listing(
@@ -40,6 +41,7 @@ Listing _listing({
     title: 'Test Cottage',
     description: 'A lovely place',
     images: const ['https://picsum.photos/seed/1/800/600'],
+    price: price,
     priceSats: pricePerNightSats,
     location: 'test-location',
     type: ListingType.house,
@@ -700,6 +702,105 @@ void main() async {
       // The seller's signature verifies on the buyer's commit.
       expect(commit.verifyCommit(seller.publicKey), isTrue);
     });
+
+    test(
+      'seller-signed cross-denomination amount overrides stale listing price',
+      () async {
+        final listing = _listing(
+          allowSelfSignedReservation: true,
+          price: [
+            Price(
+              amount: DenominatedAmount(
+                value: BigInt.from(5000000),
+                denomination: 'USD',
+                decimals: 6,
+              ),
+              frequency: Frequency.daily,
+            ),
+          ],
+        );
+        final negotiatedAmount = DenominatedAmount(
+          value: BigInt.from(5003),
+          denomination: 'BTC',
+          decimals: 8,
+        );
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'sig-cross-denom',
+          start: DateTime(2026, 7, 1),
+          end: DateTime(2026, 7, 2),
+          amount: negotiatedAmount,
+        );
+
+        final sellerSig = negotiate.signCommit(seller);
+        final commit = await _commitReservation(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: buyer,
+          proof: _escrowPaymentProof(listing: listing),
+          signatures: {seller.publicKey: sellerSig},
+        );
+
+        final expectedAmount = commit.resolveExpectedAmount(listing: listing);
+
+        expect(expectedAmount.listingPrice.denomination, 'USD');
+        expect(expectedAmount.hasOffListAmount, isTrue);
+        expect(expectedAmount.sellerCommitOk, isTrue);
+        expect(expectedAmount.usesNegotiatedAmount, isTrue);
+        expect(expectedAmount.expectedAmount, negotiatedAmount);
+        expect(expectedAmount.overrideFailureReason, isNull);
+      },
+    );
+
+    test(
+      'unsigned cross-denomination amount falls back to listing price',
+      () async {
+        final listing = _listing(
+          allowSelfSignedReservation: true,
+          price: [
+            Price(
+              amount: DenominatedAmount(
+                value: BigInt.from(5000000),
+                denomination: 'USD',
+                decimals: 6,
+              ),
+              frequency: Frequency.daily,
+            ),
+          ],
+        );
+        final negotiate = await _negotiateReservation(
+          listing: listing,
+          buyer: buyer,
+          salt: 'sig-cross-denom-missing',
+          start: DateTime(2026, 7, 1),
+          end: DateTime(2026, 7, 2),
+          amount: DenominatedAmount(
+            value: BigInt.from(5003),
+            denomination: 'BTC',
+            decimals: 8,
+          ),
+        );
+        final commit = await _commitReservation(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: buyer,
+          proof: _escrowPaymentProof(listing: listing),
+        );
+
+        final expectedAmount = commit.resolveExpectedAmount(listing: listing);
+
+        expect(expectedAmount.listingPrice.denomination, 'USD');
+        expect(expectedAmount.hasOffListAmount, isTrue);
+        expect(expectedAmount.sellerCommitOk, isFalse);
+        expect(expectedAmount.usesNegotiatedAmount, isFalse);
+        expect(expectedAmount.expectedAmount, expectedAmount.listingPrice);
+        expect(
+          expectedAmount.overrideFailureReason,
+          'Missing valid host commitment for negotiated amount',
+        );
+      },
+    );
 
     test('buyer alters dates → seller signature fails verification', () async {
       final listing = _listing(allowSelfSignedReservation: true);

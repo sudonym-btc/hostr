@@ -154,11 +154,11 @@ class NegotiableInput extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return SwitchListTile.adaptive(
+        return SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(AppLocalizations.of(context)!.negotiable),
           subtitle: Text(
-            'Allows users to submit reservation requests below the listed price, which you can then accept or decline.',
+            'Allows reservation requests below the listed price, which can then be accepted or declined.',
           ),
           value: controller.negotiableField.value,
           onChanged: controller.negotiableField.setValue,
@@ -178,7 +178,7 @@ class ActiveInput extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return SwitchListTile.adaptive(
+        return SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Active listing'),
           subtitle: const Text(
@@ -278,7 +278,7 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
           return Padding(
             padding: EdgeInsets.only(bottom: kDefaultPadding.toDouble() / 2),
             child: IntFieldSelector(
-              label: convertToTitleCase(key),
+              label: localizedSpecification(context, key),
               value: value,
               onChanged: (v) {
                 setState(() {
@@ -298,7 +298,7 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
           children: [
             ...selected.map((spec) {
               return InputChip(
-                label: Text(convertToTitleCase(spec)),
+                label: Text(localizedSpecification(context, spec)),
                 shape: getShapeForSpec(context, spec),
                 backgroundColor: getColorForSpec(context, spec),
                 padding: chipPadding,
@@ -317,7 +317,8 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
               child: RawAutocomplete<String>(
                 textEditingController: _specController,
                 focusNode: _specFocusNode,
-                displayStringForOption: (option) => convertToTitleCase(option),
+                displayStringForOption: (option) =>
+                    localizedSpecification(context, option),
                 optionsBuilder: (TextEditingValue value) {
                   if (!_specFocusNode.hasFocus) {
                     return const Iterable<String>.empty();
@@ -331,9 +332,14 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                     return available;
                   }
 
-                  return available.where(
-                    (option) => option.toLowerCase().contains(query),
-                  );
+                  return available.where((option) {
+                    final label = localizedSpecification(
+                      context,
+                      option,
+                    ).toLowerCase();
+                    return option.toLowerCase().contains(query) ||
+                        label.contains(query);
+                  });
                 },
                 onSelected: (selection) {
                   _specController.clear();
@@ -431,7 +437,9 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                           itemBuilder: (context, index) {
                             final option = options.elementAt(index);
                             return ListTile(
-                              title: Text(convertToTitleCase(option)),
+                              title: Text(
+                                localizedSpecification(context, option),
+                              ),
                               onTap: () => onSelected(option),
                             );
                           },

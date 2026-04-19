@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
@@ -11,7 +9,6 @@ import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
 /// Widget to display badges for a listing or a host pubkey.
 ///
@@ -277,36 +274,18 @@ class BadgeDetailsSheet extends StatelessWidget {
 }
 
 /// Displays "Awarded X ago" with auto-refreshing relative time.
-class _AwardedTimeText extends StatefulWidget {
+class _AwardedTimeText extends StatelessWidget {
   final DateTime dateTime;
   final TextStyle? style;
 
   const _AwardedTimeText({required this.dateTime, this.style});
 
   @override
-  State<_AwardedTimeText> createState() => _AwardedTimeTextState();
-}
-
-class _AwardedTimeTextState extends State<_AwardedTimeText> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final relative = timeago.format(widget.dateTime, locale: 'en_short');
-    return Text('Awarded $relative ago', style: widget.style);
+    return RelativeTimeText(
+      dateTime: dateTime,
+      locale: Localizations.localeOf(context).languageCode,
+      builder: (context, text) => Text('Awarded $text', style: style),
+    );
   }
 }
