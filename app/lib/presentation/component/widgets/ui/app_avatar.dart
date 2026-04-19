@@ -163,6 +163,8 @@ class AppAvatar extends StatelessWidget {
             width: diameter,
             height: diameter,
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                _fallbackChild(context),
           ),
         ),
       );
@@ -204,10 +206,7 @@ class AppAvatar extends StatelessWidget {
       return CircleAvatar(
         radius: radius,
         backgroundColor: bgColor,
-        child: Text(
-          label!.characters.first.toUpperCase(),
-          style: _labelStyle(context),
-        ),
+        child: _label(context),
       );
     }
 
@@ -216,13 +215,28 @@ class AppAvatar extends StatelessWidget {
       return CircleAvatar(
         radius: radius,
         backgroundColor: bgColor,
-        child: Icon(icon, size: radius, color: foregroundColor),
+        child: _icon(),
       );
     }
 
     // Empty coloured dot (status indicator).
     return CircleAvatar(radius: radius, backgroundColor: bgColor);
   }
+
+  Widget _fallbackChild(BuildContext context) {
+    if (label != null && label!.isNotEmpty) return _label(context);
+    if (icon != null) return _icon();
+    return const SizedBox.shrink();
+  }
+
+  Widget _label(BuildContext context) {
+    return Text(
+      label!.characters.first.toUpperCase(),
+      style: _labelStyle(context),
+    );
+  }
+
+  Widget _icon() => Icon(icon, size: radius, color: foregroundColor);
 
   /// Picks a reasonable text style based on the radius so the letter scales
   /// with the avatar.
