@@ -211,8 +211,6 @@ class BackgroundWorker {
     await _autoWithdrawProcessor$.reset();
     await _onchainOperationsRecoveryProcessor$.reset();
     await _notifications.reset();
-
-    await _fundsMonitor.stop();
   });
 
   Future<void> _start({
@@ -419,8 +417,9 @@ class BackgroundWorker {
   Future<void> _runAutoWithdrawProcessor(_BackgroundWorkerMode mode) =>
       _logger.span('_runAutoWithdrawProcessor', () async {
         _autoWithdrawProcessor$.addStatus(StreamStatusQuerying());
+        await _fundsMonitor.start();
         if (mode == _BackgroundWorkerMode.watch) {
-          _fundsMonitor.start();
+          _logger.d('funds monitor started for watch run');
         } else {
           await _runSafe('autoWithdraw', () async {
             await _fundsMonitor.checkNow();

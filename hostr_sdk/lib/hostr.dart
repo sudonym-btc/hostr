@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:ndk/ndk.dart' show Ndk;
 
 import 'config.dart';
@@ -59,6 +57,7 @@ class Hostr {
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
   Calendar get calendar => getIt<Calendar>();
+  StartupCoordinator get startup => getIt<StartupCoordinator>();
 
   Trade trade(String tradeId) {
     final thread = messaging.threads.findPreferredThreadByTradeId(tradeId);
@@ -81,14 +80,12 @@ class Hostr {
     return getIt<Trade>(param1: tradeId, param2: listingAnchor);
   }
 
-  StreamSubscription? _authStateSubscription;
   bool _authInitialized = false;
-  bool _connected = false;
 
   /// Loads stored user config and restores auth keys.
   ///
   /// This is fast and network-free — safe to call before `runApp()`.
-  /// Must be called exactly once, before [connect].
+  /// Must be called exactly once, before foreground startup begins.
   Future<void> initAuth() async {
     if (_authInitialized) return;
     _authInitialized = true;
@@ -100,114 +97,9 @@ class Hostr {
     await auth.init();
   }
 
-  /// Connects to bootstrap relays and starts the auth-state listener.
-  ///
-  /// Call this from the startup gate widget — it blocks on the relay
-  /// handshake and can take 300 ms – 15 s depending on the network.
-  /// Throws if no relay connects within the timeout.
-  ///
-  /// Safe to call more than once — subsequent calls are no-ops.
-  Future<void> connect() async {
-    if (_connected) return;
-    _connected = true;
-    await _stopAuthListener();
-
-    await relays.connect();
-
-    // Discover Boltz swap capabilities and attach swap providers to
-    // matching EVM chains. This must complete before any escrow flow
-    // tries to compute swap amounts.
-    await evm.init();
-
-    _authStateSubscription = auth.authState.listen((state) async {
-      logger.d('Auth state changed: $state');
-      if (state is LoggedIn) {
-        // Wait for at least one relay to be connected before issuing any
-        // queries. On a cold start over wireless/Tailscale the WebSocket
-        // handshake may lag behind the auth restore, causing the first
-        // batch of queries to silently return empty results.
-        await relays.ensureConnected();
-
-        final pubkey = auth.getActiveKey().publicKey;
-
-        // Fetch the user's NIP-65 relay list and connect to those relays.
-        // This also populates NDK's cache so the outbox/inbox model works
-        // automatically for subsequent broadcasts and queries.
-        final hasNip65 = await relays.syncNip65(pubkey);
-
-        // If syncNip65 found an existing relay list the user is a
-        // returning user with healthy connectivity — safe to run ensures
-        // now. New users (no NIP-65 yet) will trigger ensures when they
-        // save their profile for the first time via MetadataUseCase.upsert.
-        if (hasNip65) {
-          await metadata.ensureUserConfig(pubkey);
-        } else {
-          logger.i(
-            'No NIP-65 relay list found — skipping ensure calls until '
-            'profile is saved.',
-          );
-        }
-
-        // Start user-scoped Nostr subscriptions and the payment-proof
-        // orchestrator. UserSubscriptions must start first so its streams
-        // are live before the orchestrator subscribes to them.
-        await userSubscriptions.start();
-        paymentProofOrchestrator.start();
-        fundsMonitor.start();
-        nwc.start();
-        await backgroundWorker.watch(onProgress: _onProgressFromConfig());
-
-        await calendar.start();
-      } else {
-        logger.i('User logged out');
-        await backgroundWorker.stop();
-        await calendar.stop();
-        await fundsMonitor.stop();
-        await paymentProofOrchestrator.reset();
-        await userSubscriptions.reset();
-        messaging.threads.reset();
-        await nwc.reset();
-        await reservations.reset();
-        await evm.reset();
-      }
-    });
-  }
-
-  /// Lightweight connect for background workers.
-  ///
-  /// Connects to bootstrap relays and syncs the user's NIP-65 relay list
-  /// so that queries work correctly, but does **not** start any long-lived
-  /// subscriptions (UserSubscriptions, PaymentProofOrchestrator, NWC,
-  /// Calendar, AutoWithdraw, etc.).
-  ///
-  /// Use this instead of [connect] in Workmanager callbacks to keep the
-  /// background isolate fast and resource-light.
-  Future<void> connectForBackground() async {
-    await relays.connect();
-    await relays.ensureConnected();
-  }
-
-  Future<void> _stopAuthListener() async {
-    await _authStateSubscription?.cancel();
-  }
-
-  /// Bridges [HostrConfig.showNotification] into an [OnBackgroundProgress]
-  /// callback that the recovery pipeline understands.
-  OnBackgroundProgress? _onProgressFromConfig() {
-    final show = config.showNotification;
-    if (show == null) return null;
-    return (notification) => show(
-      id: notification.operationId.hashCode,
-      title: 'Hostr',
-      body: notification.body,
-      payload: notification.payload,
-    );
-  }
-
   Future<void> dispose() async {
     _authInitialized = false;
-    _connected = false;
-    await _stopAuthListener();
+    await startup.dispose();
     await backgroundWorker.stop();
     await calendar.stop();
     await fundsMonitor.stop();

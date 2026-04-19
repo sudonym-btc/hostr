@@ -65,6 +65,7 @@ class _FakeEvm extends Fake implements Evm {
 Listing _listing({
   bool negotiable = true,
   int pricePerNightSats = 100000,
+  List<Price>? price,
   DenominatedAmount? securityDeposit,
   int? maxDisputePeriod,
 }) => _f.listing(
@@ -73,6 +74,7 @@ Listing _listing({
   title: 'Escrow Verify Listing',
   description: 'Test listing',
   images: const ['https://picsum.photos/seed/escrow/800/600'],
+  price: price,
   priceSats: pricePerNightSats,
   location: 'test-location',
   type: ListingType.house,
@@ -233,6 +235,55 @@ void main() {
             tradeId: reservation.getDtag()!,
             txHash: txHash,
             amountSats: 80000,
+          ),
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(reservation: reservation);
+
+      expect(result.isValid, isTrue);
+      expect(result.fundedEvent, isNotNull);
+    },
+  );
+
+  test(
+    'uses seller-signed cross-denomination amount when listing price changed',
+    () async {
+      final listing = _listing(
+        price: [
+          Price(
+            amount: DenominatedAmount(
+              value: BigInt.from(5000000),
+              denomination: 'USD',
+              decimals: 6,
+            ),
+            frequency: Frequency.daily,
+          ),
+        ],
+      );
+      const txHash = '0xcross-denomination';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final reservation = _reservation(
+        listing: listing,
+        amount: DenominatedAmount(
+          value: BigInt.from(5003),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
+        proof: proof,
+        includeSellerSignature: true,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _eventsSource(
+          _fundedEvent(
+            tradeId: reservation.getDtag()!,
+            txHash: txHash,
+            amountSats: 5003,
           ),
         ),
       );

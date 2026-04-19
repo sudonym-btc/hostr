@@ -83,6 +83,41 @@ class Thread {
     _knownParticipants.addAll(pubkeys.where((p) => p.isNotEmpty));
   }
 
+  List<String> _sortedPubkeys(Iterable<String> pubkeys) =>
+      (pubkeys.where((p) => p.isNotEmpty).toSet().toList()..sort());
+
+  List<String> _currentParticipantPubkeys() => _sortedPubkeys({
+    _auth.getActiveKey().publicKey,
+    ..._knownParticipants,
+    ...addedParticipants,
+  });
+
+  List<String> _currentCounterpartyPubkeys() {
+    final myPubkey = _auth.getActiveKey().publicKey;
+    return _sortedPubkeys(
+      {
+        ..._knownParticipants,
+        ...addedParticipants,
+      }.where((pubkey) => pubkey != myPubkey),
+    );
+  }
+
+  void _emitParticipantState() {
+    if (state.isClosed) return;
+    final nextCounterpartyPubkeys = _currentCounterpartyPubkeys();
+    state.add(
+      state.value.copyWith(
+        participantPubkeys: _currentParticipantPubkeys(),
+        counterpartyPubkeys: nextCounterpartyPubkeys,
+        received: _computeReceived(
+          events: state.value.events,
+          counterpartyPubkeys: nextCounterpartyPubkeys,
+        ),
+        seenUntil: Map.unmodifiable(_seenUntil),
+      ),
+    );
+  }
+
   /// Single entry point for all thread events.
   void process(Nip01Event event) {
     events.add(event);
@@ -126,18 +161,13 @@ class Thread {
         if (rawEvent is! Event) return;
 
         final nextEvents = _insertSorted(state.value.events, rawEvent);
-        final nextParticipantPubkeys = <String>{
-          ..._knownParticipants,
-          ...addedParticipants,
-        }.toList();
-        final nextCounterpartyPubkeys = nextParticipantPubkeys
-            .where((pubkey) => pubkey != keyPair.publicKey)
-            .toList();
+        final nextParticipantPubkeys = _currentParticipantPubkeys();
+        final nextCounterpartyPubkeys = _currentCounterpartyPubkeys();
 
         state.add(
           state.value.copyWith(
             events: nextEvents,
-            participantPubkeys: _knownParticipants.toList(),
+            participantPubkeys: nextParticipantPubkeys,
             counterpartyPubkeys: nextCounterpartyPubkeys,
             received: _computeReceived(
               events: nextEvents,
@@ -226,6 +256,7 @@ class Thread {
         addedParticipants.add(pubkey);
       }
     }
+    _emitParticipantState();
   }
 
   List<String> get _recipientPubkeys {

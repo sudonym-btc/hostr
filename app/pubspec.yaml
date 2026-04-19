@@ -21,7 +21,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  google_maps_flutter: ^2.15.0
+  google_maps_flutter: ^2.17.0
   google_maps_flutter_web: ^0.6.1
   sliding_up_panel: ^2.0.0+1
   hydrated_bloc: ^10.1.1
@@ -109,7 +109,7 @@ dependency_overrides:
   ndk:
     git:
       url: https://github.com/sudonym-btc/ndk.git
-      ref: fix/websocket-tostring
+      ref: codex/hostr-ndk-fixes
       path: packages/ndk
   intl: ^0.20.2
   pointycastle: ^4.0.0

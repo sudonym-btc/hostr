@@ -88,7 +88,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   /// Ensures all replaceable user-config events are up to date:
   /// NIP-65 relay list, EVM address tag, escrow methods, blossom servers.
   ///
-  /// Called automatically after every [upsert] and by [Hostr.connect] for
+  /// Called automatically after every [upsert] and by user startup for
   /// returning users who already have a NIP-65 relay list.
   Future<void> ensureUserConfig(String pubkey) =>
       logger.span('ensureUserConfig', () async {

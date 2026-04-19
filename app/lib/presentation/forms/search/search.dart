@@ -166,6 +166,7 @@ class _ListingTypeChips extends StatelessWidget {
             label: Text(entry.value),
             selected: selected == entry.key,
             onSelected: (on) => onChanged(on ? entry.key : null),
+            shape: const StadiumBorder(),
           ),
       ],
     );

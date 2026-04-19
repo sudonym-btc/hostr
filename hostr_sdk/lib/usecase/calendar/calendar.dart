@@ -68,7 +68,7 @@ class Calendar {
   final Listings _listings;
   final MetadataUseCase _metadata;
   final CustomLogger _logger;
-  final CalendarPort? _port;
+  final CalendarPort _port;
 
   final Map<String, CalendarEntry> _publishedEntries = {};
   final List<StreamSubscription<dynamic>> _subscriptions = [];
@@ -81,7 +81,7 @@ class Calendar {
     required Listings listings,
     required MetadataUseCase metadata,
     required CustomLogger logger,
-    CalendarPort? port,
+    required CalendarPort port,
   }) : _userSubscriptions = userSubscriptions,
        _listings = listings,
        _metadata = metadata,
@@ -89,7 +89,7 @@ class Calendar {
        _port = port;
 
   Future<void> start() => _logger.span('start', () async {
-    if (_started || _port == null) return;
+    if (_started) return;
 
     _started = true;
     _logger.d('Calendar: starting');
@@ -215,15 +215,12 @@ class Calendar {
 
   Future<void> _publishEntry(CalendarEntry entry) =>
       _logger.span('_publishEntry', () async {
-        final port = _port;
-        if (port == null) return;
-
         final previous = _publishedEntries[entry.tradeId];
         if (previous == entry) {
           return;
         }
 
-        await port.upsert(entry);
+        await _port.upsert(entry);
         _publishedEntries[entry.tradeId] = entry;
       });
 

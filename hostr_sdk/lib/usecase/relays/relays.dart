@@ -16,6 +16,8 @@ class Relays {
   final CustomLogger _logger;
   final Ndk _ndk;
   final RelayStorage _relayStorage;
+  Future<void>? _startSeedRelaysFuture;
+  Future<void>? _coreRelayReadyFuture;
   CustomLogger get logger => _logger;
   Ndk get ndk => _ndk;
   RelayStorage get relayStorage => _relayStorage;
@@ -78,7 +80,16 @@ class Relays {
     await _relayStorage.remove(url);
   });
 
-  Future<void> connect() => _logger.span('connect', () async {
+  Future<void> startSeedRelays() {
+    return _startSeedRelaysFuture ??= _logger
+        .span('startSeedRelays', _startSeedRelays)
+        .catchError((Object error) {
+          _startSeedRelaysFuture = null;
+          throw error;
+        });
+  }
+
+  Future<void> _startSeedRelays() async {
     final config = getIt<HostrConfig>();
     final configured = config.bootstrapRelays;
 
@@ -96,116 +107,110 @@ class Relays {
         ),
       ),
     );
-
-    await _waitForConnection();
-  });
+  }
 
   /// Returns a future that completes once at least one relay is connected.
   ///
   /// On a cold start over wireless/Tailscale the initial WebSocket handshake
-  /// may take several seconds. This method polls [Ndk.relays.connectedRelays]
-  /// with backoff so that callers can await relay readiness before issuing
-  /// queries that would otherwise silently return empty results.
+  /// may take several seconds. This method waits for the core Hostr relay
+  /// readiness condition used by startup before Hostr-specific flows proceed.
   ///
-  /// Safe to call from multiple places — all callers share the same future.
-  Future<void> ensureConnected() => _logger.span('ensureConnected', () async {
-    _logger.d('Ensuring relay connectivity…');
-    return _waitForConnection();
-  });
+  /// Safe to call from multiple places — all callers share the same future
+  /// until it fails, after which the next call retries.
+  Future<void> awaitCoreRelay({
+    Duration timeout = const Duration(seconds: 30),
+  }) {
+    return _coreRelayReadyFuture ??= _logger
+        .span('awaitCoreRelay', () => _waitForConnection(timeout: timeout))
+        .catchError((Object error) {
+          _coreRelayReadyFuture = null;
+          throw error;
+        });
+  }
 
-  Future<void> _waitForConnection() => _logger.span(
-    '_waitForConnection',
-    () async {
-      const timeout = Duration(seconds: 30);
-      const pollInterval = Duration(seconds: 1);
+  Future<void> _waitForConnection({
+    Duration timeout = const Duration(seconds: 30),
+  }) => _logger.span('_waitForConnection', () async {
+    const pollInterval = Duration(seconds: 1);
 
-      final config = getIt<HostrConfig>();
-      final preferredRelay = config.hostrRelay;
+    final config = getIt<HostrConfig>();
+    final preferredRelay = config.hostrRelay;
 
-      // Poll until the Hostr relay is connected, or at least one relay when
-      // no Hostr relay is configured. Hostr-specific requests are guarded onto
-      // the Hostr relay, so an arbitrary third-party connection is not enough
-      // for the app to be ready.
-      final deadline = DateTime.now().add(timeout);
-      while (DateTime.now().isBefore(deadline)) {
-        final connectedUrls = _ndk.relays.connectedRelays
-            .map((relay) => relay.url)
-            .toSet();
-        if (preferredRelay.isNotEmpty) {
-          if (connectedUrls.contains(preferredRelay)) return;
-        } else if (connectedUrls.isNotEmpty) {
-          return;
-        }
-
-        final reconnectTargets = preferredRelay.isNotEmpty
-            ? [preferredRelay]
-            : config.bootstrapRelays;
-        for (final url in reconnectTargets) {
-          if (connectedUrls.contains(url) ||
-              _ndk.relays.isRelayConnecting(url)) {
-            continue;
-          }
-          unawaited(
-            _ndk.relays.connectRelay(
-              dirtyUrl: url,
-              connectionSource: ConnectionSource.seed,
-              connectTimeout: 10,
-            ),
-          );
-        }
-
-        final targetDescription = preferredRelay.isNotEmpty
-            ? preferredRelay
-            : 'any relay';
-        _logger.d(
-          'Checking relay connectivity for $targetDescription… '
-          'connected=${connectedUrls.length}/${config.bootstrapRelays.length}',
-        );
-        await Future.delayed(pollInterval);
+    // Poll until the Hostr relay is connected, or at least one relay when
+    // no Hostr relay is configured. Hostr-specific requests are guarded onto
+    // the Hostr relay, so an arbitrary third-party connection is not enough
+    // for the app to be ready.
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final connectedUrls = _ndk.relays.connectedRelays
+          .map((relay) => relay.url)
+          .toSet();
+      if (preferredRelay.isNotEmpty) {
+        if (connectedUrls.contains(preferredRelay)) return;
+      } else if (connectedUrls.isNotEmpty) {
+        return;
       }
-      throw Exception('Timed out waiting for relay connection after $timeout');
-    },
-  );
+
+      final reconnectTargets = preferredRelay.isNotEmpty
+          ? [preferredRelay]
+          : config.bootstrapRelays;
+      for (final url in reconnectTargets) {
+        if (connectedUrls.contains(url) || _ndk.relays.isRelayConnecting(url)) {
+          continue;
+        }
+        unawaited(
+          _ndk.relays.connectRelay(
+            dirtyUrl: url,
+            connectionSource: ConnectionSource.seed,
+            connectTimeout: 10,
+          ),
+        );
+      }
+
+      final targetDescription = preferredRelay.isNotEmpty
+          ? preferredRelay
+          : 'any relay';
+      _logger.d(
+        'Checking relay connectivity for $targetDescription… '
+        'connected=${connectedUrls.length}/${config.bootstrapRelays.length}',
+      );
+      await Future.delayed(pollInterval);
+    }
+    throw Exception('Timed out waiting for relay connection after $timeout');
+  });
 
   Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
     return _ndk.relays.relayConnectivityChanges;
   }
 
-  /// Fetches the user's NIP-65 relay list and connects to any relays
-  /// not already connected. This populates NDK's cache so the outbox/inbox
-  /// model works automatically for broadcasts and queries.
-  Future<bool> syncNip65(String pubkey) => logger.span('syncNip65', () async {
-    logger.i('Syncing NIP-65 relay list for $pubkey');
-    try {
-      final relayList = await ndk.userRelayLists.getSingleUserRelayList(
-        pubkey,
-        forceRefresh: true,
-      );
-      if (relayList == null || relayList.urls.isEmpty) {
-        logger.i('No NIP-65 relay list found for $pubkey');
-        return false;
-      }
-      logger.i('Found ${relayList.urls.length} relays in NIP-65 list');
-
-      final connectedUrls = ndk.relays.connectedRelays
-          .map((r) => r.url)
-          .toSet();
-
-      await Future.wait(
-        relayList.urls
-            .where((url) => !connectedUrls.contains(url))
-            .map(
-              (url) => add(url).catchError((e) {
-                logger.w('Failed to connect to NIP-65 relay $url: $e');
-              }),
-            ),
-      );
-      return true;
-    } catch (e) {
-      logger.e('Error syncing NIP-65 relay list: $e');
-      return false;
-    }
+  Future<void> reconnectNow() => _logger.span('reconnectNow', () async {
+    _coreRelayReadyFuture = null;
+    await _ndk.connectivity.tryReconnect();
   });
+
+  /// Fetches the user's NIP-65 relay list into NDK's cache.
+  ///
+  /// NDK's JIT engine connects to the selected read/write relays on demand, so
+  /// startup does not need to eagerly connect to every relay in the list.
+  Future<bool> loadNip65Hints(String pubkey) =>
+      logger.span('loadNip65Hints', () async {
+        logger.i('Syncing NIP-65 relay list for $pubkey');
+        try {
+          final relayList = await ndk.userRelayLists.getSingleUserRelayList(
+            pubkey,
+            forceRefresh: true,
+          );
+          if (relayList == null || relayList.urls.isEmpty) {
+            logger.i('No NIP-65 relay list found for $pubkey');
+            return false;
+          }
+          logger.i('Found ${relayList.urls.length} relays in NIP-65 list');
+          return true;
+        } catch (e) {
+          logger.e('Error syncing NIP-65 relay list: $e');
+          return false;
+        }
+      });
 
   /// Publishes the user's NIP-65 relay list, ensuring the given
   /// [hostrRelay] is included with read+write markers.
@@ -250,19 +255,23 @@ class MockRelays extends Relays {
     required super.logger,
   });
 
-  /// No real relays to connect to in test/mock.
   @override
-  Future<void> connect() async {}
+  Future<void> startSeedRelays() async {}
 
   @override
-  Future<void> ensureConnected() async {}
+  Future<void> awaitCoreRelay({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {}
+
+  @override
+  Future<void> reconnectNow() async {}
 
   /// Reads kind-10002 (NIP-65) events from [InMemoryRequests] and
   /// pre-seeds NDK's [CacheManager] so that
   /// `ndk.userRelayLists.getSingleUserRelayList(pubkey)` returns
   /// instantly from cache — zero WebSocket IO.
   @override
-  Future<bool> syncNip65(String pubkey) async {
+  Future<bool> loadNip65Hints(String pubkey) async {
     logger.i('MockRelays: syncing NIP-65 from InMemoryRequests for $pubkey');
     final requests = getIt<Requests>();
     Nip01Event? latest;

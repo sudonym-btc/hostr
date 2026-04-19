@@ -1034,10 +1034,13 @@ class MockNwc extends _i1.Mock implements _i11.Nwc {
           as _i26.Future<void>);
 
   @override
-  void start() => super.noSuchMethod(
-    Invocation.method(#start, []),
-    returnValueForMissingStub: null,
-  );
+  _i26.Future<void> start() =>
+      (super.noSuchMethod(
+            Invocation.method(#start, []),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
 }
 
 /// A class which mocks [Zaps].
@@ -1593,6 +1596,28 @@ class MockReservations extends _i1.Mock implements _i16.Reservations {
             ),
           )
           as _i26.Future<_i9.Reservation>);
+
+  @override
+  _i7.StreamWithStatus<_i7.Validation<_i9.Reservation>>
+  subscribeUncancelledReservations({
+    required _i9.Listing? listing,
+    Duration? debounce = const Duration(milliseconds: 500),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#subscribeUncancelledReservations, [], {
+              #listing: listing,
+              #debounce: debounce,
+            }),
+            returnValue:
+                _FakeStreamWithStatus_5<_i7.Validation<_i9.Reservation>>(
+                  this,
+                  Invocation.method(#subscribeUncancelledReservations, [], {
+                    #listing: listing,
+                    #debounce: debounce,
+                  }),
+                ),
+          )
+          as _i7.StreamWithStatus<_i7.Validation<_i9.Reservation>>);
 
   @override
   _i26.Future<void> reset() =>
@@ -3466,18 +3491,20 @@ class MockRelays extends _i1.Mock implements _i44.Relays {
           as _i26.Future<void>);
 
   @override
-  _i26.Future<void> connect() =>
+  _i26.Future<void> startSeedRelays() =>
       (super.noSuchMethod(
-            Invocation.method(#connect, []),
+            Invocation.method(#startSeedRelays, []),
             returnValue: _i26.Future<void>.value(),
             returnValueForMissingStub: _i26.Future<void>.value(),
           )
           as _i26.Future<void>);
 
   @override
-  _i26.Future<void> ensureConnected() =>
+  _i26.Future<void> awaitCoreRelay({
+    Duration? timeout = const Duration(seconds: 30),
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#ensureConnected, []),
+            Invocation.method(#awaitCoreRelay, [], {#timeout: timeout}),
             returnValue: _i26.Future<void>.value(),
             returnValueForMissingStub: _i26.Future<void>.value(),
           )
@@ -3495,9 +3522,18 @@ class MockRelays extends _i1.Mock implements _i44.Relays {
           as _i26.Stream<Map<String, _i27.RelayConnectivity<dynamic>>>);
 
   @override
-  _i26.Future<bool> syncNip65(String? pubkey) =>
+  _i26.Future<void> reconnectNow() =>
       (super.noSuchMethod(
-            Invocation.method(#syncNip65, [pubkey]),
+            Invocation.method(#reconnectNow, []),
+            returnValue: _i26.Future<void>.value(),
+            returnValueForMissingStub: _i26.Future<void>.value(),
+          )
+          as _i26.Future<void>);
+
+  @override
+  _i26.Future<bool> loadNip65Hints(String? pubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#loadNip65Hints, [pubkey]),
             returnValue: _i26.Future<bool>.value(false),
           )
           as _i26.Future<bool>);

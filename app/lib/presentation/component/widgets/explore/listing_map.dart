@@ -124,7 +124,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   static const _kLongitudeRestrictionEpsilon = 0.000001;
   static const _kResizeViewportDebounce = Duration(milliseconds: 150);
 
-  final Completer<GoogleMapController> _googleMapController = Completer();
+  GoogleMapController? _googleMapController;
   final Map<String, Marker> _markers = {};
   final Map<String, _MarkerMeta> _markerMeta = {};
   final Map<String, String> _groupIdByListingId = {};
@@ -139,6 +139,8 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   int _handledViewportRevision = -1;
   bool _didRunInitialDependencySync = false;
   bool _hasScheduledPostFrameViewportIntent = false;
+  bool? _lastKnownDarkMode;
+  double? _lastKnownDevicePixelRatio;
 
   /// Currently highlighted rendered marker id (accent colour).
   String? _focusedMarkerId;
@@ -163,10 +165,11 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   // ── Map lifecycle ───────────────────────────────────────────────────
 
   void _onMapCreated(GoogleMapController controller) {
-    if (_googleMapController.isCompleted || !mounted) return;
+    if (!mounted) return;
 
-    _googleMapController.complete(controller);
+    _googleMapController = controller;
     _mapReady = true;
+    _cameraOperationGeneration++;
 
     if (_listingMapController.selectedListingId == null &&
         _listingMapController.listings.isNotEmpty) {
@@ -175,6 +178,93 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
     unawaited(_syncMarkers(applyViewportIntent: true));
     _schedulePostFrameViewportIntent();
+  }
+
+  String _configuredMapId() => getIt<Config>()
+      .googleMapsMapIdForPlatform(
+        isWeb: kIsWeb,
+        platform: defaultTargetPlatform,
+      )
+      .trim();
+
+  bool _usesCloudStyle() => _configuredMapId().isNotEmpty;
+
+  bool _usesAdvancedMarkers() => _usesCloudStyle();
+
+  void _resetCloudMapControllerForAppearanceChange() {
+    if (!_usesCloudStyle()) return;
+
+    _mapReady = false;
+    _googleMapController = null;
+    _isClampingCamera = false;
+    _cameraOperationGeneration++;
+  }
+
+  void _handleMapAppearanceChanged({bool rebuild = false}) {
+    PriceMarkerBuilder.clearCache();
+    _resetCloudMapControllerForAppearanceChange();
+
+    if (rebuild && mounted) {
+      setState(() {});
+    }
+
+    if (_mapReady) {
+      unawaited(_syncMarkers(applyViewportIntent: true));
+    }
+  }
+
+  void _handleDevicePixelRatioChanged({required bool rebuild}) {
+    PriceMarkerBuilder.clearCache();
+    _syncGeneration++;
+    _lastClusterZoom = null;
+
+    if (kIsWeb) {
+      _mapReady = false;
+      _googleMapController = null;
+      _isClampingCamera = false;
+      _cameraOperationGeneration++;
+    }
+
+    if (rebuild && mounted) {
+      setState(() {});
+    } else if (_mapReady) {
+      unawaited(_syncMarkers(applyViewportIntent: true));
+    }
+  }
+
+  Marker _buildMarker({
+    required String id,
+    required LatLng position,
+    required BitmapDescriptor icon,
+    required bool isFocused,
+    required VoidCallback onTap,
+  }) {
+    final zIndex = isFocused ? 1 : 0;
+    final anchor = Offset(0.5, widget.showArrows ? 1.0 : 0.5);
+    final markerId = MarkerId(id);
+
+    if (_usesAdvancedMarkers()) {
+      return AdvancedMarker(
+        markerId: markerId,
+        position: position,
+        icon: icon,
+        zIndex: zIndex,
+        anchor: anchor,
+        consumeTapEvents: true,
+        collisionBehavior: MarkerCollisionBehavior.requiredAndHidesOptional,
+        onTap: onTap,
+      );
+    }
+
+    return Marker(
+      markerId: markerId,
+      position: position,
+      icon: icon,
+      zIndexInt: zIndex,
+      anchor: anchor,
+      consumeTapEvents: true,
+      onTap: onTap,
+    );
   }
 
   // ── Marker syncing ─────────────────────────────────────────────────
@@ -301,13 +391,11 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         memberIds: group.memberIds,
         isCluster: isCluster,
       );
-      nextMarkers[group.markerId] = Marker(
-        markerId: MarkerId(group.markerId),
+      nextMarkers[group.markerId] = _buildMarker(
+        id: group.markerId,
         position: group.position,
         icon: icon,
-        zIndexInt: isFocused ? 1 : 0,
-        anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
-        consumeTapEvents: true,
+        isFocused: isFocused,
         onTap: () => unawaited(_handleMarkerTap(group.markerId)),
       );
     }
@@ -374,8 +462,8 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     // when the camera has already been positioned.  When a viewport
     // intent is pending the camera is still at its default world-zoom,
     // which produces a wildly inflated threshold.
-    if (useVisibleRegion && _mapReady && _googleMapController.isCompleted) {
-      final controller = await _googleMapController.future;
+    final controller = _googleMapController;
+    if (useVisibleRegion && _mapReady && controller != null) {
       final visibleRegion = await controller.getVisibleRegion();
       latSpan =
           (visibleRegion.northeast.latitude - visibleRegion.southwest.latitude)
@@ -429,10 +517,10 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   /// Called by [onCameraIdle] — re-clusters if the zoom changed enough.
   Future<void> _onCameraIdle() async {
-    if (!_mapReady || !_googleMapController.isCompleted) return;
+    final controller = _googleMapController;
+    if (!_mapReady || controller == null) return;
     if (_resolvedListings.length < 2) return;
 
-    final controller = await _googleMapController.future;
     final zoom = (await controller.getZoomLevel());
 
     // Only re-cluster when zoom moved by ≥ 0.5 stops (avoids thrashing
@@ -516,13 +604,13 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     CameraPosition position,
     double clampedLatitude,
   ) async {
-    if (_isClampingCamera || !_mapReady || !_googleMapController.isCompleted) {
+    final controller = _googleMapController;
+    if (_isClampingCamera || !_mapReady || controller == null) {
       return;
     }
 
     _isClampingCamera = true;
     try {
-      final controller = await _googleMapController.future;
       if (!mounted) return;
 
       await controller.moveCamera(
@@ -589,7 +677,8 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final positions = _viewportTargetPositions();
     if (positions.isEmpty || _isStaleCameraOperation(operationId)) return;
 
-    final controller = await _googleMapController.future;
+    final controller = _googleMapController;
+    if (controller == null) return;
     if (_isStaleCameraOperation(operationId)) return;
 
     if (positions.length == 1) {
@@ -661,6 +750,24 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+
+    if (_lastKnownDarkMode != null && _lastKnownDarkMode != isDarkMode) {
+      _lastKnownDarkMode = isDarkMode;
+      _handleMapAppearanceChanged();
+      return;
+    }
+
+    _lastKnownDarkMode = isDarkMode;
+    if (_lastKnownDevicePixelRatio != null &&
+        (_lastKnownDevicePixelRatio! - devicePixelRatio).abs() > 0.001) {
+      _lastKnownDevicePixelRatio = devicePixelRatio;
+      _handleDevicePixelRatioChanged(rebuild: kIsWeb);
+      return;
+    }
+
+    _lastKnownDevicePixelRatio = devicePixelRatio;
     if (_didRunInitialDependencySync) return;
 
     _didRunInitialDependencySync = true;
@@ -706,7 +813,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   }
 
   Future<void> _applyViewportIntent() async {
-    if (!_mapReady || !_googleMapController.isCompleted || !mounted) return;
+    if (!_mapReady || _googleMapController == null || !mounted) return;
 
     final operationId = ++_cameraOperationGeneration;
     final viewportMode = _listingMapController.viewportMode;
@@ -762,7 +869,8 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     await _updateFocus(markerId);
     if (_isStaleCameraOperation(operationId)) return;
 
-    final controller = await _googleMapController.future;
+    final controller = _googleMapController;
+    if (controller == null) return;
     if (_isStaleCameraOperation(operationId)) return;
 
     await controller.animateCamera(CameraUpdate.newLatLng(marker.position));
@@ -778,7 +886,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   }
 
   Future<void> _refocusForResize() async {
-    if (!_mapReady || !_googleMapController.isCompleted || !mounted) return;
+    if (!_mapReady || _googleMapController == null || !mounted) return;
 
     final selectedListingId = _listingMapController.selectedListingId;
     final operationId = ++_cameraOperationGeneration;
@@ -917,13 +1025,11 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     if (_markerMeta[id] == null) return;
 
     setState(() {
-      _markers[id] = Marker(
-        markerId: MarkerId(id),
+      _markers[id] = _buildMarker(
+        id: id,
         position: meta.position,
         icon: icon,
-        zIndexInt: isFocused ? 1 : 0,
-        anchor: Offset(0.5, widget.showArrows ? 1.0 : 0.5),
-        consumeTapEvents: true,
+        isFocused: isFocused,
         onTap: () => unawaited(_handleMarkerTap(id)),
       );
     });
@@ -965,12 +1071,23 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   @override
   void didChangePlatformBrightness() {
-    PriceMarkerBuilder.clearCache();
-    if (_mapReady) {
-      unawaited(_syncMarkers(applyViewportIntent: true));
-      return;
-    }
-    setState(() {});
+    _handleMapAppearanceChanged(rebuild: true);
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+      if (_lastKnownDevicePixelRatio != null &&
+          (_lastKnownDevicePixelRatio! - devicePixelRatio).abs() > 0.001) {
+        _lastKnownDevicePixelRatio = devicePixelRatio;
+        _handleDevicePixelRatioChanged(rebuild: kIsWeb);
+      }
+    });
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -978,13 +1095,16 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final mapId = getIt<Config>()
-        .googleMapsMapIdForPlatform(
-          isWeb: kIsWeb,
-          platform: defaultTargetPlatform,
-        )
-        .trim();
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final dprKey = kIsWeb ? '-dpr${(devicePixelRatio * 1000).round()}' : '';
+    final mapId = _configuredMapId();
     final useCloudStyle = mapId.isNotEmpty;
+    final useAdvancedMarkers = _usesAdvancedMarkers();
+    final mapKey = useCloudStyle
+        ? ValueKey(
+            'listing-map-cloud-$mapId-${isDarkMode ? 'dark' : 'light'}$dprKey',
+          )
+        : ValueKey('listing-map-inline$dprKey');
     final defaultCamera = CameraPosition(target: LatLng(0, 0), zoom: 1);
     final cameraTargetBounds = kIsWeb
         ? CameraTargetBounds(
@@ -1007,10 +1127,10 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
             nextViewportSize.height.isFinite &&
             nextViewportSize.width > 0 &&
             nextViewportSize.height > 0) {
-          _lastViewportSize = nextViewportSize;
+          _scheduleResizeViewportRefresh(nextViewportSize);
         }
-        _scheduleResizeViewportRefresh(nextViewportSize);
         return GoogleMap(
+          key: mapKey,
           mapId: useCloudStyle ? mapId : null,
           colorScheme: useCloudStyle
               ? isDarkMode
@@ -1025,6 +1145,9 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
               : null,
           initialCameraPosition: widget.initialCamera ?? defaultCamera,
           markers: _markers.values.toSet(),
+          markerType: useAdvancedMarkers
+              ? GoogleMapMarkerType.advancedMarker
+              : GoogleMapMarkerType.marker,
           mapToolbarEnabled: false,
           zoomControlsEnabled: false,
           webCameraControlEnabled: false,

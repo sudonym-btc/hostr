@@ -1,6 +1,8 @@
 @Tags(['unit'])
 library;
 
+import 'dart:async';
+
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
@@ -311,6 +313,21 @@ void main() {
       );
       expect(index, isNull);
     });
+
+    test('yields to the event queue while scanning misses', () async {
+      var timerFired = false;
+      Timer.run(() {
+        timerFired = true;
+      });
+
+      final index = await allocator.tryFindTradeAccountIndexByTradeId(
+        'missing',
+        maxScan: 3,
+      );
+
+      expect(index, isNull);
+      expect(timerFired, isTrue);
+    });
   });
 
   group('findTradeAccountIndexBySalt', () {
@@ -337,6 +354,21 @@ void main() {
     test('returns null when no match', () async {
       final index = await allocator.tryFindTradeAccountIndexBySalt('no-such');
       expect(index, isNull);
+    });
+
+    test('yields to the event queue while scanning misses', () async {
+      var timerFired = false;
+      Timer.run(() {
+        timerFired = true;
+      });
+
+      final index = await allocator.tryFindTradeAccountIndexBySalt(
+        'no-such',
+        maxScan: 3,
+      );
+
+      expect(index, isNull);
+      expect(timerFired, isTrue);
     });
   });
 

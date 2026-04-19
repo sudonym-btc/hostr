@@ -57,6 +57,7 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
           }
 
           accountIndex++;
+          await _yieldToEventLoop();
         }
 
         // Persist the chosen index into the cache (may already be there).
@@ -97,13 +98,17 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     // Cache miss — lightweight scan using only getTradeId.
     final upperBound = _scanUpperBound(maxScan);
     for (var index = 0; index < upperBound; index++) {
-      if (_cache.containsIndex(index)) continue;
+      if (_cache.containsIndex(index)) {
+        await _yieldToEventLoop();
+        continue;
+      }
       final derivedTradeId = await _hd.getTradeId(accountIndex: index);
       // Cache the tradeId for future lookups (no salt/evmAddress yet).
       _cache.putTradeIdOnly(index, derivedTradeId);
       if (derivedTradeId == tradeId) {
         return index;
       }
+      await _yieldToEventLoop();
     }
     return null;
   }
@@ -135,11 +140,15 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     // Cache miss — lightweight scan using only getTradeSalt.
     final upperBound = _scanUpperBound(maxScan);
     for (var index = 0; index < upperBound; index++) {
-      if (_cache.containsIndex(index)) continue;
+      if (_cache.containsIndex(index)) {
+        await _yieldToEventLoop();
+        continue;
+      }
       if (await _hd.getTradeSalt(accountIndex: index) == salt) {
         await _cache.put(index);
         return index;
       }
+      await _yieldToEventLoop();
     }
     return null;
   }
@@ -182,4 +191,6 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     }
     return false;
   }
+
+  Future<void> _yieldToEventLoop() => Future<void>.delayed(Duration.zero);
 }

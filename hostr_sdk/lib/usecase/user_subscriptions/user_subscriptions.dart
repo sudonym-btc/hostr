@@ -171,7 +171,9 @@ class UserSubscriptions {
   StreamWithStatus<Filter>? _transitionFilterSource;
   StreamWithStatus<Filter>? _heartbeatFilterSource;
 
-  Future<void> start() => _logger.span('start', () async {
+  Future<void> start({
+    bool validateReservationGroups = true,
+  }) => _logger.span('start', () async {
     if (_started) return;
     _started = true;
 
@@ -202,6 +204,7 @@ class UserSubscriptions {
 
     _reservationGroupsSource = _reservationGroups.verifyFromSource(
       source: allMyReservations$.stream,
+      validate: validateReservationGroups,
     );
     allMyReservationGroups$.pipeFrom(_reservationGroupsSource!);
 

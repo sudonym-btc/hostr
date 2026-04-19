@@ -196,11 +196,12 @@ class _LastSeenRow extends StatelessWidget {
               Gap.horizontal.sm(),
               RelativeTimeText(
                 dateTime: heartbeat.receivedAt,
+                locale: Localizations.localeOf(context).languageCode,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.outline,
                 ),
                 builder: (context, text) => Text(
-                  'Last seen $text ago',
+                  'Last seen $text',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.outline,
                   ),

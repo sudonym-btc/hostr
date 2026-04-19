@@ -21,14 +21,13 @@ class RelayConnectivityState extends Equatable {
     this.hostrRelayConnected = true,
   });
 
-  /// True when more than 50% of relays are disconnected.
-  bool get majorityDisconnected =>
-      totalRelays > 0 && disconnectedRelays > totalRelays / 2;
+  /// True when fewer than 25% of configured relays are connected.
+  bool get severelyDegraded => totalRelays > 0 && connectedFraction < 0.25;
 
   bool get hostrRelayDisconnected =>
       hostrRelayConfigured && !hostrRelayConnected;
 
-  bool get shouldWarn => majorityDisconnected || hostrRelayDisconnected;
+  bool get shouldWarn => severelyDegraded;
 
   double get connectedFraction =>
       totalRelays > 0 ? connectedRelays / totalRelays : 1.0;

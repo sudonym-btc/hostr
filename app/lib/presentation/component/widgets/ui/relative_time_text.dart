@@ -13,6 +13,8 @@ import 'package:timeago/timeago.dart' as timeago;
 class RelativeTimeText extends StatefulWidget {
   final DateTime dateTime;
   final TextStyle? style;
+  final String locale;
+  final bool allowFromNow;
 
   /// Optional builder. When non-null, [style] is ignored and the caller
   /// is responsible for rendering the supplied [text] string.
@@ -22,6 +24,8 @@ class RelativeTimeText extends StatefulWidget {
     super.key,
     required this.dateTime,
     this.style,
+    this.locale = 'en_short',
+    this.allowFromNow = false,
     this.builder,
   });
 
@@ -48,7 +52,11 @@ class _RelativeTimeTextState extends State<RelativeTimeText> {
 
   @override
   Widget build(BuildContext context) {
-    final text = timeago.format(widget.dateTime, locale: 'en_short');
+    final text = timeago.format(
+      widget.dateTime,
+      locale: widget.locale,
+      allowFromNow: widget.allowFromNow,
+    );
     final b = widget.builder;
     if (b != null) return b(context, text);
     return Text(text, style: widget.style);

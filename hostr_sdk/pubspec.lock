@@ -684,11 +684,11 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/ndk"
-      ref: "fix/websocket-tostring"
-      resolved-ref: "390e06aa4760c29f79755a31120b42b03b270362"
+      ref: "codex/hostr-ndk-fixes"
+      resolved-ref: "77e5059f215b6165bbd31a1d158ff9db8897714f"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
-    version: "0.8.2-dev.1"
+    version: "0.8.2-dev.5"
   ndk_bip32_keys:
     dependency: transitive
     description:

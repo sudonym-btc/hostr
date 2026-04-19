@@ -280,6 +280,14 @@ class AppSurface extends StatelessWidget {
         Theme.of(context).colorScheme.surface;
   }
 
+  /// Reads the nearest surface colour without registering a dependency.
+  ///
+  /// Useful before moving work into another navigator/overlay, where the
+  /// inherited surface should be preserved but the caller is not building.
+  static Color? maybeOf(BuildContext context) {
+    return context.getInheritedWidgetOfExactType<_AppSurfaceInherited>()?.color;
+  }
+
   /// The ordered neutral surface scale from `surface` (lowest) through
   /// the surface-container ramp up to `surfaceContainerHighest`.
   static List<Color> _scale(BuildContext context) {

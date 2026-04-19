@@ -18,8 +18,11 @@ library;
 import 'dart:convert';
 
 import 'package:hostr_sdk/seed/seed.dart';
+import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/reservation_groups/reservation_groups.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
+import 'package:hostr_sdk/util/main.dart';
+import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
@@ -27,6 +30,10 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 final _f = EntityFactory();
+
+class _FakeReservations extends Fake implements Reservations {}
+
+class _FakeEvm extends Fake implements Evm {}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Helpers
@@ -1304,5 +1311,46 @@ void main() async {
       expect(result.isValid, isFalse);
       expect(result.fields['proof']?.ok, isFalse);
     });
+  });
+
+  group('verifyFromSource', () {
+    test(
+      'can skip proof, signature, and on-chain reservation validation',
+      () async {
+        final listing = _listing();
+        final negotiate = await _negotiate(
+          listing: listing,
+          buyer: MockKeys.guest,
+        );
+        final group = ReservationGroup.fromReservation(negotiate);
+
+        expect(ReservationGroups.verifyGroup(group), isA<Invalid>());
+
+        final source = StreamWithStatus<Reservation>();
+        final reservationGroups = ReservationGroups(
+          reservations: _FakeReservations(),
+          logger: CustomLogger(),
+          evm: _FakeEvm(),
+        );
+        final validationStream = reservationGroups.verifyFromSource(
+          source: source,
+          validate: false,
+        );
+
+        final nextValidation = validationStream.replayStream.first;
+        source.add(negotiate);
+
+        final result = await nextValidation.timeout(const Duration(seconds: 1));
+
+        expect(result, isA<Valid<ReservationGroup>>());
+        expect(
+          (result as Valid<ReservationGroup>).event.buyerReservation?.id,
+          negotiate.id,
+        );
+
+        await validationStream.close();
+        await source.close();
+      },
+    );
   });
 }

@@ -2,6 +2,15 @@
 
 Google's current public APIs do not create cloud map styles or map IDs end-to-end. Create these once in the Google Cloud Console, then keep the resulting platform map IDs in Terraform as `google_maps_web_map_id`, `google_maps_android_map_id`, and `google_maps_ios_map_id`.
 
+Regenerate the import JSON before updating styles:
+
+```sh
+scripts/generate-map-styles.sh
+```
+
+The generator runs through Flutter so the exported JSON is derived from the
+same `getTheme(...)` `ThemeData` used by the app.
+
 1. Open Google Maps Platform Map Styles in the target project.
 2. Create a light style and import `hostr-light-map-style.json`.
 3. Create a dark style and import `hostr-dark-map-style.json`.

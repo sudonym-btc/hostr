@@ -10,6 +10,19 @@ class Bip340 {
   /// [privateKey] is a  32-bytes hex encoded string
   /// returns a hex string
   static String sign(String message, String privateKey) {
+    if (isFastSecp256k1BackendLoaded()) {
+      try {
+        final privKey = coinlib.ECPrivateKey.fromHex(privateKey);
+        final sig = coinlib.SchnorrSignature.sign(
+          privKey,
+          coinlib.hexToBytes(message),
+        );
+        return coinlib.bytesToHex(sig.data);
+      } catch (_) {
+        // Fall through to pure-Dart.
+      }
+    }
+
     final aux = Helpers.getSecureRandomHex(32);
     return bip340.sign(privateKey, message, aux);
   }
@@ -20,6 +33,19 @@ class Bip340 {
   /// true if the signature is valid otherwise false
   static bool verify(String message, String signature, String? publicKey) {
     if (publicKey == null) return false;
+    if (isFastSecp256k1BackendLoaded()) {
+      try {
+        final schnorrSignature = coinlib.SchnorrSignature.fromHex(signature);
+        final schnorrPublicKey = coinlib.ECPublicKey.fromXOnlyHex(publicKey);
+        return schnorrSignature.verify(
+          schnorrPublicKey,
+          coinlib.hexToBytes(message),
+        );
+      } catch (_) {
+        // Fall through to pure-Dart.
+      }
+    }
+
     return bip340.verify(publicKey, message, signature);
   }
 

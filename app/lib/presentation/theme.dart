@@ -5,6 +5,48 @@ import 'app_spacing_theme.dart';
 
 const _appFontFamily = 'Inter';
 
+SwitchThemeData _switchTheme(ColorScheme colorScheme) {
+  return SwitchThemeData(
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return colorScheme.onSurface.withAlpha(97);
+      }
+      if (states.contains(WidgetState.selected)) {
+        return colorScheme.onPrimary;
+      }
+      return colorScheme.onSurfaceVariant;
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return colorScheme.onSurface.withAlpha(31);
+      }
+      if (states.contains(WidgetState.selected)) {
+        return colorScheme.primary;
+      }
+      return colorScheme.surfaceContainerHighest;
+    }),
+    trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return colorScheme.onSurface.withAlpha(31);
+      }
+      if (states.contains(WidgetState.selected)) {
+        return Colors.transparent;
+      }
+      return colorScheme.outlineVariant;
+    }),
+    overlayColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.pressed)) {
+        return colorScheme.primary.withAlpha(31);
+      }
+      if (states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused)) {
+        return colorScheme.primary.withAlpha(20);
+      }
+      return null;
+    }),
+  );
+}
+
 ThemeData getTheme(bool isDark) {
   final darkColorScheme =
       ColorScheme.fromSwatch(
@@ -81,6 +123,7 @@ ThemeData getTheme(bool isDark) {
     scaffoldBackgroundColor: Colors.transparent,
     primaryTextTheme: primaryTextTheme,
     extensions: const <ThemeExtension<dynamic>>[AppSpacingTheme()],
+    switchTheme: _switchTheme(colorScheme),
     appBarTheme: AppBarTheme(
       leadingWidth: kDefaultPadding.toDouble(),
       titleSpacing: kDefaultPadding.toDouble(),

@@ -26,17 +26,16 @@ Future<bool> executeBackgroundTask(
       HttpOverrides.global = MyHttpOverrides();
     }
 
-    await initCore(env, logger: logger);
+    await initCore(env, logger: logger, startStartup: false);
 
     // The background isolate has its own plugin instances — initialise the
     // local-notifications plugin so .show() calls actually display.
     await setupNotifications();
 
-    // Background workers need relay connectivity but must stay lightweight —
-    // connectForBackground() only opens relay sockets and syncs NIP-65
-    // without starting subscriptions, orchestrators, or other heavy
-    // foreground machinery.
-    await getIt<Hostr>().connectForBackground();
+    // Background workers need relay connectivity but must stay lightweight.
+    // The background startup profile opens relay sockets and syncs NIP-65
+    // without starting foreground subscriptions or account services.
+    await getIt<Hostr>().startup.launchBackground();
 
     final BackgroundWorkerResult result;
 

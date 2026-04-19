@@ -157,9 +157,15 @@ class ProfileSettingsSection extends StatelessWidget {
             );
           },
         ),
-        body: const _BalanceSectionBody(),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _BalanceSectionBody(),
+            Gap.vertical.sm(),
+            const _AutoWithdrawSectionBody(),
+          ],
+        ),
       ),
-      Section(title: 'Auto-withdraw', body: const _AutoWithdrawSectionBody()),
     ];
   }
 
@@ -297,24 +303,36 @@ class _FundsItemTile extends StatelessWidget {
     );
     final address = item.address.eip55With0x;
     final addressType = item.isSmartAddress ? 'Smart' : 'EOA';
-    final subtitle = item.isEscrowLocked
-        ? '${_shortAddress(address)} · $addressType · Escrow'
-        : '${_shortAddress(address)} · $addressType';
+    final subtitleParts = [
+      _shortAddress(address),
+      addressType,
+      if (item.isEscrowLocked) 'Escrow',
+      if (item.dust) 'Unsweepable dust below 1 sat',
+    ];
+    final subtitle = subtitleParts.join(' · ');
+    final title = item.dust
+        ? 'Dust  $tokenName'
+        : '$formattedAmount  $tokenName';
 
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        item.isEscrowLocked
+        item.dust
+            ? Icons.grain
+            : item.isEscrowLocked
             ? Icons.lock_outline
             : Icons.account_balance_wallet_outlined,
         size: 20,
       ),
       title: Text(
-        '$formattedAmount  $tokenName',
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        title,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: item.dust
+              ? Theme.of(context).colorScheme.onSurfaceVariant
+              : null,
+        ),
       ),
       subtitle: Text(
         subtitle,
@@ -322,10 +340,12 @@ class _FundsItemTile extends StatelessWidget {
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing: OutlinedButton(
-        onPressed: () => _initiateWithdraw(context),
-        child: const Text('Withdraw'),
-      ),
+      trailing: item.dust
+          ? AppChip.warning.xs(label: const Text('Dust'))
+          : OutlinedButton(
+              onPressed: () => _initiateWithdraw(context),
+              child: const Text('Withdraw'),
+            ),
     );
   }
 
@@ -382,7 +402,7 @@ class _AutoWithdrawSectionBodyState extends State<_AutoWithdrawSectionBody> {
           stream: getIt<Hostr>().userConfig.stream,
           builder: (context, snapshot) {
             final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
-            return SwitchListTile.adaptive(
+            return SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Auto-withdraw'),
               subtitle: const Text(
@@ -501,7 +521,7 @@ class _SwapInTile extends StatelessWidget {
             [
               stateName,
               if (postCalls > 0) '$postCalls post-claim call(s)',
-              if (errorMessage != null) errorMessage,
+              ?errorMessage,
             ].join(' · '),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -572,8 +592,8 @@ class _SwapOutTile extends StatelessWidget {
             [
               stateName,
               if (preCalls > 0) '$preCalls pre-lock call(s)',
-              if (data?.lastBoltzStatus != null) data!.lastBoltzStatus!,
-              if (errorMessage != null) errorMessage,
+              ?data?.lastBoltzStatus,
+              ?errorMessage,
             ].join(' · '),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

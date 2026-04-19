@@ -5,6 +5,8 @@ import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
+const _showDustFundItems = bool.fromEnvironment('dart.vm.product') == false;
+
 class MoneyInFlightWidget extends StatefulWidget {
   const MoneyInFlightWidget({super.key});
 
@@ -15,19 +17,19 @@ class MoneyInFlightWidget extends StatefulWidget {
 }
 
 class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
-  late final Stream<List<TokenAmount>> _balanceStream;
+  late final Stream<List<FundsItem>> _fundsStream;
 
   @override
   void initState() {
     super.initState();
-    _balanceStream = getIt<Hostr>().fundsMonitor.displayBalance$;
+    _fundsStream = getIt<Hostr>().fundsMonitor.fundsStream$;
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<TokenAmount>>(
+    return StreamBuilder<List<FundsItem>>(
       key: Key('money-in-flight-widget-key'),
-      stream: _balanceStream,
+      stream: _fundsStream,
       builder: (context, snapshot) {
         return AnimatedSwitcher(
           duration: kAnimationDuration,
@@ -37,7 +39,7 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
               ? const AppLoadingIndicator.medium(key: ValueKey('loading'))
               : _BalanceList(
                   key: const ValueKey('ready'),
-                  balances: snapshot.data!,
+                  items: snapshot.data!,
                 ),
         );
       },
@@ -46,19 +48,22 @@ class _MoneyInFlightWidgetState extends State<MoneyInFlightWidget> {
 }
 
 class _BalanceList extends StatelessWidget {
-  final List<TokenAmount> balances;
+  final List<FundsItem> items;
 
-  const _BalanceList({super.key, required this.balances});
+  const _BalanceList({super.key, required this.items});
 
   @override
   Widget build(BuildContext context) {
-    if (balances.isEmpty) {
+    if (items.isEmpty) {
       return const SizedBox.shrink();
     }
 
     // Group balances by resolved denomination so that, e.g., native RBTC and
     // ERC-20 tBTC both collapse into a single "₿" row.
-    final grouped = _groupByDenomination(balances);
+    final grouped = _groupByDenomination(
+      items,
+      includeDust: _showDustFundItems,
+    );
 
     if (grouped.isEmpty) {
       return const SizedBox.shrink();
@@ -81,20 +86,23 @@ class _BalanceList extends StatelessWidget {
     );
   }
 
-  /// Collapse [TokenAmount]s into one [DenominatedAmount] per resolved
+  /// Collapse [FundsItem] balances into one [DenominatedAmount] per resolved
   /// denomination (BTC, USD, ETH, …).
   ///
   /// Tokens with different decimal scales (e.g. 8-dec Lightning BTC vs
   /// 18-dec RBTC) are rescaled to the highest precision before summing.
   static List<DenominatedAmount> _groupByDenomination(
-    List<TokenAmount> balances,
-  ) {
+    List<FundsItem> items, {
+    required bool includeDust,
+  }) {
     final resolver = TokenDisplayResolver(
       getIt<Hostr>().evm.configuredChains.map((c) => c.config),
     );
 
     final map = <String, DenominatedAmount>{};
-    for (final balance in balances) {
+    for (final item in items) {
+      if (item.dust && !includeDust) continue;
+      final balance = item.balance;
       if (balance.value <= BigInt.zero) continue;
       final info = resolver.resolve(balance.token);
       final denom = info.denomination.isNotEmpty ? info.denomination : 'BTC';

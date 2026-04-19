@@ -42,9 +42,15 @@ class _RelayListItemViewState extends State<RelayListItemView> {
   @override
   Widget build(BuildContext context) {
     final effectiveImage = _iconFailed ? null : widget.iconImage;
+    final statusColor = widget.isConnected && effectiveImage != null
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : widget.isConnected
+        ? Colors.green
+        : Colors.orange;
+
     return AppListItem(
       leading: AppListItemAvatar.status(
-        color: widget.isConnected ? Colors.green : Colors.orange,
+        color: statusColor,
         foregroundImage: effectiveImage,
         onForegroundImageError: effectiveImage != null
             ? (_, _) {

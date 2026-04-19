@@ -182,25 +182,23 @@ class Nwc {
     await _connectionsSubject.close();
   });
 
-  void start() => _logger.spanSync('start', () {
-    _nwcStorage.get().then((urls) async {
-      final seen = <String>{};
-      for (var url in urls) {
-        if (!seen.add(url)) {
-          continue;
-        }
-        try {
-          final reactive = NwcCubit(url: url, nwc: this, logger: _logger);
-          connections.add(reactive);
-          _connectionsSubject.add(connections);
-          // Fetch info asynchronously and update the reactive connection
-          reactive.connect(null);
-        } catch (e) {
-          _logger.e('Failed to connect to $url: $e');
-        }
+  Future<void> start() => _logger.span('start', () async {
+    final urls = await _nwcStorage.get();
+    final seen = <String>{};
+    for (var url in urls) {
+      if (!seen.add(url)) {
+        continue;
       }
-      _logger.i('Initializing nwc connections $urls');
-    });
+      try {
+        final reactive = NwcCubit(url: url, nwc: this, logger: _logger);
+        connections.add(reactive);
+        _connectionsSubject.add(connections);
+        await reactive.connect(null);
+      } catch (e) {
+        _logger.e('Failed to connect to $url: $e');
+      }
+    }
+    _logger.i('Initializing nwc connections $urls');
   });
 }
 

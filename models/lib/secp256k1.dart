@@ -40,7 +40,7 @@ String describeSecp256k1Backend() {
   }
 
   if (_lastLoadError != null) {
-    return 'pure-dart fallback: Bip340.verify() '
+    return 'pure-dart fallback: bip340 package '
         '(fast backend failed via $attemptedBackend: $_lastLoadError)';
   }
 
@@ -108,7 +108,7 @@ bool verifySchnorrSignatureSync({
 /// using BIP-340 Schnorr signatures.
 ///
 /// Uses the fast native secp256k1 backend when loaded, otherwise falls back to
-/// the pure-Dart `Bip340.sign()` implementation.
+/// the pure-Dart `bip340` package implementation.
 String signSchnorr({
   required String privateKey,
   required String message,

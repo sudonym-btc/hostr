@@ -39,10 +39,12 @@ class SpecificationsWidget extends StatelessWidget {
     }
 
     final chips = <Widget>[
-      // Valued specs first — shown as "Label: Value"
+      // Valued specs first — shown with localized plural/count labels.
       ...valuedEntries.map((entry) {
         return AppChip(
-          label: Text('${convertToTitleCase(entry.key)}: ${entry.value}'),
+          label: Text(
+            localizedSpecification(context, entry.key, count: entry.value),
+          ),
           shape: getShapeForSpec(context, entry.key),
           backgroundColor: getColorForSpec(context, entry.key),
         );
@@ -50,7 +52,7 @@ class SpecificationsWidget extends StatelessWidget {
       // Boolean specs
       ...boolKeys.map((spec) {
         return AppChip(
-          label: Text(convertToTitleCase(spec)),
+          label: Text(localizedSpecification(context, spec)),
           shape: getShapeForSpec(context, spec),
           backgroundColor: getColorForSpec(context, spec),
         );
