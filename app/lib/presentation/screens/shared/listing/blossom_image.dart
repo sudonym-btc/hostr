@@ -13,6 +13,8 @@ class BlossomImage extends StatelessWidget {
   final double? width;
   final BoxFit? fit;
   final AlignmentGeometry? alignment;
+  final ImageErrorWidgetBuilder? errorBuilder;
+
   const BlossomImage({
     super.key,
     required this.image,
@@ -21,6 +23,7 @@ class BlossomImage extends StatelessWidget {
     this.width,
     this.fit,
     this.alignment,
+    this.errorBuilder,
   });
 
   static final _logger = CustomLogger();
@@ -31,6 +34,12 @@ class BlossomImage extends StatelessWidget {
   bool isSha256(String input) => _sha256Regex.hasMatch(input);
 
   bool isNetworkPath(String input) => _networkRegex.hasMatch(input);
+
+  Widget _error(BuildContext context, Object error, StackTrace? stackTrace) {
+    final builder = errorBuilder;
+    if (builder != null) return builder(context, error, stackTrace);
+    return ImageLoadError(width: width, height: height);
+  }
 
   Widget _networkImage(String url) {
     return Image.network(
@@ -64,8 +73,7 @@ class BlossomImage extends StatelessWidget {
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) =>
-          ImageLoadError(width: width, height: height),
+      errorBuilder: _error,
     );
   }
 
@@ -89,7 +97,11 @@ class BlossomImage extends StatelessWidget {
               'BlossomImage: error resolving hash=$image pubkey=$pubkey',
               error: snapshot.error,
             );
-            return ImageLoadError(width: width, height: height);
+            return _error(
+              context,
+              snapshot.error ?? 'Failed to resolve Blossom image',
+              snapshot.stackTrace,
+            );
           }
           if (snapshot.connectionState != ConnectionState.done ||
               snapshot.data == null) {
@@ -98,7 +110,7 @@ class BlossomImage extends StatelessWidget {
               _logger.w(
                 'BlossomImage: resolved to null for hash=$image pubkey=$pubkey — no blossom servers?',
               );
-              return ImageLoadError(width: width, height: height);
+              return _error(context, 'Blossom image resolved to null', null);
             }
             return ImageLoadingShimmer(width: width, height: height);
           }
@@ -110,7 +122,7 @@ class BlossomImage extends StatelessWidget {
       return _networkImage(image);
     } else {
       _logger.w('BlossomImage: unrecognised image ref format: $image');
-      return ImageLoadError(width: width, height: height);
+      return _error(context, 'Unrecognised image ref format: $image', null);
     }
   }
 }

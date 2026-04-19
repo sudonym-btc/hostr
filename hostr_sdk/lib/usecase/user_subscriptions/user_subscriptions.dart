@@ -502,13 +502,16 @@ class UserSubscriptions {
     EscrowServiceSelected escrowSelected,
     String threadAnchor,
   ) => _logger.spanSync('_maybeAddEscrowStream', () {
-    final serviceId = escrowSelected.service.id;
-    final key = '$threadAnchor:$serviceId';
+    final serviceRef =
+        escrowSelected.service.naddr() ??
+        escrowSelected.service.anchor ??
+        escrowSelected.service.id;
+    final key = '$threadAnchor:$serviceRef';
     if (!_knownEscrowServiceKeys.add(key)) return;
 
     _logger.d(
       'UserSubscriptions adding escrow stream for '
-      'service=$serviceId thread=$threadAnchor',
+      'service=$serviceRef thread=$threadAnchor',
     );
     _addPaymentSource(_escrow.checkEscrowStatus(escrowSelected, threadAnchor));
   });
