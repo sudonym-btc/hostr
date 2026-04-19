@@ -4,6 +4,12 @@ name: Docker Build & Push
 # Called automatically after a semantic-release in CI, or triggered manually.
 on:
   workflow_call:
+    inputs:
+      variant:
+        description: 'Build variant'
+        required: false
+        default: 'staging'
+        type: string
   workflow_dispatch:
     inputs:
       variant:
@@ -19,13 +25,13 @@ jobs:
   build_push:
     name: Build & Push Docker images
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.variant || 'staging' }}
+    environment: ${{ inputs.variant || 'staging' }}
     permissions:
       contents: read
       id-token: write
 
     env:
-      VARIANT: ${{ github.event_name == 'workflow_dispatch' && inputs.variant || 'staging' }}
+      VARIANT: ${{ inputs.variant || 'staging' }}
 
     steps:
       - uses: actions/checkout@v4

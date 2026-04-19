@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/explore/listing_map_controller.dart';
 import 'package:hostr/presentation/component/widgets/explore/map_style.dart';
@@ -977,6 +978,13 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final mapId = getIt<Config>()
+        .googleMapsMapIdForPlatform(
+          isWeb: kIsWeb,
+          platform: defaultTargetPlatform,
+        )
+        .trim();
+    final useCloudStyle = mapId.isNotEmpty;
     final defaultCamera = CameraPosition(target: LatLng(0, 0), zoom: 1);
     final cameraTargetBounds = kIsWeb
         ? CameraTargetBounds(
@@ -1001,9 +1009,15 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
             nextViewportSize.height > 0) {
           _lastViewportSize = nextViewportSize;
         }
-        _scheduleResizeViewportRefresh(constraints.biggest);
+        _scheduleResizeViewportRefresh(nextViewportSize);
         return GoogleMap(
-          style: getMapStyle(context, isDarkMode),
+          mapId: useCloudStyle ? mapId : null,
+          colorScheme: useCloudStyle
+              ? isDarkMode
+                    ? MapColorScheme.dark
+                    : MapColorScheme.light
+              : null,
+          style: useCloudStyle ? null : getMapStyle(context, isDarkMode),
           onMapCreated: _onMapCreated,
           onCameraMove: widget.interactive && kIsWeb ? _onCameraMove : null,
           onCameraIdle: widget.interactive && widget.enableClustering

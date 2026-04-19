@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:injectable/injectable.dart';
+import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/nostr_kinds.dart' show kHostrOnlyKinds;
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
@@ -18,6 +19,63 @@ import '../auth/auth.dart';
 import '../relays/relays.dart';
 
 export 'expandable_subscription.dart';
+
+/// Pure relay-guard logic: returns the relay list that should actually be used
+/// for broadcasting [eventKind]. Hostr-only kinds are forced onto
+/// [hostrRelay]; standard kinds pass through unchanged.
+///
+/// Extracted so it can be unit-tested without wiring up NDK / DI.
+@visibleForTesting
+List<String>? applyBroadcastRelayGuard({
+  required int eventKind,
+  required String hostrRelay,
+  List<String>? relays,
+}) {
+  if (!kHostrOnlyKinds.contains(eventKind)) return relays;
+  if (relays == null || !relays.every((r) => r == hostrRelay)) {
+    return [hostrRelay];
+  }
+  return relays;
+}
+
+/// Pure relay-guard logic for **reads**: returns the relay list that should
+/// be used when querying/subscribing for [eventKind]. Hostr-only kinds are
+/// forced onto [hostrRelay] so the app never fetches proprietary events from
+/// public relays (which would return nothing useful or spoofed data).
+@visibleForTesting
+List<String>? applyQueryRelayGuard({
+  required int eventKind,
+  required String hostrRelay,
+  List<String>? relays,
+}) {
+  if (!kHostrOnlyKinds.contains(eventKind)) return relays;
+  if (relays == null || !relays.every((r) => r == hostrRelay)) {
+    return [hostrRelay];
+  }
+  return relays;
+}
+
+/// Applies [applyQueryRelayGuard] to a [Filter] that may contain multiple
+/// kinds. If **every** kind in the filter is hostr-only the relay list is
+/// forced; if **none** are, the list passes through unchanged. Mixed filters
+/// are forced to the hostr relay as well (the hostr relay can serve standard
+/// kinds too, and splitting the filter would be a larger refactor).
+@visibleForTesting
+List<String>? applyQueryRelayGuardForFilter({
+  required Filter filter,
+  required String hostrRelay,
+  List<String>? relays,
+}) {
+  final kinds = filter.kinds;
+  if (kinds == null || kinds.isEmpty) return relays;
+  final hasHostrKind = kinds.any((k) => kHostrOnlyKinds.contains(k));
+  if (!hasHostrKind) return relays;
+  // At least one hostr-only kind → force onto hostr relay.
+  if (relays == null || !relays.every((r) => r == hostrRelay)) {
+    return [hostrRelay];
+  }
+  return relays;
+}
 
 abstract class RequestsModel {
   Stream<T> query<T extends Nip01Event>({
@@ -213,6 +271,19 @@ class Requests extends RequestsModel {
       },
     );
 
+    // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
+    final guardedRelays = applyQueryRelayGuardForFilter(
+      filter: filter,
+      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      relays: relays,
+    );
+    if (guardedRelays != relays) {
+      _logger.d(
+        'subscribe guard: forced filter kinds=${filter.kinds} onto hostr relay',
+      );
+    }
+    relays = guardedRelays;
+
     response.addStatus(StreamStatusQuerying());
 
     int? lastCreatedAt;
@@ -285,6 +356,19 @@ class Requests extends RequestsModel {
       return _parseEvents<T>(_inFlightQueries[key]!);
     }
 
+    // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
+    final guardedRelays = applyQueryRelayGuardForFilter(
+      filter: filter,
+      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      relays: relays,
+    );
+    if (guardedRelays != relays) {
+      _logger.d(
+        'query guard: forced filter kinds=${filter.kinds} onto hostr relay',
+      );
+    }
+    relays = guardedRelays;
+
     final sw = Stopwatch()..start();
     final queryName = name ?? _namedRequest('query');
     final source =
@@ -343,17 +427,17 @@ class Requests extends RequestsModel {
     List<String>? relays,
   }) async {
     // ── Relay guard: app-specific events must never leak to external relays ──
-    if (kHostrOnlyKinds.contains(event.kind)) {
-      final hostrRelay = getIt<HostrConfig>().hostrRelay;
-      if (relays == null) {
-        relays = [hostrRelay];
-      } else if (!relays.every((r) => r == hostrRelay)) {
-        _logger.w(
-          'broadcast guard: stripped non-hostr relays for kind ${event.kind}',
-        );
-        relays = [hostrRelay];
-      }
+    final guardedRelays = applyBroadcastRelayGuard(
+      eventKind: event.kind,
+      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      relays: relays,
+    );
+    if (guardedRelays != relays) {
+      _logger.w(
+        'broadcast guard: forced kind ${event.kind} onto hostr relay only',
+      );
     }
+    relays = guardedRelays;
 
     var eventToBroadcast = event;
 
@@ -391,6 +475,19 @@ class Requests extends RequestsModel {
     required String name,
     List<String>? relays,
   }) => _logger.spanSync('liveSubscription', () {
+    // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
+    final guardedRelays = applyQueryRelayGuardForFilter(
+      filter: filter,
+      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      relays: relays,
+    );
+    if (guardedRelays != relays) {
+      _logger.d(
+        'liveSubscription guard: forced filter kinds=${filter.kinds} onto hostr relay',
+      );
+    }
+    relays = guardedRelays;
+
     final ndkSubName = _namedRequest(name);
 
     _logger.d('liveSubscription opening: $ndkSubName filter=$filter');

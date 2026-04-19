@@ -96,6 +96,24 @@ variable "github_repo_owner_name" {
   default     = "sudonym-btc/hostr"
 }
 
+variable "google_maps_web_map_id" {
+  description = "Optional Google Maps Platform JavaScript vector map ID with published light and dark cloud styles. Created in Google Maps Platform Map Management."
+  type        = string
+  default     = ""
+}
+
+variable "google_maps_android_map_id" {
+  description = "Optional Google Maps Platform Android map ID with published light and dark cloud styles. Created in Google Maps Platform Map Management."
+  type        = string
+  default     = ""
+}
+
+variable "google_maps_ios_map_id" {
+  description = "Optional Google Maps Platform iOS map ID with published light and dark cloud styles. Created in Google Maps Platform Map Management."
+  type        = string
+  default     = ""
+}
+
 # ─── Snapshot schedule ───────────────────────────────────────────────────────
 
 variable "relay_disk_snapshot_enabled" {
@@ -115,5 +133,3 @@ variable "relay_disk_snapshot_start_time" {
   type        = string
   default     = "04:00"
 }
-
-

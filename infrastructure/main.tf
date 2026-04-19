@@ -199,3 +199,18 @@ resource "local_file" "maps_api_key_file" {
   content  = google_apikeys_key.maps_api_key.key_string
   filename = "${path.module}/_local_outputs/${var.env}/maps_api_key.txt"
 }
+
+resource "local_file" "maps_web_map_id_file" {
+  content  = var.google_maps_web_map_id
+  filename = "${path.module}/_local_outputs/${var.env}/maps_web_map_id.txt"
+}
+
+resource "local_file" "maps_android_map_id_file" {
+  content  = var.google_maps_android_map_id
+  filename = "${path.module}/_local_outputs/${var.env}/maps_android_map_id.txt"
+}
+
+resource "local_file" "maps_ios_map_id_file" {
+  content  = var.google_maps_ios_map_id
+  filename = "${path.module}/_local_outputs/${var.env}/maps_ios_map_id.txt"
+}

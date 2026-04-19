@@ -25,6 +25,12 @@ class DevelopmentConfig extends Config {
   @override
   String get googleMapsApiKey => env.googleMapsApiKey;
   @override
+  String get googleMapsWebMapId => env.googleMapsWebMapId;
+  @override
+  String get googleMapsAndroidMapId => env.googleMapsAndroidMapId;
+  @override
+  String get googleMapsIosMapId => env.googleMapsIosMapId;
+  @override
   String get tipsAddress => env.tipsAddress;
   @override
   String get hostrSocialNpub => env.hostrSocialNpub;

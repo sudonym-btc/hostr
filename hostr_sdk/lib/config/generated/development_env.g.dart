@@ -9,10 +9,13 @@ const relayUrl = 'wss://relay.hostr.development';
 const blossomUrl = 'https://blossom.hostr.development';
 const tipsAddress = 'tips@lnbits.hostr.development';
 const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
-const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
+const googleMapsWebMapId = 'ebc1f6bade270e33c10ed21b';
+const googleMapsAndroidMapId = '';
+const googleMapsIosMapId = '';
+const hostrSocialNpub =
+    'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
-const bootstrapRelays = <String>[
-];
+const bootstrapRelays = <String>[];
 
 const bootstrapEscrowPubkeys = <String>[
   'c51b0c80ab4ec70cee8746fa0175ea439152bb8cf2d37ef84d13eaa095112f0c',
@@ -59,4 +62,3 @@ const evmConfig = EvmConfig(
     ),
   ],
 );
-

@@ -96,6 +96,8 @@ class Relays {
         ),
       ),
     );
+
+    await _waitForConnection();
   });
 
   /// Returns a future that completes once at least one relay is connected.
@@ -117,21 +119,48 @@ class Relays {
       const timeout = Duration(seconds: 30);
       const pollInterval = Duration(seconds: 1);
 
-      // Poll until at least one relay is connected or we exceed the timeout.
+      final config = getIt<HostrConfig>();
+      final preferredRelay = config.hostrRelay;
+
+      // Poll until the Hostr relay is connected, or at least one relay when
+      // no Hostr relay is configured. Hostr-specific requests are guarded onto
+      // the Hostr relay, so an arbitrary third-party connection is not enough
+      // for the app to be ready.
       final deadline = DateTime.now().add(timeout);
       while (DateTime.now().isBefore(deadline)) {
-        if (_ndk.relays.connectedRelays.isNotEmpty) {
+        final connectedUrls = _ndk.relays.connectedRelays
+            .map((relay) => relay.url)
+            .toSet();
+        if (preferredRelay.isNotEmpty) {
+          if (connectedUrls.contains(preferredRelay)) return;
+        } else if (connectedUrls.isNotEmpty) {
           return;
         }
-        getIt<HostrConfig>().bootstrapRelays.map(
-          (e) => _ndk.relays.isRelayConnecting(e)
-              ? _ndk.relays.reconnectRelay(
-                  e,
-                  connectionSource: ConnectionSource.seed,
-                )
-              : null,
+
+        final reconnectTargets = preferredRelay.isNotEmpty
+            ? [preferredRelay]
+            : config.bootstrapRelays;
+        for (final url in reconnectTargets) {
+          if (connectedUrls.contains(url) ||
+              _ndk.relays.isRelayConnecting(url)) {
+            continue;
+          }
+          unawaited(
+            _ndk.relays.connectRelay(
+              dirtyUrl: url,
+              connectionSource: ConnectionSource.seed,
+              connectTimeout: 10,
+            ),
+          );
+        }
+
+        final targetDescription = preferredRelay.isNotEmpty
+            ? preferredRelay
+            : 'any relay';
+        _logger.d(
+          'Checking relay connectivity for $targetDescription… '
+          'connected=${connectedUrls.length}/${config.bootstrapRelays.length}',
         );
-        _logger.d('Checking relay connectivity…');
         await Future.delayed(pollInterval);
       }
       throw Exception('Timed out waiting for relay connection after $timeout');

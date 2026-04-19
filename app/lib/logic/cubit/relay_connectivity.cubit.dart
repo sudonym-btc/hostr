@@ -10,22 +10,37 @@ class RelayConnectivityState extends Equatable {
   final int totalRelays;
   final int connectedRelays;
   final int disconnectedRelays;
+  final bool hostrRelayConfigured;
+  final bool hostrRelayConnected;
 
   const RelayConnectivityState({
     this.totalRelays = 0,
     this.connectedRelays = 0,
     this.disconnectedRelays = 0,
+    this.hostrRelayConfigured = false,
+    this.hostrRelayConnected = true,
   });
 
   /// True when more than 50% of relays are disconnected.
   bool get majorityDisconnected =>
       totalRelays > 0 && disconnectedRelays > totalRelays / 2;
 
+  bool get hostrRelayDisconnected =>
+      hostrRelayConfigured && !hostrRelayConnected;
+
+  bool get shouldWarn => majorityDisconnected || hostrRelayDisconnected;
+
   double get connectedFraction =>
       totalRelays > 0 ? connectedRelays / totalRelays : 1.0;
 
   @override
-  List<Object> get props => [totalRelays, connectedRelays, disconnectedRelays];
+  List<Object> get props => [
+    totalRelays,
+    connectedRelays,
+    disconnectedRelays,
+    hostrRelayConfigured,
+    hostrRelayConnected,
+  ];
 }
 
 /// Cubit that monitors relay connectivity and emits aggregate state.
@@ -42,16 +57,22 @@ class RelayConnectivityCubit extends Cubit<RelayConnectivityState> {
   void _subscribe() {
     _subscription = _hostr.relays.connectivity().listen(
       (connectivityMap) {
+        final hostrRelay = _hostr.config.hostrRelay;
         final total = connectivityMap.length;
         final connected = connectivityMap.values
             .where((c) => c.relayTransport?.isOpen() == true)
             .length;
+        final hostrRelayConnected =
+            hostrRelay.isEmpty ||
+            connectivityMap[hostrRelay]?.relayTransport?.isOpen() == true;
 
         emit(
           RelayConnectivityState(
             totalRelays: total,
             connectedRelays: connected,
             disconnectedRelays: total - connected,
+            hostrRelayConfigured: hostrRelay.isNotEmpty,
+            hostrRelayConnected: hostrRelayConnected,
           ),
         );
       },

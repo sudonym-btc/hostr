@@ -62,24 +62,6 @@ class _ExploreMapWidgetState extends State<ExploreMapWidget> {
     );
   }
 
-  double _resolveEvenLogicalExtent(BuildContext context, double maxExtent) {
-    if (!maxExtent.isFinite || maxExtent <= 0) {
-      return maxExtent;
-    }
-
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final maxPhysicalExtent = (maxExtent * dpr).floor();
-    if (maxPhysicalExtent <= 1) {
-      return maxExtent;
-    }
-
-    final snappedPhysicalExtent = maxPhysicalExtent.isEven
-        ? maxPhysicalExtent
-        : maxPhysicalExtent - 1;
-
-    return snappedPhysicalExtent / dpr;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -123,35 +105,6 @@ class _ExploreMapWidgetState extends State<ExploreMapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final snappedWidth = _resolveEvenLogicalExtent(
-          context,
-          constraints.maxWidth,
-        );
-        final snappedHeight = _resolveEvenLogicalExtent(
-          context,
-          constraints.maxHeight,
-        );
-
-        final widthChanged =
-            snappedWidth.isFinite && snappedWidth < constraints.maxWidth;
-        final heightChanged =
-            snappedHeight.isFinite && snappedHeight < constraints.maxHeight;
-
-        if (!widthChanged && !heightChanged) {
-          return _buildMapContent(context);
-        }
-
-        return Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: widthChanged ? snappedWidth : null,
-            height: heightChanged ? snappedHeight : null,
-            child: _buildMapContent(context),
-          ),
-        );
-      },
-    );
+    return _buildMapContent(context);
   }
 }

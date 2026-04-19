@@ -107,6 +107,9 @@ class DartCryptoProvider implements CryptoProvider {
         for (var j = 0; j < xor.length; j++) {
           xor[j] ^= u[j];
         }
+        if (i % 128 == 0) {
+          await Future<void>.delayed(Duration.zero);
+        }
       }
 
       result.addAll(xor);

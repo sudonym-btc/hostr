@@ -7,9 +7,13 @@ import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 const boltzApiUrl = 'https://api.boltz.exchange/v2';
 const relayUrl = 'wss://relay.staging.hostr.network';
 const blossomUrl = 'https://blossom.staging.hostr.network';
-const tipsAddress = 'paco@walletofsatoshi.com';
+const tipsAddress = 'tips@staging.hostr.network';
 const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
-const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
+const googleMapsWebMapId = 'ebc1f6bade270e33c10ed21b';
+const googleMapsAndroidMapId = '';
+const googleMapsIosMapId = '';
+const hostrSocialNpub =
+    'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
 const bootstrapRelays = <String>[
   'wss://relay.damus.io',
@@ -41,7 +45,8 @@ const evmConfig = EvmConfig(
       nativeDenomination: 'ETH',
       boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
-        bundlerUrl: 'https://api.pimlico.io/v2/42161/rpc?apikey=pim_G4g94ATqJrxcLBtjxFf67f',
+        bundlerUrl:
+            'https://api.pimlico.io/v2/42161/rpc?apikey=pim_G4g94ATqJrxcLBtjxFf67f',
         entryPointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
         accountFactoryAddress: '0x91E60e0613810449d098b0b5Ec8b51A0FE8c8985',
         paymasterAddress: 'pimlico',
@@ -64,4 +69,3 @@ const evmConfig = EvmConfig(
     ),
   ],
 );
-
