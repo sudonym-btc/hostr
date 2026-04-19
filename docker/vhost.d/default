@@ -1,0 +1,7 @@
+# Global server-level directives applied to every VIRTUAL_HOST.
+# ─────────────────────────────────────────────────────────────
+# Deny local-network access to suppress the macOS
+# "wants to find and connect to devices on your local network" prompt.
+# Google Maps JS SDK probes trigger this; the policy tells the browser
+# to silently deny rather than ask the user.
+add_header Permissions-Policy "local-network=()" always;

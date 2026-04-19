@@ -79,13 +79,9 @@ class ZapUsWidget extends StatelessWidget {
             ],
           ),
           Gap.vertical.md(),
-          Row(
-            children: [
-              ZapListWidget(
-                lud16: tipsAddress,
-                builder: (p0) => ZapReceiptWidget(zap: p0),
-              ),
-            ],
+          ZapListWidget(
+            lud16: tipsAddress,
+            builder: (p0) => ZapReceiptWidget(zap: p0),
           ),
         ],
       ),

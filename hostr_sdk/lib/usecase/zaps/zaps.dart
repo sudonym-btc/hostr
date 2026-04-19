@@ -1,9 +1,10 @@
 import 'package:injectable/injectable.dart';
-import 'package:ndk/ndk.dart' hide Nwc;
+import 'package:ndk/ndk.dart' hide Nwc, Requests;
 
 import '../../injection.dart';
 import '../../util/stream_status.dart';
 import '../nwc/nwc.dart';
+import '../requests/requests.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Zaps {
@@ -36,7 +37,25 @@ class Zaps {
     required String pubkey,
     String? eventId,
     String? addressableId,
+    int? limit,
   }) {
+    if (limit != null && limit < 1) {
+      throw ArgumentError.value(limit, 'limit', 'must be greater than zero');
+    }
+
+    if (limit != null) {
+      return getIt<Requests>().subscribe<Nip01Event>(
+        filter: Filter(
+          kinds: [ZapReceipt.kKind],
+          eTags: eventId != null ? [eventId] : null,
+          aTags: addressableId != null ? [addressableId] : null,
+          pTags: [pubkey],
+          limit: limit,
+        ),
+        name: 'ZapReceipts-sub',
+      );
+    }
+
     NdkResponse zapResponse = ndk.zaps.subscribeToZapReceipts(
       pubKey: pubkey,
       eventId: eventId,

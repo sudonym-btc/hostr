@@ -129,7 +129,8 @@ class ProfilePopupContent extends StatelessWidget {
 
           VerifiedLud16Badge(lud16: metadata?.lud16),
         ],
-        if (metadata?.website != null) ...[
+        if (metadata?.website != null &&
+            metadata?.website?.isNotEmpty == true) ...[
           Gap.vertical.sm(),
 
           Row(

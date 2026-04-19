@@ -173,6 +173,23 @@ if [[ -f "$${OTLP_TPL}" ]]; then
   cp "$${OTLP_TPL}" "/opt/hostr/docker/vhost.d/app.$${APP_DOMAIN}"
   # Also write for the bare domain (same server block, both names checked)
   cp "$${OTLP_TPL}" "/opt/hostr/docker/vhost.d/$${APP_DOMAIN}"
+  if [[ ( "$${APP_DOMAIN}" == "hostr.network" || "$${APP_DOMAIN}" == "staging.hostr.network" ) && -f "/opt/hostr/docker/vhost.d/hostr-network-well-known.conf.tpl" ]]; then
+    ESCROW_PUBKEY="$(grep '^HOSTR_BOOTSTRAP_ESCROW_PUBKEY=' "$${ENV_FILE}" | tail -1 | cut -d= -f2-)"
+    RELAY_URL="$(grep '^RELAY_URL=' "$${ENV_FILE}" | tail -1 | cut -d= -f2-)"
+    if [[ -z "$${ESCROW_PUBKEY}" ]]; then
+      echo "HOSTR_BOOTSTRAP_ESCROW_PUBKEY is required for hosted well-known forwarding" >&2
+      exit 1
+    fi
+    if [[ -z "$${RELAY_URL}" ]]; then
+      echo "RELAY_URL is required for hosted well-known forwarding" >&2
+      exit 1
+    fi
+    sed \
+      -e "s|__HOSTR_BOOTSTRAP_ESCROW_PUBKEY__|$${ESCROW_PUBKEY}|g" \
+      -e "s|__HOSTR_RELAY_URL__|$${RELAY_URL}|g" \
+      "/opt/hostr/docker/vhost.d/hostr-network-well-known.conf.tpl" \
+      >> "/opt/hostr/docker/vhost.d/$${APP_DOMAIN}"
+  fi
 fi
 EOS
 chmod +x /usr/local/bin/hostr-fetch-secrets

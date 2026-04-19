@@ -16,6 +16,7 @@ class ZapListWidget extends StatefulWidget {
   final String? pubkey;
   final String? lud16;
   final String? eventId;
+  final int? limit;
   final Widget Function(ZapReceipt) builder;
 
   const ZapListWidget({
@@ -23,11 +24,13 @@ class ZapListWidget extends StatefulWidget {
     this.pubkey,
     this.lud16,
     this.eventId,
+    this.limit = 5,
     required this.builder,
   }) : assert(
          pubkey != null || lud16 != null,
          'Either pubkey or lud16 must be provided',
-       );
+       ),
+       assert(limit == null || limit > 0, 'limit must be greater than zero');
   // final String? originalEventId; @todo replaceable events
 
   @override
@@ -92,10 +95,22 @@ class ZapListWidgetState extends State<ZapListWidget> {
     _sws = getIt<Hostr>().zaps.subscribeZapReceipts(
       pubkey: pubkey,
       eventId: widget.eventId,
+      limit: widget.limit,
     );
-    _zapStream = _sws!.stream.map((event) => ZapReceipt.fromEvent(event));
+    // ZapReceipt.fromEvent calls jsonDecode on the inner `description` tag.
+    // Some zap clients embed literal control characters (e.g. newlines) in the
+    // zap request content, producing invalid JSON that Dart's strict parser
+    // rejects.  Skip those events rather than crashing the whole list.
+    _zapStream = _sws!.stream.expand((event) {
+      try {
+        return [ZapReceipt.fromEvent(event)];
+      } on FormatException {
+        // Malformed zap request JSON – silently drop this receipt.
+        return <ZapReceipt>[];
+      }
+    });
     _subscription = _zapStream!.listen(
-      (zap) => setState(() => _zaps.add(zap)),
+      _addZap,
       onError: (e) => setState(() => _error = e.toString()),
     );
     // Track when the relay subscription goes live so we can
@@ -104,6 +119,19 @@ class ZapListWidgetState extends State<ZapListWidget> {
       if (!_live &&
           (status is StreamStatusLive || status is StreamStatusQueryComplete)) {
         if (mounted) setState(() => _live = true);
+      }
+    });
+  }
+
+  void _addZap(ZapReceipt zap) {
+    if (!mounted) return;
+    setState(() {
+      _zaps.add(zap);
+      _zaps.sort((a, b) => (b.paidAt ?? 0).compareTo(a.paidAt ?? 0));
+
+      final limit = widget.limit;
+      if (limit != null && _zaps.length > limit) {
+        _zaps.removeRange(limit, _zaps.length);
       }
     });
   }
@@ -132,10 +160,17 @@ class ZapListWidgetState extends State<ZapListWidget> {
     }
 
     final spacing = AppSpacing.of(context);
-    return Wrap(
-      spacing: spacing.chipSpacing,
-      runSpacing: spacing.chipRunSpacing,
-      children: _zaps.map((zap) => widget.builder(zap)).toList(),
+    final children = <Widget>[];
+    for (final zap in _zaps) {
+      if (children.isNotEmpty) {
+        children.add(SizedBox(width: spacing.chipSpacing));
+      }
+      children.add(widget.builder(zap));
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 }

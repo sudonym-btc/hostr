@@ -1119,12 +1119,14 @@ class MockZaps extends _i1.Mock implements _i29.Zaps {
     required String? pubkey,
     String? eventId,
     String? addressableId,
+    int? limit,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#subscribeZapReceipts, [], {
               #pubkey: pubkey,
               #eventId: eventId,
               #addressableId: addressableId,
+              #limit: limit,
             }),
             returnValue: _FakeStreamWithStatus_5<_i6.Nip01Event>(
               this,
@@ -1132,6 +1134,7 @@ class MockZaps extends _i1.Mock implements _i29.Zaps {
                 #pubkey: pubkey,
                 #eventId: eventId,
                 #addressableId: addressableId,
+                #limit: limit,
               }),
             ),
           )

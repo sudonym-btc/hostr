@@ -23,7 +23,63 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INFRA_DIR="$ROOT_DIR/infrastructure"
 BOOTSTRAP_DIR="$INFRA_DIR/bootstrap"
 
-sync_maps_api_key_env() {
+write_env_value() {
+  local env_file="$1"
+  local key="$2"
+  local value="$3"
+
+  node - "$env_file" "$key" "$value" <<'NODE'
+const fs = require('fs');
+
+const [envFile, key, value] = process.argv.slice(2);
+
+const content = fs.readFileSync(envFile, 'utf8');
+const lines = content.split(/\r?\n/);
+let replaced = false;
+
+for (let i = 0; i < lines.length; i += 1) {
+  if (lines[i].startsWith(`${key}=`)) {
+    lines[i] = `${key}=${value}`;
+    replaced = true;
+    break;
+  }
+}
+
+if (!replaced) {
+  if (lines.length > 0 && lines[lines.length - 1] !== '') {
+    lines.push('');
+  }
+  lines.push(`${key}=${value}`);
+}
+
+fs.writeFileSync(envFile, `${lines.join('\n').replace(/\n*$/, '')}\n`);
+NODE
+}
+
+sync_env_value_from_file() {
+  local env_file="$1"
+  local key="$2"
+  local value_file="$3"
+  local label="$4"
+
+  if [[ ! -f "$value_file" ]]; then
+    echo "$label file not found, skipping env sync: $value_file" >&2
+    return 0
+  fi
+
+  local value
+  value="$(tr -d '\r\n' < "$value_file")"
+
+  if [[ -z "$value" ]]; then
+    echo "$label file is empty, skipping env sync: $value_file" >&2
+    return 0
+  fi
+
+  write_env_value "$env_file" "$key" "$value"
+  echo "Synced $key to $env_file"
+}
+
+sync_maps_env() {
   local target_env="$1"
   local env_file=""
 
@@ -35,60 +91,39 @@ sync_maps_api_key_env() {
       env_file="$ROOT_DIR/.env.prod"
       ;;
     *)
-      echo "Unsupported environment for GOOGLE_MAPS_API_KEY sync: $target_env" >&2
+      echo "Unsupported environment for Google Maps env sync: $target_env" >&2
       return 64
       ;;
   esac
 
-  local key_file="$INFRA_DIR/_local_outputs/$target_env/maps_api_key.txt"
-
-  if [[ ! -f "$key_file" ]]; then
-    echo "Maps API key file not found, skipping env sync: $key_file" >&2
-    return 0
-  fi
-
   if [[ ! -f "$env_file" ]]; then
-    echo "Env file not found, skipping GOOGLE_MAPS_API_KEY sync: $env_file" >&2
+    echo "Env file not found, skipping Google Maps env sync: $env_file" >&2
     return 0
   fi
 
-  local key_value
-  key_value="$(tr -d '\r\n' < "$key_file")"
+  sync_env_value_from_file \
+    "$env_file" \
+    "GOOGLE_MAPS_API_KEY" \
+    "$INFRA_DIR/_local_outputs/$target_env/maps_api_key.txt" \
+    "Maps API key"
 
-  if [[ -z "$key_value" ]]; then
-    echo "Maps API key file is empty, skipping env sync: $key_file" >&2
-    return 0
-  fi
+  sync_env_value_from_file \
+    "$env_file" \
+    "GOOGLE_MAPS_WEB_MAP_ID" \
+    "$INFRA_DIR/_local_outputs/$target_env/maps_web_map_id.txt" \
+    "Maps web map ID"
 
-  node - "$env_file" "$key_value" <<'NODE'
-const fs = require('fs');
+  sync_env_value_from_file \
+    "$env_file" \
+    "GOOGLE_MAPS_ANDROID_MAP_ID" \
+    "$INFRA_DIR/_local_outputs/$target_env/maps_android_map_id.txt" \
+    "Maps Android map ID"
 
-const [envFile, keyValue] = process.argv.slice(2);
-const key = 'GOOGLE_MAPS_API_KEY';
-
-const content = fs.readFileSync(envFile, 'utf8');
-const lines = content.split(/\r?\n/);
-let replaced = false;
-
-for (let i = 0; i < lines.length; i += 1) {
-  if (lines[i].startsWith(`${key}=`)) {
-    lines[i] = `${key}=${keyValue}`;
-    replaced = true;
-    break;
-  }
-}
-
-if (!replaced) {
-  if (lines.length > 0 && lines[lines.length - 1] !== '') {
-    lines.push('');
-  }
-  lines.push(`${key}=${keyValue}`);
-}
-
-fs.writeFileSync(envFile, `${lines.join('\n').replace(/\n*$/, '')}\n`);
-NODE
-
-  echo "Synced GOOGLE_MAPS_API_KEY to $env_file"
+  sync_env_value_from_file \
+    "$env_file" \
+    "GOOGLE_MAPS_IOS_MAP_ID" \
+    "$INFRA_DIR/_local_outputs/$target_env/maps_ios_map_id.txt" \
+    "Maps iOS map ID"
 }
 
 # Resolve state bucket name from bootstrap state or env var.
@@ -115,7 +150,7 @@ terraform apply \
   -var-file="var/shared.tfvars" \
   -var-file="var/${TARGET_ENV}.tfvars"
 
-sync_maps_api_key_env "$TARGET_ENV"
+sync_maps_env "$TARGET_ENV"
 
 PROJECT_ID="$(terraform output -raw project_id)"
 VM_NAME="$(terraform output -raw compose_vm_name)"

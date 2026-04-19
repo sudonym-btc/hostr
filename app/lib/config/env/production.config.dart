@@ -34,4 +34,10 @@ class ProductionConfig extends Config {
   String get hostrSocialNpub => env.hostrSocialNpub;
   @override
   String get googleMapsApiKey => env.googleMapsApiKey;
+  @override
+  String get googleMapsWebMapId => env.googleMapsWebMapId;
+  @override
+  String get googleMapsAndroidMapId => env.googleMapsAndroidMapId;
+  @override
+  String get googleMapsIosMapId => env.googleMapsIosMapId;
 }

@@ -114,6 +114,11 @@ String _generateDart(String target, Map<String, String> vars) {
   buf.writeln('const blossomUrl = ${q('BLOSSOM_URL')};');
   buf.writeln('const tipsAddress = ${q('TIPS_ADDRESS')};');
   buf.writeln('const googleMapsApiKey = ${q('GOOGLE_MAPS_API_KEY')};');
+  buf.writeln('const googleMapsWebMapId = ${q('GOOGLE_MAPS_WEB_MAP_ID')};');
+  buf.writeln(
+    'const googleMapsAndroidMapId = ${q('GOOGLE_MAPS_ANDROID_MAP_ID')};',
+  );
+  buf.writeln('const googleMapsIosMapId = ${q('GOOGLE_MAPS_IOS_MAP_ID')};');
   buf.writeln('const hostrSocialNpub = ${q('HOSTR_SOCIAL_NPUB')};');
   buf.writeln();
 

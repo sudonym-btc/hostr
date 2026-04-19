@@ -59,7 +59,8 @@ PY
 RUN case "$APP_PROFILE" in \
     *prod*|*production*) FLUTTER_TARGET="lib/main_production.dart" ;; \
     *staging*) FLUTTER_TARGET="lib/main_staging.dart" ;; \
-    *) FLUTTER_TARGET="lib/main_development.dart" ;; \
+    local|dev|development) FLUTTER_TARGET="lib/main_development.dart" ;; \
+    *) echo "ERROR: Unknown APP_PROFILE='$APP_PROFILE'. Must be prod/staging/local." >&2; exit 1 ;; \
     esac \
     && flutter build web --release \
     --base-href="/" \
