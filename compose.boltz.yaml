@@ -115,6 +115,8 @@ services:
     environment:
       - VIRTUAL_HOST=boltz.${DOMAIN}
       - VIRTUAL_PORT=9001
+    volumes:
+      - ./docker/boltz-nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
   boltz-client:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
