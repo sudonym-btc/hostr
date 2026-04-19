@@ -1,6 +1,7 @@
 [submodule "dependencies/boltz-core"]
 	path = dependencies/boltz-core
 	url = git@github.com:BoltzExchange/boltz-core.git
+	ignore = dirty
 [submodule "dependencies/boltz-regtest"]
 	path = dependencies/boltz-regtest
 	url = git@github.com:BoltzExchange/regtest.git
