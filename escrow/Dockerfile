@@ -14,6 +14,11 @@ RUN dart pub get
 # ── Development target (local docker compose) ────────────────────────
 FROM build AS dev
 
+ARG COMMIT_SHA=dev
+ARG BUILD_DATE=
+ENV COMMIT_SHA=$COMMIT_SHA \
+    BUILD_DATE=$BUILD_DATE
+
 RUN chmod +x docker/entrypoint.sh docker/escrow-cli.sh \
     && install -m 0755 docker/escrow-cli.sh /usr/local/bin/escrow-cli \
     && printf '%s\n' "alias escrow-cli='dart run /workspace/escrow/bin/cli.dart'" > /etc/profile.d/escrow-cli.sh
@@ -28,6 +33,11 @@ RUN dart build cli --target bin/daemon.dart -o /out/daemon \
 
 # ── Production runtime ───────────────────────────────────────────────
 FROM debian:12-slim AS production
+
+ARG COMMIT_SHA=dev
+ARG BUILD_DATE=
+ENV COMMIT_SHA=$COMMIT_SHA \
+    BUILD_DATE=$BUILD_DATE
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libsecp256k1-1 \

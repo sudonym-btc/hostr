@@ -132,6 +132,10 @@ class CliApp {
 
   /// Wraps [mainMenuScreen] but also handles the "Daemon status" option inline.
   Future<Navigation> _mainMenuWithStatus() async {
+    final status = await _loadStatus();
+    final buildLabel = status?['buildLabel'] as String?;
+    final prompt =
+        buildLabel == null ? 'Escrow CLI' : 'Escrow CLI · $buildLabel';
     final options = [
       'Trades',
       'Threads',
@@ -143,7 +147,7 @@ class CliApp {
       'Exit',
     ];
 
-    final idx = Select(prompt: 'Escrow CLI', options: options).interact();
+    final idx = Select(prompt: prompt, options: options).interact();
 
     switch (idx) {
       case 0:
@@ -213,12 +217,13 @@ class CliApp {
     ).interact();
 
     try {
-      final status = await client.getStatus();
+      final status = await _loadStatus() ?? await client.getStatus();
       spinner.done();
       print('');
       print(sectionHeader('Daemon Status'));
       print(kvTable({
         'Status': colorStatus('${status['status']}'),
+        'Build': '${status['buildLabel'] ?? 'unknown'}',
         'Tracked trades': '${status['trackedTrades']}',
         'Pending trades': '${status['pendingTrades']}',
         'Synced threads': '${status['syncedThreads']}',
@@ -230,6 +235,14 @@ class CliApp {
       print('  Error: $e');
       print('');
       pressAnyKey();
+    }
+  }
+
+  Future<Map<String, dynamic>?> _loadStatus() async {
+    try {
+      return await client.getStatus();
+    } catch (_) {
+      return null;
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:escrow/build_info.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
@@ -52,6 +53,9 @@ class DaemonHandler {
   Map<String, dynamic> _getStatus(json_rpc.Parameters params) {
     return {
       'status': 'ok',
+      'buildLabel': BuildInfo.label,
+      'commitSha': BuildInfo.commitSha,
+      'buildDate': BuildInfo.buildDate,
       'trackedTrades': daemon.trades.length,
       'pendingTrades': daemon.pendingTrades.length,
       'syncedThreads': hostr.messaging.threads.threads.length,

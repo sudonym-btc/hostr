@@ -9,6 +9,7 @@
 x-templates:
   lnd-base: &lnd-base
     image: lightninglabs/lnd:v0.20.0-beta
+    platform: ${LND_PLATFORM:-linux/arm64}
     user: "0:0"
     depends_on:
       hostrbitcoind:
