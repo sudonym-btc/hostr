@@ -5,15 +5,15 @@
 # Deploys the full Uniswap V3 stack on anvil-arbitrum for ERC20 quoting
 # and swapping in the local regtest environment.
 #
-# Deployed contracts (Account #9, deterministic addresses):
-#   Nonce 0 → WETH9              0x95bD8D42f30351685e96C62EDdc0d0613bf9a87A
-#   Nonce 1 → Multicall3         0x98eDDadCfde04dC22a0e62119617e74a6Bc77313
-#   Nonce 2 → UniswapV3Factory   0x2B574555158337Cd46d47c2Ca57E4698A1f04e70
-#   Nonce 3 → NonfungiblePosMgr  0xcA8b49076D1A8039599e24979abf819af784c27a
-#   Nonce 4 → QuoterV2           0xc039b3B46814D8388e5205D37Dd0D154D806F1f4
-#   Nonce 5 → Permit2            0x2B15063A6F8a11d18404C801F295b1d19dCC8574
-#   Nonce 6 → UnsupportedProto   0xDd8cb59289bF7e324a37F74f8abB16D9F133cb2e
-#   Nonce 7 → UniversalRouter    0x3f476891E3018329580DA8Cd03b6AA370F2Fb645
+# Deployed contracts (dedicated deployer, deterministic addresses):
+#   Nonce 0 → WETH9              0x057ef64E23666F000b34aE31332854aCBd1c8544
+#   Nonce 1 → Multicall3         0x261D8c5e9742e6f7f1076Fa1F560894524e19cad
+#   Nonce 2 → UniswapV3Factory   0xCE3478A9E0167a6Bc5716DC39DbbbfAc38F27623
+#   Nonce 3 → NonfungiblePosMgr  0xCba6b9A951749B8735C603e7fFC5151849248772
+#   Nonce 4 → QuoterV2           0xe4EB561155AFCe723bB1fF8606Fbfe9b28d5d38D
+#   Nonce 5 → Permit2            0xcf27F781841484d5CF7e155b44954D7224caF1dD
+#   Nonce 6 → UnsupportedProto   0x673cD70FA883394a1f3DEb3221937Ceb7C2618D7
+#   Nonce 7 → UniversalRouter    0x6179FBb91b239b574A4565e2c55A6fD38C3372d3
 #
 # After deployment:
 #   - Creates tBTC/USDT (fee=3000) pool
@@ -42,22 +42,24 @@ set -eu
 
 RPC="$ARBITRUM_RPC"
 
-# ── Uniswap deployer: Anvil Account #9 (clean nonce 0) ───────────────────
-UNI_PK="0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
-UNI_DEPLOYER="0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+# ── Uniswap deployer: dedicated Anvil account (clean nonce 0) ─────────────
+# Do not reuse this key for Alto, account abstraction deployers, or seed txs:
+# those services run before arbitrum-init and would consume deterministic nonces.
+UNI_PK="0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
+UNI_DEPLOYER="0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 
 # Pre-extracted creation bytecodes (mounted from host)
 BYTECODES="${BYTECODES_DIR:-/scripts/uniswap-v3-bytecodes}"
 
-# ── Expected deterministic addresses (Account #9, nonces 0-7) ────────────
-WETH_ADDR="0x95bD8D42f30351685e96C62EDdc0d0613bf9a87A"
-MULTICALL3_ADDR="0x98eDDadCfde04dC22a0e62119617e74a6Bc77313"
-FACTORY_ADDR="0x2B574555158337Cd46d47c2Ca57E4698A1f04e70"
-NFT_POS_MGR="0xcA8b49076D1A8039599e24979abf819af784c27a"
-QUOTER_V2_ADDR="0xc039b3B46814D8388e5205D37Dd0D154D806F1f4"
-PERMIT2_ADDR="0x2B15063A6F8a11d18404C801F295b1d19dCC8574"
-UNSUPPORTED_ADDR="0xDd8cb59289bF7e324a37F74f8abB16D9F133cb2e"
-UNIVERSAL_ROUTER_ADDR="0x3f476891E3018329580DA8Cd03b6AA370F2Fb645"
+# ── Expected deterministic addresses (deployer nonces 0-7) ────────────────
+WETH_ADDR="0x057ef64E23666F000b34aE31332854aCBd1c8544"
+MULTICALL3_ADDR="0x261D8c5e9742e6f7f1076Fa1F560894524e19cad"
+FACTORY_ADDR="0xCE3478A9E0167a6Bc5716DC39DbbbfAc38F27623"
+NFT_POS_MGR="0xCba6b9A951749B8735C603e7fFC5151849248772"
+QUOTER_V2_ADDR="0xe4EB561155AFCe723bB1fF8606Fbfe9b28d5d38D"
+PERMIT2_ADDR="0xcf27F781841484d5CF7e155b44954D7224caF1dD"
+UNSUPPORTED_ADDR="0x673cD70FA883394a1f3DEb3221937Ceb7C2618D7"
+UNIVERSAL_ROUTER_ADDR="0x6179FBb91b239b574A4565e2c55A6fD38C3372d3"
 
 # Zero address for unused constructor args
 ZERO="0x0000000000000000000000000000000000000000"
@@ -66,7 +68,7 @@ echo ""
 echo "═══════════════════════════════════════════════"
 echo " Deploying Uniswap V3 Stack"
 echo "═══════════════════════════════════════════════"
-echo "  Deployer:  $UNI_DEPLOYER (Account #9)"
+echo "  Deployer:  $UNI_DEPLOYER (fresh nonce 0 required)"
 echo "  tBTC:      $TBTC_ADDRESS"
 echo "  USDT:      $USDT_ADDRESS"
 echo ""
@@ -92,9 +94,23 @@ verify_deploy() {
   echo "  ✓ $name  $actual"
 }
 
+require_clean_uniswap_deployer() {
+  local nonce
+  nonce=$(cast nonce --rpc-url "$RPC" "$UNI_DEPLOYER")
+  if [ "$nonce" != "0" ]; then
+    echo "  ✗ Uniswap deployer nonce is $nonce; expected 0 before deterministic deployment."
+    echo "  The expected addresses in this script depend on deploying from a fresh"
+    echo "  $UNI_DEPLOYER account. Restart/recreate anvil-arbitrum and rerun the"
+    echo "  one-shot init container instead of rerunning against the dirty chain."
+    exit 1
+  fi
+}
+
 # ══════════════════════════════════════════════════════════════════════════
 # PHASE 1: Deploy contracts
 # ══════════════════════════════════════════════════════════════════════════
+
+require_clean_uniswap_deployer
 
 # ── 1a. WETH9 (nonce 0) — forge create from inline Solidity ──────────────
 echo "▶ [1/8] Deploying WETH9..."

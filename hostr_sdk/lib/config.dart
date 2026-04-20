@@ -151,6 +151,8 @@ typedef ShowNotification =
     });
 
 class HostrConfig {
+  static const _developmentRelay = 'wss://relay.hostr.development';
+
   final List<String> bootstrapRelays;
   final List<String> bootstrapBlossom;
   final List<String> bootstrapEscrowPubkeys;
@@ -164,6 +166,26 @@ class HostrConfig {
   final Telemetry telemetry;
   final CalendarPort? calendarPort;
   final EventVerifier eventVerifier;
+
+  static List<String> _ndkBootstrapRelays({
+    required String hostrRelay,
+    required List<String> bootstrapRelays,
+  }) {
+    final relays = hostrRelay.isNotEmpty ? [hostrRelay] : bootstrapRelays;
+    return [
+      ...{
+        for (final relay in relays)
+          if (relay.isNotEmpty) relay,
+      },
+    ];
+  }
+
+  static List<String> _ndkIgnoreRelays(String hostrRelay) {
+    if (hostrRelay == _developmentRelay) return const [];
+    // Temporary guard: prod NIP-65 data was polluted with the development
+    // relay. The better fix is to remove that relay from the NIP-65 event.
+    return const [_developmentRelay];
+  }
 
   /// Optional callback the SDK invokes to show OS notifications (swap
   /// progress, deposit confirmed, etc.).  When `null`, the SDK silently
@@ -198,9 +220,15 @@ class HostrConfig {
              fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,
              defaultQueryTimeout: Duration(seconds: 10),
-             // We have to bootstrap our relay, which means NDK will immediately make connection attempt
-             // If we do not provide bootstrap relays, queries without author param will not be sent to any relays
-             bootstrapRelays: bootstrapRelays,
+             // NDK eagerly opens sockets for every bootstrap relay and owns
+             // their reconnect loops. Keep that eager pool to the canonical
+             // Hostr relay; other configured relays remain available for
+             // explicit discovery, payments, and user relay management.
+             bootstrapRelays: _ndkBootstrapRelays(
+               hostrRelay: hostrRelay,
+               bootstrapRelays: bootstrapRelays,
+             ),
+             ignoreRelays: _ndkIgnoreRelays(hostrRelay),
              logLevel: LogLevel.warning,
            ),
        logger = logs ?? CustomLogger(),

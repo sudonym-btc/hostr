@@ -149,6 +149,7 @@ class SeedPipelineConfig {
   final bool fundProfiles;
   final bool setupLnbits;
   final BigInt? fundAmountWei;
+  final String? tradeSponsorPrivateKey;
   final String lnbitsBaseUrl;
   final String lnbitsAdminEmail;
   final String lnbitsAdminPassword;
@@ -190,6 +191,7 @@ class SeedPipelineConfig {
     this.fundProfiles = true,
     this.setupLnbits = true,
     this.fundAmountWei,
+    this.tradeSponsorPrivateKey,
     this.lnbitsBaseUrl = 'https://lnbits.hostr.development',
     this.lnbitsAdminEmail = 'admin@example.com',
     this.lnbitsAdminPassword = 'adminpassword',
@@ -220,6 +222,7 @@ class SeedPipelineConfig {
       fundProfiles: _bool(json['fundProfiles'], true),
       setupLnbits: _bool(json['setupLnbits'], false),
       fundAmountWei: _bigInt(json['fundAmountWei']),
+      tradeSponsorPrivateKey: _str(json['tradeSponsorPrivateKey']),
       lnbitsBaseUrl:
           _str(json['lnbitsBaseUrl']) ?? 'https://lnbits.hostr.development',
       lnbitsAdminEmail: _str(json['lnbitsAdminEmail']) ?? 'admin@example.com',
@@ -264,6 +267,9 @@ class SeedPipelineConfig {
     'fundProfiles': fundProfiles,
     'setupLnbits': setupLnbits,
     'fundAmountWei': fundAmountWei?.toString(),
+    'tradeSponsorPrivateKey': tradeSponsorPrivateKey == null
+        ? null
+        : '<configured>',
     'lnbitsBaseUrl': lnbitsBaseUrl,
     'lnbitsAdminEmail': lnbitsAdminEmail,
     'lnbitsAdminPassword': lnbitsAdminPassword,
@@ -300,6 +306,7 @@ class SeedPipelineConfig {
     bool? fundProfiles,
     bool? setupLnbits,
     BigInt? fundAmountWei,
+    String? tradeSponsorPrivateKey,
     String? lnbitsBaseUrl,
     String? lnbitsAdminEmail,
     String? lnbitsAdminPassword,
@@ -326,6 +333,8 @@ class SeedPipelineConfig {
     fundProfiles: fundProfiles ?? this.fundProfiles,
     setupLnbits: setupLnbits ?? this.setupLnbits,
     fundAmountWei: fundAmountWei ?? this.fundAmountWei,
+    tradeSponsorPrivateKey:
+        tradeSponsorPrivateKey ?? this.tradeSponsorPrivateKey,
     lnbitsBaseUrl: lnbitsBaseUrl ?? this.lnbitsBaseUrl,
     lnbitsAdminEmail: lnbitsAdminEmail ?? this.lnbitsAdminEmail,
     lnbitsAdminPassword: lnbitsAdminPassword ?? this.lnbitsAdminPassword,

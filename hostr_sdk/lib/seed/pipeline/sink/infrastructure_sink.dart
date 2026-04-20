@@ -24,8 +24,8 @@ import 'seed_sink.dart';
 /// Real-infrastructure [SeedSink] for the CLI relay-seeder.
 ///
 /// Publishes events to a relay via [BroadcastIsolate], executes EVM
-/// transactions against a live Anvil/chain node, funds addresses via
-/// `anvil_setBalance`, and sets up NIP-05 / LUD-16 via LNbits.
+/// transactions against a live Anvil/chain node, optionally funds addresses
+/// via `anvil_setBalance`, and sets up NIP-05 / LUD-16 via LNbits.
 ///
 /// Owns all mutable infrastructure state (HTTP clients, nonce caches,
 /// contract instances) and disposes them on [close].
@@ -33,6 +33,7 @@ class InfrastructureSink implements SeedSink {
   final String rpcUrl;
   final String contractAddress;
   final int chainId;
+  final String? tradeSponsorPrivateKey;
   final BroadcastIsolate? _broadcaster;
   final LnbitsSetupConfig? _lnbitsConfig;
 
@@ -40,6 +41,7 @@ class InfrastructureSink implements SeedSink {
   Web3Client? _web3Client;
   AnvilClient? _anvilClient;
   MultiEscrow? _escrowContract;
+  EthPrivateKey? _tradeSponsorCredentials;
   int _clientGeneration = 0;
 
   // Pre-scanned on-chain state for idempotent re-seeding.
@@ -51,14 +53,14 @@ class InfrastructureSink implements SeedSink {
   final Map<String, int> _nonces = {};
   final Map<String, Completer<void>> _nonceLocks = {};
 
-  // Per-buyer lock so that the entire ERC-20 sequence
-  // (setBalance → approve → createTrade) is serialised per address.
-  final Map<String, Future<void>> _buyerLocks = {};
+  // Per-sender lock so nonce-sensitive transaction sequences are serialized.
+  final Map<String, Future<void>> _senderLocks = {};
 
   InfrastructureSink({
     required this.rpcUrl,
     required this.contractAddress,
     required this.chainId,
+    this.tradeSponsorPrivateKey,
     BroadcastIsolate? broadcaster,
     LnbitsSetupConfig? lnbitsConfig,
   }) : _broadcaster = broadcaster,
@@ -96,8 +98,9 @@ class InfrastructureSink implements SeedSink {
       }
 
       // Derive addresses.
-      final guestCredentials = await deriveEvmKey(intent.buyerPrivateKey);
-      final buyer = guestCredentials.address;
+      final buyerCredentials = await deriveEvmKey(intent.buyerPrivateKey);
+      final txCredentials = _tradeSponsor() ?? buyerCredentials;
+      final buyer = buyerCredentials.address;
       final seller = (await deriveEvmKey(intent.sellerPrivateKey)).address;
       final arbiter = (await deriveEvmKey(intent.arbiterPrivateKey)).address;
       final tokenAddress = EthereumAddress.fromHex(intent.token.address);
@@ -108,78 +111,10 @@ class InfrastructureSink implements SeedSink {
       String txHash;
 
       if (intent.token.isNative) {
-        // ── Native token: send msg.value from the buyer ────────────────
-        final nonce = await _nextNonce(guestCredentials.address);
-        txHash = await _escrow().createTrade(
-          (
-            tradeId: tradeIdBytes,
-            buyer: buyer,
-            seller: seller,
-            arbiter: arbiter,
-            token: tokenAddress,
-            paymentAmount: intent.amountWei,
-            bondAmount: intent.bondAmountWei ?? BigInt.zero,
-            unlockAt: intent.unlockAt,
-            escrowFee: BigInt.zero,
-          ),
-          credentials: guestCredentials,
-          transaction: Transaction(
-            nonce: nonce,
-            value: EtherAmount.inWei(
-              intent.amountWei + (intent.bondAmountWei ?? BigInt.zero),
-            ),
-            gasPrice: gasPrice,
-          ),
-        );
-      } else {
-        // ── ERC-20 token: use anvil impersonation ─────────────────────
-        // The setBalance → approve → createTrade sequence must be
-        // serialised per buyer address: concurrent trades for the same
-        // buyer can race on the storage-slot overwrite and on Anvil's
-        // sequential nonce processing, leading to spurious reverts.
-        final buyerKey = buyer.eip55With0x;
-        while (_buyerLocks.containsKey(buyerKey)) {
-          await _buyerLocks[buyerKey];
-        }
-        final lockCompleter = Completer<void>();
-        _buyerLocks[buyerKey] = lockCompleter.future;
-
-        try {
-          final anvil = _anvil();
-          final erc20 = IERC20(address: tokenAddress, client: _chainClient());
-
-          // Use a large sentinel balance so concurrent trades for the same
-          // buyer don't race on _setErc20Balance (each call overwrites the
-          // raw storage slot, so the last writer wins).
-          final largeBalance = BigInt.two.pow(128);
-
-          // 1. Set the buyer's ERC-20 balance via storage override.
-          await _setErc20Balance(
-            anvil: anvil,
-            token: tokenAddress.eip55With0x,
-            account: buyer.eip55With0x,
-            amount: largeBalance,
-          );
-
-          // 2+3. Reserve both nonces atomically so concurrent trades for
-          // the same buyer can't interleave between approve and createTrade.
-          final nonces = await _nextNonces(guestCredentials.address, 2);
-          final approveNonce = nonces[0];
-          final createNonce = nonces[1];
-
-          // 2. Approve the escrow contract to spend the tokens.
-          final approveTx = await erc20.approve(
-            (
-              spender: EthereumAddress.fromHex(contractAddress),
-              value: largeBalance,
-            ),
-            credentials: guestCredentials,
-            transaction: Transaction(nonce: approveNonce, gasPrice: gasPrice),
-          );
-          await _assertTxSucceeded(approveTx, 'erc20-approve', intent.tradeId);
-
-          // 3. Call createTrade with msg.value = 0 (ERC-20 path).
-          txHash = await _escrow().createTrade(
+        // ── Native token: send msg.value from the transaction sender ────
+        txHash = await _withSenderLock(txCredentials.address, () async {
+          final nonce = await _nextNonce(txCredentials.address);
+          return _escrow().createTrade(
             (
               tradeId: tradeIdBytes,
               buyer: buyer,
@@ -191,17 +126,75 @@ class InfrastructureSink implements SeedSink {
               unlockAt: intent.unlockAt,
               escrowFee: BigInt.zero,
             ),
-            credentials: guestCredentials,
+            credentials: txCredentials,
+            transaction: Transaction(
+              nonce: nonce,
+              value: EtherAmount.inWei(
+                intent.amountWei + (intent.bondAmountWei ?? BigInt.zero),
+              ),
+              gasPrice: gasPrice,
+            ),
+          );
+        });
+      } else {
+        // ── ERC-20 token: seed sender balance, approve, then create ─────
+        // With a trade sponsor configured, the sponsor is the token source
+        // and gas payer while the on-chain trade still records the real buyer.
+        final sourceCredentials = txCredentials;
+        txHash = await _withSenderLock(sourceCredentials.address, () async {
+          final anvil = _anvil();
+          final erc20 = IERC20(address: tokenAddress, client: _chainClient());
+
+          // Use a large sentinel balance so repeated seeded trades do not
+          // depend on prior token source balances.
+          final largeBalance = BigInt.two.pow(128);
+
+          // 1. Set the token source's ERC-20 balance via storage override.
+          await _setErc20Balance(
+            anvil: anvil,
+            token: tokenAddress.eip55With0x,
+            account: sourceCredentials.address.eip55With0x,
+            amount: largeBalance,
+          );
+
+          // 2+3. Reserve both nonces atomically so no other send from the
+          // same account can interleave between approve and createTrade.
+          final nonces = await _nextNonces(sourceCredentials.address, 2);
+          final approveNonce = nonces[0];
+          final createNonce = nonces[1];
+
+          // 2. Approve the escrow contract to spend the tokens.
+          final approveTx = await erc20.approve(
+            (
+              spender: EthereumAddress.fromHex(contractAddress),
+              value: largeBalance,
+            ),
+            credentials: sourceCredentials,
+            transaction: Transaction(nonce: approveNonce, gasPrice: gasPrice),
+          );
+          await _assertTxSucceeded(approveTx, 'erc20-approve', intent.tradeId);
+
+          // 3. Call createTrade with msg.value = 0 (ERC-20 path).
+          return _escrow().createTrade(
+            (
+              tradeId: tradeIdBytes,
+              buyer: buyer,
+              seller: seller,
+              arbiter: arbiter,
+              token: tokenAddress,
+              paymentAmount: intent.amountWei,
+              bondAmount: intent.bondAmountWei ?? BigInt.zero,
+              unlockAt: intent.unlockAt,
+              escrowFee: BigInt.zero,
+            ),
+            credentials: sourceCredentials,
             transaction: Transaction(
               nonce: createNonce,
               value: EtherAmount.zero(),
               gasPrice: gasPrice,
             ),
           );
-        } finally {
-          _buyerLocks.remove(buyerKey);
-          lockCompleter.complete();
-        }
+        });
       }
 
       print(
@@ -209,7 +202,8 @@ class InfrastructureSink implements SeedSink {
         'fundTx=$txHash amountWei=${intent.amountWei} '
         'token=${intent.token.tagId} '
         'buyer=${buyer.eip55With0x} seller=${seller.eip55With0x} '
-        'arbiter=${arbiter.eip55With0x}',
+        'arbiter=${arbiter.eip55With0x} '
+        'sender=${txCredentials.address.eip55With0x}',
       );
       await _assertTxSucceeded(txHash, 'createTrade', intent.tradeId);
 
@@ -217,9 +211,10 @@ class InfrastructureSink implements SeedSink {
     } on RPCError catch (e) {
       if (retries > 0 && e.message.contains('nonce too low')) {
         // Nonce cache is stale — clear it and retry.
-        final key = (await deriveEvmKey(
-          intent.buyerPrivateKey,
-        )).address.eip55With0x;
+        final key =
+            (_tradeSponsor() ?? await deriveEvmKey(intent.buyerPrivateKey))
+                .address
+                .eip55With0x;
         _nonces.remove(key);
         print(
           '[infra-sink] nonce too low for tradeId=${intent.tradeId}, '
@@ -279,9 +274,12 @@ class InfrastructureSink implements SeedSink {
     const settleGasLimit = 3000000;
 
     String txHash;
+    late EthPrivateKey txCredentials;
     if (intent.outcome == EscrowOutcome.arbitrated) {
-      final credentials = await deriveEvmKey(MockKeys.escrow.privateKey!);
-      final nonce = await _nextNonce(credentials.address);
+      final signatureCredentials = await deriveEvmKey(
+        MockKeys.escrow.privateKey!,
+      );
+      txCredentials = _tradeSponsor() ?? signatureCredentials;
       final paymentFactor = BigInt.from(700); // 70% of payment → seller
       final bondFactor = BigInt.zero; // 0% of bond → seller (full bond → buyer)
 
@@ -293,7 +291,7 @@ class InfrastructureSink implements SeedSink {
           '[infra-sink] PRE-CHECK FAIL: tradeId=${intent.tradeId} is NOT '
           'active before arbitrate call. '
           'buyer=${raw.buyer}, amount=${raw.paymentAmount + raw.bondAmount}, '
-          'arbiterNonce=$nonce',
+          'sender=${txCredentials.address.eip55With0x}',
         );
       }
       // ──────────────────────────────────────────────────────────────
@@ -302,64 +300,74 @@ class InfrastructureSink implements SeedSink {
         tradeId: tradeIdBytes,
         paymentFactor: paymentFactor,
         bondFactor: bondFactor,
-        signer: credentials,
+        signer: signatureCredentials,
       );
-      txHash = await _escrow().arbitrate(
-        (
-          tradeId: tradeIdBytes,
-          paymentFactor: paymentFactor,
-          bondFactor: bondFactor,
-          signature: signature,
-        ),
-        credentials: credentials,
-        transaction: Transaction(
-          nonce: nonce,
-          gasPrice: gasPrice,
-          maxGas: settleGasLimit,
-        ),
-      );
+      txHash = await _withSenderLock(txCredentials.address, () async {
+        final nonce = await _nextNonce(txCredentials.address);
+        return _escrow().arbitrate(
+          (
+            tradeId: tradeIdBytes,
+            paymentFactor: paymentFactor,
+            bondFactor: bondFactor,
+            signature: signature,
+          ),
+          credentials: txCredentials,
+          transaction: Transaction(
+            nonce: nonce,
+            gasPrice: gasPrice,
+            maxGas: settleGasLimit,
+          ),
+        );
+      });
     } else if (intent.outcome == EscrowOutcome.claimedByHost) {
-      final credentials = await deriveEvmKey(intent.settlerPrivateKey);
-      final nonce = await _nextNonce(credentials.address);
+      final signatureCredentials = await deriveEvmKey(intent.settlerPrivateKey);
+      txCredentials = _tradeSponsor() ?? signatureCredentials;
       final signature = signer.signClaim(
         tradeId: tradeIdBytes,
-        signer: credentials,
+        signer: signatureCredentials,
       );
-      txHash = await _escrow().claim(
-        (tradeId: tradeIdBytes, signature: signature),
-        credentials: credentials,
-        transaction: Transaction(
-          nonce: nonce,
-          gasPrice: gasPrice,
-          maxGas: settleGasLimit,
-        ),
-      );
+      txHash = await _withSenderLock(txCredentials.address, () async {
+        final nonce = await _nextNonce(txCredentials.address);
+        return _escrow().claim(
+          (tradeId: tradeIdBytes, signature: signature),
+          credentials: txCredentials,
+          transaction: Transaction(
+            nonce: nonce,
+            gasPrice: gasPrice,
+            maxGas: settleGasLimit,
+          ),
+        );
+      });
     } else {
-      final credentials = await deriveEvmKey(intent.settlerPrivateKey);
-      final nonce = await _nextNonce(credentials.address);
+      final signatureCredentials = await deriveEvmKey(intent.settlerPrivateKey);
+      txCredentials = _tradeSponsor() ?? signatureCredentials;
       final signature = signer.signRelease(
         tradeId: tradeIdBytes,
-        actor: credentials.address,
-        signer: credentials,
+        actor: signatureCredentials.address,
+        signer: signatureCredentials,
       );
-      txHash = await _escrow().releaseToCounterparty(
-        (
-          tradeId: tradeIdBytes,
-          actor: credentials.address,
-          signature: signature,
-        ),
-        credentials: credentials,
-        transaction: Transaction(
-          nonce: nonce,
-          gasPrice: gasPrice,
-          maxGas: settleGasLimit,
-        ),
-      );
+      txHash = await _withSenderLock(txCredentials.address, () async {
+        final nonce = await _nextNonce(txCredentials.address);
+        return _escrow().releaseToCounterparty(
+          (
+            tradeId: tradeIdBytes,
+            actor: signatureCredentials.address,
+            signature: signature,
+          ),
+          credentials: txCredentials,
+          transaction: Transaction(
+            nonce: nonce,
+            gasPrice: gasPrice,
+            maxGas: settleGasLimit,
+          ),
+        );
+      });
     }
 
     print(
       '[infra-sink] settleTrade: tradeId=${intent.tradeId} '
-      'outcome=${intent.outcome.name} tx=$txHash',
+      'outcome=${intent.outcome.name} tx=$txHash '
+      'sender=${txCredentials.address.eip55With0x}',
     );
     await _assertTxSucceeded(txHash, 'settle', intent.tradeId);
     _settledTrades.add(intent.tradeId);
@@ -459,6 +467,35 @@ class InfrastructureSink implements SeedSink {
   AnvilClient _anvil() {
     _anvilClient ??= AnvilClient(rpcUri: Uri.parse(rpcUrl));
     return _anvilClient!;
+  }
+
+  EthPrivateKey? _tradeSponsor() {
+    final key = tradeSponsorPrivateKey?.trim();
+    if (key == null || key.isEmpty) return null;
+    return _tradeSponsorCredentials ??= EthPrivateKey.fromHex(
+      key.startsWith('0x') ? key : '0x$key',
+    );
+  }
+
+  Future<T> _withSenderLock<T>(
+    EthereumAddress address,
+    Future<T> Function() body,
+  ) async {
+    final key = address.eip55With0x;
+
+    while (_senderLocks.containsKey(key)) {
+      await _senderLocks[key]!;
+    }
+
+    final completer = Completer<void>();
+    _senderLocks[key] = completer.future;
+
+    try {
+      return await body();
+    } finally {
+      _senderLocks.remove(key);
+      completer.complete();
+    }
   }
 
   /// Fetch (or cache) the next nonce for [address].
@@ -715,7 +752,7 @@ class InfrastructureSink implements SeedSink {
     _anvilClient = null;
     _nonces.clear();
     _nonceLocks.clear();
-    _buyerLocks.clear();
+    _senderLocks.clear();
     _logsScanFuture = null;
     _clientGeneration++;
   }
