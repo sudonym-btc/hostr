@@ -101,8 +101,11 @@ jobs:
         run: flutter pub get
         working-directory: app
 
-      - name: Set build number
-        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+      - name: Set build metadata
+        run: |
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +%F)" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Decode keystore
         run: |
@@ -123,6 +126,8 @@ jobs:
         run: |
           flutter build appbundle \
             --build-number=$BUILD_NUMBER \
+            --dart-define=COMMIT_SHA=$COMMIT_SHA \
+            --dart-define=BUILD_DATE=$BUILD_DATE \
             -t lib/main_staging.dart \
             --release
         working-directory: app
@@ -158,8 +163,11 @@ jobs:
         run: flutter pub get
         working-directory: app
 
-      - name: Set build number
-        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+      - name: Set build metadata
+        run: |
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +%F)" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Decode keystore
         run: |
@@ -180,6 +188,8 @@ jobs:
         run: |
           flutter build appbundle \
             --build-number=$BUILD_NUMBER \
+            --dart-define=COMMIT_SHA=$COMMIT_SHA \
+            --dart-define=BUILD_DATE=$BUILD_DATE \
             -t lib/main_production.dart \
             --release
         working-directory: app
@@ -214,8 +224,11 @@ jobs:
         run: flutter pub get
         working-directory: app
 
-      - name: Set build number
-        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+      - name: Set build metadata
+        run: |
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +%F)" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Import certificate
         uses: apple-actions/import-codesign-certs@v6
@@ -244,6 +257,8 @@ jobs:
             -t lib/main_staging.dart \
             --release \
             --build-number=$BUILD_NUMBER \
+            --dart-define=COMMIT_SHA=$COMMIT_SHA \
+            --dart-define=BUILD_DATE=$BUILD_DATE \
             --export-options-plist=ios/ExportOptions.plist
         working-directory: app
 
@@ -280,8 +295,11 @@ jobs:
         run: flutter pub get
         working-directory: app
 
-      - name: Set build number
-        run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+      - name: Set build metadata
+        run: |
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +%F)" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Import certificate
         uses: apple-actions/import-codesign-certs@v6
@@ -310,6 +328,8 @@ jobs:
             -t lib/main_production.dart \
             --release \
             --build-number=$BUILD_NUMBER \
+            --dart-define=COMMIT_SHA=$COMMIT_SHA \
+            --dart-define=BUILD_DATE=$BUILD_DATE \
             --export-options-plist=ios/ExportOptions.plist
         working-directory: app
 

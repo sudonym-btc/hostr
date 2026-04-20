@@ -39,3 +39,11 @@ const kStaggerDelay = Duration(milliseconds: 60);
 
 /// The git commit SHA baked in at build time via --dart-define=COMMIT_SHA.
 const kCommitSha = String.fromEnvironment('COMMIT_SHA', defaultValue: 'dev');
+
+/// UTC build date baked in at build time via --dart-define=BUILD_DATE.
+const kBuildDate = String.fromEnvironment('BUILD_DATE', defaultValue: '');
+
+/// Human-readable build label for in-app diagnostics.
+const kBuildLabel = kBuildDate == ''
+    ? kCommitSha
+    : 'Build $kBuildDate · $kCommitSha';

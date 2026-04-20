@@ -222,7 +222,7 @@ class _AppShellScreenState extends State<AppShellScreen>
             vertical: kSpace3,
           ),
           child: Text(
-            kCommitSha,
+            kBuildLabel,
             textAlign: TextAlign.left,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontFamily: 'monospace',

@@ -5,10 +5,12 @@ WORKDIR /workspace
 ARG APP_PROFILE=local
 ARG GOOGLE_MAPS_API_KEY
 ARG COMMIT_SHA=dev
+ARG BUILD_DATE=
 
 ENV APP_PROFILE=$APP_PROFILE \
     GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY \
-    COMMIT_SHA=$COMMIT_SHA
+    COMMIT_SHA=$COMMIT_SHA \
+    BUILD_DATE=$BUILD_DATE
 
 COPY models /workspace/models
 COPY hostr_sdk /workspace/hostr_sdk
@@ -65,6 +67,7 @@ RUN case "$APP_PROFILE" in \
     && flutter build web --release \
     --base-href="/" \
     --dart-define=COMMIT_SHA=$COMMIT_SHA \
+    --dart-define=BUILD_DATE=$BUILD_DATE \
     --target="$FLUTTER_TARGET"
 
 FROM nginx:1.27-alpine AS runtime
