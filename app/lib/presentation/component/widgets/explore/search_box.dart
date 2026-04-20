@@ -32,7 +32,7 @@ class SearchBoxWidget extends StatelessWidget {
     final color = AppSurface.stepped(context, 1);
 
     // Count extra filters beyond location & date range.
-    // Promoted tag keys: T = type, c = guests, s = features.
+    // Promoted tag keys: T = type, c = guests, s = features, N = negotiable.
     // g = geohash (part of location) — excluded from the count.
     final tags = filterState.filter?.tags ?? {};
     final extraFilterCount = tags.keys.where((k) => k != 'g').length;

@@ -41,7 +41,7 @@ class OperationTracker<T> {
   ///
   /// Automatically unregisters when the operation reaches a terminal state.
   void register(String key, T operation) {
-    _watchers[key]?.cancel();
+    unawaited(_watchers[key]?.cancel());
 
     final current = Map<String, T>.of(_operations$.value);
     current[key] = operation;
@@ -59,7 +59,7 @@ class OperationTracker<T> {
   }
 
   void _unregister(String key) {
-    _watchers[key]?.cancel();
+    unawaited(_watchers[key]?.cancel());
     _watchers.remove(key);
 
     final current = Map<String, T>.of(_operations$.value);
@@ -93,11 +93,11 @@ class OperationTracker<T> {
   }
 
   /// Dispose all watchers and close the subject.
-  void dispose() {
+  Future<void> dispose() async {
     for (final sub in _watchers.values) {
-      sub.cancel();
+      await sub.cancel();
     }
     _watchers.clear();
-    _operations$.close();
+    await _operations$.close();
   }
 }

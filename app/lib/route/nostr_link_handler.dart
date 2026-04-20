@@ -134,7 +134,8 @@ class NostrLinkHandler {
   }
 
   /// Clean up resources.
-  void dispose() {
-    _linkSubscription?.cancel();
+  Future<void> dispose() async {
+    await _linkSubscription?.cancel();
+    _linkSubscription = null;
   }
 }

@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+const kExpandedMarkerPillDensity = VisualDensity(horizontal: 2, vertical: 2);
+
 /// Creates a custom map marker [BitmapDescriptor] displaying a price label
 /// as a rounded pill with the app's primary colour.
 ///
@@ -34,11 +36,12 @@ class PriceMarkerBuilder {
     bool isCluster = false,
     double devicePixelRatio = 2.0,
     double borderWidth = 1,
+    VisualDensity visualDensity = kExpandedMarkerPillDensity,
   }) async {
     final effectiveBorderColor = borderColor ?? textColor.withAlpha(100);
     final dprKey = (devicePixelRatio * 1000).round();
     final cacheKey =
-        '$priceText-${fillColor.toARGB32()}-${textColor.toARGB32()}-${effectiveBorderColor.toARGB32()}-$showArrow-$isCluster-$borderWidth-dpr$dprKey';
+        '$priceText-${fillColor.toARGB32()}-${textColor.toARGB32()}-${effectiveBorderColor.toARGB32()}-$showArrow-$isCluster-$borderWidth-${visualDensity.horizontal}-${visualDensity.vertical}-dpr$dprKey';
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
     }
@@ -53,6 +56,7 @@ class PriceMarkerBuilder {
       isCluster: isCluster,
       devicePixelRatio: devicePixelRatio,
       borderWidth: borderWidth,
+      visualDensity: visualDensity,
     );
     _cache[cacheKey] = descriptor;
     return descriptor;
@@ -71,9 +75,11 @@ class PriceMarkerBuilder {
     bool isCluster = false,
     required double devicePixelRatio,
     required double borderWidth,
+    required VisualDensity visualDensity,
   }) async {
     // Render at high resolution for crisp edges on all densities.
     final double renderScale = devicePixelRatio;
+    final densityScale = scaleForDensity(visualDensity);
 
     // ── Resolve text style ────────────────────────────────────────────
     final baseFontSize = textStyle?.fontSize ?? 12.0;
@@ -85,7 +91,7 @@ class PriceMarkerBuilder {
         text: priceText,
         style: TextStyle(
           color: textColor,
-          fontSize: baseFontSize * renderScale,
+          fontSize: baseFontSize * densityScale * renderScale,
           fontWeight: FontWeight.bold,
           fontFamily: fontFamily,
         ),
@@ -98,11 +104,11 @@ class PriceMarkerBuilder {
     // The stroke is painted centered on the path, so half extends outward.
     final halfBorder = scaledBorderWidth / 2;
     // Cluster markers get extra padding so they look visually distinct.
-    final clusterExtra = isCluster ? 4.0 * renderScale : 0.0;
-    final paddingH = 9.0 * renderScale + clusterExtra;
-    final paddingV = 5.5 * renderScale + clusterExtra;
-    final arrowHeight = showArrow ? 5.0 * renderScale : 0.0;
-    final arrowHalfWidth = 5.0 * renderScale;
+    final clusterExtra = isCluster ? 4.0 * densityScale * renderScale : 0.0;
+    final paddingH = 9.0 * densityScale * renderScale + clusterExtra;
+    final paddingV = 5.5 * densityScale * renderScale + clusterExtra;
+    final arrowHeight = showArrow ? 5.0 * densityScale * renderScale : 0.0;
+    final arrowHalfWidth = 5.0 * densityScale * renderScale;
     final pillWidth = textPainter.width + paddingH * 2;
     final pillHeight = textPainter.height + paddingV * 2;
     // Expand the canvas by the full border width (half on each side).
@@ -170,5 +176,9 @@ class PriceMarkerBuilder {
     // appears at the intended small size on screen.
     final logicalWidth = totalWidth / renderScale;
     return BitmapDescriptor.bytes(bytes, width: logicalWidth);
+  }
+
+  static double scaleForDensity(VisualDensity visualDensity) {
+    return visualDensity == VisualDensity.compact ? 1.0 : 1.2;
   }
 }

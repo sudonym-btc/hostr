@@ -241,11 +241,13 @@ class UserStartupProfile implements StartupProfile {
       context.token.throwIfCancelled();
 
       await tracker.run(StartupItemId.accountServices, () async {
-        await _paymentProofOrchestrator.start();
-        await _fundsMonitor.start();
-        await _nwc.start();
-        await _backgroundWorker.watch(onProgress: _onProgressFromConfig());
-        await _calendar.start();
+        await Future.wait([
+          _paymentProofOrchestrator.start(),
+          _fundsMonitor.start(),
+          _nwc.start(),
+          _backgroundWorker.watch(onProgress: _onProgressFromConfig()),
+          _calendar.start(),
+        ]);
       });
 
       final result = UserStartupReady(
@@ -270,7 +272,7 @@ class UserStartupProfile implements StartupProfile {
     await _fundsMonitor.stop();
     await _paymentProofOrchestrator.reset();
     await _userSubscriptions.reset();
-    _messaging.threads.reset();
+    await _messaging.threads.reset();
     await _nwc.reset();
     await _reservations.reset();
   }

@@ -37,6 +37,22 @@ abstract class CryptoProvider {
     String privKeyHex,
     String xOnlyPubKeyHex,
   );
+
+  /// NIP-44 encrypt with an already-derived conversation key.
+  ///
+  /// Return `null` when this provider does not implement the full NIP-44
+  /// cipher path. Callers fall back to the pure-Dart NDK implementation.
+  Future<String?> nip44Encrypt(
+    String plaintext,
+    Uint8List conversationKey, {
+    Uint8List? nonce,
+  });
+
+  /// NIP-44 decrypt with an already-derived conversation key.
+  ///
+  /// Return `null` when this provider does not implement the full NIP-44
+  /// cipher path. Callers fall back to the pure-Dart NDK implementation.
+  Future<String?> nip44Decrypt(String payload, Uint8List conversationKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,5 +141,18 @@ class DartCryptoProvider implements CryptoProvider {
   Future<Uint8List?> nip44ConversationKey(
     String privKeyHex,
     String xOnlyPubKeyHex,
+  ) async => null;
+
+  @override
+  Future<String?> nip44Encrypt(
+    String plaintext,
+    Uint8List conversationKey, {
+    Uint8List? nonce,
+  }) async => null;
+
+  @override
+  Future<String?> nip44Decrypt(
+    String payload,
+    Uint8List conversationKey,
   ) async => null;
 }

@@ -225,6 +225,7 @@ class StartupCoordinator {
     _userToken?.cancel();
     _backgroundToken?.cancel();
     await _authSub?.cancel();
+    await _publicProfile.stop();
     await _userProfile.stop();
     await _backgroundProfile.stop();
     await _snapshots.close();

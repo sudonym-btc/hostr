@@ -116,6 +116,11 @@ abstract class PayOperation<
     );
   });
 
+  void updateComment(String? comment) => logger.spanSync('updateComment', () {
+    final trimmed = comment?.trim();
+    params.comment = trimmed == null || trimmed.isEmpty ? null : trimmed;
+  });
+
   Future<void> finalize() => logger.span('finalize', () async {
     emit(PayCallbackInitiated(params: params));
     try {

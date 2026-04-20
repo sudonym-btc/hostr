@@ -72,7 +72,7 @@ class NwcConnectivityCubit extends Cubit<NwcConnectivityState> {
         .where((c) => !currentCubits.contains(c))
         .toList()
         .forEach((removed) {
-          _cubitSubscriptions.remove(removed)?.cancel();
+          unawaited(_cubitSubscriptions.remove(removed)?.cancel());
         });
 
     // Subscribe to new cubits.
@@ -118,10 +118,11 @@ class NwcConnectivityCubit extends Cubit<NwcConnectivityState> {
   }
 
   @override
-  Future<void> close() {
-    _connectionsSubscription?.cancel();
+  Future<void> close() async {
+    await _connectionsSubscription?.cancel();
+    _connectionsSubscription = null;
     for (final sub in _cubitSubscriptions.values) {
-      sub.cancel();
+      await sub.cancel();
     }
     _cubitSubscriptions.clear();
     return super.close();

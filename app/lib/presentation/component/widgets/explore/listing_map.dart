@@ -25,6 +25,13 @@ class ListingMap extends StatefulWidget {
   /// Initial listings used only when [controller] is omitted.
   final List<ListingMarkerData> initialListings;
 
+  /// Stable identity for the underlying platform map view.
+  ///
+  /// Different screens can host maps with very different marker sets. Include
+  /// this in the GoogleMap key so platform-view state does not bleed between
+  /// the explore map and single-listing maps.
+  final String mapInstanceId;
+
   /// Called with the listing [id] when a marker is tapped.
   final ValueChanged<String>? onMarkerTap;
 
@@ -73,6 +80,10 @@ class ListingMap extends StatefulWidget {
   final double? disabledBorderWidth;
   final Color? disabledColor;
 
+  /// Logical marker pill size. Defaults to compact markers; callers can pass
+  /// [kExpandedMarkerPillDensity] when a larger map marker is needed.
+  final VisualDensity markerPillDensity;
+
   // ── Text builders ──────────────────────────────────────────────
   /// Builds the label for a single (non-clustered) marker.
   /// Receives the [ListingMarkerData] item. Defaults to [priceText].
@@ -87,6 +98,7 @@ class ListingMap extends StatefulWidget {
     super.key,
     this.controller,
     this.initialListings = const [],
+    this.mapInstanceId = 'default',
     this.onMarkerTap,
     this.interactive = true,
     this.showArrows = true,
@@ -111,6 +123,7 @@ class ListingMap extends StatefulWidget {
     this.disabledBorderColor,
     this.disabledBorderWidth,
     this.disabledColor,
+    this.markerPillDensity = VisualDensity.compact,
     this.pillTextBuilder,
     this.clusterTextBuilder,
   });
@@ -142,7 +155,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
   bool? _lastKnownDarkMode;
   double? _lastKnownDevicePixelRatio;
 
-  /// Currently highlighted rendered marker id (accent colour).
+  /// Currently selected rendered marker id.
   String? _focusedMarkerId;
 
   /// Cached resolved listings so we can re-cluster on zoom without
@@ -189,7 +202,17 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   bool _usesCloudStyle() => _configuredMapId().isNotEmpty;
 
-  bool _usesAdvancedMarkers() => _usesCloudStyle();
+  bool _usesAdvancedMarkers() {
+    // AdvancedMarkerElement currently corrupts marker projection on web when a
+    // listing-detail map is pushed over the still-mounted explore map. On
+    // return, explore markers keep their ids but collapse to the detail map's
+    // marker position, and this coincides with CanvasKit context-loss errors.
+    // Keep legacy Marker rendering until the web platform-view/advanced-marker
+    // issue is understood.
+    //
+    // return _usesCloudStyle();
+    return false;
+  }
 
   void _resetCloudMapControllerForAppearanceChange() {
     if (!_usesCloudStyle()) return;
@@ -243,18 +266,21 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final anchor = Offset(0.5, widget.showArrows ? 1.0 : 0.5);
     final markerId = MarkerId(id);
 
-    if (_usesAdvancedMarkers()) {
-      return AdvancedMarker(
-        markerId: markerId,
-        position: position,
-        icon: icon,
-        zIndex: zIndex,
-        anchor: anchor,
-        consumeTapEvents: true,
-        collisionBehavior: MarkerCollisionBehavior.requiredAndHidesOptional,
-        onTap: onTap,
-      );
-    }
+    // AdvancedMarkerElement path kept for later once the Google Maps web
+    // projection bug is fixed. See _usesAdvancedMarkers().
+    //
+    // if (_usesAdvancedMarkers()) {
+    //   return AdvancedMarker(
+    //     markerId: markerId,
+    //     position: position,
+    //     icon: icon,
+    //     zIndex: zIndex,
+    //     anchor: anchor,
+    //     consumeTapEvents: true,
+    //     collisionBehavior: MarkerCollisionBehavior.requiredAndHidesOptional,
+    //     onTap: onTap,
+    //   );
+    // }
 
     return Marker(
       markerId: markerId,
@@ -380,6 +406,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         isCluster: isCluster,
         devicePixelRatio: dpr,
         borderWidth: style.borderWidth,
+        visualDensity: widget.markerPillDensity,
       );
 
       if (!mounted || generation != _syncGeneration) return;
@@ -501,11 +528,16 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final degPerPxLat = latSpan / effectiveHeight;
     final degPerPxLng = lngSpan / effectiveWidth;
 
-    // A price-pill marker is roughly 70 × 28 logical pixels.
+    // A compact price-pill marker is roughly 70 × 28 logical pixels. Scale
+    // that estimate with the active visual density so clustering still tracks
+    // the rendered pill footprint.
     // Use half the pill dimensions so markers only cluster when they
     // actually overlap rather than when their bounding boxes are close.
-    const pillW = 35.0;
-    const pillH = 14.0;
+    final densityScale = PriceMarkerBuilder.scaleForDensity(
+      widget.markerPillDensity,
+    );
+    final pillW = 35.0 * densityScale;
+    final pillH = 14.0 * densityScale;
 
     final thresholdLat = degPerPxLat * pillH;
     final thresholdLng = degPerPxLng * pillW;
@@ -668,7 +700,9 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   String _markerGroupIdForPosition(LatLng position) {
     // Keep full precision so the id is stable for the exact anchor listing.
-    return 'group:${position.latitude}:${position.longitude}';
+    // Prefix with the map instance because Google Maps platform marker state
+    // can outlive a Flutter route and otherwise collide across map widgets.
+    return '${widget.mapInstanceId}:group:${position.latitude}:${position.longitude}';
   }
 
   // ── Camera helpers ─────────────────────────────────────────────────
@@ -921,16 +955,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     required bool enabled,
     required bool isCluster,
   }) {
-    if (isFocused) {
-      return (
-        fillColor:
-            widget.focusedBackgroundColor ??
-            theme.colorScheme.tertiaryContainer,
-        textColor: widget.focusedColor ?? theme.colorScheme.onTertiaryContainer,
-        borderColor: widget.focusedBorderColor,
-        borderWidth: widget.focusedBorderWidth ?? 1,
-      );
-    } else if (!enabled) {
+    if (!enabled) {
       return (
         fillColor:
             widget.disabledBackgroundColor ??
@@ -939,20 +964,26 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
         borderColor: widget.disabledBorderColor,
         borderWidth: widget.disabledBorderWidth ?? 1,
       );
+    }
+
+    if (isFocused) {
+      return (
+        fillColor: widget.focusedBackgroundColor ?? theme.colorScheme.primary,
+        textColor: widget.focusedColor ?? theme.colorScheme.onPrimary,
+        borderColor: widget.focusedBorderColor,
+        borderWidth: widget.focusedBorderWidth ?? 1,
+      );
     } else if (isCluster) {
       return (
-        fillColor:
-            widget.clusterBackgroundColor ?? theme.colorScheme.surfaceContainer,
-        textColor: widget.clusterColor ?? theme.colorScheme.onSurface,
+        fillColor: widget.clusterBackgroundColor ?? theme.colorScheme.primary,
+        textColor: widget.clusterColor ?? theme.colorScheme.onPrimary,
         borderColor: widget.clusterBorderColor,
         borderWidth: widget.clusterBorderWidth ?? 1,
       );
     } else {
       return (
-        fillColor:
-            widget.pillBackgroundColor ??
-            theme.colorScheme.surfaceContainerHighest,
-        textColor: widget.pillColor ?? theme.colorScheme.onSurface,
+        fillColor: widget.pillBackgroundColor ?? theme.colorScheme.primary,
+        textColor: widget.pillColor ?? theme.colorScheme.onPrimary,
         borderColor: widget.pillBorderColor,
         borderWidth: widget.pillBorderWidth ?? 1,
       );
@@ -1015,6 +1046,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
       isCluster: meta.isCluster,
       devicePixelRatio: dpr,
       borderWidth: style.borderWidth,
+      visualDensity: widget.markerPillDensity,
     );
 
     if (!mounted) return;
@@ -1100,11 +1132,12 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
     final mapId = _configuredMapId();
     final useCloudStyle = mapId.isNotEmpty;
     final useAdvancedMarkers = _usesAdvancedMarkers();
+    final mapInstanceId = widget.mapInstanceId;
     final mapKey = useCloudStyle
         ? ValueKey(
-            'listing-map-cloud-$mapId-${isDarkMode ? 'dark' : 'light'}$dprKey',
+            'listing-map-$mapInstanceId-cloud-$mapId-${isDarkMode ? 'dark' : 'light'}$dprKey',
           )
-        : ValueKey('listing-map-inline$dprKey');
+        : ValueKey('listing-map-$mapInstanceId-inline$dprKey');
     final defaultCamera = CameraPosition(target: LatLng(0, 0), zoom: 1);
     final cameraTargetBounds = kIsWeb
         ? CameraTargetBounds(

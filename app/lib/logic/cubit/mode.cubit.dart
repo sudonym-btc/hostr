@@ -66,8 +66,9 @@ class ModeCubit extends Cubit<ModeCubitState> {
   }
 
   @override
-  Future<void> close() {
-    _sub?.cancel();
+  Future<void> close() async {
+    await _sub?.cancel();
+    _sub = null;
     return super.close();
   }
 }

@@ -59,7 +59,11 @@ class ThreadReadyWidget extends StatelessWidget {
             ),
           ),
           if (thread.isTradeCandidate)
-            AppSurface(child: TradeHeader(tradeId: thread.tradeId!)),
+            AppSurface(
+              child: CustomPadding(
+                child: TradeHeader(tradeId: thread.tradeId!),
+              ),
+            ),
           Expanded(child: ThreadContent()),
           Padding(
             padding: EdgeInsets.only(

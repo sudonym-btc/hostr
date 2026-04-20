@@ -37,10 +37,10 @@ import 'funds_item.dart';
 /// tokens). It also queries known escrow contracts for locked balances. The
 /// results are emitted as [FundsItem]s via [fundsStream$].
 ///
-/// After the initial scan, private per-chain trackers keep known native
-/// balances fresh from block polling. ERC-20 balances are refreshed by
-/// [scan] and [refetchAccount] by default; live ERC-20 transfer tracking is
-/// opt-in via [setLiveErc20TrackingEnabled].
+/// After the initial scan, balances are refreshed by explicit [scan] and
+/// [refetchAccount] calls. Startup does not subscribe to block streams; live
+/// block tracking is only entered through explicit APIs such as
+/// [setLiveErc20TrackingEnabled] or [trackAddress].
 ///
 /// ## Sweep path
 ///
@@ -168,8 +168,9 @@ class FundsMonitorService {
       if (!(_scanCompleter?.isCompleted ?? true)) _scanCompleter?.complete();
     }
 
-    if (!_isCurrentStart(generation)) return;
-    _startBalanceTrackers();
+    // Do not start block-triggered balance tracking here. Startup should do
+    // one discovery scan only; later refreshes happen through explicit scan or
+    // refetch calls.
   }
 
   /// Await the initial [scan]. Returns immediately if already completed or
@@ -231,6 +232,9 @@ class FundsMonitorService {
       tracker.setLiveErc20TrackingEnabled(enabled);
       if (enabled) {
         await _registerLiveErc20Tokens(chain, tracker, snapshot: true);
+        tracker.start();
+      } else {
+        await tracker.stop();
       }
     }
   }
@@ -489,10 +493,10 @@ class FundsMonitorService {
   );
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Live wallet balance tracking
+  // Explicit live wallet balance tracking
   // ══════════════════════════════════════════════════════════════════════════
 
-  /// Register an address for per-block monitoring on a specific chain.
+  /// Explicitly register an address for per-block monitoring on a chain.
   Future<void> trackAddress(
     EthereumAddress address,
     int accountIndex, {
@@ -540,12 +544,6 @@ class FundsMonitorService {
   Future<void> _prepareBalanceTrackers() async {
     for (final chain in _evm.configuredChains) {
       await _ensureChainTracker(chain);
-    }
-  }
-
-  void _startBalanceTrackers() {
-    for (final tracker in _chainTrackers.values) {
-      tracker.start();
     }
   }
 
@@ -923,7 +921,24 @@ class FundsMonitorService {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  @visibleForTesting
+  Future<bool> isDustBalanceForTesting(EvmChain chain, TokenAmount balance) =>
+      _isDustBalance(chain, balance);
+
   Future<bool> _isDustBalance(EvmChain chain, TokenAmount balance) async {
+    final quotedBridgeAmount = await _quoteBridgeAmountForDustCheck(
+      chain,
+      balance,
+    );
+    if (quotedBridgeAmount != null) {
+      final minimum = await _swapOutMinimumFor(chain, quotedBridgeAmount.token);
+      if (quotedBridgeAmount.value <= BigInt.zero) return true;
+      return isDustBalanceForSwapOutLimits(
+        quotedBridgeAmount,
+        minimumSwapOutAmount: minimum,
+      );
+    }
+
     final minimum = await _swapOutMinimumFor(chain, balance.token);
     return isDustBalanceForSwapOutLimits(
       balance,
@@ -975,7 +990,7 @@ class FundsMonitorService {
       final tokenAddress = token.isNative
           ? null
           : EthereumAddress.fromHex(token.address);
-      if (tokenAddress != null && !swaps.supportsTokenAddress(tokenAddress)) {
+      if (tokenAddress != null && !_isBridgeTokenAddress(chain, tokenAddress)) {
         return null;
       }
 
@@ -990,17 +1005,84 @@ class FundsMonitorService {
     }
   }
 
+  Future<TokenAmount?> _quoteBridgeAmountForDustCheck(
+    EvmChain chain,
+    TokenAmount balance,
+  ) async {
+    final swaps = chain.swaps;
+    if (swaps == null || !balance.token.isERC20) return null;
+
+    final tokenIn = EthereumAddress.fromHex(balance.token.address);
+    if (_isBridgeTokenAddress(chain, tokenIn)) return null;
+
+    final bridgeAddress = _bridgeTokenAddress(chain);
+    if (bridgeAddress == null) return null;
+
+    try {
+      final currency = swaps.nativeCurrency ?? swaps.chainInfo.chainKey;
+      final res = await swaps.boltzClient.gBoltzCli.quoteCurrencyInGet(
+        currency: currency,
+        tokenIn: tokenIn.eip55With0x,
+        tokenOut: bridgeAddress.eip55With0x,
+        amountIn: balance.value.toString(),
+      );
+      if (!res.isSuccessful || res.body == null || res.body!.isEmpty) {
+        throw StateError(
+          'Boltz quote /in failed (HTTP ${res.statusCode}) '
+          'for ${tokenIn.eip55With0x} → ${bridgeAddress.eip55With0x}.',
+        );
+      }
+
+      final quoted = BigInt.tryParse(res.body!.first.quote);
+      if (quoted == null) {
+        throw StateError('Boltz quote was not an integer amount');
+      }
+
+      final bridgeToken = await chain.resolveToken(bridgeAddress.eip55With0x);
+      return TokenAmount(value: quoted, token: bridgeToken);
+    } catch (e) {
+      _logger.w(
+        'Failed to quote ${balance.token.tagId} balance into Boltz bridge '
+        'token for dust check on ${chain.config.id}: $e',
+      );
+      return null;
+    }
+  }
+
+  EthereumAddress? _bridgeTokenAddress(EvmChain chain) {
+    final tokens = chain.swaps?.chainInfo.tokens;
+    if (tokens == null || tokens.isEmpty) return null;
+    return tokens.values.first;
+  }
+
+  bool _isBridgeTokenAddress(EvmChain chain, EthereumAddress tokenAddress) {
+    final bridge = _bridgeTokenAddress(chain);
+    if (bridge == null) return false;
+    return bridge.eip55With0x.toLowerCase() ==
+        tokenAddress.eip55With0x.toLowerCase();
+  }
+
   void _logUnsweepableDust(
     TokenAmount balance,
     EthereumAddress address,
     EvmChain chain,
   ) {
     final rounded = balance.roundDownToSats();
+    final isBtcLike =
+        balance.token.isNative ||
+        (balance.token.isERC20 &&
+            _isBridgeTokenAddress(
+              chain,
+              EthereumAddress.fromHex(balance.token.address),
+            ));
+    final reason = isBtcLike
+        ? '(${rounded.getInSats} whole sats, below swap-out minimum)'
+        : '(quoted bridge BTC amount below swap-out minimum)';
     _logger.d(
       'FundsMonitor detected dust: '
       '${chain.config.id} ${balance.token.tagId} '
       '${balance.value} smallest-unit '
-      '(${rounded.getInSats} whole sats, below swap-out minimum) '
+      '$reason '
       '@${address.eip55With0x}',
     );
   }

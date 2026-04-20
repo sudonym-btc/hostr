@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
@@ -7,6 +8,7 @@ import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/guest/explore/filters.dart';
 import 'package:hostr/presentation/screens/guest/explore/map_view.cubit.dart';
+import 'package:hostr/router.dart';
 import 'package:models/main.dart';
 
 class ExploreView extends StatefulWidget {
@@ -109,6 +111,28 @@ class ExploreViewState extends State<ExploreView> {
     context.read<FilterCubit>().clear();
   }
 
+  void _openListingFromMarker(BuildContext context, String listingId) {
+    Listing? listing;
+    for (final item in context.read<ListCubit<Listing>>().state.results) {
+      if (item.id == listingId) {
+        listing = item;
+        break;
+      }
+    }
+
+    final naddr = listing?.naddr();
+    if (naddr == null) return;
+
+    final dateRange = context.read<DateRangeCubit>().state.dateRange;
+    context.router.push(
+      ListingRoute(
+        a: naddr,
+        dateRangeStart: dateRange?.start.toUtc().toIso8601String(),
+        dateRangeEnd: dateRange?.end.toUtc().toIso8601String(),
+      ),
+    );
+  }
+
   Widget _buildSearchBox(BuildContext context, {bool embedded = false}) {
     return BlocBuilder<FilterCubit, FilterState>(
       builder: (context, filterState) {
@@ -178,10 +202,7 @@ class ExploreViewState extends State<ExploreView> {
                 children: [
                   ExploreMapWidget(
                     controller: _listingMapController,
-                    onMarkerTap: (id) {
-                      _focusedListingId.value = id;
-                      _scrollToListingId.value = id;
-                    },
+                    onMarkerTap: (id) => _openListingFromMarker(context, id),
                   ),
                   SafeArea(
                     child: CustomPadding(
@@ -282,10 +303,7 @@ class ExploreViewState extends State<ExploreView> {
             flex: 3,
             child: ExploreMapWidget(
               controller: _listingMapController,
-              onMarkerTap: (id) {
-                _focusedListingId.value = id;
-                _scrollToListingId.value = id;
-              },
+              onMarkerTap: (id) => _openListingFromMarker(context, id),
             ),
           ),
         ],

@@ -137,7 +137,10 @@ class _ListingsWidgetState extends State<ListingsWidget> {
           ),
         ),
         builder: (el) {
-          return ListingListItemWidget(listing: el);
+          return ListingListItemWidget(
+            key: ValueKey(el.anchor ?? el.id),
+            listing: el,
+          );
         },
       ),
     );

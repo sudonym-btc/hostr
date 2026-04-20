@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
@@ -10,8 +11,6 @@ import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_i
 import 'package:hostr/presentation/component/widgets/ui/app_button_styles.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
-import 'package:hostr/presentation/component/widgets/ui/padding.dart';
-import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -29,9 +28,9 @@ class NegotiationWidget extends StatelessWidget {
     final hasPay = tradeState.actions.contains(TradeAction.pay);
     final hasAccept = tradeState.actions.contains(TradeAction.accept);
     final registry = getIt<Hostr>().swapInTracker;
-    return CustomPadding(
-      top: 0,
-      bottom: 0.5,
+    final spacing = AppSpacing.of(context);
+    return Padding(
+      padding: EdgeInsets.only(top: spacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -119,27 +118,7 @@ class NegotiationWidget extends StatelessWidget {
   }
 
   Widget _statusChip(BuildContext context, {required String message}) {
-    return AppChip.neutral.xs(
-      label: Text(
-        message,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-      ),
-      backgroundColor: AppSurface.stepped(context),
-    );
-    // return AppSurface(
-    //   steps: 1,
-    //   borderRadius: BorderRadius.circular(999),
-    //   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    //   child: Text(
-    //     message,
-    //     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-    //       fontWeight: FontWeight.w600,
-    //       color: Theme.of(context).colorScheme.onSurface,
-    //     ),
-    //   ),
-    // );
+    return AppChip.neutral.xs(label: Text(message));
   }
 
   // ─── Button helpers ────────────────────────────────────────────────

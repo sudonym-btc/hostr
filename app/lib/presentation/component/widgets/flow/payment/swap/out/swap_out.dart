@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -151,14 +150,36 @@ class _SwapOutConfirmWidgetState extends State<SwapOutConfirmWidget> {
             color: baseStyle.color?.withValues(alpha: 0.6),
           );
 
-          return AmountWidget(
-            amount: quote.receiveAmount.toDenominated(),
-            feeWidget: Text(
-              "+ ${formatAmount(fees.networkFees)} in network fees${fees.gasSponsored ? ' (gas sponsored)' : ''}",
-              style: subtleStyle,
-            ),
-            loading: widget.loading,
-            onConfirm: widget.onConfirm,
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatAmount(quote.receiveAmount.toDenominated()),
+                style: Theme.of(context).textTheme.displayMedium!.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Gap.vertical.sm(),
+              Text(
+                "+ ${formatAmount(fees.networkFees)} in network fees${fees.gasSponsored ? ' (gas sponsored)' : ''}",
+                style: subtleStyle,
+              ),
+              Gap.vertical.sm(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FilledButton(
+                    onPressed: widget.loading ? null : widget.onConfirm,
+                    child: widget.loading
+                        ? AppLoadingIndicator.small(
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          )
+                        : Text(AppLocalizations.of(context)!.ok),
+                  ),
+                ],
+              ),
+            ],
           );
         },
       ),

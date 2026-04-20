@@ -18,9 +18,15 @@ class Relays {
   final RelayStorage _relayStorage;
   Future<void>? _startSeedRelaysFuture;
   Future<void>? _coreRelayReadyFuture;
+  Future<void>? _reconnectNowFuture;
+  DateTime? _lastReconnectNowAt;
+  final Map<String, DateTime> _nextCoreRelayConnectTry = {};
   CustomLogger get logger => _logger;
   Ndk get ndk => _ndk;
   RelayStorage get relayStorage => _relayStorage;
+
+  static const _coreRelayConnectRetryInterval = Duration(seconds: 15);
+  static const _reconnectNowDebounce = Duration(seconds: 10);
 
   Relays({
     required Ndk ndk,
@@ -158,13 +164,7 @@ class Relays {
         if (connectedUrls.contains(url) || _ndk.relays.isRelayConnecting(url)) {
           continue;
         }
-        unawaited(
-          _ndk.relays.connectRelay(
-            dirtyUrl: url,
-            connectionSource: ConnectionSource.seed,
-            connectTimeout: 10,
-          ),
-        );
+        _connectCoreRelayCandidate(url);
       }
 
       final targetDescription = preferredRelay.isNotEmpty
@@ -179,14 +179,66 @@ class Relays {
     throw Exception('Timed out waiting for relay connection after $timeout');
   });
 
+  void _connectCoreRelayCandidate(String url) {
+    final now = DateTime.now();
+    final nextTry = _nextCoreRelayConnectTry[url];
+    if (nextTry != null && now.isBefore(nextTry)) return;
+
+    _nextCoreRelayConnectTry[url] = now.add(_coreRelayConnectRetryInterval);
+    unawaited(
+      _ndk.relays
+          .connectRelay(
+            dirtyUrl: url,
+            connectionSource: ConnectionSource.seed,
+            connectTimeout: 10,
+          )
+          .then((result) {
+            if (result.first) {
+              _nextCoreRelayConnectTry.remove(url);
+            } else {
+              _nextCoreRelayConnectTry[url] = DateTime.now().add(
+                _coreRelayConnectRetryInterval,
+              );
+            }
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            _nextCoreRelayConnectTry[url] = DateTime.now().add(
+              _coreRelayConnectRetryInterval,
+            );
+            _logger.w(
+              'Relay connection attempt failed for $url',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }),
+    );
+  }
+
   Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
     return _ndk.relays.relayConnectivityChanges;
   }
 
-  Future<void> reconnectNow() => _logger.span('reconnectNow', () async {
-    _coreRelayReadyFuture = null;
-    await _ndk.connectivity.tryReconnect();
-  });
+  Future<void> reconnectNow() {
+    final inFlight = _reconnectNowFuture;
+    if (inFlight != null) return inFlight;
+
+    final now = DateTime.now();
+    final lastReconnect = _lastReconnectNowAt;
+    if (lastReconnect != null &&
+        now.difference(lastReconnect) < _reconnectNowDebounce) {
+      _logger.d('Skipping relay reconnect; last attempt was recent');
+      return Future.value();
+    }
+
+    _lastReconnectNowAt = now;
+    return _reconnectNowFuture = _logger
+        .span('reconnectNow', () async {
+          await _ndk.connectivity.tryReconnect();
+        })
+        .whenComplete(() {
+          _reconnectNowFuture = null;
+        });
+  }
 
   /// Fetches the user's NIP-65 relay list into NDK's cache.
   ///

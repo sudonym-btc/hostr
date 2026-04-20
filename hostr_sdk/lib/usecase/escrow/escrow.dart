@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
@@ -62,7 +64,7 @@ class EscrowUseCase {
         _logger.d(
           'Terminal escrow event received for $tradeId — closing stream',
         );
-        source.close();
+        unawaited(source.close());
       }
     });
 

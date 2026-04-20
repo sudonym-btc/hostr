@@ -73,11 +73,11 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
   }
 
   @override
-  Future<void> dispose() async {
+  void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_subscription?.cancel());
     _subscription = null;
+    unawaited(controller.dispose());
     super.dispose();
-    await controller.dispose();
   }
 }

@@ -22,6 +22,20 @@ class BadgesWidget extends StatelessWidget {
 
   const BadgesWidget({required this.pubKey, this.listingAnchor, super.key});
 
+  List<BadgeAward> _visibleAwards(List<BadgeAward> awards) {
+    final targetAnchor = listingAnchor;
+    if (targetAnchor != null) {
+      return awards
+          .where((award) => award.targetAnchor == targetAnchor)
+          .toList();
+    }
+
+    // Profile-level badge rows should only show badges awarded directly to the
+    // pubkey. Awards with a second `a` tag are scoped to a specific
+    // addressable event, such as one listing owned by the same host.
+    return awards.where((award) => award.targetAnchor == null).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Fetch badge awards whose p-tag matches the host pubkey.
@@ -42,8 +56,10 @@ class BadgesWidget extends StatelessWidget {
       )..next(),
       child: BlocBuilder<ListCubit<BadgeAward>, ListCubitState<BadgeAward>>(
         builder: (context, state) {
+          final awards = _visibleAwards(state.results);
+
           // Show placeholder when fetching or no badges found
-          if (state.fetching && state.results.isEmpty) {
+          if (state.fetching && awards.isEmpty) {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -62,14 +78,14 @@ class BadgesWidget extends StatelessWidget {
           }
 
           // Hide completely when there are no badges.
-          if (state.results.isEmpty && !state.fetching) {
+          if (awards.isEmpty && !state.fetching) {
             return const SizedBox.shrink();
           }
 
           return Wrap(
             spacing: kSpace2,
             runSpacing: kSpace2,
-            children: state.results.map((award) {
+            children: awards.map((award) {
               return BadgeChip(award: award);
             }).toList(),
           );

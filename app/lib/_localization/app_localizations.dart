@@ -508,6 +508,18 @@ abstract class AppLocalizations {
   /// **'Payment'**
   String get paymentTitle;
 
+  /// No description provided for @paymentCommentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Comment'**
+  String get paymentCommentLabel;
+
+  /// No description provided for @paymentCommentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a note'**
+  String get paymentCommentHint;
+
   /// No description provided for @processingPayment.
   ///
   /// In en, this message translates to:

@@ -23,6 +23,7 @@ class SearchFormController extends UpsertFormController {
   final BoolFieldController beachfrontField;
   final BoolFieldController kitchenField;
   final BoolFieldController allowsPetsField;
+  final BoolFieldController negotiableField;
   final NullableIntFieldController bedroomsField;
   final NullableIntFieldController bedsField;
   final NullableIntFieldController bathroomsField;
@@ -37,6 +38,7 @@ class SearchFormController extends UpsertFormController {
        beachfrontField = BoolFieldController(),
        kitchenField = BoolFieldController(),
        allowsPetsField = BoolFieldController(),
+       negotiableField = BoolFieldController(),
        bedroomsField = NullableIntFieldController(),
        bedsField = NullableIntFieldController(),
        bathroomsField = NullableIntFieldController() {
@@ -47,6 +49,7 @@ class SearchFormController extends UpsertFormController {
     registerField(beachfrontField);
     registerField(kitchenField);
     registerField(allowsPetsField);
+    registerField(negotiableField);
     registerField(bedroomsField);
     registerField(bedsField);
     registerField(bathroomsField);
@@ -70,6 +73,7 @@ class SearchFormController extends UpsertFormController {
         beachfrontField.isValid &&
         kitchenField.isValid &&
         allowsPetsField.isValid &&
+        negotiableField.isValid &&
         bedroomsField.isValid &&
         bedsField.isValid &&
         bathroomsField.isValid;
@@ -115,6 +119,7 @@ class SearchFormController extends UpsertFormController {
     allowsPetsField.setState(
       featureValues != null && featureValues.contains('allows_pets'),
     );
+    negotiableField.setState(tags['N']?.contains('true') ?? false);
 
     // Bedrooms (target letter 'B').
     bedroomsField.setState(_parseMinInt(tags['B']));
@@ -163,6 +168,7 @@ class SearchFormController extends UpsertFormController {
       if (allowsPetsField.value) 'allows_pets',
     ];
     if (features.isNotEmpty) builder.features(features);
+    if (negotiableField.value) builder.negotiable();
 
     // Room counts.
     if (bedroomsField.value != null) builder.minBedrooms(bedroomsField.value!);
@@ -188,6 +194,7 @@ class SearchFormController extends UpsertFormController {
     beachfrontField.dispose();
     kitchenField.dispose();
     allowsPetsField.dispose();
+    negotiableField.dispose();
     bedroomsField.dispose();
     bedsField.dispose();
     bathroomsField.dispose();

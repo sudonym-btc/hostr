@@ -205,6 +205,8 @@ class _ImageUploadState extends State<ImageUpload> {
                                 _LocalImagePreview(
                                   bytes: image.previewBytes!,
                                   filePath: image.file?.path,
+                                  uploadedImageRef: image.path,
+                                  pubkey: widget.pubkey,
                                 ),
                               if (image.previewBytes == null &&
                                   image.file != null)
@@ -425,8 +427,15 @@ class _ShiftButton extends StatelessWidget {
 class _LocalImagePreview extends StatelessWidget {
   final Uint8List bytes;
   final String? filePath;
+  final String? uploadedImageRef;
+  final String pubkey;
 
-  const _LocalImagePreview({required this.bytes, this.filePath});
+  const _LocalImagePreview({
+    required this.bytes,
+    required this.pubkey,
+    this.filePath,
+    this.uploadedImageRef,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -435,6 +444,11 @@ class _LocalImagePreview extends StatelessWidget {
       fit: BoxFit.cover,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) {
+        final blossomRef = uploadedImageRef;
+        if (blossomRef != null && blossomRef.isNotEmpty) {
+          return BlossomImage(image: blossomRef, pubkey: pubkey);
+        }
+
         final path = filePath;
         if (path != null && path.isNotEmpty) {
           return Image.network(

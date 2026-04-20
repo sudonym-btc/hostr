@@ -15,7 +15,7 @@ extension BlocDetachX<S> on BlocBase<S> {
   void detachOrClose(bool Function(S state) isTerminal) {
     if (isClosed) return;
     if (isTerminal(state)) {
-      close();
+      unawaited(close());
       return;
     }
     // In-flight: orphan the cubit and let it self-close when done.
@@ -23,15 +23,15 @@ extension BlocDetachX<S> on BlocBase<S> {
     sub = stream.listen(
       (s) {
         if (isTerminal(s)) {
-          sub.cancel();
-          if (!isClosed) close();
+          unawaited(sub.cancel());
+          if (!isClosed) unawaited(close());
         }
       },
       onError: (_, _) {
-        sub.cancel();
-        if (!isClosed) close();
+        unawaited(sub.cancel());
+        if (!isClosed) unawaited(close());
       },
-      onDone: () => sub.cancel(),
+      onDone: () => unawaited(sub.cancel()),
     );
   }
 }

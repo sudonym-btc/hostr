@@ -62,8 +62,9 @@ class CountCubit<T extends Nip01Event> extends HydratedCubit<CountCubitState> {
   }
 
   @override
-  Future<void> close() {
-    filterSubscription?.cancel();
+  Future<void> close() async {
+    await filterSubscription?.cancel();
+    filterSubscription = null;
     return super.close();
   }
 }

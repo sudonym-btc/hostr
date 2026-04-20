@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
@@ -16,7 +18,7 @@ class GlobalProviderWidget extends StatefulWidget {
 class GlobalProviderWidgetState extends State<GlobalProviderWidget> {
   @override
   void dispose() {
-    getIt<Hostr>().dispose();
+    unawaited(getIt<Hostr>().dispose());
     super.dispose();
   }
 

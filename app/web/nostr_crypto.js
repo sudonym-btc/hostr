@@ -1,12 +1,26 @@
-// NIP-44 conversation key derivation using @noble/curves (secp256k1 ECDH)
-// and @noble/hashes (HKDF-extract with SHA-256).
+// NIP-44 helpers backed by noble crypto through nostr-tools.
 //
-// Exposes a single global function consumed by Dart via JS interop:
+// Exposes globals consumed by Dart via JS interop:
 //   window.nip44ConversationKey(privKeyHex, xOnlyPubKeyHex) → Uint8Array(32)
+//   window.nip44EncryptMessage(plaintext, conversationKey, nonce?) → string
+//   window.nip44DecryptMessage(payload, conversationKey) → string
 
-import { secp256k1 } from 'https://esm.sh/@noble/curves@1.8.2/secp256k1';
-import { extract as hkdfExtract } from 'https://esm.sh/@noble/hashes@1.7.2/hkdf';
-import { sha256 } from 'https://esm.sh/@noble/hashes@1.7.2/sha256';
+import {
+  decrypt as nip44Decrypt,
+  encrypt as nip44Encrypt,
+  getConversationKey,
+} from 'https://esm.sh/nostr-tools@2.23.3/nip44';
+
+function hexToBytes(hex) {
+  if (hex.length % 2 !== 0) {
+    throw new Error('Invalid hex string length');
+  }
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
 
 /**
  * Computes the NIP-44 conversation key:
@@ -18,13 +32,18 @@ import { sha256 } from 'https://esm.sh/@noble/hashes@1.7.2/sha256';
  * @returns {Uint8Array}        – 32-byte conversation key
  */
 function nip44ConversationKey(privKeyHex, pubKeyHex) {
-  // getSharedSecret returns 33-byte compressed point (02 || x); strip prefix.
-  const sharedPoint = secp256k1.getSharedSecret(privKeyHex, '02' + pubKeyHex);
-  const sharedX = sharedPoint.subarray(1, 33);
+  return getConversationKey(hexToBytes(privKeyHex), pubKeyHex);
+}
 
-  const salt = new TextEncoder().encode('nip44-v2');
-  return hkdfExtract(sha256, sharedX, salt);
+function nip44EncryptMessage(plaintext, conversationKey, nonce = undefined) {
+  return nip44Encrypt(plaintext, conversationKey, nonce ?? undefined);
+}
+
+function nip44DecryptMessage(payload, conversationKey) {
+  return nip44Decrypt(payload, conversationKey);
 }
 
 // Expose to Dart's globalContext / window.
 globalThis.nip44ConversationKey = nip44ConversationKey;
+globalThis.nip44EncryptMessage = nip44EncryptMessage;
+globalThis.nip44DecryptMessage = nip44DecryptMessage;

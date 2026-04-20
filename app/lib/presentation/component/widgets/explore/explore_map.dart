@@ -35,6 +35,7 @@ class _ExploreMapWidgetState extends State<ExploreMapWidget> {
     return Stack(
       children: [
         ListingMap(
+          mapInstanceId: 'explore',
           controller: widget.controller,
           onMarkerTap: widget.onMarkerTap,
           showArrows: false,
@@ -99,7 +100,7 @@ class _ExploreMapWidgetState extends State<ExploreMapWidget> {
 
   @override
   void dispose() {
-    _listSubscription?.cancel();
+    unawaited(_listSubscription?.cancel());
     super.dispose();
   }
 

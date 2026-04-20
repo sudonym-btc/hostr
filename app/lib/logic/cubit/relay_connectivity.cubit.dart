@@ -82,8 +82,9 @@ class RelayConnectivityCubit extends Cubit<RelayConnectivityState> {
   }
 
   @override
-  Future<void> close() {
-    _subscription?.cancel();
+  Future<void> close() async {
+    await _subscription?.cancel();
+    _subscription = null;
     return super.close();
   }
 }

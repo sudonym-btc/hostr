@@ -23,8 +23,8 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
 
   /// Wraps a rumor/event for [recipientPubkey] without broadcasting it.
   ///
-  /// Uses [coinlibToGiftWrap] (WASM-backed ECDH on web) when a
-  /// [CoinlibEventSigner] is the active account. Falls back to NDK's
+  /// Uses [coinlibToGiftWrap] (provider-backed NIP-44 fast paths on web)
+  /// when a [CoinlibEventSigner] is the active account. Falls back to NDK's
   /// pure-Dart path otherwise.
   Future<Nip01Event> wrap({
     required Nip01Event rumor,

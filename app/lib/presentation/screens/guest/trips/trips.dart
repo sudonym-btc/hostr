@@ -6,6 +6,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/reservation/reservation_status_sections.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_button_styles.dart';
+import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
@@ -55,16 +56,25 @@ class _TripsScreenState extends State<TripsScreen> {
         ),
       ),
       builder: (item) {
-        return TradeHeader(
-          tradeId: item.event.tradeId,
-          showActions: false,
-          onTap: () {
-            final anchor = getIt<Hostr>().messaging.threads
-                .findPreferredConversationIdByTradeId(item.event.tradeId);
-            if (anchor != null) {
-              AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
-            }
-          },
+        void openThread() {
+          final anchor = getIt<Hostr>().messaging.threads
+              .findPreferredConversationIdByTradeId(item.event.tradeId);
+          if (anchor != null) {
+            AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
+          }
+        }
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: openThread,
+            child: CustomPadding(
+              child: TradeHeader(
+                tradeId: item.event.tradeId,
+                showActions: false,
+              ),
+            ),
+          ),
         );
       },
     );

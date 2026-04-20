@@ -45,7 +45,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   }) : super(ListCubitState<T>()) {
     logger.i("ListCubit: $runtimeType");
     filterSubscription = filterCubit?.stream.listen((filterState) {
-      applyFilter(filterState);
+      unawaited(applyFilter(filterState));
     });
 
     sortSubscription = sortCubit?.stream.listen((sortState) {
@@ -80,7 +80,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
 
     _lastConnectivityRetryAt = now;
     logger.i('Retrying ListCubit<$T> after relay connectivity change');
-    sync();
+    unawaited(sync());
   }
 
   /// Nostr treats separate NostrFilters as OR, so we need to combine them
@@ -160,7 +160,8 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
 
   Future<void> sync() async {
     await nostrSubscription?.cancel();
-    _nostrResponse?.close();
+    nostrSubscription = null;
+    await _nostrResponse?.close();
     _nostrResponse = null;
     emit(state.copyWith(synching: true));
     logger.i("sync");
@@ -210,21 +211,15 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   /// [item], or appends it if no match is found. This avoids a full
   /// reset+refetch and updates the UI immediately.
   void upsertItem(T item) {
-    print('upserting item $item into ListCubit<$T>');
     if (isClosed) return;
     final dTag = item.getDtag();
-    print('item dtag: $dTag');
     final resultsRaw = List<T>.from(state.resultsRaw);
 
     bool replaced = false;
     if (dTag != null) {
       for (var i = 0; i < resultsRaw.length; i++) {
-        print(
-          'checking existing item ${resultsRaw[i]} with dtag ${resultsRaw[i].getDtag()} and pubkey ${resultsRaw[i].pubKey}',
-        );
         if (resultsRaw[i].getDtag() == dTag &&
             resultsRaw[i].pubKey == item.pubKey) {
-          print('found match, replacing item at index $i');
           resultsRaw[i] = item;
           replaced = true;
           break;
@@ -235,8 +230,9 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     if (!replaced) {
       resultsRaw.add(item);
     }
-    print(
-      'emitting ${applySort(applyPostResultFilter(state.copyWith(resultsRaw: resultsRaw, results: resultsRaw), postResultFilterCubit?.state.filter), sortCubit?.state.comparator).results}',
+    logger.d(
+      '${replaced ? 'Replaced' : 'Inserted'} $T item '
+      'via upsertItem (dTag=$dTag, id=${item.id})',
     );
     emit(
       applySort(
@@ -249,14 +245,16 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     );
   }
 
-  void applyFilter(FilterState filter) {
+  Future<void> applyFilter(FilterState filter) async {
     logger.d('Applying filter to $T list: $filter');
-    nostrSubscription?.cancel();
-    _nostrResponse?.close();
+    await nostrSubscription?.cancel();
+    nostrSubscription = null;
+    await _nostrResponse?.close();
     _nostrResponse = null;
-    requestSubscription?.cancel();
+    await requestSubscription?.cancel();
+    requestSubscription = null;
     reset();
-    next();
+    await next();
   }
 
   ListCubitState<T> applyPostResultFilter(
@@ -298,13 +296,19 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   Future<void> close() async {
     logger.d('Closing $T ListCubit');
     await nostrSubscription?.cancel();
+    nostrSubscription = null;
     await requestSubscription?.cancel();
+    requestSubscription = null;
     await relayConnectivitySubscription?.cancel();
-    _nostrResponse?.close();
+    relayConnectivitySubscription = null;
+    await _nostrResponse?.close();
     _nostrResponse = null;
-    filterSubscription?.cancel();
-    sortSubscription?.cancel();
-    postResultFilterSubscription?.cancel();
+    await filterSubscription?.cancel();
+    filterSubscription = null;
+    await sortSubscription?.cancel();
+    sortSubscription = null;
+    await postResultFilterSubscription?.cancel();
+    postResultFilterSubscription = null;
     await itemStream.close();
     return super.close();
   }

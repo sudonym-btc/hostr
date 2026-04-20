@@ -51,8 +51,8 @@ class _AppShellScreenState extends State<AppShellScreen>
 
   @override
   void dispose() {
-    _popSub.cancel();
-    _authSub.cancel();
+    unawaited(_popSub.cancel());
+    unawaited(_authSub.cancel());
     _navController.dispose();
     super.dispose();
   }

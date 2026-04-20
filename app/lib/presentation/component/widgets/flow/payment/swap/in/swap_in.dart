@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr/presentation/component/widgets/amount/amount.dart';
+import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -17,6 +19,8 @@ class SwapInFlowWidget extends StatefulWidget {
   /// Optional overrides for the flow titles.
   final String? progressTitle;
   final String? successTitle;
+  final String? successSubtitle;
+  final Duration? successAutoDismissAfter;
   final String? errorTitle;
 
   const SwapInFlowWidget({
@@ -24,6 +28,8 @@ class SwapInFlowWidget extends StatefulWidget {
     required this.cubit,
     this.progressTitle,
     this.successTitle,
+    this.successSubtitle,
+    this.successAutoDismissAfter,
     this.errorTitle,
   });
 
@@ -58,6 +64,8 @@ class _SwapInFlowWidgetState extends State<SwapInFlowWidget> {
             onConfirm: () async => widget.cubit.execute(),
             progressTitle: widget.progressTitle,
             successTitle: widget.successTitle,
+            successSubtitle: widget.successSubtitle,
+            successAutoDismissAfter: widget.successAutoDismissAfter,
             errorTitle: widget.errorTitle,
           );
         },
@@ -73,6 +81,8 @@ class SwapInViewWidget extends StatelessWidget {
   /// Optional overrides for the flow titles.
   final String? progressTitle;
   final String? successTitle;
+  final String? successSubtitle;
+  final Duration? successAutoDismissAfter;
   final String? errorTitle;
 
   const SwapInViewWidget(
@@ -81,6 +91,8 @@ class SwapInViewWidget extends StatelessWidget {
     this.onConfirm,
     this.progressTitle,
     this.successTitle,
+    this.successSubtitle,
+    this.successAutoDismissAfter,
     this.errorTitle,
   });
 
@@ -95,6 +107,8 @@ class SwapInViewWidget extends StatelessWidget {
         return SwapInSuccessWidget(
           state as SwapInCompleted,
           title: successTitle,
+          subtitle: successSubtitle,
+          autoDismissAfter: successAutoDismissAfter,
         );
       case SwapInFailed():
         return SwapInFailureWidget(
@@ -124,7 +138,15 @@ class SwapInConfirmWidget extends StatefulWidget {
 }
 
 class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
+  final _amountController = AmountFieldController();
   bool _loading = false;
+  bool _amountSeeded = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleConfirm() async {
     if (_loading) return;
@@ -136,10 +158,27 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
     }
   }
 
+  void _syncAmount(TokenAmount amount) {
+    final next = amount.toDenominated();
+    final current = _amountController.amount;
+    final alreadySynced =
+        _amountSeeded &&
+        current != null &&
+        current.denomination == next.denomination &&
+        current.decimals == next.decimals &&
+        current.value == next.value;
+    if (alreadySynced) {
+      return;
+    }
+    _amountSeeded = true;
+    _amountController.setState(next);
+  }
+
   @override
   Widget build(BuildContext context) {
     final operation = context.read<SwapInOperation>();
     final params = operation.params;
+    _syncAmount(params.amount);
     final isEditable =
         params.minAmount != null &&
         params.maxAmount != null &&
@@ -151,68 +190,86 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
       subtitle: AppLocalizations.of(context)!.swapConfirmSubtitle,
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AmountWidget(
-            to: params.evmKey.address.eip55With0x,
-            amount: params.amount.toDenominated(),
-            loading: _loading,
-            onAmountTap: isEditable
-                ? () async {
-                    final result = await AmountEditorBottomSheet.show(
-                      context,
-                      initialAmount: params.amount.toDenominated(),
-                      minAmount: params.minAmount!.toDenominated(),
-                      maxAmount: params.maxAmount!.toDenominated(),
-                    );
-                    if (result != null && context.mounted) {
-                      operation.updateAmount(
-                        TokenAmount.fromDenominated(
-                          result,
-                          params.amount.token,
-                        ),
-                      );
-                    }
-                  }
-                : null,
-            feeWidget: FutureBuilder<SwapQuote>(
-              future: operation.chain.swapInQuote(params: operation.params),
-              builder: (context, snapshot) {
-                final baseStyle = Theme.of(context).textTheme.bodySmall!;
-                final subtleStyle = baseStyle.copyWith(
-                  fontWeight: FontWeight.w400,
-                  color: baseStyle.color?.withValues(alpha: 0.6),
-                );
-
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return Text(
-                    AppLocalizations.of(context)!.estimatingFees,
-                    style: subtleStyle,
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Text(
-                    'Fee estimation failed',
-                    style: subtleStyle.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  );
-                }
-
-                final fees = snapshot.data!.feeBreakdown;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "+ ${formatAmount(fees.networkFees)} in network fees"
-                      "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
-                      style: subtleStyle,
-                    ),
-                  ],
-                );
-              },
+          Text(
+            params.evmKey.address.eip55With0x,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            onConfirm: _handleConfirm,
+          ),
+          Gap.vertical.sm(),
+          AmountTapInput(
+            controller: _amountController,
+            hintText: 'Amount',
+            min: params.minAmount?.toDenominated(),
+            max: params.maxAmount?.toDenominated(),
+            required: true,
+            enabled: !_loading,
+            editable: isEditable,
+            onChanged: (amount) {
+              if (amount == null) {
+                return;
+              }
+              operation.updateAmount(
+                TokenAmount.fromDenominated(amount, params.amount.token),
+              );
+            },
+          ),
+          Gap.vertical.sm(),
+          FutureBuilder<SwapQuote>(
+            future: operation.chain.swapInQuote(params: operation.params),
+            builder: (context, snapshot) {
+              final baseStyle = Theme.of(context).textTheme.bodySmall!;
+              final subtleStyle = baseStyle.copyWith(
+                fontWeight: FontWeight.w400,
+                color: baseStyle.color?.withValues(alpha: 0.6),
+              );
+
+              if (snapshot.connectionState != ConnectionState.done) {
+                return Text(
+                  AppLocalizations.of(context)!.estimatingFees,
+                  style: subtleStyle,
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Text(
+                  'Fee estimation failed',
+                  style: subtleStyle.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                );
+              }
+
+              final fees = snapshot.data!.feeBreakdown;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "+ ${formatAmount(fees.networkFees)} in network fees"
+                    "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
+                    style: subtleStyle,
+                  ),
+                ],
+              );
+            },
+          ),
+          Gap.vertical.sm(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FilledButton(
+                onPressed: _loading ? null : _handleConfirm,
+                child: _loading
+                    ? AppLoadingIndicator.small(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      )
+                    : Text(AppLocalizations.of(context)!.ok),
+              ),
+            ],
           ),
         ],
       ),
@@ -278,17 +335,50 @@ class SwapInProgressWidget extends StatelessWidget {
   }
 }
 
-class SwapInSuccessWidget extends StatelessWidget {
+class SwapInSuccessWidget extends StatefulWidget {
   final SwapInCompleted state;
   final String? title;
-  const SwapInSuccessWidget(this.state, {super.key, this.title});
+  final String? subtitle;
+  final Duration? autoDismissAfter;
+  const SwapInSuccessWidget(
+    this.state, {
+    super.key,
+    this.title,
+    this.subtitle,
+    this.autoDismissAfter,
+  });
+
+  @override
+  State<SwapInSuccessWidget> createState() => _SwapInSuccessWidgetState();
+}
+
+class _SwapInSuccessWidgetState extends State<SwapInSuccessWidget> {
+  Timer? _autoDismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final delay = widget.autoDismissAfter;
+    if (delay != null) {
+      _autoDismissTimer = Timer(delay, () {
+        if (mounted) Navigator.of(context).maybePop();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoDismissTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ModalBottomSheet(
       type: ModalBottomSheetType.success,
-      title: title ?? AppLocalizations.of(context)!.swapCompleteTitle,
-      subtitle: AppLocalizations.of(context)!.swapCompleteSubtitle,
+      title: widget.title ?? AppLocalizations.of(context)!.swapCompleteTitle,
+      subtitle:
+          widget.subtitle ?? AppLocalizations.of(context)!.swapCompleteSubtitle,
       content: Container(),
     );
   }

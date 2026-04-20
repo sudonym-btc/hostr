@@ -95,6 +95,10 @@ class _NotificationDeepLinkTarget {
       return const _NotificationDeepLinkTarget(route: 'root');
     }
 
+    if (uri.host == 'inbox') {
+      return const _NotificationDeepLinkTarget(route: 'inbox');
+    }
+
     return null;
   }
 
@@ -108,6 +112,8 @@ class _NotificationDeepLinkTarget {
         return const RootRoute();
       case 'root':
         return const RootRoute();
+      case 'inbox':
+        return const InboxRoute();
       default:
         return const RootRoute();
     }
@@ -125,6 +131,9 @@ class _NotificationDeepLinkTarget {
         return;
       case 'root':
         await router.navigate(const RootRoute());
+        return;
+      case 'inbox':
+        await router.navigate(TabShellRoute(children: [const InboxRoute()]));
         return;
       default:
         await router.navigate(const RootRoute());

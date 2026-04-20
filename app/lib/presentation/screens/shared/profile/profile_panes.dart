@@ -311,9 +311,7 @@ class _FundsItemTile extends StatelessWidget {
       if (item.dust) 'Unsweepable below swap limit',
     ];
     final subtitle = subtitleParts.join(' · ');
-    final title = item.dust
-        ? 'Dust  $tokenName'
-        : '$formattedAmount  $tokenName';
+    final title = '$formattedAmount  $tokenName';
 
     return ListTile(
       dense: true,

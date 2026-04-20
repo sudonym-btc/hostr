@@ -96,8 +96,8 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
 
   @override
   void dispose() {
-    _updatesSub?.cancel();
-    _relaySub?.cancel();
+    unawaited(_updatesSub?.cancel());
+    unawaited(_relaySub?.cancel());
     super.dispose();
   }
 

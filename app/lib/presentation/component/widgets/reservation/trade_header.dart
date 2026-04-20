@@ -12,13 +12,13 @@ import 'package:rxdart/rxdart.dart';
 
 import 'actions/commit.dart';
 import 'payment_status_chip.dart';
+import 'trade_details_sheet.dart';
 
 class TradeHeaderView extends StatelessWidget {
   final TradeReady tradeState;
   final bool showActions;
   final bool showImages;
   final bool compact;
-  final VoidCallback? onTap;
 
   const TradeHeaderView({
     super.key,
@@ -26,7 +26,6 @@ class TradeHeaderView extends StatelessWidget {
     this.showActions = true,
     this.showImages = true,
     this.compact = false,
-    this.onTap,
   });
 
   // ─── Convenience accessors ───────────────────────────────────────
@@ -50,16 +49,32 @@ class TradeHeaderView extends StatelessWidget {
   ValueStream<bool>? get subscriptionsLive =>
       tradeState.streams.subscriptionsLive;
 
-  void _navigateToListing(BuildContext context) {
-    if (listing.naddr() != null) {
-      AutoRouter.of(context).push(
-        ListingRoute(
-          a: listing.naddr()!,
-          dateRangeStart: start?.toUtc().toIso8601String(),
-          dateRangeEnd: end?.toUtc().toIso8601String(),
+  void _openListing(BuildContext context) {
+    final anchor = listing.naddr();
+    if (anchor == null) return;
+    AutoRouter.of(context).push(
+      ListingRoute(
+        a: anchor,
+        dateRangeStart: start?.toUtc().toIso8601String(),
+        dateRangeEnd: end?.toUtc().toIso8601String(),
+      ),
+    );
+  }
+
+  Widget _listingLink(BuildContext context, Widget child) {
+    if (listing.naddr() == null) return child;
+    return Semantics(
+      button: true,
+      label: 'Open listing',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openListing(context),
+          child: child,
         ),
-      );
-    }
+      ),
+    );
   }
 
   Widget? _buildAvailabilityBanner(BuildContext context) {
@@ -100,109 +115,109 @@ class TradeHeaderView extends StatelessWidget {
 
   Widget _buildSummary(BuildContext context, {required bool showImages}) {
     final theme = Theme.of(context);
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showImages) ...[
-            ConstrainedBox(
-              constraints: BoxConstraints(minHeight: compact ? 60 : 75),
-              child: SizedBox(
-                width: compact ? 60 : 75,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: listing.images.isNotEmpty
-                      ? BlossomImage(
-                          image: listing.images.first,
-                          pubkey: listing.pubKey,
-                          fit: BoxFit.cover,
-                        )
-                      : const SizedBox.shrink(),
-                ),
+    final imageSize = compact ? 60.0 : 75.0;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showImages) ...[
+          _listingLink(
+            context,
+            SizedBox.square(
+              dimension: imageSize,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: listing.images.isNotEmpty
+                    ? BlossomImage(
+                        image: listing.images.first,
+                        pubkey: listing.pubKey,
+                        fit: BoxFit.cover,
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
-            Gap.horizontal.md(),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onTap ?? () => _navigateToListing(context),
-                  child: Text(
-                    listing.title.toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: compact
-                        ? theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          )
-                        : theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                  ),
-                ),
-                // if (!compact) Gap.vertical.xs(),
-                Builder(
-                  builder: (context) {
-                    final s = start;
-                    final e = end;
-                    return Text(
-                      s != null && e != null
-                          ? formatDateRangeShort(
-                              DateTimeRange(start: s, end: e),
-                              Localizations.localeOf(context),
-                            )
-                          : '',
-                      style: compact
-                          ? theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            )
-                          : theme.textTheme.bodyMedium,
-                    );
-                  },
-                ),
-                StreamBuilder<PaymentEvent>(
-                  stream: paymentEventsStream.replayStream,
-                  builder: (context, snapshot) {
-                    final paymentChip = snapshot.data != null
-                        ? PaymentStatusChip(state: snapshot.data!)
-                        : null;
-                    final availabilityBanner = _buildAvailabilityBanner(
-                      context,
-                    );
-                    final chips = [?paymentChip, ?availabilityBanner];
-                    if (chips.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(height: compact ? kSpace1 : kSpace2),
-                        Wrap(
-                          spacing: kSpace2,
-                          runSpacing: kSpace2,
-                          children: chips,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
           ),
-          if (showActions && tradeState.stage is CommitStage) ...[
-            Gap.horizontal.sm(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: CommitMenu(tradeState: tradeState),
-            ),
-          ],
+          Gap.horizontal.md(),
         ],
-      ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _listingLink(
+                context,
+                Text(
+                  listing.title.toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: compact
+                      ? theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        )
+                      : theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                ),
+              ),
+              // if (!compact) Gap.vertical.xs(),
+              Builder(
+                builder: (context) {
+                  final s = start;
+                  final e = end;
+                  return Text(
+                    s != null && e != null
+                        ? formatDateRangeShort(
+                            DateTimeRange(start: s, end: e),
+                            Localizations.localeOf(context),
+                          )
+                        : '',
+                    style: compact
+                        ? theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          )
+                        : theme.textTheme.bodyMedium,
+                  );
+                },
+              ),
+              StreamBuilder<PaymentEvent>(
+                stream: paymentEventsStream.replayStream,
+                builder: (context, snapshot) {
+                  final paymentChip = snapshot.data != null
+                      ? PaymentStatusChip(
+                          state: snapshot.data!,
+                          onTap: () =>
+                              showTradeDetailsSheet(context, tradeState),
+                        )
+                      : null;
+                  final availabilityBanner = _buildAvailabilityBanner(context);
+                  final chips = [?paymentChip, ?availabilityBanner];
+                  if (chips.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(height: compact ? kSpace1 : kSpace2),
+                      Wrap(
+                        spacing: kSpace2,
+                        runSpacing: kSpace2,
+                        children: chips,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        if (showActions && tradeState.stage is CommitStage) ...[
+          Gap.horizontal.sm(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: CommitMenu(tradeState: tradeState),
+          ),
+        ],
+      ],
     );
   }
   // ─── Phase rows ────────────────────────────────────────────────────
@@ -221,11 +236,7 @@ class TradeHeaderView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                compact
-                    ? _buildSummary(context, showImages: showImages)
-                    : CustomPadding(
-                        child: _buildSummary(context, showImages: showImages),
-                      ),
+                _buildSummary(context, showImages: showImages),
                 if (showActions && tradeState.stage is NegotiationStage)
                   NegotiationWidget(tradeState: tradeState),
               ],
@@ -242,14 +253,12 @@ class TradeHeader extends StatelessWidget {
   final bool showActions;
   final bool showImages;
   final bool compact;
-  final VoidCallback? onTap;
   const TradeHeader({
     super.key,
     required this.tradeId,
     this.showActions = true,
     this.showImages = true,
     this.compact = false,
-    this.onTap,
   });
   @override
   Widget build(BuildContext context) {
@@ -264,7 +273,6 @@ class TradeHeader extends StatelessWidget {
                 showActions: showActions,
                 showImages: showImages,
                 compact: compact,
-                onTap: onTap,
               );
             case TradeInitialising():
               return const SizedBox(
