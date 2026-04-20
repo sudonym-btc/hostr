@@ -308,7 +308,7 @@ class _FundsItemTile extends StatelessWidget {
       _shortAddress(address),
       addressType,
       if (item.isEscrowLocked) 'Escrow',
-      if (item.dust) 'Unsweepable dust below 1 sat',
+      if (item.dust) 'Unsweepable below swap limit',
     ];
     final subtitle = subtitleParts.join(' · ');
     final title = item.dust

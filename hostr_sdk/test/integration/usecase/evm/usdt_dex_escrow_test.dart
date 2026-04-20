@@ -104,9 +104,9 @@ void main() {
         reason: 'First emitted state must be SwapInInitialised',
       );
       expect(
-        emittedStates.whereType<SwapInInvoicePaid>(),
+        emittedStates.whereType<SwapInLockupTxInMempool>(),
         isNotEmpty,
-        reason: 'Lightning invoice must be paid during USDT swap-in',
+        reason: 'Boltz lockup transaction must be observed during USDT swap-in',
       );
       expect(
         swapIn.state,

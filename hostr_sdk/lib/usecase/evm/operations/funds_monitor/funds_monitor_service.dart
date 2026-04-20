@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:injectable/injectable.dart';
+import 'package:meta/meta.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 import 'package:rxdart/rxdart.dart';
@@ -91,6 +92,7 @@ class FundsMonitorService {
   final Map<String, int> _addressToAccountIndex = {};
   final Map<(String, String), _TrackedWalletAccount> _walletAccounts = {};
   final Map<String, _ChainBalanceTracker> _chainTrackers = {};
+  final Map<(String, String), Future<TokenAmount?>> _swapOutMinimumCache = {};
 
   bool _swapInProgress = false;
   StreamSubscription? _eventSub;
@@ -284,7 +286,7 @@ class FundsMonitorService {
       );
       final nativeToken = Token.native(chain.config.chainId);
       final mapKey = (key, nativeToken.address.toLowerCase());
-      final dust = _isDustBalance(entry.balance);
+      final dust = await _isDustBalance(chain, entry.balance);
       _walletItems[mapKey] = FundsItem(
         address: entry.address,
         keypair: entry.keypair,
@@ -313,7 +315,7 @@ class FundsMonitorService {
       );
       final tokenKey = entry.tokenAddress.eip55With0x.toLowerCase();
       final mapKey = (key, tokenKey);
-      final dust = _isDustBalance(entry.balance);
+      final dust = await _isDustBalance(chain, entry.balance);
       _walletItems[mapKey] = FundsItem(
         address: entry.address,
         keypair: entry.keypair,
@@ -422,7 +424,7 @@ class FundsMonitorService {
       final nativeBal = nativeBalances[address];
       final nativeMapKey = (addrKey, nativeToken.address.toLowerCase());
       if (nativeBal != null && nativeBal.value > BigInt.zero) {
-        final dust = _isDustBalance(nativeBal);
+        final dust = await _isDustBalance(chain, nativeBal);
         _walletItems[nativeMapKey] = FundsItem(
           address: address,
           keypair: keypair,
@@ -452,7 +454,7 @@ class FundsMonitorService {
           final tokenKey = tokenEntry.value.eip55With0x.toLowerCase();
           final mapKey = (addrKey, tokenKey);
           if (balance != null && balance.value > BigInt.zero) {
-            final dust = _isDustBalance(balance);
+            final dust = await _isDustBalance(chain, balance);
             _walletItems[mapKey] = FundsItem(
               address: address,
               keypair: keypair,
@@ -619,7 +621,7 @@ class FundsMonitorService {
     final tokenKey = update.balance.token.address.toLowerCase();
     final mapKey = (addressKey, tokenKey);
     if (update.balance.value > BigInt.zero) {
-      final dust = _isDustBalance(update.balance);
+      final dust = await _isDustBalance(update.chain, update.balance);
       _walletItems[mapKey] = FundsItem(
         address: update.address,
         keypair: account.keypair,
@@ -719,7 +721,7 @@ class FundsMonitorService {
       final tokenKey = entry.key.eip55With0x.toLowerCase();
       final balance = TokenAmount(value: entry.value, token: token);
       if (balance.value > BigInt.zero) {
-        final dust = _isDustBalance(balance);
+        final dust = await _isDustBalance(chain, balance);
         _escrowItems[(addrKey, tokenKey)] = FundsItem(
           address: effectiveAddress,
           keypair: keypair,
@@ -921,12 +923,71 @@ class FundsMonitorService {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  bool _isSweepableBalance(TokenAmount balance) {
-    return balance.roundDownToSats().value > BigInt.zero;
+  Future<bool> _isDustBalance(EvmChain chain, TokenAmount balance) async {
+    final minimum = await _swapOutMinimumFor(chain, balance.token);
+    return isDustBalanceForSwapOutLimits(
+      balance,
+      minimumSwapOutAmount: minimum,
+    );
   }
 
-  bool _isDustBalance(TokenAmount balance) {
-    return balance.value > BigInt.zero && !_isSweepableBalance(balance);
+  @visibleForTesting
+  static bool isDustBalanceForSwapOutLimits(
+    TokenAmount balance, {
+    TokenAmount? minimumSwapOutAmount,
+  }) {
+    if (balance.value <= BigInt.zero) return false;
+
+    final roundedBalance = balance.roundDownToSats();
+    if (roundedBalance.value <= BigInt.zero) return true;
+
+    if (minimumSwapOutAmount == null) return false;
+    if (minimumSwapOutAmount.token != balance.token) {
+      throw ArgumentError(
+        'Swap-out minimum token ${minimumSwapOutAmount.token.tagId} does not '
+        'match balance token ${balance.token.tagId}',
+      );
+    }
+
+    return roundedBalance < minimumSwapOutAmount.roundUpToSats();
+  }
+
+  Future<TokenAmount?> _swapOutMinimumFor(EvmChain chain, Token token) {
+    if (chain.swaps == null) return Future.value(null);
+
+    final key = (chain.config.id, token.address.toLowerCase());
+    final cached = _swapOutMinimumCache[key];
+    if (cached != null) return cached;
+
+    final future = _fetchSwapOutMinimum(chain, token);
+    _swapOutMinimumCache[key] = future;
+    return future.then((minimum) {
+      if (minimum == null) {
+        _swapOutMinimumCache.remove(key);
+      }
+      return minimum;
+    });
+  }
+
+  Future<TokenAmount?> _fetchSwapOutMinimum(EvmChain chain, Token token) async {
+    try {
+      final swaps = chain.swaps!;
+      final tokenAddress = token.isNative
+          ? null
+          : EthereumAddress.fromHex(token.address);
+      if (tokenAddress != null && !swaps.supportsTokenAddress(tokenAddress)) {
+        return null;
+      }
+
+      final limits = await swaps.getSwapOutLimits(tokenAddress: tokenAddress);
+      return TokenAmount.fromDenominated(limits.min, token).roundUpToSats();
+    } catch (e) {
+      _logger.w(
+        'Failed to fetch Boltz swap-out minimum for ${chain.config.id} '
+        '${token.tagId}: $e',
+      );
+      return null;
+    }
   }
 
   void _logUnsweepableDust(
@@ -939,7 +1000,7 @@ class FundsMonitorService {
       'FundsMonitor detected dust: '
       '${chain.config.id} ${balance.token.tagId} '
       '${balance.value} smallest-unit '
-      '(${rounded.getInSats} whole sats) '
+      '(${rounded.getInSats} whole sats, below swap-out minimum) '
       '@${address.eip55With0x}',
     );
   }

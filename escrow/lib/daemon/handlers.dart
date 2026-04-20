@@ -106,6 +106,10 @@ class DaemonHandler {
     // Try in-memory first, then fall back to on-chain lookup.
     final snapshot = daemon.getTrade(tradeId);
     final onChain = await contract.getTrade(tradeId);
+    final tokenAddress = onChain?.token.eip55With0x;
+    final token = tokenAddress != null
+        ? await daemon.context.configuredChain.resolveToken(tokenAddress)
+        : null;
 
     // Resolve trade ID → thread anchor so the CLI can navigate directly.
     final threadAnchor =
@@ -121,6 +125,9 @@ class DaemonHandler {
               'buyer': onChain.buyer.eip55With0x,
               'seller': onChain.seller.eip55With0x,
               'arbiter': onChain.arbiter.eip55With0x,
+              'tokenAddress': tokenAddress,
+              'tokenDecimals': token?.decimals ?? 8,
+              'tokenSymbol': _resolveTokenSymbol(tokenAddress!),
               'paymentAmount': onChain.paymentAmount.toString(),
               'bondAmount': onChain.bondAmount.toString(),
               'unlockAt': onChain.unlockAt.toString(),

@@ -45,10 +45,11 @@ class FundsItem {
   /// capability enabled.
   final bool isSmartAddress;
 
-  /// Whether this positive balance is below the smallest sweepable unit.
+  /// Whether this positive balance is below the smallest sweepable amount.
   ///
-  /// Boltz and Lightning operate in whole sats, so sub-sat EVM remainders
-  /// should be visible to the user but skipped by swap-out automation.
+  /// Boltz and Lightning operate in whole sats and Boltz enforces per-pair
+  /// minimum swap amounts. Balances below those limits should be visible to
+  /// the user but skipped by swap-out automation.
   final bool dust;
 
   /// Whether this item represents escrow-locked funds.
