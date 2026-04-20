@@ -64,6 +64,8 @@ jobs:
         run: |
           docker build \
             --target production \
+            --build-arg COMMIT_SHA="${{ steps.meta.outputs.sha_tag }}" \
+            --build-arg BUILD_DATE="${{ steps.meta.outputs.build_date }}" \
             -t "${{ steps.meta.outputs.registry }}/escrow:${{ steps.meta.outputs.sha_tag }}" \
             -t "${{ steps.meta.outputs.registry }}/escrow:latest" \
             -f escrow/Dockerfile .
