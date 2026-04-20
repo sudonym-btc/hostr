@@ -186,6 +186,7 @@ sealed class SwapInState implements MachineState {
       'paymentProgress' => SwapInPaymentProgress(SwapInData.fromJson(json)),
       'awaitingOnChain' => SwapInAwaitingOnChain(SwapInData.fromJson(json)),
       'invoicePaid' => SwapInInvoicePaid(SwapInData.fromJson(json)),
+      'lockupTxInMempool' => SwapInLockupTxInMempool(SwapInData.fromJson(json)),
       'funded' => SwapInFunded(SwapInData.fromJson(json)),
       'claimed' => SwapInClaimed(SwapInData.fromJson(json)),
       'claimTxInMempool' => SwapInClaimTxInMempool(SwapInData.fromJson(json)),
@@ -264,11 +265,13 @@ final class SwapInAwaitingOnChain extends SwapInState {
   };
 }
 
-/// Boltz has confirmed the Lightning invoice is settled.
+/// Boltz has confirmed the Lightning invoice is paid.
 ///
 /// This is an **emit-only** (non-persisted) state used purely for UI
 /// feedback and OS notifications.  It fires as soon as the Boltz WebSocket
-/// reports `invoice.settled`, before the on-chain lockup appears.
+/// reports `invoice.paid`, before the on-chain lockup appears. Boltz does
+/// not currently expose that internal reverse-swap event on the public swap
+/// WebSocket, but this state is kept ready in case it does in the future.
 final class SwapInInvoicePaid extends SwapInState {
   @override
   final SwapInData data;
@@ -278,6 +281,27 @@ final class SwapInInvoicePaid extends SwapInState {
   @override
   Map<String, dynamic> toJson() => {
     'state': 'invoicePaid',
+    'id': data.boltzId,
+    'isTerminal': false,
+    'updatedAt': DateTime.now().toIso8601String(),
+    ...data.toJson(),
+  };
+}
+
+/// Boltz has broadcast the on-chain lockup transaction.
+///
+/// This is an **emit-only** (non-persisted) state used purely for UI
+/// feedback while the durable state machine verifies the lockup on-chain and
+/// advances to [SwapInFunded].
+final class SwapInLockupTxInMempool extends SwapInState {
+  @override
+  final SwapInData data;
+  const SwapInLockupTxInMempool(this.data);
+  @override
+  String get stateName => 'lockupTxInMempool';
+  @override
+  Map<String, dynamic> toJson() => {
+    'state': 'lockupTxInMempool',
     'id': data.boltzId,
     'isTerminal': false,
     'updatedAt': DateTime.now().toIso8601String(),

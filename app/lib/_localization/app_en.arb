@@ -85,6 +85,7 @@
   "confirmButton": "Confirm",
   "swapProgressTitle": "Swap Progress",
   "swapStatusWaitingForTransactionConfirm": "Waiting for transaction to confirm...",
+  "swapStatusInvoicePaidWaitingForTransaction": "Invoice paid, waiting for funds...",
   "swapStatusFundedClaiming": "Swap funded, claiming...",
   "swapStatusClaimedFinalising": "Swap claimed, finalising...",
   "swapStatusClaimTxInMempool": "Claim transaction in mempool...",

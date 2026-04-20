@@ -217,10 +217,13 @@ class _AppShellScreenState extends State<AppShellScreen>
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: kSpace3),
+          padding: const EdgeInsets.symmetric(
+            horizontal: kSpace4,
+            vertical: kSpace3,
+          ),
           child: Text(
             kCommitSha,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.left,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontFamily: 'monospace',
               color: Theme.of(

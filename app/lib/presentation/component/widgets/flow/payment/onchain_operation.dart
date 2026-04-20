@@ -148,6 +148,7 @@ bool shouldRebuildForSwapProgress(OnchainSwapProgress state) {
   return switch (state.swapState) {
     SwapInAwaitingOnChain() => true,
     SwapInInvoicePaid() => true,
+    SwapInLockupTxInMempool() => true,
     SwapInFunded() => true,
     SwapInClaimed() => true,
     SwapInClaimTxInMempool() => true,

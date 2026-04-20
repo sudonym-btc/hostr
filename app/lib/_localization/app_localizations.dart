@@ -610,6 +610,12 @@ abstract class AppLocalizations {
   /// **'Waiting for transaction to confirm...'**
   String get swapStatusWaitingForTransactionConfirm;
 
+  /// No description provided for @swapStatusInvoicePaidWaitingForTransaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice paid, waiting for funds...'**
+  String get swapStatusInvoicePaidWaitingForTransaction;
+
   /// No description provided for @swapStatusFundedClaiming.
   ///
   /// In en, this message translates to:

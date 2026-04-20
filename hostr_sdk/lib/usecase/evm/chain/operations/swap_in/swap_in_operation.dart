@@ -673,20 +673,30 @@ class EvmSwapInOperation extends SwapInOperation {
         .subscribeToSwap(id: id)
         .doOnData((swapStatus) {
           logger.i('Swap status update: ${swapStatus.status}, $swapStatus');
-          // For reverse submarine swaps, `transaction.mempool` is the
-          // signal that Boltz received the Lightning payment and locked
-          // on-chain.  (`invoice.settled` is a terminal status that only
-          // fires after the claim reveals the preimage.)
+          final data = state.data;
+          if (data == null) return;
+
+          // Boltz's backend has an internal reverse-swap `invoice.paid`
+          // event when the hold invoice HTLC is accepted, before the preimage
+          // is known. As of the current public API, that event is not emitted
+          // on the swap WebSocket for reverse swaps; the first public signal
+          // after payment is `transaction.mempool`, when Boltz broadcasts its
+          // lockup transaction. Keep the UI state ready in case Boltz exposes
+          // this event later.
+          // if (swapStatus.status == 'invoice.paid') {
+          //   emit(
+          //     SwapInInvoicePaid(
+          //       data.copyWith(lastBoltzStatus: swapStatus.status),
+          //     ),
+          //   );
+          // }
           if (swapStatus.status == 'transaction.mempool' ||
               swapStatus.status == 'transaction.confirmed') {
-            final data = state.data;
-            if (data != null) {
-              emit(
-                SwapInInvoicePaid(
-                  data.copyWith(lastBoltzStatus: swapStatus.status),
-                ),
-              );
-            }
+            emit(
+              SwapInLockupTxInMempool(
+                data.copyWith(lastBoltzStatus: swapStatus.status),
+              ),
+            );
           }
         })
         .where(

@@ -102,6 +102,7 @@ class SwapInViewWidget extends StatelessWidget {
           title: errorTitle,
         );
       case SwapInInvoicePaid():
+      case SwapInLockupTxInMempool():
       case SwapInAwaitingOnChain():
       case SwapInFunded():
       case SwapInClaimed():
@@ -240,6 +241,10 @@ class SwapInProgressWidget extends StatelessWidget {
 
   String _subtitle(AppLocalizations l10n) {
     switch (state) {
+      case SwapInInvoicePaid():
+        return l10n.swapStatusInvoicePaidWaitingForTransaction;
+      case SwapInLockupTxInMempool():
+        return l10n.swapStatusWaitingForTransactionConfirm;
       case SwapInAwaitingOnChain():
         return l10n.swapStatusWaitingForTransactionConfirm;
       case SwapInFunded():
