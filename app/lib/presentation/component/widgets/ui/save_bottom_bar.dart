@@ -37,7 +37,9 @@ class SaveBottomBar extends StatelessWidget {
                         ? onSave
                         : null,
                     child: controller.isSaving
-                        ? const AppLoadingIndicator.small()
+                        ? AppLoadingIndicator.small(
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          )
                         : Text(AppLocalizations.of(context)!.save),
                   );
                 },

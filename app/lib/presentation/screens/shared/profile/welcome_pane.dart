@@ -56,8 +56,9 @@ class WelcomePaneContent extends StatelessWidget {
             Gap.vertical.lg(),
             SizedBox(
               width: double.infinity,
-              child: FilledButton.tonal(
+              child: FilledButton(
                 onPressed: onDismiss,
+                style: AppButtonStyles.secondary(context),
                 child: const Text('Got it'),
               ),
             ),

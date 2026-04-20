@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 
 import 'app_spacing_theme.dart';
+import 'component/widgets/ui/app_button_styles.dart';
 
 const _appFontFamily = 'Inter';
 
@@ -145,19 +146,15 @@ ThemeData getTheme(bool isDark) {
         borderSide: BorderSide(color: base.colorScheme.surfaceContainer),
       ),
     ),
-    // filledButtonTheme: FilledButtonThemeData(
-    //   style: ButtonStyle(
-    //     textStyle: WidgetStateProperty.resolveWith((states) {
-    //       return base.textTheme.labelMedium?.copyWith();
-    //       return const TextStyle(
-    //         fontWeight: FontWeight.w600,
-    //         // fontSize: 12,
-    //         // letterSpacing: 1.2,
-    //         // color: Colors.white,
-    //       );
-    //     }),
-    //   ),
-    // ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: AppButtonStyles.primaryFromScheme(colorScheme),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(shape: AppButtonStyles.shape),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(shape: AppButtonStyles.shape),
+    ),
   );
 
   final bottomAppBarTheme = BottomAppBarThemeData(

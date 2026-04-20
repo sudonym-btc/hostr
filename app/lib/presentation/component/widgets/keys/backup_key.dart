@@ -49,6 +49,7 @@ class BackupKeyWidget extends StatelessWidget {
         children: [
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
+            style: AppButtonStyles.secondary(context),
             child: Text(AppLocalizations.of(context)!.done),
           ),
         ],

@@ -112,7 +112,7 @@ class AmountWidget extends StatelessWidget {
                     : onConfirm,
                 child: loading
                     ? AppLoadingIndicator.small(
-                        color: Theme.of(context).colorScheme.onSurface,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       )
                     : Text(confirmLabel ?? AppLocalizations.of(context)!.ok),
               ),

@@ -136,7 +136,8 @@ class ExploreViewState extends State<ExploreView> {
       title: 'No results found',
       subtitle:
           'Try adjusting your dates or clearing filters to see more stays.',
-      action: FilledButton.tonal(
+      action: FilledButton(
+        style: AppButtonStyles.secondary(context),
         onPressed: () => _clearFilters(context),
         child: Text('Clear filters'),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_button_styles.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -19,10 +20,7 @@ ModalBottomSheet logoutModal(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            foregroundColor: Theme.of(context).colorScheme.onError,
-          ),
+          style: AppButtonStyles.destructive(context),
           onPressed: () async {
             Navigator.of(modalContext).pop();
             await getIt<Hostr>().auth.logout();

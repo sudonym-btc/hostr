@@ -326,9 +326,9 @@ jobs:
             echo "new_release=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # ── 7. Build & deploy (only when a new release was published) ──────────────
+  # ── 7. Build app artifacts (only when a new release was published) ─────────
   build:
-    name: Build & Deploy
+    name: Build Apps
     needs: release
     if: needs.release.outputs.new_release == 'true'
     uses: ./.github/workflows/app_build.yaml

@@ -36,6 +36,7 @@ class ListingErrorView extends StatelessWidget {
                   Gap.vertical.custom(kSpace5),
                   FilledButton.icon(
                     onPressed: () => context.read<EntityCubit<Listing>>().get(),
+                    style: AppButtonStyles.secondary(context),
                     icon: const Icon(Icons.refresh),
                     label: Text(AppLocalizations.of(context)!.retryButton),
                   ),

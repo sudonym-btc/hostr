@@ -123,14 +123,7 @@ class CommitMenu extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onError,
-                          ),
+                          style: AppButtonStyles.destructive(context),
                           onPressed: () {
                             Navigator.of(modalContext).pop();
                             trade.execute(TradeAction.cancel);

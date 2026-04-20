@@ -355,10 +355,7 @@ class _ImageUploadState extends State<ImageUpload> {
     return Center(
       child: FilledButton.icon(
         onPressed: () => _pickMultipleImages(context),
-        style: FilledButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-          foregroundColor: Theme.of(context).colorScheme.onSurface,
-        ),
+        style: AppButtonStyles.secondary(context),
         icon: const Icon(Icons.add_a_photo_outlined),
         label: Text(AppLocalizations.of(context)!.addImage),
       ),
@@ -547,13 +544,11 @@ class _UploadErrorOverlay extends StatelessWidget {
             ),
           ),
           Gap.vertical.sm(),
-          FilledButton.tonalIcon(
+          FilledButton.icon(
             onPressed: onRetry,
-            icon: Icon(Icons.refresh, color: colorScheme.onErrorContainer),
-            label: Text(
-              'Retry',
-              style: TextStyle(color: colorScheme.onErrorContainer),
-            ),
+            style: AppButtonStyles.secondary(context),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
           ),
         ],
       ),

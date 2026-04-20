@@ -288,6 +288,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                             ),
                           );
                         },
+                        style: AppButtonStyles.secondary(context),
                         child: Text(AppLocalizations.of(context)!.copy),
                       ),
                       FutureBuilder(
@@ -306,6 +307,7 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                                       );
                                     }
                                   },
+                                  style: AppButtonStyles.secondary(context),
                                   child: Text(
                                     AppLocalizations.of(context)!.openWallet,
                                   ),

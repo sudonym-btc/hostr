@@ -85,7 +85,8 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
               title: 'Ready to list your place?',
               subtitle:
                   'Create a listing to start welcoming guests to your property today!',
-              action: FilledButton.tonal(
+              action: FilledButton(
+                style: AppButtonStyles.secondary(context),
                 onPressed: () {
                   AutoRouter.of(context).pushPath('edit-listing/new');
                 },

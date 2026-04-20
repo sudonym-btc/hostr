@@ -50,6 +50,7 @@ class ImagesInput extends StatelessWidget {
             onPressed: () => controller.imageField.cubit.pickMultipleImages(
               allowedFileTypes: ImagePickerCubit.defaultAllowedFileTypes,
             ),
+            style: AppButtonStyles.secondary(context),
             icon: const Icon(Icons.add_a_photo_outlined),
             label: Text(AppLocalizations.of(context)!.addImage),
           ),
