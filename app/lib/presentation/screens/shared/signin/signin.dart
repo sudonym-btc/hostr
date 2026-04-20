@@ -156,6 +156,7 @@ class SignInScreenState extends State<SignInScreen> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _private.trim().isEmpty ? _handleSignup : null,
+                  style: AppButtonStyles.outlined(context),
                   child: Text(l10n.signUp),
                 ),
               ),

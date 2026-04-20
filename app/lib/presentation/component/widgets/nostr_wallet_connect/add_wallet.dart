@@ -87,6 +87,7 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                 FilledButton(
                   onPressed: () async {
                     final clipboardData = await Clipboard.getData('text/plain');
+                    if (!context.mounted) return;
                     if (clipboardData?.text != null) {
                       await _onInput(context, clipboardData!.text!);
                     } else {
@@ -102,6 +103,7 @@ class AddWalletWidgetState extends State<AddWalletWidget> {
                       );
                     }
                   },
+                  style: AppButtonStyles.secondary(context),
                   child: Text(AppLocalizations.of(context)!.paste),
                 ),
                 // Expanded(

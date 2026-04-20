@@ -5,6 +5,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/reservation/reservation_status_sections.dart';
 import 'package:hostr/presentation/component/widgets/reservation/trade_header.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_button_styles.dart';
 import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
@@ -45,7 +46,8 @@ class _TripsScreenState extends State<TripsScreen> {
         ),
         title: AppLocalizations.of(context)!.noTripsYet,
         subtitle: 'Head over to explore some listings to get started!',
-        action: FilledButton.tonal(
+        action: FilledButton(
+          style: AppButtonStyles.secondary(context),
           onPressed: () {
             AutoRouter.of(context).navigate(const ExploreRoute());
           },

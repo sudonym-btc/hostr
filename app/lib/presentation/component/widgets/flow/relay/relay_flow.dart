@@ -92,7 +92,9 @@ class _RelayAddStepState extends State<RelayAddStep> {
                 child: FilledButton(
                   onPressed: controller.isSaving ? null : _connectRelay,
                   child: controller.isSaving
-                      ? const AppLoadingIndicator.small(color: Colors.white)
+                      ? AppLoadingIndicator.small(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        )
                       : Text(AppLocalizations.of(context)!.connect),
                 ),
               ),

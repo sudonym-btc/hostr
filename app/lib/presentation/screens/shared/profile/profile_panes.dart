@@ -37,6 +37,7 @@ class ProfileSummarySection extends StatelessWidget {
                   onPressed: () {
                     AutoRouter.of(context).navigate(EditProfileRoute());
                   },
+                  style: AppButtonStyles.secondary(context),
                   icon: const Icon(Icons.edit),
                   label: Text(AppLocalizations.of(context)!.editProfile),
                 ),

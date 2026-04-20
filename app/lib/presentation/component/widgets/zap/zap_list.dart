@@ -170,7 +170,11 @@ class ZapListWidgetState extends State<ZapListWidget> {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }

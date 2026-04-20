@@ -69,6 +69,7 @@ class _ProfileHeaderWidgetState extends State<ProfileHeaderWidget> {
             ? null
             : FilledButton.icon(
                 onPressed: widget.onEditProfile,
+                style: AppButtonStyles.secondary(context),
                 icon: const Icon(Icons.edit),
                 label: Text(AppLocalizations.of(context)!.editProfile),
               ),

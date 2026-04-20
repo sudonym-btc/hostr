@@ -68,10 +68,14 @@ class _FutureButtonState extends State<FutureButton> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final loadingColor = switch (widget._variant) {
+      _FutureButtonVariant.filled => colorScheme.onPrimary,
+      _FutureButtonVariant.tonal => colorScheme.onSecondary,
+      _FutureButtonVariant.outlined => colorScheme.primary,
+    };
     final child = _loading
-        ? AppLoadingIndicator.small(
-            color: Theme.of(context).colorScheme.onSurface,
-          )
+        ? AppLoadingIndicator.small(color: loadingColor)
         : widget.child;
 
     final onPressed = widget.onPressed == null || _loading

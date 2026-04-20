@@ -7,6 +7,7 @@ import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_button_styles.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
@@ -156,10 +157,7 @@ class NegotiationWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Theme.of(context).colorScheme.onError,
-                ),
+                style: AppButtonStyles.destructive(context),
                 onPressed: () {
                   Navigator.of(modalContext).pop();
                   context.read<Trade>().execute(TradeAction.cancel);
@@ -171,9 +169,8 @@ class NegotiationWidget extends StatelessWidget {
         ),
       );
     },
-    style: OutlinedButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.error,
-      side: BorderSide(color: Theme.of(context).colorScheme.error),
+    style: AppButtonStyles.destructiveOutline(
+      context,
       visualDensity: VisualDensity.compact,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),

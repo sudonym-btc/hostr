@@ -51,13 +51,14 @@ class EditProfileViewState extends State<EditProfileView> {
             children: [
               noImageSetPlaceholder(context),
               Center(
-                child: FilledButton.tonalIcon(
+                child: FilledButton.icon(
                   onPressed: () =>
                       controller.imageField.cubit.pickMultipleImages(
                         limit: 1,
                         allowedFileTypes:
                             ImagePickerCubit.defaultAllowedFileTypes,
                       ),
+                  style: AppButtonStyles.secondary(context),
                   icon: const Icon(Icons.add_a_photo_outlined),
                   label: Text(AppLocalizations.of(context)!.addImage),
                 ),

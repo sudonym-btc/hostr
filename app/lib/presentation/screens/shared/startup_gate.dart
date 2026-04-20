@@ -278,6 +278,7 @@ class _ErrorView extends StatelessWidget {
             Gap.vertical.custom(kSpace5),
             FilledButton.icon(
               onPressed: onRetry,
+              style: AppButtonStyles.secondary(context),
               icon: const Icon(Icons.refresh),
               label: Text(AppLocalizations.of(context)!.retryButton),
             ),

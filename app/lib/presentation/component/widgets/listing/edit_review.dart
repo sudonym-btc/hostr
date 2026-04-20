@@ -251,7 +251,9 @@ class _EditReviewState extends State<EditReview> {
                 child: FilledButton(
                   onPressed: _controller.canSubmit ? _handleSave : null,
                   child: _controller.isSaving
-                      ? const AppLoadingIndicator.small()
+                      ? AppLoadingIndicator.small(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        )
                       : Text(AppLocalizations.of(context)!.save),
                 ),
               ),

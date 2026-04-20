@@ -46,7 +46,8 @@ class HostingsScreenState extends State<HostingsScreen> {
         ),
         title: 'No bookings yet',
         subtitle: 'Head over to manage your listings!',
-        action: FilledButton.tonal(
+        action: FilledButton(
+          style: AppButtonStyles.secondary(context),
           onPressed: () {
             AutoRouter.of(context).navigate(const MyListingsRoute());
           },
