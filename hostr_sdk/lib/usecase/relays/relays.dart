@@ -27,6 +27,7 @@ class Relays {
 
   static const _coreRelayConnectRetryInterval = Duration(seconds: 15);
   static const _reconnectNowDebounce = Duration(seconds: 10);
+  static const _developmentRelay = 'wss://relay.hostr.development';
 
   Relays({
     required Ndk ndk,
@@ -97,22 +98,32 @@ class Relays {
 
   Future<void> _startSeedRelays() async {
     final config = getIt<HostrConfig>();
-    final configured = config.bootstrapRelays;
+    _blockDevelopmentRelayOutsideDevelopment(config);
 
-    if (configured.isEmpty) return;
+    final coreRelays = config.hostrRelay.isNotEmpty
+        ? [config.hostrRelay]
+        : config.bootstrapRelays;
+    if (coreRelays.isEmpty) return;
 
     // On native platforms we warm up the first relay socket before delegating
     // to NDK. On web this is a no-op because dart:io WebSocket is unavailable.
-    await warmUpRelayConnection(configured.first);
+    await warmUpRelayConnection(coreRelays.first);
 
     await Future.wait(
-      configured.map(
+      coreRelays.map(
         (url) => _ndk.relays.connectRelay(
           dirtyUrl: url,
           connectionSource: ConnectionSource.seed,
         ),
       ),
     );
+  }
+
+  void _blockDevelopmentRelayOutsideDevelopment(HostrConfig config) {
+    if (config.hostrRelay == _developmentRelay) return;
+    // Temporary guard: prod NIP-65 data was polluted with the development
+    // relay. The better fix is to remove that relay from the NIP-65 event.
+    _ndk.relays.globalState.blockedRelays.add(_developmentRelay);
   }
 
   /// Returns a future that completes once at least one relay is connected.

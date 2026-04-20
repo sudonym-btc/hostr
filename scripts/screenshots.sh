@@ -12,6 +12,8 @@ set -euo pipefail
 #   DEVICES="iPhone 17 Pro Max" ./scripts/screenshots.sh  # override
 #   CHROME_SCREENSHOTS=0 ./scripts/screenshots.sh          # skip Chrome
 #   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # resize Chrome
+#   CHROMEDRIVER_PORT=4445 ./scripts/screenshots.sh        # fixed WebDriver port
+#   SCREENSHOT_TRADE_SPONSOR_PRIVATE_KEY=0x... ./scripts/screenshots.sh
 #   RECORD_VIDEO=1 ./scripts/screenshots.sh    # also record screen video
 #
 # Output:  app/screenshots/<device_slug>/light/*.png
@@ -26,8 +28,17 @@ RECORD_VIDEO="${RECORD_VIDEO:-0}"
 CHROME_SCREENSHOTS="${CHROME_SCREENSHOTS:-1}"
 CHROME_WINDOW_SIZE="${CHROME_WINDOW_SIZE:-1440,1024}"
 CHROMEDRIVER_AUTOSTART="${CHROMEDRIVER_AUTOSTART:-1}"
-CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-4444}"
-CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-$REPO_ROOT/logs/chromedriver.log}"
+CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-}"
+CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-}"
+CHROME_FLUTTER_DRIVE_TIMEOUT="${CHROME_FLUTTER_DRIVE_TIMEOUT:-360}"
+
+if [[ -z "${CHROME_FLUTTER_DRIVE_ARGS+x}" ]]; then
+  CHROME_FLUTTER_DRIVE_ARGS=(--no-dds)
+elif [[ -z "$CHROME_FLUTTER_DRIVE_ARGS" ]]; then
+  CHROME_FLUTTER_DRIVE_ARGS=()
+else
+  read -ra CHROME_FLUTTER_DRIVE_ARGS <<< "$CHROME_FLUTTER_DRIVE_ARGS"
+fi
 
 # ── Device list (override with DEVICES env var) ─────────────────────────────
 # Each entry must match an available `xcrun simctl list devices` name.
@@ -137,6 +148,16 @@ webdriver_ready() {
   curl -fsS "http://127.0.0.1:$CHROMEDRIVER_PORT/status" >/dev/null 2>&1
 }
 
+find_free_port() {
+  python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+}
+
 find_chromedriver() {
   local candidate=""
 
@@ -167,6 +188,18 @@ find_chromedriver() {
 ensure_chromedriver() {
   local chromedriver_bin=""
 
+  if [[ -z "$CHROMEDRIVER_PORT" ]]; then
+    if [[ "$CHROMEDRIVER_AUTOSTART" == "1" ]]; then
+      CHROMEDRIVER_PORT="$(find_free_port)"
+    else
+      CHROMEDRIVER_PORT="4444"
+    fi
+  fi
+
+  if [[ -z "$CHROMEDRIVER_LOG" ]]; then
+    CHROMEDRIVER_LOG="$REPO_ROOT/logs/chromedriver-$CHROMEDRIVER_PORT.log"
+  fi
+
   if webdriver_ready; then
     echo "   🚗 Using existing WebDriver server on port $CHROMEDRIVER_PORT"
     return 0
@@ -189,13 +222,12 @@ ensure_chromedriver() {
 
   echo "   🚗 Starting ChromeDriver on port ${CHROMEDRIVER_PORT}..."
 
-  # Kill any stale ChromeDriver left on this port from a previous run.
-  local stale_pid
-  stale_pid=$(lsof -ti :"$CHROMEDRIVER_PORT" 2>/dev/null || true)
-  if [[ -n "$stale_pid" ]]; then
-    echo "   ⚠️  Killing stale process on port $CHROMEDRIVER_PORT (PID $stale_pid)"
-    kill "$stale_pid" 2>/dev/null || true
-    sleep 1
+  local port_pid
+  port_pid=$(lsof -ti :"$CHROMEDRIVER_PORT" 2>/dev/null || true)
+  if [[ -n "$port_pid" ]]; then
+    echo "   ❌ Port $CHROMEDRIVER_PORT is already in use by PID $port_pid."
+    echo "   Set CHROMEDRIVER_PORT to a free port, or unset it to auto-select one."
+    return 1
   fi
 
   "$chromedriver_bin" --port="$CHROMEDRIVER_PORT" >"$CHROMEDRIVER_LOG" 2>&1 &
@@ -231,6 +263,12 @@ stop_chromedriver() {
   fi
 }
 
+prepare_screenshot_output() {
+  local slug="$1"
+
+  rm -rf "$APP_DIR/screenshots/$slug/light" "$APP_DIR/screenshots/$slug/dark"
+}
+
 cleanup() {
   stop_recording
   stop_chromedriver
@@ -240,10 +278,11 @@ trap cleanup EXIT
 
 seed_screenshot_relay() {
   local config_file="$REPO_ROOT/logs/screenshot_seed_config.json"
+  local trade_sponsor_private_key="${SCREENSHOT_TRADE_SPONSOR_PRIVATE_KEY:-${SEED_TRADE_SPONSOR_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}}"
 
   mkdir -p "$(dirname "$config_file")"
 
-  cat >"$config_file" <<'JSON'
+  cat >"$config_file" <<JSON
 {
   "seed": 42,
   "userCount": 8,
@@ -251,7 +290,8 @@ seed_screenshot_relay() {
   "listingsPerHostAvg": 2.0,
   "reservationRequestsPerGuest": 10,
   "invalidReservationRate": 0,
-  "fundProfiles": true,
+  "fundProfiles": false,
+  "tradeSponsorPrivateKey": "$trade_sponsor_private_key",
   "setupLnbits": true,
   "messagesPerThreadAvg": 4,
   "completedRatio": 0.5,
@@ -263,6 +303,7 @@ seed_screenshot_relay() {
 JSON
 
   echo "🌱 Seeding relay for screenshots…"
+  echo "   Using dedicated trade sponsor; generated user profiles are not funded."
   "$REPO_ROOT/scripts/seed_relay.sh" --config-file="$config_file" \
     2>&1 | sed -l 's/^/   /'
   echo ""
@@ -285,15 +326,19 @@ sync_landing_page_screenshots() {
     return 1
   fi
 
+  find "$dest_dir" -maxdepth 1 -type f -name '*.png' -delete
   cp "$source_dir"/*.png "$dest_dir"/
   echo "   🖼️  Synced dark screenshots to landing-page/assets/screenshot/"
 }
 
 run_chrome_screenshots() {
   local slug="chrome"
+  local browser_dimension="${CHROME_WINDOW_SIZE/,/x}"
 
   echo "🌐 Chrome → screenshots/$slug/"
   echo "   Window size: $CHROME_WINDOW_SIZE"
+  echo "   Flutter drive mode: debug"
+  prepare_screenshot_output "$slug"
 
   if ! ensure_chromedriver; then
     FAILED+=("Chrome")
@@ -307,7 +352,11 @@ run_chrome_screenshots() {
     --driver=test_driver/screenshot_test.dart \
     --target=integration_test/screenshots.dart \
     -d chrome \
+    --driver-port="$CHROMEDRIVER_PORT" \
+    --browser-dimension="$browser_dimension" \
+    --timeout="$CHROME_FLUTTER_DRIVE_TIMEOUT" \
     --web-browser-flag="--window-size=$CHROME_WINDOW_SIZE" \
+    ${CHROME_FLUTTER_DRIVE_ARGS[@]+"${CHROME_FLUTTER_DRIVE_ARGS[@]}"} \
     --no-pub 2>&1 | sed -l 's/^/   /'; then
     echo "   ✅ Done"
   else
@@ -341,6 +390,7 @@ FAILED=()
 for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
   slug=$(sanitize "$device_name")
   echo "📱 $device_name → screenshots/$slug/"
+  prepare_screenshot_output "$slug"
 
   # Resolve simulator
   udid=$(resolve_simulator "$device_name") || {

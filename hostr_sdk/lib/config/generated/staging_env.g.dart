@@ -18,7 +18,6 @@ const hostrSocialNpub =
 const bootstrapRelays = <String>[
   'wss://relay.damus.io',
   'wss://relay.nostr.band',
-  'wss://relay.current.fyi',
   'wss://purplepag.es',
   'wss://nos.lol',
   'wss://relay.primal.net',

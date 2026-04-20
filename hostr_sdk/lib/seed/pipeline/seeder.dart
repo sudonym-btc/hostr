@@ -86,8 +86,13 @@ class Seeder {
 
     // ── 4. Fund + register identities (concurrent, fire-and-forget) ─────
     final fundFutures = <Future<void>>[];
-    if (config.fundProfiles) {
+    if (config.fundProfiles && config.tradeSponsorPrivateKey == null) {
       fundFutures.addAll(_buildFundIntents(users).map((i) => sink.fund(i)));
+    } else if (config.fundProfiles) {
+      print(
+        '[seed] tradeSponsorPrivateKey configured; skipping per-user '
+        'native funding.',
+      );
     }
 
     final identityFutures = <Future<void>>[];

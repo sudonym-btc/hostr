@@ -90,6 +90,7 @@ class RelaySeeder {
         rpcUrl: resolvedConfig.rpcUrl,
         contractAddress: contractAddress,
         chainId: env.evmConfig.chains.first.chainId,
+        tradeSponsorPrivateKey: resolvedConfig.tradeSponsorPrivateKey,
         broadcaster: broadcaster,
         lnbitsConfig: lnbitsConfig,
       );

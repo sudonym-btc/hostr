@@ -46,7 +46,7 @@ const _config = SeedPipelineConfig(
   listingsPerHostAvg: 2.0, // ~8 listings
   reservationRequestsPerGuest: 10, // 8 threads
   invalidReservationRate: 0,
-  fundProfiles: true,
+  fundProfiles: false,
   setupLnbits: true,
   threadStages: ThreadStageSpec(
     textMessageCount: 4,
@@ -159,19 +159,25 @@ Future<void> _takeScreenshots(
   debugPrint('📸 [$mode] ✓ explore');
   await binding.takeScreenshot('screenshots/$mode/explore.png');
 
-  // ── 4. Listing detail ───────────────────────────────────────────
+  // ── 4. Trips ────────────────────────────────────────────────────
+  appRouter.navigate(TripsRoute());
+  await _settle(tester);
+  debugPrint('📸 [$mode] ✓ trips');
+  await binding.takeScreenshot('screenshots/$mode/trips.png');
+
+  // ── 5. Listing detail ───────────────────────────────────────────
   appRouter.navigate(ListingRoute(a: fixture.listing.naddr()!));
   await _settle(tester);
   debugPrint('📸 [$mode] ✓ listing');
   await binding.takeScreenshot('screenshots/$mode/listing.png');
 
-  // ── 5. Inbox ────────────────────────────────────────────────────
+  // ── 6. Inbox ────────────────────────────────────────────────────
   appRouter.navigate(InboxRoute());
   await _settle(tester);
   debugPrint('📸 [$mode] ✓ threads');
   await binding.takeScreenshot('screenshots/$mode/threads.png');
 
-  // ── 6. Thread detail ────────────────────────────────────────────
+  // ── 7. Thread detail ────────────────────────────────────────────
   final threadMap = getIt<Hostr>().messaging.threads.threads;
   if (threadMap.isNotEmpty) {
     appRouter.navigate(ThreadRoute(anchor: threadMap.keys.first));
@@ -179,7 +185,7 @@ Future<void> _takeScreenshots(
     debugPrint('📸 [$mode] ✓ thread');
     await binding.takeScreenshot('screenshots/$mode/thread.png');
 
-    // ── 7. Tap "Pay" → payment modal ──────────────────────────────
+    // ── 8. Tap "Pay" → payment modal ──────────────────────────────
     // Find a thread that shows the Pay button (pending threads where
     // the guest hasn't committed yet).
     const payKey = ValueKey('trade_action_pay');

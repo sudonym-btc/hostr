@@ -80,12 +80,13 @@ Future<void> _run(List<String> arguments) async {
   }
 
   final seeder = RelaySeeder();
-  final resolved = _withEnvTokens(config ?? const SeedPipelineConfig());
+  final resolved = _withEnvOverrides(config ?? const SeedPipelineConfig());
   await seeder.runPipeline(config: resolved);
 }
 
 /// Overlay token addresses from environment variables (or the token
-/// manifest file) when the config doesn't already specify them.
+/// manifest file) and optional local seeder credentials when the config
+/// doesn't already specify them.
 ///
 /// Resolution order for each token address:
 ///   1. Explicit value in the parsed config (JSON / file).
@@ -93,7 +94,7 @@ Future<void> _run(List<String> arguments) async {
 ///      (set by `sync-contract-env.sh` → sourced by `seed_relay.sh`).
 ///   3. Token manifest at `docker/data/arbitrum/token-addresses.json`
 ///      (written by `arbitrum-init.sh` after deploying mock tokens).
-SeedPipelineConfig _withEnvTokens(SeedPipelineConfig base) {
+SeedPipelineConfig _withEnvOverrides(SeedPipelineConfig base) {
   final env = Platform.environment;
 
   // Try env vars first.
@@ -135,6 +136,8 @@ SeedPipelineConfig _withEnvTokens(SeedPipelineConfig base) {
     tbtcDecimals: tbtcDec,
     usdtAddress: usdtAddr,
     usdtDecimals: usdtDec,
+    tradeSponsorPrivateKey:
+        base.tradeSponsorPrivateKey ?? env['SEED_TRADE_SPONSOR_PRIVATE_KEY'],
   );
 }
 

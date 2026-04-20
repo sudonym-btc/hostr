@@ -100,10 +100,6 @@ services:
       - default
 
   escrow:
-    build:
-      context: .
-      dockerfile: escrow/Dockerfile
-      target: dev
     depends_on:
       nginx-proxy:
         condition: service_healthy

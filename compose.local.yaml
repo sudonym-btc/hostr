@@ -9,7 +9,6 @@
 x-templates:
   lnd-base: &lnd-base
     image: lightninglabs/lnd:v0.20.0-beta
-    platform: ${LND_PLATFORM:-linux/arm64}
     user: "0:0"
     depends_on:
       hostrbitcoind:
@@ -75,6 +74,10 @@ services:
   #     - ./landing-page/assets:/usr/share/nginx/html/assets:ro
 
   escrow:
+    build:
+      context: .
+      dockerfile: escrow/Dockerfile
+      target: dev
     depends_on:
       escrow-contract-deploy:
         condition: service_completed_successfully
@@ -322,6 +325,10 @@ services:
       - ./:/workspace
       - ./docker/tls/ca/ca.crt:/tls/ca.crt:ro
     working_dir: /workspace/hostr_sdk
+    environment:
+      # Anvil account #4: reserved for seeding trade transactions so generated
+      # users do not need native ETH just to pay gas.
+      - SEED_TRADE_SPONSOR_PRIVATE_KEY=0x47e179ec197488bf6f2a5af2f4f01a49510f4f62b6bdcb2e9495d5c83e8d4d3d
     command: >
       bash -lc "cp /tls/ca.crt /usr/local/share/ca-certificates/hostr-dev-ca.crt && update-ca-certificates 2>/dev/null &&
       dart pub get &&

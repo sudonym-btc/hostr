@@ -18,7 +18,7 @@ abstract class Config {
   String get googleMapsIosMapId => '';
   String get tipsAddress => 'tips@lnbits.hostr.development';
   String get hostrSocialNpub => '';
-  String get hostrTwitterHandle => 'HostrNetwork';
+  String get hostrTwitterHandle => 'hostr_network';
   int get defaultZap => 1000;
   int get defaultBudgetMonthly => 1 * pow(10, 6).toInt();
 
