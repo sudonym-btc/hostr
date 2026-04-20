@@ -220,8 +220,14 @@ class UserStartupProfile implements StartupProfile {
       );
 
       final metadataFuture = tracker.run(StartupItemId.profile, () async {
-        final metadata = await _metadata.loadMetadata(pubkey);
-        if (await hasNip65Future) {
+        var metadata = await _metadata.loadMetadata(pubkey);
+        final hasNip65 = await hasNip65Future;
+
+        if (metadata == null && hasNip65) {
+          metadata = await _metadata.loadMetadata(pubkey, forceRefresh: true);
+        }
+
+        if (metadata != null) {
           await _metadata.ensureUserConfig(pubkey);
         }
         return metadata;

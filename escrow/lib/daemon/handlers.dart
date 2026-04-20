@@ -6,6 +6,7 @@ import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:models/main.dart';
+import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
 
 /// Registers all JSON-RPC method handlers on a per-client [json_rpc.Server].
@@ -357,11 +358,18 @@ class DaemonHandler {
         maxDuration: old.maxDuration,
         type: old.type,
         feePercent: params['feePercent'].asNumOr(old.feePercent).toDouble(),
+        tokenFeeHints: old.tokenFeeHints,
       ),
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
 
-    await hostr.escrows.upsert(updated);
-    return {'ok': true};
+    final signed = updated.signAs(
+      hostr.auth.activeKeyPair!,
+      EscrowService.fromNostrEvent,
+    );
+    final responses = await hostr.escrows.upsert(signed);
+    _throwIfBroadcastFailed(responses);
+    return {'ok': true, 'serviceId': signed.id};
   }
 
   Future<Map<String, dynamic>> _deleteService(
@@ -394,6 +402,24 @@ class DaemonHandler {
     );
     await hostr.escrows.delete(EscrowService.fromNostrEvent(deletion));
     return {'ok': true};
+  }
+
+  void _throwIfBroadcastFailed(List<RelayBroadcastResponse> responses) {
+    if (responses.any((response) => response.broadcastSuccessful)) return;
+
+    if (responses.isEmpty) {
+      throw json_rpc.RpcException(
+        -32003,
+        'No relay responded to the broadcast.',
+      );
+    }
+
+    final details = responses.map((response) {
+      final message = response.msg.trim();
+      if (message.isEmpty) return response.relayUrl;
+      return '${response.relayUrl}: $message';
+    }).join('\n');
+    throw json_rpc.RpcException(-32003, 'Broadcast failed.\n$details');
   }
 
   // ── Profile ─────────────────────────────────────────────────────────────

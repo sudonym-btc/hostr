@@ -140,7 +140,7 @@ Future<Navigation> _editField({
   required String serviceId,
   required String label,
   required String current,
-  required Future<void> Function(String value) onSubmit,
+  required Future<String?> Function(String value) onSubmit,
 }) async {
   final value = Input(prompt: '$label (current: $current)').interact().trim();
 
@@ -169,8 +169,13 @@ Future<Navigation> _editField({
   ).interact();
 
   try {
-    await onSubmit(value);
+    final updatedServiceId = await onSubmit(value);
     spinner.done();
+    print('');
+    return Navigation(
+      Screen.serviceEdit,
+      selectedServiceId: updatedServiceId ?? serviceId,
+    );
   } catch (e) {
     spinner.failed();
     print('  Error: $e');
