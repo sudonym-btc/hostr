@@ -65,15 +65,47 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     String pubkey, {
     bool forceRefresh = false,
   }) => logger.span('loadMetadata', () async {
-    final metadata = await _ndk.metadata.loadMetadata(
+    final cachedOrJit = await _ndk.metadata.loadMetadata(
       pubkey,
       forceRefresh: forceRefresh,
     );
-    if (metadata != null) {
-      return ProfileMetadata.fromNostrEvent(metadata.toEvent());
+    if (cachedOrJit != null && !forceRefresh) {
+      return ProfileMetadata.fromNostrEvent(cachedOrJit.toEvent());
     }
+
+    final discovered = await _loadMetadataFromDiscoveryRelays(pubkey);
+    if (discovered != null) return discovered;
+
+    if (cachedOrJit != null) {
+      return ProfileMetadata.fromNostrEvent(cachedOrJit.toEvent());
+    }
+
     return null;
   });
+
+  Future<ProfileMetadata?> _loadMetadataFromDiscoveryRelays(
+    String pubkey,
+  ) async {
+    final relays = _config.bootstrapRelays;
+    if (relays.isEmpty) return null;
+
+    ProfileMetadata? latest;
+    await for (final profile in requests.query<ProfileMetadata>(
+      filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
+      relays: relays,
+      name: 'metadata-discovery',
+      timeout: metadataLoadTimeout,
+    )) {
+      if (latest == null || latest.createdAt < profile.createdAt) {
+        latest = profile;
+      }
+    }
+
+    if (latest != null) {
+      await _ndk.config.cache.saveMetadata(latest.metadata);
+    }
+    return latest;
+  }
 
   /// Refreshes the cached NIP-65 relay list for [pubkey] from the network.
   /// Call before [loadMetadata] with forceRefresh so the JIT engine knows

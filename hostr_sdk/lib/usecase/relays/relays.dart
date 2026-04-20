@@ -259,9 +259,9 @@ class Relays {
       logger.span('loadNip65Hints', () async {
         logger.i('Syncing NIP-65 relay list for $pubkey');
         try {
+          await _discoverNip65OnBootstrapRelays(pubkey);
           final relayList = await ndk.userRelayLists.getSingleUserRelayList(
             pubkey,
-            forceRefresh: true,
           );
           if (relayList == null || relayList.urls.isEmpty) {
             logger.i('No NIP-65 relay list found for $pubkey');
@@ -274,6 +274,27 @@ class Relays {
           return false;
         }
       });
+
+  Future<void> _discoverNip65OnBootstrapRelays(String pubkey) async {
+    final relays = getIt<HostrConfig>().bootstrapRelays;
+    if (relays.isEmpty) return;
+
+    Nip01Event? latest;
+    await for (final event in getIt<Requests>().query<Nip01Event>(
+      filter: Filter(authors: [pubkey], kinds: [Nip65.kKind], limit: 1),
+      relays: relays,
+      name: 'Nip65-discovery',
+    )) {
+      if (latest == null || latest.createdAt < event.createdAt) {
+        latest = event;
+      }
+    }
+
+    if (latest == null) return;
+    final nip65 = Nip65.fromEvent(latest);
+    final userRelayList = UserRelayList.fromNip65(nip65);
+    await ndk.config.cache.saveUserRelayList(userRelayList);
+  }
 
   /// Publishes the user's NIP-65 relay list, ensuring the given
   /// [hostrRelay] is included with read+write markers.
