@@ -24,17 +24,17 @@ class DevWidget extends StatelessWidget {
           dense: true,
           title: const Text('Build'),
           subtitle: Text(
-            kCommitSha,
+            kBuildLabel,
             style: const TextStyle(fontFamily: 'monospace'),
           ),
           trailing: IconButton(
             icon: const Icon(Icons.copy, size: 16),
-            tooltip: 'Copy commit SHA',
+            tooltip: 'Copy build label',
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: kCommitSha));
+              Clipboard.setData(ClipboardData(text: kBuildLabel));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Commit SHA copied'),
+                  content: Text('Build label copied'),
                   duration: Duration(seconds: 1),
                 ),
               );
