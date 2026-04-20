@@ -8,6 +8,8 @@ const ESCROW_PUBKEY = "807dbcdedc31a47cea61e7331e691df29320506a245eb5df89ff54b7c
 const KINDS = {
   profile: 0,
   textNote: 1,
+  contacts: 3,
+  repost: 6,
   reaction: 7,
   badgeAward: 8,
   seal: 13,
@@ -110,9 +112,25 @@ function weekLabel(d) {
   return d.toISOString().slice(0, 10);
 }
 
-function bar(n, max, width = 24) {
-  if (!max) return "";
-  return "█".repeat(Math.max(0, Math.round((n / max) * width)));
+function mermaidString(s) {
+  return String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function chartMax(values) {
+  const max = Math.max(0, ...values);
+  if (max <= 0) return 1;
+  return Math.max(1, Math.ceil(max * 1.15));
+}
+
+function amountChartMax(values) {
+  const max = Math.max(0, ...values);
+  if (max <= 0) return 1;
+  if (max < 1) return Number((max * 1.15).toPrecision(6));
+  return Math.max(1, Math.ceil(max * 1.15));
+}
+
+function chartNumber(n) {
+  return Number(n).toLocaleString("en-US", { useGrouping: false, maximumSignificantDigits: 12 });
 }
 
 function tagsOf(ev, name) {
@@ -469,7 +487,7 @@ async function socialStats() {
   const since90 = unix(addDays(today, -90));
   const socialEvents = await eventsFilters([
     { kinds: [KINDS.textNote], authors: [HOSTR_SOCIAL_HEX], since: since90 },
-    { kinds: [KINDS.reaction, KINDS.textNote, KINDS.zapReceipt, KINDS.giftWrap, KINDS.dm], "#p": [HOSTR_SOCIAL_HEX], since: since90 },
+    { kinds: [KINDS.contacts, KINDS.repost, KINDS.reaction, KINDS.textNote, KINDS.zapReceipt, KINDS.giftWrap, KINDS.dm], "#p": [HOSTR_SOCIAL_HEX], since: since90 },
     { kinds: [KINDS.dm], authors: [HOSTR_SOCIAL_HEX], since: since90 },
   ], 90000);
   const posts = socialEvents.filter((e) => e.kind === KINDS.textNote && e.pubkey === HOSTR_SOCIAL_HEX);
@@ -478,12 +496,15 @@ async function socialStats() {
   const pTagged = (kind) => socialEvents.filter((e) => e.kind === kind && hasTag(e, "p", HOSTR_SOCIAL_HEX));
   const reactions = pTagged(KINDS.reaction).length;
   const comments = pTagged(KINDS.textNote).filter((e) => e.pubkey !== HOSTR_SOCIAL_HEX).length;
+  const reposts = pTagged(KINDS.repost).length;
+  const followEvents = pTagged(KINDS.contacts);
+  const followAuthors = new Set(followEvents.map((e) => e.pubkey)).size;
   const zaps = pTagged(KINDS.zapReceipt);
   const receivedGw = pTagged(KINDS.giftWrap).length;
   const sentLegacy = socialEvents.filter((e) => e.kind === KINDS.dm && e.pubkey === HOSTR_SOCIAL_HEX).length;
   const receivedLegacy = pTagged(KINDS.dm).length;
   const postEngagement = recentPostIds.length
-    ? socialEvents.filter((e) => [KINDS.reaction, KINDS.textNote, KINDS.zapReceipt].includes(e.kind) && tagsOf(e, "e").some((id) => recentPostIds.includes(id))).length
+    ? socialEvents.filter((e) => [KINDS.repost, KINDS.reaction, KINDS.textNote, KINDS.zapReceipt].includes(e.kind) && tagsOf(e, "e").some((id) => recentPostIds.includes(id))).length
     : 0;
   const zapMsat = zaps.reduce((sum, ev) => sum + parseZapMsat(ev), 0n);
 
@@ -500,6 +521,8 @@ async function socialStats() {
       posts: slice.filter((e) => e.kind === KINDS.textNote && e.pubkey === HOSTR_SOCIAL_HEX).length,
       reactions: sliceP(KINDS.reaction).length,
       comments: sliceP(KINDS.textNote).filter((e) => e.pubkey !== HOSTR_SOCIAL_HEX).length,
+      reposts: sliceP(KINDS.repost).length,
+      follows: new Set(sliceP(KINDS.contacts).map((e) => e.pubkey)).size,
       zaps: zapEvents.length,
       zapMsat: zapEvents.reduce((sum, ev) => sum + parseZapMsat(ev), 0n),
       dmReceivedGiftwrap: sliceP(KINDS.giftWrap).length,
@@ -521,6 +544,8 @@ async function socialStats() {
       posts: slice.filter((e) => e.kind === KINDS.textNote && e.pubkey === HOSTR_SOCIAL_HEX).length,
       reactions: sliceP(KINDS.reaction).length,
       comments: sliceP(KINDS.textNote).filter((e) => e.pubkey !== HOSTR_SOCIAL_HEX).length,
+      reposts: sliceP(KINDS.repost).length,
+      follows: new Set(sliceP(KINDS.contacts).map((e) => e.pubkey)).size,
       zaps: zapEvents.length,
       zapMsat: zapEvents.reduce((sum, ev) => sum + parseZapMsat(ev), 0n),
       dmReceivedGiftwrap: sliceP(KINDS.giftWrap).length,
@@ -536,6 +561,9 @@ async function socialStats() {
       postEngagement90d: postEngagement,
       reactions90d: reactions,
       comments90d: comments,
+      reposts90d: reposts,
+      followEvents90d: followEvents.length,
+      uniqueFollowAuthors90d: followAuthors,
       zaps90d: zaps.length,
       zapSats90d: Number(zapMsat / 1000n),
       dmReceivedGiftwrap90d: receivedGw,
@@ -556,11 +584,56 @@ function mdTable(rows, headers) {
 }
 
 function renderTrend(rows, fields, title) {
-  const max = Math.max(0, ...rows.map((r) => Math.max(...fields.map((f) => Number(r[f] || 0)))));
-  const lines = [`### ${title}`, "", "| Period | " + fields.join(" | ") + " | graph |", "| --- | " + fields.map(() => "---").join(" | ") + " | --- |"];
+  const totals = rows.map((r) => fields.reduce((s, f) => s + Number(r[f] || 0), 0));
+  const labels = rows.map((r) => r.label);
+  const lines = [
+    `### ${title}`,
+    "",
+    "```mermaid",
+    "xychart-beta",
+    `    title "${mermaidString(title)}"`,
+    `    x-axis [${labels.map((label) => `"${mermaidString(label)}"`).join(", ")}]`,
+    `    y-axis "Events" 0 --> ${chartMax(totals)}`,
+    `    bar [${totals.join(", ")}]`,
+    "```",
+    "",
+    "| Period | " + fields.join(" | ") + " | total |",
+    "| --- | " + fields.map(() => "---").join(" | ") + " | --- |",
+  ];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    lines.push(`| ${r.label} | ${fields.map((f) => r[f] ?? 0).join(" | ")} | ${totals[i]} |`);
+  }
+  return lines.join("\n");
+}
+
+function renderLineSeriesTrend(rows, series, title) {
+  const labels = rows.map((r) => r.label);
+  const valuesBySeries = series.map((s) => ({
+    ...s,
+    values: rows.map((r) => Number(r[s.key] || 0)),
+  }));
+  const lines = [`### ${title}`];
+  for (const s of valuesBySeries) {
+    lines.push(
+      "",
+      "```mermaid",
+      "xychart-beta",
+      `    title "${mermaidString(`${title}: ${s.label}`)}"`,
+      `    x-axis [${labels.map((label) => `"${mermaidString(label)}"`).join(", ")}]`,
+      `    y-axis "Events" 0 --> ${chartMax(s.values)}`,
+      `    line [${s.values.join(", ")}]`,
+      "```",
+    );
+  }
+  lines.push(
+    "",
+    "| Period | " + series.map((s) => s.label).join(" | ") + " | total |",
+    "| --- | " + series.map(() => "---").join(" | ") + " | --- |",
+  );
   for (const r of rows) {
-    const total = fields.reduce((s, f) => s + Number(r[f] || 0), 0);
-    lines.push(`| ${r.label} | ${fields.map((f) => r[f] ?? 0).join(" | ")} | ${bar(total, max * fields.length)} |`);
+    const values = series.map((s) => Number(r[s.key] || 0));
+    lines.push(`| ${r.label} | ${values.join(" | ")} | ${values.reduce((a, b) => a + b, 0)} |`);
   }
   return lines.join("\n");
 }
@@ -577,17 +650,56 @@ function renderAmountMap(map) {
 
 function renderAmountTrend(map, title) {
   const periods = Object.keys(map).sort().slice(-12);
-  const lines = [`### ${title}`, "", "| Period | Amounts |", "| --- | --- |"];
+  const tokenKeys = [...new Set(periods.flatMap((p) => Object.keys(map[p] || {}).map((key) => key.split(":")[1])))].sort();
+  const lines = [`### ${title}`];
+  for (const token of tokenKeys) {
+    const info = tokenInfo(token);
+    const rawValues = periods.map((p) => Object.entries(map[p] || {})
+      .filter(([key]) => key.split(":")[1] === token)
+      .reduce((sum, [, amount]) => sum + amount, 0n));
+    const values = rawValues.map((amount) => Number.parseFloat(fmtUnits(amount, info.decimals)));
+    lines.push(
+      "",
+      "```mermaid",
+      "xychart-beta",
+      `    title "${mermaidString(`${title}: ${info.symbol} Total Volume`)}"`,
+      `    x-axis [${periods.map((label) => `"${mermaidString(label)}"`).join(", ")}]`,
+      `    y-axis "${mermaidString(info.symbol)}" 0 --> ${chartNumber(amountChartMax(values))}`,
+      `    bar [${values.map(chartNumber).join(", ")}]`,
+      "```",
+    );
+  }
+  lines.push("", "| Period | Token | Total Volume |", "| --- | --- | --- |");
   for (const p of periods) {
-    const parts = Object.entries(map[p]).map(([key, amount]) => {
-      const [status, token] = key.split(":");
+    const tokenAmounts = tokenKeys.map((token) => ({
+      token,
+      amount: Object.entries(map[p] || {})
+        .filter(([key]) => key.split(":")[1] === token)
+        .reduce((sum, [, amount]) => sum + amount, 0n),
+    }));
+    if (!tokenAmounts.length) {
+      lines.push(`| ${p} | - | 0 |`);
+      continue;
+    }
+    for (const { token, amount } of tokenAmounts) {
       const info = tokenInfo(token);
-      return `${status} ${fmtUnits(amount, info.decimals)} ${info.symbol}`;
-    });
-    lines.push(`| ${p} | ${parts.join("<br>") || "0"} |`);
+      lines.push(`| ${p} | ${info.symbol} | ${fmtUnits(amount, info.decimals)} |`);
+    }
   }
   return lines.join("\n");
 }
+
+const SOCIAL_TREND_SERIES = [
+  { key: "posts", label: "posts" },
+  { key: "reactions", label: "reactions" },
+  { key: "comments", label: "comments" },
+  { key: "reposts", label: "reposts" },
+  { key: "follows", label: "follows" },
+  { key: "zaps", label: "zaps" },
+  { key: "dmReceivedGiftwrap", label: "giftwrap DMs received" },
+  { key: "dmSentLegacy", label: "legacy DMs sent" },
+  { key: "dmReceivedLegacy", label: "legacy DMs received" },
+];
 
 function renderReport(relay, escrowSvc, evm, social) {
   const lines = [];
@@ -665,6 +777,9 @@ function renderReport(relay, escrowSvc, evm, social) {
     { Metric: "Post engagements on recent posts, 90d", Count: social.totals.postEngagement90d },
     { Metric: "Reactions mentioning account, 90d", Count: social.totals.reactions90d },
     { Metric: "Comments mentioning account, 90d", Count: social.totals.comments90d },
+    { Metric: "Reposts mentioning account, 90d", Count: social.totals.reposts90d },
+    { Metric: "Follow-list events mentioning account, 90d", Count: social.totals.followEvents90d },
+    { Metric: "Unique follow-list authors, 90d", Count: social.totals.uniqueFollowAuthors90d },
     { Metric: "Zap receipts, 90d", Count: social.totals.zaps90d },
     { Metric: "Zap sats parsed, 90d", Count: social.totals.zapSats90d },
     { Metric: "Giftwrap DMs received, 90d", Count: social.totals.dmReceivedGiftwrap90d },
@@ -674,9 +789,9 @@ function renderReport(relay, escrowSvc, evm, social) {
   lines.push("");
   lines.push("Note: NIP-59 giftwrap sender identity and sent-DM counts are not publicly queryable from relay metadata alone; received giftwraps are counted by `#p` tag from the production relay.");
   lines.push("");
-  lines.push(renderTrend(social.weekly, ["posts", "reactions", "comments", "zaps", "dmReceivedGiftwrap"], "Weekly Social Trend"));
+  lines.push(renderLineSeriesTrend(social.weekly, SOCIAL_TREND_SERIES, "Weekly Social Trend"));
   lines.push("");
-  lines.push(renderTrend(social.daily.slice(-14), ["posts", "reactions", "comments", "zaps", "dmReceivedGiftwrap"], "Daily Social Trend (last 14 days)"));
+  lines.push(renderLineSeriesTrend(social.daily.slice(-14), SOCIAL_TREND_SERIES, "Daily Social Trend (last 14 days)"));
   return lines.join("\n");
 }
 
