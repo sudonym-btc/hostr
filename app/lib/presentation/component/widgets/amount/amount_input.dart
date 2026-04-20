@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/listing_price_field_controller.dart'
     show decimalsForDenomination;
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -138,6 +139,177 @@ String trimTrailingZeros(String value) {
     value = value.replaceAll(RegExp(r'\.$'), '');
   }
   return value;
+}
+
+class AmountTapInput extends StatefulWidget {
+  final AmountFieldController controller;
+  final String? labelText;
+  final String? hintText;
+  final String? suffixText;
+  final DenominatedAmount? min;
+  final DenominatedAmount? max;
+  final List<String> possibleDenominations;
+  final bool enabled;
+  final bool editable;
+  final bool required;
+  final TextStyle? textStyle;
+  final AutovalidateMode autovalidateMode;
+  final String? Function(DenominatedAmount? amount)? validator;
+  final ValueChanged<DenominatedAmount?>? onChanged;
+
+  const AmountTapInput({
+    super.key,
+    required this.controller,
+    this.labelText,
+    this.hintText,
+    this.suffixText,
+    this.min,
+    this.max,
+    this.possibleDenominations = const [],
+    this.enabled = true,
+    this.editable = true,
+    this.required = false,
+    this.textStyle,
+    this.autovalidateMode = AutovalidateMode.disabled,
+    this.validator,
+    this.onChanged,
+  });
+
+  @override
+  State<AmountTapInput> createState() => _AmountTapInputState();
+}
+
+class _AmountTapInputState extends State<AmountTapInput> {
+  final _fieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant AmountTapInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) {
+      return;
+    }
+    oldWidget.controller.removeListener(_handleControllerChanged);
+    widget.controller.addListener(_handleControllerChanged);
+    _fieldKey.currentState?.didChange(widget.controller.amount);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _fieldKey.currentState?.didChange(widget.controller.amount);
+      setState(() {});
+    });
+  }
+
+  DenominatedAmount get _displayAmount =>
+      widget.controller.amount ??
+      DenominatedAmount.zero(
+        widget.controller.denomination,
+        widget.controller.decimals,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return FormField<DenominatedAmount>(
+      key: _fieldKey,
+      initialValue: widget.controller.amount,
+      enabled: widget.enabled,
+      autovalidateMode: widget.autovalidateMode,
+      validator: _validate,
+      builder: (field) {
+        final canEdit = widget.enabled && widget.editable;
+        final textStyle =
+            widget.textStyle ??
+            Theme.of(context).textTheme.bodyLarge ??
+            DefaultTextStyle.of(context).style;
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: canEdit ? () => _openEditor(context) : null,
+          child: InputDecorator(
+            isEmpty: false,
+            decoration: InputDecoration(
+              enabled: widget.enabled,
+              labelText: widget.labelText,
+              hintText: widget.hintText,
+              suffixText: widget.suffixText,
+              errorText: field.errorText,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(formatAmount(_displayAmount), style: textStyle),
+                if (canEdit) ...[
+                  Gap.horizontal.xs(),
+                  Icon(
+                    Icons.edit,
+                    size: textStyle.fontSize ?? kIconSm,
+                    color: textStyle.color,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openEditor(BuildContext context) async {
+    final result = await AmountEditorBottomSheet.show(
+      context,
+      initialAmount: _displayAmount,
+      minAmount: widget.min,
+      maxAmount: widget.max,
+      possibleDenominations: widget.possibleDenominations,
+      onDenominationChanged: widget.controller.setDenomination,
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+    widget.controller.setValue(result);
+    widget.onChanged?.call(widget.controller.amount);
+  }
+
+  String? _validate(DenominatedAmount? amount) {
+    final effectiveAmount = widget.controller.amount ?? amount;
+    final controllerError = widget.controller.validate(
+      widget.controller.textController.text,
+    );
+    if (controllerError != null) {
+      return controllerError;
+    }
+    if (widget.required &&
+        (effectiveAmount == null || effectiveAmount.value <= BigInt.zero)) {
+      return 'Enter a valid amount';
+    }
+    if (effectiveAmount != null &&
+        widget.min != null &&
+        effectiveAmount.value < widget.min!.value) {
+      return 'Amount must be at least ${formatAmount(widget.min!)}';
+    }
+    if (effectiveAmount != null &&
+        widget.max != null &&
+        effectiveAmount.value > widget.max!.value) {
+      return 'Amount must be at most ${formatAmount(widget.max!)}';
+    }
+    return widget.validator?.call(effectiveAmount);
+  }
 }
 
 class AmountInputWidget extends FormField<DenominatedAmount> {

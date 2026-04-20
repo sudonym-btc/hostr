@@ -43,12 +43,13 @@ class CoinlibVerifier implements EventVerifier {
 /// Fast secp256k1-backed BIP-340 event signer.
 ///
 /// Uses the shared `models` secp256k1 engine (native/WASM via coinlib)
-/// for Schnorr signing **and NIP-44 encryption/decryption** instead of the
-/// pure-Dart `bip340` + `elliptic` packages.
+/// for Schnorr signing and the configured crypto provider for the NIP-44
+/// fast paths instead of the pure-Dart `bip340` + `elliptic` packages.
 ///
-/// NIP-44 conversation-key derivation uses [coinlibEncryptNip44] /
-/// [coinlibDecryptNip44] which call `secp256k1_ec_pubkey_tweak_mul` via WASM
-/// on web — significantly faster than `elliptic` for giftwrap operations.
+/// On web, the Flutter crypto provider delegates NIP-44 conversation-key
+/// derivation and ChaCha20 payload encryption/decryption to noble JS through
+/// `web/nostr_crypto.js`, which is significantly faster than the Dart debug
+/// crypto stack for giftwrap operations.
 ///
 /// NIP-04 legacy encrypt/decrypt are still delegated to [Bip340EventSigner]
 /// as NIP-04 is deprecated and not on the hot path.

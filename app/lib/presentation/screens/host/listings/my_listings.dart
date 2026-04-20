@@ -38,7 +38,6 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
     // Update the list item in-place when a listing is mutated elsewhere.
     _updatesSub = getIt<Hostr>().listings.updates.listen((listing) {
-      print('Update sub printed, upserting $listing');
       _listCubit.upsertItem(listing);
     });
   }
@@ -54,8 +53,8 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
 
   @override
   void dispose() {
-    _updatesSub?.cancel();
-    _listCubit.close();
+    unawaited(_updatesSub?.cancel());
+    unawaited(_listCubit.close());
     super.dispose();
   }
 
@@ -115,8 +114,12 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                 }
                 final listing = state.results[index] as Listing;
                 return AnimatedListItem(
+                  key: ValueKey(listing.anchor ?? listing.id),
                   index: index,
-                  child: ListingListItemWidget(listing: listing),
+                  child: ListingListItemWidget(
+                    key: ValueKey(listing.anchor ?? listing.id),
+                    listing: listing,
+                  ),
                 );
               },
             ),

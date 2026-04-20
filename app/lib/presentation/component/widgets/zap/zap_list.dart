@@ -138,9 +138,9 @@ class ZapListWidgetState extends State<ZapListWidget> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
-    _statusSub?.cancel();
-    _sws?.close();
+    unawaited(_subscription?.cancel());
+    unawaited(_statusSub?.cancel());
+    unawaited(_sws?.close());
     super.dispose();
   }
 

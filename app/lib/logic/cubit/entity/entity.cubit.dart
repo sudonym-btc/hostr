@@ -82,9 +82,11 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   }
 
   @override
-  Future<void> close() {
-    _updatesSub?.cancel();
-    _relayConnectivitySub?.cancel();
+  Future<void> close() async {
+    await _updatesSub?.cancel();
+    _updatesSub = null;
+    await _relayConnectivitySub?.cancel();
+    _relayConnectivitySub = null;
     return super.close();
   }
 }

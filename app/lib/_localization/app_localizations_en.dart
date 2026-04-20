@@ -217,6 +217,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentTitle => 'Payment';
 
   @override
+  String get paymentCommentLabel => 'Comment';
+
+  @override
+  String get paymentCommentHint => 'Add a note';
+
+  @override
   String get processingPayment => 'Processing payment...';
 
   @override

@@ -180,6 +180,19 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant ListingListItemWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.listing.id == widget.listing.id) return;
+
+    final oldAnchor = oldWidget.listing.anchor;
+    final nextAnchor = widget.listing.anchor;
+    if (oldAnchor == nextAnchor) {
+      _listingDependencies.listing = widget.listing;
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_availabilityCubit != null) return;
@@ -200,10 +213,10 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
 
   @override
   void dispose() {
-    _verifiedPairsSubscription?.cancel();
-    _listingDependencies.close();
-    _availabilityCubit?.close();
-    _localDateRangeCubit?.close();
+    unawaited(_verifiedPairsSubscription?.cancel());
+    unawaited(_listingDependencies.close());
+    unawaited(_availabilityCubit?.close());
+    unawaited(_localDateRangeCubit?.close());
     super.dispose();
   }
 

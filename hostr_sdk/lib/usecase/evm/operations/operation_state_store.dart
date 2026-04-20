@@ -376,7 +376,7 @@ class OperationStateStore {
     }
   }
 
-  void dispose() => _onChanged.close();
+  Future<void> dispose() => _onChanged.close();
 
   // ── Internal ────────────────────────────────────────────────────────
 

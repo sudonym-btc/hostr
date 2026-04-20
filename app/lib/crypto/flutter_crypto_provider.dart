@@ -51,4 +51,20 @@ class FlutterCryptoProvider implements CryptoProvider {
     String privKeyHex,
     String xOnlyPubKeyHex,
   ) async => nip44ConversationKeyWeb(privKeyHex, xOnlyPubKeyHex);
+
+  /// On web, delegates the full NIP-44 cipher path to the same JS module as
+  /// the conversation key. On native platforms, returns `null` so callers use
+  /// the existing Dart implementation.
+  @override
+  Future<String?> nip44Encrypt(
+    String plaintext,
+    Uint8List conversationKey, {
+    Uint8List? nonce,
+  }) async => nip44EncryptWeb(plaintext, conversationKey, nonce: nonce);
+
+  @override
+  Future<String?> nip44Decrypt(
+    String payload,
+    Uint8List conversationKey,
+  ) async => nip44DecryptWeb(payload, conversationKey);
 }

@@ -103,76 +103,83 @@ class _HostingListItemState extends State<_HostingListItem> {
   @override
   Widget build(BuildContext context) {
     final pair = widget.group.event;
+    void openThread() {
+      final anchor = getIt<Hostr>().messaging.threads
+          .findPreferredConversationIdByTradeId(pair.tradeId);
+      if (anchor != null) {
+        AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
+      }
+    }
 
-    return CustomPadding.horizontal.lg(
-      child: CustomPadding.vertical.md(
-        child: FutureBuilder<String?>(
-          future: _guestFuture,
-          builder: (context, snapshot) {
-            final guestPubkey = snapshot.data;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: openThread,
+        child: CustomPadding.horizontal.lg(
+          child: CustomPadding.vertical.md(
+            child: FutureBuilder<String?>(
+              future: _guestFuture,
+              builder: (context, snapshot) {
+                final guestPubkey = snapshot.data;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    switch (snapshot.connectionState) {
-                      ConnectionState.waiting => const Align(
-                        alignment: Alignment.centerLeft,
-                        child: AppLoadingIndicator.small(),
-                      ),
-                      _ when snapshot.hasError => const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Icon(Icons.error_outline, size: 18),
-                      ),
-                      _ when guestPubkey == null => const SizedBox.shrink(),
-                      _ => ProfileProvider(
-                        pubkey: guestPubkey,
-                        builder: (context, profileSnapshot) {
-                          final guestName =
-                              profileSnapshot.data?.metadata.getName() ??
-                              guestPubkey.substring(0, 8);
-                          return Text(
-                            guestName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          );
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        switch (snapshot.connectionState) {
+                          ConnectionState.waiting => const Align(
+                            alignment: Alignment.centerLeft,
+                            child: AppLoadingIndicator.small(),
+                          ),
+                          _ when snapshot.hasError => const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Icon(Icons.error_outline, size: 18),
+                          ),
+                          _ when guestPubkey == null => const SizedBox.shrink(),
+                          _ => ProfileProvider(
+                            pubkey: guestPubkey,
+                            builder: (context, profileSnapshot) {
+                              final guestName =
+                                  profileSnapshot.data?.metadata.getName() ??
+                                  guestPubkey.substring(0, 8);
+                              return Text(
+                                guestName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              );
+                            },
+                          ),
                         },
-                      ),
-                    },
-                    Text(
-                      ' hosted at ',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        Text(
+                          ' hosted at ',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                    Gap.vertical.md(),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TradeHeader(
+                        tradeId: pair.tradeId,
+                        showActions: false,
+                        showImages: true,
+                        compact: true,
                       ),
                     ),
                   ],
-                ),
-                Gap.vertical.md(),
-                SizedBox(
-                  width: double.infinity,
-                  child: TradeHeader(
-                    tradeId: pair.tradeId,
-                    showActions: false,
-                    showImages: true,
-                    compact: true,
-                    onTap: () {
-                      final anchor = getIt<Hostr>().messaging.threads
-                          .findPreferredConversationIdByTradeId(pair.tradeId);
-                      if (anchor != null) {
-                        AutoRouter.of(
-                          context,
-                        ).push(ThreadRoute(anchor: anchor));
-                      }
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );

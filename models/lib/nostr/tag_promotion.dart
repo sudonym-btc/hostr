@@ -176,6 +176,15 @@ class ListingFilterBuilder {
     return this;
   }
 
+  /// Filter to listings where price negotiation is supported.
+  ListingFilterBuilder negotiable() {
+    final target = _targetFor(source: 'negotiable');
+    if (target != null) {
+      _tags[target] = ['true'];
+    }
+    return this;
+  }
+
   /// Merge additional raw tag filters (e.g. geohash).
   ListingFilterBuilder rawTags(Map<String, List<String>> tags) {
     for (final entry in tags.entries) {

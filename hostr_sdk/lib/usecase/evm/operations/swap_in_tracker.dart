@@ -49,11 +49,11 @@ class SwapInTracker extends OperationTracker<SwapInOperation> {
 
     // Listen for the boltzId to appear, then re-key.
     final rekeyKey = '$parentId#rekey';
-    _rekeyWatchers[rekeyKey]?.cancel();
+    unawaited(_rekeyWatchers[rekeyKey]?.cancel());
     _rekeyWatchers[rekeyKey] = operation.stream.listen((state) {
       final newBoltzId = state.data?.boltzId;
       if (newBoltzId == null) return;
-      _rekeyWatchers[rekeyKey]?.cancel();
+      unawaited(_rekeyWatchers[rekeyKey]?.cancel());
       _rekeyWatchers.remove(rekeyKey);
       unregister(parentId);
       register(newBoltzId, operation);
@@ -80,11 +80,11 @@ class SwapInTracker extends OperationTracker<SwapInOperation> {
   }
 
   @override
-  void dispose() {
+  Future<void> dispose() async {
     for (final sub in _rekeyWatchers.values) {
-      sub.cancel();
+      await sub.cancel();
     }
     _rekeyWatchers.clear();
-    super.dispose();
+    await super.dispose();
   }
 }

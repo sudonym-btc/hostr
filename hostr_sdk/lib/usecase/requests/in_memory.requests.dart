@@ -178,9 +178,9 @@ class InMemoryRequests extends Requests implements RequestsModel {
   }
 
   /// Clean up subscriptions.
-  void dispose() {
+  Future<void> dispose() async {
     for (var sub in _subscriptions) {
-      sub.response.close();
+      await sub.response.close();
     }
     _subscriptions.clear();
   }

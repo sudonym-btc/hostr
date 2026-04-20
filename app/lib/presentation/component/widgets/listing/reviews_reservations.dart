@@ -102,8 +102,8 @@ class _ExternalReviewSegmentState extends State<_ExternalReviewSegment> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.countStream != widget.countStream ||
         oldWidget.averageRatingStream != widget.averageRatingStream) {
-      _sub?.cancel();
-      _averageSub?.cancel();
+      unawaited(_sub?.cancel());
+      unawaited(_averageSub?.cancel());
       _count = null;
       _averageRating = null;
       _bindStreams();
@@ -112,8 +112,8 @@ class _ExternalReviewSegmentState extends State<_ExternalReviewSegment> {
 
   @override
   void dispose() {
-    _sub?.cancel();
-    _averageSub?.cancel();
+    unawaited(_sub?.cancel());
+    unawaited(_averageSub?.cancel());
     super.dispose();
   }
 
@@ -168,7 +168,7 @@ class _ExternalCountSegmentState extends State<_ExternalCountSegment> {
   void didUpdateWidget(covariant _ExternalCountSegment oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.countStream != widget.countStream) {
-      _sub?.cancel();
+      unawaited(_sub?.cancel());
       _count = null;
       _bindStream();
     }
@@ -176,7 +176,7 @@ class _ExternalCountSegmentState extends State<_ExternalCountSegment> {
 
   @override
   void dispose() {
-    _sub?.cancel();
+    unawaited(_sub?.cancel());
     super.dispose();
   }
 

@@ -196,7 +196,7 @@ class Reservations extends CrudUseCase<Reservation>
         })
         .distinct((a, b) => a.id == b.id);
 
-    _myReservationsSubscription?.cancel();
+    unawaited(_myReservationsSubscription?.cancel());
     _myReservationsSubscription = reservationsStream.listen(
       response.add,
       onError: response.addError,

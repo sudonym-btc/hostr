@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hostr/background_task_type.dart';
 import 'package:hostr/data/sources/app_db.dart';
 import 'package:hostr/main.dart';
+import 'package:hostr/presentation/in_app_notification_toast.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
@@ -96,13 +97,22 @@ Future<void> initCore(
         logger: logger,
         appDatabase: appDatabase,
         showNotification:
-            ({required int id, String? title, String? body, String? payload}) =>
-                FlutterLocalNotificationsPlugin().show(
-                  id: id,
+            ({required int id, String? title, String? body, String? payload}) {
+              if (kIsWeb) {
+                InAppNotificationToast.show(
                   title: title,
                   body: body,
                   payload: payload,
-                ),
+                );
+                return Future.value();
+              }
+              return FlutterLocalNotificationsPlugin().show(
+                id: id,
+                title: title,
+                body: body,
+                payload: payload,
+              );
+            },
       ),
       environment: env,
     ),

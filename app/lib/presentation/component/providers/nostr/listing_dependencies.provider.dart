@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
@@ -11,6 +13,9 @@ class ListingDependencies {
   final StreamWithStatus<Validation<Review>> verifiedReviews;
   final StreamWithStatus<Validation<ReservationGroup>>
   verifiedReservationGroups;
+  StreamWithStatus<List<Validation<Review>>>? _reviewItemsSource;
+  StreamWithStatus<List<Validation<ReservationGroup>>>?
+  _reservationGroupItemsSource;
 
   factory ListingDependencies.forListing(Listing listing) {
     final anchor = listing.anchor;
@@ -40,16 +45,19 @@ class ListingDependencies {
     required this.verifiedReservationGroups,
   });
 
-  late final Stream<List<Validation<Review>>> reviewItems = verifiedReviews
-      .accumulateByKey((r) => r.event.id)
+  StreamWithStatus<List<Validation<Review>>> get _reviewItems =>
+      _reviewItemsSource ??= verifiedReviews.accumulateByKey((r) => r.event.id);
+
+  StreamWithStatus<List<Validation<ReservationGroup>>>
+  get _reservationGroupItems => _reservationGroupItemsSource ??=
+      verifiedReservationGroups.accumulateByKey((g) => g.event.groupId);
+
+  late final Stream<List<Validation<Review>>> reviewItems = _reviewItems
       .replayStream
       .shareReplay(maxSize: 1);
 
   late final Stream<List<Validation<ReservationGroup>>> reservationGroupItems =
-      verifiedReservationGroups
-          .accumulateByKey((g) => g.event.groupId)
-          .replayStream
-          .shareReplay(maxSize: 1);
+      _reservationGroupItems.replayStream.shareReplay(maxSize: 1);
 
   late final Stream<int> reviewCount = reviewItems
       .map((items) => items.whereType<Valid<Review>>().length)
@@ -77,9 +85,13 @@ class ListingDependencies {
       .map((items) => items.whereType<Valid<ReservationGroup>>().length)
       .shareReplay(maxSize: 1);
 
-  void close() {
-    verifiedReviews.close();
-    verifiedReservationGroups.close();
+  Future<void> close() async {
+    await _reviewItemsSource?.close();
+    _reviewItemsSource = null;
+    await _reservationGroupItemsSource?.close();
+    _reservationGroupItemsSource = null;
+    await verifiedReviews.close();
+    await verifiedReservationGroups.close();
   }
 }
 
@@ -156,7 +168,7 @@ class _ListingDependenciesProviderState
 
   void _disposeOwnedDependencies() {
     if (!_ownsDependencies) return;
-    _dependencies.close();
+    unawaited(_dependencies.close());
   }
 
   @override

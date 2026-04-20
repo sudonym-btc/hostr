@@ -41,11 +41,11 @@ class SwapOutTracker extends OperationTracker<SwapOutOperation> {
     final tempKey = '_pending_${identityHashCode(operation)}';
     register(tempKey, operation);
 
-    _rekeyWatchers[tempKey]?.cancel();
+    unawaited(_rekeyWatchers[tempKey]?.cancel());
     _rekeyWatchers[tempKey] = operation.stream.listen((state) {
       final newBoltzId = state.data?.boltzId;
       if (newBoltzId == null) return;
-      _rekeyWatchers[tempKey]?.cancel();
+      unawaited(_rekeyWatchers[tempKey]?.cancel());
       _rekeyWatchers.remove(tempKey);
       unregister(tempKey);
       register(newBoltzId, operation);
@@ -53,11 +53,11 @@ class SwapOutTracker extends OperationTracker<SwapOutOperation> {
   }
 
   @override
-  void dispose() {
+  Future<void> dispose() async {
     for (final sub in _rekeyWatchers.values) {
-      sub.cancel();
+      await sub.cancel();
     }
     _rekeyWatchers.clear();
-    super.dispose();
+    await super.dispose();
   }
 }

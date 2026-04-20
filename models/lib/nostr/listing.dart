@@ -84,6 +84,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   // | b      | Beds          | ['spec','beds','2']       → ['b','2']     |
   // | B      | Bedrooms      | ['spec','bedrooms','2']   → ['B','2']     |
   // | R      | Bathrooms     | ['spec','bathrooms','2']  → ['R','2']     |
+  // | N      | Negotiable    | ['negotiable','true']     → ['N','true']  |
 
   static const List<TagPromotion> promotions = [
     TagPromotion.direct(source: 'type', target: 'T'),
@@ -93,6 +94,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     TagPromotion.valued(source: 'spec', match: 'bedrooms', target: 'B'),
     TagPromotion.valued(source: 'spec', match: 'bathrooms', target: 'R'),
     TagPromotion.direct(source: 'instantBook', target: 'I'),
+    TagPromotion.direct(source: 'negotiable', target: 'N'),
   ];
 
   /// Letters emitted by [promotions] — stripped during [rebuild] so they
@@ -193,6 +195,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addAll(TagPromotion.promoteAll([
                 ['type', type.name],
                 ['instantBook', instantBook.toString()],
+                ['negotiable', negotiable.toString()],
                 ...specifications.toTags(),
               ], promotions))
               ..addAll(extraTags))
@@ -306,6 +309,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addAll(TagPromotion.promoteAll([
                 ['type', (type ?? this.listingType).name],
                 ['instantBook', (instantBook ?? this.instantBook).toString()],
+                ['negotiable', (negotiable ?? this.negotiable).toString()],
                 ...(specifications ?? this.specifications).toTags(),
               ], promotions))
               ..addAll(extraTags ?? const []))

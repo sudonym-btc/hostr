@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hostr/data/sources/image_preloader.dart';
 import 'package:hostr/injection.dart';
@@ -45,7 +46,8 @@ class _PreloadListingImagesState extends State<PreloadListingImages> {
   @override
   void didUpdateWidget(PreloadListingImages oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.listing.anchor != widget.listing.anchor) {
+    if (oldWidget.listing.anchor != widget.listing.anchor ||
+        !listEquals(oldWidget.listing.images, widget.listing.images)) {
       _preload();
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:models/main.dart';
 
@@ -46,11 +47,17 @@ class ReservationStatusSections {
 
     return CustomPadding(
       bottom: 0,
-      child: Text(
-        currentUpcoming ? 'Upcoming' : 'Past',
-        style: Theme.of(
-          context,
-        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            currentUpcoming ? 'Upcoming' : 'Past',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          Gap.vertical.sm(),
+        ],
       ),
     );
   }

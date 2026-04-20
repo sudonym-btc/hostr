@@ -45,6 +45,7 @@ class ListingLocationMapSection extends StatelessWidget {
             width: double.infinity,
             child: IgnorePointer(
               child: ListingMap(
+                mapInstanceId: 'listing-${listing.naddr() ?? listing.id}',
                 initialListings: [
                   ListingMarkerData(
                     id: listing.id,

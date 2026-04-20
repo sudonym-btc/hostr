@@ -11,7 +11,7 @@ const kAppCompactBreakpoint = 900.0;
 const kAppWideBreakpoint = 1100.0;
 const kAppShellMaxWidth = 1720.0;
 const kAppContentMaxWidth = 1280.0;
-const kAppWideContentMaxWidth = 1600.0;
+const kAppWideContentMaxWidth = 1800.0;
 const kAppSidebarWidth = 280.0;
 const kAppSidebarCollapsedWidth = 96.0;
 const kAppSearchListPaneWidth = 460.0;
@@ -457,6 +457,7 @@ class AppPane extends StatelessWidget {
     return SliverAppBar(
       key: bar.key,
       leading: bar.leading,
+      leadingWidth: bar.leadingWidth,
       automaticallyImplyLeading: bar.automaticallyImplyLeading,
       title: bar.title,
       actions: bar.actions != null

@@ -6,7 +6,7 @@ import 'package:wallet/wallet.dart';
 class PayParameters {
   TokenAmount? amount;
   final String to;
-  final String? comment;
+  String? comment;
   final int? minSendable;
   final int? maxSendable;
 

@@ -11,13 +11,12 @@ import 'package:ndk/shared/nips/nip44/nip44.dart';
 
 import 'crypto_provider.dart';
 
-// NOTE on ECDH performance: NIP-44 requires the raw x-coordinate of
-// privKey x pubKey_point (secp256k1_ec_pubkey_tweak_MUL). coinlib's
-// WASM binary only exports secp256k1_ec_pubkey_tweak_ADD (point addition)
-// and secp256k1_ecdh (SHA-256 hashed, incompatible with NIP-44's copy_x
-// hashfn). Therefore NIP-44 conversation-key derivation uses NDK's
-// pure-Dart elliptic ECDH, with results cached in [_convKeyCache] to
-// avoid repeated scalar multiplications for the same keypair.
+// NOTE on web performance: NIP-44 requires the raw x-coordinate of
+// privKey x pubKey_point. The Flutter app injects a JS/noble provider for
+// the conversation key and, when available, for the full ChaCha20 payload
+// encryption/decryption. Other runtimes fall back to NDK's pure-Dart path,
+// with conversation keys cached in [_convKeyCache] to avoid repeated scalar
+// multiplications for the same keypair.
 //
 // The [cryptoProvider] hook allows a platform-specific implementation
 // (e.g. noble-secp256k1 via @JS interop on web) to be injected by the
@@ -83,6 +82,9 @@ Future<String> coinlibEncryptNip44(
   String recipientPubKeyHex,
 ) async {
   final convKey = await _conversationKey(privKeyHex, recipientPubKeyHex);
+  final fastPath = await cryptoProvider.nip44Encrypt(plaintext, convKey);
+  if (fastPath != null) return fastPath;
+
   return Nip44.encryptMessage(
     plaintext,
     '',
@@ -99,6 +101,9 @@ Future<String> coinlibDecryptNip44(
   String senderPubKeyHex,
 ) async {
   final convKey = await _conversationKey(privKeyHex, senderPubKeyHex);
+  final fastPath = await cryptoProvider.nip44Decrypt(ciphertext, convKey);
+  if (fastPath != null) return fastPath;
+
   return Nip44.decryptMessage(
     ciphertext,
     '',

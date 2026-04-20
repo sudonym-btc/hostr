@@ -68,6 +68,8 @@
   "inbox": "Inbox",
   "yourListings": "Your Listings",
   "paymentTitle": "Payment",
+  "paymentCommentLabel": "Comment",
+  "paymentCommentHint": "Add a note",
   "processingPayment": "Processing payment...",
   "payInvoiceTitle": "Pay Invoice",
   "payInvoiceSubtitle": "Pay this lightning invoice to continue",

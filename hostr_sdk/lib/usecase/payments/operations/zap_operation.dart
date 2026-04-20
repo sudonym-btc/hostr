@@ -30,7 +30,6 @@ class ZapPayOperation
   StreamWithStatus<Nip01Event>? _zapReceiptStream;
   StreamSubscription<Nip01Event>? _zapReceiptSubscription;
   Timer? _receiptTimeout;
-  String? _zapReceiptId;
 
   ZapPayOperation({
     required super.params,
@@ -52,7 +51,6 @@ class ZapPayOperation
     }
     return ZapCompletedDetails(
       preimage: preimage,
-      zapReceiptId: _zapReceiptId,
       confirmedByZapReceipt: false,
     );
   }
@@ -86,8 +84,6 @@ class ZapPayOperation
       fallbackPubKey: lnurlProviderPubKey,
     );
 
-    _zapReceiptId ??= 'hostr-zap-${DateTime.now().microsecondsSinceEpoch}';
-
     final activeKeyPair = auth.activeKeyPair;
     if (activeKeyPair == null || activeKeyPair.privateKey == null) {
       throw Exception('Cannot create zap request without active signing key');
@@ -109,10 +105,7 @@ class ZapPayOperation
           ['lnurl', params.to],
           if (params.event?.id != null) ['e', params.event!.id],
         ],
-        content: [
-          if ((params.comment ?? '').trim().isNotEmpty) params.comment!.trim(),
-          _zapReceiptId!,
-        ].join(' | '),
+        content: (params.comment ?? '').trim(),
       ),
     );
 
@@ -174,9 +167,7 @@ class ZapPayOperation
       fallbackPubKey: lnurlProviderPubKey,
     );
 
-    logger.d(
-      'Subscribing to zap receipts for pubkey $zapTargetPubKey with receipt id $_zapReceiptId',
-    );
+    logger.d('Subscribing to zap receipts for pubkey $zapTargetPubKey');
 
     final expectedInvoice = callbackDetails!.invoice.paymentRequest;
     final expectedHash = _paymentHash(callbackDetails!.invoice);
@@ -208,7 +199,6 @@ class ZapPayOperation
           receipt: receipt,
           expectedInvoice: expectedInvoice,
           expectedHash: expectedHash,
-          expectedReceiptId: _zapReceiptId,
           expectedProviderPubKey: lnurlProviderPubKey,
           expectedRecipientPubKey: zapTargetPubKey,
         )) {
@@ -218,7 +208,6 @@ class ZapPayOperation
         completedDetails = ZapCompletedDetails(
           preimage: receipt.preimage,
           zapReceiptEventId: event.id,
-          zapReceiptId: _zapReceiptId,
           confirmedByZapReceipt: true,
         );
 
@@ -239,7 +228,6 @@ class ZapPayOperation
     required ZapReceipt receipt,
     required String expectedInvoice,
     required String? expectedHash,
-    required String? expectedReceiptId,
     required String expectedProviderPubKey,
     required String expectedRecipientPubKey,
   }) {
@@ -251,13 +239,6 @@ class ZapPayOperation
     if ((receipt.recipient ?? '').toLowerCase() !=
         expectedRecipientPubKey.toLowerCase()) {
       return false;
-    }
-
-    if (expectedReceiptId != null && expectedReceiptId.isNotEmpty) {
-      final comment = receipt.comment ?? '';
-      if (!comment.contains(expectedReceiptId)) {
-        return false;
-      }
     }
 
     if (receipt.bolt11 == expectedInvoice) {

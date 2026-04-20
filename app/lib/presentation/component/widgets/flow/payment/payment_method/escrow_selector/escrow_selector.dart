@@ -26,6 +26,15 @@ class EscrowSelectorWidget extends StatelessWidget {
                 AppLocalizations.of(context)!.noCompatibleEscrowsFound,
               );
             }
+            if (state.result.compatibleServices.length == 1) {
+              final escrow =
+                  state.selectedEscrow ??
+                  state.result.compatibleServices.single;
+              return ProfileChipWidget(
+                id: escrow.pubKey,
+                alignment: Alignment.centerLeft,
+              );
+            }
             return DropdownButton<dynamic>(
               value: state.selectedEscrow,
               isExpanded: true,

@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/background_task_type.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/in_app_notification_toast.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/route/nostr_link_handler.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
@@ -29,11 +30,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final AppRouter _appRouter;
   late final NostrLinkHandler _nostrLinkHandler;
   late final NotificationDeepLinkHandler _notificationDeepLinkHandler;
+  late final NotificationOverlayStateProvider _notificationOverlayStateProvider;
 
   @override
   void initState() {
     super.initState();
     _appRouter = widget.appRouter ?? AppRouter();
+    _notificationOverlayStateProvider = () =>
+        _appRouter.navigatorKey.currentState?.overlay;
+    InAppNotificationToast.setOverlayStateProvider(
+      _notificationOverlayStateProvider,
+    );
     _nostrLinkHandler = NostrLinkHandler(router: _appRouter);
     _notificationDeepLinkHandler = NotificationDeepLinkHandler(
       router: _appRouter,
@@ -45,9 +52,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    InAppNotificationToast.clearOverlayStateProvider(
+      _notificationOverlayStateProvider,
+    );
     WidgetsBinding.instance.removeObserver(this);
-    _nostrLinkHandler.dispose();
-    _notificationDeepLinkHandler.dispose();
+    unawaited(_nostrLinkHandler.dispose());
+    unawaited(_notificationDeepLinkHandler.dispose());
     super.dispose();
   }
 

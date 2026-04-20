@@ -110,7 +110,10 @@ class Hostr {
     await nwc.dispose();
     await evm.dispose();
     await auth.dispose();
-    userConfig.dispose();
+    await swapInTracker.dispose();
+    await swapOutTracker.dispose();
+    await operationStateStore.dispose();
+    await userConfig.dispose();
 
     // Tear down the remaining NDK pieces sequentially.
     //
@@ -124,5 +127,6 @@ class Hostr {
     await ndk.requests.closeAllSubscription();
     await ndk.relays.closeAllTransports();
     await ndk.accounts.dispose();
+    config.telemetry.shutdown();
   }
 }

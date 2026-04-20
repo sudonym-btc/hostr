@@ -8,3 +8,11 @@ import 'dart:typed_data';
 
 Uint8List? nip44ConversationKeyWeb(String privKeyHex, String xOnlyPubKeyHex) =>
     null;
+
+String? nip44EncryptWeb(
+  String plaintext,
+  Uint8List conversationKey, {
+  Uint8List? nonce,
+}) => null;
+
+String? nip44DecryptWeb(String payload, Uint8List conversationKey) => null;

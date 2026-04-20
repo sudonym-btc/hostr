@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr/presentation/component/widgets/amount/amount.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operation.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
@@ -106,8 +105,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
 
   @override
   void dispose() {
-    _swapReadySub?.cancel();
-    _selectorCubit.close();
+    unawaited(_swapReadySub?.cancel());
+    unawaited(_selectorCubit.close());
     // If there's a live swap, let it continue (the registry holds it).
     // detachOrClose is handled by SwapInFlowWidget.
     super.dispose();
@@ -122,6 +121,8 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
         cubit: swap,
         progressTitle: 'Funding Escrow',
         successTitle: 'Escrow Funded',
+        successSubtitle: 'Your funds are now deposited in the escrow contract.',
+        successAutoDismissAfter: const Duration(seconds: 5),
         errorTitle: 'Escrow Deposit Failed',
       );
     }
@@ -206,57 +207,74 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
       title: 'Deposit Funds',
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Gap.vertical.md(),
           EscrowSelectorWidget(),
           Gap.vertical.md(),
-          AmountWidget(
-            amount: widget.preparer.params!.amount,
-            loading: _loading,
-            feeWidget: FutureBuilder<FeeBreakdown>(
-              future: _feeEstimate,
-              builder: (context, snapshot) {
-                final baseStyle = Theme.of(context).textTheme.bodySmall!;
-                final subtleStyle = baseStyle.copyWith(
-                  fontWeight: FontWeight.w400,
-                  color: baseStyle.color?.withValues(alpha: 0.6),
+          Text(
+            formatAmount(widget.preparer.params!.amount),
+            style: Theme.of(
+              context,
+            ).textTheme.displayMedium!.copyWith(fontWeight: FontWeight.bold),
+          ),
+          Gap.vertical.sm(),
+          FutureBuilder<FeeBreakdown>(
+            future: _feeEstimate,
+            builder: (context, snapshot) {
+              final baseStyle = Theme.of(context).textTheme.bodySmall!;
+              final subtleStyle = baseStyle.copyWith(
+                fontWeight: FontWeight.w400,
+                color: baseStyle.color?.withValues(alpha: 0.6),
+              );
+
+              if (snapshot.connectionState != ConnectionState.done) {
+                return Text(
+                  AppLocalizations.of(context)!.estimatingFees,
+                  style: subtleStyle,
                 );
+              }
 
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return Text(
-                    AppLocalizations.of(context)!.estimatingFees,
-                    style: subtleStyle,
-                  );
-                }
+              if (snapshot.hasError || snapshot.data == null) {
+                return Text('Unable to estimate fees', style: subtleStyle);
+              }
 
-                if (snapshot.hasError || snapshot.data == null) {
-                  return Text('Unable to estimate fees', style: subtleStyle);
-                }
-
-                final fees = snapshot.data!;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!fees.gasSponsored)
-                      Text(
-                        "+ ${formatTokenAmount(fees.gasFee)} in network fees"
-                        "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
-                        style: subtleStyle,
-                      ),
+              final fees = snapshot.data!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!fees.gasSponsored)
                     Text(
-                      "+ ${formatAmount(fees.swapFee)} in swap fees",
+                      "+ ${formatTokenAmount(fees.gasFee)} in network fees"
+                      "${fees.gasSponsored ? ' (gas sponsored)' : ''}",
                       style: subtleStyle,
                     ),
-                    if (fees.escrowFee != null)
-                      Text(
-                        "+ ${formatTokenAmount(fees.escrowFee!)} in escrow fees",
-                        style: subtleStyle,
-                      ),
-                  ],
-                );
-              },
-            ),
-            onConfirm: _handleConfirm,
+                  Text(
+                    "+ ${formatAmount(fees.swapFee)} in swap fees",
+                    style: subtleStyle,
+                  ),
+                  if (fees.escrowFee != null)
+                    Text(
+                      "+ ${formatTokenAmount(fees.escrowFee!)} in escrow fees",
+                      style: subtleStyle,
+                    ),
+                ],
+              );
+            },
+          ),
+          Gap.vertical.sm(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FilledButton(
+                onPressed: _loading ? null : _handleConfirm,
+                child: _loading
+                    ? AppLoadingIndicator.small(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      )
+                    : Text(AppLocalizations.of(context)!.ok),
+              ),
+            ],
           ),
         ],
       ),

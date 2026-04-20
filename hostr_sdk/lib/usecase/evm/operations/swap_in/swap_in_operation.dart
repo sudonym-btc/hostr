@@ -76,7 +76,11 @@ abstract class SwapInOperation
   /// Maps a [SwapInState] to a human-readable notification message.
   /// Returns `null` for states that should not trigger a notification.
   String? _notificationMessage(SwapInState s) => switch (s) {
-    SwapInInvoicePaid() => 'Invoice paid!',
+    // Boltz does not currently emit its internal reverse-swap `invoice.paid`
+    // event on the public WebSocket. `transaction.mempool`/`confirmed` is the
+    // first public signal that the Lightning HTLC was accepted and Boltz has
+    // locked funds on-chain, so this is where we surface "Invoice paid!".
+    SwapInLockupTxInMempool() => 'Invoice paid!',
     // SwapInFunded() => 'Swap funds received, claiming\u2026',
     // SwapInCompleted() => 'Swap completed',
     // SwapInFailed() => 'Swap failed',

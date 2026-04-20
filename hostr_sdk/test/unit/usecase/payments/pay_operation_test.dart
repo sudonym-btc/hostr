@@ -2,14 +2,22 @@
 library;
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
+import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/lnurl/lnurl.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.dart';
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
+import 'package:hostr_sdk/usecase/payments/operations/zap_operation.dart';
+import 'package:hostr_sdk/usecase/zaps/zaps.dart' as hostr_zaps;
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:hostr_sdk/util/token_amount_ext.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
+import 'package:ndk/domain_layer/usecases/lnurl/lnurl_response.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────
@@ -37,6 +45,47 @@ class _FakeNwc extends Fake implements Nwc {
 }
 
 class _FakeNwcConnection extends Fake implements NwcConnection {}
+
+class _FakeAuth extends Fake implements Auth {
+  @override
+  KeyPair? get activeKeyPair => MockKeys.guest;
+}
+
+class _FakeLnurlUseCase extends Fake implements LnurlUseCase {
+  ZapRequest? lastZapRequest;
+
+  final response = LnurlResponse.fromJson({
+    'callback': 'https://example.com/lnurl/callback',
+    'maxSendable': 100000000,
+    'minSendable': 1000,
+    'commentAllowed': 140,
+    'allowsNostr': true,
+    'nostrPubkey': MockKeys.hoster.publicKey,
+  });
+
+  @override
+  String? getLud16LinkFromLud16(String lud16) {
+    return 'https://example.com/.well-known/lnurlp/user';
+  }
+
+  @override
+  Future<LnurlResponse?> getLnurlResponse(String link) async {
+    return response;
+  }
+
+  @override
+  Future<InvoiceResponse?> fetchInvoice({
+    required LnurlResponse lnurlResponse,
+    required int amountSats,
+    ZapRequest? zapRequest,
+    String? comment,
+  }) async {
+    lastZapRequest = zapRequest;
+    return InvoiceResponse(invoice: _testBolt11, amountSats: amountSats);
+  }
+}
+
+class _FakeZaps extends Fake implements hostr_zaps.Zaps {}
 
 // A concrete PayOperation subclass for testing the base lifecycle.
 class _TestPayOperation extends Bolt11PayOperation {
@@ -280,6 +329,47 @@ void main() {
         expect(op.state, isA<PayInitialised>());
       });
     });
+
+    group('updateComment()', () {
+      test('trims non-empty comments and clears blank comments', () {
+        final params = Bolt11PayParameters(to: _testBolt11);
+        final op = _TestPayOperation(params: params, nwc: nwc, logger: logger);
+
+        op.updateComment('  hello  ');
+        expect(params.comment, 'hello');
+
+        op.updateComment('   ');
+        expect(params.comment, isNull);
+      });
+    });
+  });
+
+  group('ZapPayOperation', () {
+    test(
+      'leaves zap request content blank when no comment is supplied',
+      () async {
+        final lnurl = _FakeLnurlUseCase();
+        final op = ZapPayOperation(
+          params: ZapPayParameters(
+            to: 'user@example.com',
+            amount: rbtcFromSats(BigInt.from(10000)),
+          ),
+          zaps: _FakeZaps(),
+          auth: _FakeAuth(),
+          bootstrapRelays: const ['wss://relay.example.com'],
+          lnurl: lnurl,
+          nwc: _FakeNwc(),
+          logger: CustomLogger(),
+        );
+
+        await op.resolve();
+        await op.finalize();
+
+        expect(lnurl.lastZapRequest, isNotNull);
+        expect(lnurl.lastZapRequest!.content, isEmpty);
+        expect(lnurl.lastZapRequest!.content, isNot(contains('hostr-zap')));
+      },
+    );
   });
 
   group('PayState type hierarchy', () {

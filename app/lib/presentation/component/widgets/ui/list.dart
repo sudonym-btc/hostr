@@ -110,7 +110,7 @@ class ListWidgetState<T extends Nip01Event> extends State<ListWidget<T>> {
   void dispose() {
     widget.scrollToId?.removeListener(_onScrollToId);
     _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
-    _offsetSub?.cancel();
+    unawaited(_offsetSub?.cancel());
     _snapTimer?.cancel();
     super.dispose();
   }

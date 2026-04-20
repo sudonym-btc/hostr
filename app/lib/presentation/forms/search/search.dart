@@ -40,6 +40,7 @@ class _SearchFormState extends State<SearchForm> {
       _c.beachfrontField.value ||
       _c.kitchenField.value ||
       _c.allowsPetsField.value ||
+      _c.negotiableField.value ||
       _c.bedroomsField.value != null ||
       _c.bedsField.value != null ||
       _c.bathroomsField.value != null;
@@ -106,6 +107,12 @@ class _SearchFormState extends State<SearchForm> {
               title: const Text('Allows pets'),
               value: _c.allowsPetsField.value,
               onChanged: _c.allowsPetsField.setValue,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Negotiable'),
+              value: _c.negotiableField.value,
+              onChanged: _c.negotiableField.setValue,
             ),
             Gap.vertical.md(),
             IntFieldSelector(

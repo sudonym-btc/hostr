@@ -21,10 +21,10 @@ enum _ChipVariant { none, neutral, success, error, warning, info }
 /// A [Chip] wrapper with semantic variant and size factories.
 ///
 /// **Variants** auto-set the background colour from the active [ColorScheme]:
-/// - [AppChip.success] → tertiary (green-ish in most schemes)
+/// - [AppChip.success] → tertiary container
 /// - [AppChip.error]   → error
 /// - [AppChip.warning] → amber
-/// - [AppChip.info]    → secondary
+/// - [AppChip.info]    → secondary container
 ///
 /// **Sizes** are exposed as methods on each variant factory and affect
 /// [VisualDensity]:
@@ -85,19 +85,19 @@ class AppChip extends StatelessWidget {
   //   AppChip.success(label: Text('ok'))
   //   AppChip.success.xs(label: Text('ok'))
 
-  /// Success variant. Uses `colorScheme.tertiary` tinted background.
+  /// Success variant. Uses `colorScheme.tertiaryContainer`.
   static const success = _AppChipVariantFactory._(_ChipVariant.success);
 
-  /// Error variant. Uses `colorScheme.error` tinted background.
+  /// Error variant. Uses `colorScheme.errorContainer`.
   static const error = _AppChipVariantFactory._(_ChipVariant.error);
 
   /// Warning variant. Uses an amber tinted background.
   static const warning = _AppChipVariantFactory._(_ChipVariant.warning);
 
-  /// Info variant. Uses `colorScheme.secondary` tinted background.
+  /// Info variant. Uses `colorScheme.secondaryContainer`.
   static const info = _AppChipVariantFactory._(_ChipVariant.info);
 
-  /// Neutral variant. Leaves background and label colour null (theme defaults).
+  /// Neutral variant. Uses a stepped app surface.
   static const neutral = _AppChipVariantFactory._(_ChipVariant.neutral);
 
   // ─── Colour resolution ──────────────────────────────────────
@@ -110,10 +110,10 @@ class AppChip extends StatelessWidget {
     final base = switch (_variant) {
       _ChipVariant.none => null,
       _ChipVariant.neutral => AppSurface.stepped(context, 2),
-      _ChipVariant.success => Colors.green.withValues(alpha: alpha),
-      _ChipVariant.error => cs.error.withValues(alpha: alpha),
+      _ChipVariant.success => cs.tertiaryContainer,
+      _ChipVariant.error => cs.errorContainer,
       _ChipVariant.warning => _kWarningColor.withValues(alpha: alpha),
-      _ChipVariant.info => cs.primary.withValues(alpha: alpha),
+      _ChipVariant.info => cs.secondaryContainer,
     };
     return base;
   }
@@ -121,11 +121,21 @@ class AppChip extends StatelessWidget {
   Color? _resolveLabelColor(ColorScheme cs, BuildContext context) {
     return switch (_variant) {
       _ChipVariant.none => null,
-      _ChipVariant.neutral => null,
-      _ChipVariant.success => Colors.green,
-      _ChipVariant.error => cs.error,
+      _ChipVariant.neutral => cs.onSurfaceVariant,
+      _ChipVariant.success => cs.onTertiaryContainer,
+      _ChipVariant.error => cs.onErrorContainer,
       _ChipVariant.warning => _kWarningColor,
-      _ChipVariant.info => cs.primary,
+      _ChipVariant.info => cs.onSecondaryContainer,
+    };
+  }
+
+  Color? _resolveBorderColor(ColorScheme cs) {
+    return switch (_variant) {
+      _ChipVariant.neutral => cs.outlineVariant,
+      _ChipVariant.success => cs.tertiary,
+      _ChipVariant.error => cs.error,
+      _ChipVariant.info => cs.onSecondaryContainer,
+      _ => null,
     };
   }
 
@@ -136,13 +146,14 @@ class AppChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final bg = _resolveBackgroundColor(cs, context);
     final fg = _resolveLabelColor(cs, context);
+    final border = _resolveBorderColor(cs);
 
     return Chip(
       visualDensity: _densityFor(_size),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape:
           shape ??
-          const StadiumBorder(side: BorderSide(color: Colors.transparent)),
+          StadiumBorder(side: BorderSide(color: border ?? Colors.transparent)),
       backgroundColor: bg,
       avatar: avatar,
       label: label,

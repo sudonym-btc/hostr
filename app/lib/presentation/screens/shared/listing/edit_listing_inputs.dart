@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
-import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
-import 'package:models/main.dart';
 
 import 'image_picker.dart';
 
@@ -95,53 +93,16 @@ class PriceInput extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller.priceField,
       builder: (context, _) {
-        final denom = controller.priceField.denomination;
-        final displayAmount = controller.priceField.displayAmount;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── tap target ──────────────────────────────────
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _openEditor(context, denom),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  suffixText: '/ day',
-                  hintText: 'Tap to set price',
-                ),
-                child: Text(
-                  formatAmount(displayAmount),
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-            ),
-          ],
+        return AmountTapInput(
+          controller: controller.priceField.amountField,
+          hintText: 'Tap to set price',
+          suffixText: '/ day',
+          possibleDenominations: possibleDenominations,
+          required: true,
+          validator: (_) => controller.priceField.validatePrice(),
         );
       },
     );
-  }
-
-  Future<void> _openEditor(BuildContext context, String denom) async {
-    final current =
-        controller.priceField.amount ??
-        DenominatedAmount.zero(
-          controller.priceField.denomination,
-          controller.priceField.decimals,
-        );
-
-    final result = await AmountEditorBottomSheet.show(
-      context,
-      initialAmount: current,
-      possibleDenominations: possibleDenominations,
-      onDenominationChanged: (d) {
-        controller.priceField.setDenomination(d);
-      },
-    );
-
-    if (result != null) {
-      controller.priceField.setAmount(result);
-    }
   }
 }
 
@@ -458,64 +419,6 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
   }
 }
 
-// ── Amount inputs ─────────────────────────────────────────────────────
-
-class _AmountTapInput extends StatelessWidget {
-  final AmountFieldController controller;
-  final String hintText;
-  final List<String> possibleDenominations;
-
-  const _AmountTapInput({
-    required this.controller,
-    required this.hintText,
-    this.possibleDenominations = const [],
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final displayAmount =
-            controller.amount ??
-            DenominatedAmount.zero(
-              controller.denomination,
-              controller.decimals,
-            );
-
-        return InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => _openEditor(context),
-          child: InputDecorator(
-            decoration: InputDecoration(hintText: hintText),
-            child: Text(
-              formatAmount(displayAmount),
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _openEditor(BuildContext context) async {
-    final current =
-        controller.amount ??
-        DenominatedAmount.zero(controller.denomination, controller.decimals);
-
-    final result = await AmountEditorBottomSheet.show(
-      context,
-      initialAmount: current,
-      possibleDenominations: possibleDenominations,
-      onDenominationChanged: controller.setDenomination,
-    );
-
-    if (result != null) {
-      controller.setValue(result);
-    }
-  }
-}
-
 class SecurityDepositInput extends StatelessWidget {
   final EditListingController controller;
   final List<String> possibleDenominations;
@@ -528,7 +431,7 @@ class SecurityDepositInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AmountTapInput(
+    return AmountTapInput(
       controller: controller.securityDepositField,
       hintText: 'Tap to set deposit',
       possibleDenominations: possibleDenominations,
@@ -548,7 +451,7 @@ class MinPaymentInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AmountTapInput(
+    return AmountTapInput(
       controller: controller.minPaymentField,
       hintText: 'Tap to set minimum',
       possibleDenominations: possibleDenominations,

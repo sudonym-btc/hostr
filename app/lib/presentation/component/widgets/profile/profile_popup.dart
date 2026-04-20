@@ -5,7 +5,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
-import 'package:hostr/presentation/component/widgets/listing_badges_widget.dart';
+import 'package:hostr/presentation/component/widgets/badges_widget.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
