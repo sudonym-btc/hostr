@@ -1,6 +1,7 @@
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc, Requests;
 
+import '../../config.dart';
 import '../../injection.dart';
 import '../../util/stream_status.dart';
 import '../nwc/nwc.dart';
@@ -12,6 +13,8 @@ class Zaps {
   Ndk ndk;
 
   Zaps({required this.nwc, required this.ndk});
+
+  List<String> _zapReceiptRelays() => getIt<HostrConfig>().bootstrapRelays;
 
   Future<ZapResponse> zap({required String lnurl, required int amountSats}) {
     return ndk.zaps.zap(
@@ -43,35 +46,17 @@ class Zaps {
       throw ArgumentError.value(limit, 'limit', 'must be greater than zero');
     }
 
-    if (limit != null) {
-      return getIt<Requests>().subscribe<Nip01Event>(
-        filter: Filter(
-          kinds: [ZapReceipt.kKind],
-          eTags: eventId != null ? [eventId] : null,
-          aTags: addressableId != null ? [addressableId] : null,
-          pTags: [pubkey],
-          limit: limit,
-        ),
-        name: 'ZapReceipts-sub',
-      );
-    }
-
-    NdkResponse zapResponse = ndk.zaps.subscribeToZapReceipts(
-      pubKey: pubkey,
-      eventId: eventId,
-      addressableId: addressableId,
+    return getIt<Requests>().subscribe<Nip01Event>(
+      filter: Filter(
+        kinds: [ZapReceipt.kKind],
+        eTags: eventId != null ? [eventId] : null,
+        aTags: addressableId != null ? [addressableId] : null,
+        pTags: [pubkey],
+        limit: limit,
+      ),
+      relays: _zapReceiptRelays(),
+      name: 'ZapReceipts-sub',
     );
-    // var logs = [];
-    final sws = StreamWithStatus<Nip01Event>(
-      onClose: () {
-        print('Closing zap receipt subscription');
-        ndk.requests.closeSubscription(zapResponse.requestId);
-      },
-    );
-    sws.addStatus(StreamStatusLive());
-    final sub = zapResponse.stream.listen(sws.add, onError: sws.addError);
-    sws.addSubscription(sub);
-    return sws;
   }
 }
 
