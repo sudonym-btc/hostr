@@ -19,9 +19,11 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Hostr — peer-to-peer short-term accommodation powered by Bitcoin and Nostr. Book and list stays with no middleman, no platform fees, and sovereign identity.">
   <meta name="keywords" content="hostr, bitcoin accommodation, nostr, peer-to-peer, short-term rental, p2p lodging, bitcoin travel">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FCFCFC">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
@@ -73,6 +75,21 @@
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDbIij_LkLDQTePfWnoLo5bmqhDKS2xXbU&libraries=marker&loading=async"></script>
   <script defer src="https://unpkg.com/h3-js@4.2.1"></script>
   <script type="module" src="nostr_crypto.js"></script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      background: #FCFCFC;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html,
+      body {
+        background: #121212;
+      }
+    }
+  </style>
 
 </head>
 <body>

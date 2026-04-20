@@ -67,38 +67,61 @@ class ModalBottomSheet extends StatelessWidget {
     final theme = Theme.of(context);
     return Theme(
       data: theme.copyWith(colorScheme: _scheme(theme.colorScheme)),
-      child: SizedBox(
-        width: double.infinity,
-        child: SafeArea(
-          child: CustomPadding(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (leading != null) ...[
-                  leading!,
-                  Gap.vertical.custom(kSpace3),
-                ],
-                if (title != null)
-                  Text(title!, style: Theme.of(context).textTheme.titleLarge),
-                if (subtitle != null) ...[
-                  Gap.vertical.sm(),
-                  Text(
-                    subtitle!,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.start,
-                  ),
-                ],
-                if (title != null && subtitle != null) Gap.vertical.md(),
-                ?content,
-                if (buttons != null) ...[
-                  Gap.vertical.custom(kSpace5),
-                  buttons!,
-                ],
+      child: _ScrollableModalViewport(
+        child: CustomPadding(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (leading != null) ...[leading!, Gap.vertical.custom(kSpace3)],
+              if (title != null)
+                Text(title!, style: Theme.of(context).textTheme.titleLarge),
+              if (subtitle != null) ...[
+                Gap.vertical.sm(),
+                Text(
+                  subtitle!,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.start,
+                ),
               ],
-            ),
+              if (title != null && subtitle != null) Gap.vertical.md(),
+              ?content,
+              if (buttons != null) ...[Gap.vertical.custom(kSpace5), buttons!],
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ScrollableModalViewport extends StatelessWidget {
+  final Widget child;
+
+  const _ScrollableModalViewport({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fallbackMaxHeight = MediaQuery.sizeOf(context).height * 0.9;
+          final maxHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : fallbackMaxHeight;
+
+          return SizedBox(
+            width: double.infinity,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: child,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
