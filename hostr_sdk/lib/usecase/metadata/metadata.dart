@@ -198,21 +198,45 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         }
       });
 
-  /// Ensures the current user's profile has an EVM address tag.
-  /// Only broadcasts an update if the tag is missing.
+  /// Ensures the current user's profile is present on the Hostr relay with an
+  /// EVM address tag.
   Future<void> ensureEvmAddress() => logger.span('ensureEvmAddress', () async {
     final metadata = await loadMetadata(_auth.activeKeyPair!.publicKey);
     if (metadata == null) return; // No profile yet — nothing to patch.
 
+    final address = await _auth.hd.getEvmAddress();
     try {
-      if (metadata.evmAddress != null) return; // Already has it.
+      if (metadata.evmAddress == address.eip55With0x) return;
     } catch (_) {
-      // evmAddress getter throws if the tag is absent.
+      // No EVM tag yet.
     }
 
-    final address = await _auth.hd.getEvmAddress();
-    final updated = metadata.withEvmAddress(address.eip55With0x);
-    await requests.broadcast(event: updated);
+    final updated = _profileWithEvmAddress(metadata, address.eip55With0x);
+    await requests.broadcast(
+      event: updated,
+      relays: _config.hostrRelay.isEmpty ? null : [_config.hostrRelay],
+    );
     notifyUpdate(updated);
   });
+
+  ProfileMetadata _profileWithEvmAddress(
+    ProfileMetadata metadata,
+    String address,
+  ) {
+    final updatedTags = List<List<String>>.from(
+      metadata.tags.where((tag) {
+        return tag.length < 2 || tag[0] != 'i' || tag[1] != 'evm:address';
+      }),
+    )..add(['i', 'evm:address', address]);
+
+    return ProfileMetadata.fromNostrEvent(
+      Nip01Event(
+        pubKey: metadata.pubKey,
+        kind: metadata.kind,
+        tags: updatedTags,
+        content: metadata.content,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      ),
+    );
+  }
 }

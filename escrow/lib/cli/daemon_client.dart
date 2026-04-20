@@ -149,18 +149,20 @@ class DaemonClient {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  Future<void> updateService(
+  Future<String?> updateService(
     String serviceId, {
     double? feePercent,
     int? minAmount,
     int? maxAmount,
   }) async {
-    await _rpc.sendRequest(kRpcUpdateService, {
+    final result = await _rpc.sendRequest(kRpcUpdateService, {
       'serviceId': serviceId,
       if (feePercent != null) 'feePercent': feePercent,
       if (minAmount != null) 'minAmount': minAmount,
       if (maxAmount != null) 'maxAmount': maxAmount,
     });
+    final map = Map<String, dynamic>.from(result as Map);
+    return map['serviceId'] as String?;
   }
 
   Future<void> deleteService(String serviceId) async {

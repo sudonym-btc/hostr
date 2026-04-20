@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hostr/injection.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
@@ -67,6 +68,10 @@ class NotificationDeepLinkHandler {
 }
 
 class _NotificationDeepLinkTarget {
+  static final CustomLogger _targetLogger = CustomLogger(
+    tag: 'notification-link-target',
+  );
+
   final String route;
   final Map<String, String> params;
 
@@ -107,7 +112,11 @@ class _NotificationDeepLinkTarget {
       case 'thread':
         final anchor = params['anchor'];
         if (anchor != null && anchor.isNotEmpty) {
-          return ThreadRoute(anchor: anchor);
+          return TabShellRoute(
+            children: [
+              InboxRoute(children: [ThreadRoute(anchor: anchor)]),
+            ],
+          );
         }
         return const RootRoute();
       case 'root':
@@ -122,12 +131,19 @@ class _NotificationDeepLinkTarget {
   Future<void> openOn(AppRouter router) async {
     switch (route) {
       case 'thread':
-        final anchor = params['anchor'];
+        final threadRef = params['anchor'];
+        final anchor = await _resolveThreadAnchor(threadRef);
         if (anchor != null && anchor.isNotEmpty) {
-          await router.push(ThreadRoute(anchor: anchor));
+          await router.navigate(
+            TabShellRoute(
+              children: [
+                InboxRoute(children: [ThreadRoute(anchor: anchor)]),
+              ],
+            ),
+          );
           return;
         }
-        await router.navigate(const RootRoute());
+        await router.navigate(TabShellRoute(children: [const InboxRoute()]));
         return;
       case 'root':
         await router.navigate(const RootRoute());
@@ -138,6 +154,39 @@ class _NotificationDeepLinkTarget {
       default:
         await router.navigate(const RootRoute());
         return;
+    }
+  }
+
+  Future<String?> _resolveThreadAnchor(String? value) async {
+    final ref = value?.trim();
+    if (ref == null || ref.isEmpty) return null;
+
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final anchor = _tryResolveThreadAnchor(ref);
+      if (anchor != null) return anchor;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+
+    return _tryResolveThreadAnchor(ref);
+  }
+
+  String? _tryResolveThreadAnchor(String ref) {
+    try {
+      final threads = getIt<Hostr>().messaging.threads;
+      if (threads.threads.containsKey(ref)) return ref;
+
+      // Older notification payloads used the trade id in hostr://thread/<id>.
+      // ThreadRoute needs the conversation anchor, so map trade ids before
+      // routing.
+      return threads.findPreferredConversationIdByTradeId(ref);
+    } catch (error, stackTrace) {
+      // Startup can still be warming when a launch notification is handled.
+      _targetLogger.d(
+        'Unable to resolve notification thread ref yet: $ref',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
     }
   }
 

@@ -91,6 +91,10 @@ class EscrowDaemon {
     final contractAddress = chain.config.escrowContractAddress!;
     final pubKey = _hostr.auth.activeKeyPair!.publicKey;
     final evmKey = await _hostr.auth.hd.getActiveEvmKey();
+    final existingService = await _findExistingService(
+      pubKey: pubKey,
+      contractAddress: contractAddress,
+    );
 
     final escrowService = EscrowService(
       pubKey: pubKey,
@@ -107,9 +111,10 @@ class EscrowDaemon {
               EthereumAddress.fromHex(contractAddress),
             ),
         chainId: chain.config.chainId,
-        maxDuration: config.maxDuration,
+        maxDuration: existingService?.maxDuration ?? config.maxDuration,
         type: EscrowType.EVM,
-        feePercent: config.feePercent,
+        feePercent: existingService?.feePercent ?? config.feePercent,
+        tokenFeeHints: existingService?.tokenFeeHints ?? const {},
       ),
     );
 
@@ -131,6 +136,26 @@ class EscrowDaemon {
     );
 
     return _context!;
+  }
+
+  Future<EscrowService?> _findExistingService({
+    required String pubKey,
+    required String contractAddress,
+  }) async {
+    final services = await _hostr.escrows.list(
+      Filter(kinds: EscrowService.kinds, authors: [pubKey]),
+    );
+    final matches =
+        services
+            .where(
+              (service) =>
+                  service.contractAddress.toLowerCase() ==
+                  contractAddress.toLowerCase(),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (matches.isEmpty) return null;
+    return matches.first;
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
