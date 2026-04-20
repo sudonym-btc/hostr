@@ -58,14 +58,26 @@ Future<Navigation> tradeDetailScreen(
 
   final onChain = data['onChain'] as Map<String, dynamic>?;
   if (onChain != null) {
+    final tokenDecimals = onChain['tokenDecimals'] as int? ??
+        cached?['tokenDecimals'] as int? ??
+        8;
+    final tokenSymbol = onChain['tokenSymbol'] as String? ??
+        cached?['tokenSymbol'] as String? ??
+        'sat';
+    String amount(String key) => formatTokenAmount(
+          onChain[key] as String? ?? '0',
+          tokenDecimals,
+          tokenSymbol,
+        );
     print(kvTable({
       'Active': '${onChain['isActive']}',
       'Buyer': '${onChain['buyer']}',
       'Seller': '${onChain['seller']}',
       'Arbiter': '${onChain['arbiter']}',
-      'Amount': '${onChain['amount']} wei',
+      'Payment': amount('paymentAmount'),
+      'Bond': amount('bondAmount'),
       'UnlockAt': '${onChain['unlockAt']}',
-      'Fee': '${onChain['escrowFee']} wei',
+      'Fee': amount('escrowFee'),
     }));
   } else if (cached == null) {
     print('  Trade not found in cache or on chain.');

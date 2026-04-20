@@ -118,11 +118,13 @@ void main() {
     // --- State flow assertions ---
     expect(emittedStates.first, isA<SwapInInitialised>());
 
-    // The Lightning invoice must have been paid as part of the swap-in.
+    // Boltz does not expose the reverse-swap invoice.paid event on the public
+    // WebSocket. The first reliable signal after payment is the lockup
+    // transaction reaching mempool/confirmation.
     expect(
-      emittedStates.whereType<SwapInInvoicePaid>(),
+      emittedStates.whereType<SwapInLockupTxInMempool>(),
       isNotEmpty,
-      reason: 'Expected Lightning invoice to be paid during swap-in',
+      reason: 'Expected Boltz lockup transaction during swap-in',
     );
 
     expect(swapIn.state, isA<SwapInCompleted>());

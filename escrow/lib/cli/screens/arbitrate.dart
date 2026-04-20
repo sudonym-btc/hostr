@@ -9,8 +9,38 @@ Future<Navigation> arbitrateScreen(
   DaemonClient client,
   String tradeId,
 ) async {
+  final spinner = Spinner(
+    icon: '✓',
+    rightPrompt: (state) => switch (state) {
+      SpinnerStateType.inProgress => 'Loading trade…',
+      SpinnerStateType.done => 'Trade loaded',
+      SpinnerStateType.failed => 'Failed to load trade',
+    },
+  ).interact();
+
+  Map<String, dynamic> data;
+  try {
+    data = await client.getTrade(tradeId);
+    spinner.done();
+  } catch (e) {
+    spinner.failed();
+    print('  Error: $e');
+    return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
+  }
+
+  final cached = data['cached'] as Map<String, dynamic>?;
+  final onChain = data['onChain'] as Map<String, dynamic>?;
+  final amounts = _ArbitrationAmounts.from(cached: cached, onChain: onChain);
+
   print('');
   print(sectionHeader('Arbitrate: $tradeId'));
+  print('');
+  print(kvTable({
+    'Payment': amounts.format(amounts.paymentAmount),
+    'Bond': amounts.format(amounts.bondAmount),
+    if (amounts.escrowFee > BigInt.zero)
+      'Escrow fee': amounts.format(amounts.escrowFee),
+  }));
   print('');
   print('  Enter the forward ratios — the fraction sent to the seller.');
   print('  Each must be between 0 and 1 (inclusive).');
@@ -35,18 +65,31 @@ Future<Navigation> arbitrateScreen(
   }
 
   // ── Bond forward ───────────────────────────────────────────────────
-  final bondStr = Input(
-    prompt: 'Bond (security deposit) forward ratio (0–1)',
-    defaultValue: '0',
-  ).interact();
+  final double bondForward;
+  if (amounts.bondAmount == BigInt.zero) {
+    bondForward = 0;
+    print(kDimStyle.render('  No bond is locked for this trade.'));
+  } else {
+    final bondStr = Input(
+      prompt: 'Bond (security deposit) forward ratio (0–1)',
+      defaultValue: '0',
+    ).interact();
 
-  final bondForward = double.tryParse(bondStr.trim());
+    final parsedBondForward = double.tryParse(bondStr.trim());
 
-  if (bondForward == null || bondForward < 0 || bondForward > 1) {
-    print('  Invalid value. Must be a number between 0 and 1.');
-    pressAnyKey();
-    return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
+    if (parsedBondForward == null ||
+        parsedBondForward < 0 ||
+        parsedBondForward > 1) {
+      print('  Invalid value. Must be a number between 0 and 1.');
+      pressAnyKey();
+      return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
+    }
+    bondForward = parsedBondForward;
   }
+
+  print('');
+  print(kvTable(amounts.preview(paymentForward, bondForward)));
+  print('');
 
   // Confirmation
   final confirmed = Confirm(
@@ -61,7 +104,7 @@ Future<Navigation> arbitrateScreen(
   }
 
   // ── Execute ────────────────────────────────────────────────────────────
-  final spinner = Spinner(
+  final submitSpinner = Spinner(
     icon: '✓',
     rightPrompt: (state) => switch (state) {
       SpinnerStateType.inProgress => 'Submitting arbitration tx…',
@@ -72,10 +115,10 @@ Future<Navigation> arbitrateScreen(
 
   try {
     final txHash = await client.arbitrate(tradeId, paymentForward, bondForward);
-    spinner.done();
+    submitSpinner.done();
     print('  Tx hash: $txHash');
   } catch (e) {
-    spinner.failed();
+    submitSpinner.failed();
     print('');
     print('  Error: $e');
     print('');
@@ -97,5 +140,73 @@ Future<Navigation> arbitrateScreen(
     case -1:
     default:
       return Navigation.to(Screen.tradeList);
+  }
+}
+
+class _ArbitrationAmounts {
+  final BigInt paymentAmount;
+  final BigInt bondAmount;
+  final BigInt escrowFee;
+  final int tokenDecimals;
+  final String tokenSymbol;
+
+  const _ArbitrationAmounts({
+    required this.paymentAmount,
+    required this.bondAmount,
+    required this.escrowFee,
+    required this.tokenDecimals,
+    required this.tokenSymbol,
+  });
+
+  factory _ArbitrationAmounts.from({
+    required Map<String, dynamic>? cached,
+    required Map<String, dynamic>? onChain,
+  }) {
+    final tokenDecimals = onChain?['tokenDecimals'] as int? ??
+        cached?['tokenDecimals'] as int? ??
+        8;
+    final tokenSymbol = onChain?['tokenSymbol'] as String? ??
+        cached?['tokenSymbol'] as String? ??
+        'sat';
+    final paymentAmount = _parseBigInt(
+      onChain?['paymentAmount'] as String? ?? cached?['amountWei'] as String?,
+    );
+    return _ArbitrationAmounts(
+      paymentAmount: paymentAmount,
+      bondAmount: _parseBigInt(onChain?['bondAmount'] as String?),
+      escrowFee: _parseBigInt(onChain?['escrowFee'] as String?),
+      tokenDecimals: tokenDecimals,
+      tokenSymbol: tokenSymbol,
+    );
+  }
+
+  String format(BigInt amount) =>
+      formatTokenAmount(amount.toString(), tokenDecimals, tokenSymbol);
+
+  Map<String, String> preview(double paymentForward, double bondForward) {
+    final paymentToSeller = _applyRatio(paymentAmount, paymentForward);
+    final bondToSeller = _applyRatio(bondAmount, bondForward);
+    final sellerTotal = paymentToSeller + bondToSeller;
+    final buyerTotal =
+        (paymentAmount - paymentToSeller) + (bondAmount - bondToSeller);
+
+    return {
+      'Payment to seller': format(paymentToSeller),
+      'Payment to buyer': format(paymentAmount - paymentToSeller),
+      if (bondAmount > BigInt.zero) 'Bond to seller': format(bondToSeller),
+      if (bondAmount > BigInt.zero)
+        'Bond to buyer': format(bondAmount - bondToSeller),
+      'Seller total': format(sellerTotal),
+      'Buyer total': format(buyerTotal),
+    };
+  }
+
+  static BigInt _parseBigInt(String? value) =>
+      value == null || value.isEmpty ? BigInt.zero : BigInt.parse(value);
+
+  static BigInt _applyRatio(BigInt amount, double ratio) {
+    const scale = 1000000;
+    final scaledRatio = (ratio * scale).round();
+    return amount * BigInt.from(scaledRatio) ~/ BigInt.from(scale);
   }
 }
