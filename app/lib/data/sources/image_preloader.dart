@@ -10,7 +10,7 @@ import 'package:injectable/injectable.dart';
 /// URLs and Blossom SHA-256 hashes that require server-list resolution first.
 ///
 /// Usage:
-///   final preloader = getIt<ImagePreloader>();
+///   final preloader = `getIt<ImagePreloader>()`;
 ///   // Preload images for a listing:
 ///   preloader.preloadImages(imageRefs, pubkey: ownerPubkey);
 ///   // Retrieve a resolved URL for a Blossom hash:
@@ -34,7 +34,7 @@ class ImagePreloader {
   final Map<String, Future<List<String>>> _pendingServerLookups = {};
 
   /// Tracks in-flight image preloads to avoid duplicate fetches.
-  final Set<String> _preloadingUrls = {};
+  final Map<String, Future<bool>> _preloadingUrls = {};
 
   /// URLs that have been successfully preloaded into Flutter's image cache.
   final Set<String> _preloadedUrls = {};
@@ -102,7 +102,7 @@ class ImagePreloader {
     // Now precache each resolved URL into the framework's image cache.
     for (final ref in imageRefs) {
       // The context may have been deactivated while awaiting resolution.
-      if (!(context as Element).mounted) return;
+      if (!context.mounted) return;
       final url = _resolveRef(ref, pubkey);
       if (url != null && !_preloadedUrls.contains(url)) {
         _precacheSingle(url, context);
@@ -154,9 +154,14 @@ class ImagePreloader {
     );
     if (servers.isEmpty) return;
 
-    final url = '${servers.first}/$hash';
-    _resolvedUrls[hash] = url;
-    await _preloadUrl(url);
+    for (final server in servers) {
+      final url = '${server.replaceFirst(RegExp(r'/+$'), '')}/$hash';
+      final loaded = await _preloadUrl(url);
+      if (loaded) {
+        _resolvedUrls[hash] = url;
+        return;
+      }
+    }
   }
 
   /// Returns the cached blossom server list for [pubkey], fetching it from
@@ -193,45 +198,56 @@ class ImagePreloader {
 
   /// Pre-fetches the image at [url] by resolving it through Flutter's image
   /// pipeline. This warms the HTTP cache and decodes the image data.
-  Future<void> _preloadUrl(String url) async {
-    if (_preloadedUrls.contains(url) || _failedUrls.contains(url)) return;
-    if (_preloadingUrls.contains(url)) return;
+  Future<bool> _preloadUrl(String url) async {
+    if (_preloadedUrls.contains(url)) return true;
+    if (_failedUrls.contains(url)) return false;
 
-    _preloadingUrls.add(url);
+    final pending = _preloadingUrls[url];
+    if (pending != null) return pending;
+
+    final preload = _preloadUrlUnchecked(url);
+    _preloadingUrls[url] = preload;
+    try {
+      return await preload;
+    } finally {
+      _preloadingUrls.remove(url);
+    }
+  }
+
+  Future<bool> _preloadUrlUnchecked(String url) async {
     try {
       final provider = NetworkImage(
         url,
         webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
       );
       final stream = provider.resolve(ImageConfiguration.empty);
-      final completer = Completer<void>();
+      final completer = Completer<bool>();
 
       late ImageStreamListener listener;
       listener = ImageStreamListener(
         (ImageInfo info, bool synchronousCall) {
           _preloadedUrls.add(url);
           stream.removeListener(listener);
-          if (!completer.isCompleted) completer.complete();
+          if (!completer.isCompleted) completer.complete(true);
         },
         onError: (exception, stackTrace) {
           _addFailedUrl(url);
           stream.removeListener(listener);
-          if (!completer.isCompleted) completer.complete();
+          if (!completer.isCompleted) completer.complete(false);
         },
       );
       stream.addListener(listener);
 
-      await completer.future;
+      return await completer.future;
     } catch (_) {
       _addFailedUrl(url);
-    } finally {
-      _preloadingUrls.remove(url);
+      return false;
     }
   }
 
   /// Calls [precacheImage] for a single URL, catching errors silently.
   void _precacheSingle(String url, BuildContext context) {
-    if (!(context as Element).mounted) return;
+    if (!context.mounted) return;
     precacheImage(
           NetworkImage(
             url,
