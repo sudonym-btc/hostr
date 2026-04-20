@@ -88,7 +88,7 @@ jobs:
     # On workflow_call: always build staging. On manual: only when variant=staging.
     if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -128,7 +128,7 @@ jobs:
         working-directory: app
 
       - name: Upload to Play Store (internal)
-        uses: r0adkll/upload-google-play@v1
+        uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
           packageName: com.sudonym.hostr
@@ -145,7 +145,7 @@ jobs:
     # Production releases are manual-only and require explicit confirmation.
     if: github.event_name == 'workflow_dispatch' && inputs.variant == 'production' && inputs.confirm_production_release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -185,7 +185,7 @@ jobs:
         working-directory: app
 
       - name: Upload to Play Store
-        uses: r0adkll/upload-google-play@v1
+        uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
           packageName: com.sudonym.hostr
@@ -201,7 +201,7 @@ jobs:
     environment: staging
     if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -218,7 +218,7 @@ jobs:
         run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@v6
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
@@ -251,7 +251,7 @@ jobs:
         run: echo "IPA_PATH=$(ls app/build/ios/ipa/*.ipa)" >> $GITHUB_ENV
 
       - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@v1
+        uses: apple-actions/upload-testflight-build@v4
         with:
           app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -267,7 +267,7 @@ jobs:
     # Production releases are manual-only and require explicit confirmation.
     if: github.event_name == 'workflow_dispatch' && inputs.variant == 'production' && inputs.confirm_production_release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -284,7 +284,7 @@ jobs:
         run: echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@v6
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
@@ -317,7 +317,7 @@ jobs:
         run: echo "IPA_PATH=$(ls app/build/ios/ipa/*.ipa)" >> $GITHUB_ENV
 
       - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@v1
+        uses: apple-actions/upload-testflight-build@v4
         with:
           app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}

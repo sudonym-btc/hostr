@@ -271,6 +271,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Waiting for transaction to confirm...';
 
   @override
+  String get swapStatusInvoicePaidWaitingForTransaction =>
+      'Invoice paid, waiting for funds...';
+
+  @override
   String get swapStatusFundedClaiming => 'Swap funded, claiming...';
 
   @override

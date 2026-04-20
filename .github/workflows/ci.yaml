@@ -15,8 +15,8 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       escrow: ${{ steps.filter.outputs.escrow }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -50,8 +50,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.sdk == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
+    env:
+      DOCKER_COMPOSE_VERSION: v5.1.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -62,13 +64,33 @@ jobs:
       - run: dart --version
 
       - name: Cache Dart dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.pub-cache
             hostr_sdk/.dart_tool
           key: ${{ runner.os }}-dart-${{ hashFiles('hostr_sdk/pubspec.yaml') }}
           restore-keys: ${{ runner.os }}-dart-
+
+      - name: Install Docker Compose
+        run: |
+          set -euo pipefail
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64) compose_arch=x86_64 ;;
+            aarch64|arm64) compose_arch=aarch64 ;;
+            *)
+              echo "Unsupported architecture for Docker Compose: $arch" >&2
+              exit 1
+              ;;
+          esac
+
+          sudo mkdir -p /usr/local/lib/docker/cli-plugins
+          sudo curl -fsSL \
+            "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${compose_arch}" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          docker compose version
 
       - name: Install dependencies
         run: dart pub get
@@ -163,7 +185,7 @@ jobs:
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -175,14 +197,16 @@ jobs:
       - run: flutter --version
 
       - name: Cache Flutter dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.pub-cache
-            app/.dart_tool
-            app/widgetbook_workspace/.dart_tool
-          key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml', 'app/widgetbook_workspace/pubspec.yaml') }}
+          key: ${{ runner.os }}-flutter-${{ hashFiles('app/pubspec.yaml', 'app/pubspec.lock', 'app/widgetbook_workspace/pubspec.yaml', 'app/widgetbook_workspace/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-flutter-
+
+      - name: Clear generated Dart state
+        run: rm -rf .dart_tool widgetbook_workspace/.dart_tool
+        working-directory: app
 
       - name: Install dependencies
         run: flutter pub get
@@ -205,7 +229,7 @@ jobs:
     if: needs.changes.outputs.escrow == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -216,7 +240,7 @@ jobs:
       - run: dart --version
 
       - name: Cache Dart dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.pub-cache
@@ -276,12 +300,12 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
 
