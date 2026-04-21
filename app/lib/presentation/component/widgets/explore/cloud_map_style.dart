@@ -44,7 +44,7 @@ CloudMapPalette cloudMapPaletteFromTheme(
       land: _colorToHex(cs.surfaceContainer),
       road: _lerpHex(cs.surface, cs.surfaceContainerLowest, 4 / 9),
       park: _colorToHex(cs.surfaceContainerLow),
-      labelFill: _lerpHex(cs.surface, cs.onSurface, 80 / 255),
+      labelFill: _colorToHex(cs.onSurfaceVariant),
       labelStroke: _lerpHex(cs.surface, cs.surfaceContainerLowest, 1 / 6),
       outline: _lerpHex(cs.surfaceBright, cs.outlineVariant, 2 / 17),
     );
@@ -144,7 +144,7 @@ Map<String, Object?> buildCloudMapStyle({
         'id': 'natural.water',
         'geometry': {'fillColor': palette.water},
         'label': {
-          'textFillColor': palette.outline,
+          'textFillColor': isDarkMode ? palette.labelFill : palette.outline,
           'textStrokeColor': palette.water,
         },
       },

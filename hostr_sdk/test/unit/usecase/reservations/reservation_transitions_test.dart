@@ -38,6 +38,7 @@ class _FakeNdk extends Fake implements Ndk {
 class _FakeRequests extends Fake implements hostr_requests.Requests {
   final _source = StreamWithStatus<ReservationTransition>();
   final List<Nip01Event> broadcasted = [];
+  final List<Nip01Event> queryResults = [];
 
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
@@ -58,7 +59,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     bool cacheRead = true,
     bool cacheWrite = true,
   }) {
-    return Stream<T>.empty();
+    return Stream<T>.fromIterable(queryResults.whereType<T>());
   }
 
   @override
@@ -198,6 +199,27 @@ void main() {
         );
 
         expect(result.parsedTags.prevTransitionId, isNull);
+      });
+
+      test('fills prev tag from existing participant transition', () async {
+        final reservation = await _makeReservation(dTag: 'trade-5b');
+
+        final first = await usecase.record(
+          reservation: reservation,
+          transitionType: ReservationTransitionType.counterOffer,
+          fromStage: ReservationStage.negotiate,
+          toStage: ReservationStage.negotiate,
+        );
+        relay.queryResults.add(first);
+
+        final second = await usecase.record(
+          reservation: reservation,
+          transitionType: ReservationTransitionType.commit,
+          fromStage: ReservationStage.negotiate,
+          toStage: ReservationStage.commit,
+        );
+
+        expect(second.parsedTags.prevTransitionId, first.id);
       });
 
       test('includes updatedFields for counter-offers', () async {

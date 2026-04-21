@@ -179,8 +179,10 @@ class ReservationGroups {
       );
     }
 
-    // 3. Seller (host) confirmation exists → Valid (default mode).
-    if (group.sellerReservation != null) {
+    // 3. Seller-published reservations are valid by authority; escrow commit
+    // also counts as a valid confirmation in default mode.
+    if (group.sellerReservation != null ||
+        group.escrowReservation?.stage == ReservationStage.commit) {
       return Valid(group);
     }
 
@@ -225,30 +227,40 @@ class ReservationGroups {
     // If Nostr-level already invalid, no need for on-chain check.
     if (nostrResult is Invalid) return nostrResult;
 
+    final baseGroup = nostrResult.event;
+
     // Determine which buyer reservation to verify on-chain.
     final buyer = group.buyerReservation;
-    if (buyer == null) return nostrResult;
+    var confirmedCommitted = group.hasCommitConfirmation;
+    if (buyer == null) {
+      return Valid(baseGroup.copyWith(confirmedCommitted: confirmedCommitted));
+    }
 
     // Only check on-chain when:
     // a) escrowVerification is available, AND
-    // b) buyer has an escrow proof, AND
-    // c) either forceValidateSelfSigned OR no seller confirmation
+    // b) buyer has an escrow proof.
     final hasEscrowProof = buyer.proof?.escrowProof != null;
-    final needsOnChain =
-        hasEscrowProof &&
-        escrowVerification != null &&
-        (forceValidateSelfSigned || group.sellerReservation == null);
+    final needsOnChain = hasEscrowProof && escrowVerification != null;
 
-    if (!needsOnChain) return nostrResult;
+    if (!needsOnChain) {
+      return Valid(baseGroup.copyWith(confirmedCommitted: confirmedCommitted));
+    }
 
     final result = await escrowVerification.verify(reservation: buyer);
 
-    if (result.isValid) return nostrResult;
+    if (result.isValid) {
+      confirmedCommitted = true;
+      return Valid(baseGroup.copyWith(confirmedCommitted: confirmedCommitted));
+    }
 
-    return Invalid(
-      group,
-      result.reason ?? 'On-chain escrow verification failed',
-    );
+    if (forceValidateSelfSigned || group.sellerReservation == null) {
+      return Invalid(
+        group,
+        result.reason ?? 'On-chain escrow verification failed',
+      );
+    }
+
+    return Valid(baseGroup.copyWith(confirmedCommitted: confirmedCommitted));
   }
 
   // ── Stream plumbing ─────────────────────────────────────────────────

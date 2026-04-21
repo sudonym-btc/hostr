@@ -117,45 +117,22 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     );
   }
 
-  /// Ensures all replaceable user-config events are up to date:
-  /// NIP-65 relay list, EVM address tag, escrow methods, blossom servers.
+  /// Ensures Hostr-managed user config is up to date:
+  /// EVM address tag, escrow methods, blossom servers.
   ///
-  /// Called automatically after every [upsert] and by user startup for
-  /// returning users who already have a NIP-65 relay list.
+  /// Called automatically after every [upsert] and by user startup.
+  ///
+  /// This intentionally does not mutate the user's NIP-65 relay list during
+  /// startup/profile sync. Hostr may read NIP-65 for discovery, but should
+  /// not silently append its own relay while the product is still treating the
+  /// wider relay graph as read-mostly.
   Future<void> ensureUserConfig(String pubkey) =>
       logger.span('ensureUserConfig', () async {
-        // Check whether a NIP-65 relay list already exists *before* we
-        // publish one. If the user has no NIP-65 yet we must re-broadcast
-        // their metadata to the relays that will be listed in the new
-        // NIP-65 event, otherwise subsequent loads using the outbox model
-        // will fail to find the profile.
-        final hadNip65 =
-            await _ndk.userRelayLists.getSingleUserRelayList(pubkey) != null;
-
-        try {
-          await _relays.publishNip65(
-            hostrRelay: _config.hostrRelay,
-            pubkey: pubkey,
+        if (_config.hostrRelay.isNotEmpty) {
+          logger.i(
+            'Skipping automatic NIP-65 publish for $pubkey '
+            'while syncing via ${_relays.runtimeType}',
           );
-        } catch (e) {
-          logger.e('publishNip65 failed: $e');
-        }
-
-        // First-time NIP-65: the metadata (kind-0) likely only lives on
-        // relays the user was using before hostr. Re-broadcast it to the
-        // hostr relay so it can be found via the new NIP-65 relay list.
-        if (!hadNip65) {
-          try {
-            final profile = await loadMetadata(pubkey);
-            if (profile != null) {
-              logger.i(
-                'Re-broadcasting metadata to NIP-65 relays (first NIP-65)',
-              );
-              await super.upsert(profile);
-            }
-          } catch (e) {
-            logger.e('Re-broadcast metadata after first NIP-65 failed: $e');
-          }
         }
 
         try {

@@ -16,6 +16,7 @@ import '../trades/payment_proof_orchestrator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'startup_core.dart';
 import 'startup_models.dart';
+import 'user_startup_profile_bootstrap.dart';
 
 @Singleton()
 class PublicStartupProfile implements StartupProfile {
@@ -143,6 +144,7 @@ class UserStartupProfile implements StartupProfile {
   final Calendar _calendar;
   final Messaging _messaging;
   final Reservations _reservations;
+  late final UserStartupProfileBootstrapper _profileBootstrapper;
 
   UserStartupProfile({
     required StartupCore core,
@@ -170,7 +172,9 @@ class UserStartupProfile implements StartupProfile {
        _backgroundWorker = backgroundWorker,
        _calendar = calendar,
        _messaging = messaging,
-       _reservations = reservations;
+       _reservations = reservations {
+    _profileBootstrapper = UserStartupProfileBootstrapper(metadata: _metadata);
+  }
 
   @override
   StartupScope get scope => StartupScope.user;
@@ -219,19 +223,13 @@ class UserStartupProfile implements StartupProfile {
         () => _relays.loadNip65Hints(pubkey),
       );
 
-      final metadataFuture = tracker.run(StartupItemId.profile, () async {
-        var metadata = await _metadata.loadMetadata(pubkey);
-        final hasNip65 = await hasNip65Future;
-
-        if (metadata == null && hasNip65) {
-          metadata = await _metadata.loadMetadata(pubkey, forceRefresh: true);
-        }
-
-        if (metadata != null) {
-          await _metadata.ensureUserConfig(pubkey);
-        }
-        return metadata;
-      });
+      final metadataFuture = tracker.run(
+        StartupItemId.profile,
+        () => _profileBootstrapper.run(
+          pubkey: pubkey,
+          hasNip65Future: hasNip65Future,
+        ),
+      );
 
       final inboxFuture = tracker.runOptional(StartupItemId.inbox, () async {
         await hasNip65Future;
@@ -256,9 +254,11 @@ class UserStartupProfile implements StartupProfile {
         ]);
       });
 
+      final profileBootstrap =
+          results[0] as UserStartupProfileBootstrapResult;
       final result = UserStartupReady(
         pubkey: pubkey,
-        hasMetadata: results[0] != null,
+        hasMetadata: profileBootstrap.hasMetadata,
         inboxLive: results[1] == true,
       );
       tracker.ready(result);

@@ -41,7 +41,13 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
       _logger.span('reserveNextTradeIndex', () async {
         await _cache.ensureTradeIdsLoaded();
 
+        // HD account 0 is the stable public/profile EVM address. Trade
+        // allocations start at index 1 so the first booking cannot reveal the
+        // user's public address.
         var accountIndex = _auth.storedMaxAccountIndex + 1;
+        if (accountIndex < kFirstTradeAccountIndex) {
+          accountIndex = kFirstTradeAccountIndex;
+        }
 
         while (true) {
           // Derive (and cache) the full entry for this candidate index.
@@ -159,11 +165,14 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
       return const [];
     }
     final maxAccountIndex = _auth.storedMaxAccountIndex;
-    if (maxAccountIndex < 0) {
+    if (maxAccountIndex < kFirstTradeAccountIndex) {
       return const [];
     }
     return List<int>.unmodifiable(
-      List<int>.generate(maxAccountIndex + 1, (index) => index),
+      List<int>.generate(
+        maxAccountIndex - kFirstTradeAccountIndex + 1,
+        (offset) => kFirstTradeAccountIndex + offset,
+      ),
     );
   }
 

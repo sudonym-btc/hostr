@@ -106,7 +106,7 @@
         "fillColor": "#030303"
       },
       "label": {
-        "textFillColor": "#272727",
+        "textFillColor": "#d0d0d0",
         "textStrokeColor": "#030303"
       }
     },
@@ -118,7 +118,7 @@
       "label": {
         "visible": false,
         "pinFillColor": "#272727",
-        "textFillColor": "#505050",
+        "textFillColor": "#d0d0d0",
         "textStrokeColor": "#030303"
       }
     },
@@ -130,7 +130,7 @@
       },
       "label": {
         "visible": false,
-        "textFillColor": "#505050",
+        "textFillColor": "#d0d0d0",
         "textStrokeColor": "#151515"
       }
     },
@@ -140,7 +140,7 @@
         "fillColor": "#030303"
       },
       "label": {
-        "textFillColor": "#505050",
+        "textFillColor": "#d0d0d0",
         "textStrokeColor": "#030303"
       }
     },

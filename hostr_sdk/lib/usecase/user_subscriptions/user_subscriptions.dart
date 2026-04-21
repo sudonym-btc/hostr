@@ -41,7 +41,7 @@ import '../zaps/zaps.dart';
 /// | Stream | Filter pattern | Expandable? |
 /// |---|---|---|
 /// | [allMyReservations$] | `kinds=[32122], #d=[known tradeIds]` | Yes |
-/// | [allTransitions$]    | `kinds=[32126], #t=[known tradeIds]` | Yes |
+/// | [allTransitions$]    | reservation transitions, `#t=[known tradeIds]` | Yes |
 /// | [myReviews$]       | `kinds=[32124], authors=[myPubkey]`  | No (static) |
 /// | [paymentEvents$]   | kind 9735 + EVM contract queries     | Dynamic (combine) |
 @Singleton()

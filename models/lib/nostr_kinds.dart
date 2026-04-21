@@ -2,7 +2,10 @@ const kNostrKindListing = 32121;
 const kNostrKindReservation = 32122;
 
 const kNostrKindReview = 32124;
-const kNostrKindReservationTransition = 32126;
+
+/// Reservation transitions are append-only audit events, so this kind must
+/// stay outside NIP-16 replaceable ranges.
+const kNostrKindReservationTransition = 1326;
 
 /// Escrow service advertisement. Moved from 40021 (ephemeral range, not stored
 /// by relays) to 30303 (parameterized replaceable) so relays persist it.

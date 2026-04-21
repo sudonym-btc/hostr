@@ -6,6 +6,21 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+const _publishedAtTag = 'published_at';
+
+List<List<String>> _withPublishedAt(
+  List<List<String>> tags,
+  int publishedAt,
+) {
+  if (tags.any((t) => t.length >= 2 && t[0] == _publishedAtTag)) {
+    return tags;
+  }
+  return [
+    ...tags,
+    [_publishedAtTag, publishedAt.toString()],
+  ];
+}
+
 /// The stage of a reservation in its lifecycle.
 ///
 /// - [negotiate]: Mutable proposal / counter-offer. Only exchanged via DMs;
@@ -206,17 +221,25 @@ class Reservation
     String? id,
     int? createdAt,
   }) {
+    final eventCreatedAt =
+        createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
     return Reservation(
       id: id,
       pubKey: pubKey,
-      createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      tags: ReservationTags([
-        [kListingRefTag, listingAnchor],
-        ['d', dTag],
-        if (threadAnchor != null) [kThreadRefTag, threadAnchor],
-        for (final p in pTags) p.toTag(),
-        ...extraTags,
-      ]),
+      createdAt: eventCreatedAt,
+      tags: ReservationTags(
+        _withPublishedAt(
+          [
+            [kListingRefTag, listingAnchor],
+            ['d', dTag],
+            if (threadAnchor != null) [kThreadRefTag, threadAnchor],
+            for (final p in pTags) p.toTag(),
+            ...extraTags,
+          ],
+          eventCreatedAt,
+        ),
+      ),
       content: ReservationContent(
         start: start,
         end: end,
@@ -239,11 +262,18 @@ class Reservation
     ReservationContent? content,
     ReservationTags? tags,
   }) {
+    final firstPublishedAt = parsedTags.getTagInt(_publishedAtTag);
+    final copiedTags = tags ?? this.parsedTags;
+
     return Reservation(
       id: identical(id, _unset) ? this.id : id as String?,
       pubKey: pubKey ?? this.pubKey,
       createdAt: createdAt ?? this.createdAt,
-      tags: tags ?? this.parsedTags,
+      tags: ReservationTags(
+        firstPublishedAt == null
+            ? copiedTags.tags
+            : _withPublishedAt(copiedTags.tags, firstPublishedAt),
+      ),
       content: content ?? this.parsedContent,
       sig: sig ?? this.sig,
     );

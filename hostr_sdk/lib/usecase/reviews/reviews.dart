@@ -3,29 +3,45 @@ import 'package:models/main.dart';
 
 import '../can_verify.dart';
 import '../crud.usecase.dart';
+import '../escrow/escrow_verification.dart';
+import '../evm/evm.dart';
 import '../listings/listings.dart';
+import '../reservation_groups/reservation_groups.dart';
 import '../reservations/reservations.dart';
 
 /// Dependencies resolved for a single review verification.
 class ReviewDeps {
   final List<Reservation> reservations;
+  final List<Reservation> proofMatchedReservations;
   final Listing? listing;
+  final Validation<ReservationGroup>? validatedGroup;
 
-  const ReviewDeps({required this.reservations, this.listing});
+  const ReviewDeps({
+    required this.reservations,
+    required this.proofMatchedReservations,
+    this.listing,
+    this.validatedGroup,
+  });
 }
 
 @Singleton()
 class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
   final Reservations _reservations;
   final Listings _listings;
+  final EscrowVerification? _escrowVerification;
 
   Reviews({
     required super.requests,
     required super.logger,
     required Reservations reservations,
     required Listings listings,
+    Evm? evm,
+    EscrowVerification? escrowVerification,
   }) : _reservations = reservations,
        _listings = listings,
+       _escrowVerification =
+           escrowVerification ??
+           (evm != null ? EscrowVerification(evm: evm, logger: logger) : null),
        super(kind: Review.kinds[0]);
 
   @override
@@ -43,74 +59,77 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
     var candidateReservations = results[0] as List<Reservation>;
     final reservationAnchor = review.getFirstTag(kReservationRefTag);
     if (reservationAnchor != null && reservationAnchor.isNotEmpty) {
-      candidateReservations = candidateReservations
+      final anchorMatched = candidateReservations
           .where((reservation) => reservation.anchor == reservationAnchor)
           .toList();
+      if (anchorMatched.isNotEmpty) {
+        final tradeIds = anchorMatched
+            .map((r) => r.getDtag())
+            .whereType<String>();
+        candidateReservations = candidateReservations
+            .where((reservation) => tradeIds.contains(reservation.getDtag()))
+            .toList();
+      } else {
+        candidateReservations = const [];
+      }
     }
+
+    final proofMatchedReservations = candidateReservations
+        .where(
+          (reservation) =>
+              Review.validateProof(reservation, review.pubKey, review.proof),
+        )
+        .toList();
+
+    final validatedGroup = proofMatchedReservations.isEmpty
+        ? null
+        : await ReservationGroups.verifyGroupOnChain(
+            ReservationGroup(reservations: proofMatchedReservations),
+            escrowVerification: _escrowVerification,
+          );
 
     return ReviewDeps(
       reservations: candidateReservations,
+      proofMatchedReservations: proofMatchedReservations,
       listing: results[1] as Listing?,
+      validatedGroup: validatedGroup,
     );
   });
 
   @override
-  Validation<Review> verify(Review review, ReviewDeps deps) => logger.spanSync(
-    'verify',
-    () {
-      logger.d(
-        "Verifying review ${review.id} with ${deps.reservations.length} "
-        "matching reservations and listing ${deps.listing?.id}",
-      );
-      if (deps.reservations.isEmpty) {
-        return Invalid(review, 'No matching reservation found');
-      }
-
-      final listing = deps.listing;
-      if (listing == null) {
-        return Invalid(review, 'Listing not found');
-      }
-
-      // Verify participation proof against candidate reservations.
-      final proofMatchedReservations = deps.reservations
-          .where(
-            (reservation) =>
-                Review.validateProof(reservation, review.pubKey, review.proof),
-          )
-          .toList();
-      if (proofMatchedReservations.isEmpty) {
-        return Invalid(review, 'Participation proof does not match');
-      }
-
-      // Host-confirmed reservation: no payment proof needed.
-      final hostConfirmed = proofMatchedReservations.any(
-        (r) => r.pubKey == listing.pubKey && !r.cancelled,
-      );
-      if (hostConfirmed) {
-        return Valid(review);
-      }
-
-      // Self-signed: validate payment proof on the senior reservation.
-      final senior = Reservation.getSeniorReservation(
-        reservations: proofMatchedReservations,
-      );
-      if (senior == null) {
-        return Invalid(review, 'No valid reservation in group');
-      }
-
-      final validation = Reservation.validate(senior);
-      if (!validation.isValid) {
-        final reason = validation.fields.values
-            .where((f) => !f.ok)
-            .map((f) => f.message)
-            .join('; ');
-        return Invalid(
-          review,
-          reason.isNotEmpty ? reason : 'Invalid payment proof',
+  Validation<Review> verify(Review review, ReviewDeps deps) =>
+      logger.spanSync('verify', () {
+        logger.d(
+          "Verifying review ${review.id} with ${deps.reservations.length} "
+          "matching reservations and listing ${deps.listing?.id}",
         );
-      }
+        if (deps.reservations.isEmpty) {
+          return Invalid(review, 'No matching reservation found');
+        }
 
-      return Valid(review);
-    },
-  );
+        final listing = deps.listing;
+        if (listing == null) {
+          return Invalid(review, 'Listing not found');
+        }
+
+        final proofMatchedReservations = deps.proofMatchedReservations;
+        if (proofMatchedReservations.isEmpty) {
+          return Invalid(review, 'Participation proof does not match');
+        }
+
+        // @todo: potentially include block time to prove that a comment was
+        // written after the trade was completed?
+        final validatedGroup = deps.validatedGroup;
+        if (validatedGroup is Valid<ReservationGroup> &&
+            validatedGroup.event.confirmedCommitted) {
+          return Valid(review);
+        }
+        if (validatedGroup is Invalid<ReservationGroup>) {
+          return Invalid(review, validatedGroup.reason);
+        }
+        if (validatedGroup is Valid<ReservationGroup>) {
+          return Invalid(review, 'Reservation was never confirmed committed');
+        }
+        return Invalid(review, 'No valid reservation in group');
+      });
 }

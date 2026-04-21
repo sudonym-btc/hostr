@@ -58,6 +58,34 @@ Future<void> _applyStartupReadyEffects(
 
 final _gateLog = CustomLogger().scope('startup-gate');
 
+enum StartupReadyNavigationAction { editProfile, consumePending }
+
+class StartupReadyNavigationPlan {
+  final StartupReadyNavigationAction action;
+  final bool seedProfilePendingRoute;
+
+  const StartupReadyNavigationPlan({
+    required this.action,
+    this.seedProfilePendingRoute = false,
+  });
+}
+
+StartupReadyNavigationPlan planStartupReadyNavigation({
+  required bool hasMetadata,
+  required bool hasPendingNavigation,
+}) {
+  if (!hasMetadata) {
+    return StartupReadyNavigationPlan(
+      action: StartupReadyNavigationAction.editProfile,
+      seedProfilePendingRoute: !hasPendingNavigation,
+    );
+  }
+
+  return const StartupReadyNavigationPlan(
+    action: StartupReadyNavigationAction.consumePending,
+  );
+}
+
 /// Route names that live inside [TabShellRoute].
 const _tabRouteNames = {
   ExploreRoute.name,
@@ -81,13 +109,13 @@ PageRouteInfo wrapInTabShellIfNeeded(PageRouteInfo route) {
 
 /// Consumes the [PendingNavigation] target (if any) and navigates there.
 /// If nothing is pending, falls through to the default tab content.
-void _consumeAndNavigate(BuildContext context) {
+void _consumeAndNavigate(StackRouter router) {
   final target = getIt<PendingNavigation>().consume();
   _gateLog.d(
     'StartupGate._consumeAndNavigate: target=${target?.routeName ?? 'null'}',
   );
   if (target != null) {
-    context.router.root.navigate(wrapInTabShellIfNeeded(target));
+    router.root.navigate(wrapInTabShellIfNeeded(target));
   }
 }
 
@@ -127,30 +155,39 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
             '(hasMetadata=${state.hasMetadata}, '
             'hasPending=${getIt<PendingNavigation>().hasPending})',
           );
+          final router = context.router;
 
           await _applyStartupReadyEffects(context, state);
           if (!mounted) return;
 
-          if (!state.hasMetadata) {
+          final pendingNavigation = getIt<PendingNavigation>();
+          final navigationPlan = planStartupReadyNavigation(
+            hasMetadata: state.hasMetadata,
+            hasPendingNavigation: pendingNavigation.hasPending,
+          );
+
+          if (
+            navigationPlan.action == StartupReadyNavigationAction.editProfile
+          ) {
             // Profile incomplete — navigate to edit-profile.
             // Using navigate() (not push()) so auto_route properly nests
             // EditProfileRoute under AppShellRoute in the route tree.
             // Set ProfileRoute as the pending target so that after save,
             // EditProfile.onSave consumes it and lands on the profile tab
             // instead of trying to pop into an empty stack.
-            if (!getIt<PendingNavigation>().hasPending) {
-              getIt<PendingNavigation>().set(ProfileRoute());
+            if (navigationPlan.seedProfilePendingRoute) {
+              pendingNavigation.set(ProfileRoute());
             }
             _gateLog.d(
               'StartupGate: navigating to EditProfileRoute (no metadata)',
             );
-            context.router.navigate(EditProfileRoute());
+            router.navigate(EditProfileRoute());
             return;
           }
 
           // All prerequisites met — consume and navigate to the
           // pending destination (e.g. the listing from a reserve flow).
-          _consumeAndNavigate(context);
+          _consumeAndNavigate(router);
         },
         builder: (context, state) {
           final child = switch (state) {

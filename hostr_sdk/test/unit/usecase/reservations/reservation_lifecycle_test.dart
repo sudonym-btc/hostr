@@ -149,6 +149,7 @@ ReservationTransition _transition({
   String? reason,
   KeyPair? signer,
   int createdAtOffset = 0,
+  String? prevTransitionId,
 }) {
   final key = signer ?? MockKeys.guest;
   final content = ReservationTransitionContent(
@@ -166,6 +167,7 @@ ReservationTransition _transition({
         DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 + createdAtOffset,
     tags: [
       ['d', 'trade-1'],
+      if (prevTransitionId != null) ['prev', prevTransitionId],
     ],
     content: content.toString(),
   );
@@ -1145,49 +1147,50 @@ void main() async {
 
   group('validateStateTransitions lifecycle', () {
     test('valid: negotiate → negotiate → commit (normal flow)', () {
-      final result = validateStateTransitions([
-        _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
-          signer: buyer,
-          createdAtOffset: 0,
-        ),
-        _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
-          signer: buyer,
-          createdAtOffset: 1,
-        ),
-        _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
-          signer: seller,
-          createdAtOffset: 2,
-        ),
-      ]);
+      final first = _transition(
+        type: ReservationTransitionType.counterOffer,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.negotiate,
+        signer: buyer,
+        createdAtOffset: 0,
+      );
+      final second = _transition(
+        type: ReservationTransitionType.counterOffer,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.negotiate,
+        signer: buyer,
+        createdAtOffset: 1,
+        prevTransitionId: first.id,
+      );
+      final third = _transition(
+        type: ReservationTransitionType.commit,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.commit,
+        signer: seller,
+        createdAtOffset: 2,
+        prevTransitionId: second.id,
+      );
+      final result = validateStateTransitions([third, first, second]);
       expect(result.isValid, isTrue);
     });
 
     test('valid: negotiate → commit → cancel', () {
-      final result = validateStateTransitions([
-        _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
-          signer: buyer,
-          createdAtOffset: 0,
-        ),
-        _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.commit,
-          to: ReservationStage.cancel,
-          signer: buyer,
-          createdAtOffset: 1,
-        ),
-      ]);
+      final first = _transition(
+        type: ReservationTransitionType.commit,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.commit,
+        signer: buyer,
+        createdAtOffset: 0,
+      );
+      final second = _transition(
+        type: ReservationTransitionType.cancel,
+        from: ReservationStage.commit,
+        to: ReservationStage.cancel,
+        signer: buyer,
+        createdAtOffset: 1,
+        prevTransitionId: first.id,
+      );
+      final result = validateStateTransitions([second, first]);
       expect(result.isValid, isTrue);
     });
 
@@ -1205,44 +1208,44 @@ void main() async {
     });
 
     test('invalid: commit → negotiate (rollback attempt)', () {
-      final result = validateStateTransitions([
-        _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
-          signer: buyer,
-          createdAtOffset: 0,
-        ),
-        _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
-          signer: buyer,
-          createdAtOffset: 1,
-        ),
-      ]);
+      final first = _transition(
+        type: ReservationTransitionType.commit,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.commit,
+        signer: buyer,
+        createdAtOffset: 0,
+      );
+      final second = _transition(
+        type: ReservationTransitionType.counterOffer,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.negotiate,
+        signer: buyer,
+        createdAtOffset: 1,
+        prevTransitionId: first.id,
+      );
+      final result = validateStateTransitions([first, second]);
       expect(result.isValid, isFalse);
       expect(result.failedIndex, 1);
       expect(result.reason, contains('Chain break'));
     });
 
     test('invalid: cancel → cancel (double cancel)', () {
-      final result = validateStateTransitions([
-        _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.cancel,
-          signer: buyer,
-          createdAtOffset: 0,
-        ),
-        _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.cancel,
-          to: ReservationStage.cancel,
-          signer: buyer,
-          createdAtOffset: 1,
-        ),
-      ]);
+      final first = _transition(
+        type: ReservationTransitionType.cancel,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.cancel,
+        signer: buyer,
+        createdAtOffset: 0,
+      );
+      final second = _transition(
+        type: ReservationTransitionType.cancel,
+        from: ReservationStage.cancel,
+        to: ReservationStage.cancel,
+        signer: buyer,
+        createdAtOffset: 1,
+        prevTransitionId: first.id,
+      );
+      final result = validateStateTransitions([first, second]);
       expect(result.isValid, isFalse);
       expect(result.failedIndex, 1);
     });
@@ -1261,36 +1264,38 @@ void main() async {
     });
 
     test('valid: multiple counter-offers then cancel', () {
-      final result = validateStateTransitions([
-        _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
-          signer: buyer,
-          createdAtOffset: 0,
-        ),
-        _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
-          signer: seller,
-          createdAtOffset: 1,
-        ),
-        _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
-          signer: buyer,
-          createdAtOffset: 2,
-        ),
-        _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.cancel,
-          signer: buyer,
-          createdAtOffset: 3,
-        ),
-      ]);
+      final first = _transition(
+        type: ReservationTransitionType.counterOffer,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.negotiate,
+        signer: buyer,
+        createdAtOffset: 0,
+      );
+      final second = _transition(
+        type: ReservationTransitionType.counterOffer,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.negotiate,
+        signer: seller,
+        createdAtOffset: 1,
+        prevTransitionId: first.id,
+      );
+      final third = _transition(
+        type: ReservationTransitionType.counterOffer,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.negotiate,
+        signer: buyer,
+        createdAtOffset: 2,
+        prevTransitionId: second.id,
+      );
+      final fourth = _transition(
+        type: ReservationTransitionType.cancel,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.cancel,
+        signer: buyer,
+        createdAtOffset: 3,
+        prevTransitionId: third.id,
+      );
+      final result = validateStateTransitions([fourth, second, first, third]);
       expect(result.isValid, isTrue);
     });
   });
@@ -1349,24 +1354,24 @@ void main() async {
       expect(status.isActive, isFalse);
 
       // Step 5: Validate transition chain
-      final transitions = [
-        _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
-          signer: buyer,
-          commitTermsHash: commit.commitHash(),
-          createdAtOffset: 0,
-        ),
-        _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.commit,
-          to: ReservationStage.cancel,
-          signer: seller,
-          reason: 'Property damage',
-          createdAtOffset: 1,
-        ),
-      ];
+      final commitTransition = _transition(
+        type: ReservationTransitionType.commit,
+        from: ReservationStage.negotiate,
+        to: ReservationStage.commit,
+        signer: buyer,
+        commitTermsHash: commit.commitHash(),
+        createdAtOffset: 0,
+      );
+      final cancelTransition = _transition(
+        type: ReservationTransitionType.cancel,
+        from: ReservationStage.commit,
+        to: ReservationStage.cancel,
+        signer: seller,
+        reason: 'Property damage',
+        createdAtOffset: 1,
+        prevTransitionId: commitTransition.id,
+      );
+      final transitions = [cancelTransition, commitTransition];
       expect(validateStateTransitions(transitions).isValid, isTrue);
 
       // Step 6: Trade id (d-tag) is deterministic from salt

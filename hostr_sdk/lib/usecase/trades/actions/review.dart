@@ -10,9 +10,9 @@ class ReviewActions {
   ///
   /// - The local user is the **guest**.
   /// - Reservations have been fetched (stream is live/complete).
-  /// - The reservation group is **completed** (end date in the past) or has a
-  ///   terminal payment state (claimed / released / arbitrated).
-  /// - The reservation is **not cancelled**.
+  /// - The reservation group has reached a confirmed committed state.
+  /// - The reservation stay is over (end date in the past) or has a terminal
+  ///   payment state (claimed / released / arbitrated).
   static List<TradeAction> resolve({
     required ReservationGroup reservationGroup,
     required StreamStatus reservationStreamStatus,
@@ -28,8 +28,17 @@ class ReviewActions {
     if (!reservationsFresh) return const [];
 
     if (reservationGroup.reservations.isEmpty) return const [];
-    if (reservationGroup.cancelled) return const [];
-    if (!reservationGroup.isCompleted) return const [];
+    if (!reservationGroup.confirmedCommitted) return const [];
+
+    final reviewWindowOpen =
+        (reservationGroup.end?.isBefore(DateTime.now().toUtc()) ?? false) ||
+        payments.any(
+          (event) =>
+              event is PaymentClaimedEvent ||
+              event is PaymentReleasedEvent ||
+              event is PaymentArbitratedEvent,
+        );
+    if (!reviewWindowOpen) return const [];
 
     // Max one review per user per trade: check if we already left one
     // for any reservation in this group.

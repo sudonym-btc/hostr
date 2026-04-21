@@ -3,6 +3,8 @@ import 'dart:core';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
+const _publishedAtTag = 'published_at';
+
 // ── Tag-read mixin ──────────────────────────────────────────────────────────
 // Defines all tag-promoted field getters ONCE. Mixed into both ListingTags
 // and Listing so callers can use either `listing.negotiable` or
@@ -164,15 +166,18 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     List<List<String>> extraTags = const [],
     int? createdAt,
   }) {
+    final eventCreatedAt =
+        createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return Listing(
       pubKey: pubKey,
-      createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      createdAt: eventCreatedAt,
       tags: ListingTags(
         (TagBuilder()
               ..add('d', dTag)
               ..add('title', title)
               ..addImages(images)
               ..add('t', 'accommodation')
+              ..add(_publishedAtTag, eventCreatedAt.toString())
               ..addBool('active', active)
               ..addBool('negotiable', negotiable)
               ..addInt('minStay', minStay)
@@ -236,6 +241,9 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     int? createdAt,
     List<List<String>>? extraTags,
   }) {
+    final firstPublishedAt =
+        parsedTags.getTagInt(_publishedAtTag) ?? this.createdAt;
+
     // Preserve non-promoted tags (d, g, etc.)
     // Also strip single-letter promoted tags — they'll be regenerated.
     final stripKeys = {
@@ -259,6 +267,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       'securityDeposit',
       'minPaymentAmount',
       'maxDisputePeriod',
+      _publishedAtTag,
       ..._promotedLetters,
     };
     final preserved = parsedTags.tags
@@ -274,6 +283,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add('title', title ?? this.title)
               ..addImages(images ?? this.images)
               ..add('t', 'accommodation')
+              ..add(_publishedAtTag, firstPublishedAt.toString())
               ..addBool('active', active ?? this.active)
               ..addBool('negotiable', negotiable ?? this.negotiable)
               ..addInt('minStay', minStay ?? this.minStay)

@@ -243,12 +243,14 @@ class TradeAudit {
       }
     }
 
-    // Sort transitions chronologically.
-    int byCreatedAt(ReservationTransition a, ReservationTransition b) =>
-        a.createdAt.compareTo(b.createdAt);
-    sellerTransitions.sort(byCreatedAt);
-    escrowTransitions.sort(byCreatedAt);
-    buyerTransitions.sort(byCreatedAt);
+    // Resolve transition chains by `prev` pointers, not author-supplied time.
+    final sellerChain = resolveStateTransitionChain(sellerTransitions);
+    final rawEscrowChain = resolveStateTransitionChain(escrowTransitions);
+    final escrowChain = TransitionChainResolution(
+      transitions: rawEscrowChain.transitions,
+      validation: validateEscrowStateTransitions(rawEscrowChain.transitions),
+    );
+    final buyerChain = resolveStateTransitionChain(buyerTransitions);
 
     // 5. Validate reservations against the listing.
     List<({Reservation reservation, ValidationResult validation})>
@@ -281,11 +283,6 @@ class TradeAudit {
         );
       }
     }
-
-    // 6. Validate transition chains.
-    final sellerChain = validateStateTransitions(sellerTransitions);
-    final escrowChain = validateStateTransitions(escrowTransitions);
-    final buyerChain = validateStateTransitions(buyerTransitions);
 
     // 7. Build party audits.
     PartyAudit? buildParty(
@@ -320,8 +317,8 @@ class TradeAudit {
       sellerPubkey,
       sellerReservations,
       sellerValidated,
-      sellerTransitions,
-      sellerChain,
+      sellerChain.transitions,
+      sellerChain.validation,
     );
 
     final escrowAudit = buildParty(
@@ -329,16 +326,16 @@ class TradeAudit {
       escrowPubkey,
       escrowReservations,
       escrowValidated,
-      escrowTransitions,
-      escrowChain,
+      escrowChain.transitions,
+      escrowChain.validation,
     );
 
     // Determine buyer pubkey.
     String? buyerPubkey;
     if (buyerReservations.isNotEmpty) {
       buyerPubkey = buyerReservations.first.pubKey;
-    } else if (buyerTransitions.isNotEmpty) {
-      buyerPubkey = buyerTransitions.first.pubKey;
+    } else if (buyerChain.transitions.isNotEmpty) {
+      buyerPubkey = buyerChain.transitions.first.pubKey;
     }
 
     final buyerAudit = buildParty(
@@ -346,8 +343,8 @@ class TradeAudit {
       buyerPubkey,
       buyerReservations,
       buyerValidated,
-      buyerTransitions,
-      buyerChain,
+      buyerChain.transitions,
+      buyerChain.validation,
       escrowResult: buyerEscrowResult,
     );
 
@@ -387,6 +384,18 @@ class TradeAudit {
     final buyerCancelled = buyer?.currentStage == ReservationStage.cancel;
     final escrowCancelled = escrow?.currentStage == ReservationStage.cancel;
 
+    // Chain integrity issues must outrank claimed terminal states. A malformed
+    // chain cannot safely prove that a party reached cancel/commit.
+    if (seller != null && !seller.transitionChainResult.isValid) {
+      return 'The seller\'s transition chain is invalid (${seller.transitionChainResult.reason}); seller published malformed state transitions.';
+    }
+    if (buyer != null && !buyer.transitionChainResult.isValid) {
+      return 'The buyer\'s transition chain is invalid (${buyer.transitionChainResult.reason}); buyer published malformed state transitions.';
+    }
+    if (escrow != null && !escrow.transitionChainResult.isValid) {
+      return 'The escrow\'s transition chain is invalid (${escrow.transitionChainResult.reason}); escrow published malformed state transitions.';
+    }
+
     // Escrow cancelled — escrow service withdrew from the trade.
     if (escrowCancelled) {
       return 'The escrow service cancelled the trade; escrow refused to proceed.';
@@ -405,17 +414,6 @@ class TradeAudit {
     // Buyer cancelled.
     if (buyerCancelled && !sellerCancelled) {
       return 'The buyer cancelled the trade; fault lies with the buyer for withdrawing.';
-    }
-
-    // Chain integrity issues.
-    if (seller != null && !seller.transitionChainResult.isValid) {
-      return 'The seller\'s transition chain is invalid (${seller.transitionChainResult.reason}); seller published malformed state transitions.';
-    }
-    if (buyer != null && !buyer.transitionChainResult.isValid) {
-      return 'The buyer\'s transition chain is invalid (${buyer.transitionChainResult.reason}); buyer published malformed state transitions.';
-    }
-    if (escrow != null && !escrow.transitionChainResult.isValid) {
-      return 'The escrow\'s transition chain is invalid (${escrow.transitionChainResult.reason}); escrow published malformed state transitions.';
     }
 
     // Reservation validity issues.

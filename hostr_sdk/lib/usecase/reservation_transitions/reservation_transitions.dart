@@ -5,7 +5,7 @@ import 'package:ndk/ndk.dart';
 import '../../util/main.dart';
 import '../crud.usecase.dart';
 
-/// CRUD use-case for [ReservationTransition] events (kind 32126).
+/// CRUD use-case for append-only [ReservationTransition] events.
 ///
 /// Every reservation stage change (negotiate ↔ counter-offer, negotiate →
 /// commit, * → cancel, seller-ack) MUST be recorded as a transition so
@@ -42,10 +42,15 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
     String? prevTransitionId,
   }) async {
     final tradeId = reservation.getDtag() ?? '';
+    final pubkey = _ndk.accounts.getPublicKey()!;
+    final effectivePrevTransitionId =
+        prevTransitionId ??
+        await _resolvePreviousTransitionId(tradeId: tradeId, pubkey: pubkey);
     final tags = <List<String>>[
       if (tradeId.isNotEmpty) ['t', tradeId],
       ['e', reservation.id],
-      if (prevTransitionId != null) ['prev', prevTransitionId],
+      if (effectivePrevTransitionId != null)
+        ['prev', effectivePrevTransitionId],
       if (reservation.parsedTags.listingAnchor.isNotEmpty)
         [kListingRefTag, reservation.parsedTags.listingAnchor],
     ];
@@ -54,7 +59,7 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
       await _ndk.accounts.sign(
         Nip01Event(
           kind: kNostrKindReservationTransition,
-          pubKey: _ndk.accounts.getPublicKey()!,
+          pubKey: pubkey,
           tags: tags,
           content: ReservationTransitionContent(
             transitionType: transitionType,
@@ -70,6 +75,28 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
 
     await upsert(transition);
     return transition;
+  }
+
+  Future<String?> _resolvePreviousTransitionId({
+    required String tradeId,
+    required String pubkey,
+  }) async {
+    if (tradeId.isEmpty) return null;
+
+    final existing = (await getForReservation(
+      tradeId,
+    )).where((transition) => transition.pubKey == pubkey).toList();
+    if (existing.isEmpty) return null;
+
+    final chain = resolveStateTransitionChain(existing);
+    if (!chain.validation.isValid) {
+      throw StateError(
+        'Cannot append reservation transition: existing transition chain is '
+        'invalid (${chain.validation.reason})',
+      );
+    }
+
+    return chain.transitions.last.id;
   }
 
   /// Query all transitions for a given trade id (t tag).

@@ -30,6 +30,7 @@ class ProfileProvider extends SingleChildStatefulWidget {
 }
 
 class _ProfileProviderState extends SingleChildState<ProfileProvider> {
+  static final _logger = CustomLogger(tag: 'app.profile-provider');
   late Future<ProfileMetadata?> _future;
   StreamSubscription? _updatesSub;
   StreamSubscription? _relaySub;
@@ -73,8 +74,23 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
     return getIt<Hostr>().metadata
         .loadMetadata(widget.pubkey, forceRefresh: forceRefresh)
         .then((m) {
+          if (m == null) {
+            _logger.w(
+              'Profile metadata missing for ${widget.pubkey}'
+              ' (forceRefresh=$forceRefresh)',
+            );
+          }
           widget.onDone?.call(m);
           return m;
+        })
+        .catchError((error, stackTrace) {
+          _logger.e(
+            'Profile metadata load failed for ${widget.pubkey}'
+            ' (forceRefresh=$forceRefresh)',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          throw error;
         });
   }
 
