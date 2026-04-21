@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
@@ -50,7 +49,7 @@ class _ProfilePopupState extends State<ProfilePopup> {
 
         return ModalBottomSheet(
           leading: ProfilePopupAvatar(profile: profile),
-          title: ProfilePopupTitle(profile),
+          title: profilePopupTitle(profile),
           subtitle: profile?.metadata.about,
           content: ProfilePopupContent(
             profile: profile,
@@ -86,7 +85,7 @@ class ProfilePopupAvatar extends StatelessWidget {
   }
 }
 
-String ProfilePopupTitle(ProfileMetadata? profile) {
+String profilePopupTitle(ProfileMetadata? profile) {
   final metadata = profile?.metadata;
   return metadata?.getName() ?? 'Unknown';
 }
@@ -97,6 +96,7 @@ class ProfilePopupContent extends StatelessWidget {
   final Future<ReceivedHeartbeat?>? lastSeenFuture;
   final bool showListingBadges;
   final bool showNPub;
+  final bool centerContactItems;
 
   const ProfilePopupContent({
     super.key,
@@ -105,51 +105,78 @@ class ProfilePopupContent extends StatelessWidget {
     this.lastSeenFuture,
     this.showListingBadges = true,
     this.showNPub = true,
+    this.centerContactItems = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final metadata = profile?.metadata;
+    final crossAxisAlignment = centerContactItems
+        ? CrossAxisAlignment.center
+        : CrossAxisAlignment.start;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: crossAxisAlignment,
       children: [
-        if (showListingBadges) ...[BadgesWidget(pubKey: pubkey)],
+        if (showListingBadges)
+          BadgesWidget(pubKey: pubkey, trailing: Gap.vertical.lg()),
         if (lastSeenFuture != null) _LastSeenRow(future: lastSeenFuture!),
         if (metadata?.nip05 != null && metadata?.nip05?.isNotEmpty == true) ...[
           Gap.vertical.sm(),
           VerifiedNip05Badge(
             nip05: metadata?.nip05,
             pubkey: profile?.pubKey ?? pubkey,
+            centered: centerContactItems,
           ),
         ],
         if (metadata?.lud16 != null && metadata?.lud16?.isNotEmpty == true) ...[
           Gap.vertical.sm(),
 
-          VerifiedLud16Badge(lud16: metadata?.lud16),
+          VerifiedLud16Badge(
+            lud16: metadata?.lud16,
+            centered: centerContactItems,
+          ),
         ],
         if (metadata?.website != null &&
             metadata?.website?.isNotEmpty == true) ...[
           Gap.vertical.sm(),
 
           Row(
+            mainAxisSize: centerContactItems
+                ? MainAxisSize.min
+                : MainAxisSize.max,
             children: [
-              Icon(
-                Icons.link,
-                size: kIconSm,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              Gap.horizontal.xs(),
-              Expanded(
-                child: Text(
-                  metadata!.website!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    decoration: TextDecoration.underline,
+              if (!centerContactItems) ...[
+                Icon(
+                  Icons.link,
+                  size: kIconSm,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                Gap.horizontal.xs(),
+              ],
+              if (centerContactItems)
+                Flexible(
+                  child: Text(
+                    metadata!.website!,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: Text(
+                    metadata!.website!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],
@@ -177,7 +204,7 @@ class _LastSeenRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8),
             child: ShimmerPlaceholder(
               loading: true,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppBorderRadii.xs,
               child: const SizedBox(height: 13, width: 90),
             ),
           );
@@ -230,15 +257,9 @@ class _PubkeyRow extends StatelessWidget {
         '${npub.substring(0, 10)}…${npub.substring(npub.length - 8)}';
 
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppBorderRadii.sm,
       onTap: () {
-        Clipboard.setData(ClipboardData(text: npub));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.publicKeyCopied),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        copyTextToClipboard(context, npub);
       },
       child: CustomPadding.vertical.sm(
         child: Row(

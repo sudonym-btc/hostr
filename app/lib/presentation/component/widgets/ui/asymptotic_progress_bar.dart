@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 
 /// A progress bar that asymptotically approaches 100% but never reaches it.
 ///
@@ -20,14 +21,14 @@ class AsymptoticProgressBar extends StatefulWidget {
   /// Height of the progress bar. Defaults to 4.0.
   final double height;
 
-  /// Border radius of the progress bar. Defaults to 8.0.
+  /// Border radius of the progress bar. Defaults to a full pill.
   final double borderRadius;
 
   const AsymptoticProgressBar({
     super.key,
     this.k = 6.0,
     this.height = 4.0,
-    this.borderRadius = 8.0,
+    this.borderRadius = AppRadii.full,
   });
 
   @override

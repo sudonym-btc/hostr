@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
@@ -27,7 +28,7 @@ class SearchBoxWidget extends StatelessWidget {
     final hasActiveFilter =
         filterState.filter != null || filterState.location.trim().isNotEmpty;
     final hasDateRange = dateRangeState.dateRange != null;
-    final borderRadius = BorderRadius.circular(embedded ? 0 : 50);
+    final borderRadius = embedded ? AppBorderRadii.none : AppBorderRadii.full;
 
     final color = AppSurface.stepped(context, 1);
 

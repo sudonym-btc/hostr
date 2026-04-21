@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 import 'package:hostr/presentation/component/widgets/ui/shimmer_placeholder.dart';
 
@@ -98,17 +99,17 @@ class AppListItem extends StatelessWidget {
       onTap: onTap,
       leading: ShimmerPlaceholder(
         loading: true,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppBorderRadii.full,
         child: const SizedBox(width: 40, height: 40),
       ),
       title: ShimmerPlaceholder(
         loading: true,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: AppBorderRadii.xs,
         child: const SizedBox(height: 14, width: 120),
       ),
       subtitle: ShimmerPlaceholder(
         loading: true,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: AppBorderRadii.xs,
         child: const SizedBox(height: 12, width: 80),
       ),
     );

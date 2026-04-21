@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
@@ -63,23 +62,11 @@ class _NostrWalletAuthWidgetState extends State<NostrWalletAuthWidget> {
                     },
                     child: Text(AppLocalizations.of(context)!.connect),
                   ),
-                  MaterialButton(
-                    onPressed: () async {
-                      final message = AppLocalizations.of(
-                        context,
-                      )!.uriCopiedToClipboard;
-                      await Clipboard.setData(
-                        ClipboardData(text: nostrWalletAuth.toString()),
-                      );
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(message),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    child: Text(AppLocalizations.of(context)!.copy),
+                  CopyFeedbackButton(
+                    value: () => nostrWalletAuth.toString(),
+                    label: AppLocalizations.of(context)!.copy,
+                    variant: CopyFeedbackButtonVariant.material,
+                    showCopyIcon: false,
                   ),
                 ],
               ),

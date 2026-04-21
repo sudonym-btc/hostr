@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
@@ -94,6 +95,7 @@ class ProfileHeader extends StatelessWidget {
             pubkey: profile.pubKey,
             showListingBadges: false,
             showNPub: false,
+            centerContactItems: true,
           ),
         ],
       ),
@@ -151,11 +153,8 @@ class ProfileSettingsSection extends StatelessWidget {
           onPressed: () async {
             final mnemonic = (await getIt<Hostr>().auth.hd.getEvmMnemonic())
                 .join(' ');
-            Clipboard.setData(ClipboardData(text: mnemonic));
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Mnemonic copied to clipboard')),
-            );
+            copyTextToClipboard(context, mnemonic);
           },
         ),
         body: Column(
@@ -391,27 +390,84 @@ class _AutoWithdrawSectionBody extends StatefulWidget {
 }
 
 class _AutoWithdrawSectionBodyState extends State<_AutoWithdrawSectionBody> {
+  late Future<AutomaticInvoiceDestination> _destinationFuture;
+  StreamSubscription? _nwcSub;
+  StreamSubscription? _profileSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _destinationFuture = _loadDestination();
+    final hostr = getIt<Hostr>();
+    _nwcSub = hostr.nwc.connectionsStream.listen((_) => _refreshDestination());
+    _profileSub = hostr.metadata.updates.listen((profile) {
+      if (profile.pubKey == hostr.auth.activeKeyPair?.publicKey) {
+        _refreshDestination();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_nwcSub?.cancel());
+    unawaited(_profileSub?.cancel());
+    super.dispose();
+  }
+
+  Future<AutomaticInvoiceDestination> _loadDestination() {
+    return getIt<Hostr>().payments.resolveAutomaticInvoiceDestination();
+  }
+
+  void _refreshDestination() {
+    if (!mounted) return;
+    setState(() {
+      _destinationFuture = _loadDestination();
+    });
+  }
+
+  String _subtitleFor(AutomaticInvoiceDestination destination) {
+    return switch (destination.type) {
+      AutomaticInvoiceDestinationType.nwc =>
+        'Automatically sweep funds to ${destination.label}',
+      AutomaticInvoiceDestinationType.profileLightningAddress =>
+        'Automatically sweep funds into ${destination.label}',
+      AutomaticInvoiceDestinationType.missingProfileLightningAddress =>
+        destination.error ?? 'Cannot sweep without a profile lightning address',
+      AutomaticInvoiceDestinationType.invalidProfileLightningAddress =>
+        destination.error ??
+            'Cannot run with invalid profile lightning address',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Auto-withdraw toggle
-        StreamBuilder<HostrUserConfig>(
-          stream: getIt<Hostr>().userConfig.stream,
-          builder: (context, snapshot) {
-            final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
-            return SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Auto-withdraw'),
-              subtitle: const Text(
-                'Automatically sweep received funds into your Lightning wallet',
-              ),
-              value: enabled,
-              onChanged: (value) async {
-                final current = await getIt<Hostr>().userConfig.state;
-                await getIt<Hostr>().userConfig.update(
-                  current.copyWith(autoWithdrawEnabled: value),
+        FutureBuilder<AutomaticInvoiceDestination>(
+          future: _destinationFuture,
+          builder: (context, destinationSnapshot) {
+            final destination = destinationSnapshot.data;
+            return StreamBuilder<HostrUserConfig>(
+              stream: getIt<Hostr>().userConfig.stream,
+              builder: (context, snapshot) {
+                final enabled = snapshot.data?.autoWithdrawEnabled ?? true;
+                return SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Auto-withdraw'),
+                  subtitle: Text(
+                    destination == null
+                        ? 'Checking withdrawal destination'
+                        : _subtitleFor(destination),
+                  ),
+                  value: enabled,
+                  onChanged: (value) async {
+                    final current = await getIt<Hostr>().userConfig.state;
+                    await getIt<Hostr>().userConfig.update(
+                      current.copyWith(autoWithdrawEnabled: value),
+                    );
+                  },
                 );
               },
             );

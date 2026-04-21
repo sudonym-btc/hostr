@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 
 abstract final class AppButtonStyles {
-  static const shape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(8)),
-  );
+  static const shape = AppShapes.button;
 
   static ButtonStyle primary(BuildContext context) {
     return primaryFromScheme(Theme.of(context).colorScheme);

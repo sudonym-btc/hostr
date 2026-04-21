@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'chip_wrap.dart';
+
 /// A [Wrap] that shows at most [maxChildren] items when collapsed.
 ///
 /// When the total number of children exceeds [maxChildren], the last
@@ -70,7 +72,7 @@ class _CollapsibleWrapState extends State<CollapsibleWrap> {
       ];
     }
 
-    return Wrap(
+    return ChipWrap(
       spacing: widget.spacing,
       runSpacing: widget.runSpacing,
       children: visible,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -44,7 +45,7 @@ class NwcQrScannerWidgetState extends State<NwcQrScannerWidget>
       child: AspectRatio(
         aspectRatio: 1.0,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppBorderRadii.lg,
           child: MobileScanner(controller: controller, tapToFocus: true),
         ),
       ),

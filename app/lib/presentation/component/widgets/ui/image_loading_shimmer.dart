@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 
 /// Standard shimmer placeholder for image-loading states.
 class ImageLoadingShimmer extends StatefulWidget {
@@ -45,7 +46,7 @@ class _ImageLoadingShimmerState extends State<ImageLoadingShimmer>
       0.7,
     )!;
 
-    final shape = widget.borderRadius ?? BorderRadius.circular(8);
+    final shape = widget.borderRadius ?? AppBorderRadii.sm;
 
     return SizedBox(
       width: widget.width,

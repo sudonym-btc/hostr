@@ -6,6 +6,46 @@ import 'package:web3dart/web3dart.dart';
 import '../../evm_call.dart';
 import '../../models/amount_spec.dart';
 
+/// Input-side buffer applied to DEX-assisted swap-ins.
+///
+/// For a Lightning -> bridge-token -> DEX -> requested-token flow, the DEX
+/// calldata still enforces the requested output as `amountOutMin`; this buffer
+/// only asks Boltz to deliver a little more bridge token so the DEX leg has room
+/// for small quote movement or satoshi rounding.
+class SwapInDexBuffer {
+  static const standard = SwapInDexBuffer(basisPoints: 10, minSats: 2);
+  static const zero = SwapInDexBuffer(basisPoints: 0, minSats: 0);
+
+  /// Percentage buffer in basis points. 10 bps = 0.1%.
+  final int basisPoints;
+
+  /// Minimum buffer in satoshis of the Boltz bridge token.
+  final int minSats;
+
+  const SwapInDexBuffer({required this.basisPoints, required this.minSats})
+    : assert(basisPoints >= 0),
+      assert(minSats >= 0);
+
+  bool get isZero => basisPoints == 0 && minSats == 0;
+
+  BigInt applyToSats(BigInt baseSats) {
+    if (isZero || baseSats <= BigInt.zero) return baseSats;
+
+    final percentage = _ceilDiv(
+      baseSats * BigInt.from(basisPoints),
+      BigInt.from(10000),
+    );
+    final minimum = BigInt.from(minSats);
+    final buffer = percentage > minimum ? percentage : minimum;
+    return baseSats + buffer;
+  }
+
+  static BigInt _ceilDiv(BigInt numerator, BigInt denominator) {
+    if (numerator == BigInt.zero) return BigInt.zero;
+    return ((numerator - BigInt.one) ~/ denominator) + BigInt.one;
+  }
+}
+
 class SwapInParams {
   final EthPrivateKey evmKey;
   final int accountIndex;
@@ -47,6 +87,12 @@ class SwapInParams {
   /// the requested token is not Boltz-supported (e.g. USDT).
   Map<String, Call>? postClaimCalls;
 
+  /// Buffer applied to the DEX input for non-bridge-token swap-ins.
+  ///
+  /// Defaults to `max(0.1%, 2 sats)` of the bridge-token input. Tests and
+  /// flows that require exact zero dust can pass [SwapInDexBuffer.zero].
+  final SwapInDexBuffer dexInputBuffer;
+
   /// ERC-4337 state overrides applied when estimating gas for the
   /// `[claim, ...postClaimCalls]` UserOperation.
   ///
@@ -67,6 +113,7 @@ class SwapInParams {
     this.claimDestination,
     this.parentOperationId,
     this.postClaimCalls,
+    this.dexInputBuffer = SwapInDexBuffer.standard,
     this.postClaimStateOverrides,
   }) : amount = amountSpec.amount;
 }

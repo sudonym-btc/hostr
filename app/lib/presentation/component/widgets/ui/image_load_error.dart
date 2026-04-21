@@ -18,7 +18,7 @@ class ImageLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = borderRadius ?? BorderRadius.circular(8);
+    final shape = borderRadius ?? AppBorderRadii.sm;
     final text = message ?? 'Image unavailable';
 
     return SizedBox(

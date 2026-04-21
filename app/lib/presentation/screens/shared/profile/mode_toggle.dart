@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 
@@ -18,7 +19,7 @@ class ModeToggleWidget extends StatelessWidget {
             borderColor: Theme.of(context).colorScheme.primary,
             selectedColor: Theme.of(context).colorScheme.onPrimary,
             borderWidth: 1,
-            borderRadius: BorderRadius.circular(50.0),
+            borderRadius: AppBorderRadii.full,
             isSelected: [state is HostMode, state is GuestMode],
             onPressed: (int index) {
               if (index == 0) {

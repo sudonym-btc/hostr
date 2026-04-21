@@ -254,9 +254,7 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
         if (valuedSpecKeys.isNotEmpty) Gap.vertical.sm(),
 
         // ── Boolean specs (chip picker) ───────────────────────────────
-        Wrap(
-          spacing: kDefaultPadding.toDouble() / 3,
-          runSpacing: kDefaultPadding.toDouble() / 3,
+        ChipWrap(
           children: [
             ...selected.map((spec) {
               return InputChip(
@@ -485,7 +483,7 @@ class _AdvancedSettingsSectionState extends State<AdvancedSettingsSection> {
       children: [
         InkWell(
           onTap: () => setState(() => _expanded = !_expanded),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppBorderRadii.sm,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Row(

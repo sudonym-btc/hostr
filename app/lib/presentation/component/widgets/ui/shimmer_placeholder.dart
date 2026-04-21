@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 
 class ShimmerPlaceholder extends StatefulWidget {
@@ -86,7 +87,7 @@ class ShimmerCard extends StatelessWidget {
   const ShimmerCard({
     super.key,
     this.height = 120,
-    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.borderRadius = AppBorderRadii.md,
   });
 
   @override
@@ -108,7 +109,7 @@ class ShimmerListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShimmerPlaceholder(
       loading: true,
-      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      borderRadius: AppBorderRadii.md,
       child: SizedBox(height: height, width: double.infinity),
     );
   }

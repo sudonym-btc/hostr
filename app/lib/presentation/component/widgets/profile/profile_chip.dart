@@ -28,7 +28,7 @@ class ProfileChipWidget extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 200),
             child: InkWell(
-              customBorder: const StadiumBorder(),
+              customBorder: AppShapes.chip,
               onTap: () => ProfilePopup.show(context, id),
               child: AppChip.neutral.sm(
                 label: Text(name, overflow: TextOverflow.ellipsis),

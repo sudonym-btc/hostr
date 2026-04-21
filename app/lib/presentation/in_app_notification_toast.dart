@@ -9,6 +9,7 @@ typedef NotificationOverlayStateProvider = OverlayState? Function();
 class InAppNotificationToast {
   static final _logger = CustomLogger(tag: 'in-app-notification-toast');
   static NotificationOverlayStateProvider? _overlayStateProvider;
+  static final Map<int, ToastificationItem> _activeToastsById = {};
 
   static void setOverlayStateProvider(
     NotificationOverlayStateProvider provider,
@@ -24,13 +25,23 @@ class InAppNotificationToast {
     }
   }
 
-  static void show({String? title, String? body, String? payload}) {
+  static void show({
+    required int id,
+    String? title,
+    String? body,
+    String? payload,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showNow(title: title, body: body, payload: payload);
+      _showNow(id: id, title: title, body: body, payload: payload);
     });
   }
 
-  static void _showNow({String? title, String? body, String? payload}) {
+  static void _showNow({
+    required int id,
+    String? title,
+    String? body,
+    String? payload,
+  }) {
     final overlayState = _overlayStateProvider?.call();
     if (overlayState == null || !overlayState.mounted) {
       _logger.w('No overlay state available for in-app notification toast');
@@ -43,7 +54,13 @@ class InAppNotificationToast {
         notificationPayload != null && notificationPayload.isNotEmpty;
 
     try {
-      toastification.show(
+      final previousToast = _activeToastsById.remove(id);
+      if (previousToast != null) {
+        toastification.dismiss(previousToast, showRemoveAnimation: false);
+      }
+
+      late final ToastificationItem toast;
+      toast = toastification.show(
         overlayState: overlayState,
         type: ToastificationType.info,
         style: ToastificationStyle.minimal,
@@ -58,16 +75,22 @@ class InAppNotificationToast {
         showIcon: false,
         showProgressBar: true,
         closeOnClick: hasPayload,
-        callbacks: hasPayload
-            ? ToastificationCallbacks(
-                onTap: (notification) {
+        callbacks: ToastificationCallbacks(
+          onTap: hasPayload
+              ? (notification) {
                   toastification.dismiss(notification);
                   dispatchNotificationPayload(notificationPayload);
-                },
-              )
-            : const ToastificationCallbacks(),
+                }
+              : null,
+          onDismissed: (notification) {
+            if (identical(_activeToastsById[id], notification)) {
+              _activeToastsById.remove(id);
+            }
+          },
+        ),
         onHoverMouseCursor: hasPayload ? SystemMouseCursors.click : null,
       );
+      _activeToastsById[id] = toast;
     } catch (e, st) {
       _logger.e(
         'Failed to show in-app notification toast',

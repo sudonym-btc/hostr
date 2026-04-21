@@ -35,8 +35,8 @@ class SwapQuote {
   /// Optional DEX quote when the listing token differs from the Boltz
   /// funding token (e.g. escrow needs USDT but Boltz sends tBTC).
   ///
-  /// `null` for same-token swaps. Zero slippage is enforced at execution
-  /// time — the DEX must deliver the exact quoted amount.
+  /// `null` for same-token swaps. Swap-in quotes may include a small
+  /// input-side buffer while keeping the requested output as `amountOutMin`.
   final DexQuote? dexQuote;
 
   const SwapQuote({

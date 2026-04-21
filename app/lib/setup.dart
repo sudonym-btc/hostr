@@ -100,6 +100,7 @@ Future<void> initCore(
             ({required int id, String? title, String? body, String? payload}) {
               if (kIsWeb) {
                 InAppNotificationToast.show(
+                  id: id,
                   title: title,
                   body: body,
                   payload: payload,

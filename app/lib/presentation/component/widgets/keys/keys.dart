@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:web3dart/web3dart.dart';
 
@@ -23,10 +23,9 @@ class KeysWidgetState extends State<KeysWidget> {
                 title: Text(AppLocalizations.of(context)!.publicKey),
                 subtitle: Text(getIt<Hostr>().auth.activeKeyPair!.publicKey),
                 onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-                    ),
+                  copyTextToClipboard(
+                    context,
+                    getIt<Hostr>().auth.activeKeyPair!.publicKey,
                   );
                 },
               ),
@@ -34,10 +33,9 @@ class KeysWidgetState extends State<KeysWidget> {
                 title: Text(AppLocalizations.of(context)!.privateKey),
                 subtitle: Text(getIt<Hostr>().auth.activeKeyPair!.privateKey!),
                 onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text: getIt<Hostr>().auth.activeKeyPair!.privateKey!,
-                    ),
+                  copyTextToClipboard(
+                    context,
+                    getIt<Hostr>().auth.activeKeyPair!.privateKey!,
                   );
                 },
               ),
@@ -50,9 +48,8 @@ class KeysWidgetState extends State<KeysWidget> {
                 ),
                 onTap: () async {
                   final evmKey = await getIt<Hostr>().auth.hd.getActiveEvmKey();
-                  Clipboard.setData(
-                    ClipboardData(text: evmKey.address.eip55With0x),
-                  );
+                  if (!context.mounted) return;
+                  copyTextToClipboard(context, evmKey.address.eip55With0x);
                 },
               ),
               ListTile(
@@ -67,10 +64,10 @@ class KeysWidgetState extends State<KeysWidget> {
                 ),
                 onTap: () async {
                   final evmKey = await getIt<Hostr>().auth.hd.getActiveEvmKey();
-                  Clipboard.setData(
-                    ClipboardData(
-                      text: bytesToHex(evmKey.privateKey, include0x: true),
-                    ),
+                  if (!context.mounted) return;
+                  copyTextToClipboard(
+                    context,
+                    bytesToHex(evmKey.privateKey, include0x: true),
                   );
                 },
               ),

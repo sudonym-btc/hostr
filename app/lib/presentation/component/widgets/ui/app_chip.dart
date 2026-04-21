@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 
 // ─── Size tokens ─────────────────────────────────────────────
@@ -151,9 +152,7 @@ class AppChip extends StatelessWidget {
     return Chip(
       visualDensity: _densityFor(_size),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape:
-          shape ??
-          StadiumBorder(side: BorderSide(color: border ?? Colors.transparent)),
+      shape: shape ?? AppShapes.chipWithSide(color: border),
       backgroundColor: bg,
       avatar: avatar,
       label: label,

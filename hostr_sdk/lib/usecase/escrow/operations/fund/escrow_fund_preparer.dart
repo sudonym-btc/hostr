@@ -75,6 +75,7 @@ class EscrowFundPreparer {
       // (approve tBTC + UniversalRouter.execute) when the escrow token is not
       // the Boltz bridge token (e.g. USDT listings).
       postClaimCalls: quotedParams.postClaimCalls,
+      dexInputBuffer: params!.dexInputBuffer,
       postClaimStateOverrides: resolved.stateOverrides,
     );
   });
@@ -182,6 +183,7 @@ class EscrowFundPreparer {
       // issuing additional getAccountAddress RPC calls.
       claimAddress: resolved.claimAddress,
       postClaimCalls: resolved.fundCalls,
+      dexInputBuffer: _requireParams().dexInputBuffer,
       postClaimStateOverrides: resolved.stateOverrides,
     );
     final quote = await getIt<SwapQuoteService>().buildSwapInQuote(
@@ -256,7 +258,8 @@ class EscrowFundPreparer {
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end != null
           ? params.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000 +
-                (params.maxDisputePeriod ?? ListingTagRead.defaultMaxDisputePeriod)
+                (params.maxDisputePeriod ??
+                    ListingTagRead.defaultMaxDisputePeriod)
           : DateTime.now()
                     .add(const Duration(days: 30))
                     .millisecondsSinceEpoch ~/

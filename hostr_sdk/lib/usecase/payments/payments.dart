@@ -13,6 +13,50 @@ import 'operations/pay_models.dart';
 import 'operations/pay_operation.dart';
 import 'operations/zap_operation.dart';
 
+enum AutomaticInvoiceDestinationType {
+  nwc,
+  profileLightningAddress,
+  missingProfileLightningAddress,
+  invalidProfileLightningAddress,
+}
+
+class AutomaticInvoiceDestination {
+  final AutomaticInvoiceDestinationType type;
+  final String? label;
+  final String? error;
+
+  const AutomaticInvoiceDestination._({
+    required this.type,
+    this.label,
+    this.error,
+  });
+
+  const AutomaticInvoiceDestination.nwc(String label)
+    : this._(type: AutomaticInvoiceDestinationType.nwc, label: label);
+
+  const AutomaticInvoiceDestination.profileLightningAddress(String lud16)
+    : this._(
+        type: AutomaticInvoiceDestinationType.profileLightningAddress,
+        label: lud16,
+      );
+
+  const AutomaticInvoiceDestination.missingProfileLightningAddress()
+    : this._(
+        type: AutomaticInvoiceDestinationType.missingProfileLightningAddress,
+        error: 'Cannot sweep without a profile lightning address',
+      );
+
+  const AutomaticInvoiceDestination.invalidProfileLightningAddress()
+    : this._(
+        type: AutomaticInvoiceDestinationType.invalidProfileLightningAddress,
+        error: 'Cannot run with invalid profile lightning address',
+      );
+
+  bool get canCreateAutomatically =>
+      type == AutomaticInvoiceDestinationType.nwc ||
+      type == AutomaticInvoiceDestinationType.profileLightningAddress;
+}
+
 @Singleton()
 class Payments {
   final CustomLogger _logger;
@@ -43,10 +87,11 @@ class Payments {
     int amountSats, {
     String? description,
   }) => _logger.span('getMyInvoice', () async {
-    if (_nwc.getActiveConnection() != null) {
+    final activeConnection = _nwc.getActiveConnection();
+    if (activeConnection != null) {
       try {
         return (await _nwc.makeInvoice(
-          _nwc.getActiveConnection()!,
+          activeConnection,
           amountSats: amountSats,
           description: description,
         )).invoice;
@@ -61,6 +106,43 @@ class Payments {
       amountSats,
       description: description,
     );
+  });
+
+  Future<AutomaticInvoiceDestination> resolveAutomaticInvoiceDestination({
+    bool verifyLightningAddress = true,
+  }) => _logger.span('resolveAutomaticInvoiceDestination', () async {
+    if (_nwc.getActiveConnection() != null) {
+      return AutomaticInvoiceDestination.nwc(
+        _nwc.getActiveConnectionName() ?? 'connected wallet',
+      );
+    }
+
+    final pubkey = _auth.activeKeyPair?.publicKey;
+    if (pubkey == null) {
+      return const AutomaticInvoiceDestination.missingProfileLightningAddress();
+    }
+
+    final profile = await _metadata.loadMetadata(pubkey);
+    final lud16 = profile?.metadata.lud16?.trim();
+    if (lud16 == null || lud16.isEmpty) {
+      return const AutomaticInvoiceDestination.missingProfileLightningAddress();
+    }
+
+    final lud16Link = _lnurl.getLud16LinkFromLud16(lud16);
+    if (lud16Link == null) {
+      return const AutomaticInvoiceDestination.invalidProfileLightningAddress();
+    }
+
+    if (verifyLightningAddress) {
+      final response = await _lnurl.getLnurlResponse(lud16Link);
+      if (response == null ||
+          response.callback == null ||
+          response.tag != 'payRequest') {
+        return const AutomaticInvoiceDestination.invalidProfileLightningAddress();
+      }
+    }
+
+    return AutomaticInvoiceDestination.profileLightningAddress(lud16);
   });
 
   /// Attempts to create an invoice from the current user's LUD16 lightning

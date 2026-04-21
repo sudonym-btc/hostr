@@ -299,7 +299,7 @@ class _ImageUploadState extends State<ImageUpload> {
                               color: Theme.of(
                                 context,
                               ).colorScheme.onSurface.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(kSpace5),
+                              borderRadius: AppBorderRadii.full,
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

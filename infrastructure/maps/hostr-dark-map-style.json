@@ -1,7 +1,7 @@
 {
   "monochrome": true,
   "variant": "dark",
-  "backgroundColor": "#191919",
+  "backgroundColor": "#222222",
   "styles": [
     {
       "id": "infrastructure",
@@ -82,14 +82,14 @@
       "geometry": {
         "visible": true,
         "fillOpacity": 1,
-        "fillColor": "#191919"
+        "fillColor": "#222222"
       }
     },
     {
       "id": "natural.land.landCover",
       "geometry": {
         "fillOpacity": 1,
-        "fillColor": "#191919"
+        "fillColor": "#222222"
       }
     },
     {
@@ -97,7 +97,7 @@
       "geometry": {
         "visible": false,
         "fillOpacity": 1,
-        "fillColor": "#191919"
+        "fillColor": "#222222"
       }
     },
     {

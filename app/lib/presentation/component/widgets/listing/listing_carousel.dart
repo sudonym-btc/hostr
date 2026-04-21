@@ -1,5 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 
@@ -54,7 +55,7 @@ class SmallListingCarousel extends StatelessWidget {
       height: height,
       width: width,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8.0),
+        borderRadius: AppBorderRadii.sm,
         child: ListingCarousel(listing: listing),
       ),
     );

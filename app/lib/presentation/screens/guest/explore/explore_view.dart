@@ -226,9 +226,7 @@ class ExploreViewState extends State<ExploreView> {
           child: Container(
             decoration: BoxDecoration(
               color: AppSurface.of(context),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
+              borderRadius: AppBorderRadii.topLg,
               boxShadow: [
                 BoxShadow(
                   color: AppSurface.of(context).withAlpha(120),
@@ -255,7 +253,7 @@ class ExploreViewState extends State<ExploreView> {
                           color: Theme.of(
                             context,
                           ).colorScheme.onSurface.withAlpha(60),
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: AppBorderRadii.full,
                         ),
                       ),
                     ),

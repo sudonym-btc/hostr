@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/main.dart';
 import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/ui/gap.dart';
@@ -143,7 +144,7 @@ class _DateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(small ? 12 : 16);
+    final radius = small ? AppBorderRadii.md : AppBorderRadii.lg;
     final iconSize = small
         ? AppSpacing.of(context).xs
         : AppSpacing.of(context).sm;

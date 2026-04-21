@@ -85,15 +85,27 @@ class Nwc {
     },
   );
 
-  NwcConnection? getActiveConnection() =>
-      _logger.spanSync('getActiveConnection', () {
+  NwcCubit? getActiveConnectionCubit() =>
+      _logger.spanSync('getActiveConnectionCubit', () {
         for (final cubit in connections) {
           if (cubit.state is Success) {
-            return cubit.connection;
+            return cubit;
           }
         }
         return null;
       });
+
+  NwcConnection? getActiveConnection() =>
+      _logger.spanSync('getActiveConnection', () {
+        return getActiveConnectionCubit()?.connection;
+      });
+
+  String? getActiveConnectionName() {
+    final state = getActiveConnectionCubit()?.state;
+    if (state is! NwcSuccess) return null;
+    final alias = state.data.alias.trim();
+    return alias.isEmpty ? null : alias;
+  }
 
   Future<NwcCubit> initiateAndAdd(String url) =>
       _logger.span('initiateAndAdd', () async {

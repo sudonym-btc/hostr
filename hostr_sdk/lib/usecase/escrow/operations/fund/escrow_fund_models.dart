@@ -1,5 +1,7 @@
 import 'package:models/main.dart';
 
+import '../../../evm/operations/swap_in/swap_in_models.dart';
+
 class EscrowFundParams {
   final EscrowService escrowService;
   final Reservation negotiateReservation;
@@ -21,6 +23,11 @@ class EscrowFundParams {
 
   final String? listingName;
 
+  /// DEX input buffer forwarded to swap-in funding when escrow funding needs a
+  /// bridge-token -> escrow-token DEX hop. Defaults to the normal swap-in
+  /// buffer; pass [SwapInDexBuffer.zero] for exact zero-dust tests.
+  final SwapInDexBuffer dexInputBuffer;
+
   EscrowFundParams({
     required this.escrowService,
     required this.negotiateReservation,
@@ -30,6 +37,7 @@ class EscrowFundParams {
     this.securityDeposit,
     this.maxDisputePeriod,
     this.listingName,
+    this.dexInputBuffer = SwapInDexBuffer.standard,
   });
 
   String get swapInvoiceDescription {

@@ -234,6 +234,9 @@ class _PaymentConfirmForm extends StatelessWidget {
     final maxAmount = effectiveMax > 0
         ? _satsAmount(effectiveMax ~/ 1000)
         : null;
+    final amountTextStyle = Theme.of(
+      context,
+    ).textTheme.displayMedium!.copyWith(fontWeight: FontWeight.bold);
 
     return Form(
       key: controller.formKey,
@@ -260,6 +263,7 @@ class _PaymentConfirmForm extends StatelessWidget {
             required: true,
             enabled: isReady && !isLoading,
             editable: isEditable,
+            textStyle: amountTextStyle,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             onChanged: (amount) {
               if (amount == null || !isReady) {
@@ -442,20 +446,15 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      FilledButton(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            ClipboardData(
-                              text:
-                                  (state.callbackDetails!
-                                          as LightningCallbackDetails)
-                                      .invoice
-                                      .paymentRequest,
-                            ),
-                          );
-                        },
+                      CopyFeedbackButton(
+                        value: () =>
+                            (state.callbackDetails! as LightningCallbackDetails)
+                                .invoice
+                                .paymentRequest,
+                        label: AppLocalizations.of(context)!.copy,
+                        variant: CopyFeedbackButtonVariant.filled,
                         style: AppButtonStyles.secondary(context),
-                        child: Text(AppLocalizations.of(context)!.copy),
+                        showCopyIcon: false,
                       ),
                       FutureBuilder(
                         future: canLaunchUrl(uri),

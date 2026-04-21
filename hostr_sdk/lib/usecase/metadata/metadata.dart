@@ -50,6 +50,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   Future<List<RelayBroadcastResponse>> upsert(ProfileMetadata event) =>
       logger.span('upsert', () async {
         final result = await super.upsert(event);
+        await _ndk.config.cache.saveMetadata(event.metadata);
         // Fire-and-forget: ensure all user config is up-to-date now that
         // the profile has been saved and relays are connected.
         final pubkey = event.pubKey;

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
@@ -171,22 +170,6 @@ class LocationFieldState extends State<LocationField> {
 
   String _newSessionToken() =>
       '${DateTime.now().microsecondsSinceEpoch}-${hashCode.abs()}';
-
-  Future<void> _copyH3IndexesToClipboard() async {
-    final tags = widget.controller.h3Tags;
-    if (tags.isEmpty) return;
-
-    final csv = tags.map((tag) => tag.index).join(',');
-    await Clipboard.setData(ClipboardData(text: csv));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppLocalizations.of(context)!.copiedH3Indexes(tags.length),
-        ),
-      ),
-    );
-  }
 
   LocationSuggestion _toLocationSuggestion(Map<String, dynamic> prediction) {
     final text = prediction['text'];
@@ -405,12 +388,13 @@ class LocationFieldState extends State<LocationField> {
                   }
                 } finally {
                   _isSelectingSuggestion = false;
-                  if (!mounted) return;
-                  setState(() {
-                    _isLoadingSuggestions = false;
-                    _placeList = [];
-                    _sessionToken = _newSessionToken();
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _isLoadingSuggestions = false;
+                      _placeList = [];
+                      _sessionToken = _newSessionToken();
+                    });
+                  }
                 }
               },
             );
@@ -515,12 +499,12 @@ class LocationFieldState extends State<LocationField> {
                                 .toList(),
                           ),
                           Gap.vertical.sm(),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.copy, size: kIconSm),
-                            label: Text(
-                              AppLocalizations.of(context)!.copyH3Indexes,
-                            ),
-                            onPressed: _copyH3IndexesToClipboard,
+                          CopyFeedbackButton(
+                            value: () => widget.controller.h3Tags
+                                .map((tag) => tag.index)
+                                .join(','),
+                            label: AppLocalizations.of(context)!.copyH3Indexes,
+                            variant: CopyFeedbackButtonVariant.outlined,
                           ),
                         ],
                       ),

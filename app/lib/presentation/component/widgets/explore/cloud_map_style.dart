@@ -41,7 +41,7 @@ CloudMapPalette cloudMapPaletteFromTheme(
   if (isDarkMode) {
     return CloudMapPalette(
       water: _lerpHex(cs.surface, cs.surfaceContainerLowest, 1 / 6),
-      land: _colorToHex(cs.surfaceContainer),
+      land: _colorToHex(cs.surfaceContainerHighest),
       road: _lerpHex(cs.surface, cs.surfaceContainerLowest, 4 / 9),
       park: _colorToHex(cs.surfaceContainerLow),
       labelFill: _colorToHex(cs.onSurfaceVariant),

@@ -37,7 +37,7 @@ class ThreadMessageWidget extends StatelessWidget {
               child: ProfileProvider(
                 pubkey: item.pubKey,
                 builder: (context, profile) {
-                  if(profile.data == null) return SizedBox.shrink();
+                  if (profile.data == null) return SizedBox.shrink();
                   return Text(
                     profile.data!.metadata.getName(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -82,7 +82,7 @@ class MessageContainer extends StatelessWidget {
         : AppSurface.stepped(context);
     return Material(
       color: color,
-      borderRadius: BorderRadius.circular(kDefaultPadding / 3),
+      borderRadius: AppBorderRadii.md,
       child: Padding(
         padding: EdgeInsets.all(kDefaultPadding / 3),
         child: child,

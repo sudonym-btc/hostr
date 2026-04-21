@@ -112,7 +112,7 @@ class InvalidReviewWrapper extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: colors.errorContainer,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: AppBorderRadii.xs,
             ),
             child: Text(
               reason,
