@@ -84,6 +84,7 @@ class SwapOutViewWidget extends StatelessWidget {
       case SwapOutAwaitingOnChain():
       case SwapOutFunded():
       case SwapOutClaimed():
+      case SwapOutWaitingForTimelock():
       case SwapOutRefunding():
       case SwapOutLocking():
         return SwapOutProgressWidget(state);
