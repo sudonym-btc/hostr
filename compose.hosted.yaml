@@ -62,6 +62,7 @@ services:
 
   escrow:
     image: ${DOCKER_REGISTRY}/escrow:latest
+    restart: unless-stopped
     depends_on:
       nginx-proxy:
         condition: service_healthy

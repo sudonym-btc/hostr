@@ -145,26 +145,46 @@ class EscrowEventScanner {
           ? BlockNum.exact(lastQueried! + 1)
           : BlockNum.exact(block);
 
-      final logs = await currentChain.getLogs(
-        FilterOptions(
-          address: eventFilter.address,
-          topics: eventFilter.topics,
-          fromBlock: fromBlock,
-          toBlock: BlockNum.exact(block),
-        ),
-        batch: false,
-      );
+      final List<FilterEvent> logs;
+      try {
+        logs = await currentChain.getLogs(
+          FilterOptions(
+            address: eventFilter.address,
+            topics: eventFilter.topics,
+            fromBlock: fromBlock,
+            toBlock: BlockNum.exact(block),
+          ),
+          batch: false,
+        );
+      } catch (error, stackTrace) {
+        logger.w(
+          'Live escrow event poll failed for block range $fromBlock..$block; '
+          'will retry from the same block on the next poll: $error',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return;
+      }
 
       lastQueried = block;
       logStore.addAll(logs);
 
       for (final log in logs) {
         if (log.transactionHash == null) continue;
-        yield await _mapAndCacheEscrowEvent(
-          log,
-          eventNamesByTopic,
-          selectedEscrow,
-        );
+        try {
+          yield await _mapAndCacheEscrowEvent(
+            log,
+            eventNamesByTopic,
+            selectedEscrow,
+          );
+        } catch (error, stackTrace) {
+          logger.w(
+            'Failed to map live escrow event ${log.transactionHash}; '
+            'will continue polling: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
       }
     });
   }
@@ -405,11 +425,25 @@ class EscrowEventScanner {
   // ── Helpers ───────────────────────────────────────────────────────
 
   Future<BlockInformation> _blockForLog(FilterEvent log) async {
-    final receipt = await contract.client.getTransactionByHash(
-      log.transactionHash!,
-    );
+    final currentChain = chain;
+    final txHash = log.transactionHash!;
+
+    if (currentChain != null) {
+      final tx = await currentChain.getTransaction(txHash);
+      if (tx == null) {
+        throw StateError('Could not fetch transaction $txHash for escrow log');
+      }
+      return currentChain.getBlockInformation(
+        blockNumber: tx.blockNumber.toBlockParam(),
+      );
+    }
+
+    final tx = await contract.client.getTransactionByHash(txHash);
+    if (tx == null) {
+      throw StateError('Could not fetch transaction $txHash for escrow log');
+    }
     return contract.client.getBlockInformation(
-      blockNumber: receipt!.blockNumber.toBlockParam(),
+      blockNumber: tx.blockNumber.toBlockParam(),
     );
   }
 
