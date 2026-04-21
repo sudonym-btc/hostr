@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
@@ -47,11 +48,13 @@ class EscrowDaemon {
 
   // ── Subscriptions ───────────────────────────────────────────────────────
   StreamSubscription? _eventSub;
+  StreamSubscription<int>? _blockSub;
   final Map<String, StreamSubscription> _tradeEventSubs = {};
   StreamSubscription? _threadSub;
   StreamSubscription? _reservationPTagSub;
   StreamSubscription? _reservationAuthorSub;
   Timer? _reservationDebounce;
+  int? _latestBlockNum;
 
   EscrowDaemon({required Hostr hostr})
     : _hostr = hostr,
@@ -165,6 +168,7 @@ class EscrowDaemon {
   /// Must be called after [bootstrap]. Awaits the initial thread query so
   /// that conversations are available immediately after this returns.
   Future<void> start() async {
+    _startBlockTipListener();
     _startContractListener();
     await _startThreadListener();
     _startReservationListener();
@@ -174,6 +178,7 @@ class EscrowDaemon {
   /// Stop all subscriptions.
   Future<void> stop() async {
     await _eventSub?.cancel();
+    await _blockSub?.cancel();
     for (final sub in _tradeEventSubs.values) {
       await sub.cancel();
     }
@@ -241,6 +246,13 @@ class EscrowDaemon {
     });
   }
 
+  void _startBlockTipListener() {
+    _blockSub ??= context.configuredChain.newBlocks().listen(
+      (blockNum) => _latestBlockNum = blockNum,
+      onError: (e, st) => _logger.e('Block tip stream error: $e'),
+    );
+  }
+
   /// Phase 2: Subscribe to ALL event types for a single trade.
   ///
   /// The per-trade filter does not restrict by arbiter, so it receives
@@ -268,6 +280,11 @@ class EscrowDaemon {
   }
 
   void _onTradeEvent(EscrowEvent event) {
+    final updatedAt = _updatedAtForEscrowEvent(event);
+    _latestBlockNum = _latestBlockNum == null
+        ? event.blockNum
+        : max(_latestBlockNum!, event.blockNum);
+
     if (event is EscrowFundedEvent) {
       _logger.i('Trade funded: ${event.tradeId}  ${event.amount}');
       _trades[event.tradeId] = TradeSnapshot(
@@ -275,7 +292,7 @@ class EscrowDaemon {
         status: TradeStatus.funded,
         amount: event.amount,
         lastTxHash: event.transactionHash,
-        updatedAt: event.block.timestamp,
+        updatedAt: updatedAt,
       );
     } else if (event is EscrowArbitratedEvent) {
       _logger.i(
@@ -288,7 +305,7 @@ class EscrowDaemon {
         _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.arbitrated,
           lastTxHash: event.transactionHash,
-          updatedAt: event.block.timestamp,
+          updatedAt: updatedAt,
         );
       }
     } else if (event is EscrowReleasedEvent) {
@@ -298,7 +315,7 @@ class EscrowDaemon {
         _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.released,
           lastTxHash: event.transactionHash,
-          updatedAt: event.block.timestamp,
+          updatedAt: updatedAt,
         );
       }
     } else if (event is EscrowClaimedEvent) {
@@ -308,12 +325,28 @@ class EscrowDaemon {
         _trades[event.tradeId] = existing.copyWith(
           status: TradeStatus.claimed,
           lastTxHash: event.transactionHash,
-          updatedAt: event.block.timestamp,
+          updatedAt: updatedAt,
         );
       }
     }
 
     _tradesSubject.add(_trades);
+  }
+
+  DateTime _updatedAtForEscrowEvent(EscrowEvent event) {
+    final block = event.block;
+    if (block != null) return block.timestamp;
+
+    final latestBlockNum = _latestBlockNum;
+    if (latestBlockNum == null || latestBlockNum <= event.blockNum) {
+      return DateTime.now().toUtc();
+    }
+
+    const estimatedBlockSeconds = 12;
+    final blocksAgo = latestBlockNum - event.blockNum;
+    return DateTime.now().toUtc().subtract(
+      Duration(seconds: blocksAgo * estimatedBlockSeconds),
+    );
   }
 
   // ── Nostr thread messages ─────────────────────────────────────────────────

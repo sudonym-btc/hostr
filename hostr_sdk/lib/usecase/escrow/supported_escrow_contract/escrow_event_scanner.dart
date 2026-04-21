@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:models/main.dart';
@@ -31,6 +32,11 @@ class EscrowEventScanner {
   final SupportedEscrowContract? parentContract;
 
   final Map<String, CachedTradeEvents> _tradeEvents = {};
+  final List<_LiveTradeSubscription> _liveTradeSubscriptions = [];
+  StreamSubscription<void>? _liveTradeBlockSub;
+  int? _liveTradeLastQueried;
+
+  static const int _maxLiveTradeTopicsPerGetLogs = 75;
 
   EscrowEventScanner({
     required this.contract,
@@ -109,6 +115,7 @@ class EscrowEventScanner {
         },
         live: includeLive
             ? () => _liveEvents(
+                params,
                 eventFilter,
                 eventNamesByTopic,
                 selectedEscrow,
@@ -123,6 +130,7 @@ class EscrowEventScanner {
   // ── Live polling ──────────────────────────────────────────────────
 
   Stream<EscrowEvent> _liveEvents(
+    ContractEventsParams params,
     FilterOptions eventFilter,
     Map<String, String> eventNamesByTopic,
     EscrowServiceSelected? selectedEscrow,
@@ -133,6 +141,18 @@ class EscrowEventScanner {
     if (currentChain == null) {
       logger.w('No EvmChain available — live polling disabled');
       return const Stream.empty();
+    }
+
+    final tradeId = params.tradeId;
+    if (tradeId != null) {
+      return _liveTradeEvents(
+        tradeId: tradeId,
+        eventFilter: eventFilter,
+        eventNamesByTopic: eventNamesByTopic,
+        selectedEscrow: selectedEscrow,
+        logStore: logStore,
+        cachedHighestSeenBlock: cachedHighestSeenBlock,
+      );
     }
 
     var lastQueried = _highestSeenBlock(
@@ -187,6 +207,176 @@ class EscrowEventScanner {
         }
       }
     });
+  }
+
+  Stream<EscrowEvent> _liveTradeEvents({
+    required String tradeId,
+    required FilterOptions eventFilter,
+    required Map<String, String> eventNamesByTopic,
+    required EscrowServiceSelected? selectedEscrow,
+    required List<FilterEvent> logStore,
+    int? cachedHighestSeenBlock,
+  }) {
+    final currentChain = chain;
+    if (currentChain == null) {
+      logger.w('No EvmChain available — live trade polling disabled');
+      return const Stream.empty();
+    }
+
+    late StreamController<EscrowEvent> controller;
+    late _LiveTradeSubscription subscription;
+    controller = StreamController<EscrowEvent>(
+      onListen: () {
+        subscription = _LiveTradeSubscription(
+          tradeId: tradeId,
+          tradeTopic: _tradeIdTopic(tradeId),
+          eventFilter: eventFilter,
+          eventNamesByTopic: eventNamesByTopic,
+          selectedEscrow: selectedEscrow,
+          logStore: logStore,
+          controller: controller,
+        );
+        _liveTradeSubscriptions.add(subscription);
+
+        final highestSeenBlock = _highestSeenBlock(
+          logStore,
+          cachedHighestSeenBlock: cachedHighestSeenBlock,
+        );
+        if (highestSeenBlock != null) {
+          _liveTradeLastQueried = _liveTradeLastQueried == null
+              ? highestSeenBlock
+              : min(_liveTradeLastQueried!, highestSeenBlock);
+        }
+
+        _ensureLiveTradeBlockSubscription(currentChain);
+      },
+      onCancel: () {
+        _liveTradeSubscriptions.remove(subscription);
+        if (_liveTradeSubscriptions.isEmpty) {
+          _liveTradeBlockSub?.cancel();
+          _liveTradeBlockSub = null;
+          _liveTradeLastQueried = null;
+        }
+      },
+    );
+
+    return controller.stream;
+  }
+
+  void _ensureLiveTradeBlockSubscription(EvmChain currentChain) {
+    if (_liveTradeBlockSub != null) return;
+    _liveTradeBlockSub = currentChain
+        .newBlocks()
+        .asyncMap((block) => _pollLiveTradeSubscriptions(currentChain, block))
+        .listen(
+          (_) {},
+          onError: (Object error, StackTrace stackTrace) {
+            logger.w(
+              'Live trade block subscription failed: $error',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          },
+        );
+  }
+
+  Future<void> _pollLiveTradeSubscriptions(
+    EvmChain currentChain,
+    int block,
+  ) async {
+    final subscriptions = List<_LiveTradeSubscription>.from(
+      _liveTradeSubscriptions,
+    );
+    if (subscriptions.isEmpty) return;
+
+    final fromBlock = _liveTradeLastQueried != null
+        ? BlockNum.exact(_liveTradeLastQueried! + 1)
+        : BlockNum.exact(block);
+    final toBlock = BlockNum.exact(block);
+    final eventTopics = subscriptions
+        .expand((subscription) {
+          final topics = subscription.eventFilter.topics;
+          if (topics == null || topics.isEmpty) return const <String?>[];
+          return topics.first;
+        })
+        .whereType<String>()
+        .toSet()
+        .toList(growable: false);
+    final tradeTopics = subscriptions
+        .map((subscription) => subscription.tradeTopic)
+        .toSet()
+        .toList(growable: false);
+
+    final logs = <FilterEvent>[];
+    try {
+      for (final tradeTopicChunk in _chunks(
+        tradeTopics,
+        _maxLiveTradeTopicsPerGetLogs,
+      )) {
+        logs.addAll(
+          await currentChain.getLogs(
+            FilterOptions(
+              address: contract.self.address,
+              topics: [eventTopics, tradeTopicChunk],
+              fromBlock: fromBlock,
+              toBlock: toBlock,
+            ),
+            batch: false,
+          ),
+        );
+      }
+    } catch (error, stackTrace) {
+      logger.w(
+        'Live escrow trade poll failed for '
+        '${subscriptions.length} subscription(s), '
+        '${tradeTopics.length} trade topic(s), block range '
+        '$fromBlock..$block; will retry from the same block: $error',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+
+    _liveTradeLastQueried = block;
+
+    for (final log in logs) {
+      final logTopics = log.topics;
+      if (log.transactionHash == null ||
+          logTopics == null ||
+          logTopics.length < 2) {
+        continue;
+      }
+      final tradeTopic = logTopics[1];
+      final targets = subscriptions.where(
+        (subscription) => subscription.tradeTopic == tradeTopic,
+      );
+      for (final target in targets) {
+        if (target.controller.isClosed || !target.markSeen(log)) continue;
+        target.logStore.add(log);
+        try {
+          target.controller.add(
+            await _mapAndCacheEscrowEvent(
+              log,
+              target.eventNamesByTopic,
+              target.selectedEscrow,
+            ),
+          );
+        } catch (error, stackTrace) {
+          logger.w(
+            'Failed to map live escrow event ${log.transactionHash}; '
+            'will continue polling: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+    }
+  }
+
+  Iterable<List<T>> _chunks<T>(List<T> values, int size) sync* {
+    for (var i = 0; i < values.length; i += size) {
+      yield values.sublist(i, min(i + size, values.length));
+    }
   }
 
   // ── Filter building ───────────────────────────────────────────────
@@ -288,7 +478,7 @@ class EscrowEventScanner {
     Map<String, String> eventNamesByTopic,
     EscrowServiceSelected? selectedEscrow,
   ) async {
-    final block = await _blockForLog(log);
+    final blockNum = _blockNumForLog(log);
     final txHash = log.transactionHash!;
 
     switch (eventNamesByTopic[log.topics?.first]) {
@@ -299,7 +489,8 @@ class EscrowEventScanner {
         );
         return EscrowFundedEvent(
           tradeId: bytesToHex(tradeCreated.tradeId),
-          block: block,
+          blockNum: blockNum,
+          block: null,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
@@ -320,7 +511,8 @@ class EscrowEventScanner {
         final arb = Arbitrated(_decodeEvent('Arbitrated', log), log);
         return EscrowArbitratedEvent(
           tradeId: bytesToHex(arb.tradeId),
-          block: block,
+          blockNum: blockNum,
+          block: null,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
@@ -335,7 +527,8 @@ class EscrowEventScanner {
         );
         return EscrowReleasedEvent(
           tradeId: bytesToHex(released.tradeId),
-          block: block,
+          blockNum: blockNum,
+          block: null,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
@@ -345,7 +538,8 @@ class EscrowEventScanner {
         final claimed = Claimed(_decodeEvent('Claimed', log), log);
         return EscrowClaimedEvent(
           tradeId: bytesToHex(claimed.tradeId),
-          block: block,
+          blockNum: blockNum,
+          block: null,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
@@ -357,7 +551,8 @@ class EscrowEventScanner {
         );
         return UnknownEscrowEvent(
           tradeId: '',
-          block: block,
+          blockNum: blockNum,
+          block: null,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
@@ -424,27 +619,14 @@ class EscrowEventScanner {
 
   // ── Helpers ───────────────────────────────────────────────────────
 
-  Future<BlockInformation> _blockForLog(FilterEvent log) async {
-    final currentChain = chain;
-    final txHash = log.transactionHash!;
-
-    if (currentChain != null) {
-      final tx = await currentChain.getTransaction(txHash);
-      if (tx == null) {
-        throw StateError('Could not fetch transaction $txHash for escrow log');
-      }
-      return currentChain.getBlockInformation(
-        blockNumber: tx.blockNumber.toBlockParam(),
+  int _blockNumForLog(FilterEvent log) {
+    final blockNum = log.blockNum;
+    if (blockNum == null) {
+      throw StateError(
+        'Escrow log ${log.transactionHash} has no mined block number',
       );
     }
-
-    final tx = await contract.client.getTransactionByHash(txHash);
-    if (tx == null) {
-      throw StateError('Could not fetch transaction $txHash for escrow log');
-    }
-    return contract.client.getBlockInformation(
-      blockNumber: tx.blockNumber.toBlockParam(),
-    );
+    return blockNum;
   }
 
   List<dynamic> _decodeEvent(String eventName, FilterEvent log) => contract
@@ -509,6 +691,42 @@ class EscrowEventScanner {
       chainId: chain?.config.chainId ?? 30,
       tokenDecimals: decimals,
     );
+  }
+}
+
+class _LiveTradeSubscription {
+  final String tradeId;
+  final String tradeTopic;
+  final FilterOptions eventFilter;
+  final Map<String, String> eventNamesByTopic;
+  final EscrowServiceSelected? selectedEscrow;
+  final List<FilterEvent> logStore;
+  final StreamController<EscrowEvent> controller;
+  final Set<String> _seenLogs = {};
+
+  _LiveTradeSubscription({
+    required this.tradeId,
+    required this.tradeTopic,
+    required this.eventFilter,
+    required this.eventNamesByTopic,
+    required this.selectedEscrow,
+    required this.logStore,
+    required this.controller,
+  }) {
+    for (final log in logStore) {
+      _seenLogs.add(_logIdentity(log));
+    }
+  }
+
+  bool markSeen(FilterEvent log) => _seenLogs.add(_logIdentity(log));
+
+  static String _logIdentity(FilterEvent log) {
+    return [
+      log.blockHash,
+      log.transactionHash,
+      log.logIndex,
+      log.topics?.first,
+    ].join(':');
   }
 }
 
