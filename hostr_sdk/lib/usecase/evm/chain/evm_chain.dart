@@ -9,6 +9,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart';
+import 'package:web3dart/json_rpc.dart';
 import 'package:web3dart/web3dart.dart';
 
 import '../../../datasources/contracts/boltz/IERC20.g.dart';
@@ -149,7 +150,10 @@ class EvmChain {
   bool _isTransientRpcError(Object error) =>
       error is http.ClientException ||
       isPlatformSocketException(error) ||
-      error is TimeoutException;
+      error is TimeoutException ||
+      (error is RPCError &&
+          (error.errorCode == 429 ||
+              error.message.toLowerCase().contains('too many requests')));
 
   Future<T> _callRpcWithRetry<T>(
     String operation,
@@ -350,6 +354,13 @@ class EvmChain {
     return _callRpcWithRetry(
       'getBlockNumber',
       (client) => client.getBlockNumber(),
+    );
+  }
+
+  Future<BlockInformation> getBlockInformation({required String blockNumber}) {
+    return _callRpcWithRetry(
+      'getBlockInformation($blockNumber)',
+      (client) => client.getBlockInformation(blockNumber: blockNumber),
     );
   }
 
