@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/nwc_connectivity.cubit.dart';
 
 /// Listens to [NwcConnectivityCubit] and shows / hides a [SnackBar] when
@@ -78,7 +79,7 @@ class NwcConnectivityBannerView extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppBorderRadii.md,
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

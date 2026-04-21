@@ -1,13 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/keys/keys.dart';
-import 'package:hostr/presentation/component/widgets/ui/section.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 
 import 'background_tasks.dart';
@@ -31,13 +30,7 @@ class DevWidget extends StatelessWidget {
             icon: const Icon(Icons.copy, size: 16),
             tooltip: 'Copy build label',
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: kBuildLabel));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Build label copied'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
+              copyTextToClipboard(context, kBuildLabel);
             },
           ),
         ),

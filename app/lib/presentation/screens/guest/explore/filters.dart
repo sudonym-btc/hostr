@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/forms/main.dart';
@@ -54,15 +55,18 @@ class _FiltersScreenState extends State<FiltersScreen> {
       ),
       buttons: ListenableBuilder(
         listenable: _controller.submitListenable,
-        builder: (context, _) => Row(
+        builder: (context, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (_controller.isDirty)
+            if (_controller.isDirty) ...[
               TextButton(
                 onPressed: _clear,
                 child: Text(AppLocalizations.of(context)!.clear),
               ),
-            const Spacer(),
-            FilledButton(
+              const SizedBox(height: kSpace2),
+            ],
+            ModalBottomSheetPrimaryButton(
               onPressed: _controller.canSubmit ? _submit : null,
               child: Text(AppLocalizations.of(context)!.search),
             ),

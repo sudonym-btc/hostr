@@ -152,6 +152,7 @@ class AmountTapInput extends StatefulWidget {
   final bool enabled;
   final bool editable;
   final bool required;
+  final bool exact;
   final TextStyle? textStyle;
   final AutovalidateMode autovalidateMode;
   final String? Function(DenominatedAmount? amount)? validator;
@@ -169,6 +170,7 @@ class AmountTapInput extends StatefulWidget {
     this.enabled = true,
     this.editable = true,
     this.required = false,
+    this.exact = true,
     this.textStyle,
     this.autovalidateMode = AutovalidateMode.disabled,
     this.validator,
@@ -178,6 +180,8 @@ class AmountTapInput extends StatefulWidget {
   @override
   State<AmountTapInput> createState() => _AmountTapInputState();
 }
+
+const _kAmountTapInputEditIconMaxSize = 22.0;
 
 class _AmountTapInputState extends State<AmountTapInput> {
   final _fieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
@@ -238,7 +242,7 @@ class _AmountTapInputState extends State<AmountTapInput> {
             DefaultTextStyle.of(context).style;
 
         return InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppBorderRadii.sm,
           onTap: canEdit ? () => _openEditor(context) : null,
           child: InputDecorator(
             isEmpty: false,
@@ -252,12 +256,19 @@ class _AmountTapInputState extends State<AmountTapInput> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(formatAmount(_displayAmount), style: textStyle),
+                Text(
+                  formatAmount(_displayAmount, exact: widget.exact),
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle,
+                ),
                 if (canEdit) ...[
                   Gap.horizontal.xs(),
                   Icon(
-                    Icons.edit,
-                    size: textStyle.fontSize ?? kIconSm,
+                    Icons.edit_outlined,
+                    size: (textStyle.fontSize ?? kIconSm).clamp(
+                      0.0,
+                      _kAmountTapInputEditIconMaxSize,
+                    ),
                     color: textStyle.color,
                   ),
                 ],
@@ -547,7 +558,7 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
                                },
                                child: AppSurface(
                                  steps: 2,
-                                 shape: const CircleBorder(),
+                                 shape: AppShapes.circle,
                                  padding: const EdgeInsets.all(16),
                                  child: Center(child: buttonContent),
                                ),
@@ -625,30 +636,25 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
           possibleDenominations: widget.possibleDenominations,
           onDenominationChanged: widget.onDenominationChanged,
         ),
+        Gap.vertical.lg(),
         SafeArea(
           top: false,
           child: CustomPadding(
             top: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FilledButton(
-                  onPressed: () {
-                    final amount =
-                        _formFieldKey.currentState?.value ??
-                        widget.initialAmount;
-                    final isValid =
-                        (widget.minAmount == null ||
-                            amount.value >= widget.minAmount!.value) &&
-                        (widget.maxAmount == null ||
-                            amount.value <= widget.maxAmount!.value);
-                    if (isValid) {
-                      Navigator.of(context).pop(amount);
-                    }
-                  },
-                  child: Text(AppLocalizations.of(context)!.done),
-                ),
-              ],
+            child: ModalBottomSheetPrimaryButton(
+              onPressed: () {
+                final amount =
+                    _formFieldKey.currentState?.value ?? widget.initialAmount;
+                final isValid =
+                    (widget.minAmount == null ||
+                        amount.value >= widget.minAmount!.value) &&
+                    (widget.maxAmount == null ||
+                        amount.value <= widget.maxAmount!.value);
+                if (isValid) {
+                  Navigator.of(context).pop(amount);
+                }
+              },
+              child: Text(AppLocalizations.of(context)!.done),
             ),
           ),
         ),

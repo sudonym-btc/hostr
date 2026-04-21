@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/cubit/main.dart';
+import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
@@ -33,8 +34,16 @@ class Reserve extends StatefulWidget {
 }
 
 class _ReserveState extends State<Reserve> {
+  final AmountFieldController _amountController = AmountFieldController();
   DenominatedAmount? _customAmount;
   String? _customAmountRangeKey;
+  String? _amountControllerSyncKey;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
 
   String _rangeKey(DateTimeRange range) {
     return '${range.start.millisecondsSinceEpoch}:${range.end.millisecondsSinceEpoch}';
@@ -50,6 +59,20 @@ class _ReserveState extends State<Reserve> {
       return _customAmount!;
     }
     return _listingAmountFor(range);
+  }
+
+  String _amountKey(DenominatedAmount amount) {
+    return '${amount.denomination}:${amount.decimals}:${amount.value}';
+  }
+
+  void _syncAmountController(DateTimeRange range) {
+    final amount = _effectiveAmountFor(range);
+    final syncKey = '${_rangeKey(range)}:${_amountKey(amount)}';
+    if (_amountControllerSyncKey == syncKey) {
+      return;
+    }
+    _amountControllerSyncKey = syncKey;
+    _amountController.setState(amount);
   }
 
   Widget _buildBasePrice(BuildContext context) {
@@ -73,33 +96,9 @@ class _ReserveState extends State<Reserve> {
           ),
         ),
         if (frequency != null)
-          Text(
-            ' / $frequency',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(' / $frequency', style: Theme.of(context).textTheme.bodySmall),
       ],
     );
-  }
-
-  Future<void> _editAmount(BuildContext context, DateTimeRange range) async {
-    final listingAmount = _listingAmountFor(range);
-    final updated = await AmountEditorBottomSheet.show(
-      context,
-      initialAmount: _effectiveAmountFor(range),
-      minAmount: DenominatedAmount(
-        denomination: listingAmount.denomination,
-        value: BigInt.one,
-        decimals: listingAmount.decimals,
-      ),
-      maxAmount: listingAmount,
-    );
-
-    if (updated == null || !mounted) return;
-
-    setState(() {
-      _customAmount = updated;
-      _customAmountRangeKey = _rangeKey(range);
-    });
   }
 
   PageRouteInfo _reservePendingRoute(DateTimeRange? dateRange) {
@@ -150,36 +149,44 @@ class _ReserveState extends State<Reserve> {
                           Flexible(child: _buildBasePrice(context)),
                       ] else ...[
                         Flexible(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  formatAmount(
-                                    _effectiveAmountFor(dateState.dateRange!),
-                                    exact: false,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium!
-                                      .copyWith(fontWeight: FontWeight.bold),
+                          child: Builder(
+                            builder: (context) {
+                              final dateRange = dateState.dateRange!;
+                              final listingAmount = _listingAmountFor(
+                                dateRange,
+                              );
+                              _syncAmountController(dateRange);
+
+                              return AmountTapInput(
+                                controller: _amountController,
+                                min: DenominatedAmount(
+                                  denomination: listingAmount.denomination,
+                                  value: BigInt.one,
+                                  decimals: listingAmount.decimals,
                                 ),
-                              ),
-                              if (widget.listing.negotiable)
-                                IconButton(
-                                  tooltip: 'Edit amount',
-                                  visualDensity: VisualDensity.compact,
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.only(left: 6),
-                                  iconSize: 18,
-                                  onPressed: () => _editAmount(
-                                    context,
-                                    dateState.dateRange!,
-                                  ),
-                                  icon: const Icon(Icons.edit_outlined),
-                                ),
-                            ],
+                                max: listingAmount,
+                                enabled: true,
+                                editable: widget.listing.negotiable,
+                                exact: false,
+                                textStyle: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium!
+                                    .copyWith(fontWeight: FontWeight.bold),
+                                onChanged: (amount) {
+                                  if (amount == null) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    _customAmount = amount;
+                                    _customAmountRangeKey = _rangeKey(
+                                      dateRange,
+                                    );
+                                    _amountControllerSyncKey =
+                                        '${_rangeKey(dateRange)}:${_amountKey(amount)}';
+                                  });
+                                },
+                              );
+                            },
                           ),
                         ),
                       ],

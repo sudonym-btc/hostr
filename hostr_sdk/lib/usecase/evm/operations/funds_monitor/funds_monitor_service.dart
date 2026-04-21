@@ -795,6 +795,13 @@ class FundsMonitorService {
       // Guard: already swapping?
       if (_swapInProgress) return false;
 
+      final destination = await item.chain.payments
+          .resolveAutomaticInvoiceDestination();
+      if (!destination.canCreateAutomatically) {
+        _logger.w(destination.error ?? 'Cannot sweep without payout details');
+        return false;
+      }
+
       // Gate 2: Any escrow operations in flight?
       if (await _stateStore.hasNonTerminal('escrow_fund')) {
         _logger.d('FundsMonitor skipped: escrow fund operation(s) in flight');

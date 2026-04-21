@@ -39,7 +39,7 @@ class ListingLocationMapSection extends StatelessWidget {
           openInMaps(context, center.latitude, center.longitude, listing.title);
         },
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppBorderRadii.md,
           child: SizedBox(
             height: 180,
             width: double.infinity,

@@ -12,8 +12,14 @@ import 'profile_verification_controller.dart';
 class VerifiedNip05Badge extends StatefulWidget {
   final String? nip05;
   final String pubkey;
+  final bool centered;
 
-  const VerifiedNip05Badge({super.key, this.nip05, required this.pubkey});
+  const VerifiedNip05Badge({
+    super.key,
+    this.nip05,
+    required this.pubkey,
+    this.centered = false,
+  });
 
   @override
   State<VerifiedNip05Badge> createState() => _VerifiedNip05BadgeState();
@@ -61,6 +67,7 @@ class _VerifiedNip05BadgeState extends State<VerifiedNip05Badge> {
         iconColor: cs.outline,
         title: 'Nostr address',
         subtitle: 'Not set',
+        centered: widget.centered,
       );
     }
     if (_v.nip05Loading) {
@@ -69,6 +76,7 @@ class _VerifiedNip05BadgeState extends State<VerifiedNip05Badge> {
         iconColor: cs.outline,
         title: nip05,
         trailing: const AppLoadingIndicator.small(),
+        centered: widget.centered,
       );
     }
     final valid = _v.nip05Result?.valid ?? false;
@@ -76,6 +84,7 @@ class _VerifiedNip05BadgeState extends State<VerifiedNip05Badge> {
       icon: Icons.badge_outlined,
       iconColor: cs.outline,
       title: nip05,
+      centered: widget.centered,
       chipRow: valid
           ? [AppChip.success.xs(label: const Text('Verified'))]
           : [
@@ -90,8 +99,9 @@ class _VerifiedNip05BadgeState extends State<VerifiedNip05Badge> {
 /// Manages LUD-16 verification and renders a [VerificationTile].
 class VerifiedLud16Badge extends StatefulWidget {
   final String? lud16;
+  final bool centered;
 
-  const VerifiedLud16Badge({super.key, this.lud16});
+  const VerifiedLud16Badge({super.key, this.lud16, this.centered = false});
 
   @override
   State<VerifiedLud16Badge> createState() => _VerifiedLud16BadgeState();
@@ -138,6 +148,7 @@ class _VerifiedLud16BadgeState extends State<VerifiedLud16Badge> {
         iconColor: cs.outline,
         title: 'Lightning Address',
         subtitle: 'Not set',
+        centered: widget.centered,
       );
     }
     if (_v.lud16Loading) {
@@ -146,6 +157,7 @@ class _VerifiedLud16BadgeState extends State<VerifiedLud16Badge> {
         iconColor: cs.outline,
         title: lud16,
         trailing: const AppLoadingIndicator.small(),
+        centered: widget.centered,
       );
     }
     final reachable = _v.lud16Result?.reachable ?? false;
@@ -154,6 +166,7 @@ class _VerifiedLud16BadgeState extends State<VerifiedLud16Badge> {
       icon: Icons.bolt_outlined,
       iconColor: cs.outline,
       title: lud16,
+      centered: widget.centered,
       chipRow: [
         if (reachable) ...[
           AppChip.success.xs(label: const Text('Reachable')),
@@ -227,6 +240,7 @@ class VerificationTile extends StatelessWidget {
   final Color? subtitleColor;
   final Widget? trailing;
   final List<AppChip>? chipRow;
+  final bool centered;
 
   const VerificationTile({
     super.key,
@@ -237,39 +251,50 @@ class VerificationTile extends StatelessWidget {
     this.subtitleColor,
     this.trailing,
     this.chipRow,
+    this.centered = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final textAlign = centered ? TextAlign.center : TextAlign.start;
+    final contentCrossAxisAlignment = centered
+        ? CrossAxisAlignment.center
+        : CrossAxisAlignment.start;
+    final chipAlignment = centered ? WrapAlignment.center : WrapAlignment.start;
+    final content = Column(
+      crossAxisAlignment: contentCrossAxisAlignment,
+      children: [
+        Text(title, overflow: TextOverflow.ellipsis, textAlign: textAlign),
+        if (subtitle != null)
+          Text(
+            subtitle!,
+            textAlign: textAlign,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        if (chipRow != null) ...[
+          Gap.vertical.xs(),
+          Wrap(
+            alignment: chipAlignment,
+            spacing: AppSpacing.of(context).xs,
+            runSpacing: AppSpacing.of(context).xs,
+            children: chipRow!,
+          ),
+        ],
+      ],
+    );
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: centered ? MainAxisSize.min : MainAxisSize.max,
       children: [
-        Icon(icon, color: iconColor, size: kIconMd),
-        Gap.horizontal.sm(),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, overflow: TextOverflow.ellipsis),
-              if (subtitle != null)
-                Text(
-                  subtitle!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: subtitleColor ?? theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              if (chipRow != null) ...[
-                Gap.vertical.xs(),
-                Wrap(
-                  spacing: AppSpacing.of(context).xs,
-                  runSpacing: AppSpacing.of(context).xs,
-                  children: chipRow!,
-                ),
-              ],
-            ],
-          ),
-        ),
+        if (!centered) ...[
+          Icon(icon, color: iconColor, size: kIconMd),
+          Gap.horizontal.sm(),
+        ],
+        if (centered) Flexible(child: content) else Expanded(child: content),
         ?trailing,
       ],
     );

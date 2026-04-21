@@ -120,6 +120,12 @@ ThemeData getTheme(bool isDark) {
       );
 
   final colorScheme = isDark ? darkColorScheme : lightColorScheme;
+  final scaffoldBackgroundColor = isDark
+      ? colorScheme.surfaceContainerLowest
+      : colorScheme.surface;
+  final bottomSheetBackgroundColor = isDark
+      ? colorScheme.surfaceContainerLow
+      : colorScheme.surface;
   final base = isDark ? ThemeData.dark() : ThemeData.light();
   final textTheme = base.textTheme.apply(
     fontFamily: _appFontFamily,
@@ -133,7 +139,7 @@ ThemeData getTheme(bool isDark) {
   );
   final baseGeneric = base.copyWith(
     textTheme: textTheme,
-    scaffoldBackgroundColor: Colors.transparent,
+    scaffoldBackgroundColor: scaffoldBackgroundColor,
     primaryTextTheme: primaryTextTheme,
     extensions: const <ThemeExtension<dynamic>>[AppSpacingTheme()],
     switchTheme: _switchTheme(colorScheme),
@@ -167,6 +173,20 @@ ThemeData getTheme(bool isDark) {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(shape: AppButtonStyles.shape),
     ),
+    cardTheme: const CardThemeData(shape: AppShapes.card),
+    dialogTheme: const DialogThemeData(shape: AppShapes.dialog),
+    bottomSheetTheme: BottomSheetThemeData(
+      shape: AppShapes.modalSheet,
+      clipBehavior: Clip.antiAlias,
+      backgroundColor: bottomSheetBackgroundColor,
+      modalBackgroundColor: bottomSheetBackgroundColor,
+    ),
+    chipTheme: base.chipTheme.copyWith(shape: AppShapes.chip),
+    popupMenuTheme: const PopupMenuThemeData(shape: AppShapes.card),
+    snackBarTheme: const SnackBarThemeData(
+      shape: AppShapes.card,
+      behavior: SnackBarBehavior.floating,
+    ),
   );
 
   final bottomAppBarTheme = BottomAppBarThemeData(
@@ -179,7 +199,7 @@ ThemeData getTheme(bool isDark) {
       ? baseGeneric.copyWith(
           brightness: Brightness.dark,
           colorScheme: darkColorScheme,
-          scaffoldBackgroundColor: bottomAppBarTheme.color,
+          scaffoldBackgroundColor: scaffoldBackgroundColor,
           bottomAppBarTheme: bottomAppBarTheme,
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
             backgroundColor: bottomAppBarTheme.color,
@@ -196,7 +216,7 @@ ThemeData getTheme(bool isDark) {
       : baseGeneric.copyWith(
           brightness: Brightness.light,
           colorScheme: lightColorScheme,
-          scaffoldBackgroundColor: bottomAppBarTheme.color,
+          scaffoldBackgroundColor: scaffoldBackgroundColor,
           bottomAppBarTheme: bottomAppBarTheme,
           bottomNavigationBarTheme: BottomNavigationBarThemeData(
             backgroundColor: bottomAppBarTheme.color,

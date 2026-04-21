@@ -19,8 +19,14 @@ import 'package:ndk/ndk.dart';
 class BadgesWidget extends StatelessWidget {
   final String pubKey;
   final String? listingAnchor;
+  final Widget? trailing;
 
-  const BadgesWidget({required this.pubKey, this.listingAnchor, super.key});
+  const BadgesWidget({
+    required this.pubKey,
+    this.listingAnchor,
+    this.trailing,
+    super.key,
+  });
 
   List<BadgeAward> _visibleAwards(List<BadgeAward> awards) {
     final targetAnchor = listingAnchor;
@@ -60,35 +66,55 @@ class BadgesWidget extends StatelessWidget {
 
           // Show placeholder when fetching or no badges found
           if (state.fetching && awards.isEmpty) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  const AppLoadingIndicator.small(),
-                  Gap.horizontal.sm(),
-                  Text(
-                    'Loading badges...',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      const AppLoadingIndicator.small(),
+                      Gap.horizontal.sm(),
+                      Text(
+                        'Loading badges...',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
             );
           }
 
-          // Hide completely when there are no badges.
+          // Hide completely when there are no badges. Any trailing spacing is
+          // intentionally skipped too, so empty profile badge rows do not add
+          // invisible gaps to the popup layout.
           if (awards.isEmpty && !state.fetching) {
             return const SizedBox.shrink();
           }
 
-          return Wrap(
+          final badges = Wrap(
             spacing: kSpace2,
             runSpacing: kSpace2,
             children: awards.map((award) {
               return BadgeChip(award: award);
             }).toList(),
           );
+
+          if (trailing != null) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [badges, trailing!],
+            );
+          }
+
+          return badges;
         },
       ),
     );
@@ -118,12 +144,12 @@ class BadgeChip extends StatelessWidget {
 
         return InkWell(
           onTap: () => _showBadgeDetails(context, definition),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppBorderRadii.full,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppBorderRadii.full,
               border: Border.all(
                 color: Theme.of(
                   context,
@@ -220,7 +246,7 @@ class BadgeDetailsSheet extends StatelessWidget {
       leading: badgeImage != null
           ? Center(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppBorderRadii.md,
                 child: Image.network(
                   badgeImage,
                   width: kIconHero,
@@ -247,27 +273,11 @@ class BadgeDetailsSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(
-                  'Awarded by  ',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
                 Flexible(child: ProfileChipWidget(id: award.pubKey)),
-              ],
-            ),
-            Gap.vertical.xs(),
-            Row(
-              children: [
-                Icon(
-                  Icons.schedule,
-                  size: kIconSm,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
                 Gap.horizontal.xs(),
-                _AwardedTimeText(
+                _AwardedBadgeText(
                   dateTime: issuedAt,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
@@ -279,9 +289,8 @@ class BadgeDetailsSheet extends StatelessWidget {
       buttons: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            style: AppButtonStyles.secondary(context),
             child: const Text('Close'),
           ),
         ],
@@ -290,19 +299,24 @@ class BadgeDetailsSheet extends StatelessWidget {
   }
 }
 
-/// Displays "Awarded X ago" with auto-refreshing relative time.
-class _AwardedTimeText extends StatelessWidget {
+/// Displays "awarded this badge X ago." with auto-refreshing relative time.
+class _AwardedBadgeText extends StatelessWidget {
   final DateTime dateTime;
   final TextStyle? style;
 
-  const _AwardedTimeText({required this.dateTime, this.style});
+  const _AwardedBadgeText({required this.dateTime, this.style});
 
   @override
   Widget build(BuildContext context) {
     return RelativeTimeText(
       dateTime: dateTime,
       locale: Localizations.localeOf(context).languageCode,
-      builder: (context, text) => Text('Awarded $text', style: style),
+      builder: (context, text) => Text(
+        'awarded this badge $text.',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      ),
     );
   }
 }

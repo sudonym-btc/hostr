@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/logic/cubit/relay_connectivity.cubit.dart';
 
 /// Listens to [RelayConnectivityCubit] and shows / hides a [SnackBar] when
@@ -114,7 +115,7 @@ class RelayConnectivityBannerView extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppBorderRadii.md,
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -125,7 +125,7 @@ class TradeHeaderView extends StatelessWidget {
             SizedBox.square(
               dimension: imageSize,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
+                borderRadius: AppBorderRadii.sm,
                 child: listing.images.isNotEmpty
                     ? BlossomImage(
                         image: listing.images.first,

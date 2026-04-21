@@ -1,7 +1,6 @@
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:convert/convert.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
@@ -68,30 +67,25 @@ class BackupKeyWidget extends StatelessWidget {
             sensitive: true,
           ),
           Gap.vertical.custom(kSpace5),
-          Text(
-            'Recovery words',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Recovery words',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: CopyFeedbackButton.icon(
+                  value: () => recoverySentence,
+                  tooltip: AppLocalizations.of(context)!.copyWords,
+                ),
+              ),
+            ],
           ),
           Gap.vertical.sm(),
           _MnemonicGrid(words: words),
-          Gap.vertical.xs(),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              icon: const Icon(Icons.copy, size: kIconSm),
-              label: Text(AppLocalizations.of(context)!.copyWords),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: recoverySentence));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      AppLocalizations.of(context)!.recoveryWordsCopied,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
@@ -125,7 +119,7 @@ class _KeySection extends StatelessWidget {
             color: sensitive
                 ? Theme.of(context).colorScheme.errorContainer.withAlpha(60)
                 : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppBorderRadii.sm,
           ),
           child: Row(
             children: [
@@ -137,21 +131,9 @@ class _KeySection extends StatelessWidget {
                   ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.copy, size: kIconSm),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: value));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        AppLocalizations.of(context)!.labelCopied(label),
-                      ),
-                    ),
-                  );
-                },
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              CopyFeedbackButton.icon(
+                value: () => value,
+                tooltip: AppLocalizations.of(context)!.copy,
               ),
             ],
           ),
@@ -195,7 +177,7 @@ class _MnemonicGrid extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: AppBorderRadii.sm,
       ),
       child: Text(
         '${index + 1}. $word',

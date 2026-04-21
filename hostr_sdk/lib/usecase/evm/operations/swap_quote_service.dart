@@ -10,6 +10,8 @@ import 'package:web3dart/web3dart.dart' show keccak256;
 import '../../../datasources/boltz/boltz_fee_estimate.dart';
 import '../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../datasources/swagger_generated/boltz.swagger.dart' hide Call;
+import '../../../injection.dart';
+import '../../../util/custom_logger.dart';
 import '../../../util/token_amount_ext.dart';
 import '../capabilities/boltz_call_builder.dart';
 import '../chain/evm_chain.dart';
@@ -18,6 +20,41 @@ import '../models/dex_quote.dart';
 import '../models/swap_quote.dart';
 import 'swap_in/swap_in_models.dart';
 import 'swap_out/swap_out_models.dart';
+
+enum _SwapInDexQuotePhase { estimate, preInvoice }
+
+extension on _SwapInDexQuotePhase {
+  String get logName => switch (this) {
+    _SwapInDexQuotePhase.estimate => 'estimate',
+    _SwapInDexQuotePhase.preInvoice => 'pre-invoice',
+  };
+}
+
+class _SwapInQuoteContext {
+  _SwapInQuoteContext({
+    required this.chain,
+    required this.params,
+    required this.requestedTokenAddress,
+    required this.needsDex,
+    required this.originalReceiveAmount,
+    required this.originalPostClaimCalls,
+    this.bridgeAddress,
+    this.bridgeToken,
+    this.dexRecipient,
+  });
+
+  final EvmChain chain;
+  final SwapInParams params;
+  final EthereumAddress? requestedTokenAddress;
+  final bool needsDex;
+  final TokenAmount originalReceiveAmount;
+  final Map<String, Call>? originalPostClaimCalls;
+  final EthereumAddress? bridgeAddress;
+  final Token? bridgeToken;
+  final EthereumAddress? dexRecipient;
+
+  DexQuote? dexQuote;
+}
 
 /// Unified swap quoting service — replaces the former `SwapInQuoteService`
 /// and `SwapOutQuoteService` with one injectable that exposes both directions.
@@ -42,10 +79,16 @@ import 'swap_out/swap_out_models.dart';
 /// DEX calldata is fetched from the Boltz Quote API
 /// (`/v2/quote/{chainKey}/in`, `/out`, `/encode`) and the [DexQuote] is
 /// stored on the returned [SwapQuote] for UI / debugging purposes.
-/// Zero slippage tolerance is enforced at encode time — the DEX must
-/// deliver the exact quoted amount needed for the escrow deposit.
+/// Swap-in DEX routes keep the requested output exact while adding a small
+/// bridge-token input buffer by default, so the DEX leg can tolerate tiny
+/// quote movement without changing the escrow amount.
 @injectable
 class SwapQuoteService {
+  final CustomLogger logger;
+
+  SwapQuoteService({CustomLogger? logger})
+    : logger = (logger ?? getIt<CustomLogger>()).scope('swap-quote');
+
   // ═══════════════════════════════════════════════════════════════════════
   //  Swap-In (Reverse Swap: Lightning → on-chain)
   // ═══════════════════════════════════════════════════════════════════════
@@ -61,6 +104,34 @@ class SwapQuoteService {
   /// the normal Boltz reverse-swap quote.  The returned [SwapQuote.receiveAmount]
   /// always reflects the original requested token/amount.
   Future<SwapQuote> buildSwapInQuote({
+    required EvmChain chain,
+    required SwapInParams params,
+  }) async {
+    final context = await _resolveSwapInQuoteContext(
+      chain: chain,
+      params: params,
+    );
+
+    if (context.needsDex) {
+      await _applySwapInDexQuote(context, phase: _SwapInDexQuotePhase.estimate);
+    }
+
+    final gasEstimate = await _estimateSwapInClaimGas(context);
+
+    if (context.needsDex) {
+      // Refresh the executable DEX quote after gas estimation so the Boltz
+      // invoice is created from the freshest possible bridge-token amount and
+      // calldata. The earlier quote is only used to make gas estimation work.
+      await _applySwapInDexQuote(
+        context,
+        phase: _SwapInDexQuotePhase.preInvoice,
+      );
+    }
+
+    return _buildSwapInQuoteResult(context, gasEstimate);
+  }
+
+  Future<_SwapInQuoteContext> _resolveSwapInQuoteContext({
     required EvmChain chain,
     required SwapInParams params,
   }) async {
@@ -83,61 +154,90 @@ class SwapQuoteService {
 
     // Preserve the original receive amount (USDT) for the returned SwapQuote.
     final originalReceiveAmount = params.amount;
-    DexQuote? dexQuote;
+    final originalPostClaimCalls = params.postClaimCalls;
+    EthereumAddress? bridgeAddress;
+    Token? bridgeToken;
+    EthereumAddress? dexRecipient;
 
     if (needsDex) {
-      final bridgeAddress = _findBridgeTokenAddress(chain);
+      bridgeAddress = _findBridgeTokenAddress(chain);
 
       // Resolve the bridge token early — needed to round amountIn to sat
       // granularity before encoding the DEX calls (see below).
-      final bridgeToken = await chain.resolveToken(bridgeAddress.eip55With0x);
+      bridgeToken = await chain.resolveToken(bridgeAddress.eip55With0x);
 
       // Resolve the claim address early — it is the DEX swap recipient.
-      final recipient =
+      dexRecipient =
           params.claimAddress ?? await chain.getAccountAddress(params.evmKey);
-
-      // Quote: how much bridge token (tBTC) is needed to receive exactly
-      // [params.amount] of the requested token (USDT)?
-      dexQuote = await _fetchDexQuoteOut(
-        chain: chain,
-        tokenIn: bridgeAddress,
-        tokenOut: requestedTokenAddress,
-        amountOut: params.amount.value,
-      );
-
-      // Round the bridge-token amountIn UP to sat granularity.
-      //
-      // Boltz delivers an integer number of sats on-chain.  inSats()
-      // truncates sub-sat wei (e.g. 860,006,500,000,000 → 86,000 sats =
-      // 860,000,000,000,000 wei).  Without this rounding, the DEX transfer
-      // would request ~6.5 B wei more than the claim provides, triggering
-      // an ERC-20 underflow (Solidity Panic 0x11).
-      final roundedAmountIn = TokenAmount(
-        value: dexQuote.amountIn,
-        token: bridgeToken,
-      ).roundUpToSats().value;
-      dexQuote = DexQuote(
-        amountIn: roundedAmountIn,
-        amountOut: dexQuote.amountOut,
-        data: dexQuote.data,
-      );
-
-      // Encode the DEX calldata and prepend to postClaimCalls so the DEX
-      // swap runs immediately after the Boltz claim in the same UserOp.
-      final dexCalls = await _encodeDexCalls(
-        chain: chain,
-        dexQuote: dexQuote,
-        recipient: recipient,
-      );
-      params.postClaimCalls = {...dexCalls, ...?params.postClaimCalls};
-
-      // Switch params.amount to the bridge token for all Boltz-side
-      // calculations below (pair fetch, gas estimation, resolved amount).
-      params.amount = TokenAmount(value: roundedAmountIn, token: bridgeToken);
     }
 
-    // From here on params.amount is the bridge token (or the originally
-    // requested token when no DEX hop is needed).
+    return _SwapInQuoteContext(
+      chain: chain,
+      params: params,
+      requestedTokenAddress: requestedTokenAddress,
+      needsDex: needsDex,
+      originalReceiveAmount: originalReceiveAmount,
+      originalPostClaimCalls: originalPostClaimCalls,
+      bridgeAddress: bridgeAddress,
+      bridgeToken: bridgeToken,
+      dexRecipient: dexRecipient,
+    );
+  }
+
+  Future<void> _applySwapInDexQuote(
+    _SwapInQuoteContext context, {
+    required _SwapInDexQuotePhase phase,
+  }) async {
+    final requestedTokenAddress = context.requestedTokenAddress;
+    final bridgeAddress = context.bridgeAddress;
+    final bridgeToken = context.bridgeToken;
+    final dexRecipient = context.dexRecipient;
+
+    if (requestedTokenAddress == null ||
+        bridgeAddress == null ||
+        bridgeToken == null ||
+        dexRecipient == null) {
+      throw StateError('Cannot build swap-in DEX quote without DEX context.');
+    }
+
+    final dexQuote = await _fetchBufferedSwapInDexQuote(
+      chain: context.chain,
+      tokenIn: bridgeAddress,
+      tokenOut: requestedTokenAddress,
+      amountOut: context.originalReceiveAmount.value,
+      bridgeToken: bridgeToken,
+      requestedToken: context.originalReceiveAmount.token,
+      buffer: context.params.dexInputBuffer,
+      phase: phase,
+    );
+
+    // Encode the DEX calldata and prepend to postClaimCalls so the DEX swap
+    // runs immediately after the Boltz claim in the same UserOp.
+    final dexCalls = await _encodeDexCalls(
+      chain: context.chain,
+      dexQuote: dexQuote,
+      recipient: dexRecipient,
+    );
+    context.params.postClaimCalls = {
+      ...dexCalls,
+      ...?context.originalPostClaimCalls,
+    };
+
+    // Switch params.amount to the bridge token for all Boltz-side
+    // calculations (pair fetch, gas estimation, resolved amount).
+    context.params.amount = TokenAmount(
+      value: dexQuote.amountIn,
+      token: bridgeToken,
+    );
+    context.dexQuote = dexQuote;
+  }
+
+  Future<({BigInt gasCostWei, bool gasSponsored})> _estimateSwapInClaimGas(
+    _SwapInQuoteContext context,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    final params = context.params;
+    final chain = context.chain;
     final tokenAddress = params.amount.token.isERC20
         ? EthereumAddress.fromHex(params.amount.token.address)
         : null;
@@ -163,13 +263,30 @@ class SwapQuoteService {
       calls: estimationCalls,
       stateOverride: stateOverrides,
     );
+    stopwatch.stop();
+    logger.d(
+      'Swap-in claim gas estimate completed in '
+      '${stopwatch.elapsedMilliseconds} ms',
+    );
 
+    return gasEstimate;
+  }
+
+  Future<SwapQuote> _buildSwapInQuoteResult(
+    _SwapInQuoteContext context,
+    ({BigInt gasCostWei, bool gasSponsored}) gasEstimate,
+  ) async {
+    final params = context.params;
+    final chain = context.chain;
     final chainId = params.amount.token.chainId;
     final nativeToken = Token.native(chainId);
     final gasFee = TokenAmount(
       value: gasEstimate.gasCostWei,
       token: nativeToken,
     );
+    final tokenAddress = params.amount.token.isERC20
+        ? EthereumAddress.fromHex(params.amount.token.address)
+        : null;
 
     // ── 2. Single Boltz pair fetch → limits + fee rates ──
     final pair = await chain.swaps!.getReversePair(tokenAddress: tokenAddress);
@@ -201,8 +318,69 @@ class SwapQuoteService {
       gasFee: gasFee,
       gasSponsored: gasEstimate.gasSponsored,
       sendAmount: resolvedSwapAmount,
-      receiveAmount: originalReceiveAmount,
-      dexQuote: dexQuote,
+      receiveAmount: context.originalReceiveAmount,
+      dexQuote: context.dexQuote,
+    );
+  }
+
+  Future<DexQuote> _fetchBufferedSwapInDexQuote({
+    required EvmChain chain,
+    required EthereumAddress tokenIn,
+    required EthereumAddress tokenOut,
+    required BigInt amountOut,
+    required Token bridgeToken,
+    required Token requestedToken,
+    required SwapInDexBuffer buffer,
+    required _SwapInDexQuotePhase phase,
+  }) async {
+    // Quote: how much bridge token (tBTC) is needed to receive exactly
+    // [amountOut] of the requested token (USDT)?
+    final quote = await _fetchDexQuoteOut(
+      chain: chain,
+      tokenIn: tokenIn,
+      tokenOut: tokenOut,
+      amountOut: amountOut,
+    );
+
+    // Round the bridge-token amountIn UP to sat granularity, then apply the
+    // optional input buffer. The DEX output minimum stays exact; the buffer
+    // only gives the route a little more bridge-token input to work with.
+    //
+    // Boltz delivers an integer number of sats on-chain.  inSats() truncates
+    // sub-sat wei (e.g. 860,006,500,000,000 -> 86,000 sats =
+    // 860,000,000,000,000 wei). Without this rounding, the DEX transfer would
+    // request more than the claim provides.
+    final roundedAmountIn = TokenAmount(
+      value: quote.amountIn,
+      token: bridgeToken,
+    ).roundUpToSats();
+    final bufferedAmountIn = tokenAmountFromSats(
+      bridgeToken,
+      buffer.applyToSats(roundedAmountIn.getInSats),
+    ).value;
+    final baseSats = roundedAmountIn.getInSats;
+    final bufferedSats = TokenAmount(
+      value: bufferedAmountIn,
+      token: bridgeToken,
+    ).getInSats;
+    final bufferSats = bufferedSats - baseSats;
+    final bufferPct = (buffer.basisPoints / 100).toStringAsFixed(2);
+    logger.i(
+      'Swap-in DEX input buffer (${phase.logName}): '
+      'base=$baseSats sats, '
+      'buffered=$bufferedSats sats, '
+      'buffer=$bufferSats sats, '
+      'bufferBps=${buffer.basisPoints}, '
+      'bufferPct=$bufferPct%, '
+      'minBuffer=${buffer.minSats} sats, '
+      'amountIn=$bufferedAmountIn ${bridgeToken.tagId}, '
+      'amountOutMin=${quote.amountOut} ${requestedToken.tagId}',
+    );
+
+    return DexQuote(
+      amountIn: bufferedAmountIn,
+      amountOut: quote.amountOut,
+      data: quote.data,
     );
   }
 
@@ -676,10 +854,9 @@ class SwapQuoteService {
   /// [Call]s suitable for injection into [SwapInParams.postClaimCalls] or
   /// [SwapOutParams.preLockCalls].
   ///
-  /// Uses [DexQuote.amountOut] as `amountOutMin` with zero slippage
-  /// tolerance — the DEX must deliver the exact amount needed for the
-  /// escrow deposit. If the price moves, the Router reverts and the
-  /// funds stay safely in the HTLC (swap-in) or smart account (swap-out).
+  /// Uses [DexQuote.amountOut] as `amountOutMin`: the DEX must deliver at
+  /// least the requested output. Swap-in callers can buffer [DexQuote.amountIn]
+  /// separately before this method encodes the route.
   Future<Map<String, Call>> _encodeDexCalls({
     required EvmChain chain,
     required DexQuote dexQuote,

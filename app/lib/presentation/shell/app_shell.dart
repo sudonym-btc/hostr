@@ -124,7 +124,7 @@ class _AppShellScreenState extends State<AppShellScreen>
       ),
       axisAlignment: -1.0, // pin to top so it collapses downward
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(0),
+        borderRadius: AppBorderRadii.none,
         child: Container(
           color: navBg,
           child: BottomNavigationBar(
@@ -431,9 +431,9 @@ class _SidebarNavItem extends StatelessWidget {
 
     return Material(
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
+      borderRadius: AppBorderRadii.none,
       child: InkWell(
-        borderRadius: BorderRadius.circular(kAppNavBarItemRadius),
+        borderRadius: AppBorderRadii.none,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(

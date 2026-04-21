@@ -166,9 +166,8 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
             hasPendingNavigation: pendingNavigation.hasPending,
           );
 
-          if (
-            navigationPlan.action == StartupReadyNavigationAction.editProfile
-          ) {
+          if (navigationPlan.action ==
+              StartupReadyNavigationAction.editProfile) {
             // Profile incomplete — navigate to edit-profile.
             // Using navigate() (not push()) so auto_route properly nests
             // EditProfileRoute under AppShellRoute in the route tree.
@@ -200,7 +199,7 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
             ),
             StartupGateReady() => const AutoRouter(key: ValueKey('ready')),
             StartupGateInProgress() => _SplashProgressView(
-              key: ValueKey(state.items),
+              key: const ValueKey('progress'),
               state: state,
             ),
             _ => _SplashProgressView(
@@ -220,7 +219,7 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
 // ─── Splash-style progress view ─────────────────────────────────────────────
 
 /// Renders the app logo centred on the same background as the native splash,
-/// with a single animated step label below it that switches between steps.
+/// with an animated progress bar below it.
 class _SplashProgressView extends StatelessWidget {
   final StartupGateInProgress state;
   const _SplashProgressView({super.key, required this.state});
@@ -234,7 +233,6 @@ class _SplashProgressView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = state.currentItem.label;
 
     return Center(
       child: Column(
@@ -249,13 +247,82 @@ class _SplashProgressView extends StatelessWidget {
           ),
           Gap.vertical.lg(),
 
-          _StepIndicator(label: label, theme: theme),
+          _StartupProgressBar(
+            progress: state.progress,
+            completed: state.completedItemCount,
+            total: state.totalItemCount,
+          ),
+
+          /*
+          // Previous startup step label UI. Kept here so it can be restored
+          // quickly if we want the gate to show the active startup item again.
+          _StepIndicator(label: state.currentItem.label, theme: theme),
+          */
         ],
       ),
     );
   }
 }
 
+class _StartupProgressBar extends StatelessWidget {
+  final double progress;
+  final int completed;
+  final int total;
+
+  const _StartupProgressBar({
+    required this.progress,
+    required this.completed,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final clampedProgress = progress.clamp(0.0, 1.0);
+
+    return SizedBox(
+      width: 220,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: AppBorderRadii.full,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: clampedProgress),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+              builder: (context, animatedProgress, _) {
+                return LinearProgressIndicator(
+                  value: animatedProgress,
+                  minHeight: 4,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.primary,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          /*
+          Gap.vertical.sm(),
+          Text(
+            '$completed / $total',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.outline,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          */
+        ],
+      ),
+    );
+  }
+}
+
+/*
 class _StepIndicator extends StatelessWidget {
   final String label;
   final ThemeData theme;
@@ -280,6 +347,7 @@ class _StepIndicator extends StatelessWidget {
     );
   }
 }
+*/
 
 // ─── Error view ─────────────────────────────────────────────────────────────
 

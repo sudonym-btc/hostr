@@ -5,6 +5,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
+import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/profile/logout_modal.dart';
 import 'package:hostr/router.dart';
@@ -71,14 +72,17 @@ class ProfileScreen extends StatelessWidget {
       child: ProfileProvider(
         pubkey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
         builder: (context, snapshot) {
-          final profile = snapshot.data;
+          final loading = snapshot.connectionState != ConnectionState.done;
+          final profile = loading ? null : snapshot.data;
 
           return AppPaneLayout(
             panes: [
               AppPane(
                 flex: 2,
                 appBarBuilder: (context) => _buildAppBar(context, profile),
-                child: ProfileSummarySection(profile: profile),
+                child: loading
+                    ? const Center(child: AppLoadingIndicator.large())
+                    : ProfileSummarySection(profile: profile),
               ),
               const AppPane(flex: 3, child: ProfileSettingsSection()),
             ],

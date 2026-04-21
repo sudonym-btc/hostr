@@ -54,6 +54,7 @@ void main() {
         negotiateReservation: negotiateReservation,
         sellerProfile: sellerProfile,
         amount: negotiateReservation.amount!,
+        dexInputBuffer: SwapInDexBuffer.zero,
       ),
     );
 

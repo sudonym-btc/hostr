@@ -82,6 +82,7 @@ void main() {
           sellerProfile: trade.sellerProfile,
           amount: amount,
           sellerEscrowMethod: sellerEscrowMethod,
+          dexInputBuffer: SwapInDexBuffer.zero,
         ),
       );
 
@@ -147,6 +148,7 @@ void main() {
             sellerProfile: trade.sellerProfile,
             amount: amount,
             sellerEscrowMethod: sellerEscrowMethod,
+            dexInputBuffer: SwapInDexBuffer.zero,
           ),
         );
 

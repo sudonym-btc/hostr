@@ -2,12 +2,16 @@
 library;
 
 import 'package:bolt11_decoder/bolt11_decoder.dart';
+import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/lnurl/lnurl.dart';
+import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.dart';
 import 'package:hostr_sdk/usecase/payments/operations/bolt11_operation.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_models.dart';
 import 'package:hostr_sdk/usecase/payments/operations/pay_state.dart';
+import 'package:hostr_sdk/usecase/payments/payments.dart';
 import 'package:hostr_sdk/usecase/payments/operations/zap_operation.dart';
 import 'package:hostr_sdk/usecase/zaps/zaps.dart' as hostr_zaps;
 import 'package:hostr_sdk/util/custom_logger.dart';
@@ -24,11 +28,15 @@ import 'package:test/test.dart';
 
 class _FakeNwc extends Fake implements Nwc {
   NwcConnection? connection;
+  String? connectionName;
   String? preimage;
   Object? payError;
 
   @override
   NwcConnection? getActiveConnection() => connection;
+
+  @override
+  String? getActiveConnectionName() => connectionName;
 
   @override
   Future<PayInvoiceResponse> payInvoice(
@@ -53,8 +61,11 @@ class _FakeAuth extends Fake implements Auth {
 
 class _FakeLnurlUseCase extends Fake implements LnurlUseCase {
   ZapRequest? lastZapRequest;
+  String? lud16Link = 'https://example.com/.well-known/lnurlp/user';
+  LnurlResponse? lnurlResponse;
 
-  final response = LnurlResponse.fromJson({
+  late final response = LnurlResponse.fromJson({
+    'tag': 'payRequest',
     'callback': 'https://example.com/lnurl/callback',
     'maxSendable': 100000000,
     'minSendable': 1000,
@@ -63,14 +74,18 @@ class _FakeLnurlUseCase extends Fake implements LnurlUseCase {
     'nostrPubkey': MockKeys.hoster.publicKey,
   });
 
+  _FakeLnurlUseCase() {
+    lnurlResponse = response;
+  }
+
   @override
   String? getLud16LinkFromLud16(String lud16) {
-    return 'https://example.com/.well-known/lnurlp/user';
+    return lud16Link;
   }
 
   @override
   Future<LnurlResponse?> getLnurlResponse(String link) async {
-    return response;
+    return lnurlResponse;
   }
 
   @override
@@ -82,6 +97,18 @@ class _FakeLnurlUseCase extends Fake implements LnurlUseCase {
   }) async {
     lastZapRequest = zapRequest;
     return InvoiceResponse(invoice: _testBolt11, amountSats: amountSats);
+  }
+}
+
+class _FakeMetadataUseCase extends Fake implements MetadataUseCase {
+  ProfileMetadata? profile;
+
+  @override
+  Future<ProfileMetadata?> loadMetadata(
+    String pubkey, {
+    bool forceRefresh = false,
+  }) async {
+    return profile;
   }
 }
 
@@ -110,6 +137,39 @@ const _testBolt11 =
     'lnbc10u1pdsw4dkpp5mmlhfpcw4rj0scnyqmw02yvwpn4h6d40wyep3yew8l954sfl6ucqdqq'
     'cqzysxqrrssaayzylslcav0sr3c7237mwea5k67vk7t3j6pdmvnuuadxy0dsj5zalg6merxgnd'
     'c74nc753lnuyx7t2sjecfpxp820r9use77n7vyqcpp7dlfy';
+
+ProfileMetadata _profileWithLud16(String? lud16) {
+  final lud16Json = lud16 == null ? '' : '"lud16":"$lud16"';
+  return ProfileMetadata.fromNostrEvent(
+    Nip01Event(
+      pubKey: MockKeys.guest.publicKey,
+      kind: 0,
+      tags: const [],
+      content: '{$lud16Json}',
+    ),
+  );
+}
+
+Payments _payments({
+  required _FakeNwc nwc,
+  required _FakeLnurlUseCase lnurl,
+  required _FakeMetadataUseCase metadata,
+}) {
+  return Payments(
+    zaps: _FakeZaps(),
+    nwc: nwc,
+    lnurl: lnurl,
+    logger: CustomLogger(),
+    metadata: metadata,
+    auth: _FakeAuth(),
+    config: HostrConfig(
+      bootstrapRelays: const [],
+      bootstrapBlossom: const [],
+      hostrRelay: '',
+      evmConfig: const EvmConfig(),
+    ),
+  );
+}
 
 void main() {
   group('PayOperation — base lifecycle', () {
@@ -370,6 +430,112 @@ void main() {
         expect(lnurl.lastZapRequest!.content, isNot(contains('hostr-zap')));
       },
     );
+  });
+
+  group('Payments automatic invoice destination', () {
+    late _FakeNwc nwc;
+    late _FakeLnurlUseCase lnurl;
+    late _FakeMetadataUseCase metadata;
+
+    setUp(() {
+      nwc = _FakeNwc();
+      lnurl = _FakeLnurlUseCase();
+      metadata = _FakeMetadataUseCase();
+    });
+
+    test('uses active NWC before profile lightning address', () async {
+      nwc.connection = _FakeNwcConnection();
+      nwc.connectionName = 'Alby Hub';
+      metadata.profile = null;
+
+      final destination = await _payments(
+        nwc: nwc,
+        lnurl: lnurl,
+        metadata: metadata,
+      ).resolveAutomaticInvoiceDestination();
+
+      expect(destination.canCreateAutomatically, isTrue);
+      expect(destination.type, AutomaticInvoiceDestinationType.nwc);
+      expect(destination.label, 'Alby Hub');
+    });
+
+    test(
+      'uses valid profile lightning address when no NWC is connected',
+      () async {
+        metadata.profile = _profileWithLud16('user@example.com');
+
+        final destination = await _payments(
+          nwc: nwc,
+          lnurl: lnurl,
+          metadata: metadata,
+        ).resolveAutomaticInvoiceDestination();
+
+        expect(destination.canCreateAutomatically, isTrue);
+        expect(
+          destination.type,
+          AutomaticInvoiceDestinationType.profileLightningAddress,
+        );
+        expect(destination.label, 'user@example.com');
+      },
+    );
+
+    test('reports missing profile lightning address', () async {
+      metadata.profile = _profileWithLud16(null);
+
+      final destination = await _payments(
+        nwc: nwc,
+        lnurl: lnurl,
+        metadata: metadata,
+      ).resolveAutomaticInvoiceDestination();
+
+      expect(destination.canCreateAutomatically, isFalse);
+      expect(
+        destination.type,
+        AutomaticInvoiceDestinationType.missingProfileLightningAddress,
+      );
+      expect(
+        destination.error,
+        'Cannot sweep without a profile lightning address',
+      );
+    });
+
+    test('reports invalid profile lightning address format', () async {
+      metadata.profile = _profileWithLud16('not a lightning address');
+      lnurl.lud16Link = null;
+
+      final destination = await _payments(
+        nwc: nwc,
+        lnurl: lnurl,
+        metadata: metadata,
+      ).resolveAutomaticInvoiceDestination();
+
+      expect(destination.canCreateAutomatically, isFalse);
+      expect(
+        destination.type,
+        AutomaticInvoiceDestinationType.invalidProfileLightningAddress,
+      );
+      expect(
+        destination.error,
+        'Cannot run with invalid profile lightning address',
+      );
+    });
+
+    test('reports invalid profile lightning address endpoint', () async {
+      metadata.profile = _profileWithLud16('user@example.com');
+      lnurl.lnurlResponse = null;
+
+      final destination = await _payments(
+        nwc: nwc,
+        lnurl: lnurl,
+        metadata: metadata,
+      ).resolveAutomaticInvoiceDestination();
+
+      expect(destination.canCreateAutomatically, isFalse);
+      expect(
+        destination.type,
+        AutomaticInvoiceDestinationType.invalidProfileLightningAddress,
+      );
+    });
   });
 
   group('PayState type hierarchy', () {

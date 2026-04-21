@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
 import 'package:models/main.dart';
@@ -164,16 +165,14 @@ class _ListingTypeChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
+    return ChipWrap(
       children: [
         for (final entry in _labels.entries)
           ChoiceChip(
             label: Text(entry.value),
             selected: selected == entry.key,
             onSelected: (on) => onChanged(on ? entry.key : null),
-            shape: const StadiumBorder(),
+            shape: AppShapes.chip,
           ),
       ],
     );
@@ -192,7 +191,7 @@ class _AdvancedHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onToggle,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppBorderRadii.sm,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(

@@ -24,14 +24,15 @@ class StartupGateInProgress extends StartupGateState {
 
   const StartupGateInProgress({required this.items});
 
+  int get completedItemCount {
+    return items.where((item) => item.isFinished).length;
+  }
+
+  int get totalItemCount => items.length;
+
   double get progress {
     if (items.isEmpty) return 0;
-    final finished = items.where((item) {
-      return item.state == StartupItemState.complete ||
-          item.state == StartupItemState.skipped ||
-          item.state == StartupItemState.degraded;
-    }).length;
-    return finished / items.length;
+    return completedItemCount / totalItemCount;
   }
 
   StartupItemProgress get currentItem {
@@ -46,6 +47,14 @@ class StartupGateInProgress extends StartupGateState {
 
   @override
   List<Object?> get props => [items];
+}
+
+extension on StartupItemProgress {
+  bool get isFinished {
+    return state == StartupItemState.complete ||
+        state == StartupItemState.skipped ||
+        state == StartupItemState.degraded;
+  }
 }
 
 class StartupGateReady extends StartupGateState {

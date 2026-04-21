@@ -8,10 +8,7 @@ Color getColorForSpec(BuildContext context, String spec) {
 }
 
 OutlinedBorder getShapeForSpec(BuildContext context, String spec) {
-  return RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(50.0),
-    side: BorderSide(color: AppSurface.stepped(context, 4), width: 1.0),
-  );
+  return AppShapes.pillWithSide(color: AppSurface.stepped(context, 4));
 }
 
 class SpecificationsWidget extends StatelessWidget {

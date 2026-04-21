@@ -20,8 +20,7 @@ const kAppProfileMaxWidth = 460.0;
 const kAppFormMaxWidth = 460.0;
 const kAppPanelLargeWidth = 760.0;
 
-const kAppPanelRadius = 0.0;
-const kAppNavBarItemRadius = 0.0;
+const kAppPanelRadius = AppRadii.none;
 const kAppPanelGap = 0.0;
 const kAppPagePadding = EdgeInsets.zero;
 const kAppPagePaddingWithHeader = EdgeInsets.fromLTRB(
@@ -272,12 +271,12 @@ class AppSurface extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   /// Returns the resolved surface colour from the nearest ancestor,
-  /// falling back to [ColorScheme.surface].
+  /// falling back to the scaffold background.
   static Color of(BuildContext context) {
     return context
             .dependOnInheritedWidgetOfExactType<_AppSurfaceInherited>()
             ?.color ??
-        Theme.of(context).colorScheme.surface;
+        Theme.of(context).scaffoldBackgroundColor;
   }
 
   /// Reads the nearest surface colour without registering a dependency.
