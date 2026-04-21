@@ -101,6 +101,7 @@ class SwapRecoverer {
     if (configuredChain == null) {
       throw StateError('No configured EVM chain for chainId ${data.chainId}');
     }
+
     final evmKey = await _auth.hd.getActiveEvmKey(
       accountIndex: data.accountIndex,
     );
@@ -149,6 +150,26 @@ class SwapRecoverer {
     if (configuredChain == null) {
       throw StateError('No configured EVM chain for chainId ${data.chainId}');
     }
+
+    var recoveryState = state;
+    if (state is SwapOutWaitingForTimelock) {
+      final currentBlock = await configuredChain.getLocktimeBlockNumber();
+      if (currentBlock < data.timeoutBlockHeight) {
+        _logger.i(
+          'swap-out ${data.boltzId} waiting for refund timelock '
+          '${data.timeoutBlockHeight} (current: $currentBlock)',
+        );
+        return false;
+      }
+
+      recoveryState = SwapOutFunded(data);
+      await _store.write('swap_out', data.boltzId, recoveryState.toJson());
+      _logger.i(
+        'swap-out ${data.boltzId} timelock reached at block $currentBlock — '
+        'resuming refund',
+      );
+    }
+
     final evmKey = await _auth.hd.getActiveEvmKey(
       accountIndex: data.accountIndex,
     );
@@ -165,7 +186,7 @@ class SwapRecoverer {
         accountIndex: data.accountIndex,
         // Amount is unused during recovery — only recover() is called.
       ),
-      initialState: state,
+      initialState: recoveryState,
     );
 
     try {

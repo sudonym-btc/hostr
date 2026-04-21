@@ -12,6 +12,7 @@ set -euo pipefail
 #   DEVICES="iPhone 17 Pro Max" ./scripts/screenshots.sh  # override
 #   CHROME_SCREENSHOTS=0 ./scripts/screenshots.sh          # skip Chrome
 #   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # resize Chrome
+#   CHROME_DEVICE_SCALE_FACTOR=2 ./scripts/screenshots.sh   # Retina DPR
 #   CHROMEDRIVER_PORT=4445 ./scripts/screenshots.sh        # fixed WebDriver port
 #   SCREENSHOT_TRADE_SPONSOR_PRIVATE_KEY=0x... ./scripts/screenshots.sh
 #   RECORD_VIDEO=1 ./scripts/screenshots.sh    # also record screen video
@@ -26,7 +27,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_DIR="$REPO_ROOT/app"
 RECORD_VIDEO="${RECORD_VIDEO:-0}"
 CHROME_SCREENSHOTS="${CHROME_SCREENSHOTS:-1}"
-CHROME_WINDOW_SIZE="${CHROME_WINDOW_SIZE:-1440,1024}"
+CHROME_WINDOW_SIZE="${CHROME_WINDOW_SIZE:-}"
+CHROME_DEVICE_SCALE_FACTOR="${CHROME_DEVICE_SCALE_FACTOR:-2}"
+CHROME_START_FULLSCREEN="${CHROME_START_FULLSCREEN:-1}"
 CHROMEDRIVER_AUTOSTART="${CHROMEDRIVER_AUTOSTART:-1}"
 CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-}"
 CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-}"
@@ -64,6 +67,13 @@ fi
 
 sanitize() {
   echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd '[:alnum:]_-'
+}
+
+detect_chrome_window_size() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
+      | awk -F', ' '{ width=$3-$1; height=$4-$2; if (width > 0 && height > 0) printf "%d,%d\n", width, height }'
+  fi
 }
 
 # Resolve a device name → UDID of an available iOS simulator.
@@ -333,10 +343,26 @@ sync_landing_page_screenshots() {
 
 run_chrome_screenshots() {
   local slug="chrome"
-  local browser_dimension="${CHROME_WINDOW_SIZE/,/x}"
+  local chrome_window_size="${CHROME_WINDOW_SIZE:-$(detect_chrome_window_size)}"
+  chrome_window_size="${chrome_window_size:-1440,1024}"
+  local browser_dimension="${chrome_window_size/,/x}"
+  local chrome_flags=("--window-size=$chrome_window_size")
+
+  if [[ -n "$CHROME_DEVICE_SCALE_FACTOR" ]]; then
+    chrome_flags+=(
+      "--high-dpi-support=1"
+      "--force-device-scale-factor=$CHROME_DEVICE_SCALE_FACTOR"
+    )
+  fi
+
+  if [[ "$CHROME_START_FULLSCREEN" == "1" ]]; then
+    chrome_flags+=("--start-fullscreen")
+  fi
 
   echo "🌐 Chrome → screenshots/$slug/"
-  echo "   Window size: $CHROME_WINDOW_SIZE"
+  echo "   Window size: $chrome_window_size"
+  echo "   Device scale factor: ${CHROME_DEVICE_SCALE_FACTOR:-system}"
+  echo "   Fullscreen: $CHROME_START_FULLSCREEN"
   echo "   Flutter drive mode: debug"
   prepare_screenshot_output "$slug"
 
@@ -355,7 +381,7 @@ run_chrome_screenshots() {
     --driver-port="$CHROMEDRIVER_PORT" \
     --browser-dimension="$browser_dimension" \
     --timeout="$CHROME_FLUTTER_DRIVE_TIMEOUT" \
-    --web-browser-flag="--window-size=$CHROME_WINDOW_SIZE" \
+    "${chrome_flags[@]/#/--web-browser-flag=}" \
     ${CHROME_FLUTTER_DRIVE_ARGS[@]+"${CHROME_FLUTTER_DRIVE_ARGS[@]}"} \
     --no-pub 2>&1 | sed -l 's/^/   /'; then
     echo "   ✅ Done"
