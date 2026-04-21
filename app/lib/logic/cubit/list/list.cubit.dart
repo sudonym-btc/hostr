@@ -130,9 +130,6 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
           .query<T>(filter: finalFilter, name: '$T-List-next')
           .listen((event) {
             fetchedCount++;
-            if (state.results.map((e) => e.id).contains(event.id)) {
-              return;
-            }
             addItem(event);
           });
       await requestSubscription?.asFuture();
@@ -195,7 +192,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     if (postResultFilter == null || postResultFilter(item)) {
       itemStream.add(item);
     }
-    final nextRaw = [...state.resultsRaw, item];
+    final nextRaw = upsertNostrListItem(state.resultsRaw, item);
     emit(
       applySort(
         applyPostResultFilter(
@@ -212,27 +209,12 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   /// reset+refetch and updates the UI immediately.
   void upsertItem(T item) {
     if (isClosed) return;
-    final dTag = item.getDtag();
-    final resultsRaw = List<T>.from(state.resultsRaw);
-
-    bool replaced = false;
-    if (dTag != null) {
-      for (var i = 0; i < resultsRaw.length; i++) {
-        if (resultsRaw[i].getDtag() == dTag &&
-            resultsRaw[i].pubKey == item.pubKey) {
-          resultsRaw[i] = item;
-          replaced = true;
-          break;
-        }
-      }
-    }
-
-    if (!replaced) {
-      resultsRaw.add(item);
-    }
+    final beforeLength = state.resultsRaw.length;
+    final resultsRaw = upsertNostrListItem(state.resultsRaw, item);
+    final replaced = resultsRaw.length == beforeLength;
     logger.d(
       '${replaced ? 'Replaced' : 'Inserted'} $T item '
-      'via upsertItem (dTag=$dTag, id=${item.id})',
+      'via upsertItem (key=${nostrListIdentityKey(item)}, id=${item.id})',
     );
     emit(
       applySort(
@@ -312,6 +294,45 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     await itemStream.close();
     return super.close();
   }
+}
+
+String nostrListIdentityKey(Nip01Event item) {
+  final dTag = item.getDtag();
+  if (dTag != null &&
+      dTag.isNotEmpty &&
+      item.kind >= 30000 &&
+      item.kind < 40000) {
+    return '${item.kind}:${item.pubKey}:$dTag';
+  }
+  return item.id;
+}
+
+List<T> upsertNostrListItem<T extends Nip01Event>(List<T> items, T item) {
+  final key = nostrListIdentityKey(item);
+  var insertIndex = -1;
+  var selected = item;
+  final deduped = <T>[];
+
+  for (final existing in items) {
+    if (nostrListIdentityKey(existing) != key) {
+      deduped.add(existing);
+      continue;
+    }
+
+    if (insertIndex == -1) {
+      insertIndex = deduped.length;
+    }
+    if (existing.createdAt > selected.createdAt) {
+      selected = existing;
+    }
+  }
+
+  if (insertIndex == -1) {
+    deduped.add(selected);
+  } else {
+    deduped.insert(insertIndex, selected);
+  }
+  return deduped;
 }
 
 class HydratedListCubit<T extends Nip01Event> extends ListCubit<T> {

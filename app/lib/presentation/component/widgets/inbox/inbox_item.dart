@@ -52,35 +52,10 @@ class InboxItemView extends StatelessWidget {
         vertical: 0,
       ),
       leading: ProfileAvatars.md(profiles: counterparties),
-      title: RichText(
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-
-        text: TextSpan(
-          children: [
-            for (int i = 0; i < counterparties.length; i++) ...[
-              if (i > 0) const TextSpan(text: ', '),
-
-              WidgetSpan(
-                alignment: PlaceholderAlignment.baseline,
-                baseline: TextBaseline.alphabetic,
-                child: ProfileProvider(
-                  pubkey: counterparties[i],
-                  builder: (context, profile) {
-                    final name = profile.data?.metadata.name ?? '';
-
-                    return Text(
-                      name.isEmpty ? '…' : name, // optional placeholder
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.visible,
-                    );
-                  },
-                ),
-              ),
-            ],
-          ],
+      title: _CounterpartyNamesText(
+        counterparties: counterparties,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.bold,
         ),
       ),
       subtitle: Text(
@@ -109,6 +84,62 @@ class InboxItemView extends StatelessWidget {
       onTap: onTap,
     );
   }
+}
+
+class _CounterpartyNamesText extends StatelessWidget {
+  final List<String> counterparties;
+  final TextStyle? style;
+
+  const _CounterpartyNamesText({required this.counterparties, this.style});
+
+  @override
+  Widget build(BuildContext context) =>
+      _buildNameProviders(index: 0, namesByPubkey: const {});
+
+  Widget _buildNameProviders({
+    required int index,
+    required Map<String, String> namesByPubkey,
+  }) {
+    if (index >= counterparties.length) {
+      final joinedNames = counterparties
+          .map((pubkey) => namesByPubkey[pubkey] ?? _fallbackName(pubkey))
+          .join(', ');
+      return Text(
+        joinedNames,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: style,
+      );
+    }
+
+    final pubkey = counterparties[index];
+    return ProfileProvider(
+      pubkey: pubkey,
+      builder: (context, profile) {
+        final nextNamesByPubkey = {
+          ...namesByPubkey,
+          pubkey: _resolvedName(profile.data, fallbackPubkey: pubkey),
+        };
+        return _buildNameProviders(
+          index: index + 1,
+          namesByPubkey: nextNamesByPubkey,
+        );
+      },
+    );
+  }
+
+  String _resolvedName(
+    ProfileMetadata? profile, {
+    required String fallbackPubkey,
+  }) {
+    final name = profile?.metadata.getName().trim() ?? '';
+    if (name.isNotEmpty) return name;
+    return _fallbackName(fallbackPubkey);
+  }
+
+  String _fallbackName(String pubkey) =>
+      pubkey.length <= 8 ? pubkey : pubkey.substring(0, 8);
 }
 
 class InboxItem extends StatelessWidget {

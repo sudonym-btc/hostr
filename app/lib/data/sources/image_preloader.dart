@@ -20,6 +20,7 @@ import 'package:injectable/injectable.dart';
 @lazySingleton
 class ImagePreloader {
   ImagePreloader();
+  static final _logger = CustomLogger(tag: 'app.image-preloader');
 
   static final _sha256Regex = RegExp(r'^[a-fA-F0-9]{64}$');
   static final _networkRegex = RegExp(r'^(http|https):\/\/');
@@ -187,7 +188,12 @@ class ImagePreloader {
       final list = servers?.toList() ?? <String>[];
       // _serverListCache[pubkey] = list;
       completer.complete(list);
-    } catch (e) {
+    } catch (error, stackTrace) {
+      _logger.w(
+        'Failed to load Blossom server list for $pubkey',
+        error: error,
+        stackTrace: stackTrace,
+      );
       completer.complete(<String>[]);
     } finally {
       _pendingServerLookups.remove(pubkey);
@@ -231,6 +237,11 @@ class ImagePreloader {
           if (!completer.isCompleted) completer.complete(true);
         },
         onError: (exception, stackTrace) {
+          _logger.w(
+            'Blossom image preload failed for $url',
+            error: exception,
+            stackTrace: stackTrace,
+          );
           _addFailedUrl(url);
           stream.removeListener(listener);
           if (!completer.isCompleted) completer.complete(false);
@@ -239,7 +250,12 @@ class ImagePreloader {
       stream.addListener(listener);
 
       return await completer.future;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _logger.w(
+        'Blossom image preload threw before resolution for $url',
+        error: error,
+        stackTrace: stackTrace,
+      );
       _addFailedUrl(url);
       return false;
     }

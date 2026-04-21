@@ -19,11 +19,25 @@ import 'package:models/nostr_kinds.dart' show kListingRefTag;
 /// escrow pubkey automatically reclassifies earlier events.
 class ReservationGroup {
   final List<Reservation> reservations;
+  final bool confirmedCommitted;
 
-  const ReservationGroup({this.reservations = const []});
+  const ReservationGroup({
+    this.reservations = const [],
+    this.confirmedCommitted = false,
+  });
 
   factory ReservationGroup.fromReservation(Reservation r) {
     return ReservationGroup(reservations: [r]);
+  }
+
+  ReservationGroup copyWith({
+    List<Reservation>? reservations,
+    bool? confirmedCommitted,
+  }) {
+    return ReservationGroup(
+      reservations: reservations ?? this.reservations,
+      confirmedCommitted: confirmedCommitted ?? this.confirmedCommitted,
+    );
   }
 
   /// Returns a new group with [r] added (replacing any existing reservation
@@ -39,7 +53,10 @@ class ReservationGroup {
     }
     final updated = reservations.where((e) => e.pubKey != r.pubKey).toList()
       ..add(r);
-    return ReservationGroup(reservations: updated);
+    return ReservationGroup(
+      reservations: updated,
+      confirmedCommitted: confirmedCommitted,
+    );
   }
 
   // ── Security: participant set & group identity ──────────────────────
@@ -182,6 +199,12 @@ class ReservationGroup {
 
   /// `true` when seller has published a commit and not cancelled.
   bool get isConfirmed => sellerReservation?.stage == ReservationStage.commit;
+
+  /// `true` when either seller or escrow has published a commit snapshot for
+  /// the current group state, or the group was marked committed by validation.
+  bool get hasCommitConfirmation =>
+      sellerReservation?.stage == ReservationStage.commit ||
+      escrowReservation?.stage == ReservationStage.commit;
 
   /// `true` when the reservation's end date has passed and nobody cancelled.
   bool get isCompleted {

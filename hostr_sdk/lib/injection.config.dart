@@ -403,6 +403,7 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
         reservations: gh<_i326.Reservations>(),
         listings: gh<_i906.Listings>(),
+        evm: gh<_i305.Evm>(),
       ),
     );
     gh.singleton<_i716.StartupCore>(

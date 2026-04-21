@@ -170,10 +170,10 @@ void main() {
   });
 
   group('reserveNextTradeIndex', () {
-    test('returns 0 when maxAccountIndex is -1 and no collisions', () async {
+    test('returns 1 when maxAccountIndex is -1 and no collisions', () async {
       final index = await allocator.reserveNextTradeIndex();
-      expect(index, 0);
-      expect(auth.storedMaxAccountIndex, 0);
+      expect(index, 1);
+      expect(auth.storedMaxAccountIndex, 1);
     });
 
     test('starts at maxAccountIndex + 1', () async {
@@ -197,8 +197,8 @@ void main() {
     });
 
     test('skips indices with existing trades', () async {
-      // Index 0 has an existing trade.
-      hd = _FakeDeterministicKeys(tradeIds: {0: 'taken-trade'});
+      // Index 1 has an existing trade.
+      hd = _FakeDeterministicKeys(tradeIds: {1: 'taken-trade'});
       reservations = _FakeReservations(existingTradeIds: {'taken-trade'});
       cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
@@ -212,12 +212,14 @@ void main() {
       );
 
       final index = await allocator.reserveNextTradeIndex();
-      expect(index, 1); // skipped index 0
+      expect(index, 2); // skipped trade index 1
     });
 
     test('skips indices with used EVM addresses (nonce > 0)', () async {
-      final usedAddress = bip.EthereumAddress.fromHex('0x${'00' * 20}');
-      hd = _FakeDeterministicKeys(evmAddresses: {0: usedAddress});
+      final usedAddress = bip.EthereumAddress.fromHex(
+        '0x${1.toRadixString(16).padLeft(40, '0')}',
+      );
+      hd = _FakeDeterministicKeys(evmAddresses: {1: usedAddress});
       web3 = _FakeWeb3Client(nonces: {usedAddress.with0x: 1});
       evm = _FakeEvm([_FakeEvmChain(web3)]);
       cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
@@ -232,12 +234,14 @@ void main() {
       );
 
       final index = await allocator.reserveNextTradeIndex();
-      expect(index, 1); // skipped index 0
+      expect(index, 2); // skipped trade index 1
     });
 
     test('skips indices with used EVM addresses (balance > 0)', () async {
-      final usedAddress = bip.EthereumAddress.fromHex('0x${'00' * 20}');
-      hd = _FakeDeterministicKeys(evmAddresses: {0: usedAddress});
+      final usedAddress = bip.EthereumAddress.fromHex(
+        '0x${1.toRadixString(16).padLeft(40, '0')}',
+      );
+      hd = _FakeDeterministicKeys(evmAddresses: {1: usedAddress});
       web3 = _FakeWeb3Client(balances: {usedAddress.with0x: BigInt.from(1000)});
       evm = _FakeEvm([_FakeEvmChain(web3)]);
       cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
@@ -252,12 +256,12 @@ void main() {
       );
 
       final index = await allocator.reserveNextTradeIndex();
-      expect(index, 1); // skipped index 0
+      expect(index, 2); // skipped trade index 1
     });
 
     test('updates maxAccountIndex via Auth', () async {
       await allocator.reserveNextTradeIndex();
-      expect(auth.storedMaxAccountIndex, 0);
+      expect(auth.storedMaxAccountIndex, 1);
     });
   });
 
@@ -393,7 +397,7 @@ void main() {
       expect(allocator.getReservedTradeIndices(), isEmpty);
     });
 
-    test('returns [0..maxAccountIndex] when maxAccountIndex >= 0', () async {
+    test('returns [1..maxAccountIndex] when maxAccountIndex >= 1', () async {
       auth = _FakeAuth(
         keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null),
         maxAccountIndex: 3,
@@ -409,7 +413,7 @@ void main() {
         logger: logger,
       );
 
-      expect(allocator.getReservedTradeIndices(), [0, 1, 2, 3]);
+      expect(allocator.getReservedTradeIndices(), [1, 2, 3]);
     });
   });
 }

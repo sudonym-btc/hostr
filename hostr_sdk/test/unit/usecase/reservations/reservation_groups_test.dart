@@ -17,6 +17,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/reservation_groups/reservation_groups.dart';
@@ -34,6 +35,23 @@ final _f = EntityFactory();
 class _FakeReservations extends Fake implements Reservations {}
 
 class _FakeEvm extends Fake implements Evm {}
+
+class _StubEscrowVerification extends Fake implements EscrowVerification {
+  final Set<String> validTradeIds;
+
+  _StubEscrowVerification({this.validTradeIds = const {}});
+
+  @override
+  Future<EscrowVerificationResult> verify({
+    required Reservation reservation,
+  }) async {
+    final tradeId = reservation.getDtag();
+    if (tradeId != null && validTradeIds.contains(tradeId)) {
+      return const EscrowVerificationResult.valid();
+    }
+    return const EscrowVerificationResult.invalid('mock on-chain failure');
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Helpers
@@ -108,6 +126,8 @@ Future<Reservation> _cancel({
     quantity: source.quantity,
     amount: source.amount,
     recipient: source.recipient,
+    proof: source.proof,
+    signatures: source.signatures,
     tweakMaterial: source.tweakMaterial,
     pTags: [
       for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
@@ -246,6 +266,8 @@ Future<Reservation> _buildCancel({
     quantity: source.quantity,
     amount: source.amount,
     recipient: source.recipient,
+    proof: source.proof,
+    signatures: source.signatures,
     tweakMaterial: source.tweakMaterial,
     pTags: [
       for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
@@ -315,6 +337,64 @@ PaymentProof _buildZapPaymentProof({
     escrowProof: null,
   );
 }
+
+PaymentProof _buildEscrowPaymentProof({required Listing listing}) {
+  final escrowService = MOCK_ESCROWS(
+    contractAddress: '0xDEAD',
+    evmAddress: '0x000000000000000000000000000000000000bEEF',
+  ).first;
+  final methodEvent = Nip01Utils.signWithPrivateKey(
+    event: Nip01Event(
+      kind: kNostrKindEscrowMethod,
+      pubKey: MockKeys.hoster.publicKey,
+      tags: const [],
+      content: '',
+    ),
+    privateKey: MockKeys.hoster.privateKey!,
+  );
+
+  return PaymentProof(
+    hoster: Nip01EventModel.fromEntity(
+      Nip01Utils.signWithPrivateKey(
+        event: Nip01Event(
+          kind: 0,
+          pubKey: MockKeys.hoster.publicKey,
+          tags: const [],
+          content: '',
+        ),
+        privateKey: MockKeys.hoster.privateKey!,
+      ),
+    ),
+    listing: listing,
+    zapProof: null,
+    escrowProof: EscrowProof(
+      txHash: '0xabc123',
+      escrowService: escrowService,
+      hostsEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
+    ),
+  );
+}
+
+Future<Reservation> _buildEscrowCommit({
+  required Reservation source,
+  required Listing listing,
+}) => _f.reservation(
+  listing: listing,
+  dTag: source.getDtag()!,
+  signerOverride: MockKeys.escrow,
+  stage: ReservationStage.commit,
+  start: source.start,
+  end: source.end,
+  quantity: source.quantity,
+  amount: source.amount,
+  recipient: source.recipient,
+  pTags: [
+    PTag.seller(listing.pubKey),
+    PTag.buyer(source.pubKey),
+    PTag.escrow(MockKeys.escrow.publicKey),
+  ],
+  createdAt: DateTime(2026, 1, 5).millisecondsSinceEpoch ~/ 1000,
+);
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Tests
@@ -916,6 +996,161 @@ void main() async {
         (result as Invalid).reason,
         contains('Unsupported or missing payment proof type'),
       );
+    });
+  });
+
+  group('verifyGroupOnChain — confirmedCommitted', () {
+    test(
+      'escrow-backed buyer commit sets confirmedCommitted=true after verification',
+      () async {
+        final listing = _buildListing(
+          host: MockKeys.hoster,
+          allowSelfSignedReservation: true,
+        );
+        final negotiate = await _buildNegotiate(
+          listing: listing,
+          buyer: MockKeys.guest,
+          salt: 'payment-valid-escrow',
+        );
+        final commit = await _buildSelfSignedCommit(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: MockKeys.guest,
+          proof: _buildEscrowPaymentProof(listing: listing),
+        );
+
+        final result = await ReservationGroups.verifyGroupOnChain(
+          ReservationGroup(reservations: [commit]),
+          forceValidateSelfSigned: true,
+          escrowVerification: _StubEscrowVerification(
+            validTradeIds: {commit.getDtag()!},
+          ),
+        );
+
+        expect(result, isA<Valid<ReservationGroup>>());
+        expect(
+          (result as Valid<ReservationGroup>).event.confirmedCommitted,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'cancelled escrow-backed buyer reservation keeps confirmedCommitted=true',
+      () async {
+        final listing = _buildListing(
+          host: MockKeys.hoster,
+          allowSelfSignedReservation: true,
+        );
+        final negotiate = await _buildNegotiate(
+          listing: listing,
+          buyer: MockKeys.guest,
+          salt: 'payment-valid-cancelled',
+        );
+        final commit = await _buildSelfSignedCommit(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: MockKeys.guest,
+          proof: _buildEscrowPaymentProof(listing: listing),
+        );
+        final cancel = await _buildCancel(
+          source: commit,
+          listing: listing,
+          signer: MockKeys.guest,
+        );
+
+        final result = await ReservationGroups.verifyGroupOnChain(
+          ReservationGroup(reservations: [cancel]),
+          forceValidateSelfSigned: true,
+          escrowVerification: _StubEscrowVerification(
+            validTradeIds: {cancel.getDtag()!},
+          ),
+        );
+
+        expect(result, isA<Valid<ReservationGroup>>());
+        final group = (result as Valid<ReservationGroup>).event;
+        expect(group.cancelled, isTrue);
+        expect(group.confirmedCommitted, isTrue);
+      },
+    );
+
+    test(
+      'escrow commit sets confirmedCommitted=true without on-chain verifier',
+      () async {
+        final listing = _buildListing(
+          host: MockKeys.hoster,
+          allowSelfSignedReservation: true,
+        );
+        final negotiate = await _buildNegotiate(
+          listing: listing,
+          buyer: MockKeys.guest,
+          salt: 'payment-valid-escrow-commit',
+        );
+        final buyerCommit = await _buildSelfSignedCommit(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: MockKeys.guest,
+          proof: _buildEscrowPaymentProof(listing: listing),
+        );
+        final escrowCommit = await _buildEscrowCommit(
+          source: buyerCommit,
+          listing: listing,
+        );
+
+        final result = await ReservationGroups.verifyGroupOnChain(
+          ReservationGroup(reservations: [buyerCommit, escrowCommit]),
+          forceValidateSelfSigned: true,
+        );
+
+        expect(result, isA<Valid<ReservationGroup>>());
+        expect(
+          (result as Valid<ReservationGroup>).event.confirmedCommitted,
+          isTrue,
+        );
+      },
+    );
+
+    test('seller-confirmed reservation sets confirmedCommitted=true', () async {
+      final listing = _buildListing(host: MockKeys.hoster);
+      final negotiate = await _buildNegotiate(
+        listing: listing,
+        buyer: MockKeys.guest,
+        salt: 'payment-valid-seller-only',
+      );
+      final sellerAck = await _buildSellerAck(
+        negotiate: negotiate,
+        listing: listing,
+        seller: MockKeys.hoster,
+      );
+
+      final result = await ReservationGroups.verifyGroupOnChain(
+        ReservationGroup(reservations: [sellerAck, negotiate]),
+      );
+
+      expect(result, isA<Valid<ReservationGroup>>());
+      expect(
+        (result as Valid<ReservationGroup>).event.confirmedCommitted,
+        isTrue,
+      );
+    });
+
+    test('negotiate-only reservation stays confirmedCommitted=false', () async {
+      final listing = _buildListing(
+        host: MockKeys.hoster,
+        allowSelfSignedReservation: true,
+      );
+      final negotiate = await _buildNegotiate(
+        listing: listing,
+        buyer: MockKeys.guest,
+        salt: 'confirmed-nego-only',
+      );
+
+      final result = await ReservationGroups.verifyGroupOnChain(
+        ReservationGroup(reservations: [negotiate]),
+        forceValidateSelfSigned: false,
+      );
+
+      expect(result, isA<Invalid<ReservationGroup>>());
     });
   });
 

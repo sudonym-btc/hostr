@@ -267,13 +267,27 @@ class Relays {
             logger.i('No NIP-65 relay list found for $pubkey');
             return false;
           }
-          logger.i('Found ${relayList.urls.length} relays in NIP-65 list');
+          logger.i(
+            'Found ${relayList.urls.length} relays in NIP-65 list for '
+            '$pubkey: ${_describeRelayMarkers(relayList.relays)}',
+          );
           return true;
         } catch (e) {
           logger.e('Error syncing NIP-65 relay list: $e');
           return false;
         }
       });
+
+  String _describeRelayMarkers(Map<String, ReadWriteMarker> relays) => relays
+      .entries
+      .map((entry) => '${entry.key} (${_describeRelayMarker(entry.value)})')
+      .join(', ');
+
+  String _describeRelayMarker(ReadWriteMarker marker) => switch (marker) {
+    ReadWriteMarker.readWrite => 'read-write',
+    ReadWriteMarker.readOnly => 'read-only',
+    ReadWriteMarker.writeOnly => 'write-only',
+  };
 
   Future<void> _discoverNip65OnBootstrapRelays(String pubkey) async {
     final relays = getIt<HostrConfig>().bootstrapRelays;

@@ -15,6 +15,7 @@ ReservationTransition _transition({
   KeyPair? signer,
   String? reason,
   Map<String, dynamic>? updatedFields,
+  String? prevTransitionId,
 }) {
   final key = signer ?? MockKeys.guest;
 
@@ -31,6 +32,7 @@ ReservationTransition _transition({
     pubKey: key.publicKey,
     tags: [
       ['d', 'trade-1'],
+      if (prevTransitionId != null) ['prev', prevTransitionId],
     ],
     content: content.toString(),
   );
@@ -201,38 +203,46 @@ void main() {
 
     group('valid chains', () {
       test('negotiate → negotiate → negotiate → commit', () {
+        final first = _transition(
+          type: ReservationTransitionType.counterOffer,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.negotiate,
+        );
+        final second = _transition(
+          type: ReservationTransitionType.counterOffer,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.negotiate,
+          prevTransitionId: first.id,
+        );
+        final third = _transition(
+          type: ReservationTransitionType.commit,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.commit,
+          prevTransitionId: second.id,
+        );
         final result = validateStateTransitions([
-          _transition(
-            type: ReservationTransitionType.counterOffer,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.negotiate,
-          ),
-          _transition(
-            type: ReservationTransitionType.counterOffer,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.negotiate,
-          ),
-          _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
-          ),
+          third,
+          first,
+          second,
         ]);
         expect(result.isValid, isTrue);
       });
 
       test('negotiate → commit → cancel', () {
+        final first = _transition(
+          type: ReservationTransitionType.commit,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.commit,
+        );
+        final second = _transition(
+          type: ReservationTransitionType.cancel,
+          from: ReservationStage.commit,
+          to: ReservationStage.cancel,
+          prevTransitionId: first.id,
+        );
         final result = validateStateTransitions([
-          _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
-          ),
-          _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.commit,
-            to: ReservationStage.cancel,
-          ),
+          second,
+          first,
         ]);
         expect(result.isValid, isTrue);
       });
@@ -251,18 +261,21 @@ void main() {
 
     group('invalid chains (chain break)', () {
       test('negotiate → commit then negotiate → commit (gap)', () {
+        final first = _transition(
+          type: ReservationTransitionType.commit,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.commit,
+        );
+        final second = _transition(
+          type: ReservationTransitionType.commit,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.commit,
+          prevTransitionId: first.id,
+        );
         final result = validateStateTransitions([
-          _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
-          ),
+          first,
           // After commit, fromStage should be commit, not negotiate.
-          _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
-          ),
+          second,
         ]);
         expect(result.isValid, isFalse);
         expect(result.failedIndex, 1);
@@ -271,21 +284,81 @@ void main() {
 
       test('negotiate → cancel then commit → cancel (continues after cancel)',
           () {
+        final first = _transition(
+          type: ReservationTransitionType.cancel,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.cancel,
+        );
+        final second = _transition(
+          type: ReservationTransitionType.cancel,
+          from: ReservationStage.commit,
+          to: ReservationStage.cancel,
+          prevTransitionId: first.id,
+        );
+        final result = validateStateTransitions([
+          first,
+          // cancel → cancel is illegal edge.
+          second,
+        ]);
+        expect(result.isValid, isFalse);
+        expect(result.failedIndex, 1);
+      });
+
+      test('multiple genesis transitions are invalid', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.cancel,
+            type: ReservationTransitionType.commit,
             from: ReservationStage.negotiate,
-            to: ReservationStage.cancel,
+            to: ReservationStage.commit,
           ),
-          // cancel → cancel is illegal edge.
           _transition(
             type: ReservationTransitionType.cancel,
             from: ReservationStage.commit,
             to: ReservationStage.cancel,
           ),
         ]);
+
         expect(result.isValid, isFalse);
-        expect(result.failedIndex, 1);
+        expect(result.reason, contains('Multiple genesis'));
+      });
+
+      test('missing previous transition is invalid', () {
+        final result = validateStateTransitions([
+          _transition(
+            type: ReservationTransitionType.cancel,
+            from: ReservationStage.commit,
+            to: ReservationStage.cancel,
+            prevTransitionId: 'missing',
+          ),
+        ]);
+
+        expect(result.isValid, isFalse);
+        expect(result.reason, contains('Missing previous transition'));
+      });
+
+      test('forked previous transition is invalid', () {
+        final first = _transition(
+          type: ReservationTransitionType.counterOffer,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.negotiate,
+        );
+        final second = _transition(
+          type: ReservationTransitionType.commit,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.commit,
+          prevTransitionId: first.id,
+        );
+        final fork = _transition(
+          type: ReservationTransitionType.cancel,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.cancel,
+          prevTransitionId: first.id,
+        );
+
+        final result = validateStateTransitions([first, second, fork]);
+
+        expect(result.isValid, isFalse);
+        expect(result.reason, contains('fork'));
       });
     });
 
@@ -306,6 +379,41 @@ void main() {
         expect(r.toString(), contains('2'));
         expect(r.toString(), contains('bad'));
       });
+    });
+  });
+
+  group('validateEscrowStateTransitions', () {
+    test('escrow may not cancel after commit', () {
+      final first = _transition(
+        type: ReservationTransitionType.confirm,
+        from: ReservationStage.commit,
+        to: ReservationStage.commit,
+        signer: MockKeys.escrow,
+      );
+      final second = _transition(
+        type: ReservationTransitionType.cancel,
+        from: ReservationStage.commit,
+        to: ReservationStage.cancel,
+        signer: MockKeys.escrow,
+        prevTransitionId: first.id,
+      );
+
+      final result = validateEscrowStateTransitions([second, first]);
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('Escrow cannot cancel after commit'));
+    });
+
+    test('escrow may reject before commit', () {
+      final result = validateEscrowStateTransitions([
+        _transition(
+          type: ReservationTransitionType.cancel,
+          from: ReservationStage.negotiate,
+          to: ReservationStage.cancel,
+          signer: MockKeys.escrow,
+        ),
+      ]);
+
+      expect(result.isValid, isTrue);
     });
   });
 }
