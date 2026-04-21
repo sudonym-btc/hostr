@@ -278,7 +278,8 @@ class ZapReleasedEvent extends PaymentReleasedEvent implements ZapEvent {
 /// Escrow payment types
 sealed class EscrowEvent extends PaymentEvent {
   final EscrowServiceSelected? escrowService;
-  final BlockInformation block;
+  final int blockNum;
+  final BlockInformation? block;
 
   /// The EVM chain this event was emitted on.
   /// Non-null when the event was sourced from an [EvmChain]-backed escrow.
@@ -290,6 +291,7 @@ sealed class EscrowEvent extends PaymentEvent {
 
   EscrowEvent({
     required super.tradeId,
+    required this.blockNum,
     required this.block,
     this.escrowService,
     this.chain,
@@ -300,6 +302,7 @@ sealed class EscrowEvent extends PaymentEvent {
 class UnknownEscrowEvent extends EscrowEvent {
   UnknownEscrowEvent({
     required super.tradeId,
+    required super.blockNum,
     required super.block,
     super.escrowService,
     super.chain,
@@ -320,6 +323,7 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
 
   EscrowFundedEvent({
     required super.tradeId,
+    required super.blockNum,
     required super.block,
     super.escrowService,
     super.chain,
@@ -336,6 +340,7 @@ class EscrowReleasedEvent extends EscrowEvent implements PaymentReleasedEvent {
 
   EscrowReleasedEvent({
     required super.tradeId,
+    required super.blockNum,
     required super.block,
     super.escrowService,
     super.chain,
@@ -351,6 +356,7 @@ class EscrowArbitratedEvent extends EscrowEvent
   final double bondForwarded;
   EscrowArbitratedEvent({
     required super.tradeId,
+    required super.blockNum,
     required super.block,
     super.escrowService,
     super.chain,
@@ -365,6 +371,7 @@ class EscrowClaimedEvent extends EscrowEvent implements PaymentClaimedEvent {
   final String transactionHash;
   EscrowClaimedEvent({
     required super.tradeId,
+    required super.blockNum,
     required super.block,
     super.escrowService,
     super.chain,

@@ -10,11 +10,13 @@ class PaymentTimelineItem extends StatelessWidget {
   // Can be either a Reservation or a PaymentEvent, both have different display info
   final dynamic event;
   final ReservationGroup? reservationGroup;
+  final DateTime? Function(PaymentEvent event)? paymentEventTimestamp;
 
   const PaymentTimelineItem({
     super.key,
     required this.event,
     this.reservationGroup,
+    this.paymentEventTimestamp,
   });
   @override
   Widget build(BuildContext context) {
@@ -29,7 +31,7 @@ class PaymentTimelineItem extends StatelessWidget {
       required String title,
       String? description,
       IconData? icon,
-      required DateTime timestamp,
+      DateTime? timestamp,
     }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,12 +50,13 @@ class PaymentTimelineItem extends StatelessWidget {
                   ),
                 )
               : SizedBox.shrink(),
-          Text(
-            formatDateLong(timestamp),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          if (timestamp != null)
+            Text(
+              formatDateLong(timestamp),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
         ],
       );
     }
@@ -64,7 +67,7 @@ class PaymentTimelineItem extends StatelessWidget {
       final sellerPubkey = reservationGroup?.sellerPubkey;
       final escrowPubkey = reservationGroup?.escrowPubkey;
 
-      String _roleLabel({
+      String roleLabel({
         required String host,
         required String escrow,
         required String guest,
@@ -77,7 +80,7 @@ class PaymentTimelineItem extends StatelessWidget {
       var title = 'Guest created reservation';
       switch (transitionEvent.transitionType) {
         case ReservationTransitionType.cancel:
-          title = _roleLabel(
+          title = roleLabel(
             host: 'Host cancelled reservation',
             escrow: 'Escrow cancelled reservation',
             guest: 'Guest cancelled reservation',
@@ -85,14 +88,14 @@ class PaymentTimelineItem extends StatelessWidget {
           break;
         case ReservationTransitionType.confirm:
         case ReservationTransitionType.commit:
-          title = _roleLabel(
+          title = roleLabel(
             host: 'Host confirmed reservation',
             escrow: 'Escrow confirmed reservation',
             guest: 'Guest created reservation',
           );
           break;
         case ReservationTransitionType.counterOffer:
-          title = _roleLabel(
+          title = roleLabel(
             host: 'Host counter-offered',
             escrow: 'Escrow updated reservation',
             guest: 'Guest created reservation',
@@ -106,6 +109,7 @@ class PaymentTimelineItem extends StatelessWidget {
       );
     }
     if (event is EscrowFundedEvent) {
+      final timestamp = _paymentTimestamp(event);
       final unlockDate = DateTime.fromMillisecondsSinceEpoch(
         event.unlockAt * 1000,
       );
@@ -113,14 +117,13 @@ class PaymentTimelineItem extends StatelessWidget {
         title: 'Escrow funded',
         description:
             '${formatTokenAmount(event.amount)} · Unlocks ${formatDate(unlockDate)}',
-        timestamp: event.block.timestamp,
+        timestamp: timestamp,
       );
     } else if (event is EscrowReleasedEvent) {
-      return buildTimeLineItem(
-        title: 'Funds released',
-        timestamp: event.block.timestamp,
-      );
+      final timestamp = _paymentTimestamp(event);
+      return buildTimeLineItem(title: 'Funds released', timestamp: timestamp);
     } else if (event is EscrowArbitratedEvent) {
+      final timestamp = _paymentTimestamp(event);
       final paymentPct = formatPercent(event.paymentForwarded * 100);
       final desc = event.bondForwarded > 0
           ? 'Payment $paymentPct% to host · Bond ${formatPercent(event.bondForwarded * 100)}% to host'
@@ -128,12 +131,13 @@ class PaymentTimelineItem extends StatelessWidget {
       return buildTimeLineItem(
         title: 'Escrow arbitrated',
         description: desc,
-        timestamp: event.block.timestamp,
+        timestamp: timestamp,
       );
     } else if (event is EscrowClaimedEvent) {
+      final timestamp = _paymentTimestamp(event);
       return buildTimeLineItem(
         title: 'Funds claimed by host',
-        timestamp: event.block.timestamp,
+        timestamp: timestamp,
       );
     } else if (event is ZapFundedEvent) {
       return buildTimeLineItem(
@@ -153,5 +157,14 @@ class PaymentTimelineItem extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
+  }
+
+  DateTime? _paymentTimestamp(PaymentEvent event) {
+    final resolvedTimestamp = paymentEventTimestamp?.call(event);
+    if (resolvedTimestamp != null) return resolvedTimestamp;
+    if (event is EscrowEvent) {
+      return event.block?.timestamp;
+    }
+    return null;
   }
 }

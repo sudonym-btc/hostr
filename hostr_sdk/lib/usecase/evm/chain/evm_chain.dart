@@ -91,10 +91,14 @@ class EvmChain {
   /// Maximum poll interval during backoff (caps exponential growth).
   static const Duration maxPollInterval = Duration(seconds: 60);
   static const Duration _getLogsDebounce = Duration(milliseconds: 16);
+  static const int _maxGetLogsTopicValues = 75;
 
   final Map<String, List<_GetLogsRequest>> _getLogsQueues = {};
   final Map<String, Timer?> _getLogsTimers = {};
   final StreamController<void> _pollNow = StreamController<void>.broadcast();
+  StreamController<int>? _sharedBlocksController;
+  StreamSubscription<int>? _sharedBlocksSubscription;
+  Duration? _sharedBlocksInterval;
   bool _disposed = false;
 
   /// ERC-20 token registry — keyed by lower-case checksummed address.
@@ -188,6 +192,8 @@ class EvmChain {
     }
     _getLogsTimers.clear();
     _getLogsQueues.clear();
+    await _sharedBlocksSubscription?.cancel();
+    await _sharedBlocksController?.close();
     client.dispose();
     _httpClient.close();
   }
@@ -305,18 +311,39 @@ class EvmChain {
       fromBlock: first.filter.fromBlock,
       toBlock: first.filter.toBlock,
     );
-
     logger.d(
-      'getLogs batch: ${queue.length} requests merged into 1 RPC call '
+      'getLogs batch: ${queue.length} requests merged into '
+      '${(mergedValues.length / _maxGetLogsTopicValues).ceil()} RPC call(s) '
       'with ${mergedValues.length} distinct topic value(s) for '
       '${_stringifyFilterOptions(mergedFilter)}',
     );
 
-    _getLogsDirect(mergedFilter)
+    Future.wait(
+          _chunks(mergedValues, _maxGetLogsTopicValues).map((values) {
+            final chunkedTopics = List<List<String?>>.generate(
+              mergedTopics.length,
+              (index) => index == first.dynamicTopicIndex
+                  ? values
+                  : List<String?>.from(mergedTopics[index]),
+              growable: false,
+            );
+            return _getLogsDirect(
+              FilterOptions(
+                address: first.filter.address,
+                topics: chunkedTopics,
+                fromBlock: first.filter.fromBlock,
+                toBlock: first.filter.toBlock,
+              ),
+            );
+          }),
+        )
         .then((logs) {
+          final mergedLogs = logs
+              .expand((chunk) => chunk)
+              .toList(growable: false);
           for (final request in queue) {
             if (request.completer.isCompleted) continue;
-            final matched = logs
+            final matched = mergedLogs
                 .where((log) {
                   final logTopics = log.topics;
                   if (logTopics == null ||
@@ -338,6 +365,12 @@ class EvmChain {
             }
           }
         });
+  }
+
+  Iterable<List<T>> _chunks<T>(List<T> values, int size) sync* {
+    for (var i = 0; i < values.length; i += size) {
+      yield values.sublist(i, min(i + size, values.length));
+    }
   }
 
   String _stringifyFilterOptions(FilterOptions filter) {
@@ -632,8 +665,34 @@ class EvmChain {
     }
   }
 
-  Stream<int> newBlocks({Duration interval = const Duration(seconds: 15)}) =>
-      _newBlocks(interval: interval);
+  Stream<int> newBlocks({Duration interval = const Duration(seconds: 15)}) {
+    final existing = _sharedBlocksController;
+    if (existing != null) {
+      if (_sharedBlocksInterval != interval) {
+        logger.w(
+          'newBlocks already running at $_sharedBlocksInterval; '
+          'ignoring requested interval $interval',
+        );
+      }
+      return existing.stream;
+    }
+
+    _sharedBlocksInterval = interval;
+    final controller = StreamController<int>.broadcast(
+      onListen: () {
+        _sharedBlocksSubscription ??= _newBlocks(interval: interval).listen(
+          _sharedBlocksController?.add,
+          onError: _sharedBlocksController?.addError,
+        );
+      },
+      onCancel: () async {
+        await _sharedBlocksSubscription?.cancel();
+        _sharedBlocksSubscription = null;
+      },
+    );
+    _sharedBlocksController = controller;
+    return controller.stream;
+  }
 
   /// Nudge all [_newBlocks] listeners to poll immediately.
   ///

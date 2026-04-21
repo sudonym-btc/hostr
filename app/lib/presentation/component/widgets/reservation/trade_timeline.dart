@@ -10,28 +10,22 @@ class TradeTimeline extends StatelessWidget {
   final List<ReservationTransition> transitions;
   final List<PaymentEvent> paymentEvents;
   final ReservationGroup? reservationGroup;
+  final DateTime? Function(PaymentEvent event)? paymentEventTimestamp;
+
   const TradeTimeline({
     super.key,
     required this.transitions,
     required this.paymentEvents,
     this.reservationGroup,
+    this.paymentEventTimestamp,
   });
 
   @override
   Widget build(BuildContext context) {
     final List<dynamic> events = [...transitions, ...paymentEvents]
       ..sort((a, b) {
-        final timestampA = a is ReservationTransition
-            ? DateTime.fromMillisecondsSinceEpoch(a.createdAt * 1000)
-            : (a is EscrowEvent
-                  ? a.block.timestamp
-                  : DateTime.fromMillisecondsSinceEpoch(0));
-
-        final timestampB = b is ReservationTransition
-            ? DateTime.fromMillisecondsSinceEpoch(b.createdAt * 1000)
-            : (b is EscrowEvent
-                  ? b.block.timestamp
-                  : DateTime.fromMillisecondsSinceEpoch(0));
+        final timestampA = _timestampFor(a);
+        final timestampB = _timestampFor(b);
         return timestampA.compareTo(timestampB);
       });
     if (events.isEmpty) return const SizedBox.shrink();
@@ -67,11 +61,28 @@ class TradeTimeline extends StatelessWidget {
             child: PaymentTimelineItem(
               event: events[index],
               reservationGroup: reservationGroup,
+              paymentEventTimestamp: paymentEventTimestamp,
             ),
           ),
           itemCount: events.length,
         ),
       ),
     );
+  }
+
+  DateTime _timestampFor(dynamic event) {
+    if (event is ReservationTransition) {
+      return DateTime.fromMillisecondsSinceEpoch(event.createdAt * 1000);
+    }
+    if (event is PaymentEvent) {
+      final resolvedTimestamp = paymentEventTimestamp?.call(event);
+      if (resolvedTimestamp != null) return resolvedTimestamp;
+    }
+    if (event is EscrowEvent) {
+      final blockTimestamp = event.block?.timestamp;
+      if (blockTimestamp != null) return blockTimestamp;
+      return DateTime.fromMillisecondsSinceEpoch(event.blockNum * 1000);
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 }

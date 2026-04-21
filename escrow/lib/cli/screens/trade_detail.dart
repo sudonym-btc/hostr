@@ -48,11 +48,15 @@ Future<Navigation> tradeDetailScreen(
     } else {
       amountStr = '${formatSats(cached['amountSats'] as int? ?? 0)} sats';
     }
+    final updatedAt = DateTime.tryParse('${cached['updatedAt'] ?? ''}');
+    final updatedLabel = updatedAt == null
+        ? '${cached['updatedAt'] ?? '—'}'
+        : '${relativeTime(updatedAt)} (${updatedAt.toLocal()})';
     print(kvTable({
       'Status': colorStatus('${cached['status']}'),
       'Amount': amountStr,
       'Last tx': '${cached['txHash'] ?? '—'}',
-      'Updated': '${cached['updatedAt']}',
+      'Updated': updatedLabel,
     }));
   }
 
