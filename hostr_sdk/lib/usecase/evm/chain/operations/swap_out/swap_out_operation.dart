@@ -16,6 +16,10 @@ import '../../../../payments/payments.dart';
 import '../../../main.dart';
 
 class EvmSwapOutOperation extends SwapOutOperation {
+  static const Duration _minInvoiceTtlBeforeLock = Duration(minutes: 10);
+  static const Duration _warnInvoiceTtlBeforeLock = Duration(minutes: 15);
+  static const int _defaultBolt11ExpirySeconds = 3600;
+
   @override
   final EvmChain chain;
   final Nwc nwc;
@@ -63,69 +67,94 @@ class EvmSwapOutOperation extends SwapOutOperation {
         emit(SwapOutRequestCreated());
 
         final quote = await _buildQuote();
-        final invoice = await _acquireInvoice(quote);
-        emit(SwapOutInvoiceCreated(invoice));
-        logger.i('Invoice created: $invoice');
+        final acquiredInvoice = await _acquireInvoice(quote);
+        final invoiceDetails = _decodeSwapOutInvoice(
+          acquiredInvoice.invoice,
+          source: acquiredInvoice.source,
+        );
+        final ttlFailure = _invoiceTtlFailure(
+          invoiceDetails,
+          phase: 'createSwap',
+        );
+        if (ttlFailure != null) {
+          return SwapOutFailed(ttlFailure);
+        }
+        emit(SwapOutInvoiceCreated(acquiredInvoice.invoice));
+        logger.i('Invoice created: ${acquiredInvoice.invoice}');
 
         final creationBlock = await chain.client.getBlockNumber();
-        return await _prepareSwap(invoice, quote, creationBlock);
+        return await _prepareSwap(invoiceDetails, quote, creationBlock);
       });
 
   // ── Step 2: Lock funds in swap contract ───────────────────────────────
 
-  Future<SwapOutState> _stepLockFunds() =>
-      logger.span('_stepLockFunds', () async {
-        final data = state.data!;
+  Future<SwapOutState> _stepLockFunds() => logger.span(
+    '_stepLockFunds',
+    () async {
+      final data = state.data!;
 
-        // ── 2a. Check if already locked on-chain (idempotent recovery) ──
-        if (data.lockTxHash != null) {
-          return SwapOutFunded(data);
-        }
+      // ── 2a. Check if already locked on-chain (idempotent recovery) ──
+      if (data.lockTxHash != null) {
+        return SwapOutFunded(data);
+      }
 
-        // ── 2b. Build lock calls ──
-        final builder = BoltzCallBuilder(chain.swaps!);
-        final isErc20 = data.tokenAddress != null;
-        final Map<String, Call> lockCalls;
+      final invoiceDetails = _decodeSwapOutInvoice(
+        data.invoice,
+        source: 'persisted',
+      );
+      final ttlFailure = _invoiceTtlFailure(invoiceDetails, phase: 'lockFunds');
+      if (ttlFailure != null) {
+        return SwapOutFailed(
+          ttlFailure,
+          data: data.copyWith(errorMessage: ttlFailure),
+        );
+      }
 
-        if (isErc20) {
-          final tokenAddr = EthereumAddress.fromHex(data.tokenAddress!);
-          lockCalls = builder.erc20Lock(
+      // ── 2b. Build lock calls ──
+      final builder = BoltzCallBuilder(chain.swaps!);
+      final isErc20 = data.tokenAddress != null;
+      final Map<String, Call> lockCalls;
+
+      if (isErc20) {
+        final tokenAddr = EthereumAddress.fromHex(data.tokenAddress!);
+        lockCalls = builder.erc20Lock(
+          preimageHash: data.invoicePreimageHashBytes,
+          amountWei: data.lockedAmountWei,
+          tokenAddress: tokenAddr,
+          claimAddress: EthereumAddress.fromHex(data.claimAddress),
+          timeoutBlockHeight: data.timeoutBlockHeight,
+        );
+      } else {
+        lockCalls = {
+          'EtherSwap.lock': builder.nativeLock(
             preimageHash: data.invoicePreimageHashBytes,
             amountWei: data.lockedAmountWei,
-            tokenAddress: tokenAddr,
             claimAddress: EthereumAddress.fromHex(data.claimAddress),
             timeoutBlockHeight: data.timeoutBlockHeight,
-          );
-        } else {
-          lockCalls = {
-            'EtherSwap.lock': builder.nativeLock(
-              preimageHash: data.invoicePreimageHashBytes,
-              amountWei: data.lockedAmountWei,
-              claimAddress: EthereumAddress.fromHex(data.claimAddress),
-              timeoutBlockHeight: data.timeoutBlockHeight,
-            ),
-          };
-        }
+          ),
+        };
+      }
 
-        // ── 2c. Broadcast (merge preLockCalls if set) ──
-        final preCalls = data.preLockCalls;
-        final Map<String, Call> allCalls;
-        if (preCalls != null && preCalls.isNotEmpty) {
-          allCalls = {...preCalls, ...lockCalls};
-          logger.i(
-            'Atomic pre-lock + lock (${allCalls.length} calls): '
-            '${allCalls.keys.join(', ')}',
-          );
-        } else {
-          allCalls = lockCalls;
-        }
-        final tx = await chain.sendCalls(params.evmKey, allCalls);
-        logger.i('Locked funds in ${isErc20 ? 'ERC20Swap' : 'EtherSwap'}: $tx');
-
-        return SwapOutFunded(
-          data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast'),
+      // ── 2c. Broadcast (merge preLockCalls if set) ──
+      final preCalls = data.preLockCalls;
+      final Map<String, Call> allCalls;
+      if (preCalls != null && preCalls.isNotEmpty) {
+        allCalls = {...preCalls, ...lockCalls};
+        logger.i(
+          'Atomic pre-lock + lock (${allCalls.length} calls): '
+          '${allCalls.keys.join(', ')}',
         );
-      });
+      } else {
+        allCalls = lockCalls;
+      }
+      final tx = await chain.sendCalls(params.evmKey, allCalls);
+      logger.i('Locked funds in ${isErc20 ? 'ERC20Swap' : 'EtherSwap'}: $tx');
+
+      return SwapOutFunded(
+        data.copyWith(lockTxHash: tx, lastBoltzStatus: 'lock.broadcast'),
+      );
+    },
+  );
 
   // ── Step 3: Await Boltz invoice payment or trigger refund ─────────────
   //
@@ -212,7 +241,8 @@ class EvmSwapOutOperation extends SwapOutOperation {
           }
 
           // Swap still in progress — subscribe to WebSocket for live updates
-          if (status == 'invoice.pending' ||
+          if (status == 'invoice.set' ||
+              status == 'invoice.pending' ||
               status == 'transaction.mempool' ||
               status == 'transaction.confirmed') {
             logger.d('Swap ${data.boltzId} in progress ($status) — waiting');
@@ -413,18 +443,17 @@ class EvmSwapOutOperation extends SwapOutOperation {
     try {
       final currentBlock = await chain.getLocktimeBlockNumber();
       if (currentBlock < data.timeoutBlockHeight) {
+        final waitingData = data.copyWith(
+          errorMessage:
+              'Waiting for timelock expiry at block '
+              '${data.timeoutBlockHeight} (current: $currentBlock)',
+        );
         logger.w(
           'Timelock not expired yet (current: $currentBlock, '
           'timelock: ${data.timeoutBlockHeight}). '
-          'Refund will be retried by SwapRecoverer.',
+          'Refund will be retried after the timelock is reachable.',
         );
-        return SwapOutFunded(
-          data.copyWith(
-            errorMessage:
-                'Waiting for timelock expiry at block '
-                '${data.timeoutBlockHeight} (current: $currentBlock)',
-          ),
-        );
+        return SwapOutWaitingForTimelock(waitingData);
       }
 
       final intent = intents.refund(
@@ -451,13 +480,18 @@ class EvmSwapOutOperation extends SwapOutOperation {
   ///
   /// Tries NWC / LUD-16 first; if unavailable, asks the user to provide
   /// one manually via [SwapOutExternalInvoiceRequired].
-  Future<String> _acquireInvoice(SwapQuote quote) =>
+  Future<_AcquiredSwapOutInvoice> _acquireInvoice(SwapQuote quote) =>
       logger.span('_acquireInvoice', () async {
-        final invoice = await payments.getMyInvoice(
+        final invoice = await payments.getMyInvoiceWithSource(
           quote.receiveAmount.getInSats.toInt(),
           description: 'Hostr payout',
         );
-        if (invoice != null) return invoice;
+        if (invoice != null) {
+          return _AcquiredSwapOutInvoice(
+            invoice: invoice.invoice,
+            source: invoice.source,
+          );
+        }
 
         emit(SwapOutExternalInvoiceRequired(quote.receiveAmount));
         logger.i(
@@ -465,28 +499,23 @@ class EvmSwapOutOperation extends SwapOutOperation {
           'with amount ${quote.receiveAmount.getInSats} sats',
         );
         externalInvoiceCompleter = Completer<String>();
-        return externalInvoiceCompleter!.future;
+        final externalInvoice = await externalInvoiceCompleter!.future;
+        return _AcquiredSwapOutInvoice(
+          invoice: externalInvoice,
+          source: 'external',
+        );
       });
-
-  /// Decodes a BOLT-11 invoice and returns the 32-byte preimage hash.
-  Uint8List _extractPreimageHash(String invoice) {
-    final tag = Bolt11PaymentRequest(
-      invoice,
-    ).tags.where((t) => t.type == 'payment_hash').first.data;
-    return _decodePaymentHash(tag);
-  }
 
   /// Creates the Boltz submarine swap, validates that the on-chain balance
   /// covers the lock amount plus gas, and builds the [SwapOutData] recovery
   /// record.
   Future<SwapOutState> _prepareSwap(
-    String invoice,
+    _SwapOutInvoiceDetails invoiceDetails,
     SwapQuote quote,
     int creationBlock,
   ) => logger.span('_prepareSwap', () async {
-    final preimageHash = _extractPreimageHash(invoice);
     final swap = await chain.swaps!.submarine(
-      invoice: invoice,
+      invoice: invoiceDetails.invoice,
       tokenAddress: _requestedTokenAddress,
     );
     logger.i('Submarine swap created: ${swap.toString()}');
@@ -523,8 +552,8 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
     final data = SwapOutData(
       boltzId: swap.id,
-      invoice: invoice,
-      invoicePreimageHashHex: hex.encode(preimageHash),
+      invoice: invoiceDetails.invoice,
+      invoicePreimageHashHex: invoiceDetails.paymentHashHex,
       claimAddress: lockClaimAddress.with0x,
       lockedAmountWeiHex: funding.lockAmountWei.toRadixString(16),
       lockerAddress: params.evmKey.address.with0x,
@@ -556,6 +585,88 @@ class EvmSwapOutOperation extends SwapOutOperation {
     return Uint8List.fromList(hex.decode(normalized));
   }
 
+  _SwapOutInvoiceDetails _decodeSwapOutInvoice(
+    String invoice, {
+    required String source,
+  }) {
+    final decoded = Bolt11PaymentRequest(invoice);
+    final amount = TokenAmount.fromDecimal(decoded.amount.toString(), rbtc);
+    final paymentHash = _readBolt11StringTag(decoded, 'payment_hash');
+    final expirySeconds =
+        _readBolt11IntTag(decoded, 'expiry') ?? _defaultBolt11ExpirySeconds;
+    final createdAtSeconds = decoded.timestamp.toInt();
+
+    return _SwapOutInvoiceDetails(
+      invoice: invoice,
+      source: source,
+      amountSats: amount.getInSats.toInt(),
+      paymentHashHex: hex.encode(_decodePaymentHash(paymentHash)),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        createdAtSeconds * 1000,
+        isUtc: true,
+      ),
+      expiresAt: DateTime.fromMillisecondsSinceEpoch(
+        (createdAtSeconds + expirySeconds) * 1000,
+        isUtc: true,
+      ),
+      expirySeconds: expirySeconds,
+    );
+  }
+
+  String _readBolt11StringTag(Bolt11PaymentRequest decoded, String tagType) {
+    final tag = decoded.tags.where((t) => t.type == tagType).firstOrNull;
+    final data = tag?.data;
+    if (data is String && data.isNotEmpty) return data;
+    throw StateError('BOLT11 invoice is missing required "$tagType" tag');
+  }
+
+  int? _readBolt11IntTag(Bolt11PaymentRequest decoded, String tagType) {
+    final tag = decoded.tags.where((t) => t.type == tagType).firstOrNull;
+    final data = tag?.data;
+    if (data == null) return null;
+    if (data is int) return data;
+    if (data is BigInt) return data.toInt();
+    if (data is num) return data.toInt();
+    return int.tryParse(data.toString());
+  }
+
+  String? _invoiceTtlFailure(
+    _SwapOutInvoiceDetails invoice, {
+    required String phase,
+  }) {
+    final now = DateTime.now().toUtc();
+    final remaining = invoice.expiresAt.difference(now);
+    final remainingSeconds = remaining.inSeconds;
+    final ttlLog =
+        'Swap-out invoice TTL check ($phase): source=${invoice.source}, '
+        'amount=${invoice.amountSats} sats, '
+        'paymentHash=${invoice.paymentHashHex}, '
+        'createdAt=${invoice.createdAt.toIso8601String()}, '
+        'expiry=${invoice.expirySeconds}s, '
+        'expiresAt=${invoice.expiresAt.toIso8601String()}, '
+        'remaining=${remainingSeconds}s, '
+        'minRequired=${_minInvoiceTtlBeforeLock.inSeconds}s, '
+        'warnBelow=${_warnInvoiceTtlBeforeLock.inSeconds}s';
+
+    if (remaining < _minInvoiceTtlBeforeLock) {
+      final message =
+          'Lightning invoice expires too soon for swap-out lock: '
+          '${remainingSeconds}s remaining, '
+          'minimum is ${_minInvoiceTtlBeforeLock.inSeconds}s. '
+          'Create a fresh invoice and try again.';
+      logger.w('$ttlLog — rejecting invoice before locking funds');
+      logger.w(message);
+      return message;
+    }
+
+    if (remaining < _warnInvoiceTtlBeforeLock) {
+      logger.w('$ttlLog — invoice TTL is low before locking funds');
+    } else {
+      logger.i('$ttlLog — invoice TTL accepted');
+    }
+    return null;
+  }
+
   EthereumAddress _resolveSubmarineClaimAddress(SubmarineResponse swap) {
     final raw = swap.claimPublicKey;
     if (raw == null || raw.isEmpty) {
@@ -581,4 +692,31 @@ class EvmSwapOutOperation extends SwapOutOperation {
       logger.i('Swap status update: ${swapStatus.status}, $swapStatus');
     });
   }
+}
+
+class _AcquiredSwapOutInvoice {
+  final String invoice;
+  final String source;
+
+  const _AcquiredSwapOutInvoice({required this.invoice, required this.source});
+}
+
+class _SwapOutInvoiceDetails {
+  final String invoice;
+  final String source;
+  final int amountSats;
+  final String paymentHashHex;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final int expirySeconds;
+
+  const _SwapOutInvoiceDetails({
+    required this.invoice,
+    required this.source,
+    required this.amountSats,
+    required this.paymentHashHex,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.expirySeconds,
+  });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:provider/provider.dart';
@@ -31,33 +32,54 @@ class ThreadReplyView extends StatelessWidget {
     final isEnabled = !isLoading && !isEmpty;
     final theme = Theme.of(context);
 
-    return TextField(
-      onChanged: onChanged,
-      controller: controller,
-      maxLines: 3,
-      minLines: 1,
-      autofocus: false,
-      decoration: InputDecoration(
-        hintText: hintText,
-        label: label != null
-            ? Text(label!, style: Theme.of(context).textTheme.bodySmall)
-            : null,
-        errorText: errorText,
-        contentPadding: const EdgeInsets.only(
-          left: 16,
-          top: 12,
-          bottom: 12,
-          right: 64,
-        ),
-        suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        suffixIcon: IconButton.filled(
-          onPressed: isEnabled ? onSend : null,
-          icon: Icon(
-            Icons.send_rounded,
-            size: 16,
-            color: isEnabled
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.onSurfaceVariant,
+    return Focus(
+      onKeyEvent: (_, event) {
+        final isEnter =
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+
+        if (event is! KeyDownEvent ||
+            !isEnter ||
+            HardwareKeyboard.instance.isShiftPressed) {
+          return KeyEventResult.ignored;
+        }
+
+        if (isEnabled) {
+          onSend();
+        }
+        return KeyEventResult.handled;
+      },
+      child: TextField(
+        onChanged: onChanged,
+        controller: controller,
+        maxLines: 3,
+        minLines: 1,
+        autofocus: false,
+        decoration: InputDecoration(
+          hintText: hintText,
+          label: label != null
+              ? Text(label!, style: Theme.of(context).textTheme.bodySmall)
+              : null,
+          errorText: errorText,
+          contentPadding: const EdgeInsets.only(
+            left: 16,
+            top: 12,
+            bottom: 12,
+            right: 64,
+          ),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 0,
+            minHeight: 0,
+          ),
+          suffixIcon: IconButton.filled(
+            onPressed: isEnabled ? onSend : null,
+            icon: Icon(
+              Icons.send_rounded,
+              size: 16,
+              color: isEnabled
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),

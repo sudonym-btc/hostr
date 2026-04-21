@@ -73,6 +73,14 @@ class SwapOutData with BoltzSwapData {
   /// Recover the locked amount as BigInt from hex.
   BigInt get lockedAmountWei => BigInt.parse(lockedAmountWeiHex, radix: 16);
 
+  /// Alias used by UI/logging: this is the transaction that funded Boltz's
+  /// swap contract.
+  String? get fundTxHash => lockTxHash;
+
+  /// Alias used by UI/logging: this is the transaction that refunded the
+  /// locked funds from Boltz's swap contract.
+  String? get refundTxHash => resolutionTxHash;
+
   SwapOutData copyWith({
     int? creationBlockHeight,
     String? lockTxHash,
@@ -110,7 +118,9 @@ class SwapOutData with BoltzSwapData {
     'accountIndex': accountIndex,
     if (creationBlockHeight != null) 'creationBlockHeight': creationBlockHeight,
     if (lockTxHash != null) 'lockTxHash': lockTxHash,
+    if (fundTxHash != null) 'fundTxHash': fundTxHash,
     if (resolutionTxHash != null) 'resolutionTxHash': resolutionTxHash,
+    if (refundTxHash != null) 'refundTxHash': refundTxHash,
     if (lastBoltzStatus != null) 'lastBoltzStatus': lastBoltzStatus,
     if (errorMessage != null) 'errorMessage': errorMessage,
     if (tokenAddress != null) 'tokenAddress': tokenAddress,
@@ -129,8 +139,9 @@ class SwapOutData with BoltzSwapData {
     chainId: json['chainId'] as int,
     accountIndex: json['accountIndex'] as int? ?? 0,
     creationBlockHeight: json['creationBlockHeight'] as int?,
-    lockTxHash: json['lockTxHash'] as String?,
-    resolutionTxHash: json['resolutionTxHash'] as String?,
+    lockTxHash: (json['lockTxHash'] ?? json['fundTxHash']) as String?,
+    resolutionTxHash:
+        (json['resolutionTxHash'] ?? json['refundTxHash']) as String?,
     lastBoltzStatus: json['lastBoltzStatus'] as String?,
     errorMessage: json['errorMessage'] as String?,
     tokenAddress: json['tokenAddress'] as String?,
@@ -179,6 +190,9 @@ sealed class SwapOutState implements MachineState {
       'requestCreated' => const SwapOutRequestCreated(),
       'awaitingOnChain' => SwapOutAwaitingOnChain(SwapOutData.fromJson(json)),
       'funded' => SwapOutFunded(SwapOutData.fromJson(json)),
+      'waitingForTimelock' => SwapOutWaitingForTimelock(
+        SwapOutData.fromJson(json),
+      ),
       'claimed' => SwapOutClaimed(SwapOutData.fromJson(json)),
       'completed' => SwapOutCompleted(SwapOutData.fromJson(json)),
       'refunding' => SwapOutRefunding(SwapOutData.fromJson(json)),
@@ -266,6 +280,22 @@ final class SwapOutFunded extends SwapOutState {
   @override
   Map<String, dynamic> toJson() => {
     'state': 'funded',
+    'id': data.boltzId,
+    'isTerminal': false,
+    'updatedAt': DateTime.now().toIso8601String(),
+    ...data.toJson(),
+  };
+}
+
+final class SwapOutWaitingForTimelock extends SwapOutState {
+  @override
+  final SwapOutData data;
+  const SwapOutWaitingForTimelock(this.data);
+  @override
+  String get stateName => 'waitingForTimelock';
+  @override
+  Map<String, dynamic> toJson() => {
+    'state': 'waitingForTimelock',
     'id': data.boltzId,
     'isTerminal': false,
     'updatedAt': DateTime.now().toIso8601String(),

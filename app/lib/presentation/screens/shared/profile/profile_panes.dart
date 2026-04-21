@@ -14,6 +14,7 @@ import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import 'dev.dart';
@@ -586,6 +587,18 @@ class _SwapInTile extends StatelessWidget {
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
+          trailing: _SwapTxMenu(
+            items: [
+              _SwapTxMenuItem(
+                label: 'View Lock Tx',
+                uri: _txExplorerUri(operation.chain.config, data?.lockupTxHash),
+              ),
+              _SwapTxMenuItem(
+                label: 'View Claim Tx',
+                uri: _txExplorerUri(operation.chain.config, data?.claimTxHash),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -646,6 +659,8 @@ class _SwapOutTile extends StatelessWidget {
           subtitle: Text(
             [
               stateName,
+              if (state is SwapOutWaitingForTimelock)
+                'refund available after block ${data?.timeoutBlockHeight}',
               if (preCalls > 0) '$preCalls pre-lock call(s)',
               ?data?.lastBoltzStatus,
               ?errorMessage,
@@ -658,10 +673,74 @@ class _SwapOutTile extends StatelessWidget {
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
+          trailing: _SwapTxMenu(
+            items: [
+              _SwapTxMenuItem(
+                label: 'View Lock Tx',
+                uri: _txExplorerUri(operation.chain.config, data?.fundTxHash),
+              ),
+              _SwapTxMenuItem(
+                label: 'View Refund Tx',
+                uri: _txExplorerUri(operation.chain.config, data?.refundTxHash),
+              ),
+            ],
+          ),
         );
       },
     );
   }
+}
+
+class _SwapTxMenu extends StatelessWidget {
+  final List<_SwapTxMenuItem> items;
+
+  const _SwapTxMenu({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleItems = items.where((item) => item.uri != null).toList();
+    if (visibleItems.isEmpty) return const SizedBox.shrink();
+
+    return PopupMenuButton<Uri>(
+      icon: const Icon(Icons.more_vert),
+      tooltip: 'Swap transaction links',
+      onSelected: (uri) =>
+          unawaited(launchUrl(uri, mode: LaunchMode.externalApplication)),
+      itemBuilder: (context) => [
+        for (final item in visibleItems)
+          PopupMenuItem<Uri>(
+            value: item.uri!,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.open_in_new, size: 18),
+                Gap.horizontal.sm(),
+                Text(item.label),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _SwapTxMenuItem {
+  final String label;
+  final Uri? uri;
+
+  const _SwapTxMenuItem({required this.label, required this.uri});
+}
+
+Uri? _txExplorerUri(EvmChainConfig config, String? txHash) {
+  final base = config.blockExplorerUrl;
+  if (base == null || base.isEmpty || txHash == null || txHash.isEmpty) {
+    return null;
+  }
+
+  final url = base.contains('{tx}')
+      ? base.replaceAll('{tx}', txHash)
+      : '${base.replaceFirst(RegExp(r'/*$'), '')}/tx/$txHash';
+  return Uri.tryParse(url);
 }
 
 // ignore: unused_element

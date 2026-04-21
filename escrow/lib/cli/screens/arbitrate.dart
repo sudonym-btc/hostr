@@ -184,18 +184,21 @@ class _ArbitrationAmounts {
       formatTokenAmount(amount.toString(), tokenDecimals, tokenSymbol);
 
   Map<String, String> preview(double paymentForward, double bondForward) {
-    final paymentToSeller = _applyRatio(paymentAmount, paymentForward);
+    final paymentAfterFee = paymentAmount - escrowFee;
+    final paymentToSeller = _applyRatio(paymentAfterFee, paymentForward);
     final bondToSeller = _applyRatio(bondAmount, bondForward);
     final sellerTotal = paymentToSeller + bondToSeller;
     final buyerTotal =
-        (paymentAmount - paymentToSeller) + (bondAmount - bondToSeller);
+        (paymentAfterFee - paymentToSeller) + (bondAmount - bondToSeller);
 
     return {
       'Payment to seller': format(paymentToSeller),
-      'Payment to buyer': format(paymentAmount - paymentToSeller),
-      if (bondAmount > BigInt.zero) 'Bond to seller': format(bondToSeller),
+      'Payment to buyer': format(paymentAfterFee - paymentToSeller),
       if (bondAmount > BigInt.zero)
-        'Bond to buyer': format(bondAmount - bondToSeller),
+        'Security bond to seller': format(bondToSeller),
+      if (bondAmount > BigInt.zero)
+        'Security bond to buyer': format(bondAmount - bondToSeller),
+      if (escrowFee > BigInt.zero) 'Escrow fee to arbiter': format(escrowFee),
       'Seller total': format(sellerTotal),
       'Buyer total': format(buyerTotal),
     };

@@ -36,6 +36,7 @@ class EvmChainConfig {
   final String id;
   final int chainId;
   final String rpcUrl;
+  final String? blockExplorerUrl;
   final AAConfig? accountAbstraction;
 
   /// The Boltz currency string for this chain's native asset (e.g. `RBTC`).
@@ -70,6 +71,7 @@ class EvmChainConfig {
     required this.chainId,
     required this.rpcUrl,
     required this.nativeDenomination,
+    this.blockExplorerUrl,
     this.boltzCurrency,
     this.accountAbstraction,
     this.escrowContractAddress,
@@ -90,6 +92,7 @@ class EvmChainConfig {
       id: json['id'] as String,
       chainId: json['chainId'] as int,
       rpcUrl: json['rpcUrl'] as String,
+      blockExplorerUrl: json['blockExplorerUrl'] as String?,
       nativeDenomination: json['nativeDenomination'] as String? ?? 'BTC',
       boltzCurrency: json['boltzCurrency'] as String?,
       accountAbstraction: json['accountAbstraction'] != null
@@ -113,6 +116,7 @@ class EvmChainConfig {
     'id': id,
     'chainId': chainId,
     'rpcUrl': rpcUrl,
+    if (blockExplorerUrl != null) 'blockExplorerUrl': blockExplorerUrl,
     'nativeDenomination': nativeDenomination,
     if (boltzCurrency != null) 'boltzCurrency': boltzCurrency,
     if (accountAbstraction != null)

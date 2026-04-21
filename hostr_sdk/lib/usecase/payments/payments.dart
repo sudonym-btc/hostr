@@ -57,6 +57,13 @@ class AutomaticInvoiceDestination {
       type == AutomaticInvoiceDestinationType.profileLightningAddress;
 }
 
+class CreatedLightningInvoice {
+  final String invoice;
+  final String source;
+
+  const CreatedLightningInvoice({required this.invoice, required this.source});
+}
+
 @Singleton()
 class Payments {
   final CustomLogger _logger;
@@ -83,18 +90,28 @@ class Payments {
        _config = config,
        _logger = logger.scope('payments');
 
-  Future<String?> getMyInvoice(
+  Future<String?> getMyInvoice(int amountSats, {String? description}) async =>
+      (await getMyInvoiceWithSource(
+        amountSats,
+        description: description,
+      ))?.invoice;
+
+  Future<CreatedLightningInvoice?> getMyInvoiceWithSource(
     int amountSats, {
     String? description,
   }) => _logger.span('getMyInvoice', () async {
     final activeConnection = _nwc.getActiveConnection();
     if (activeConnection != null) {
       try {
-        return (await _nwc.makeInvoice(
+        final response = await _nwc.makeInvoice(
           activeConnection,
           amountSats: amountSats,
           description: description,
-        )).invoice;
+        );
+        return CreatedLightningInvoice(
+          invoice: response.invoice,
+          source: 'nwc:${_nwc.getActiveConnectionName() ?? 'connected wallet'}',
+        );
       } catch (e) {
         _logger.w(
           'Error creating invoice via NWC, continuing via profile lud url: $e',
@@ -148,7 +165,7 @@ class Payments {
   /// Attempts to create an invoice from the current user's LUD16 lightning
   /// address. Returns the bolt11 invoice string on success, or `null` if the
   /// user has no LUD16 set or the LNURL flow fails.
-  Future<String?> _tryCreateInvoiceFromLud16(
+  Future<CreatedLightningInvoice?> _tryCreateInvoiceFromLud16(
     int amountSats, {
     String? description,
   }) => _logger.span('_tryCreateInvoiceFromLud16', () async {
@@ -199,7 +216,10 @@ class Payments {
       _logger.i(
         'Successfully created invoice via LUD16 ($lud16, $description)',
       );
-      return invoiceResponse.invoice;
+      return CreatedLightningInvoice(
+        invoice: invoiceResponse.invoice,
+        source: 'lnurl:$lud16',
+      );
     } catch (e) {
       _logger.w('Error creating invoice from LUD16: $e');
       return null;
