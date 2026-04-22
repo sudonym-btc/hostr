@@ -10,6 +10,17 @@ class InAppNotificationToast {
   static final _logger = CustomLogger(tag: 'in-app-notification-toast');
   static NotificationOverlayStateProvider? _overlayStateProvider;
   static final Map<int, ToastificationItem> _activeToastsById = {};
+  static bool _suppressForTesting = false;
+
+  static void setSuppressForTesting(bool value) {
+    _suppressForTesting = value;
+    if (value) {
+      for (final toast in _activeToastsById.values) {
+        toastification.dismiss(toast, showRemoveAnimation: false);
+      }
+      _activeToastsById.clear();
+    }
+  }
 
   static void setOverlayStateProvider(
     NotificationOverlayStateProvider provider,
@@ -31,6 +42,8 @@ class InAppNotificationToast {
     String? body,
     String? payload,
   }) {
+    if (_suppressForTesting) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showNow(id: id, title: title, body: body, payload: payload);
     });
@@ -42,6 +55,8 @@ class InAppNotificationToast {
     String? body,
     String? payload,
   }) {
+    if (_suppressForTesting) return;
+
     final overlayState = _overlayStateProvider?.call();
     if (overlayState == null || !overlayState.mounted) {
       _logger.w('No overlay state available for in-app notification toast');

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
@@ -161,6 +162,7 @@ class CrudUseCase<T extends Nip01Event> {
   static const Duration _getOneDebounceMax = Duration(milliseconds: 500);
   static const int _getOneHighLoadThreshold = 5;
   final List<_GetOneRequest<T>> _getOneQueue = [];
+  final Map<String, Future<T?>> _getOneInFlight = {};
   Timer? _getOneTimer;
 
   Future<T?> getOne(
@@ -177,7 +179,14 @@ class CrudUseCase<T extends Nip01Event> {
           .firstWhere((_) => true, orElse: () => null);
     }
 
+    final key = _filterKey(getCombinedFilter(f, Filter(kinds: [kind])));
+    final existing = _getOneInFlight[key];
+    if (existing != null) return existing;
+
     final completer = Completer<T?>();
+    _getOneInFlight[key] = completer.future.whenComplete(() {
+      _getOneInFlight.remove(key);
+    });
     _getOneQueue.add(_GetOneRequest(filter: f, completer: completer));
 
     // Adaptive debounce: use short delay when few pending requests (snappy UI),
@@ -205,6 +214,7 @@ class CrudUseCase<T extends Nip01Event> {
     for (final req in batch) {
       combinedFilter = getCombinedFilter(req.filter, combinedFilter);
     }
+    combinedFilter = _dedupeFilter(combinedFilter);
 
     logger.d(
       'getOne batch: ${batch.length} requests combined into 1 query '
@@ -368,6 +378,64 @@ class CrudUseCase<T extends Nip01Event> {
           },
         );
   }
+}
+
+Filter _dedupeFilter(Filter filter) {
+  final cleaned = cleanTags(filter);
+  final tags = cleaned?.tags == null
+      ? null
+      : {
+          for (final entry in cleaned!.tags!.entries)
+            entry.key: _dedupeStrings(entry.value)!,
+        };
+
+  return Filter(
+    ids: _dedupeStrings(cleaned?.ids),
+    authors: _dedupeStrings(cleaned?.authors),
+    kinds: _dedupeInts(cleaned?.kinds),
+    tags: tags,
+    since: cleaned?.since,
+    until: cleaned?.until,
+    limit: cleaned?.limit,
+    search: cleaned?.search,
+  );
+}
+
+List<String>? _dedupeStrings(List<String>? values) {
+  if (values == null) return null;
+  return values.toSet().toList(growable: false);
+}
+
+List<int>? _dedupeInts(List<int>? values) {
+  if (values == null) return null;
+  return values.toSet().toList(growable: false);
+}
+
+String _filterKey(Filter filter) {
+  return jsonEncode(_normalizeFilterValue(_dedupeFilter(filter).toJson()));
+}
+
+Object? _normalizeFilterValue(Object? value) {
+  if (value is Map) {
+    final keys = value.keys.map((key) => key.toString()).toList()..sort();
+    return {for (final key in keys) key: _normalizeFilterValue(value[key])};
+  }
+
+  if (value is List) {
+    final values = value.map(_normalizeFilterValue).toList()
+      ..sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+    final deduped = <Object?>[];
+    String? previous;
+    for (final item in values) {
+      final encoded = jsonEncode(item);
+      if (encoded == previous) continue;
+      deduped.add(item);
+      previous = encoded;
+    }
+    return deduped;
+  }
+
+  return value;
 }
 
 /// A pending getOne request waiting to be batched.

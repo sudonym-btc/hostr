@@ -29,6 +29,9 @@ const kNostrKindSeal = 13;
 /// A gift wrap event is a kind:1059 event that wraps any other event. tags SHOULD include any information needed to route the event to its intended recipient, including the recipient's p tag
 const kNostrKindGiftWrap = 1059;
 
+/// NIP-17 preferred relays for receiving direct messages.
+const kNostrKindDmRelays = 10050;
+
 const kNostrKindReceivedHeartbeat = 10017;
 const kNostrKindTypingIndicator = 10018;
 const kNostrKindSeenMessages = 30010;

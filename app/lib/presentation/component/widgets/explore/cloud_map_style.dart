@@ -40,12 +40,12 @@ CloudMapPalette cloudMapPaletteFromTheme(
 
   if (isDarkMode) {
     return CloudMapPalette(
-      water: _lerpHex(cs.surface, cs.surfaceContainerLowest, 1 / 6),
-      land: _colorToHex(cs.surfaceContainerHighest),
-      road: _lerpHex(cs.surface, cs.surfaceContainerLowest, 4 / 9),
+      water: _colorToHex(cs.surfaceContainerLowest),
+      land: _colorToHex(cs.surfaceBright),
+      road: _colorToHex(cs.surfaceContainer),
       park: _colorToHex(cs.surfaceContainerLow),
       labelFill: _colorToHex(cs.onSurfaceVariant),
-      labelStroke: _lerpHex(cs.surface, cs.surfaceContainerLowest, 1 / 6),
+      labelStroke: _colorToHex(cs.surfaceContainerLowest),
       outline: _lerpHex(cs.surfaceBright, cs.outlineVariant, 2 / 17),
     );
   }
@@ -68,7 +68,7 @@ Map<String, Object?> buildCloudMapStyle({
   return {
     'monochrome': true,
     'variant': isDarkMode ? 'dark' : 'light',
-    'backgroundColor': palette.land,
+    'backgroundColor': isDarkMode ? palette.water : palette.land,
     'styles': [
       {
         'id': 'infrastructure',

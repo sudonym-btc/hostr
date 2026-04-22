@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/in_app_notification_toast.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -57,33 +58,53 @@ const _config = SeedPipelineConfig(
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/// Try [pumpAndSettle] first; if the frame scheduler never goes idle
-/// (shimmer animations, indeterminate spinners, relay-reconnect timers, …)
-/// fall back to pumping a fixed number of frames so the test doesn't hang.
+/// Pump a deterministic number of frames after route/auth changes.
 ///
-/// The settle timeout is kept short (2 s) because most pages in this app have
-/// at least one perpetual animation (image-loading shimmers, indeterminate
-/// spinners, `RelativeTimeText` timers) that prevent the scheduler from ever
-/// going idle.  When the page *does* settle quickly (e.g. the sign-in form)
-/// we save time; otherwise we fall through to the fixed-frame path promptly.
-Future<void> _settle(
-  WidgetTester tester, {
-  Duration settleTimeout = const Duration(seconds: 2),
-  int fallbackFrames = 10,
-  Duration fallbackInterval = const Duration(milliseconds: 500),
-}) async {
-  try {
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      settleTimeout,
-    );
-  } on FlutterError {
-    // Frame scheduler never went idle — pump a fixed number of frames instead.
-    for (var i = 0; i < fallbackFrames; i++) {
-      await tester.pump(fallbackInterval);
-    }
+/// Chrome screenshot runs keep several timers and animations alive, so
+/// [pumpAndSettle] can time out and leave follow-up pumps racing the test
+/// lifecycle. Keep this to immediate pumps so the web test zone owns every
+/// frame and transient UI does not linger because of real-time waits.
+Future<void> _settle(WidgetTester tester, {int frames = 20}) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump();
   }
+}
+
+bool _hasKeyPrefix(Widget widget, String prefix) {
+  final key = widget.key;
+  return key is ValueKey && key.value.toString().startsWith(prefix);
+}
+
+Future<void> _waitForExploreFeedback(WidgetTester tester) async {
+  final loadedReviews = find.byWidgetPredicate(
+    (widget) => _hasKeyPrefix(widget, 'loaded-reviews-'),
+  );
+  final loadedStays = find.byWidgetPredicate(
+    (widget) => _hasKeyPrefix(widget, 'loaded-stays-'),
+  );
+  final loadingReviews = find.byKey(const ValueKey('loading-reviews'));
+  final loadingStays = find.byKey(const ValueKey('loading-stays'));
+
+  for (var i = 0; i < 30; i++) {
+    await _settle(tester, frames: 5);
+
+    final feedbackLoaded =
+        loadedReviews.evaluate().isNotEmpty &&
+        loadedStays.evaluate().isNotEmpty &&
+        loadingReviews.evaluate().isEmpty &&
+        loadingStays.evaluate().isEmpty;
+    if (feedbackLoaded) {
+      await _settle(tester, frames: 20);
+      return;
+    }
+
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+  }
+
+  debugPrint('📸 Explore feedback still loading after wait; capturing anyway');
+  await _settle(tester, frames: 40);
 }
 
 typedef _ScreenshotFixture = ({SeedUser guest, Listing listing});
@@ -156,6 +177,7 @@ Future<void> _takeScreenshots(
   // ── 3. Home / explore ────────────────────────────────────────────
   appRouter.navigate(ExploreRoute());
   await _settle(tester);
+  await _waitForExploreFeedback(tester);
   debugPrint('📸 [$mode] ✓ explore');
   await binding.takeScreenshot('screenshots/$mode/explore.png');
 
@@ -238,6 +260,7 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('screenshot suite', (tester) async {
+    InAppNotificationToast.setSuppressForTesting(true);
     final fixture = _buildFixture();
 
     // ── Bootstrap ───────────────────────────────────────────────────────
@@ -293,10 +316,11 @@ void main() {
 
       // Clean up the test value.
       tester.platformDispatcher.clearPlatformBrightnessTestValue();
+      InAppNotificationToast.setSuppressForTesting(false);
 
       // Tear down AlbyHub app connections (does NOT dispose the app's Hostr).
       await harness?.dispose();
       debugPrint('📸 All screenshots complete');
     });
-  });
+  }, timeout: const Timeout(Duration(minutes: 6)));
 }

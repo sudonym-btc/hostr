@@ -16,6 +16,7 @@ import 'package:test/test.dart';
 
 class _FakeRequests extends Fake implements hostr_requests.Requests {
   final List<Nip01Event> events = [];
+  final List<Filter> queryFilters = [];
 
   @override
   Stream<T> query<T extends Nip01Event>({
@@ -26,6 +27,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     bool cacheRead = true,
     bool cacheWrite = true,
   }) async* {
+    queryFilters.add(filter);
     for (final event in events) {
       if (matchEvent(event, filter)) {
         yield event as T;
@@ -187,6 +189,70 @@ void main() {
 
       expect(futures[0], throwsA(isA<StateError>()));
       expect(futures[1], throwsA(isA<StateError>()));
+    });
+  });
+
+  group('CrudUseCase.getOne', () {
+    late _FakeRequests fakeRequests;
+    late CrudUseCase<Reservation> useCase;
+
+    setUp(() {
+      fakeRequests = _FakeRequests();
+      useCase = CrudUseCase<Reservation>(
+        requests: fakeRequests,
+        kind: Reservation.kinds[0],
+        logger: CustomLogger(),
+      );
+    });
+
+    test('coalesces identical concurrent calls onto one query', () async {
+      final reservation = _reservation(
+        pubkey: 'pub1',
+        tradeId: 'hash-dup',
+        listingAnchor: '32121:host:listing-1',
+      );
+      fakeRequests.events.add(reservation);
+
+      final futures = [
+        useCase.getOne(Filter(authors: ['pub1'], dTags: ['hash-dup'])),
+        useCase.getOne(Filter(authors: ['pub1'], dTags: ['hash-dup'])),
+        useCase.getOne(Filter(authors: ['pub1'], dTags: ['hash-dup'])),
+      ];
+
+      final results = await Future.wait(futures);
+
+      expect(results.map((item) => item?.getDtag()), everyElement('hash-dup'));
+      expect(fakeRequests.queryFilters, hasLength(1));
+      expect(fakeRequests.queryFilters.single.authors, ['pub1']);
+      expect(fakeRequests.queryFilters.single.dTags, ['hash-dup']);
+    });
+
+    test('deduplicates merged filter values in batched queries', () async {
+      final first = _reservation(
+        pubkey: 'pub1',
+        tradeId: 'hash-a',
+        listingAnchor: '32121:host:listing-1',
+      );
+      final second = _reservation(
+        pubkey: 'pub1',
+        tradeId: 'hash-b',
+        listingAnchor: '32121:host:listing-1',
+      );
+      fakeRequests.events.addAll([first, second]);
+
+      final results = await Future.wait([
+        useCase.getOne(Filter(authors: ['pub1'], dTags: ['hash-a'])),
+        useCase.getOne(Filter(authors: ['pub1'], dTags: ['hash-b'])),
+      ]);
+
+      expect(
+        results.map((item) => item?.getDtag()),
+        containsAll(['hash-a', 'hash-b']),
+      );
+      expect(fakeRequests.queryFilters, hasLength(1));
+      final filter = fakeRequests.queryFilters.single;
+      expect(filter.authors, ['pub1']);
+      expect(filter.dTags, unorderedEquals(['hash-a', 'hash-b']));
     });
   });
 }

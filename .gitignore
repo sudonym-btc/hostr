@@ -48,6 +48,7 @@ Thumbs.db
 
 node_modules
 docker/data
+.cache/
 
 # Rendered at deploy time by hostr-fetch-secrets (contain API key)
 docker/vhost.d/app.*

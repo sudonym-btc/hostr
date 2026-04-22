@@ -11,7 +11,7 @@ set -euo pipefail
 #   ./scripts/screenshots.sh                   # all configured devices
 #   DEVICES="iPhone 17 Pro Max" ./scripts/screenshots.sh  # override
 #   CHROME_SCREENSHOTS=0 ./scripts/screenshots.sh          # skip Chrome
-#   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # resize Chrome
+#   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # target captured viewport
 #   CHROME_DEVICE_SCALE_FACTOR=2 ./scripts/screenshots.sh   # Retina DPR
 #   CHROMEDRIVER_PORT=4445 ./scripts/screenshots.sh        # fixed WebDriver port
 #   SCREENSHOT_TRADE_SPONSOR_PRIVATE_KEY=0x... ./scripts/screenshots.sh
@@ -34,6 +34,8 @@ CHROMEDRIVER_AUTOSTART="${CHROMEDRIVER_AUTOSTART:-1}"
 CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-}"
 CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-}"
 CHROME_FLUTTER_DRIVE_TIMEOUT="${CHROME_FLUTTER_DRIVE_TIMEOUT:-360}"
+CHROME_EXPECTED_SCREENSHOTS="${CHROME_EXPECTED_SCREENSHOTS:-16}"
+CHROMEDRIVER_ALLOW_VERSION_MISMATCH="${CHROMEDRIVER_ALLOW_VERSION_MISMATCH:-0}"
 
 if [[ -z "${CHROME_FLUTTER_DRIVE_ARGS+x}" ]]; then
   CHROME_FLUTTER_DRIVE_ARGS=(--no-dds)
@@ -73,6 +75,45 @@ detect_chrome_window_size() {
   if [[ "$(uname -s)" == "Darwin" ]]; then
     osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
       | awk -F', ' '{ width=$3-$1; height=$4-$2; if (width > 0 && height > 0) printf "%d,%d\n", width, height }'
+  fi
+}
+
+validate_chrome_screenshot_dimensions() {
+  local slug="$1"
+  local viewport_size="$2"
+  local first_png=""
+  local actual_width=""
+  local actual_height=""
+  local expected_width=""
+  local expected_height=""
+  local viewport_width="${viewport_size%,*}"
+  local viewport_height="${viewport_size#*,}"
+
+  if ! command -v sips >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ ! "$CHROME_DEVICE_SCALE_FACTOR" =~ ^[0-9]+$ ]]; then
+    return 0
+  fi
+
+  first_png="$(find "$APP_DIR/screenshots/$slug" -name '*.png' -print -quit 2>/dev/null || true)"
+  if [[ -z "$first_png" ]]; then
+    return 0
+  fi
+
+  actual_width="$(sips -g pixelWidth "$first_png" 2>/dev/null | awk '/pixelWidth/ {print $2}')"
+  actual_height="$(sips -g pixelHeight "$first_png" 2>/dev/null | awk '/pixelHeight/ {print $2}')"
+  expected_width="$((viewport_width * CHROME_DEVICE_SCALE_FACTOR))"
+  expected_height="$((viewport_height * CHROME_DEVICE_SCALE_FACTOR))"
+
+  echo "   Captured PNG size: ${actual_width}x${actual_height}"
+  echo "   Expected PNG size: ${expected_width}x${expected_height}"
+
+  if [[ "$actual_width" != "$expected_width" || "$actual_height" != "$expected_height" ]]; then
+    echo "   ❌ Chrome screenshot dimensions do not match the target viewport."
+    echo "   Adjust CHROME_WINDOW_SIZE or CHROME_DEVICE_SCALE_FACTOR if the target changes."
+    return 1
   fi
 }
 
@@ -195,6 +236,57 @@ find_chromedriver() {
   return 1
 }
 
+chrome_version() {
+  if [[ -n "${CHROME_EXECUTABLE:-}" ]] && [[ -x "$CHROME_EXECUTABLE" ]]; then
+    "$CHROME_EXECUTABLE" --version | awk '{print $NF}'
+  elif [[ "$(uname -s)" == "Darwin" ]] \
+    && [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --version \
+      | awk '{print $NF}'
+  elif command -v google-chrome >/dev/null 2>&1; then
+    google-chrome --version | awk '{print $NF}'
+  elif command -v chromium >/dev/null 2>&1; then
+    chromium --version | awk '{print $NF}'
+  fi
+}
+
+chromedriver_version() {
+  local chromedriver_bin="$1"
+  "$chromedriver_bin" --version 2>/dev/null | awk '{print $2}'
+}
+
+version_major() {
+  echo "$1" | cut -d. -f1
+}
+
+validate_chromedriver_version() {
+  local chromedriver_bin="$1"
+  local driver_version=""
+  local browser_version=""
+  local driver_major=""
+  local browser_major=""
+
+  driver_version="$(chromedriver_version "$chromedriver_bin")"
+  browser_version="$(chrome_version)"
+
+  if [[ -z "$driver_version" || -z "$browser_version" ]]; then
+    return 0
+  fi
+
+  driver_major="$(version_major "$driver_version")"
+  browser_major="$(version_major "$browser_version")"
+
+  echo "   Chrome: $browser_version"
+  echo "   ChromeDriver: $driver_version ($chromedriver_bin)"
+
+  if [[ "$driver_major" != "$browser_major" ]]; then
+    echo "   ❌ ChromeDriver major version $driver_major does not match Chrome major version $browser_major."
+    echo "   Set CHROMEDRIVER_BIN to a matching ChromeDriver, or set CHROMEDRIVER_ALLOW_VERSION_MISMATCH=1 to bypass."
+    [[ "$CHROMEDRIVER_ALLOW_VERSION_MISMATCH" == "1" ]]
+    return
+  fi
+}
+
 ensure_chromedriver() {
   local chromedriver_bin=""
 
@@ -227,6 +319,8 @@ ensure_chromedriver() {
     echo "   Or set CHROMEDRIVER_BIN to an existing ChromeDriver binary."
     return 1
   }
+
+  validate_chromedriver_version "$chromedriver_bin" || return 1
 
   mkdir -p "$(dirname "$CHROMEDRIVER_LOG")"
 
@@ -343,16 +437,21 @@ sync_landing_page_screenshots() {
 
 run_chrome_screenshots() {
   local slug="chrome"
-  local chrome_window_size="${CHROME_WINDOW_SIZE:-$(detect_chrome_window_size)}"
-  chrome_window_size="${chrome_window_size:-1440,1024}"
-  local browser_dimension="${chrome_window_size/,/x}"
-  local chrome_flags=("--window-size=$chrome_window_size")
+  local chrome_viewport_size="${CHROME_WINDOW_SIZE:-$(detect_chrome_window_size)}"
+  chrome_viewport_size="${chrome_viewport_size:-1440,1024}"
+  local browser_dimension="${chrome_viewport_size/,/x}"
+  local chrome_flags=()
+  local chrome_binary_args=()
+  local screenshot_count=0
+  local drive_status=0
+  local dimension_status=0
+
+  if [[ -n "${CHROME_EXECUTABLE:-}" ]]; then
+    chrome_binary_args=(--chrome-binary="$CHROME_EXECUTABLE")
+  fi
 
   if [[ -n "$CHROME_DEVICE_SCALE_FACTOR" ]]; then
-    chrome_flags+=(
-      "--high-dpi-support=1"
-      "--force-device-scale-factor=$CHROME_DEVICE_SCALE_FACTOR"
-    )
+    browser_dimension="${browser_dimension}@${CHROME_DEVICE_SCALE_FACTOR}"
   fi
 
   if [[ "$CHROME_START_FULLSCREEN" == "1" ]]; then
@@ -360,11 +459,11 @@ run_chrome_screenshots() {
   fi
 
   echo "🌐 Chrome → screenshots/$slug/"
-  echo "   Window size: $chrome_window_size"
+  echo "   Target viewport: $chrome_viewport_size"
   echo "   Device scale factor: ${CHROME_DEVICE_SCALE_FACTOR:-system}"
+  echo "   Browser dimension: $browser_dimension"
   echo "   Fullscreen: $CHROME_START_FULLSCREEN"
   echo "   Flutter drive mode: debug"
-  prepare_screenshot_output "$slug"
 
   if ! ensure_chromedriver; then
     FAILED+=("Chrome")
@@ -372,22 +471,50 @@ run_chrome_screenshots() {
     return 1
   fi
 
+  prepare_screenshot_output "$slug"
+
   echo "   🏃 Running screenshot suite…"
 
-  if SCREENSHOT_DEVICE="$slug" flutter drive \
+  set +e
+  SCREENSHOT_DEVICE="$slug" flutter drive \
     --driver=test_driver/screenshot_test.dart \
     --target=integration_test/screenshots.dart \
     -d chrome \
+    "${chrome_binary_args[@]}" \
     --driver-port="$CHROMEDRIVER_PORT" \
     --browser-dimension="$browser_dimension" \
     --timeout="$CHROME_FLUTTER_DRIVE_TIMEOUT" \
     "${chrome_flags[@]/#/--web-browser-flag=}" \
     ${CHROME_FLUTTER_DRIVE_ARGS[@]+"${CHROME_FLUTTER_DRIVE_ARGS[@]}"} \
-    --no-pub 2>&1 | sed -l 's/^/   /'; then
-    echo "   ✅ Done"
-  else
-    echo "   ❌ Flutter drive failed for Chrome"
+    --no-pub 2>&1 | sed -l 's/^/   /'
+  drive_status=${PIPESTATUS[0]}
+  set -e
+
+  if [[ "$drive_status" -ne 0 ]]; then
+    echo "   ❌ Flutter drive failed for Chrome (exit $drive_status)"
     FAILED+=("Chrome")
+  fi
+
+  screenshot_count=$(find "$APP_DIR/screenshots/$slug" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$screenshot_count" -lt "$CHROME_EXPECTED_SCREENSHOTS" ]]; then
+    echo "   ❌ Chrome produced $screenshot_count screenshot(s); expected at least $CHROME_EXPECTED_SCREENSHOTS."
+    if [[ "$drive_status" -eq 0 ]]; then
+      FAILED+=("Chrome")
+    fi
+  elif [[ "$drive_status" -eq 0 ]]; then
+    validate_chrome_screenshot_dimensions "$slug" "$chrome_viewport_size" || dimension_status=$?
+    if [[ "$dimension_status" -ne 0 ]]; then
+      FAILED+=("Chrome")
+    else
+      echo "   📁 Captured $screenshot_count Chrome screenshots"
+      echo "   ✅ Done"
+    fi
+  fi
+
+  if [[ "$drive_status" -ne 0 || "$screenshot_count" -lt "$CHROME_EXPECTED_SCREENSHOTS" || "$dimension_status" -ne 0 ]]; then
+    echo "   ❌ Chrome screenshot run failed"
+    echo ""
+    return 1
   fi
 
   echo ""
@@ -468,7 +595,7 @@ for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
 done
 
 if [[ "$CHROME_SCREENSHOTS" == "1" ]]; then
-  run_chrome_screenshots
+  run_chrome_screenshots || true
 fi
 
 # ── Summary ─────────────────────────────────────────────────────────────────
@@ -524,3 +651,7 @@ if [[ "$CHROME_SCREENSHOTS" == "1" ]]; then
   fi
 fi
 echo ""
+
+if [[ ${#FAILED[@]} -gt 0 ]]; then
+  exit 1
+fi

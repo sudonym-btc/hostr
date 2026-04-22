@@ -1,3 +1,4 @@
+import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
 import '../../util/main.dart';
@@ -36,6 +37,7 @@ class EscrowVerificationResult {
 /// It does NOT validate Nostr-level proof structure (signatures, listing
 /// anchors, etc.) — that is handled by [Reservation.validate]. This class
 /// only handles the EVM on-chain portion.
+@Singleton()
 class EscrowVerification {
   final Evm _evm;
   final CustomLogger _logger;
