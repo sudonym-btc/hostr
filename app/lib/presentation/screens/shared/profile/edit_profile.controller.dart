@@ -38,9 +38,10 @@ class EditProfileController extends UpsertFormController {
   bool get canSubmit => super.canSubmit && nip05Valid.value && lnurlValid.value;
 
   void setState(ProfileMetadata? profile) {
+    final picture = profile?.metadata.picture;
     imageField.setImages(
-      profile?.metadata.picture != null
-          ? [CustomImage.path(profile?.metadata.picture)]
+      picture != null && picture.isNotEmpty
+          ? [CustomImage.path(picture, imeta: profile?.pictureIMeta)]
           : [],
     );
     nameField.setState(profile?.metadata.name ?? '');
@@ -58,6 +59,7 @@ class EditProfileController extends UpsertFormController {
     final aboutMe = aboutMeField.text;
     final nip05 = nip05Field.text;
     final lightningAddress = lightningAddressField.text;
+    final imageMeta = _imageMetaFor(image);
 
     final metadata = Metadata(
       name: name,
@@ -68,6 +70,7 @@ class EditProfileController extends UpsertFormController {
     );
     metadata.pubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final profile = ProfileMetadata.fromNostrEvent(metadata.toEvent())
+        .withImageMetas(imageMeta == null ? const [] : [imageMeta])
         .withEvmAddress(
           (await getIt<Hostr>().auth.hd.getActiveEvmKey()).address.eip55With0x,
         );
@@ -85,6 +88,14 @@ class EditProfileController extends UpsertFormController {
     if (trimmed.isEmpty) return null;
     final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
     if (!valid) return '$label must look like name@example.com';
+    return null;
+  }
+
+  IMeta? _imageMetaFor(String? image) {
+    if (image == null || image.isEmpty) return null;
+    for (final meta in imageField.resolvedIMetas) {
+      if (meta.url == image) return meta;
+    }
     return null;
   }
 }

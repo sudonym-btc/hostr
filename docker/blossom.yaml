@@ -191,7 +191,7 @@ list:
 
   # Require a valid BUD-11 Nostr auth event to list blobs.
   # When false, anonymous listing is accepted.
-  requireAuth: false
+  requireAuth: true
 
   # Allow an authenticated user to list blobs belonging to a different pubkey.
   # When false, a user may only list their own blobs (unauthenticated requests
@@ -207,7 +207,7 @@ media:
   # Clients upload an image or video; the server optimises/transcodes it,
   # stores the result, and returns the optimised blob descriptor.
   # Video transcoding requires ffmpeg to be installed on the host.
-  enabled: false
+  enabled: true
 
   # Require a valid BUD-11 Nostr auth event for media uploads.
   requireAuth: true
@@ -217,7 +217,7 @@ media:
 
   image:
     # Output quality 0–100. Higher = better quality, larger file.
-    quality: 90
+    quality: 80
 
     # Produce progressive JPEG / interlaced PNG for better streaming on slow connections.
     # No effect when outputFormat is "webp".

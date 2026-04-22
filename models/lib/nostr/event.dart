@@ -27,17 +27,26 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
             sig: e.sig);
 
   Event({
-    required super.pubKey,
-    required super.kind,
+    required String pubKey,
+    required int kind,
     required TagsType tags,
     required this.tagParser,
-    required super.content,
-    super.sig,
-    super.validSig,
-    super.id,
-    super.createdAt,
+    required String content,
+    String? sig,
+    bool? validSig,
+    String? id,
+    int? createdAt,
   })  : parsedTags = tags,
-        super(tags: tags.tags);
+        super(
+          pubKey: pubKey,
+          kind: kind,
+          content: content,
+          sig: sig,
+          validSig: validSig,
+          id: id,
+          createdAt: createdAt ?? 0,
+          tags: tags.tags,
+        );
 
   @override
   String toString() {

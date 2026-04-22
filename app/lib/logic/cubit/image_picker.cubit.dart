@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show BlobDescriptor;
 
 import 'image_picker_web_gallery_stub.dart'
     if (dart.library.js_interop) 'image_picker_web_gallery_web.dart'
@@ -14,18 +16,21 @@ class CustomImage {
   final String? path;
   final XFile? file;
   final Uint8List? previewBytes;
+  final IMeta? imeta;
 
-  CustomImage({this.path, this.file, this.previewBytes});
-  CustomImage.file(this.file, {this.previewBytes}) : path = null;
-  CustomImage.path(this.path) : file = null, previewBytes = null;
+  CustomImage({this.path, this.file, this.previewBytes, this.imeta});
+  CustomImage.file(this.file, {this.previewBytes}) : path = null, imeta = null;
+  CustomImage.path(this.path, {this.imeta}) : file = null, previewBytes = null;
 
   CustomImage copyWith({
     String? path,
     XFile? file,
     Uint8List? previewBytes,
+    IMeta? imeta,
     bool clearPath = false,
     bool clearFile = false,
     bool clearPreviewBytes = false,
+    bool clearIMeta = false,
   }) {
     return CustomImage(
       path: clearPath ? null : (path ?? this.path),
@@ -33,6 +38,7 @@ class CustomImage {
       previewBytes: clearPreviewBytes
           ? null
           : (previewBytes ?? this.previewBytes),
+      imeta: clearIMeta ? null : (imeta ?? this.imeta),
     );
   }
 }
@@ -95,6 +101,10 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
   /// images that have been successfully uploaded.
   List<String> get resolvedPaths =>
       images.where((img) => img.path != null).map((img) => img.path!).toList();
+
+  /// Returns inline media hints for uploaded images that have metadata.
+  List<IMeta> get resolvedIMetas =>
+      images.map((img) => img.imeta).whereType<IMeta>().toList();
 
   Future<void> pickMultipleImages({
     int limit = 10,
@@ -312,73 +322,155 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
   );
 
   /// Uploads a single image at [index] to Blossom in the background.
-  Future<void> _uploadSingle(
-    int index,
-  ) => _logger.span('_uploadSingle[$index]', () async {
-    final image = images[index];
-    if (image.file == null) return;
+  Future<void> _uploadSingle(int index) => _logger.span(
+    '_uploadSingle[$index]',
+    () async {
+      final image = images[index];
+      if (image.file == null) return;
 
-    _uploadingIndices.add(index);
-    _notifySubmitChanged();
-    emit(ImageLoaded());
+      _uploadingIndices.add(index);
+      _notifySubmitChanged();
+      emit(ImageLoaded());
 
-    try {
-      _logger.d('Uploading image $index to Blossom: ${image.file!.path}');
-      final Uint8List data =
-          image.previewBytes ??
-          await _getImageBytes(
-            image,
-            index,
-            spanName: '_readImageBytes[$index]',
+      try {
+        _logger.d('Uploading image $index to Blossom: ${image.file!.path}');
+        final Uint8List data =
+            image.previewBytes ??
+            await _getImageBytes(
+              image,
+              index,
+              spanName: '_readImageBytes[$index]',
+            );
+
+        if (index < images.length &&
+            images[index].file?.path == image.file!.path &&
+            images[index].previewBytes == null) {
+          images[index] = images[index].copyWith(previewBytes: data);
+          if (!isClosed) emit(ImageLoaded());
+        }
+
+        _logger.d('Image data size: ${data.length} bytes');
+        final contentType = _contentTypeFor(image.file!);
+
+        final originalDescriptor = await _logger.span(
+          '_uploadSingle[$index].uploadOriginal',
+          () => _uploadFirstSuccessful(
+            data: data,
+            contentType: contentType,
+            serverMediaOptimisation: false,
+          ),
+        );
+
+        final optimisedDescriptor = await _logger.span(
+          '_uploadSingle[$index].uploadMedia',
+          () => _uploadFirstSuccessful(
+            data: data,
+            contentType: contentType,
+            serverMediaOptimisation: true,
+          ),
+        );
+
+        final imeta = _buildIMeta(
+          optimisedDescriptor: optimisedDescriptor,
+          originalSha256: originalDescriptor?.sha256 ?? '',
+        );
+        final uploadedPath = imeta.url.isNotEmpty
+            ? imeta.url
+            : optimisedDescriptor?.url;
+        if (uploadedPath == null || uploadedPath.isEmpty) {
+          throw Exception('Blossom media upload succeeded but no URL returned');
+        }
+        _logger.d('Image media URL: $uploadedPath');
+
+        // Guard: the image list may have been mutated while we were uploading.
+        if (index < images.length &&
+            images[index].file?.path == image.file!.path) {
+          images[index] = images[index].copyWith(
+            path: uploadedPath,
+            imeta: imeta,
           );
-
-      if (index < images.length &&
-          images[index].file?.path == image.file!.path &&
-          images[index].previewBytes == null) {
-        images[index] = images[index].copyWith(previewBytes: data);
+        }
+      } catch (e, st) {
+        _logger.e('Failed to upload image $index', error: e, stackTrace: st);
+        _failedIndices[index] = e.toString();
+      } finally {
+        _uploadingIndices.remove(index);
+        _notifySubmitChanged();
         if (!isClosed) emit(ImageLoaded());
       }
+    },
+  );
 
-      _logger.d('Image data size: ${data.length} bytes');
-      final results = await _logger.span(
-        '_uploadSingle[$index].uploadBlob',
-        () => getIt<Hostr>().blossom.uploadBlob(data: data),
-      );
-      _logger.d('Blossom upload returned ${results.length} result(s)');
+  Future<BlobDescriptor?> _uploadFirstSuccessful({
+    required Uint8List data,
+    required String contentType,
+    required bool serverMediaOptimisation,
+  }) async {
+    final results = await getIt<Hostr>().blossom.uploadBlob(
+      data: data,
+      contentType: contentType,
+      serverMediaOptimisation: serverMediaOptimisation,
+    );
+    _logger.d('Blossom upload returned ${results.length} result(s)');
 
-      var anySuccess = false;
-      String? uploadedPath;
-      for (final result in results) {
-        if (result.success) {
-          anySuccess = true;
-          uploadedPath ??= result.descriptor?.sha256;
-          _logger.d('Blossom upload succeeded: ${result.descriptor?.url}');
-        } else {
-          _logger.w('Blossom upload failed for a server', error: result.error);
-        }
+    for (final result in results) {
+      if (result.success && result.descriptor != null) {
+        _logger.d('Blossom upload succeeded: ${result.descriptor!.url}');
+        return result.descriptor;
       }
-      if (!anySuccess) {
-        throw Exception('All Blossom servers rejected the upload');
+      if (!result.success) {
+        _logger.w('Blossom upload failed for a server', error: result.error);
       }
-      if (uploadedPath == null || uploadedPath.isEmpty) {
-        throw Exception('Blossom upload succeeded but no sha256 was returned');
-      }
-      _logger.d('Image SHA-256: $uploadedPath');
-
-      // Guard: the image list may have been mutated while we were uploading.
-      if (index < images.length &&
-          images[index].file?.path == image.file!.path) {
-        images[index] = images[index].copyWith(path: uploadedPath);
-      }
-    } catch (e, st) {
-      _logger.e('Failed to upload image $index', error: e, stackTrace: st);
-      _failedIndices[index] = e.toString();
-    } finally {
-      _uploadingIndices.remove(index);
-      _notifySubmitChanged();
-      if (!isClosed) emit(ImageLoaded());
     }
-  });
+
+    throw Exception('All Blossom servers rejected the upload');
+  }
+
+  IMeta _buildIMeta({
+    required BlobDescriptor? optimisedDescriptor,
+    required String originalSha256,
+  }) {
+    final nip94 = optimisedDescriptor?.nip94;
+    final nip94Dimensions = nip94?.dimenssions;
+    return IMeta(
+      url: _nonEmpty(nip94?.url) ?? optimisedDescriptor?.url ?? '',
+      mime: _nonEmpty(nip94?.mimeType) ?? optimisedDescriptor?.type,
+      sha256: _nonEmpty(nip94?.sha256) ?? optimisedDescriptor?.sha256,
+      originalSha256: originalSha256,
+      size: nip94?.size ?? optimisedDescriptor?.size,
+      dimensions: _nonEmpty(nip94Dimensions),
+      blurhash: _nonEmpty(nip94?.blurhash),
+      thumbnail: _firstNonEmpty(nip94?.thumbnail),
+      image: _firstNonEmpty(nip94?.image),
+      alt: _nonEmpty(nip94?.alt),
+      fallback: nip94?.fallback ?? const [],
+    );
+  }
+
+  String _contentTypeFor(XFile file) {
+    final mimeType = file.mimeType;
+    if (mimeType != null && mimeType.isNotEmpty) return mimeType;
+
+    final path = file.path.toLowerCase();
+    if (path.endsWith('.png')) return 'image/png';
+    if (path.endsWith('.webp')) return 'image/webp';
+    if (path.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
+  }
+
+  String? _firstNonEmpty(List<String>? values) {
+    if (values == null) return null;
+    for (final value in values) {
+      final normalised = _nonEmpty(value);
+      if (normalised != null) return normalised;
+    }
+    return null;
+  }
+
+  String? _nonEmpty(String? value) {
+    if (value == null || value.isEmpty || value == 'null') return null;
+    return value;
+  }
 
   /// Retries a previously failed upload at [index].
   void retryUpload(int index) {

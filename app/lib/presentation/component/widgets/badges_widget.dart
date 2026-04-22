@@ -142,77 +142,10 @@ class BadgeChip extends StatelessWidget {
         final badgeName = definition?.name ?? 'Badge';
         final badgeImage = definition?.image;
 
-        return InkWell(
+        return AppChip.info.sm(
+          avatar: _BadgeChipAvatar(image: badgeImage),
+          label: Text(badgeName, overflow: TextOverflow.ellipsis),
           onTap: () => _showBadgeDetails(context, definition),
-          borderRadius: AppBorderRadii.full,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: AppBorderRadii.full,
-              border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.outline.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (badgeImage != null) ...[
-                  ClipOval(
-                    child: Image.network(
-                      badgeImage,
-                      width: 20,
-                      height: 20,
-                      fit: BoxFit.cover,
-                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                      frameBuilder:
-                          (context, child, frame, wasSynchronouslyLoaded) {
-                            final loaded =
-                                wasSynchronouslyLoaded || frame != null;
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                AnimatedOpacity(
-                                  opacity: loaded ? 0 : 1,
-                                  duration: kAnimationDuration,
-                                  curve: kAnimationCurve,
-                                  child: const ImageLoadingShimmer(
-                                    width: 20,
-                                    height: 20,
-                                  ),
-                                ),
-                                AnimatedOpacity(
-                                  opacity: loaded ? 1 : 0,
-                                  duration: kAnimationDuration,
-                                  curve: kAnimationCurve,
-                                  child: child,
-                                ),
-                              ],
-                            );
-                          },
-                      errorBuilder: (context, error, stackTrace) =>
-                          const ImageLoadError(width: 20, height: 20),
-                    ),
-                  ),
-                  Gap.horizontal.custom(6),
-                ] else
-                  Icon(
-                    Icons.verified,
-                    size: kIconMd,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                Gap.horizontal.xs(),
-                Text(
-                  badgeName,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
         );
       },
     );
@@ -222,6 +155,59 @@ class BadgeChip extends StatelessWidget {
     showAppModal(
       context,
       builder: (_) => BadgeDetailsSheet(award: award, definition: definition),
+    );
+  }
+}
+
+class _BadgeChipAvatar extends StatelessWidget {
+  final String? image;
+
+  const _BadgeChipAvatar({this.image});
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeImage = image;
+    if (badgeImage == null) {
+      return Icon(
+        Icons.verified,
+        size: kIconXs,
+        color: Theme.of(context).colorScheme.onSecondaryContainer,
+      );
+    }
+
+    return ClipOval(
+      child: Image.network(
+        badgeImage,
+        width: kIconXs,
+        height: kIconXs,
+        fit: BoxFit.cover,
+        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          final loaded = wasSynchronouslyLoaded || frame != null;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedOpacity(
+                opacity: loaded ? 0 : 1,
+                duration: kAnimationDuration,
+                curve: kAnimationCurve,
+                child: const ImageLoadingShimmer(
+                  width: kIconXs,
+                  height: kIconXs,
+                ),
+              ),
+              AnimatedOpacity(
+                opacity: loaded ? 1 : 0,
+                duration: kAnimationDuration,
+                curve: kAnimationCurve,
+                child: child,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const ImageLoadError(width: kIconXs, height: kIconXs),
+      ),
     );
   }
 }

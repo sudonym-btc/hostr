@@ -194,6 +194,7 @@ class FundsMonitorService {
       await tracker.stop();
     }
     _swapInProgress = false;
+    _clearSessionState();
 
     _logger.d('FundsMonitorService stopped');
   });
@@ -201,12 +202,7 @@ class FundsMonitorService {
   /// Reset state and restart (e.g. after user logs out → log in).
   Future<void> reset() => _logger.span('reset', () async {
     await stop();
-    _walletItems.clear();
-    _walletSubject.add([]);
-    _escrowItems.clear();
-    _escrowSubject.add([]);
-    _addressToAccountIndex.clear();
-    _walletAccounts.clear();
+    _clearSessionState();
     for (final tracker in _chainTrackers.values) {
       await tracker.dispose();
     }
@@ -217,6 +213,15 @@ class FundsMonitorService {
 
   bool _isCurrentStart(int generation) =>
       _started && _startGeneration == generation;
+
+  void _clearSessionState() {
+    _walletItems.clear();
+    _walletSubject.add([]);
+    _escrowItems.clear();
+    _escrowSubject.add([]);
+    _addressToAccountIndex.clear();
+    _walletAccounts.clear();
+  }
 
   bool get liveErc20TrackingEnabled => _liveErc20TrackingEnabled;
 
@@ -931,6 +936,15 @@ class FundsMonitorService {
   @visibleForTesting
   Future<bool> isDustBalanceForTesting(EvmChain chain, TokenAmount balance) =>
       _isDustBalance(chain, balance);
+
+  @visibleForTesting
+  void seedWalletItemForTesting(FundsItem item) {
+    _buildFundsStream();
+    final addrKey = item.address.eip55With0x.toLowerCase();
+    final tokenKey = item.token.address.toLowerCase();
+    _walletItems[(addrKey, tokenKey)] = item;
+    _walletSubject.add(_walletItems.values.toList());
+  }
 
   Future<bool> _isDustBalance(EvmChain chain, TokenAmount balance) async {
     final quotedBridgeAmount = await _quoteBridgeAmountForDustCheck(

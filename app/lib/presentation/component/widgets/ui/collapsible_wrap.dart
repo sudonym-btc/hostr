@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_chip.dart';
 import 'chip_wrap.dart';
 
 /// A [Wrap] that shows at most [maxChildren] items when collapsed.
@@ -48,7 +49,18 @@ class _CollapsibleWrapState extends State<CollapsibleWrap> {
     if (widget.toggleChipBuilder != null) {
       return widget.toggleChipBuilder!(label, onTap);
     }
-    return InputChip(label: Text(label), onPressed: onTap);
+    return InputChip(
+      label: Text(label),
+      labelStyle: AppChipStyles.labelStyle(context),
+      shape: AppChipStyles.shape,
+      side: AppChipStyles.neutralSide(context),
+      color: AppChipStyles.selectableColor(context),
+      padding: AppChipStyles.padding,
+      labelPadding: AppChipStyles.labelPadding,
+      visualDensity: AppChipStyles.visualDensity,
+      materialTapTargetSize: AppChipStyles.materialTapTargetSize,
+      onPressed: onTap,
+    );
   }
 
   @override

@@ -24,7 +24,7 @@ Future<void> authGatedAction(
   required Future<void> Function() action,
 }) async {
   final hostr = getIt<Hostr>();
-  if (hostr.auth.authState.value == const LoggedIn()) {
+  if (hostr.auth.authState.value is LoggedIn) {
     await action();
     return;
   }

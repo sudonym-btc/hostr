@@ -20,8 +20,8 @@ class ThreadState {
 
   // ── Readable events ──
 
-  /// Events that contribute to read/unread state: plain-text [Message]s and
-  /// reservation-proposal [Message]s (child is [Reservation]).
+  /// Events that contribute to read/unread state: plain-text [TextMessage]s and
+  /// reservation-proposal [JsonMessage]s (child is [Reservation]).
   /// Excludes [EscrowServiceSelected] children and [SeenStatus] events.
   List<Message> get readableEvents => events
       .whereType<Message>()
@@ -75,10 +75,8 @@ class ThreadState {
       .whereType<Reservation>()
       .toList();
 
-  List<Message> get textMessages => events
-      .whereType<Message>()
-      .where((element) => element.child == null)
-      .toList();
+  List<TextMessage> get textMessages =>
+      events.whereType<TextMessage>().toList();
 
   Reservation get lastReservationRequest => reservationRequests.last;
 

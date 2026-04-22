@@ -225,11 +225,6 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
     final selected = widget.controller.specField.selectedBoolKeys;
     final valuedSpecKeys = ListingSpecFieldController.valuedSpecKeys();
     final valuedSpecs = widget.controller.specField.valuedSpecs;
-    final chipPadding = EdgeInsets.symmetric(
-      horizontal: kDefaultPadding.toDouble() / 2,
-      vertical: kDefaultPadding.toDouble() / 4,
-    );
-    const chipLabelPadding = EdgeInsets.only(right: 6);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,9 +256,12 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                 label: Text(localizedSpecification(context, spec)),
                 shape: getShapeForSpec(context, spec),
                 backgroundColor: getColorForSpec(context, spec),
-                padding: chipPadding,
-                labelPadding: chipLabelPadding,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: AppChipStyles.neutralSide(context),
+                labelStyle: AppChipStyles.labelStyle(context),
+                padding: AppChipStyles.padding,
+                labelPadding: AppChipStyles.inputLabelPadding,
+                visualDensity: AppChipStyles.visualDensity,
+                materialTapTargetSize: AppChipStyles.materialTapTargetSize,
                 onDeleted: () {
                   setState(() {
                     final next = Set<String>.from(selected)..remove(spec);
@@ -316,7 +314,6 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                       focusNode,
                       onFieldSubmitted,
                     ) {
-                      final chipTheme = Theme.of(context).chipTheme;
                       return Align(
                         alignment: Alignment.centerLeft,
                         child: IntrinsicWidth(
@@ -325,11 +322,14 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                             backgroundColor: Theme.of(
                               context,
                             ).colorScheme.surface,
-                            padding: chipPadding,
-                            labelPadding: chipLabelPadding,
-                            visualDensity: VisualDensity.compact,
+                            side: AppChipStyles.neutralSide(context),
+                            labelStyle: AppChipStyles.labelStyle(context),
+                            iconTheme: AppChipStyles.iconTheme(context),
+                            padding: AppChipStyles.padding,
+                            labelPadding: AppChipStyles.inputLabelPadding,
+                            visualDensity: AppChipStyles.visualDensity,
                             materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
+                                AppChipStyles.materialTapTargetSize,
                             onPressed: () => focusNode.requestFocus(),
                             label: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -339,7 +339,9 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                                   size: Theme.of(
                                     context,
                                   ).textTheme.bodyMedium!.fontSize,
-                                  color: chipTheme.labelStyle?.color,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                                 Gap.horizontal.custom(6),
                                 IntrinsicWidth(
@@ -351,7 +353,7 @@ class _SpecificationsInputState extends State<SpecificationsInput> {
                                     child: TextField(
                                       controller: textEditingController,
                                       focusNode: focusNode,
-                                      style: chipTheme.labelStyle,
+                                      style: AppChipStyles.labelStyle(context),
                                       maxLines: 1,
                                       minLines: 1,
                                       textAlignVertical: TextAlignVertical.top,

@@ -23,7 +23,7 @@ class TabShellScreen extends StatelessWidget {
       stream: getIt<Hostr>().auth.authState,
       initialData: getIt<Hostr>().auth.authState.value,
       builder: (context, snapshot) {
-        final isLoggedIn = snapshot.data == const LoggedIn();
+        final isLoggedIn = snapshot.data is LoggedIn;
 
         return BlocBuilder<ModeCubit, ModeCubitState>(
           builder: (context, modeState) {

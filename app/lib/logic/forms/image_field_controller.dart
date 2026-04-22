@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:hostr/logic/cubit/image_picker.cubit.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
+import 'package:models/main.dart';
 
 /// A [FormFieldController] wrapping an [ImagePickerCubit].
 ///
@@ -35,6 +36,7 @@ class ImageFieldController extends FormFieldController {
   }
 
   List<String> get resolvedPaths => cubit.resolvedPaths;
+  List<IMeta> get resolvedIMetas => cubit.resolvedIMetas;
   List<CustomImage> get images => cubit.images;
 
   @override

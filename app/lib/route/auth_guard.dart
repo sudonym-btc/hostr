@@ -10,7 +10,7 @@ class AuthGuard extends AutoRouteGuard {
   @override
   void onNavigation(NavigationResolver resolver, StackRouter router) async {
     logger.d('AuthGuard');
-    if (getIt<Hostr>().auth.authState.value == LoggedIn()) {
+    if (getIt<Hostr>().auth.authState.value is LoggedIn) {
       logger.d('AuthGuard logged in');
       resolver.next(true);
       return;
@@ -18,9 +18,7 @@ class AuthGuard extends AutoRouteGuard {
     logger.d('AuthGuard logged out');
 
     // Store where the user was trying to go, then reject and push sign-in.
-    getIt<PendingNavigation>().set(
-      PageRouteInfo.fromMatch(resolver.route),
-    );
+    getIt<PendingNavigation>().set(PageRouteInfo.fromMatch(resolver.route));
     resolver.next(false);
     router.push(SignInRoute());
   }

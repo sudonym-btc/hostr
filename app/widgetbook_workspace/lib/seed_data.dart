@@ -4,7 +4,10 @@
 /// Use cases then access the top-level getters synchronously.
 library;
 
+import 'package:hostr/injection.dart';
+import 'package:hostr_sdk/hostr.dart';
 import 'package:hostr_sdk/seed/seed.dart';
+import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart';
 import 'package:models/main.dart';
 
 export 'package:models/stubs/keypairs.dart' show MockKeys;
@@ -20,19 +23,21 @@ Future<void> initSeedData() async {
   _factory = SeedFactory(
     config: SeedPipelineConfig(
       seed: 1,
-      userCount: 10,
-      hostRatio: 0.4,
-      listingsPerHostAvg: 2.0,
-      reservationRequestsPerGuest: 3,
-      threadStages: const ThreadStageSpec(
-        textMessageCount: 3,
-        completedRatio: 0.5,
-        paidViaEscrowRatio: 0.5,
-        reviewRatio: 0.5,
-      ),
+      userCount: 2,
+      hostRatio: 0.5,
+      hostHasEvmRatio: 0,
+      setupLnbits: false,
+      listingsPerHostAvg: 1.0,
+      reservationRequestsPerGuest: 1,
+      threadStages: const ThreadStageSpec.pendingOnly(textMessageCount: 1),
     ),
   );
   _data = await _factory.buildAll();
+
+  final requests = getIt<Hostr>().requests;
+  if (requests is InMemoryRequests) {
+    requests.seedEvents(_data.allEvents);
+  }
 
   // Build mock reservations for threads that have outcomes.
   final hostProfileByPubkey = <String, ProfileMetadata>{

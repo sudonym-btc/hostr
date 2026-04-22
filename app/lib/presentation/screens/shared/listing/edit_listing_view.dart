@@ -60,6 +60,11 @@ class EditListingViewState extends State<EditListingView> {
   ) {
     return SliverAppBar(
       stretch: true,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      iconTheme: const IconThemeData(color: Colors.white),
+      actionsIconTheme: const IconThemeData(color: Colors.white),
       expandedHeight: paneWidth / _carouselAspectRatio,
       flexibleSpace: FlexibleSpaceBar(
         background: AspectRatio(

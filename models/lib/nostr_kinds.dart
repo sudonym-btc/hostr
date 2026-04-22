@@ -16,6 +16,7 @@ const kNostrKindEscrowServiceSelected = 30302;
 
 const kNostrKindProfile = 0;
 const kNostrKindDM = 14;
+const kNostrKindJsonMessage = 1327;
 const kNostrKindSeenStatus = 16;
 const kNostrKindReaction = 7;
 const kNostrKindZapRequest = 9734;
@@ -50,6 +51,10 @@ const kNostrKindProfileBadges = 30008;
 /// Event kinds that are specific to the hostr application and must NEVER be
 /// broadcast to external relays. The [Requests.broadcast] guard uses this set
 /// to force these events onto the hostr relay only.
+///
+/// Gift wraps are intentionally excluded. Their contents are encrypted and the
+/// outer `1059` event is standard NIP-59, so callers may route them to external
+/// recipient relays while keeping Hostr-specific inner events hidden.
 const kHostrOnlyKinds = <int>{
   kNostrKindSeenStatus,
   kNostrKindListing,
@@ -60,7 +65,7 @@ const kHostrOnlyKinds = <int>{
   kNostrKindEscrowTrust,
   kNostrKindEscrowMethod,
   kNostrKindEscrowServiceSelected,
-  kNostrKindGiftWrap,
+  kNostrKindJsonMessage,
   kNostrKindSeal,
   kNostrKindReceivedHeartbeat,
   kNostrKindTypingIndicator,

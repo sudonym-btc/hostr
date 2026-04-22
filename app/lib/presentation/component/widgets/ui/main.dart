@@ -1,6 +1,7 @@
 export 'adaptive_list.dart';
 export 'app_avatar.dart';
 export 'app_button_styles.dart';
+export 'app_carousel.dart';
 export 'app_chip.dart';
 export 'app_list_item.dart';
 export 'app_loading_indicator.dart';

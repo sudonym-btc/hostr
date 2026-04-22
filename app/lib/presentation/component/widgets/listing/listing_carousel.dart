@@ -1,13 +1,19 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:models/main.dart';
 
 class ListingCarousel extends StatelessWidget {
   final Listing listing;
+  final BlossomImageVariantHint variantHint;
 
-  const ListingCarousel({required this.listing, super.key});
+  const ListingCarousel({
+    required this.listing,
+    this.variantHint = BlossomImageVariantHint.none,
+    super.key,
+  });
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -28,6 +34,8 @@ class ListingCarousel extends StatelessWidget {
               child: BlossomImage(
                 image: i,
                 pubkey: listing.pubKey,
+                imageMetas: listing.imageMetas,
+                variantHint: variantHint,
                 fit: BoxFit.cover,
               ),
             );
@@ -42,11 +50,13 @@ class SmallListingCarousel extends StatelessWidget {
   final Listing listing;
   final double width;
   final double height;
+  final BlossomImageVariantHint variantHint;
 
   const SmallListingCarousel({
     required this.listing,
     this.width = double.infinity,
     this.height = 100,
+    this.variantHint = BlossomImageVariantHint.none,
     super.key,
   });
   @override
@@ -56,7 +66,7 @@ class SmallListingCarousel extends StatelessWidget {
       width: width,
       child: ClipRRect(
         borderRadius: AppBorderRadii.sm,
-        child: ListingCarousel(listing: listing),
+        child: ListingCarousel(listing: listing, variantHint: variantHint),
       ),
     );
   }

@@ -27,17 +27,14 @@ class ProfileChipWidget extends StatelessWidget {
           alignment: alignment,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 200),
-            child: InkWell(
-              customBorder: AppShapes.chip,
-              onTap: () => ProfilePopup.show(context, id),
-              child: AppChip.neutral.sm(
-                label: Text(name, overflow: TextOverflow.ellipsis),
-                avatar: AppAvatar.xxs(
-                  image: picture,
-                  pubkey: id,
-                  label: snapshot.data?.metadata.getName() ?? '?',
-                ),
+            child: AppChip.neutral.sm(
+              label: Text(name, overflow: TextOverflow.ellipsis),
+              avatar: AppAvatar.xxs(
+                image: picture,
+                pubkey: id,
+                label: snapshot.data?.metadata.getName() ?? '?',
               ),
+              onTap: () => ProfilePopup.show(context, id),
             ),
           ),
         );

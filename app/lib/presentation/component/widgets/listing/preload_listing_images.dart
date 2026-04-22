@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/data/sources/image_preloader.dart';
 import 'package:hostr/injection.dart';
 import 'package:models/main.dart';
@@ -25,11 +26,13 @@ class PreloadListingImages extends StatefulWidget {
 
   /// The child widget to render (pass-through).
   final Widget child;
+  final BlossomImageVariantHint variantHint;
 
   const PreloadListingImages({
     super.key,
     required this.listing,
     required this.child,
+    this.variantHint = BlossomImageVariantHint.none,
   });
 
   @override
@@ -47,7 +50,9 @@ class _PreloadListingImagesState extends State<PreloadListingImages> {
   void didUpdateWidget(PreloadListingImages oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.listing.anchor != widget.listing.anchor ||
-        !listEquals(oldWidget.listing.images, widget.listing.images)) {
+        !listEquals(oldWidget.listing.images, widget.listing.images) ||
+        !listEquals(oldWidget.listing.imageMetas, widget.listing.imageMetas) ||
+        oldWidget.variantHint != widget.variantHint) {
       _preload();
     }
   }
@@ -62,6 +67,8 @@ class _PreloadListingImagesState extends State<PreloadListingImages> {
         images,
         pubkey: widget.listing.pubKey,
         context: context,
+        imageMetas: widget.listing.imageMetas,
+        variantHint: widget.variantHint,
       );
     });
   }
@@ -87,11 +94,13 @@ class PreloadListingsImages extends StatefulWidget {
 
   /// The child widget to render (pass-through).
   final Widget child;
+  final BlossomImageVariantHint variantHint;
 
   const PreloadListingsImages({
     super.key,
     required this.listings,
     required this.child,
+    this.variantHint = BlossomImageVariantHint.none,
   });
 
   @override
@@ -125,6 +134,8 @@ class _PreloadListingsImagesState extends State<PreloadListingsImages> {
             images,
             pubkey: listing.pubKey,
             context: context,
+            imageMetas: listing.imageMetas,
+            variantHint: widget.variantHint,
           );
         }
       }
