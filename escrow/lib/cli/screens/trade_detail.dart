@@ -48,15 +48,18 @@ Future<Navigation> tradeDetailScreen(
     } else {
       amountStr = '${formatSats(cached['amountSats'] as int? ?? 0)} sats';
     }
-    final updatedAt = DateTime.tryParse('${cached['updatedAt'] ?? ''}');
-    final updatedLabel = updatedAt == null
-        ? '${cached['updatedAt'] ?? '—'}'
-        : '${relativeTime(updatedAt)} (${updatedAt.toLocal()})';
+    final updatedBlockNum = _jsonInt(cached['updatedBlockNum']);
+    final updatedBlockTimestamp = DateTime.tryParse(
+      '${cached['updatedBlockTimestamp'] ?? ''}',
+    );
     print(kvTable({
       'Status': colorStatus('${cached['status']}'),
       'Amount': amountStr,
       'Last tx': '${cached['txHash'] ?? '—'}',
-      'Updated': updatedLabel,
+      'Updated block': updatedBlockNum != null ? '$updatedBlockNum' : '—',
+      'Updated at': updatedBlockTimestamp != null
+          ? '${relativeTime(updatedBlockTimestamp)} (${updatedBlockTimestamp.toLocal()})'
+          : '—',
     }));
   }
 
@@ -111,4 +114,10 @@ Future<Navigation> tradeDetailScreen(
     default:
       return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
   }
+}
+
+int? _jsonInt(Object? value) {
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value);
+  return null;
 }

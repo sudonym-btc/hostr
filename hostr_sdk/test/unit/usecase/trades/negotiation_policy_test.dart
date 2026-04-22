@@ -31,6 +31,7 @@ Reservation _request({
   required DateTime start,
   required DateTime end,
   int createdAt = 0,
+  ReservationStage stage = ReservationStage.negotiate,
 }) {
   return Reservation.create(
     pubKey: pubKey,
@@ -38,7 +39,7 @@ Reservation _request({
     listingAnchor: _listing().anchor!,
     start: start,
     end: end,
-    stage: ReservationStage.negotiate,
+    stage: stage,
     amount: DenominatedAmount(
       value: BigInt.from(amountSats),
       denomination: 'BTC',
@@ -74,6 +75,7 @@ void main() {
 
       expect(actions, contains(TradeAction.accept));
       expect(actions, contains(TradeAction.counter));
+      expect(actions, contains(TradeAction.cancel));
     });
 
     test('host does not get accept when guest latest offer meets listing', () {
@@ -93,6 +95,27 @@ void main() {
       );
 
       expect(actions, isNot(contains(TradeAction.accept)));
+      expect(actions, contains(TradeAction.cancel));
+    });
+
+    test('no actions are available after latest offer is cancelled', () {
+      final actions = ReservationRequestActions.resolve(
+        [
+          _request(
+            pubKey: guestPubkey,
+            amountSats: 85000,
+            start: start,
+            end: end,
+            createdAt: 1,
+            stage: ReservationStage.cancel,
+          ),
+        ],
+        listing,
+        sellerPubkey,
+        TradeRole.host,
+      );
+
+      expect(actions, isEmpty);
     });
   });
 
@@ -133,6 +156,28 @@ void main() {
             'latestByUs=${policy.latestOfferSentByUs} listing=${policy.listingPrice?.value} latest=${policy.latestOffer?.amount?.value}',
       );
       expect(policy.canCounter, isFalse);
+    });
+
+    test('cancelled latest offer is terminal', () {
+      final policy = ReservationRequestActions.resolvePolicy(
+        [
+          _request(
+            pubKey: guestPubkey,
+            amountSats: 90000,
+            start: start,
+            end: end,
+            createdAt: 1,
+            stage: ReservationStage.cancel,
+          ),
+        ],
+        listing,
+        hostPubkey,
+        TradeRole.host,
+      );
+
+      expect(policy.canPay, isFalse);
+      expect(policy.canCounter, isFalse);
+      expect(policy.latestOffer?.stage, ReservationStage.cancel);
     });
 
     test('guest can pay when latest host offer is below listing price', () {
@@ -288,30 +333,33 @@ void main() {
       expect(policy.canCounter, isFalse);
     });
 
-    test('guest actions are only pay when host mirrors their latest offer', () {
-      final actions = ReservationRequestActions.resolve(
-        [
-          _request(
-            pubKey: guestPubkey,
-            amountSats: 90000,
-            start: start,
-            end: end,
-            createdAt: 1,
-          ),
-          _request(
-            pubKey: hostPubkey,
-            amountSats: 90000,
-            start: start,
-            end: end,
-            createdAt: 2,
-          ),
-        ],
-        listing,
-        guestPubkey,
-        TradeRole.guest,
-      );
+    test(
+      'guest actions are cancel and pay when host mirrors their latest offer',
+      () {
+        final actions = ReservationRequestActions.resolve(
+          [
+            _request(
+              pubKey: guestPubkey,
+              amountSats: 90000,
+              start: start,
+              end: end,
+              createdAt: 1,
+            ),
+            _request(
+              pubKey: hostPubkey,
+              amountSats: 90000,
+              start: start,
+              end: end,
+              createdAt: 2,
+            ),
+          ],
+          listing,
+          guestPubkey,
+          TradeRole.guest,
+        );
 
-      expect(actions, [TradeAction.pay]);
-    });
+        expect(actions, [TradeAction.cancel, TradeAction.pay]);
+      },
+    );
   });
 }

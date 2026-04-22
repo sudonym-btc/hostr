@@ -67,14 +67,14 @@ class DiscoverEscrowServicesCubit extends Cubit<DiscoverEscrowServicesState> {
         return;
       }
 
-      final client = chains.first.client;
+      final chain = chains.first;
       final compatible = <EscrowService>[];
 
       for (final service in allServices) {
         try {
           final actualHash =
               await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-                client,
+                chain,
                 EthereumAddress.fromHex(service.contractAddress),
               );
           if (actualHash == service.contractBytecodeHash) {

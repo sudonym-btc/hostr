@@ -150,6 +150,7 @@ class TradeSummary {
   final String tokenSymbol;
   final String? txHash;
   final DateTime updatedAt;
+  final int? updatedBlockNum;
   final bool disputed;
 
   TradeSummary({
@@ -161,6 +162,7 @@ class TradeSummary {
     required this.tokenSymbol,
     this.txHash,
     required this.updatedAt,
+    this.updatedBlockNum,
     this.disputed = false,
   });
 
@@ -173,6 +175,7 @@ class TradeSummary {
         'tokenSymbol': tokenSymbol,
         'txHash': txHash,
         'updatedAt': updatedAt.toIso8601String(),
+        if (updatedBlockNum != null) 'updatedBlockNum': updatedBlockNum,
         'disputed': disputed,
       };
 
@@ -186,8 +189,16 @@ class TradeSummary {
         tokenSymbol: json['tokenSymbol'] as String? ?? 'sat',
         txHash: json['txHash'] as String?,
         updatedAt: DateTime.parse(json['updatedAt'] as String),
+        updatedBlockNum: _jsonInt(json['updatedBlockNum']),
         disputed: json['disputed'] as bool? ?? false,
       );
+}
+
+int? _jsonInt(Object? value) {
+  if (value is int) return value;
+  if (value is BigInt) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
 }
 
 /// Summary of a thread for list views.

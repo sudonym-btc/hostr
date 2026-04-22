@@ -237,7 +237,9 @@ class TradeHeaderView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSummary(context, showImages: showImages),
-                if (showActions && tradeState.stage is NegotiationStage)
+                if (showActions &&
+                    tradeState.stage is NegotiationStage &&
+                    availability != TradeAvailability.cancelled)
                   NegotiationWidget(tradeState: tradeState),
               ],
             ),

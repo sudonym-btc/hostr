@@ -45,17 +45,17 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
   };
 
   final CustomLogger logger;
-  final EvmChain? chain;
+  final EvmChain chain;
   late final EscrowEventScanner _eventScanner;
 
   MultiEscrowWrapper({
-    required super.client,
     required super.address,
-    this.chain,
+    required this.chain,
     required CustomLogger logger,
   }) : logger = logger.scope('multi-escrow'),
        super(
-         contract: MultiEscrow(address: address, client: client),
+         client: chain.client,
+         contract: MultiEscrow(address: address, client: chain.client),
        ) {
     _eventScanner = EscrowEventScanner(
       contract: contract,
@@ -65,16 +65,21 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     );
   }
 
-  EscrowEip712Signer get _signer {
-    final c = chain;
-    if (c == null) {
+  @override
+  Future<void> ensureDeployed() async {
+    final code = await chain.getCode(contract.self.address);
+    if (code.isEmpty) {
       throw StateError(
-        'MultiEscrowWrapper requires an EvmChain to produce EIP-712 '
-        'signatures. Provide `chain` when constructing the wrapper.',
+        'Escrow contract not deployed at ${contract.self.address}. '
+        'This address appears to be an EOA or empty address. '
+        'Funding can succeed with no logs in that case because no contract code executes.',
       );
     }
+  }
+
+  EscrowEip712Signer get _signer {
     return EscrowEip712Signer(
-      chainId: c.config.chainId,
+      chainId: chain.config.chainId,
       verifyingContract: address,
     );
   }

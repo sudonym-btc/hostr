@@ -22,16 +22,20 @@ class ReservationRequestActions {
     final latestOffer = reservationRequests.isNotEmpty
         ? reservationRequests.last
         : null;
-    final latestOfferSentByUs = latestOffer?.pubKey == ourPubkey;
+    if (latestOffer == null || latestOffer.stage == ReservationStage.cancel) {
+      return actions;
+    }
+
+    actions.add(TradeAction.cancel);
+
+    final latestOfferSentByUs = latestOffer.pubKey == ourPubkey;
     final latestOfferIsBelowListing =
-        latestOffer != null &&
         policy.listingPrice != null &&
         latestOffer.amount != null &&
         latestOffer.amount!.denomination == policy.listingPrice!.denomination &&
         latestOffer.amount!.value < policy.listingPrice!.value;
 
     if (role == TradeRole.host &&
-        latestOffer != null &&
         !latestOfferSentByUs &&
         latestOfferIsBelowListing) {
       actions.add(TradeAction.accept);
@@ -51,6 +55,21 @@ class ReservationRequestActions {
     final latestOffer = reservationRequests.isNotEmpty
         ? reservationRequests.last
         : null;
+    if (latestOffer?.stage == ReservationStage.cancel) {
+      return NegotiationPolicy(
+        latestOffer: latestOffer,
+        lastOfferByUs: null,
+        lastOfferByThem: null,
+        listingPrice: null,
+        latestOfferSentByUs: latestOffer?.pubKey == ourPubkey,
+        latestOfferAcceptsPrevious: false,
+        canPay: false,
+        canCounter: false,
+        counterMin: null,
+        counterMax: null,
+      );
+    }
+
     final lastOfferByUs = _lastOfferByPubkey(reservationRequests, ourPubkey);
     final lastOfferByThem = latestOffer == null
         ? null

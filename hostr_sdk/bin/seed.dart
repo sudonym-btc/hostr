@@ -72,7 +72,7 @@ Future<void> _run(List<String> arguments) async {
       config = SeedPipelineConfig.fromJson(map);
     } else if (arg.startsWith('--')) {
       print(
-        'Unsupported flag: $arg. relayUrl/rpcUrl/fundProfiles must be provided in config JSON/file.',
+        'Unsupported flag: $arg. relayUrl/rpcUrl/fundProfiles/tradeSponsorPrivateKey must be provided in config JSON/file.',
       );
       exitCode = 64;
       return;
@@ -81,6 +81,14 @@ Future<void> _run(List<String> arguments) async {
 
   final seeder = RelaySeeder();
   final resolved = _withEnvOverrides(config ?? const SeedPipelineConfig());
+  final sponsor = resolved.tradeSponsorPrivateKey?.trim();
+  if (!resolved.fundProfiles && (sponsor == null || sponsor.isEmpty)) {
+    throw StateError(
+      'Seed config has fundProfiles=false but no tradeSponsorPrivateKey. '
+      'Set SEED_TRADE_SPONSOR_PRIVATE_KEY or provide tradeSponsorPrivateKey '
+      'in the seed config so a dedicated keypair funds seeded trades.',
+    );
+  }
   await seeder.runPipeline(config: resolved);
 }
 

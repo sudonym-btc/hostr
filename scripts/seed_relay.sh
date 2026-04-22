@@ -71,6 +71,12 @@ seed_relay() {
     source "$REPO_ROOT/.env"
     source "$ENV_FILE"
     set +a
+
+    if { [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; } && [ -z "${SEED_TRADE_SPONSOR_PRIVATE_KEY:-}" ]; then
+        # Anvil account #4: reserved for seeding trade transactions so generated
+        # users do not need native ETH just to pay gas.
+        export SEED_TRADE_SPONSOR_PRIVATE_KEY="0x47e179ec197488bf6f2a5af2f4f01a49510f4f62b6bdcb2e9495d5c83e8d4d3d"
+    fi
     
     reset_relay
 

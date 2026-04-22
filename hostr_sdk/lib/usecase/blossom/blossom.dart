@@ -35,31 +35,96 @@ class BlossomUseCase {
   Future<void> ensureBlossomServer(
     String pubkey,
   ) => _logger.span('ensureBlossomServer', () async {
-    final blossomList = await _ndk.blossomUserServerList.getUserServerList(
-      pubkeys: [pubkey],
+    final existingBlossomList = _normaliseServerUrls(
+      await _ndk.blossomUserServerList.getUserServerList(pubkeys: [pubkey]),
     );
-    _logger.d('Blossom list: $blossomList');
+    final bootstrapBlossomList = _normaliseServerUrls(_config.bootstrapBlossom);
+    final missingBootstrapUrls = bootstrapBlossomList
+        .where((url) => !existingBlossomList.contains(url))
+        .toList();
+
+    _logger.i(
+      'Ensuring Blossom server list for pubkey=$pubkey: '
+      'existing=$existingBlossomList, '
+      'bootstrap=$bootstrapBlossomList, '
+      'missingBootstrap=$missingBootstrapUrls',
+    );
 
     final mergedUrls = {
-      ...blossomList ?? [],
-      ..._config.bootstrapBlossom,
+      ...existingBlossomList,
+      ...bootstrapBlossomList,
     }.toList();
 
     // Nothing to publish when no servers are configured (e.g. test env).
     if (mergedUrls.isEmpty) {
-      _logger.d('Blossom: no servers to publish, skipping.');
+      _logger.w(
+        'Blossom server list empty and no bootstrap servers configured; '
+        'skipping publish for pubkey=$pubkey.',
+      );
       return;
     }
 
     final broadcastResponse = await _ndk.blossomUserServerList
         .publishUserServerList(serverUrlsOrdered: mergedUrls);
-    _logger.d(
-      'Blossom list publish response: ${broadcastResponse[0].broadcastSuccessful}',
+    final successfulRelays = broadcastResponse
+        .where((response) => response.broadcastSuccessful)
+        .length;
+    _logger.i(
+      'Blossom server list publish finished for pubkey=$pubkey: '
+      'servers=$mergedUrls, '
+      'successfulRelays=$successfulRelays/${broadcastResponse.length}, '
+      'responses=${_formatBroadcastResponses(broadcastResponse)}',
     );
 
-    // Force refresh the server list cache in NDK after publishing
-    await _ndk.blossomUserServerList.getUserServerList(pubkeys: [pubkey]);
+    if (successfulRelays == 0) {
+      _logger.w(
+        'Blossom server list publish had no successful relay acknowledgements '
+        'for pubkey=$pubkey.',
+      );
+    }
+
+    // Force refresh the server list cache in NDK after publishing and verify
+    // that the configured bootstrap servers are discoverable.
+    final refreshedBlossomList = _normaliseServerUrls(
+      await _ndk.blossomUserServerList.getUserServerList(pubkeys: [pubkey]),
+    );
+    final missingAfterPublish = bootstrapBlossomList
+        .where((url) => !refreshedBlossomList.contains(url))
+        .toList();
+
+    if (missingAfterPublish.isEmpty) {
+      _logger.i(
+        'Blossom server list verified for pubkey=$pubkey: '
+        'readback=$refreshedBlossomList',
+      );
+    } else {
+      _logger.w(
+        'Blossom server list readback is missing configured bootstrap servers '
+        'for pubkey=$pubkey: missing=$missingAfterPublish, '
+        'readback=$refreshedBlossomList',
+      );
+    }
   });
+
+  List<String> _normaliseServerUrls(Iterable<String>? urls) {
+    if (urls == null) return <String>[];
+    return urls
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  String _formatBroadcastResponses(List<RelayBroadcastResponse> responses) {
+    if (responses.isEmpty) return '[]';
+    return responses
+        .map(
+          (response) =>
+              '${response.relayUrl}{okReceived=${response.okReceived}, '
+              'success=${response.broadcastSuccessful}, msg="${response.msg}"}',
+        )
+        .join(', ');
+  }
 
   // ---------------------------------------------------------------------------
   // NDK Blossom pass-through methods

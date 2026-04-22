@@ -272,6 +272,8 @@ class Trade extends Cubit<TradeState> {
     final end = lastRequest?.end;
     final amount = lastRequest?.amount;
     final ourPubkey = _resolveNegotiationPubkey(reservationRequests);
+    final latestRequestCancelled =
+        lastRequest?.stage == ReservationStage.cancel;
 
     // Compute overlap lock from listing-level reservations.
     final validAllListingPairs = allListingReservations
@@ -308,7 +310,7 @@ class Trade extends Cubit<TradeState> {
       );
 
       // Negotiation actions: pay / counter / accept.
-      if (threadState != null && !hasPayment) {
+      if (threadState != null && !hasPayment && !latestRequestCancelled) {
         resolvedActions.addAll(
           ReservationRequestActions.resolve(
             reservationRequests,
@@ -375,6 +377,7 @@ class Trade extends Cubit<TradeState> {
     final availability = _resolveAvailability(
       ownReservations: ownReservations,
       overlapLock: overlapLock,
+      negotiationCancelled: isNegotiation && latestRequestCancelled,
     );
 
     return TradeReady(
@@ -406,7 +409,11 @@ class Trade extends Cubit<TradeState> {
   static TradeAvailability _resolveAvailability({
     required List<Validation<ReservationGroup>> ownReservations,
     required ({bool isBlocked, String? reason}) overlapLock,
+    bool negotiationCancelled = false,
   }) {
+    if (negotiationCancelled) {
+      return TradeAvailability.cancelled;
+    }
     if (ownReservations.any((v) => v is Invalid)) {
       return TradeAvailability.invalidReservation;
     }
@@ -542,6 +549,36 @@ class Trade extends Cubit<TradeState> {
     },
   );
 
+  Future<void> cancelNegotiation() =>
+      _logger.span('cancelNegotiation', () async {
+        final current = state;
+        if (current is! TradeReady || current.stage is! NegotiationStage) {
+          throw StateError('Trade is not in negotiation stage');
+        }
+
+        final negotiationStage = current.stage as NegotiationStage;
+        final lastRequest = negotiationStage.reservationRequests.lastOrNull;
+        if (lastRequest == null) {
+          throw StateError('No reservation request available to cancel');
+        }
+        if (lastRequest.stage == ReservationStage.cancel) {
+          throw StateError('Reservation request is already cancelled');
+        }
+        if (!current.actions.contains(TradeAction.cancel)) {
+          throw StateError('Cancel action is not available for this trade');
+        }
+        if (thread == null) {
+          throw StateError('Cannot cancel negotiation without a thread');
+        }
+
+        final event = await getIt<ReservationRequests>().createCancellation(
+          previousRequest: lastRequest,
+          signerKeyPair: await activeKeyPair(),
+        );
+
+        await thread!.replyEvent(event);
+      });
+
   /// Returns the Nostr pubkey of the escrow service used in this trade.
   String? getEscrowPubkey() => _logger.spanSync('getEscrowPubkey', () {
     final groups = reservationGroup$.items;
@@ -561,6 +598,10 @@ class Trade extends Cubit<TradeState> {
 
     switch (action) {
       case TradeAction.cancel:
+        if (current.stage is NegotiationStage) {
+          await cancelNegotiation();
+          return;
+        }
         await ReservationActions(
           trade: this,
           reservations: getIt<Reservations>(),
