@@ -258,8 +258,8 @@ class _PaymentConfirmForm extends StatelessWidget {
           AmountTapInput(
             controller: controller.amountController,
             hintText: 'Amount',
-            min: minAmount,
-            max: maxAmount,
+            min: [?minAmount],
+            max: [?maxAmount],
             required: true,
             enabled: isReady && !isLoading,
             editable: isEditable,

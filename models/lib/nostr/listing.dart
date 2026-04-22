@@ -5,6 +5,20 @@ import 'package:ndk/ndk.dart';
 
 const _publishedAtTag = 'published_at';
 
+final List<DenominatedAmount> listingPricesMin = List.unmodifiable([
+  DenominatedAmount(
+    denomination: 'BTC',
+    value: BigInt.from(5000),
+    decimals: DenominatedAmount.decimalsFor('BTC'),
+  ),
+  DenominatedAmount(
+    denomination: 'USD',
+    value: BigInt.from(5) *
+        BigInt.from(10).pow(DenominatedAmount.decimalsFor('USD')),
+    decimals: DenominatedAmount.decimalsFor('USD'),
+  ),
+]);
+
 // ── Tag-read mixin ──────────────────────────────────────────────────────────
 // Defines all tag-promoted field getters ONCE. Mixed into both ListingTags
 // and Listing so callers can use either `listing.negotiable` or

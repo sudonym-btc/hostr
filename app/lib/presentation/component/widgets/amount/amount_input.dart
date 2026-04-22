@@ -25,41 +25,9 @@ var compactFormat = (bool fiat) => NumberFormat.compact(locale: "en_US");
 
 final _commaFormat = NumberFormat('#,##0', 'en_US');
 
-typedef AmountLimitResolver =
-    DenominatedAmount? Function(DenominatedAmount amount);
-
-const kListingReservationMinimumSats = 5000;
-const kListingReservationMinimumUsd = 5;
-
-DenominatedAmount? listingReservationMinimumFor(DenominatedAmount amount) {
-  if (amount.isBtc) {
-    return DenominatedAmount(
-      denomination: amount.denomination,
-      value: _scaleAmount(
-        BigInt.from(kListingReservationMinimumSats),
-        fromDecimals: 8,
-        toDecimals: amount.decimals,
-      ),
-      decimals: amount.decimals,
-    );
-  }
-
-  if (amount.isUsd) {
-    return DenominatedAmount(
-      denomination: amount.denomination,
-      value:
-          BigInt.from(kListingReservationMinimumUsd) *
-          BigInt.from(10).pow(amount.decimals),
-      decimals: amount.decimals,
-    );
-  }
-
-  return null;
-}
-
-DenominatedAmount? highestComparableMinimum(
+DenominatedAmount? highestComparableAmount(
   DenominatedAmount amount,
-  Iterable<DenominatedAmount?> limits,
+  Iterable<DenominatedAmount> limits,
 ) {
   DenominatedAmount? result;
   for (final limit in limits) {
@@ -68,6 +36,23 @@ DenominatedAmount? highestComparableMinimum(
       continue;
     }
     if (result == null || comparable.value > result.value) {
+      result = comparable;
+    }
+  }
+  return result;
+}
+
+DenominatedAmount? lowestComparableAmount(
+  DenominatedAmount amount,
+  Iterable<DenominatedAmount> limits,
+) {
+  DenominatedAmount? result;
+  for (final limit in limits) {
+    final comparable = _comparableLimit(amount, limit);
+    if (comparable == null) {
+      continue;
+    }
+    if (result == null || comparable.value < result.value) {
       result = comparable;
     }
   }
@@ -84,16 +69,13 @@ bool amountIsAboveLimit(DenominatedAmount amount, DenominatedAmount? limit) {
   return comparable != null && amount.value > comparable.value;
 }
 
-BigInt _scaleAmount(
-  BigInt value, {
-  required int fromDecimals,
-  required int toDecimals,
+bool amountIsWithinLimits(
+  DenominatedAmount amount, {
+  required Iterable<DenominatedAmount> min,
+  required Iterable<DenominatedAmount> max,
 }) {
-  if (fromDecimals == toDecimals) {
-    return value;
-  }
-  final factor = BigInt.from(10).pow((fromDecimals - toDecimals).abs());
-  return fromDecimals > toDecimals ? value ~/ factor : value * factor;
+  return !amountIsBelowLimit(amount, highestComparableAmount(amount, min)) &&
+      !amountIsAboveLimit(amount, lowestComparableAmount(amount, max));
 }
 
 DenominatedAmount? _comparableLimit(
@@ -103,7 +85,9 @@ DenominatedAmount? _comparableLimit(
   if (limit == null || limit.denomination != amount.denomination) {
     return null;
   }
-  return limit.decimals == amount.decimals ? limit : limit.rescale(amount.decimals);
+  return limit.decimals == amount.decimals
+      ? limit
+      : limit.rescale(amount.decimals);
 }
 
 /// Returns the amount expressed in satoshis for BTC-family tokens.
@@ -228,10 +212,8 @@ class AmountTapInput extends StatefulWidget {
   final String? labelText;
   final String? hintText;
   final String? suffixText;
-  final DenominatedAmount? min;
-  final DenominatedAmount? max;
-  final AmountLimitResolver? minForAmount;
-  final AmountLimitResolver? maxForAmount;
+  final List<DenominatedAmount> min;
+  final List<DenominatedAmount> max;
   final List<String> possibleDenominations;
   final bool enabled;
   final bool editable;
@@ -248,10 +230,8 @@ class AmountTapInput extends StatefulWidget {
     this.labelText,
     this.hintText,
     this.suffixText,
-    this.min,
-    this.max,
-    this.minForAmount,
-    this.maxForAmount,
+    this.min = const [],
+    this.max = const [],
     this.possibleDenominations = const [],
     this.enabled = true,
     this.editable = true,
@@ -370,10 +350,8 @@ class _AmountTapInputState extends State<AmountTapInput> {
     final result = await AmountEditorBottomSheet.show(
       context,
       initialAmount: _displayAmount,
-      minAmount: widget.min,
-      maxAmount: widget.max,
-      minForAmount: widget.minForAmount,
-      maxForAmount: widget.maxForAmount,
+      minAmounts: widget.min,
+      maxAmounts: widget.max,
       possibleDenominations: widget.possibleDenominations,
       onDenominationChanged: widget.controller.setDenomination,
     );
@@ -398,28 +376,28 @@ class _AmountTapInputState extends State<AmountTapInput> {
       return 'Enter a valid amount';
     }
     final effectiveMin = effectiveAmount == null
-        ? widget.min
-        : widget.minForAmount?.call(effectiveAmount) ?? widget.min;
+        ? null
+        : highestComparableAmount(effectiveAmount, widget.min);
     final effectiveMax = effectiveAmount == null
-        ? widget.max
-        : widget.maxForAmount?.call(effectiveAmount) ?? widget.max;
+        ? null
+        : lowestComparableAmount(effectiveAmount, widget.max);
     if (effectiveAmount != null &&
         amountIsBelowLimit(effectiveAmount, effectiveMin)) {
-      return 'Amount must be at least ${formatAmount(_comparableLimit(effectiveAmount, effectiveMin)!)}';
+      final min = _comparableLimit(effectiveAmount, effectiveMin)!;
+      return 'Amount must be at least ${formatAmount(min)}';
     }
     if (effectiveAmount != null &&
         amountIsAboveLimit(effectiveAmount, effectiveMax)) {
-      return 'Amount must be at most ${formatAmount(_comparableLimit(effectiveAmount, effectiveMax)!)}';
+      final max = _comparableLimit(effectiveAmount, effectiveMax)!;
+      return 'Amount must be at most ${formatAmount(max)}';
     }
     return widget.validator?.call(effectiveAmount);
   }
 }
 
 class AmountInputWidget extends FormField<DenominatedAmount> {
-  final DenominatedAmount? min;
-  final DenominatedAmount? max;
-  final AmountLimitResolver? minForAmount;
-  final AmountLimitResolver? maxForAmount;
+  final List<DenominatedAmount> min;
+  final List<DenominatedAmount> max;
 
   /// Denominations the user may switch between (e.g. `['BTC', 'USD']`).
   ///
@@ -436,28 +414,31 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
   /// Fired when the user submits the keypad with Enter or numpad Enter.
   final VoidCallback? onSubmitted;
 
+  /// Fired when the current keypad amount enters or exits the valid range.
+  final ValueChanged<bool>? onValidityChanged;
+
   AmountInputWidget({
     super.key,
     initialValue,
-    this.min,
-    this.max,
-    this.minForAmount,
-    this.maxForAmount,
+    this.min = const [],
+    this.max = const [],
     this.possibleDenominations = const [],
     this.onDenominationChanged,
     this.onSubmitted,
+    this.onValidityChanged,
   }) : super(
          initialValue: initialValue ?? DenominatedAmount.zero('BTC', 8),
          builder: (field) {
            final amountInput = field.widget as AmountInputWidget;
            final value = field.value!;
-           final effectiveMin =
-               amountInput.minForAmount?.call(value) ?? amountInput.min;
-           final effectiveMax =
-               amountInput.maxForAmount?.call(value) ?? amountInput.max;
+           final effectiveMin = highestComparableAmount(value, amountInput.min);
+           final effectiveMax = lowestComparableAmount(value, amountInput.max);
            final isOutOfRange =
                amountIsBelowLimit(value, effectiveMin) ||
                amountIsAboveLimit(value, effectiveMax);
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+             amountInput.onValidityChanged?.call(!isOutOfRange);
+           });
            final denominations = amountInput.possibleDenominations;
            final activeDenomination = value.denomination;
            return Focus(
@@ -522,7 +503,7 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
                                    : null,
                              ),
                        ),
-                       if (amountInput.min != null || amountInput.max != null)
+                       if (effectiveMin != null || effectiveMax != null)
                          CustomPadding.only(
                            top: kSpace1,
                            child: Text(
@@ -759,20 +740,16 @@ bool _applyAmountEditorInput(
 /// A bottom sheet that allows the user to edit an amount within an optional range.
 class AmountEditorBottomSheet extends StatefulWidget {
   final DenominatedAmount initialAmount;
-  final DenominatedAmount? minAmount;
-  final DenominatedAmount? maxAmount;
-  final AmountLimitResolver? minForAmount;
-  final AmountLimitResolver? maxForAmount;
+  final List<DenominatedAmount> minAmounts;
+  final List<DenominatedAmount> maxAmounts;
   final List<String> possibleDenominations;
   final ValueChanged<String>? onDenominationChanged;
 
   const AmountEditorBottomSheet({
     super.key,
     required this.initialAmount,
-    this.minAmount,
-    this.maxAmount,
-    this.minForAmount,
-    this.maxForAmount,
+    this.minAmounts = const [],
+    this.maxAmounts = const [],
     this.possibleDenominations = const [],
     this.onDenominationChanged,
   });
@@ -782,10 +759,8 @@ class AmountEditorBottomSheet extends StatefulWidget {
   static Future<DenominatedAmount?> show(
     BuildContext context, {
     required DenominatedAmount initialAmount,
-    DenominatedAmount? minAmount,
-    DenominatedAmount? maxAmount,
-    AmountLimitResolver? minForAmount,
-    AmountLimitResolver? maxForAmount,
+    List<DenominatedAmount> minAmounts = const [],
+    List<DenominatedAmount> maxAmounts = const [],
     List<String> possibleDenominations = const [],
     ValueChanged<String>? onDenominationChanged,
   }) {
@@ -793,10 +768,8 @@ class AmountEditorBottomSheet extends StatefulWidget {
       context,
       builder: (_) => AmountEditorBottomSheet(
         initialAmount: initialAmount,
-        minAmount: minAmount,
-        maxAmount: maxAmount,
-        minForAmount: minForAmount,
-        maxForAmount: maxForAmount,
+        minAmounts: minAmounts,
+        maxAmounts: maxAmounts,
         possibleDenominations: possibleDenominations,
         onDenominationChanged: onDenominationChanged,
       ),
@@ -810,19 +783,32 @@ class AmountEditorBottomSheet extends StatefulWidget {
 
 class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
   final _formFieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
+  final _isAmountValid = ValueNotifier<bool>(true);
 
-  DenominatedAmount? _minFor(DenominatedAmount amount) =>
-      widget.minForAmount?.call(amount) ?? widget.minAmount;
+  @override
+  void dispose() {
+    _isAmountValid.dispose();
+    super.dispose();
+  }
 
-  DenominatedAmount? _maxFor(DenominatedAmount amount) =>
-      widget.maxForAmount?.call(amount) ?? widget.maxAmount;
+  bool _isValid(DenominatedAmount amount) {
+    return amountIsWithinLimits(
+      amount,
+      min: widget.minAmounts,
+      max: widget.maxAmounts,
+    );
+  }
+
+  void _setAmountValidity(bool isValid) {
+    if (_isAmountValid.value == isValid) {
+      return;
+    }
+    _isAmountValid.value = isValid;
+  }
 
   void _submitAmount() {
     final amount = _formFieldKey.currentState?.value ?? widget.initialAmount;
-    final isValid =
-        !amountIsBelowLimit(amount, _minFor(amount)) &&
-        !amountIsAboveLimit(amount, _maxFor(amount));
-    if (isValid) {
+    if (_isValid(amount)) {
       Navigator.of(context).pop(amount);
     }
   }
@@ -835,12 +821,11 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
         AmountInputWidget(
           key: _formFieldKey,
           initialValue: widget.initialAmount,
-          min: widget.minAmount,
-          max: widget.maxAmount,
-          minForAmount: widget.minForAmount,
-          maxForAmount: widget.maxForAmount,
+          min: widget.minAmounts,
+          max: widget.maxAmounts,
           possibleDenominations: widget.possibleDenominations,
           onDenominationChanged: widget.onDenominationChanged,
+          onValidityChanged: _setAmountValidity,
           onSubmitted: _submitAmount,
         ),
         Gap.vertical.lg(),
@@ -848,8 +833,14 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
           top: false,
           child: CustomPadding(
             top: 0,
-            child: ModalBottomSheetPrimaryButton(
-              onPressed: _submitAmount,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _isAmountValid,
+              builder: (context, isValid, child) {
+                return ModalBottomSheetPrimaryButton(
+                  onPressed: isValid ? _submitAmount : null,
+                  child: child!,
+                );
+              },
               child: Text(AppLocalizations.of(context)!.done),
             ),
           ),
