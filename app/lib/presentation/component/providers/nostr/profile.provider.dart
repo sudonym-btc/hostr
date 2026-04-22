@@ -35,6 +35,8 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
   StreamSubscription? _updatesSub;
   StreamSubscription? _relaySub;
   Set<String>? _knownRelayUrls;
+  bool _hasLoaded = false;
+  ProfileMetadata? _lastMetadata;
 
   @override
   void initState() {
@@ -45,6 +47,8 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
     _updatesSub = hostr.metadata.updates.listen((updatedProfile) {
       if (!mounted) return;
       if (updatedProfile.pubKey == widget.pubkey) {
+        _hasLoaded = true;
+        _lastMetadata = updatedProfile;
         widget.onDone?.call(updatedProfile);
         setState(() {
           _future = Future.value(updatedProfile);
@@ -62,6 +66,10 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
           if (_knownRelayUrls != null &&
               urls.difference(_knownRelayUrls!).isNotEmpty) {
             if (!mounted) return;
+            if (!_shouldRefreshAfterRelayChange()) {
+              _knownRelayUrls = urls;
+              return;
+            }
             setState(() {
               _future = _refreshNip65ThenLoad();
             });
@@ -74,6 +82,8 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
     return getIt<Hostr>().metadata
         .loadMetadata(widget.pubkey, forceRefresh: forceRefresh)
         .then((m) {
+          _hasLoaded = true;
+          _lastMetadata = m;
           if (m == null) {
             _logger.w(
               'Profile metadata missing for ${widget.pubkey}'
@@ -100,10 +110,16 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
     return _load(forceRefresh: true);
   }
 
+  bool _shouldRefreshAfterRelayChange() {
+    return _hasLoaded && _lastMetadata == null;
+  }
+
   @override
   void didUpdateWidget(ProfileProvider oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pubkey != widget.pubkey) {
+      _hasLoaded = false;
+      _lastMetadata = null;
       setState(() {
         _future = _load();
       });

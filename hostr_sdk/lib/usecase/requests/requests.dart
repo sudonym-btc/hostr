@@ -327,6 +327,8 @@ class Requests extends RequestsModel {
   });
 
   /// Canonical key for a filter, used to dedup identical in-flight queries.
+  // TODO: Include relays, timeout, cacheRead, and cacheWrite in this key so
+  // queries with the same filter but different request behavior do not merge.
   String _filterKey(Filter filter) {
     return jsonEncode(cleanTags(filter)?.toMap() ?? filter.toMap());
   }

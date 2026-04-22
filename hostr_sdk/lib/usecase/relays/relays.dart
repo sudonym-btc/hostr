@@ -21,6 +21,7 @@ class Relays {
   Future<void>? _reconnectNowFuture;
   DateTime? _lastReconnectNowAt;
   final Map<String, DateTime> _nextCoreRelayConnectTry = {};
+  final Map<String, Future<bool>> _inFlightNip65HintLoads = {};
   CustomLogger get logger => _logger;
   Ndk get ndk => _ndk;
   RelayStorage get relayStorage => _relayStorage;
@@ -255,28 +256,44 @@ class Relays {
   ///
   /// NDK's JIT engine connects to the selected read/write relays on demand, so
   /// startup does not need to eagerly connect to every relay in the list.
-  Future<bool> loadNip65Hints(String pubkey) =>
-      logger.span('loadNip65Hints', () async {
-        logger.i('Syncing NIP-65 relay list for $pubkey');
-        try {
-          await _discoverNip65OnBootstrapRelays(pubkey);
-          final relayList = await ndk.userRelayLists.getSingleUserRelayList(
-            pubkey,
-          );
-          if (relayList == null || relayList.urls.isEmpty) {
-            logger.i('No NIP-65 relay list found for $pubkey');
+  Future<bool> loadNip65Hints(String pubkey) {
+    final trimmedPubkey = pubkey.trim();
+    if (trimmedPubkey.isEmpty) return Future.value(false);
+
+    final existing = _inFlightNip65HintLoads[trimmedPubkey];
+    if (existing != null) return existing;
+
+    late final Future<bool> load;
+    load = logger
+        .span('loadNip65Hints', () async {
+          logger.i('Syncing NIP-65 relay list for $trimmedPubkey');
+          try {
+            await _discoverNip65OnBootstrapRelays(trimmedPubkey);
+            final relayList = await ndk.userRelayLists.getSingleUserRelayList(
+              trimmedPubkey,
+            );
+            if (relayList == null || relayList.urls.isEmpty) {
+              logger.i('No NIP-65 relay list found for $trimmedPubkey');
+              return false;
+            }
+            logger.i(
+              'Found ${relayList.urls.length} relays in NIP-65 list for '
+              '$trimmedPubkey: ${_describeRelayMarkers(relayList.relays)}',
+            );
+            return true;
+          } catch (e) {
+            logger.e('Error syncing NIP-65 relay list: $e');
             return false;
           }
-          logger.i(
-            'Found ${relayList.urls.length} relays in NIP-65 list for '
-            '$pubkey: ${_describeRelayMarkers(relayList.relays)}',
-          );
-          return true;
-        } catch (e) {
-          logger.e('Error syncing NIP-65 relay list: $e');
-          return false;
-        }
-      });
+        })
+        .whenComplete(() {
+          if (identical(_inFlightNip65HintLoads[trimmedPubkey], load)) {
+            _inFlightNip65HintLoads.remove(trimmedPubkey);
+          }
+        });
+    _inFlightNip65HintLoads[trimmedPubkey] = load;
+    return load;
+  }
 
   String _describeRelayMarkers(Map<String, ReadWriteMarker> relays) => relays
       .entries

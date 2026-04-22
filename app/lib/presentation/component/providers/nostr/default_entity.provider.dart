@@ -7,9 +7,9 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:provider/single_child_widget.dart';
 
-class DefaultEntityProvider<Type extends Event>
+class DefaultEntityProvider<T extends Event>
     extends SingleChildStatelessWidget {
-  final CrudUseCase<Type> crud;
+  final CrudUseCase<T> crud;
 
   /// Provide the kinds that this type is propagated as
   final List<int> kinds;
@@ -23,10 +23,10 @@ class DefaultEntityProvider<Type extends Event>
   /// Provide if you want to search for a specific pubkey
   final String? pubkey;
 
-  final Function(Type)? onDone;
+  final Function(T)? onDone;
 
   /// Provide a builder if you want to consume the cubit right away
-  final BlocWidgetBuilder<EntityCubitState<Type>>? builder;
+  final BlocWidgetBuilder<EntityCubitState<T>>? builder;
 
   /// Provide a child if you want to consume the cubit later
   final Widget? child;
@@ -55,14 +55,14 @@ class DefaultEntityProvider<Type extends Event>
         child ??
         this.child ??
         (builder != null
-            ? BlocBuilder<EntityCubit<Type>, EntityCubitState<Type>>(
+            ? BlocBuilder<EntityCubit<T>, EntityCubitState<T>>(
                 builder: builder!,
               )
             : null);
 
-    return BlocProvider<EntityCubit<Type>>(
+    return BlocProvider<EntityCubit<T>>(
       create: (context) =>
-          EntityCubit<Type>(
+          EntityCubit<T>(
               filter: Filter(
                 kinds: kinds,
                 authors: pubkey != null

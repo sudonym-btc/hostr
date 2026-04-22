@@ -239,7 +239,7 @@ class EscrowDaemon {
         }
       });
 
-      _eventSub = streamer.stream.listen((event) {
+      _eventSub = streamer.replayStream.listen((event) {
         if (event is EscrowFundedEvent) {
           _logger.i('Discovered trade: ${event.tradeId}  ${event.amount}');
           _startTradeListener(event.tradeId);
@@ -275,7 +275,7 @@ class EscrowDaemon {
       }
     });
 
-    _tradeEventSubs[tradeId] = streamer.stream.listen(
+    _tradeEventSubs[tradeId] = streamer.replayStream.listen(
       _onTradeEvent,
       onError: (e, st) => _logger.e('Trade $tradeId event error: $e'),
     );

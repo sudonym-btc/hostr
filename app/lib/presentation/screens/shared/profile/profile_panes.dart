@@ -374,8 +374,20 @@ class _FundsItemTile extends StatelessWidget {
     );
 
     final swapOp = item.chain.swapOut(params: params);
+    late final StreamSubscription<SwapOutState> refreshSub;
+    refreshSub = swapOp.stream.listen((state) async {
+      if (state is! SwapOutCompleted && state is! SwapOutRefunded) return;
+      await getIt<Hostr>().fundsMonitor.refetchAccount(
+        item.chain,
+        item.accountIndex,
+      );
+      await refreshSub.cancel();
+    });
 
-    if (!context.mounted) return;
+    if (!context.mounted) {
+      await refreshSub.cancel();
+      return;
+    }
     showAppModal(context, builder: (_) => SwapOutFlowWidget(cubit: swapOp));
   }
 }

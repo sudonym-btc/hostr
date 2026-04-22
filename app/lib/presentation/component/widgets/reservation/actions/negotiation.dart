@@ -246,14 +246,22 @@ class _CounterOfferSheetState extends State<_CounterOfferSheet> {
 
   bool get _isValid => _validateAmount(_amount) == null;
 
+  DenominatedAmount? _effectiveMin(DenominatedAmount amount) {
+    return highestComparableMinimum(amount, [
+      widget.minAmount,
+      listingReservationMinimumFor(amount),
+    ]);
+  }
+
   String? _validateAmount(DenominatedAmount? amount) {
     if (amount == null) {
       return 'Please enter a counter amount';
     }
-    if (widget.minAmount != null && amount.value < widget.minAmount!.value) {
-      return 'Amount must be at least ${formatAmount(widget.minAmount!)}';
+    final effectiveMin = _effectiveMin(amount);
+    if (amountIsBelowLimit(amount, effectiveMin)) {
+      return 'Amount must be at least ${formatAmount(effectiveMin!)}';
     }
-    if (widget.maxAmount != null && amount.value > widget.maxAmount!.value) {
+    if (amountIsAboveLimit(amount, widget.maxAmount)) {
       return 'Amount must be at most ${formatAmount(widget.maxAmount!)}';
     }
     return null;
@@ -290,6 +298,7 @@ class _CounterOfferSheetState extends State<_CounterOfferSheet> {
           initialValue: _amount,
           min: widget.minAmount,
           max: widget.maxAmount,
+          minForAmount: _effectiveMin,
         ),
       ),
       buttons: Row(

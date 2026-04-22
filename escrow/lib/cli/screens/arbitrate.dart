@@ -30,6 +30,20 @@ Future<Navigation> arbitrateScreen(
 
   final cached = data['cached'] as Map<String, dynamic>?;
   final onChain = data['onChain'] as Map<String, dynamic>?;
+  if (onChain == null) {
+    print('');
+    print(sectionHeader('Arbitrate: $tradeId'));
+    print('');
+    print(
+      '  This trade is in the local event cache, but it is not active '
+      'on the configured escrow contract.',
+    );
+    print('  It may have already settled, or this daemon may be pointed at');
+    print('  a different chain/contract than the one that funded the trade.');
+    print('');
+    pressAnyKey();
+    return Navigation(Screen.tradeDetail, selectedTradeId: tradeId);
+  }
   final amounts = _ArbitrationAmounts.from(cached: cached, onChain: onChain);
 
   print('');

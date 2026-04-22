@@ -50,6 +50,7 @@ class ThreadReplyView extends StatelessWidget {
         return KeyEventResult.handled;
       },
       child: TextField(
+        enabled: !isLoading,
         onChanged: onChanged,
         controller: controller,
         maxLines: 3,
@@ -119,6 +120,7 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
       _status = _ThreadReplyStatus.loading;
       _error = null;
     });
+    _replyController.clear();
 
     try {
       final thread = context.read<Thread>();
@@ -127,15 +129,15 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
       if (!mounted) return;
       setState(() {
         _status = _ThreadReplyStatus.success;
-        if (_replyController.text.trim() == message) {
-          _replyController.clear();
-        }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _status = _ThreadReplyStatus.error;
         _error = e.toString();
+        if (_replyController.text.trim().isEmpty) {
+          _replyController.text = message;
+        }
       });
     }
   }

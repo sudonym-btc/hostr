@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
@@ -60,6 +61,12 @@ class ExploreViewState extends State<ExploreView> {
     }
 
     _listingMapController.select(listingId);
+  }
+
+  @visibleForTesting
+  void refocusMapForScreenshot() {
+    _focusedListingId.value = null;
+    _listingMapController.focusAll();
   }
 
   void _resetPanel() {

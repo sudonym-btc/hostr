@@ -12,15 +12,7 @@ import 'package:artisanal/tui.dart';
 /// formatSats(1234567) // '1,234,567'
 /// ```
 String formatSats(int sats) {
-  final negative = sats < 0;
-  final digits = (negative ? -sats : sats).toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    final remaining = digits.length - i;
-    if (i > 0 && remaining % 3 == 0) buf.write(',');
-    buf.write(digits[i]);
-  }
-  return negative ? '-${buf.toString()}' : buf.toString();
+  return formatBigInt(BigInt.from(sats));
 }
 
 /// Formats a raw wei/smallest-unit amount as a human-readable decimal string.
@@ -31,17 +23,38 @@ String formatSats(int sats) {
 /// formatTokenAmount('1000000000000000000', 18, 'ETH') // '1.000000 ETH'
 /// ```
 String formatTokenAmount(String amountWei, int decimals, String symbol) {
-  if (decimals == 0) return '$amountWei $symbol';
-  final wei = BigInt.parse(amountWei);
+  final amount = BigInt.parse(amountWei);
+  final displaySymbol = symbol.trim();
+  final lowerSymbol = displaySymbol.toLowerCase();
+
+  if (lowerSymbol == 'sat' || lowerSymbol == 'sats' || lowerSymbol == 'btc') {
+    final sats =
+        decimals <= 8 ? amount : amount ~/ BigInt.from(10).pow(decimals - 8);
+    return '${formatBigInt(sats)} sats';
+  }
+
+  if (decimals == 0) return '$amountWei $displaySymbol';
   final divisor = BigInt.from(10).pow(decimals);
-  final whole = wei ~/ divisor;
-  final rem = wei % divisor;
+  final whole = amount ~/ divisor;
+  final rem = amount % divisor;
   // Show up to 8 fractional digits; strip trailing zeros but keep at least 2.
   final displayDecimals = decimals > 8 ? 8 : decimals;
   final remStr = rem.toString().padLeft(decimals, '0');
   final truncated = remStr.substring(0, displayDecimals);
   final trimmed = truncated.replaceAll(RegExp(r'0+$'), '').padRight(2, '0');
-  return '$whole.$trimmed $symbol';
+  return '$whole.$trimmed $displaySymbol';
+}
+
+String formatBigInt(BigInt value) {
+  final negative = value.isNegative;
+  final digits = (negative ? -value : value).toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    final remaining = digits.length - i;
+    if (i > 0 && remaining % 3 == 0) buf.write(',');
+    buf.write(digits[i]);
+  }
+  return negative ? '-${buf.toString()}' : buf.toString();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

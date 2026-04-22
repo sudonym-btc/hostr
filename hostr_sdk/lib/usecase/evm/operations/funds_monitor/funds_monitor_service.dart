@@ -757,71 +757,171 @@ class FundsMonitorService {
 
   Future<void> _sweep(List<FundsItem> items) =>
       _logger.span('_sweep', () async {
+        CustomLogger.telemetry.setSpanAttributes({
+          'hostr.user.pubkey': _auth.activeKeyPair?.publicKey ?? '',
+          'hostr.funds.item_count': items.length,
+        });
         if (items.isEmpty) {
           _logger.d('FundsMonitor sweep: no items');
         } else {
           _logger.d(
             'FundsMonitor sweep: ${items.length} item(s)\n'
-            '${items.map((i) => '  • ${i.chain.config.id} '
-                '${i.token.tagId} '
-                '${i.balance} '
-                '@${i.address.eip55With0x} '
-                '${i.isEscrowLocked
-                    ? "[escrow: ${i.contract!.address.eip55With0x}]"
-                    : i.isSmartAddress
-                    ? "[smart-wallet]"
-                    : "[EOA]"}').join('\n')}',
+            '${items.map((i) => '  • ${_fundsItemSummary(i)}').join('\n')}',
           );
         }
         for (final item in items) {
-          if (item.dust) {
-            _logger.d(
-              'FundsMonitor skipped dust: ${item.chain.config.id} '
-              '${item.token.tagId} ${item.balance.value} '
-              '@${item.address.eip55With0x}',
-            );
-            continue;
-          }
-          if (!await _passesGates(item)) continue;
+          await _logger.span(
+            '_evaluateItem',
+            () async {
+              _annotateFundsItem(item, gate: 'evaluate', gateResult: 'started');
+              _logger.i('FundsMonitor evaluating ${_fundsItemSummary(item)}');
 
-          await _executeSwapOut(item);
+              if (item.dust) {
+                _annotateFundsItem(
+                  item,
+                  gate: 'dust',
+                  gateResult: 'skipped',
+                  gateReason: 'below_swap_limit',
+                );
+                _logger.d(
+                  'FundsMonitor skipped dust: ${_fundsItemSummary(item)}',
+                );
+                return;
+              }
+              if (!await _passesGates(item)) return;
+
+              _annotateFundsItem(item, gate: 'all', gateResult: 'passed');
+              await _executeSwapOut(item);
+            },
+            attributes: _fundsItemTelemetryAttributes(
+              item,
+              gate: 'evaluate',
+              gateResult: 'started',
+            ),
+          );
         }
       });
 
   Future<bool> _passesGates(FundsItem item) async {
     try {
-      if (item.dust) return false;
+      _annotateFundsItem(item, gate: 'gates', gateResult: 'checking');
+
+      if (item.dust) {
+        _annotateFundsItem(
+          item,
+          gate: 'dust',
+          gateResult: 'skipped',
+          gateReason: 'below_swap_limit',
+        );
+        return false;
+      }
 
       final config = await _userConfigStore.state;
 
       // Gate 1: enabled?
-      if (!config.autoWithdrawEnabled) return false;
+      if (!config.autoWithdrawEnabled) {
+        _annotateFundsItem(
+          item,
+          gate: 'enabled',
+          gateResult: 'skipped',
+          gateReason: 'auto_withdraw_disabled',
+        );
+        _logger.i(
+          'FundsMonitor skipped: auto-withdraw disabled for '
+          '${_fundsItemSummary(item)}',
+        );
+        return false;
+      }
 
       // Guard: already swapping?
-      if (_swapInProgress) return false;
+      if (_swapInProgress) {
+        _annotateFundsItem(
+          item,
+          gate: 'local_swap_mutex',
+          gateResult: 'skipped',
+          gateReason: 'swap_in_progress',
+        );
+        _logger.i(
+          'FundsMonitor skipped: local swap already in progress for '
+          '${_fundsItemSummary(item)}',
+        );
+        return false;
+      }
 
       final destination = await item.chain.payments
           .resolveAutomaticInvoiceDestination();
       if (!destination.canCreateAutomatically) {
-        _logger.w(destination.error ?? 'Cannot sweep without payout details');
+        _annotateFundsItem(
+          item,
+          gate: 'destination',
+          gateResult: 'skipped',
+          gateReason: destination.error ?? 'missing_payout_details',
+        );
+        _logger.w(
+          'FundsMonitor skipped: ${destination.error ?? 'payout details missing'} '
+          'for ${_fundsItemSummary(item)}',
+        );
         return false;
       }
+      _annotateFundsItem(
+        item,
+        gate: 'destination',
+        gateResult: 'passed',
+        extra: {'hostr.funds.destination': destination.label},
+      );
 
       // Gate 2: Any escrow operations in flight?
       if (await _stateStore.hasNonTerminal('escrow_fund')) {
-        _logger.d('FundsMonitor skipped: escrow fund operation(s) in flight');
+        final states = await _operationStateSummary('escrow_fund');
+        _annotateFundsItem(
+          item,
+          gate: 'escrow_fund',
+          gateResult: 'skipped',
+          gateReason: 'non_terminal_operation',
+          extra: {'hostr.funds.blocking_operations': states},
+        );
+        _logger.d(
+          'FundsMonitor skipped: escrow fund operation(s) in flight '
+          'for ${_fundsItemSummary(item)}; operations=$states',
+        );
         return false;
       }
 
       // Gate 3: Any active (non-terminal) swaps already running?
-      if (await _stateStore.hasNonTerminal('swap_in') ||
-          await _stateStore.hasNonTerminal('swap_out')) {
-        _logger.d('FundsMonitor skipped: active swap(s) in progress');
+      if (await _stateStore.hasNonTerminal('swap_in')) {
+        final states = await _operationStateSummary('swap_in');
+        _annotateFundsItem(
+          item,
+          gate: 'swap_in',
+          gateResult: 'skipped',
+          gateReason: 'non_terminal_operation',
+          extra: {'hostr.funds.blocking_operations': states},
+        );
+        _logger.d(
+          'FundsMonitor skipped: swap-in operation(s) in progress '
+          'for ${_fundsItemSummary(item)}; operations=$states',
+        );
+        return false;
+      }
+      if (await _stateStore.hasNonTerminal('swap_out')) {
+        final states = await _operationStateSummary('swap_out');
+        _annotateFundsItem(
+          item,
+          gate: 'swap_out',
+          gateResult: 'skipped',
+          gateReason: 'non_terminal_operation',
+          extra: {'hostr.funds.blocking_operations': states},
+        );
+        _logger.d(
+          'FundsMonitor skipped: swap-out operation(s) in progress '
+          'for ${_fundsItemSummary(item)}; operations=$states',
+        );
         return false;
       }
 
       // Gate 5: fee ratio?
       try {
+        _annotateFundsItem(item, gate: 'fee_ratio', gateResult: 'checking');
         final swapParams = await _swapOutParams(item);
         final quote = await item.chain.swapOutQuote(params: swapParams);
         final networkFees = quote.feeBreakdown.networkFees;
@@ -832,24 +932,62 @@ class FundsMonitorService {
             : networkFees.value.toDouble() / item.balance.value.toDouble();
 
         if (feeRatio > maxFeeRatio) {
+          _annotateFundsItem(
+            item,
+            gate: 'fee_ratio',
+            gateResult: 'skipped',
+            gateReason: 'fee_ratio_exceeded',
+            extra: {
+              'hostr.funds.fee_ratio': feeRatio,
+              'hostr.funds.network_fee_raw': networkFees.value.toString(),
+              'hostr.funds.receive_amount_raw': quote.receiveAmount.value
+                  .toString(),
+            },
+          );
           _logger.d(
             'FundsMonitor skipped on ${item.chain.config.id}: fee ratio '
             '${(feeRatio * 100).toStringAsFixed(1)}% exceeds max '
-            '${(maxFeeRatio * 100).toStringAsFixed(1)}%',
+            '${(maxFeeRatio * 100).toStringAsFixed(1)}% for '
+            '${_fundsItemSummary(item)}',
           );
           return false;
         }
+        _annotateFundsItem(
+          item,
+          gate: 'fee_ratio',
+          gateResult: 'passed',
+          extra: {
+            'hostr.funds.fee_ratio': feeRatio,
+            'hostr.funds.network_fee_raw': networkFees.value.toString(),
+            'hostr.funds.receive_amount_raw': quote.receiveAmount.value
+                .toString(),
+          },
+        );
       } catch (e) {
-        _logger.w('FundsMonitor: could not get quote for gate check: $e');
+        _annotateFundsItem(
+          item,
+          gate: 'fee_ratio',
+          gateResult: 'skipped',
+          gateReason: 'quote_failed',
+        );
+        _logger.w(
+          'FundsMonitor: could not get quote for gate check on '
+          '${_fundsItemSummary(item)}: $e',
+        );
         return false;
       }
 
       return true;
     } catch (e, st) {
+      _annotateFundsItem(
+        item,
+        gate: 'gates',
+        gateResult: 'error',
+        gateReason: e.toString(),
+      );
       _logger.e(
         'FundsMonitor: _passesGates threw for '
-        '${item.chain.config.id} ${item.token.tagId} '
-        '@${item.address.eip55With0x}: $e\n$st',
+        '${_fundsItemSummary(item)}: $e\n$st',
       );
       return false;
     }
@@ -857,25 +995,26 @@ class FundsMonitorService {
 
   Future<void> _executeSwapOut(FundsItem item) async {
     _swapInProgress = true;
-    _logger.i(
-      'FundsMonitor: executing swap-out — '
-      '${item.chain.config.id} ${item.token.tagId} '
-      '${item.balance} '
-      '@${item.address.eip55With0x}'
-      '${item.isEscrowLocked
-          ? " [escrow: ${item.contract!.address.eip55With0x}]"
-          : item.isSmartAddress
-          ? " [smart-wallet]"
-          : " [EOA]"}',
-    );
+    _annotateFundsItem(item, gate: 'execute', gateResult: 'started');
+    _logger.i('FundsMonitor: executing swap-out — ${_fundsItemSummary(item)}');
     try {
       final swapOp = item.chain.swapOut(params: await _swapOutParams(item));
 
       await swapOp.execute();
 
       if (swapOp.state is SwapOutCompleted) {
+        _annotateFundsItem(
+          item,
+          gate: 'execute',
+          gateResult: 'completed',
+          extra: {
+            if (swapOp.state.data?.boltzId != null)
+              'hostr.swap.boltz_id': swapOp.state.data!.boltzId,
+          },
+        );
         _logger.i(
-          'FundsMonitor: swap-out completed on ${item.chain.config.id}',
+          'FundsMonitor: swap-out completed for ${_fundsItemSummary(item)} '
+          'boltzId=${swapOp.state.data?.boltzId}',
         );
 
         // Immediately evict the swapped item so it disappears from the
@@ -888,16 +1027,121 @@ class FundsMonitorService {
         await refetchAccount(item.chain, item.accountIndex);
       } else if (swapOp.state is SwapOutFailed) {
         final failed = swapOp.state as SwapOutFailed;
+        _annotateFundsItem(
+          item,
+          gate: 'execute',
+          gateResult: 'failed',
+          gateReason: failed.error.toString(),
+          extra: {
+            if (failed.data?.boltzId != null)
+              'hostr.swap.boltz_id': failed.data!.boltzId,
+          },
+        );
         _logger.e(
-          'FundsMonitor: swap-out failed on ${item.chain.config.id}: '
-          '${failed.error}',
+          'FundsMonitor: swap-out failed for ${_fundsItemSummary(item)} '
+          'boltzId=${failed.data?.boltzId}: ${failed.error}',
         );
       }
     } catch (e) {
-      _logger.e('FundsMonitor: swap-out threw on ${item.chain.config.id}: $e');
+      _annotateFundsItem(
+        item,
+        gate: 'execute',
+        gateResult: 'error',
+        gateReason: e.toString(),
+      );
+      _logger.e(
+        'FundsMonitor: swap-out threw for ${_fundsItemSummary(item)}: $e',
+      );
     } finally {
       _swapInProgress = false;
     }
+  }
+
+  Map<String, Object> _fundsItemTelemetryAttributes(
+    FundsItem item, {
+    String? gate,
+    String? gateResult,
+    String? gateReason,
+    Map<String, Object?> extra = const {},
+  }) {
+    final source = item.isEscrowLocked
+        ? 'escrow'
+        : item.isSmartAddress
+        ? 'smart_wallet'
+        : 'eoa';
+    final attributes = <String, Object>{
+      'hostr.user.pubkey': _auth.activeKeyPair?.publicKey ?? '',
+      'hostr.evm.chain': item.chain.config.id,
+      'hostr.evm.chain_id': item.chain.config.chainId,
+      'hostr.evm.account_index': item.accountIndex,
+      'hostr.evm.address': item.address.eip55With0x,
+      'hostr.token.tag': item.token.tagId,
+      'hostr.token.address': item.token.address,
+      'hostr.funds.amount_raw': item.balance.value.toString(),
+      'hostr.funds.amount_display': item.balance.toString(),
+      'hostr.funds.source': source,
+      'hostr.funds.dust': item.dust,
+      if (item.contract != null)
+        'hostr.funds.escrow_contract': item.contract!.address.eip55With0x,
+    };
+    if (gate != null) attributes['hostr.funds.gate'] = gate;
+    if (gateResult != null) {
+      attributes['hostr.funds.gate_result'] = gateResult;
+    }
+    if (gateReason != null) {
+      attributes['hostr.funds.gate_reason'] = gateReason;
+    }
+    for (final entry in extra.entries) {
+      final value = entry.value;
+      if (value != null) attributes[entry.key] = value;
+    }
+    return attributes;
+  }
+
+  void _annotateFundsItem(
+    FundsItem item, {
+    String? gate,
+    String? gateResult,
+    String? gateReason,
+    Map<String, Object?> extra = const {},
+  }) {
+    CustomLogger.telemetry.setSpanAttributes(
+      _fundsItemTelemetryAttributes(
+        item,
+        gate: gate,
+        gateResult: gateResult,
+        gateReason: gateReason,
+        extra: extra,
+      ),
+    );
+  }
+
+  String _fundsItemSummary(FundsItem item) {
+    final source = item.isEscrowLocked
+        ? 'escrow:${item.contract!.address.eip55With0x}'
+        : item.isSmartAddress
+        ? 'smart-wallet'
+        : 'EOA';
+    return 'pubkey=${_auth.activeKeyPair?.publicKey ?? 'unknown'} '
+        'chain=${item.chain.config.id}/${item.chain.config.chainId} '
+        'account=${item.accountIndex} address=${item.address.eip55With0x} '
+        'token=${item.token.tagId}:${item.token.address} '
+        'amountRaw=${item.balance.value} amount=${item.balance} '
+        'source=$source dust=${item.dust}';
+  }
+
+  Future<String> _operationStateSummary(String namespace) async {
+    final entries = await _stateStore.readAll(namespace);
+    return entries
+        .map((entry) {
+          final id = entry['id'] ?? entry['boltzId'] ?? 'unknown';
+          final state = entry['state'] ?? 'unknown';
+          final step = entry['failedAtStep'];
+          return step == null
+              ? '$namespace/$id:$state'
+              : '$namespace/$id:$state@$step';
+        })
+        .join(',');
   }
 
   // ── Param builder ────────────────────────────────────────────────────────

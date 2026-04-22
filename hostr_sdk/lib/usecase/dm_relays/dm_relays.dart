@@ -67,9 +67,13 @@ class DmRelays {
        _logger = logger.scope('dmRelays');
 
   Future<List<String>> relaysFor(
-    String pubkey,
-  ) => _logger.span('relaysFor', () async {
-    final queryRelays = await discoveryRelaysFor(pubkey);
+    String pubkey, {
+    UserRelayList? nip65RelayList,
+  }) => _logger.span('relaysFor', () async {
+    final queryRelays = await discoveryRelaysFor(
+      pubkey,
+      nip65RelayList: nip65RelayList,
+    );
     Nip01Event? latest;
 
     await for (final event in _requests.query<Nip01Event>(
@@ -92,23 +96,29 @@ class DmRelays {
     return relays;
   });
 
-  Future<List<String>> discoveryRelaysFor(String pubkey) async {
-    UserRelayList? nip65RelayList;
-    try {
-      await _relays.loadNip65Hints(pubkey);
-      nip65RelayList = await _ndk.userRelayLists.getSingleUserRelayList(pubkey);
-    } catch (error, stackTrace) {
-      _logger.w(
-        'Failed to load NIP-65 relays for DM relay discovery: $pubkey',
-        error: error,
-        stackTrace: stackTrace,
-      );
+  Future<List<String>> discoveryRelaysFor(
+    String pubkey, {
+    UserRelayList? nip65RelayList,
+  }) async {
+    var resolvedNip65RelayList = nip65RelayList;
+    if (resolvedNip65RelayList == null) {
+      try {
+        await _relays.loadNip65Hints(pubkey);
+        resolvedNip65RelayList = await _ndk.userRelayLists
+            .getSingleUserRelayList(pubkey);
+      } catch (error, stackTrace) {
+        _logger.w(
+          'Failed to load NIP-65 relays for DM relay discovery: $pubkey',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
 
     return resolveDmRelayDiscoveryRelays(
       bootstrapRelays: _config.bootstrapRelays,
       hostrRelay: _config.hostrRelay,
-      nip65RelayList: nip65RelayList,
+      nip65RelayList: resolvedNip65RelayList,
     );
   }
 

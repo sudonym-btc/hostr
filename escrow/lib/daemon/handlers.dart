@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:escrow/build_info.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:models/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
@@ -64,7 +65,9 @@ class DaemonHandler {
     };
   }
 
-  Map<String, dynamic> _listTrades(json_rpc.Parameters params) {
+  Future<Map<String, dynamic>> _listTrades(json_rpc.Parameters params) async {
+    await _reconcileFundedTrades();
+
     final threads = hostr.messaging.threads;
     final trades = daemon.trades.values.toList()
       ..sort((a, b) {
@@ -100,6 +103,8 @@ class DaemonHandler {
     TradeSnapshot snapshot,
   ) async {
     final json = _snapshotJson(snapshot);
+    json['tokenSymbol'] = _resolveTokenSymbol(json['tokenAddress'] as String);
+
     final updatedBlockNum = snapshot.updatedBlockNum;
     if (updatedBlockNum == null) return json;
 
@@ -134,7 +139,10 @@ class DaemonHandler {
     final tradeId = params['tradeId'].asString;
 
     // Try in-memory first, then fall back to on-chain lookup.
-    final snapshot = daemon.getTrade(tradeId);
+    var snapshot = daemon.getTrade(tradeId);
+    if (snapshot?.status == TradeStatus.funded) {
+      snapshot = await _reconcileTradeSnapshot(snapshot!);
+    }
     final onChain = await contract.getTrade(tradeId);
     final tokenAddress = onChain?.token.eip55With0x;
     final token = tokenAddress != null
@@ -206,7 +214,10 @@ class DaemonHandler {
     // even if the trade was created with a non-default account index.
     final onChain = await contract.getTrade(tradeId);
     if (onChain == null) {
-      throw json_rpc.RpcException(-32001, 'Trade not found on chain: $tradeId');
+      throw json_rpc.RpcException(
+        -32001,
+        'Trade is not active on the configured escrow contract: $tradeId',
+      );
     }
     if (!onChain.isActive) {
       throw json_rpc.RpcException(
@@ -239,16 +250,126 @@ class DaemonHandler {
 
     // Eagerly update the in-memory cache so the CLI sees the new status
     // immediately, without waiting for the event stream.
-    final existing = daemon.getTrade(tradeId);
+    final existing = _cachedTradeFor(tradeId);
     if (existing != null) {
-      daemon.updateTrade(existing.copyWith(
-        status: TradeStatus.arbitrated,
-        lastTxHash: '$txHash',
-        updatedAt: DateTime.now().toUtc(),
-      ));
+      daemon.updateTrade(
+        existing.copyWith(
+          status: TradeStatus.arbitrated,
+          lastTxHash: '$txHash',
+          updatedAt: DateTime.now().toUtc(),
+        ),
+      );
     }
 
     return {'txHash': '$txHash'};
+  }
+
+  Future<void> _reconcileFundedTrades() async {
+    final funded = daemon.trades.values
+        .where((trade) => trade.status == TradeStatus.funded)
+        .toList(growable: false);
+
+    for (final snapshot in funded) {
+      await _reconcileTradeSnapshot(snapshot);
+    }
+  }
+
+  Future<TradeSnapshot> _reconcileTradeSnapshot(TradeSnapshot snapshot) async {
+    final terminal = await _latestTerminalEvent(snapshot.tradeId);
+    if (terminal != null) {
+      final updated = _snapshotFromTerminalEvent(snapshot, terminal);
+      daemon.updateTrade(updated);
+      return updated;
+    }
+
+    final active = await contract.getTrade(snapshot.tradeId);
+    if (active == null) {
+      final updated = snapshot.copyWith(
+        status: TradeStatus.unknown,
+        updatedAt: DateTime.now().toUtc(),
+      );
+      daemon.updateTrade(updated);
+      return updated;
+    }
+
+    return snapshot;
+  }
+
+  Future<EscrowEvent?> _latestTerminalEvent(String tradeId) async {
+    final events = contract.allEvents(
+      ContractEventsParams(tradeId: tradeId),
+      null,
+      includeLive: false,
+    );
+    try {
+      final status = await events.status.firstWhere(
+        (status) =>
+            status is StreamStatusQueryComplete ||
+            status is StreamStatusLive ||
+            status is StreamStatusError,
+      );
+      if (status is StreamStatusError) return null;
+
+      final terminals = events.items.where(
+        (event) =>
+            event is EscrowArbitratedEvent ||
+            event is EscrowReleasedEvent ||
+            event is EscrowClaimedEvent,
+      );
+      return terminals.fold<EscrowEvent?>(null, (latest, event) {
+        if (latest == null) return event;
+        return event.blockNum >= latest.blockNum ? event : latest;
+      });
+    } finally {
+      await events.close();
+    }
+  }
+
+  TradeSnapshot _snapshotFromTerminalEvent(
+    TradeSnapshot snapshot,
+    EscrowEvent event,
+  ) {
+    final status = switch (event) {
+      EscrowArbitratedEvent() => TradeStatus.arbitrated,
+      EscrowReleasedEvent() => TradeStatus.released,
+      EscrowClaimedEvent() => TradeStatus.claimed,
+      _ => snapshot.status,
+    };
+    final txHash = switch (event) {
+      EscrowArbitratedEvent arbitrated => arbitrated.transactionHash,
+      EscrowReleasedEvent released => released.transactionHash,
+      EscrowClaimedEvent claimed => claimed.transactionHash,
+      _ => snapshot.lastTxHash,
+    };
+    return snapshot.copyWith(
+      status: status,
+      lastTxHash: txHash,
+      updatedAt: DateTime.now().toUtc(),
+      updatedBlockNum: event.blockNum,
+    );
+  }
+
+  TradeSnapshot? _cachedTradeFor(String tradeId) {
+    final exact = daemon.getTrade(tradeId);
+    if (exact != null) return exact;
+
+    final normalized = _normalizeTradeIdOrNull(tradeId);
+    if (normalized == null) return null;
+
+    for (final trade in daemon.trades.values) {
+      if (_normalizeTradeIdOrNull(trade.tradeId) == normalized) {
+        return trade;
+      }
+    }
+    return null;
+  }
+
+  String? _normalizeTradeIdOrNull(String tradeId) {
+    try {
+      return normalizeBytes32Hex(tradeId);
+    } catch (_) {
+      return null;
+    }
   }
 
   Map<String, dynamic> _listThreads(json_rpc.Parameters params) {

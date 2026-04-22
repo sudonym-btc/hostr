@@ -124,10 +124,6 @@ class Trade extends Cubit<TradeState> {
          (review) => review.parsedTags.listingAnchor == listingAnchor,
        ),
        super(const TradeInitialising()) {
-    _logger.d('Payment events: ${userSubscriptions.paymentEvents$.items}');
-    userSubscriptions.paymentEvents$.replayStream.listen((event) {
-      _logger.d('${event.tradeId} $tradeId payment event: $event');
-    });
     _subscriptions.add(
       Rx.combineLatest3(
         reservationGroup$.status,

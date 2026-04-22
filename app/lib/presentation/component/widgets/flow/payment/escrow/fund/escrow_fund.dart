@@ -231,16 +231,22 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
               if (snapshot.connectionState != ConnectionState.done) {
                 return Text(
                   AppLocalizations.of(context)!.estimatingFees,
+                  key: const ValueKey('loading-payment-fees'),
                   style: subtleStyle,
                 );
               }
 
               if (snapshot.hasError || snapshot.data == null) {
-                return Text('Unable to estimate fees', style: subtleStyle);
+                return Text(
+                  'Unable to estimate fees',
+                  key: const ValueKey('error-payment-fees'),
+                  style: subtleStyle,
+                );
               }
 
               final fees = snapshot.data!;
               return Column(
+                key: const ValueKey('loaded-payment-fees'),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (!fees.gasSponsored)
