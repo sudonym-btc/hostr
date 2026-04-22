@@ -150,15 +150,16 @@ class AppAvatar extends StatelessWidget {
     final bgColor =
         color ?? Theme.of(context).colorScheme.surfaceContainerHighest;
     final diameter = radius * 2;
+    final imageRef = image?.trim();
 
     // Resolved BlossomImage takes priority.
-    if (image != null && pubkey != null) {
+    if (imageRef != null && imageRef.isNotEmpty && pubkey != null) {
       return CircleAvatar(
         radius: radius,
         backgroundColor: bgColor,
         child: ClipOval(
           child: BlossomImage(
-            image: image!,
+            image: imageRef,
             pubkey: pubkey!,
             width: diameter,
             height: diameter,

@@ -43,35 +43,44 @@ class ListingReviewsList extends StatelessWidget {
         if (items.isEmpty) {
           if (reviewsLoading ||
               snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: AppLoadingIndicator.large());
+            return const Center(
+              key: ValueKey('loading-review-list'),
+              child: AppLoadingIndicator.large(),
+            );
           }
 
-          return EmtyResultsWidget(
-            leading: Icon(
-              Icons.rate_review_outlined,
-              size: kIconHero,
-              color: Theme.of(context).colorScheme.primary,
+          return KeyedSubtree(
+            key: const ValueKey('loaded-review-list-empty'),
+            child: EmtyResultsWidget(
+              leading: Icon(
+                Icons.rate_review_outlined,
+                size: kIconHero,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: AppLocalizations.of(context)!.noReviewsYet,
+              subtitle: isOwner
+                  ? null
+                  : 'Be the first guest to share feedback for this listing.',
             ),
-            title: AppLocalizations.of(context)!.noReviewsYet,
-            subtitle: isOwner
-                ? null
-                : 'Be the first guest to share feedback for this listing.',
           );
         }
 
-        return AdaptiveList(
-          children: [
-            for (final item in items) ...[
-              Gap.vertical.lg(),
-              if (item is Invalid<Review>)
-                InvalidReviewWrapper(
-                  reason: item.reason,
-                  child: ReviewListItem(review: item.event),
-                )
-              else
-                ReviewListItem(review: item.event),
+        return KeyedSubtree(
+          key: ValueKey('loaded-review-list-${items.length}'),
+          child: AdaptiveList(
+            children: [
+              for (final item in items) ...[
+                Gap.vertical.lg(),
+                if (item is Invalid<Review>)
+                  InvalidReviewWrapper(
+                    reason: item.reason,
+                    child: ReviewListItem(review: item.event),
+                  )
+                else
+                  ReviewListItem(review: item.event),
+              ],
             ],
-          ],
+          ),
         );
       },
     );

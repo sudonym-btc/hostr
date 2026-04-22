@@ -26,6 +26,17 @@ class EvmSwapOutOperation extends SwapOutOperation {
   final SwapQuoteService quoteService;
   final Payments payments;
 
+  @override
+  Map<String, Object?> get telemetryAttributes => {
+    ...super.telemetryAttributes,
+    'hostr.evm.chain': chain.config.id,
+    'hostr.evm.chain_id': chain.config.chainId,
+    if (_requestedTokenAddress != null)
+      'hostr.swap.requested_token_address': _requestedTokenAddress!.eip55With0x,
+    if (params.boltzTokenAddress != null)
+      'hostr.swap.boltz_token_address': params.boltzTokenAddress!.eip55With0x,
+  };
+
   EthereumAddress? get _requestedTokenAddress {
     // When a DEX hop was injected by buildSwapOutQuote, params.boltzTokenAddress
     // holds the bridge token (tBTC). Use it for all Boltz API calls so the
@@ -64,9 +75,22 @@ class EvmSwapOutOperation extends SwapOutOperation {
 
   Future<SwapOutState> _stepCreateSwap() =>
       logger.span('_stepCreateSwap', () async {
+        applyTelemetry();
         emit(SwapOutRequestCreated());
 
         final quote = await _buildQuote();
+        _annotateQuote(quote);
+        logger.i(
+          'Swap-out quote ready: pubkey=${auth.activeKeyPair?.publicKey} '
+          'chain=${chain.config.id}/${chain.config.chainId} '
+          'account=${params.accountIndex} '
+          'address=${params.evmKey.address.with0x} '
+          'send=${quote.sendAmount.value} ${quote.sendAmount.token.tagId} '
+          'receive=${quote.receiveAmount.getInSats} sats '
+          'networkFeeRaw=${quote.feeBreakdown.networkFees.value} '
+          'gasSponsored=${quote.feeBreakdown.gasSponsored} '
+          'dex=${quote.dexQuote != null}',
+        );
         final acquiredInvoice = await _acquireInvoice(quote);
         final invoiceDetails = _decodeSwapOutInvoice(
           acquiredInvoice.invoice,
@@ -187,6 +211,12 @@ class EvmSwapOutOperation extends SwapOutOperation {
           tokenAddress: data.tokenAddress,
         );
         if (claimEvent != null) {
+          CustomLogger.telemetry.setSpanAttributes({
+            'hostr.swap.boltz_id': data.boltzId,
+            'hostr.swap.outcome': 'completed',
+            'hostr.swap.last_boltz_status': 'transaction.claimed',
+            'hostr.swap.resolution_source': 'onchain_claim',
+          });
           logger.i('Found claim on-chain for ${data.boltzId} — swap succeeded');
           return SwapOutCompleted(
             data.copyWith(lastBoltzStatus: 'transaction.claimed'),
@@ -199,6 +229,11 @@ class EvmSwapOutOperation extends SwapOutOperation {
           tokenAddress: data.tokenAddress,
         );
         if (refundEvent != null) {
+          CustomLogger.telemetry.setSpanAttributes({
+            'hostr.swap.boltz_id': data.boltzId,
+            'hostr.swap.outcome': 'refunded',
+            'hostr.swap.resolution_source': 'onchain_refund',
+          });
           logger.i('Found refund on-chain for ${data.boltzId}');
           return SwapOutRefunded(
             data.copyWith(resolutionTxHash: refundEvent.transactionHash),
@@ -209,6 +244,10 @@ class EvmSwapOutOperation extends SwapOutOperation {
         try {
           final boltzResponse = await boltz.getSwap(id: data.boltzId);
           final status = boltzResponse.status;
+          CustomLogger.telemetry.setSpanAttributes({
+            'hostr.swap.boltz_id': data.boltzId,
+            'hostr.swap.last_boltz_status': status,
+          });
 
           // Boltz reports the invoice was paid — verify with preimage
           // proof before trusting it. The on-chain claim tx may arrive
@@ -225,6 +264,10 @@ class EvmSwapOutOperation extends SwapOutOperation {
           // Swap was created but we never locked funds — safe to abandon
           if (data.lockTxHash == null &&
               (status == 'swap.expired' || status == 'swap.created')) {
+            CustomLogger.telemetry.setSpanAttributes({
+              'hostr.swap.outcome': 'abandoned',
+              'hostr.swap.failure_reason': 'never_funded',
+            });
             logger.i('Swap ${data.boltzId} never funded, safe to abandon');
             return SwapOutFailed(
               'Swap abandoned — funds were never locked.',
@@ -236,6 +279,10 @@ class EvmSwapOutOperation extends SwapOutOperation {
           if (status == 'invoice.failedToPay' ||
               status == 'transaction.lockupFailed' ||
               status == 'swap.expired') {
+            CustomLogger.telemetry.setSpanAttributes({
+              'hostr.swap.outcome': 'refund_attempt',
+              'hostr.swap.failure_reason': status,
+            });
             logger.w('Boltz reported $status for ${data.boltzId} — refunding');
             return await _attemptRefund(data.copyWith(lastBoltzStatus: status));
           }
@@ -351,6 +398,12 @@ class EvmSwapOutOperation extends SwapOutOperation {
       final expectedHash = data.invoicePreimageHashHex.toLowerCase();
 
       if (computedHash == expectedHash) {
+        CustomLogger.telemetry.setSpanAttributes({
+          'hostr.swap.boltz_id': data.boltzId,
+          'hostr.swap.outcome': 'completed',
+          'hostr.swap.last_boltz_status': reportedStatus,
+          'hostr.swap.preimage_verified': true,
+        });
         logger.i(
           'Preimage verified for ${data.boltzId}: '
           'SHA-256($normalized) == $expectedHash ✓',
@@ -359,6 +412,13 @@ class EvmSwapOutOperation extends SwapOutOperation {
       }
 
       // Hash mismatch — Boltz provided an invalid preimage.
+      CustomLogger.telemetry.setSpanAttributes({
+        'hostr.swap.boltz_id': data.boltzId,
+        'hostr.swap.outcome': 'waiting',
+        'hostr.swap.last_boltz_status': reportedStatus,
+        'hostr.swap.preimage_verified': false,
+        'hostr.swap.failure_reason': 'preimage_hash_mismatch',
+      });
       logger.e(
         'Preimage verification FAILED for ${data.boltzId}: '
         'SHA-256($normalized) = $computedHash, '
@@ -368,6 +428,13 @@ class EvmSwapOutOperation extends SwapOutOperation {
     } catch (e) {
       // Preimage not yet available (Boltz may not have revealed it yet)
       // or network error. Fall back to waiting for the next status update.
+      CustomLogger.telemetry.setSpanAttributes({
+        'hostr.swap.boltz_id': data.boltzId,
+        'hostr.swap.outcome': 'waiting',
+        'hostr.swap.last_boltz_status': reportedStatus,
+        'hostr.swap.preimage_verified': false,
+        'hostr.swap.failure_reason': 'preimage_fetch_failed',
+      });
       logger.w(
         'Could not fetch/verify preimage for ${data.boltzId}: $e — '
         'continuing to wait',
@@ -514,11 +581,26 @@ class EvmSwapOutOperation extends SwapOutOperation {
     SwapQuote quote,
     int creationBlock,
   ) => logger.span('_prepareSwap', () async {
+    _annotateQuote(quote);
     final swap = await chain.swaps!.submarine(
       invoice: invoiceDetails.invoice,
       tokenAddress: _requestedTokenAddress,
     );
-    logger.i('Submarine swap created: ${swap.toString()}');
+    CustomLogger.telemetry.setSpanAttributes({
+      'hostr.swap.boltz_id': swap.id,
+      'hostr.swap.expected_amount_sats': swap.expectedAmount.ceil(),
+      if (swap.timeoutBlockHeight != null)
+        'hostr.swap.timeout_block_height': swap.timeoutBlockHeight!.toInt(),
+    });
+    logger.i(
+      'Submarine swap created: boltzId=${swap.id} '
+      'pubkey=${auth.activeKeyPair?.publicKey} '
+      'chain=${chain.config.id}/${chain.config.chainId} '
+      'account=${params.accountIndex} address=${params.evmKey.address.with0x} '
+      'requestedToken=${_requestedTokenAddress?.eip55With0x ?? 'native'} '
+      'expectedAmountSats=${swap.expectedAmount.ceil()} '
+      'timeoutBlockHeight=${swap.timeoutBlockHeight}',
+    );
 
     final gasFee = quote.gasFee;
 
@@ -564,12 +646,45 @@ class EvmSwapOutOperation extends SwapOutOperation {
       tokenAddress: _requestedTokenAddress?.eip55With0x,
       preLockCalls: params.preLockCalls,
     );
-    logger.i('Swap-out data persisted for ${swap.id} before lock');
+    CustomLogger.telemetry.setSpanAttributes({
+      'hostr.swap.boltz_id': data.boltzId,
+      'hostr.swap.lock_amount_raw': data.lockedAmountWeiHex,
+      'hostr.swap.locker_address': data.lockerAddress,
+      'hostr.swap.claim_address': data.claimAddress,
+      if (data.tokenAddress != null)
+        'hostr.swap.lock_token_address': data.tokenAddress!,
+      'hostr.swap.pre_lock_calls': data.preLockCalls?.keys.join(',') ?? '',
+    });
+    logger.i(
+      'Swap-out data persisted before lock: boltzId=${data.boltzId} '
+      'pubkey=${auth.activeKeyPair?.publicKey} account=${data.accountIndex} '
+      'locker=${data.lockerAddress} lockAmountHex=${data.lockedAmountWeiHex} '
+      'lockToken=${data.tokenAddress ?? 'native'} '
+      'preLockCalls=${data.preLockCalls?.keys.join(',') ?? 'none'}',
+    );
     return SwapOutAwaitingOnChain(data);
   });
 
   Future<SwapQuote> _buildQuote() =>
       quoteService.buildSwapOutQuote(chain: chain, params: params);
+
+  void _annotateQuote(SwapQuote quote) {
+    CustomLogger.telemetry.setSpanAttributes({
+      ...telemetryAttributes,
+      'hostr.swap.send_token_tag': quote.sendAmount.token.tagId,
+      'hostr.swap.send_token_address': quote.sendAmount.token.address,
+      'hostr.swap.send_amount_raw': quote.sendAmount.value.toString(),
+      'hostr.swap.receive_amount_sats': quote.receiveAmount.getInSats,
+      'hostr.swap.network_fee_raw': quote.feeBreakdown.networkFees.value
+          .toString(),
+      'hostr.swap.gas_sponsored': quote.feeBreakdown.gasSponsored,
+      'hostr.swap.dex_hop': quote.dexQuote != null,
+      if (quote.dexQuote != null) ...{
+        'hostr.swap.dex_amount_in_raw': quote.dexQuote!.amountIn.toString(),
+        'hostr.swap.dex_amount_out_raw': quote.dexQuote!.amountOut.toString(),
+      },
+    });
+  }
 
   Uint8List _decodePaymentHash(String paymentHash) {
     final normalized = paymentHash.startsWith('0x')

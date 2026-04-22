@@ -25,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/app.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/in_app_notification_toast.dart';
+import 'package:hostr/presentation/screens/guest/explore/explore_view.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -75,7 +76,10 @@ bool _hasKeyPrefix(Widget widget, String prefix) {
   return key is ValueKey && key.value.toString().startsWith(prefix);
 }
 
-Future<void> _waitForExploreFeedback(WidgetTester tester) async {
+Future<void> _waitForReviewsAndStaysSummary(
+  WidgetTester tester, {
+  required String label,
+}) async {
   final loadedReviews = find.byWidgetPredicate(
     (widget) => _hasKeyPrefix(widget, 'loaded-reviews-'),
   );
@@ -103,8 +107,107 @@ Future<void> _waitForExploreFeedback(WidgetTester tester) async {
     });
   }
 
-  debugPrint('📸 Explore feedback still loading after wait; capturing anyway');
+  debugPrint('📸 $label review/stay summary still loading; capturing anyway');
   await _settle(tester, frames: 40);
+}
+
+Future<void> _waitForListingFeedback(WidgetTester tester) async {
+  await _waitForReviewsAndStaysSummary(tester, label: 'Listing');
+
+  final loadedReviewList = find.byWidgetPredicate(
+    (widget) => _hasKeyPrefix(widget, 'loaded-review-list-'),
+  );
+  final loadingReviewList = find.byKey(const ValueKey('loading-review-list'));
+
+  for (var i = 0; i < 40; i++) {
+    await _settle(tester, frames: 5);
+
+    final reviewListLoaded =
+        loadedReviewList.evaluate().isNotEmpty &&
+        loadingReviewList.evaluate().isEmpty;
+    if (reviewListLoaded) {
+      await _settle(tester, frames: 20);
+      return;
+    }
+
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    });
+  }
+
+  debugPrint('📸 Listing review list still loading; capturing anyway');
+  await _settle(tester, frames: 40);
+}
+
+Future<void> _waitForPaymentFees(WidgetTester tester) async {
+  final loadedFees = find.byKey(const ValueKey('loaded-payment-fees'));
+  final loadingFees = find.byKey(const ValueKey('loading-payment-fees'));
+  final errorFees = find.byKey(const ValueKey('error-payment-fees'));
+
+  for (var i = 0; i < 60; i++) {
+    await _settle(tester, frames: 5);
+
+    if (errorFees.evaluate().isNotEmpty) {
+      throw StateError('Payment fee estimate failed before screenshot');
+    }
+
+    final feesLoaded =
+        loadedFees.evaluate().isNotEmpty && loadingFees.evaluate().isEmpty;
+    if (feesLoaded) {
+      await _settle(tester, frames: 20);
+      return;
+    }
+
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    });
+  }
+
+  throw StateError('Payment fees did not load before screenshot');
+}
+
+void _refocusExploreMapForScreenshot(WidgetTester tester) {
+  final exploreElements = find.byType(ExploreView).evaluate().toList();
+  if (exploreElements.length != 1) {
+    debugPrint(
+      '📸 Explore map refocus skipped; found ${exploreElements.length} views',
+    );
+    return;
+  }
+
+  final state = (exploreElements.single as StatefulElement).state;
+  if (state is ExploreViewState) {
+    state.refocusMapForScreenshot();
+  }
+}
+
+Future<void> _waitForExploreMapRefocus(WidgetTester tester) async {
+  _refocusExploreMapForScreenshot(tester);
+  await _settle(tester, frames: 10);
+
+  // Google Maps on web applies camera bounds inside the platform view. Give it
+  // a little real time after focusAll() so all markers finish refitting.
+  for (var i = 0; i < 12; i++) {
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    });
+    await _settle(tester, frames: 8);
+  }
+}
+
+Future<void> _takeScreenshot(
+  IntegrationTestWidgetsFlutterBinding binding,
+  String path,
+) async {
+  await binding
+      .takeScreenshot(path)
+      .timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('📸 Screenshot handoff still pending: $path; continuing');
+          return <int>[];
+        },
+      );
 }
 
 typedef _ScreenshotFixture = ({SeedUser guest, Listing listing});
@@ -151,7 +254,7 @@ Future<void> _takeScreenshots(
   appRouter.navigate(SignInRoute());
   await _settle(tester);
   debugPrint('📸 [$mode] ✓ login');
-  await binding.takeScreenshot('screenshots/$mode/login.png');
+  await _takeScreenshot(binding, 'screenshots/$mode/login.png');
 
   // ── 1. Log in + connect wallet ────────────────────────────
   // On web, tester.enterText doesn't reliably trigger onChanged so the
@@ -172,32 +275,34 @@ Future<void> _takeScreenshots(
   appRouter.navigate(ProfileRoute());
   await _settle(tester);
   debugPrint('📸 [$mode] ✓ profile');
-  await binding.takeScreenshot('screenshots/$mode/profile.png');
+  await _takeScreenshot(binding, 'screenshots/$mode/profile.png');
 
   // ── 3. Home / explore ────────────────────────────────────────────
   appRouter.navigate(ExploreRoute());
   await _settle(tester);
-  await _waitForExploreFeedback(tester);
+  await _waitForReviewsAndStaysSummary(tester, label: 'Explore');
+  await _waitForExploreMapRefocus(tester);
   debugPrint('📸 [$mode] ✓ explore');
-  await binding.takeScreenshot('screenshots/$mode/explore.png');
+  await _takeScreenshot(binding, 'screenshots/$mode/explore.png');
 
   // ── 4. Trips ────────────────────────────────────────────────────
   appRouter.navigate(TripsRoute());
   await _settle(tester);
   debugPrint('📸 [$mode] ✓ trips');
-  await binding.takeScreenshot('screenshots/$mode/trips.png');
+  await _takeScreenshot(binding, 'screenshots/$mode/trips.png');
 
   // ── 5. Listing detail ───────────────────────────────────────────
   appRouter.navigate(ListingRoute(a: fixture.listing.naddr()!));
   await _settle(tester);
+  await _waitForListingFeedback(tester);
   debugPrint('📸 [$mode] ✓ listing');
-  await binding.takeScreenshot('screenshots/$mode/listing.png');
+  await _takeScreenshot(binding, 'screenshots/$mode/listing.png');
 
   // ── 6. Inbox ────────────────────────────────────────────────────
   appRouter.navigate(InboxRoute());
   await _settle(tester);
   debugPrint('📸 [$mode] ✓ threads');
-  await binding.takeScreenshot('screenshots/$mode/threads.png');
+  await _takeScreenshot(binding, 'screenshots/$mode/threads.png');
 
   // ── 7. Thread detail ────────────────────────────────────────────
   final threadMap = getIt<Hostr>().messaging.threads.threads;
@@ -205,7 +310,7 @@ Future<void> _takeScreenshots(
     appRouter.navigate(ThreadRoute(anchor: threadMap.keys.first));
     await _settle(tester);
     debugPrint('📸 [$mode] ✓ thread');
-    await binding.takeScreenshot('screenshots/$mode/thread.png');
+    await _takeScreenshot(binding, 'screenshots/$mode/thread.png');
 
     // ── 8. Tap "Pay" → payment modal ──────────────────────────────
     // Find a thread that shows the Pay button (pending threads where
@@ -224,8 +329,9 @@ Future<void> _takeScreenshots(
     if (payFinder.evaluate().isNotEmpty) {
       await tester.tap(payFinder.first);
       await _settle(tester);
+      await _waitForPaymentFees(tester);
       debugPrint('📸 [$mode] ✓ payment');
-      await binding.takeScreenshot('screenshots/$mode/payment.png');
+      await _takeScreenshot(binding, 'screenshots/$mode/payment.png');
 
       // The modal is pushed on the root navigator (useRootNavigator: true),
       // so appRouter.navigate() won't dismiss it. Pop via the root navigator.

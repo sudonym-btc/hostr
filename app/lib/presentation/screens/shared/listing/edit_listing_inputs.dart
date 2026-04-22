@@ -98,6 +98,7 @@ class PriceInput extends StatelessWidget {
           hintText: 'Tap to set price',
           suffixText: '/ day',
           possibleDenominations: possibleDenominations,
+          minForAmount: listingReservationMinimumFor,
           required: true,
           validator: (_) => controller.priceField.validatePrice(),
         );
@@ -435,6 +436,7 @@ class SecurityDepositInput extends StatelessWidget {
       controller: controller.securityDepositField,
       hintText: 'Tap to set deposit',
       possibleDenominations: possibleDenominations,
+      minForAmount: listingReservationMinimumFor,
     );
   }
 }
@@ -455,6 +457,7 @@ class MinPaymentInput extends StatelessWidget {
       controller: controller.minPaymentField,
       hintText: 'Tap to set minimum',
       possibleDenominations: possibleDenominations,
+      minForAmount: listingReservationMinimumFor,
     );
   }
 }

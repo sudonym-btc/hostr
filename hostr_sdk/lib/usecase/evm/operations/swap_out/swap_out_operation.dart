@@ -47,6 +47,24 @@ abstract class SwapOutOperation
   String get namespace => 'swap_out';
 
   @override
+  Map<String, Object?> get telemetryAttributes => {
+    ...super.telemetryAttributes,
+    'hostr.user.pubkey': auth.activeKeyPair?.publicKey,
+    'hostr.evm.account_index': params.accountIndex,
+    'hostr.evm.address': params.evmKey.address.with0x,
+    if (params.amountSpec?.amount != null) ...{
+      'hostr.swap.input_token_tag': params.amountSpec!.amount.token.tagId,
+      'hostr.swap.input_token_address': params.amountSpec!.amount.token.address,
+      'hostr.swap.input_amount_raw': params.amountSpec!.amount.value.toString(),
+      'hostr.swap.input_amount_display': params.amountSpec!.amount.toString(),
+    },
+    if (params.boltzTokenAddress != null)
+      'hostr.swap.boltz_token_address': params.boltzTokenAddress!.eip55With0x,
+    if (params.preLockCalls != null)
+      'hostr.swap.pre_lock_calls': params.preLockCalls!.keys.join(','),
+  };
+
+  @override
   List<StepGuard<SwapOutStep>> get steps => const [
     StepGuard(
       step: SwapOutStep.createSwap,

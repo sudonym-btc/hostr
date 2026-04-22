@@ -66,11 +66,16 @@ class _TestDmRelays extends DmRelays {
        );
 
   @override
-  Future<List<String>> relaysFor(String pubkey) async => existingRelays;
+  Future<List<String>> relaysFor(
+    String pubkey, {
+    UserRelayList? nip65RelayList,
+  }) async => existingRelays;
 
   @override
-  Future<List<String>> discoveryRelaysFor(String pubkey) async =>
-      discoveryRelays;
+  Future<List<String>> discoveryRelaysFor(
+    String pubkey, {
+    UserRelayList? nip65RelayList,
+  }) async => discoveryRelays;
 }
 
 void main() {

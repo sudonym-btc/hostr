@@ -94,6 +94,18 @@ void main() {
       expect(meta.blurhash, 'LEHV6nWB2yk8pyo0adR*.7kCMdnj');
     });
 
+    test('ignores blank image tags from existing listing events', () {
+      final listing = _listing(
+        images: const [
+          '',
+          '   ',
+          'https://blossom.example/optimised.webp',
+        ],
+      );
+
+      expect(listing.images, const ['https://blossom.example/optimised.webp']);
+    });
+
     test('rebuild keeps imeta only for retained images', () {
       final listing = _listing(
         images: const [

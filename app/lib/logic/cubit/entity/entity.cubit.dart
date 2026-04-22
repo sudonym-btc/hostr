@@ -31,6 +31,7 @@ class EntityCubit<T extends Event> extends Cubit<EntityCubitState<T>> {
   void _retryOnConnectivityChange() {
     if (isClosed) return;
     if (state is! EntityCubitStateError<T>) return;
+    if (state.data != null) return;
     if (state.active) return;
 
     final now = DateTime.now();

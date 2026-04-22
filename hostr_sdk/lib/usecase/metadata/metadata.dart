@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:injectable/injectable.dart';
+import 'package:meta/meta.dart';
 import 'package:models/main.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/ndk.dart' hide Requests;
@@ -26,6 +27,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   final BlossomUseCase _blossom;
   final Evm _evm;
   final HostrConfig _config;
+  final Map<String, Future<ProfileMetadata?>> _inFlightLoads = {};
 
   MetadataUseCase({
     required Auth auth,
@@ -65,7 +67,49 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   Future<ProfileMetadata?> loadMetadata(
     String pubkey, {
     bool forceRefresh = false,
-  }) => logger.span('loadMetadata', () async {
+  }) {
+    final trimmedPubkey = pubkey.trim();
+    if (trimmedPubkey.isEmpty) return Future.value(null);
+
+    // A force refresh is a stronger request, so regular callers can share it
+    // instead of opening a parallel non-force metadata query for the same key.
+    if (!forceRefresh) {
+      final forceKey = _metadataLoadKey(trimmedPubkey, forceRefresh: true);
+      final forceLoad = _inFlightLoads[forceKey];
+      if (forceLoad != null) return forceLoad;
+    }
+
+    final key = _metadataLoadKey(trimmedPubkey, forceRefresh: forceRefresh);
+    final existing = _inFlightLoads[key];
+    if (existing != null) return existing;
+
+    late final Future<ProfileMetadata?> load;
+    load = logger
+        .span(
+          'loadMetadata',
+          () => loadMetadataFromSources(
+            trimmedPubkey,
+            forceRefresh: forceRefresh,
+          ),
+        )
+        .whenComplete(() {
+          if (identical(_inFlightLoads[key], load)) {
+            _inFlightLoads.remove(key);
+          }
+        });
+    _inFlightLoads[key] = load;
+    return load;
+  }
+
+  String _metadataLoadKey(String pubkey, {required bool forceRefresh}) =>
+      '$pubkey|forceRefresh=$forceRefresh';
+
+  @protected
+  @visibleForTesting
+  Future<ProfileMetadata?> loadMetadataFromSources(
+    String pubkey, {
+    required bool forceRefresh,
+  }) async {
     final cachedOrJit = await _ndk.metadata.loadMetadata(
       pubkey,
       forceRefresh: forceRefresh,
@@ -82,7 +126,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     }
 
     return null;
-  });
+  }
 
   Future<ProfileMetadata?> _loadMetadataFromDiscoveryRelays(
     String pubkey,

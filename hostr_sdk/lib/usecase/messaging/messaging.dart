@@ -68,24 +68,51 @@ class Messaging {
     String content,
     List<List<String>> tags,
     List<String> recipientPubkeys,
-  ) => _logger.span('getRumour', () async {
-    _logger.d(
-      'Creating rumor with content: $content, tags: $tags, recipientPubkeys: $recipientPubkeys',
-    );
+  ) => _getRumour(content, tags, recipientPubkeys, kind: kNostrKindDM);
+
+  @visibleForTesting
+  Future<Nip01Event> getJsonRumour(
+    String content,
+    List<List<String>> tags,
+    List<String> recipientPubkeys, {
+    String? altText,
+  }) => _getRumour(
+    content,
+    tags,
+    recipientPubkeys,
+    kind: kNostrKindJsonMessage,
+    altText: altText,
+  );
+
+  Future<Nip01Event> _getRumour(
+    String content,
+    List<List<String>> tags,
+    List<String> recipientPubkeys, {
+    required int kind,
+    String? altText,
+  }) => _logger.span('getRumour', () async {
     final myPubkey = _ndk.accounts.getPublicKey();
     if (myPubkey == null) {
       throw Exception('cannot create rumor: no logged-in pubkey');
     }
-    return Nip01Event(
+    final rumor = Nip01Event(
       pubKey: myPubkey,
       content: content,
-      kind: kNostrKindDM,
+      kind: kind,
       tags: [
         ...tags,
+        if (altText != null &&
+            !tags.any((tag) => tag.isNotEmpty && tag.first == 'alt'))
+          ['alt', altText],
         ...recipientPubkeys.map((pubkey) => ['p', pubkey]),
       ],
       createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
+    _logger.d(
+      'Created rumor kind=${rumor.kind} with content: ${rumor.content}, '
+      'tags: ${rumor.tags}, recipientPubkeys: $recipientPubkeys',
+    );
+    return rumor;
   });
 
   Future<List<Future<List<RelayBroadcastResponse>>>> _broadcastRumour(
@@ -158,7 +185,10 @@ class Messaging {
 
     List<String> dmRelays = const [];
     try {
-      dmRelays = await _dmRelays.relaysFor(recipientPubkey);
+      dmRelays = await _dmRelays.relaysFor(
+        recipientPubkey,
+        nip65RelayList: recipientRelayList,
+      );
     } catch (error, stackTrace) {
       _logger.w(
         'Failed to load NIP-17 DM relays for giftwrap recipient $recipientPubkey',
@@ -204,7 +234,12 @@ class Messaging {
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
   }) => _logger.span('broadcastEventAndWait', () async {
-    final rumor = await getRumour(event.toString(), tags, recipientPubkeys);
+    final rumor = await getJsonRumour(
+      event.toString(),
+      tags,
+      recipientPubkeys,
+      altText: _altTextForJsonEvent(event),
+    );
     await _broadcastRumour(rumor, recipientPubkeys);
     return threads.awaitEventId(rumor.id);
   });
@@ -214,12 +249,26 @@ class Messaging {
     required List<List<String>> tags,
     required List<String> recipientPubkeys,
   }) => _logger.span('broadcastEvent', () async {
-    return broadcastText(
-      content: event.toString(),
-      tags: tags,
-      recipientPubkeys: recipientPubkeys,
+    _logger.d(
+      'Broadcasting JSON event: ${event.toString()} to $recipientPubkeys '
+      'with tags: $tags',
     );
+    final rumor = await getJsonRumour(
+      event.toString(),
+      tags,
+      recipientPubkeys,
+      altText: _altTextForJsonEvent(event),
+    );
+    return _broadcastRumour(rumor, recipientPubkeys);
   });
+
+  String? _altTextForJsonEvent(Nip01Event event) {
+    return switch (event.kind) {
+      kNostrKindReservation => 'Reservation Proposal',
+      kNostrKindEscrowServiceSelected => 'Escrow Service Selected',
+      _ => null,
+    };
+  }
 
   /// Broadcasts a kind:16 seen receipt gift-wrapped to each recipient + self.
   /// No expiration is set on the gift wrap.

@@ -15,7 +15,11 @@ mixin ListingTagRead {
 
   // ── NIP-99 tag-promoted fields ────────────────────────────────────
   String get title => tagSource.getTagValue('title') ?? '';
-  List<String> get images => tagSource.getTags('image');
+  List<String> get images => tagSource
+      .getTags('image')
+      .map((image) => image.trim())
+      .where((image) => image.isNotEmpty)
+      .toList();
   List<IMeta> get imageMetas => tagSource.tags
       .where((tag) => tag.isNotEmpty && tag.first == 'imeta')
       .map(IMeta.fromTag)
