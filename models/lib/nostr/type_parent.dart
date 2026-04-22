@@ -7,16 +7,25 @@ abstract class ParentTypeNostrEvent<ChildType extends Event,
   final ChildType? child;
 
   ParentTypeNostrEvent(
-      {required super.pubKey,
-      required super.kind,
-      required super.tagParser,
+      {required String pubKey,
+      required int kind,
+      required EventTagsParser<TagsType> tagParser,
       this.child,
       String? content,
-      required super.tags,
-      super.sig,
-      super.id,
-      super.createdAt})
-      : super(content: child?.toString() ?? content!) {}
+      required TagsType tags,
+      String? sig,
+      String? id,
+      int? createdAt})
+      : super(
+          pubKey: pubKey,
+          kind: kind,
+          tagParser: tagParser,
+          content: child?.toString() ?? content!,
+          tags: tags,
+          sig: sig,
+          id: id,
+          createdAt: createdAt,
+        ) {}
 
   ParentTypeNostrEvent.fromNostrEvent(
     Nip01Event e, {

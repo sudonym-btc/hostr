@@ -166,7 +166,8 @@ class Auth {
   // ---------------------------------------------------------------------------
 
   void _syncAuthState() {
-    _emitAuthState(activeKeyPair != null ? const LoggedIn() : LoggedOut());
+    final activePubkey = activeKeyPair?.publicKey;
+    _emitAuthState(activePubkey != null ? LoggedIn(activePubkey) : LoggedOut());
   }
 
   Future<void> updateMaxAccountIndex(int maxAccountIndex) async {
@@ -207,7 +208,7 @@ abstract class AuthState extends Equatable {
   const AuthState();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 /// Initial state of authentication.
@@ -224,5 +225,10 @@ class LoggedOut extends AuthState {}
 
 /// State representing a logged-in user.
 class LoggedIn extends AuthState {
-  const LoggedIn();
+  final String? pubkey;
+
+  const LoggedIn([this.pubkey]);
+
+  @override
+  List<Object?> get props => [pubkey];
 }

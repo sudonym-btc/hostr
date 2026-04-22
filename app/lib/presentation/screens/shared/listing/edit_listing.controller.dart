@@ -51,8 +51,13 @@ class EditListingController extends UpsertFormController {
   // ── State initialisation ────────────────────────────────────────
   void setState(Listing? data) {
     l = data;
+    final metasByUrl = {
+      for (final meta in data?.imageMetas ?? const <IMeta>[]) meta.url: meta,
+    };
     imageField.setImages(
-      (data?.images ?? []).map((i) => CustomImage.path(i)).toList(),
+      (data?.images ?? [])
+          .map((i) => CustomImage.path(i, imeta: metasByUrl[i]))
+          .toList(),
     );
     titleField.setState(data?.title ?? '');
     descriptionField.setState(data?.description ?? '');
@@ -80,6 +85,7 @@ class EditListingController extends UpsertFormController {
 
     final current = l!;
     final images = imageField.resolvedPaths;
+    final imageMetas = imageField.resolvedIMetas;
 
     final h3Tags = locationController.h3Tags;
     var extraTags = h3Tags.isEmpty
@@ -104,6 +110,7 @@ class EditListingController extends UpsertFormController {
       quantity: current.quantity,
       type: current.listingType,
       images: images,
+      imageMetas: imageMetas,
       specifications: specField.specifications,
       instantBook: current.instantBook,
       securityDeposit: securityDepositField.amount,

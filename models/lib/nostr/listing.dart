@@ -16,6 +16,11 @@ mixin ListingTagRead {
   // ── NIP-99 tag-promoted fields ────────────────────────────────────
   String get title => tagSource.getTagValue('title') ?? '';
   List<String> get images => tagSource.getTags('image');
+  List<IMeta> get imageMetas => tagSource.tags
+      .where((tag) => tag.isNotEmpty && tag.first == 'imeta')
+      .map(IMeta.fromTag)
+      .where((meta) => meta.url.isNotEmpty)
+      .toList();
 
   bool get active => tagSource.getTagBool('active', defaultValue: true);
   bool get negotiable => tagSource.getTagBool('negotiable');
@@ -146,6 +151,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     required String title,
     required String description,
     required List<String> images,
+    List<IMeta> imageMetas = const [],
     // Tag fields (searchable)
     required List<Price> price,
     required String location,
@@ -175,7 +181,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
         (TagBuilder()
               ..add('d', dTag)
               ..add('title', title)
-              ..addImages(images)
+              ..addAll(_imageTags(images, imageMetas))
+              ..addIMetas(imageMetas)
               ..add('t', 'accommodation')
               ..add(_publishedAtTag, eventCreatedAt.toString())
               ..addBool('active', active)
@@ -236,6 +243,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     String? title,
     String? description,
     List<String>? images,
+    List<IMeta>? imageMetas,
     // Event-level
     String? pubKey,
     int? createdAt,
@@ -249,6 +257,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     final stripKeys = {
       'title',
       'image',
+      'imeta',
       't',
       'active',
       'negotiable',
@@ -273,6 +282,9 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     final preserved = parsedTags.tags
         .where((t) => t.isNotEmpty && !stripKeys.contains(t.first))
         .toList();
+    final updatedImages = images ?? this.images;
+    final updatedImageMetas =
+        imageMetas ?? _imageMetasForImages(updatedImages, this.imageMetas);
 
     return Listing(
       pubKey: pubKey ?? this.pubKey,
@@ -281,7 +293,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
         (TagBuilder()
               ..addAll(preserved)
               ..add('title', title ?? this.title)
-              ..addImages(images ?? this.images)
+              ..addAll(_imageTags(updatedImages, updatedImageMetas))
+              ..addIMetas(updatedImageMetas)
               ..add('t', 'accommodation')
               ..add(_publishedAtTag, firstPublishedAt.toString())
               ..addBool('active', active ?? this.active)
@@ -327,6 +340,27 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       ),
       content: description ?? this.description,
     );
+  }
+
+  static List<List<String>> _imageTags(
+    List<String> images,
+    List<IMeta> imageMetas,
+  ) {
+    final metaByUrl = {
+      for (final meta in imageMetas)
+        if (meta.url.isNotEmpty) meta.url: meta,
+    };
+    return images
+        .map((url) => metaByUrl[url]?.toImageTag() ?? ['image', url])
+        .toList();
+  }
+
+  static List<IMeta> _imageMetasForImages(
+    List<String> images,
+    List<IMeta> existingMetas,
+  ) {
+    final urls = images.toSet();
+    return existingMetas.where((meta) => urls.contains(meta.url)).toList();
   }
 
   /// Whether two date ranges overlap using **half-open interval** semantics.

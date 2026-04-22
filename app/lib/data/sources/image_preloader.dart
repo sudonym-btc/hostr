@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/widgets.dart';
+import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart';
 
 /// A service that preloads and caches images, supporting both regular network
 /// URLs and Blossom SHA-256 hashes that require server-list resolution first.
@@ -69,14 +71,22 @@ class ImagePreloader {
   Future<void> preloadImages(
     List<String> imageRefs, {
     required String pubkey,
+    Iterable<IMeta> imageMetas = const [],
+    BlossomImageVariantHint variantHint = BlossomImageVariantHint.none,
   }) async {
     final futures = <Future>[];
 
     for (final ref in imageRefs) {
-      if (isSha256(ref)) {
-        futures.add(_resolveBlossom(ref, pubkey));
-      } else if (isNetworkUrl(ref)) {
-        futures.add(_preloadUrl(ref));
+      final candidate = BlossomImageVariantResolver.resolve(
+        imageRef: ref,
+        imageMetas: imageMetas,
+        hint: variantHint,
+      );
+      final candidateRef = candidate.ref;
+      if (isSha256(candidateRef)) {
+        futures.add(_resolveBlossom(candidateRef, pubkey));
+      } else if (isNetworkUrl(candidateRef)) {
+        futures.add(_preloadUrl(candidateRef));
       }
     }
 
@@ -93,15 +103,27 @@ class ImagePreloader {
     List<String> imageRefs, {
     required String pubkey,
     required BuildContext context,
+    Iterable<IMeta> imageMetas = const [],
+    BlossomImageVariantHint variantHint = BlossomImageVariantHint.none,
   }) async {
     // First resolve all blossom hashes.
-    await preloadImages(imageRefs, pubkey: pubkey);
+    await preloadImages(
+      imageRefs,
+      pubkey: pubkey,
+      imageMetas: imageMetas,
+      variantHint: variantHint,
+    );
 
     // Now precache each resolved URL into the framework's image cache.
     for (final ref in imageRefs) {
       // The context may have been deactivated while awaiting resolution.
       if (!context.mounted) return;
-      final url = _resolveRef(ref, pubkey);
+      final candidate = BlossomImageVariantResolver.resolve(
+        imageRef: ref,
+        imageMetas: imageMetas,
+        hint: variantHint,
+      );
+      final url = _resolveRef(candidate.ref, pubkey);
       if (url != null && !_preloadedUrls.contains(url)) {
         _precacheSingle(url, context);
       }
@@ -111,11 +133,23 @@ class ImagePreloader {
   /// Resolves a single image reference to a URL (returns immediately from
   /// cache when possible). Returns `null` if the ref is neither a valid hash
   /// nor a URL.
-  Future<String?> resolveImageRef(String ref, {required String pubkey}) async {
-    if (isNetworkUrl(ref)) return ref;
-    if (isSha256(ref)) {
-      await _resolveBlossom(ref, pubkey);
-      return _resolvedUrls[ref];
+  Future<String?> resolveImageRef(
+    String ref, {
+    required String pubkey,
+    Iterable<IMeta> imageMetas = const [],
+    BlossomImageVariantHint variantHint = BlossomImageVariantHint.none,
+  }) async {
+    final candidate = BlossomImageVariantResolver.resolve(
+      imageRef: ref,
+      imageMetas: imageMetas,
+      hint: variantHint,
+    );
+    final candidateRef = candidate.ref;
+
+    if (isNetworkUrl(candidateRef)) return candidateRef;
+    if (isSha256(candidateRef)) {
+      await _resolveBlossom(candidateRef, pubkey);
+      return _resolvedUrls[candidateRef];
     }
     return null;
   }

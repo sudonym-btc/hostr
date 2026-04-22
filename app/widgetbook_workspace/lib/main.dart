@@ -14,7 +14,7 @@ import 'main.directories.g.dart';
 import 'seed_data.dart';
 
 void main() async {
-  await initCore(Env.mock);
+  await initCore(Env.mock, startStartup: false);
   await initApp();
   await initSeedData();
   runApp(const WidgetbookApp());
@@ -65,7 +65,6 @@ class WidgetbookApp extends StatelessWidget {
 
         final mode = authValue.toLowerCase();
         getIt<ModeStorage>().set(mode);
-        getIt<ModeCubit>().load();
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,

@@ -80,7 +80,7 @@ void main() {
       await pumpEventQueue();
 
       auth.pubkey = 'pubkey';
-      authState.add(const LoggedIn());
+      authState.add(const LoggedIn('pubkey'));
       await pumpEventQueue();
 
       expect(publicProfile.launches, 1);
@@ -118,7 +118,7 @@ void main() {
         await coordinator.dispose();
         await authState.close();
 
-        authState = BehaviorSubject<AuthState>.seeded(const LoggedIn());
+        authState = BehaviorSubject<AuthState>.seeded(const LoggedIn('pubkey'));
         auth = _FakeAuth(authState)..pubkey = 'pubkey';
         coordinator = StartupCoordinator(
           auth: auth,
@@ -141,6 +141,50 @@ void main() {
 
         expect(userProfile.stops, greaterThanOrEqualTo(1));
         expect(snapshots.last.scope, StartupScope.public);
+      },
+    );
+
+    test(
+      'stops previous user services before launching a different logged-in user',
+      () async {
+        await coordinator.dispose();
+        await authState.close();
+        final baselineStops = userProfile.stops;
+
+        authState = BehaviorSubject<AuthState>.seeded(
+          const LoggedIn('pubkey-a'),
+        );
+        auth = _FakeAuth(authState)..pubkey = 'pubkey-a';
+        userProfile.stopCompleter = Completer<void>();
+        coordinator = StartupCoordinator(
+          auth: auth,
+          publicProfile: publicProfile,
+          userProfile: userProfile,
+          backgroundProfile: backgroundProfile,
+        );
+        snapshots = [];
+        coordinator.snapshots.listen(snapshots.add);
+
+        coordinator.start();
+        await pumpEventQueue();
+
+        expect(userProfile.launches, 1);
+
+        auth.pubkey = 'pubkey-b';
+        authState.add(const LoggedIn('pubkey-b'));
+        await pumpEventQueue();
+
+        expect(userProfile.stops, baselineStops + 1);
+        expect(
+          userProfile.launches,
+          1,
+          reason: 'New user startup must wait for old user cleanup.',
+        );
+
+        userProfile.stopCompleter!.complete();
+        await pumpEventQueue();
+
+        expect(userProfile.launches, 2);
       },
     );
 
@@ -198,6 +242,7 @@ class _ControlledProfile implements StartupProfile {
   final StartupScope scope;
   final List<StartupItemProgress> items;
   final List<Completer<StartupResult>> _runs = [];
+  Completer<void>? stopCompleter;
   int launches = 0;
   int stops = 0;
 
@@ -231,6 +276,8 @@ class _ControlledProfile implements StartupProfile {
   @override
   Future<void> stop() async {
     stops += 1;
+    await stopCompleter?.future;
+    stopCompleter = null;
   }
 }
 

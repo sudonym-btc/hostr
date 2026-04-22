@@ -92,6 +92,20 @@ class TagBuilder {
     return this;
   }
 
+  /// Adds a NIP-92 inline media metadata tag.
+  TagBuilder addIMeta(IMeta meta) {
+    _tags.add(meta.toTag());
+    return this;
+  }
+
+  /// Adds multiple NIP-92 inline media metadata tags.
+  TagBuilder addIMetas(Iterable<IMeta> metas) {
+    for (final meta in metas) {
+      addIMeta(meta);
+    }
+    return this;
+  }
+
   // ── NIP-99 price helpers ────────────────────────────────────────────
 
   /// Encodes each [Price] per NIP-99:

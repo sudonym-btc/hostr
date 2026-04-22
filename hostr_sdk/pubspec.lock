@@ -685,7 +685,7 @@ packages:
     description:
       path: "packages/ndk"
       ref: "codex/hostr-ndk-fixes"
-      resolved-ref: "77e5059f215b6165bbd31a1d158ff9db8897714f"
+      resolved-ref: c3312dc49d4eabe84658cff938b27cdc75940a5b
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
     version: "0.8.2-dev.5"

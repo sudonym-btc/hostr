@@ -12,6 +12,7 @@ import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart';
+import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_item.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator.dart';
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
@@ -157,6 +158,43 @@ void main() {
       expect(chain.blockListenCount, 0);
 
       await service.stop();
+      await chain.close();
+    });
+
+    test('stop clears previously emitted balance snapshots', () async {
+      final chain = _FakeEvmChain(swaps: null, bridgeToken: token);
+      final service = _fundsMonitorService(evm: _FakeEvm([chain]));
+      final keypair = EthPrivateKey.fromHex(
+        '0000000000000000000000000000000000000000000000000000000000000001',
+      );
+
+      await service.start();
+      final emissions = <List<FundsItem>>[];
+      final sub = service.fundsStream$.listen(emissions.add);
+      service.seedWalletItemForTesting(
+        FundsItem(
+          address: keypair.address,
+          keypair: keypair,
+          accountIndex: 0,
+          token: token,
+          balance: tokenAmountFromSats(token, BigInt.from(1000)),
+          chain: chain,
+          blockNumber: 0,
+          isSmartAddress: false,
+          dust: false,
+        ),
+      );
+
+      expect(
+        await service.fundsStream$.firstWhere((items) => items.isNotEmpty),
+        isNotEmpty,
+      );
+
+      await service.stop();
+      await pumpEventQueue();
+
+      expect(emissions.last, isEmpty);
+      await sub.cancel();
       await chain.close();
     });
   });

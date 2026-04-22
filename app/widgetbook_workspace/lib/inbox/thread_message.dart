@@ -8,8 +8,8 @@ import '../seed_data.dart';
 
 final _scenario = MOCK_THREAD_SCENARIOS.first;
 
-Message _buildTextMessage({required bool sentByHost}) {
-  return Message(
+TextMessage _buildTextMessage({required bool sentByHost}) {
+  return TextMessage(
     pubKey: sentByHost ? MockKeys.hoster.publicKey : MockKeys.guest.publicKey,
     tags: MessageTags([
       ['p', sentByHost ? MockKeys.guest.publicKey : MockKeys.hoster.publicKey],
@@ -48,7 +48,7 @@ Widget threadMessageReceived(BuildContext context) {
   type: ThreadReservationRequestWidget,
 )
 Widget reservationRequestSent(BuildContext context) {
-  final reservationMessage = _scenario.requestMessage;
+  final reservationMessage = _buildTextMessage(sentByHost: true);
   return Padding(
     padding: const EdgeInsets.all(16),
     child: ThreadReservationRequestWidget(
@@ -63,7 +63,7 @@ Widget reservationRequestSent(BuildContext context) {
   type: ThreadReservationRequestWidget,
 )
 Widget reservationRequestReceived(BuildContext context) {
-  final reservationMessage = _scenario.requestMessage;
+  final reservationMessage = _buildTextMessage(sentByHost: false);
   return Padding(
     padding: const EdgeInsets.all(16),
     child: ThreadReservationRequestWidget(

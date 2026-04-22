@@ -51,6 +51,7 @@ void main() {
     const standardKinds = <int, String>{
       kNostrKindProfile: 'profile (kind 0)',
       kNostrKindReaction: 'reaction (kind 7)',
+      kNostrKindGiftWrap: 'gift wrap (kind 1059)',
       kNostrKindZapRequest: 'zap request (kind 9734)',
       kNostrKindZapReceipt: 'zap receipt (kind 9735)',
     };
@@ -89,7 +90,7 @@ void main() {
       kNostrKindEscrowTrust,
       kNostrKindEscrowMethod,
       kNostrKindEscrowServiceSelected,
-      kNostrKindGiftWrap,
+      kNostrKindJsonMessage,
       kNostrKindSeal,
       kNostrKindSeenStatus,
       kNostrKindReceivedHeartbeat,

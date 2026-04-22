@@ -13,6 +13,8 @@
 import 'package:widgetbook/widgetbook.dart' as _widgetbook;
 import 'package:widgetbook_workspace/component/filled_button.dart'
     as _widgetbook_workspace_component_filled_button;
+import 'package:widgetbook_workspace/components/style_showcase.dart'
+    as _widgetbook_workspace_components_style_showcase;
 import 'package:widgetbook_workspace/escrow/trusted_escrow_list_item.dart'
     as _widgetbook_workspace_escrow_trusted_escrow_list_item;
 import 'package:widgetbook_workspace/evm/evm.dart'
@@ -68,11 +70,41 @@ import 'package:widgetbook_workspace/search/search_box.dart'
 
 final directories = <_widgetbook.WidgetbookNode>[
   _widgetbook.WidgetbookFolder(
+    name: 'components',
+    children: [
+      _widgetbook.WidgetbookComponent(
+        name: 'ComponentsShowcase',
+        useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'Side by side',
+            builder: _widgetbook_workspace_components_style_showcase
+                .componentsSideBySide,
+          ),
+        ],
+      ),
+    ],
+  ),
+  _widgetbook.WidgetbookFolder(
     name: 'material',
     children: [
       _widgetbook.WidgetbookComponent(
+        name: 'Chip',
+        useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'Spec and input chips',
+            builder: _widgetbook_workspace_components_style_showcase
+                .materialChipStyles,
+          ),
+        ],
+      ),
+      _widgetbook.WidgetbookComponent(
         name: 'FilledButton',
         useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'All styles',
+            builder: _widgetbook_workspace_components_style_showcase
+                .filledButtonStyles,
+          ),
           _widgetbook.WidgetbookUseCase(
             name: 'Bolt11',
             builder:
@@ -113,6 +145,26 @@ final directories = <_widgetbook.WidgetbookNode>[
           ),
         ],
       ),
+      _widgetbook.WidgetbookComponent(
+        name: 'OutlinedButton',
+        useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'All styles',
+            builder: _widgetbook_workspace_components_style_showcase
+                .outlinedButtonStyles,
+          ),
+        ],
+      ),
+      _widgetbook.WidgetbookComponent(
+        name: 'TextButton',
+        useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'All styles',
+            builder: _widgetbook_workspace_components_style_showcase
+                .textButtonStyles,
+          ),
+        ],
+      ),
     ],
   ),
   _widgetbook.WidgetbookFolder(
@@ -124,6 +176,16 @@ final directories = <_widgetbook.WidgetbookNode>[
           _widgetbook.WidgetbookFolder(
             name: 'widgets',
             children: [
+              _widgetbook.WidgetbookComponent(
+                name: 'BadgeChip',
+                useCases: [
+                  _widgetbook.WidgetbookUseCase(
+                    name: 'Badge awards',
+                    builder: _widgetbook_workspace_components_style_showcase
+                        .badgeAwardChipStyles,
+                  ),
+                ],
+              ),
               _widgetbook.WidgetbookFolder(
                 name: 'amount',
                 children: [
@@ -147,6 +209,16 @@ final directories = <_widgetbook.WidgetbookNode>[
                       ),
                     ],
                   ),
+                  _widgetbook.WidgetbookComponent(
+                    name: 'AmountTapInput',
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Text styles',
+                        builder: _widgetbook_workspace_components_style_showcase
+                            .amountTapInputTextStyles,
+                      ),
+                    ],
+                  ),
                 ],
               ),
               _widgetbook.WidgetbookFolder(
@@ -166,6 +238,21 @@ final directories = <_widgetbook.WidgetbookNode>[
                         builder:
                             _widgetbook_workspace_escrow_trusted_escrow_list_item
                                 .trustedEscrowWithProfile,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              _widgetbook.WidgetbookFolder(
+                name: 'explore',
+                children: [
+                  _widgetbook.WidgetbookComponent(
+                    name: 'SearchBoxWidget',
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder: _widgetbook_workspace_search_search_box
+                            .defaultUseCase,
                       ),
                     ],
                   ),
@@ -619,6 +706,11 @@ final directories = <_widgetbook.WidgetbookNode>[
                     name: 'ProfileChipWidget',
                     useCases: [
                       _widgetbook.WidgetbookUseCase(
+                        name: 'All styles',
+                        builder: _widgetbook_workspace_components_style_showcase
+                            .profileChipStyles,
+                      ),
+                      _widgetbook.WidgetbookUseCase(
                         name: 'Default',
                         builder:
                             _widgetbook_workspace_profile_profile_chip.listing,
@@ -711,15 +803,15 @@ final directories = <_widgetbook.WidgetbookNode>[
                 ],
               ),
               _widgetbook.WidgetbookFolder(
-                name: 'search',
+                name: 'ui',
                 children: [
                   _widgetbook.WidgetbookComponent(
-                    name: 'SearchBoxWidget',
+                    name: 'AppChip',
                     useCases: [
                       _widgetbook.WidgetbookUseCase(
-                        name: 'Default',
-                        builder: _widgetbook_workspace_search_search_box
-                            .defaultUseCase,
+                        name: 'Semantic variants',
+                        builder: _widgetbook_workspace_components_style_showcase
+                            .semanticChipStyles,
                       ),
                     ],
                   ),
@@ -738,6 +830,11 @@ final directories = <_widgetbook.WidgetbookNode>[
               _widgetbook.WidgetbookComponent(
                 name: 'DateRangeButtons',
                 useCases: [
+                  _widgetbook.WidgetbookUseCase(
+                    name: 'All styles',
+                    builder: _widgetbook_workspace_components_style_showcase
+                        .dateRangeButtonStyles,
+                  ),
                   _widgetbook.WidgetbookUseCase(
                     name: 'Default',
                     builder: _widgetbook_workspace_search_check_in_check_out

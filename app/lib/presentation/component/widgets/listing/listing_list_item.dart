@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/providers/nostr/listing_dependencies.provider.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
@@ -38,7 +39,11 @@ class ListingListItemView extends StatelessWidget {
   Listing get listing => dependencies.listing;
 
   Widget _buildImage() {
-    return SmallListingCarousel(height: 200, listing: listing);
+    return SmallListingCarousel(
+      height: 200,
+      listing: listing,
+      variantHint: BlossomImageVariantHint.listingPreview,
+    );
   }
 
   Widget _buildDetails(BuildContext context) {
@@ -271,6 +276,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
       dependencies: _listingDependencies,
       child: PreloadListingImages(
         listing: widget.listing,
+        variantHint: BlossomImageVariantHint.listingPreview,
         child: ListingListItemView(
           dependencies: _listingDependencies,
           showPrice: widget.showPrice,

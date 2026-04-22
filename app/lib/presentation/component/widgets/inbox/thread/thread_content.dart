@@ -69,7 +69,7 @@ class _ThreadContentState extends State<ThreadContent> {
   /// Whether [event] is a visible event (i.e. would be rendered
   /// by [_buildEvent]).
   bool _isVisibleEvent(Event event) {
-    return event is Message && event.child == null;
+    return event is TextMessage;
   }
 
   /// Whether [message] should show a profile header (avatar + timestamp).
@@ -231,7 +231,7 @@ class _ThreadContentState extends State<ThreadContent> {
     final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final isSentByMe = event.pubKey == activePubKey;
 
-    if (event is Message && event.child == null) {
+    if (event is TextMessage) {
       if (event.content.trim().isNotEmpty) {
         return ThreadMessageWidget(
           item: event,

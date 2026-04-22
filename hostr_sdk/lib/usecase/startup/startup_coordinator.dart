@@ -28,6 +28,7 @@ class StartupCoordinator {
   StartupRunToken? _backgroundToken;
   String? _runningUserPubkey;
   bool _started = false;
+  Future<void> _authTransitionQueue = Future<void>.value();
 
   StartupCoordinator({
     required Auth auth,
@@ -53,10 +54,8 @@ class StartupCoordinator {
     );
     _startPublic();
 
-    _authSub = _auth.authState.skip(1).listen((state) {
-      unawaited(_handleAuthState(state));
-    });
-    unawaited(_handleAuthState(initialAuth));
+    _authSub = _auth.authState.skip(1).listen(_enqueueAuthState);
+    _enqueueAuthState(initialAuth);
   }
 
   Future<StartupResult> awaitPublicReady() {
@@ -144,8 +143,26 @@ class StartupCoordinator {
     _setTarget(StartupScope.user);
     if (_runningUserPubkey == pubkey && _userRun != null) return;
 
+    final previousPubkey = _runningUserPubkey;
+    if (previousPubkey != null && previousPubkey != pubkey) {
+      _userToken?.cancel();
+      _userRun = null;
+      _runningUserPubkey = null;
+      await _userProfile.stop();
+    }
+
     _runningUserPubkey = pubkey;
     _startUser(pubkey);
+  }
+
+  void _enqueueAuthState(AuthState state) {
+    _authTransitionQueue = _authTransitionQueue
+        .catchError((_) {})
+        .then((_) => _handleAuthState(state))
+        .catchError((Object error) {
+          _handleProfileFailure(_targetScope, error);
+        });
+    unawaited(_authTransitionQueue);
   }
 
   Future<StartupResult> _startPublic({bool restart = false}) {

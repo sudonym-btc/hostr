@@ -13,29 +13,15 @@ class PaymentStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget child;
     if (state is EscrowFundedEvent) {
-      child = AppChip.success.xs(label: Text('Paid'));
+      child = AppChip.success.xs(label: Text('Paid'), onTap: onTap);
     } else if (state is EscrowReleasedEvent) {
-      child = AppChip.info.xs(label: Text('Funds Released'));
+      child = AppChip.info.xs(label: Text('Funds Released'), onTap: onTap);
     } else if (state is EscrowArbitratedEvent) {
-      child = AppChip.info.xs(label: Text('Arbitrated'));
+      child = AppChip.info.xs(label: Text('Arbitrated'), onTap: onTap);
     } else if (state is EscrowClaimedEvent) {
-      child = AppChip.info.xs(label: Text('Claimed'));
+      child = AppChip.info.xs(label: Text('Claimed'), onTap: onTap);
     } else {
       child = const SizedBox.shrink();
-    }
-
-    if (onTap != null) {
-      child = Semantics(
-        button: true,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: child,
-          ),
-        ),
-      );
     }
 
     return AnimatedSwitcher(

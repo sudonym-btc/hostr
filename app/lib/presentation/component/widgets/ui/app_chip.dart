@@ -17,6 +17,95 @@ VisualDensity _densityFor(_ChipSize size) => switch (size) {
 
 enum _ChipVariant { none, neutral, success, error, warning, info }
 
+// ─── Shared Material chip tokens ─────────────────────────────
+
+abstract final class AppChipStyles {
+  static const shape = AppShapes.chip;
+  static const padding = EdgeInsets.symmetric(
+    horizontal: kSpace2,
+    vertical: kSpace1,
+  );
+  static const labelPadding = EdgeInsets.symmetric(horizontal: kSpace1);
+  static const inputLabelPadding = EdgeInsets.only(left: kSpace2, right: 6);
+  static const visualDensity = VisualDensity(horizontal: -2, vertical: -2);
+  static const materialTapTargetSize = MaterialTapTargetSize.shrinkWrap;
+  static const borderWidth = 1.0;
+
+  static TextStyle labelStyle(BuildContext context, {Color? color}) {
+    final base =
+        Theme.of(context).textTheme.bodySmall ??
+        DefaultTextStyle.of(context).style;
+    return base.copyWith(fontWeight: FontWeight.w500, color: color);
+  }
+
+  static TextStyle statefulLabelStyle(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return labelStyle(context).copyWith(
+      color: WidgetStateColor.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return cs.onSurface.withValues(alpha: 0.38);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return cs.onSecondaryContainer;
+        }
+        return cs.onSurfaceVariant;
+      }),
+    );
+  }
+
+  static IconThemeData iconTheme(BuildContext context) {
+    return IconThemeData(
+      size: kIconSm,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+  }
+
+  static Color neutralBackground(BuildContext context) {
+    return AppSurface.stepped(context, 2);
+  }
+
+  static BorderSide neutralSide(BuildContext context) {
+    return BorderSide(
+      color: Theme.of(context).colorScheme.outlineVariant,
+      width: borderWidth,
+    );
+  }
+
+  static WidgetStateProperty<Color?> selectableColor(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return cs.onSurface.withValues(alpha: 0.08);
+      }
+      if (states.contains(WidgetState.selected)) {
+        return cs.secondaryContainer;
+      }
+      if (states.contains(WidgetState.pressed) ||
+          states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused)) {
+        return AppSurface.stepped(context, 3);
+      }
+      return neutralBackground(context);
+    });
+  }
+
+  static WidgetStateBorderSide selectableSide(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return WidgetStateBorderSide.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return BorderSide(
+          color: cs.onSurface.withValues(alpha: 0.12),
+          width: borderWidth,
+        );
+      }
+      if (states.contains(WidgetState.selected)) {
+        return BorderSide(color: cs.secondary, width: borderWidth);
+      }
+      return neutralSide(context);
+    });
+  }
+}
+
 // ─── AppChip ─────────────────────────────────────────────────
 
 /// A [Chip] wrapper with semantic variant and size factories.
@@ -51,12 +140,16 @@ enum _ChipVariant { none, neutral, success, error, warning, info }
 ///
 /// // Override colour even on a variant chip
 /// AppChip.error.sm(label: Text('Custom'), backgroundColor: Colors.purple)
+///
+/// // Interactive chip
+/// AppChip.info.sm(label: Text('Details'), onTap: () {})
 /// ```
 class AppChip extends StatelessWidget {
   final Widget label;
   final Widget? avatar;
   final Color? backgroundColor;
   final OutlinedBorder? shape;
+  final VoidCallback? onTap;
   final _ChipVariant _variant;
   final _ChipSize _size;
 
@@ -67,6 +160,7 @@ class AppChip extends StatelessWidget {
     this.avatar,
     this.backgroundColor,
     this.shape,
+    this.onTap,
   }) : _variant = _ChipVariant.none,
        _size = _ChipSize.md;
 
@@ -76,6 +170,7 @@ class AppChip extends StatelessWidget {
     this.avatar,
     this.backgroundColor,
     this.shape,
+    this.onTap,
     required _ChipVariant variant,
     required _ChipSize size,
   }) : _variant = variant,
@@ -133,9 +228,10 @@ class AppChip extends StatelessWidget {
   Color? _resolveBorderColor(ColorScheme cs) {
     return switch (_variant) {
       _ChipVariant.neutral => cs.outlineVariant,
-      _ChipVariant.success => cs.tertiary,
-      _ChipVariant.error => cs.error,
-      _ChipVariant.info => cs.onSecondaryContainer,
+      _ChipVariant.success ||
+      _ChipVariant.error ||
+      _ChipVariant.warning ||
+      _ChipVariant.info => Colors.transparent,
       _ => null,
     };
   }
@@ -148,15 +244,31 @@ class AppChip extends StatelessWidget {
     final bg = _resolveBackgroundColor(cs, context);
     final fg = _resolveLabelColor(cs, context);
     final border = _resolveBorderColor(cs);
+    final effectiveShape = shape ?? AppShapes.chipWithSide(color: border);
+    final visualDensity = _densityFor(_size);
+    final labelStyle = AppChipStyles.labelStyle(context, color: fg);
+
+    if (onTap != null) {
+      return InputChip(
+        visualDensity: visualDensity,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: effectiveShape,
+        backgroundColor: bg,
+        avatar: avatar,
+        label: label,
+        labelStyle: labelStyle,
+        onPressed: onTap,
+      );
+    }
 
     return Chip(
-      visualDensity: _densityFor(_size),
+      visualDensity: visualDensity,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: shape ?? AppShapes.chipWithSide(color: border),
+      shape: effectiveShape,
       backgroundColor: bg,
       avatar: avatar,
       label: label,
-      labelStyle: fg != null ? TextStyle(color: fg) : null,
+      labelStyle: labelStyle,
     );
   }
 }
@@ -180,12 +292,14 @@ class _AppChipVariantFactory {
     Widget? avatar,
     Color? backgroundColor,
     OutlinedBorder? shape,
+    VoidCallback? onTap,
   }) => AppChip._internal(
     key: key,
     label: label,
     avatar: avatar,
     backgroundColor: backgroundColor,
     shape: shape,
+    onTap: onTap,
     variant: _variant,
     size: _ChipSize.md,
   );
@@ -197,12 +311,14 @@ class _AppChipVariantFactory {
     Widget? avatar,
     Color? backgroundColor,
     OutlinedBorder? shape,
+    VoidCallback? onTap,
   }) => AppChip._internal(
     key: key,
     label: label,
     avatar: avatar,
     backgroundColor: backgroundColor,
     shape: shape,
+    onTap: onTap,
     variant: _variant,
     size: _ChipSize.xs,
   );
@@ -214,12 +330,14 @@ class _AppChipVariantFactory {
     Widget? avatar,
     Color? backgroundColor,
     OutlinedBorder? shape,
+    VoidCallback? onTap,
   }) => AppChip._internal(
     key: key,
     label: label,
     avatar: avatar,
     backgroundColor: backgroundColor,
     shape: shape,
+    onTap: onTap,
     variant: _variant,
     size: _ChipSize.sm,
   );
@@ -231,12 +349,14 @@ class _AppChipVariantFactory {
     Widget? avatar,
     Color? backgroundColor,
     OutlinedBorder? shape,
+    VoidCallback? onTap,
   }) => AppChip._internal(
     key: key,
     label: label,
     avatar: avatar,
     backgroundColor: backgroundColor,
     shape: shape,
+    onTap: onTap,
     variant: _variant,
     size: _ChipSize.md,
   );
@@ -248,12 +368,14 @@ class _AppChipVariantFactory {
     Widget? avatar,
     Color? backgroundColor,
     OutlinedBorder? shape,
+    VoidCallback? onTap,
   }) => AppChip._internal(
     key: key,
     label: label,
     avatar: avatar,
     backgroundColor: backgroundColor,
     shape: shape,
+    onTap: onTap,
     variant: _variant,
     size: _ChipSize.lg,
   );

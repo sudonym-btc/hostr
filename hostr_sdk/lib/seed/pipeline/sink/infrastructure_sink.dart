@@ -55,6 +55,7 @@ class InfrastructureSink implements SeedSink {
 
   // Per-sender lock so nonce-sensitive transaction sequences are serialized.
   final Map<String, Future<void>> _senderLocks = {};
+  final Set<String> _gasReadySenders = {};
 
   InfrastructureSink({
     required this.rpcUrl,
@@ -106,9 +107,16 @@ class InfrastructureSink implements SeedSink {
       final tokenAddress = EthereumAddress.fromHex(intent.token.address);
 
       final tradeIdBytes = getBytes32(intent.tradeId);
+      await _ensureSenderGasBalance(txCredentials);
       final gasPrice = await _retryChainCall((c) => c.getGasPrice());
 
       String txHash;
+
+      // Avoid eth_estimateGas flakes while seeding. These values are well
+      // above observed local costs and below Anvil's block gas limit.
+      const nativeCreateGasLimit = 800000;
+      const erc20ApproveGasLimit = 200000;
+      const erc20CreateGasLimit = 1000000;
 
       if (intent.token.isNative) {
         // ── Native token: send msg.value from the transaction sender ────
@@ -133,6 +141,7 @@ class InfrastructureSink implements SeedSink {
                 intent.amountWei + (intent.bondAmountWei ?? BigInt.zero),
               ),
               gasPrice: gasPrice,
+              maxGas: nativeCreateGasLimit,
             ),
           );
         });
@@ -170,7 +179,11 @@ class InfrastructureSink implements SeedSink {
               value: largeBalance,
             ),
             credentials: sourceCredentials,
-            transaction: Transaction(nonce: approveNonce, gasPrice: gasPrice),
+            transaction: Transaction(
+              nonce: approveNonce,
+              gasPrice: gasPrice,
+              maxGas: erc20ApproveGasLimit,
+            ),
           );
           await _assertTxSucceeded(approveTx, 'erc20-approve', intent.tradeId);
 
@@ -192,6 +205,7 @@ class InfrastructureSink implements SeedSink {
               nonce: createNonce,
               value: EtherAmount.zero(),
               gasPrice: gasPrice,
+              maxGas: erc20CreateGasLimit,
             ),
           );
         });
@@ -280,6 +294,7 @@ class InfrastructureSink implements SeedSink {
         MockKeys.escrow.privateKey!,
       );
       txCredentials = _tradeSponsor() ?? signatureCredentials;
+      await _ensureSenderGasBalance(txCredentials);
       final paymentFactor = BigInt.from(700); // 70% of payment → seller
       final bondFactor = BigInt.zero; // 0% of bond → seller (full bond → buyer)
 
@@ -322,6 +337,7 @@ class InfrastructureSink implements SeedSink {
     } else if (intent.outcome == EscrowOutcome.claimedByHost) {
       final signatureCredentials = await deriveEvmKey(intent.settlerPrivateKey);
       txCredentials = _tradeSponsor() ?? signatureCredentials;
+      await _ensureSenderGasBalance(txCredentials);
       final signature = signer.signClaim(
         tradeId: tradeIdBytes,
         signer: signatureCredentials,
@@ -341,6 +357,7 @@ class InfrastructureSink implements SeedSink {
     } else {
       final signatureCredentials = await deriveEvmKey(intent.settlerPrivateKey);
       txCredentials = _tradeSponsor() ?? signatureCredentials;
+      await _ensureSenderGasBalance(txCredentials);
       final signature = signer.signRelease(
         tradeId: tradeIdBytes,
         actor: signatureCredentials.address,
@@ -475,6 +492,37 @@ class InfrastructureSink implements SeedSink {
     return _tradeSponsorCredentials ??= EthPrivateKey.fromHex(
       key.startsWith('0x') ? key : '0x$key',
     );
+  }
+
+  Future<void> _ensureSenderGasBalance(EthPrivateKey credentials) async {
+    final address = credentials.address;
+    final key = address.eip55With0x;
+    if (_gasReadySenders.contains(key)) return;
+
+    final current = await _retryChainCall((c) => c.getBalance(address));
+    const minimumWei = '1000000000000000000'; // 1 ETH
+    if (current.getInWei >= BigInt.parse(minimumWei)) {
+      _gasReadySenders.add(key);
+      return;
+    }
+
+    // The real-infrastructure seeder targets local Anvil/Hardhat for writes.
+    // Make sponsor-funded seeding robust even after chain restarts where the
+    // configured sponsor key is not among the node's prefunded accounts.
+    final targetWei = BigInt.parse('100000000000000000000'); // 100 ETH
+    final funded = await _anvil().setBalance(
+      address: key,
+      amountWei: targetWei,
+    );
+    if (!funded) {
+      throw Exception(
+        '[infra-sink] Sender $key has only ${current.getInWei} wei for gas, '
+        'and $rpcUrl does not allow anvil/hardhat balance top-up.',
+      );
+    }
+
+    _gasReadySenders.add(key);
+    print('[infra-sink] funded tx sender $key with $targetWei wei for gas');
   }
 
   Future<T> _withSenderLock<T>(

@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/reservation/actions/negotiation.dart';
@@ -130,6 +131,8 @@ class TradeHeaderView extends StatelessWidget {
                     ? BlossomImage(
                         image: listing.images.first,
                         pubkey: listing.pubKey,
+                        imageMetas: listing.imageMetas,
+                        variantHint: BlossomImageVariantHint.listingPreview,
                         fit: BoxFit.cover,
                       )
                     : const SizedBox.shrink(),

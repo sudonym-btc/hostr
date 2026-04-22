@@ -254,8 +254,7 @@ class UserStartupProfile implements StartupProfile {
         ]);
       });
 
-      final profileBootstrap =
-          results[0] as UserStartupProfileBootstrapResult;
+      final profileBootstrap = results[0] as UserStartupProfileBootstrapResult;
       final result = UserStartupReady(
         pubkey: pubkey,
         hasMetadata: profileBootstrap.hasMetadata,
@@ -275,7 +274,7 @@ class UserStartupProfile implements StartupProfile {
   Future<void> stop() async {
     await _backgroundWorker.stop();
     await _calendar.stop();
-    await _fundsMonitor.stop();
+    await _fundsMonitor.reset();
     await _paymentProofOrchestrator.reset();
     await _userSubscriptions.reset();
     await _messaging.threads.reset();

@@ -4,7 +4,8 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 
-import '../../config.dart' show CoinlibEventSigner;
+import '../../config.dart' show CoinlibEventSigner, HostrConfig;
+import '../../injection.dart';
 import '../../util/coinlib_gift_wrap.dart';
 import '../../util/main.dart';
 import '../crud.usecase.dart';
@@ -16,10 +17,16 @@ import '../crud.usecase.dart';
 @Singleton()
 class GiftWraps extends CrudUseCase<Nip01Event> {
   final Ndk _ndk;
+  final HostrConfig? _config;
 
-  GiftWraps({required Ndk ndk, required super.requests, required super.logger})
-    : _ndk = ndk,
-      super(kind: kNostrKindGiftWrap);
+  GiftWraps({
+    required Ndk ndk,
+    required super.requests,
+    required super.logger,
+    HostrConfig? config,
+  }) : _ndk = ndk,
+       _config = config,
+       super(kind: kNostrKindGiftWrap);
 
   /// Wraps a rumor/event for [recipientPubkey] without broadcasting it.
   ///
@@ -59,8 +66,10 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
   /// Subscribes to kind `1059` events and returns parsed inner events.
   StreamWithStatus<Nip01Event> subscribeParsed(Filter filter, {String? name}) =>
       logger.spanSync('subscribeParsed', () {
+        final hostrRelay = _hostrRelay();
         final raw = requests.subscribe<Nip01Event>(
           filter: kindFilter(filter),
+          relays: hostrRelay.isEmpty ? null : [hostrRelay],
           name: name != null ? 'GiftWraps-$name' : 'GiftWraps-parsed',
           // NIP-59 gift wraps have a randomised created_at (up to 48 h in the
           // past) for privacy. Setting a `since` filter on the live phase would
@@ -89,4 +98,11 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
         );
         return parsed;
       });
+
+  String _hostrRelay() {
+    final config = _config;
+    if (config != null) return config.hostrRelay;
+    if (!getIt.isRegistered<HostrConfig>()) return '';
+    return getIt<HostrConfig>().hostrRelay;
+  }
 }
