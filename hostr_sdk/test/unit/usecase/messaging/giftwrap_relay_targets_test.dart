@@ -2,8 +2,9 @@
 library;
 
 import 'package:hostr_sdk/usecase/messaging/messaging.dart'
-    show resolveGiftWrapBroadcastRelays;
-import 'package:ndk/entities.dart' show ReadWriteMarker, UserRelayList;
+    show ensureSuccessfulGiftWrapBroadcast, resolveGiftWrapBroadcastRelays;
+import 'package:ndk/entities.dart'
+    show ReadWriteMarker, RelayBroadcastResponse, UserRelayList;
 import 'package:test/test.dart';
 
 void main() {
@@ -29,6 +30,7 @@ void main() {
             'wss://relay.damus.io',
           ],
           hostrRelay: 'wss://relay.hostr.test',
+          dmRelays: const ['wss://dm.example', 'wss://relay.damus.io'],
           recipientRelayList: relayList,
         );
 
@@ -36,7 +38,9 @@ void main() {
           'wss://relay.damus.io',
           'wss://relay.nostr.band',
           'wss://relay.hostr.test',
+          'wss://dm.example',
           'wss://read.example',
+          'wss://write.example',
           'wss://both.example',
         ]);
       },
@@ -49,6 +53,47 @@ void main() {
       );
 
       expect(result, ['wss://relay.damus.io', 'wss://relay.hostr.test']);
+    });
+  });
+
+  group('ensureSuccessfulGiftWrapBroadcast', () {
+    test('allows a send when at least one relay accepted the gift wrap', () {
+      expect(
+        () => ensureSuccessfulGiftWrapBroadcast(
+          recipientPubkey: 'recipient',
+          responses: [
+            RelayBroadcastResponse(
+              relayUrl: 'wss://blocked.example',
+              okReceived: true,
+              broadcastSuccessful: false,
+              msg: 'blocked',
+            ),
+            RelayBroadcastResponse(
+              relayUrl: 'wss://accepted.example',
+              okReceived: true,
+              broadcastSuccessful: true,
+            ),
+          ],
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('throws when no relay accepted the gift wrap', () {
+      expect(
+        () => ensureSuccessfulGiftWrapBroadcast(
+          recipientPubkey: 'recipient',
+          responses: [
+            RelayBroadcastResponse(
+              relayUrl: 'wss://blocked.example',
+              okReceived: true,
+              broadcastSuccessful: false,
+              msg: 'kind 1059 is not allowed',
+            ),
+          ],
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 }

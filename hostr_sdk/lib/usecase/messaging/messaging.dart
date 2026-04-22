@@ -9,6 +9,7 @@ import '../../config.dart' show CoinlibEventSigner, HostrConfig;
 import '../../injection.dart';
 import '../../util/coinlib_gift_wrap.dart';
 import '../../util/custom_logger.dart';
+import '../dm_relays/dm_relays.dart';
 import '../relays/relays.dart';
 import '../requests/requests.dart';
 import 'threads.dart';
@@ -17,28 +18,50 @@ import 'threads.dart';
 List<String> resolveGiftWrapBroadcastRelays({
   required List<String> bootstrapRelays,
   required String hostrRelay,
+  List<String> dmRelays = const [],
   UserRelayList? recipientRelayList,
 }) {
   final relays = <String>{};
   relays.addAll(bootstrapRelays.where((relay) => relay.isNotEmpty));
   if (hostrRelay.isNotEmpty) relays.add(hostrRelay);
+  relays.addAll(dmRelays.where((relay) => relay.isNotEmpty));
   if (recipientRelayList != null) {
-    relays.addAll(
-      recipientRelayList.readUrls.where((relay) => relay.isNotEmpty),
-    );
+    relays.addAll(recipientRelayList.urls.where((relay) => relay.isNotEmpty));
   }
   return relays.toList(growable: false);
+}
+
+@visibleForTesting
+void ensureSuccessfulGiftWrapBroadcast({
+  required String recipientPubkey,
+  required List<RelayBroadcastResponse> responses,
+}) {
+  final accepted = responses
+      .where((response) => response.broadcastSuccessful)
+      .map((response) => response.relayUrl)
+      .toList(growable: false);
+  if (accepted.isNotEmpty) return;
+
+  final rejected = responses
+      .map((response) => '${response.relayUrl}: ${response.msg}')
+      .toList(growable: false);
+  throw StateError(
+    'Failed to send message to $recipientPubkey. '
+    'No relay accepted the gift wrap. Rejections: $rejected',
+  );
 }
 
 @Singleton()
 class Messaging {
   final Ndk _ndk;
   final Requests _requests;
+  final DmRelays _dmRelays;
   final CustomLogger _logger;
   Threads get threads => getIt<Threads>();
-  Messaging(Ndk ndk, Requests requests, CustomLogger logger)
+  Messaging(Ndk ndk, Requests requests, DmRelays dmRelays, CustomLogger logger)
     : _ndk = ndk,
       _requests = requests,
+      _dmRelays = dmRelays,
       _logger = logger.scope('messaging');
 
   Future<Nip01Event> getRumour(
@@ -49,13 +72,19 @@ class Messaging {
     _logger.d(
       'Creating rumor with content: $content, tags: $tags, recipientPubkeys: $recipientPubkeys',
     );
-    return _ndk.giftWrap.createRumor(
+    final myPubkey = _ndk.accounts.getPublicKey();
+    if (myPubkey == null) {
+      throw Exception('cannot create rumor: no logged-in pubkey');
+    }
+    return Nip01Event(
+      pubKey: myPubkey,
       content: content,
       kind: kNostrKindDM,
       tags: [
         ...tags,
         ...recipientPubkeys.map((pubkey) => ['p', pubkey]),
       ],
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
   });
 
@@ -80,11 +109,34 @@ class Messaging {
       return _ndk.giftWrap.toGiftWrap(rumor: rumor, recipientPubkey: pubkey);
     }
 
-    return pubkeys.map((pubkey) async {
-      final wrapped = await wrap(pubkey);
-      final relays = await _giftWrapBroadcastRelays(pubkey);
-      return _requests.broadcast(event: wrapped, relays: relays);
-    }).toList();
+    final results = await Future.wait(
+      pubkeys.map((pubkey) async {
+        final wrapped = await wrap(pubkey);
+        final relays = await _giftWrapBroadcastRelays(pubkey);
+        final responses = await _requests.broadcast(
+          event: wrapped,
+          relays: relays,
+        );
+        final accepted = responses
+            .where((response) => response.broadcastSuccessful)
+            .map((response) => response.relayUrl)
+            .toList(growable: false);
+        final rejected = responses
+            .where((response) => !response.broadcastSuccessful)
+            .map((response) => '${response.relayUrl}: ${response.msg}')
+            .toList(growable: false);
+        _logger.i(
+          'Giftwrap broadcast complete for $pubkey: '
+          'accepted=$accepted rejected=$rejected',
+        );
+        ensureSuccessfulGiftWrapBroadcast(
+          recipientPubkey: pubkey,
+          responses: responses,
+        );
+        return responses;
+      }),
+    );
+    return results.map(Future.value).toList(growable: false);
   });
 
   Future<List<String>> _giftWrapBroadcastRelays(String recipientPubkey) async {
@@ -104,9 +156,21 @@ class Messaging {
       );
     }
 
+    List<String> dmRelays = const [];
+    try {
+      dmRelays = await _dmRelays.relaysFor(recipientPubkey);
+    } catch (error, stackTrace) {
+      _logger.w(
+        'Failed to load NIP-17 DM relays for giftwrap recipient $recipientPubkey',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final relays = resolveGiftWrapBroadcastRelays(
       bootstrapRelays: config.bootstrapRelays,
       hostrRelay: config.hostrRelay,
+      dmRelays: dmRelays,
       recipientRelayList: recipientRelayList,
     );
     _logger.d('Giftwrap relay targets for $recipientPubkey: $relays');

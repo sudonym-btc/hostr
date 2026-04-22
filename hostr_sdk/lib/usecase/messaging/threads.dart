@@ -99,13 +99,13 @@ class Threads {
   });
 
   /// Waits for an event with the specified ID to appear in the processed stream.
-  Future<Nip01Event> awaitEventId(String expectedId) =>
-      _logger.span('awaitEventId', () async {
-        _logger.d('Awaiting event with id $expectedId');
-        return events$.replayStream
-            .doOnData((item) => _logger.d('Received event ${item.id}'))
-            .firstWhere((event) => event.id == expectedId);
-      });
+  Future<Nip01Event> awaitEventId(String expectedId) => _logger.span(
+    'awaitEventId',
+    () async {
+      _logger.d('Awaiting event with id $expectedId');
+      return events$.replayStream.firstWhere((event) => event.id == expectedId);
+    },
+  );
 
   static List<String> normalizeParticipants(Iterable<String> participants) =>
       (participants.where((p) => p.isNotEmpty).toSet().toList()..sort());

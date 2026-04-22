@@ -137,6 +137,8 @@ Future<Nip01Event> coinlibToGiftWrap({
   required String senderPrivKey,
   required String senderPubKey,
 }) async {
+  final rng = Random.secure();
+
   // ── Seal (kind 13) ────────────────────────────────────────────────────
   // Encrypt the rumor (unsigned Nostr event) for the recipient using the
   // sender's private key — this is the NIP-44 encrypted "seal".
@@ -147,19 +149,23 @@ Future<Nip01Event> coinlibToGiftWrap({
     recipientPubkey,
   );
 
-  // The seal is a kind-13 event from the sender. NDK does not sign the seal
-  // because it is always embedded inside an encrypted outer wrap and is
-  // never published directly. We match that behaviour for compatibility.
+  // The seal is a kind-13 event from the sender. NIP-59 requires it to be
+  // signed so recipients can authenticate who authored the rumor.
+  final sealCreatedAt =
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 - rng.nextInt(172800);
   final sealEvent = Nip01Event(
     pubKey: senderPubKey,
     kind: 13,
     tags: [],
     content: sealContent,
+    createdAt: sealCreatedAt,
+  );
+  final signedSealEvent = sealEvent.copyWith(
+    sig: signSchnorr(privateKey: senderPrivKey, message: sealEvent.id),
   );
 
   // ── Gift wrap (kind 1059) ─────────────────────────────────────────────
   // Generate a random one-time-use ephemeral keypair.
-  final rng = Random.secure();
   final ephPrivKeyBytes = Uint8List.fromList(
     List.generate(32, (_) => rng.nextInt(256)),
   );
@@ -167,7 +173,7 @@ Future<Nip01Event> coinlibToGiftWrap({
   final ephPubKeyHex = _ephemeralPublicKey(ephPrivKeyHex);
 
   // Encrypt the seal using the ephemeral private key.
-  final sealJson = Nip01EventModel.fromEntity(sealEvent).toJsonString();
+  final sealJson = Nip01EventModel.fromEntity(signedSealEvent).toJsonString();
   final wrapContent = await coinlibEncryptNip44(
     sealJson,
     ephPrivKeyHex,

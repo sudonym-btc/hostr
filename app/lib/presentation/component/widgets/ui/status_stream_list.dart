@@ -71,18 +71,36 @@ class StatusStreamListWidget<T> extends StatefulWidget {
 }
 
 class ListWidgetState<T> extends State<StatusStreamListWidget<T>> {
+  late Stream<(List<T>, StreamStatus)> _combinedStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _combinedStream = _buildCombinedStream(widget.stream);
+  }
+
+  @override
+  void didUpdateWidget(covariant StatusStreamListWidget<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stream != widget.stream) {
+      _combinedStream = _buildCombinedStream(widget.stream);
+    }
+  }
+
+  Stream<(List<T>, StreamStatus)> _buildCombinedStream(
+    StreamWithStatus<List<T>> stream,
+  ) {
+    return Rx.combineLatest2<List<T>, StreamStatus, (List<T>, StreamStatus)>(
+      stream.replayStream,
+      stream.status,
+      (items, status) => (items, status),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Combine items + status so the builder re-runs whenever either changes.
-    final combinedStream =
-        Rx.combineLatest2<List<T>, StreamStatus, (List<T>, StreamStatus)>(
-          widget.stream.replayStream,
-          widget.stream.status,
-          (items, status) => (items, status),
-        );
-
     return StreamBuilder(
-      stream: combinedStream,
+      stream: _combinedStream,
       builder: (context, snapshot) {
         // The stream holds a single accumulated list as its latest item.
         final items = List<T>.of(snapshot.data?.$1 ?? []);

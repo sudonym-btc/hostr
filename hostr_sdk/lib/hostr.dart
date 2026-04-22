@@ -30,6 +30,7 @@ class Hostr {
   ReservationTransitions get reservationTransitions =>
       getIt<ReservationTransitions>();
   GiftWraps get giftWraps => getIt<GiftWraps>();
+  DmRelays get dmRelays => getIt<DmRelays>();
   EscrowUseCase get escrow => getIt<EscrowUseCase>();
   Escrows get escrows => getIt<Escrows>();
   EscrowMethods get escrowMethods => getIt<EscrowMethods>();

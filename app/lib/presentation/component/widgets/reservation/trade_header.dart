@@ -253,11 +253,12 @@ class TradeHeaderView extends StatelessWidget {
   }
 }
 
-class TradeHeader extends StatelessWidget {
+class TradeHeader extends StatefulWidget {
   final String tradeId;
   final bool showActions;
   final bool showImages;
   final bool compact;
+
   const TradeHeader({
     super.key,
     required this.tradeId,
@@ -265,19 +266,51 @@ class TradeHeader extends StatelessWidget {
     this.showImages = true,
     this.compact = false,
   });
+
+  @override
+  State<TradeHeader> createState() => _TradeHeaderState();
+}
+
+class _TradeHeaderState extends State<TradeHeader> {
+  late Trade _trade;
+
+  @override
+  void initState() {
+    super.initState();
+    _trade = _createTrade();
+  }
+
+  @override
+  void didUpdateWidget(covariant TradeHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tradeId != widget.tradeId) {
+      final previousTrade = _trade;
+      _trade = _createTrade();
+      previousTrade.close();
+    }
+  }
+
+  @override
+  void dispose() {
+    _trade.close();
+    super.dispose();
+  }
+
+  Trade _createTrade() => getIt<Hostr>().trade(widget.tradeId)..start();
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<Trade>(
-      create: (_) => getIt<Hostr>().trade(tradeId)..start(),
+    return BlocProvider<Trade>.value(
+      value: _trade,
       child: BlocBuilder<Trade, TradeState>(
         builder: (context, tradeState) {
           switch (tradeState) {
             case TradeReady():
               return TradeHeaderView(
                 tradeState: tradeState,
-                showActions: showActions,
-                showImages: showImages,
-                compact: compact,
+                showActions: widget.showActions,
+                showImages: widget.showImages,
+                compact: widget.compact,
               );
             case TradeInitialising():
               return const SizedBox(

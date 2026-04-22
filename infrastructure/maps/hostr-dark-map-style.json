@@ -1,7 +1,7 @@
 {
   "monochrome": true,
   "variant": "dark",
-  "backgroundColor": "#222222",
+  "backgroundColor": "#121212",
   "styles": [
     {
       "id": "infrastructure",
@@ -21,7 +21,7 @@
     {
       "id": "infrastructure.roadNetwork.road",
       "geometry": {
-        "fillColor": "#080808",
+        "fillColor": "#191919",
         "strokeColor": "#272727",
         "strokeWidth": 1
       },
@@ -42,7 +42,7 @@
       "id": "infrastructure.roadNetwork.road.highway",
       "geometry": {
         "visible": true,
-        "fillColor": "#080808",
+        "fillColor": "#191919",
         "strokeColor": "#272727",
         "strokeWidth": 1
       },
@@ -82,14 +82,14 @@
       "geometry": {
         "visible": true,
         "fillOpacity": 1,
-        "fillColor": "#222222"
+        "fillColor": "#252525"
       }
     },
     {
       "id": "natural.land.landCover",
       "geometry": {
         "fillOpacity": 1,
-        "fillColor": "#222222"
+        "fillColor": "#252525"
       }
     },
     {
@@ -97,29 +97,29 @@
       "geometry": {
         "visible": false,
         "fillOpacity": 1,
-        "fillColor": "#222222"
+        "fillColor": "#252525"
       }
     },
     {
       "id": "natural.water",
       "geometry": {
-        "fillColor": "#030303"
+        "fillColor": "#121212"
       },
       "label": {
         "textFillColor": "#d0d0d0",
-        "textStrokeColor": "#030303"
+        "textStrokeColor": "#121212"
       }
     },
     {
       "id": "pointOfInterest",
       "geometry": {
-        "fillColor": "#080808"
+        "fillColor": "#191919"
       },
       "label": {
         "visible": false,
         "pinFillColor": "#272727",
         "textFillColor": "#d0d0d0",
-        "textStrokeColor": "#030303"
+        "textStrokeColor": "#121212"
       }
     },
     {
@@ -137,11 +137,11 @@
     {
       "id": "political",
       "geometry": {
-        "fillColor": "#030303"
+        "fillColor": "#121212"
       },
       "label": {
         "textFillColor": "#d0d0d0",
-        "textStrokeColor": "#030303"
+        "textStrokeColor": "#121212"
       }
     },
     {

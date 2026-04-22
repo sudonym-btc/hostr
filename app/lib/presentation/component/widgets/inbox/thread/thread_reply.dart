@@ -112,7 +112,8 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
   }
 
   Future<void> _sendReply() async {
-    if (_replyController.text.trim().isEmpty) return;
+    final message = _replyController.text.trim();
+    if (message.isEmpty) return;
 
     setState(() {
       _status = _ThreadReplyStatus.loading;
@@ -121,12 +122,14 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
 
     try {
       final thread = context.read<Thread>();
-      await thread.replyTextAndWait(_replyController.text);
+      await thread.replyTextAndWait(message);
 
       if (!mounted) return;
       setState(() {
         _status = _ThreadReplyStatus.success;
-        _replyController.clear();
+        if (_replyController.text.trim() == message) {
+          _replyController.clear();
+        }
       });
     } catch (e) {
       if (!mounted) return;

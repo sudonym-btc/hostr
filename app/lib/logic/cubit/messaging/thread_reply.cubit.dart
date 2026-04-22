@@ -31,7 +31,7 @@ class ThreadReplyCubit extends Cubit<ThreadReplyState> {
     try {
       // Create message event and publish via event publisher
 
-      await thread.replyText(message);
+      await thread.replyTextAndWait(message);
 
       emit(ThreadReplyState(status: ThreadReplyStatus.success));
     } catch (e) {
