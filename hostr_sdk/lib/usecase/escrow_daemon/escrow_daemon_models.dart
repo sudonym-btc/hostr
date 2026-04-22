@@ -16,6 +16,7 @@ class TradeSnapshot {
   final TokenAmount amount;
   final String? lastTxHash;
   final DateTime updatedAt;
+  final int? updatedBlockNum;
 
   TradeSnapshot({
     required this.tradeId,
@@ -23,6 +24,7 @@ class TradeSnapshot {
     required this.amount,
     this.lastTxHash,
     required this.updatedAt,
+    this.updatedBlockNum,
   });
 
   TradeSnapshot copyWith({
@@ -30,12 +32,14 @@ class TradeSnapshot {
     TokenAmount? amount,
     String? lastTxHash,
     DateTime? updatedAt,
+    int? updatedBlockNum,
   }) => TradeSnapshot(
     tradeId: tradeId,
     status: status ?? this.status,
     amount: amount ?? this.amount,
     lastTxHash: lastTxHash ?? this.lastTxHash,
     updatedAt: updatedAt ?? this.updatedAt,
+    updatedBlockNum: updatedBlockNum ?? this.updatedBlockNum,
   );
 
   Map<String, dynamic> toJson() => {
@@ -46,6 +50,7 @@ class TradeSnapshot {
     'tokenDecimals': amount.token.decimals,
     'txHash': lastTxHash,
     'updatedAt': updatedAt.toIso8601String(),
+    if (updatedBlockNum != null) 'updatedBlockNum': updatedBlockNum,
   };
 }
 

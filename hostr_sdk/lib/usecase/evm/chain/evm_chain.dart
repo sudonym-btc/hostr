@@ -95,6 +95,7 @@ class EvmChain {
 
   final Map<String, List<_GetLogsRequest>> _getLogsQueues = {};
   final Map<String, Timer?> _getLogsTimers = {};
+  final Map<String, Future<Uint8List>> _codeCache = {};
   final StreamController<void> _pollNow = StreamController<void>.broadcast();
   StreamController<int>? _sharedBlocksController;
   StreamSubscription<int>? _sharedBlocksSubscription;
@@ -142,6 +143,7 @@ class EvmChain {
     _client = newClient;
     _httpClient = newHttp;
     _clientGeneration++;
+    _codeCache.clear();
     oldClient.dispose();
     oldHttp.close();
   });
@@ -233,6 +235,33 @@ class EvmChain {
 
     return completer.future;
   });
+
+  /// Returns contract bytecode for [address], caching successful RPC lookups by
+  /// address and block. Concurrent callers for the same key share one request.
+  Future<Uint8List> getCode(EthereumAddress address, {BlockNum? atBlock}) =>
+      logger.span('getCode', () async {
+        final cacheKey =
+            '${address.eip55With0x}:${_codeCacheBlockKey(atBlock)}';
+        final cached = _codeCache.putIfAbsent(cacheKey, () async {
+          final code = await _callRpcWithRetry(
+            'getCode(${address.eip55With0x})',
+            (client) => client.getCode(address, atBlock: atBlock),
+          );
+          return Uint8List.fromList(code);
+        });
+
+        try {
+          return Uint8List.fromList(await cached);
+        } catch (_) {
+          if (identical(_codeCache[cacheKey], cached)) {
+            _codeCache.remove(cacheKey);
+          }
+          rethrow;
+        }
+      });
+
+  String _codeCacheBlockKey(BlockNum? atBlock) =>
+      (atBlock ?? const BlockNum.current()).toBlockParam();
 
   Future<List<FilterEvent>> _getLogsDirect(FilterOptions filter) {
     // Arbitrum's public RPC rejects named block tags like "earliest" in

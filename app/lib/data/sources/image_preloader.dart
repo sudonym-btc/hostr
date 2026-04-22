@@ -28,9 +28,6 @@ class ImagePreloader {
   /// Cache: sha256hash -> resolved full URL
   final Map<String, String> _resolvedUrls = {};
 
-  /// Cache: pubkey -> list of blossom server URLs
-  final Map<String, List<String>> _serverListCache = {};
-
   /// Tracks in-flight server list lookups to avoid duplicate requests.
   final Map<String, Future<List<String>>> _pendingServerLookups = {};
 
@@ -126,7 +123,6 @@ class ImagePreloader {
   /// Clears all caches. Useful for testing or logout.
   void clearCache() {
     _resolvedUrls.clear();
-    _serverListCache.clear();
     _pendingServerLookups.clear();
     _preloadingUrls.clear();
     _preloadedUrls.clear();
@@ -165,14 +161,9 @@ class ImagePreloader {
     }
   }
 
-  /// Returns the cached blossom server list for [pubkey], fetching it from
-  /// NDK if necessary. Deduplicates in-flight requests.
+  /// Fetches the Blossom server list for [pubkey] through NDK.
+  /// Deduplicates only concurrent in-flight requests.
   Future<List<String>> _getServerList(String pubkey) async {
-    // Always fetch to ensure latest server list, especially after publishing during login
-    // if (_serverListCache.containsKey(pubkey)) {
-    //   return _serverListCache[pubkey]!;
-    // }
-
     // Coalesce concurrent lookups for the same pubkey.
     if (_pendingServerLookups.containsKey(pubkey)) {
       return _pendingServerLookups[pubkey]!;
@@ -182,11 +173,24 @@ class ImagePreloader {
     _pendingServerLookups[pubkey] = completer.future;
 
     try {
-      final servers = await getIt<Hostr>().blossom.getUserServerList(
-        pubkeys: [pubkey],
-      );
-      final list = servers?.toList() ?? <String>[];
-      // _serverListCache[pubkey] = list;
+      final hostr = getIt<Hostr>();
+      final servers = await hostr.blossom.getUserServerList(pubkeys: [pubkey]);
+
+      final list = _normaliseServerList(servers);
+      if (list.isNotEmpty) {
+        completer.complete(list);
+        return completer.future;
+      }
+
+      final fallback = _normaliseServerList(hostr.config.bootstrapBlossom);
+      if (fallback.isNotEmpty) {
+        _logger.w(
+          'Blossom server list empty for $pubkey; falling back to configured Hostr Blossom servers: $fallback',
+        );
+        completer.complete(fallback);
+        return completer.future;
+      }
+
       completer.complete(list);
     } catch (error, stackTrace) {
       _logger.w(
@@ -194,12 +198,29 @@ class ImagePreloader {
         error: error,
         stackTrace: stackTrace,
       );
-      completer.complete(<String>[]);
+      final fallback = _normaliseServerList(
+        getIt<Hostr>().config.bootstrapBlossom,
+      );
+      if (fallback.isNotEmpty) {
+        _logger.w(
+          'Using configured Hostr Blossom servers after server-list lookup failure for $pubkey: $fallback',
+        );
+      }
+      completer.complete(fallback);
     } finally {
       _pendingServerLookups.remove(pubkey);
     }
 
     return completer.future;
+  }
+
+  List<String> _normaliseServerList(Iterable<String>? servers) {
+    if (servers == null) return <String>[];
+    return servers
+        .map((server) => server.trim())
+        .where((server) => server.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   /// Pre-fetches the image at [url] by resolving it through Flutter's image

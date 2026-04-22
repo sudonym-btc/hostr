@@ -88,6 +88,28 @@ Reservation _escrowBackedReservation(Listing listing) {
   ).signAs(MockKeys.guest, Reservation.fromNostrEvent);
 }
 
+Reservation _cancelledNegotiationRequest(Listing listing) {
+  return Reservation.create(
+    pubKey: MockKeys.guest.publicKey,
+    dTag: 'trade-cancelled-negotiation',
+    listingAnchor: listing.anchor!,
+    start: DateTime(2026, 3, 1),
+    end: DateTime(2026, 3, 2),
+    stage: ReservationStage.cancel,
+    quantity: 1,
+    amount: DenominatedAmount(
+      value: BigInt.from(100000),
+      denomination: 'BTC',
+      decimals: 8,
+    ),
+    pTags: [
+      PTag.seller(MockKeys.hoster.publicKey),
+      PTag.buyer(MockKeys.guest.publicKey),
+    ],
+    createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+  ).signAs(MockKeys.guest, Reservation.fromNostrEvent);
+}
+
 void main() {
   group('TradeActionResolver', () {
     test(
@@ -124,5 +146,45 @@ void main() {
         expect(result.actions, isNot(contains(TradeAction.cancel)));
       },
     );
+
+    test('marks negotiate-only cancelled trades as unavailable', () {
+      final listing = _listing();
+      final request = _cancelledNegotiationRequest(listing);
+
+      final result = TradeActionResolver.resolve(
+        threadState: ThreadState(
+          ourPubkey: MockKeys.guest.publicKey,
+          anchor: 'thread-anchor',
+          events: [
+            Message<Reservation>(
+              pubKey: request.pubKey,
+              tags: MessageTags(const []),
+              child: request,
+              createdAt: request.createdAt,
+            ),
+          ],
+          counterpartyPubkeys: [MockKeys.hoster.publicKey],
+          participantPubkeys: [
+            MockKeys.guest.publicKey,
+            MockKeys.hoster.publicKey,
+          ],
+        ),
+        listing: listing,
+        role: TradeRole.guest,
+        tradeId: request.getDtag()!,
+        start: request.start,
+        end: request.end,
+        amount: null,
+        ourPubkey: MockKeys.guest.publicKey,
+        allReservations: const [],
+        ownReservations: const [],
+        ownReservationsStatus: StreamStatusLive(),
+        payments: const [],
+        paymentsStatus: StreamStatusLive(),
+      );
+
+      expect(result.availability, TradeAvailability.cancelled);
+      expect(result.actions, isEmpty);
+    });
   });
 }

@@ -83,6 +83,11 @@ class TradeActionResolver {
       endDate: end,
     );
     final hasPayment = payments.isNotEmpty;
+    final latestRequest = threadState.reservationRequests.isNotEmpty
+        ? threadState.reservationRequests.last
+        : null;
+    final latestRequestCancelled =
+        latestRequest?.stage == ReservationStage.cancel;
 
     final resolvedActions = <TradeAction>[];
 
@@ -101,7 +106,8 @@ class TradeActionResolver {
 
     if (ownReservationsStatus is StreamStatusLive &&
         ownReservations.isEmpty &&
-        !hasPayment) {
+        !hasPayment &&
+        !latestRequestCancelled) {
       resolvedActions.addAll(
         ReservationRequestActions.resolve(
           threadState.reservationRequests,
@@ -115,6 +121,7 @@ class TradeActionResolver {
     final availability = _resolveAvailability(
       ownReservations: ownReservations,
       overlapLock: overlapLock,
+      negotiationCancelled: ownReservations.isEmpty && latestRequestCancelled,
     );
 
     return TradeResolution(
@@ -132,7 +139,11 @@ class TradeActionResolver {
 TradeAvailability _resolveAvailability({
   required List<Validation<ReservationGroup>> ownReservations,
   required ({bool isBlocked, String? reason}) overlapLock,
+  bool negotiationCancelled = false,
 }) {
+  if (negotiationCancelled) {
+    return TradeAvailability.cancelled;
+  }
   if (ownReservations.any((v) => v is Invalid)) {
     return TradeAvailability.invalidReservation;
   }

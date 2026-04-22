@@ -435,10 +435,11 @@ class AppPane extends StatelessWidget {
   Widget _buildAppBar(BuildContext context) {
     final theme = Theme.of(context);
     final hPad = AppSpacing.of(context).lg;
+    final surfaceColor = AppSurface.of(context);
     return Theme(
       data: theme.copyWith(
         appBarTheme: theme.appBarTheme.copyWith(
-          backgroundColor: Colors.transparent,
+          backgroundColor: surfaceColor,
           elevation: 0,
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
@@ -452,6 +453,7 @@ class AppPane extends StatelessWidget {
 
   SliverAppBar _buildSliverAppBar(BuildContext context) {
     final hPad = AppSpacing.of(context).lg;
+    final surfaceColor = AppSurface.of(context);
     final bar = sliverAppBarBuilder!(context);
     return SliverAppBar(
       key: bar.key,
@@ -468,7 +470,7 @@ class AppPane extends StatelessWidget {
       scrolledUnderElevation: 0,
       shadowColor: bar.shadowColor,
       surfaceTintColor: bar.surfaceTintColor ?? Colors.transparent,
-      backgroundColor: bar.backgroundColor ?? Colors.transparent,
+      backgroundColor: bar.backgroundColor ?? surfaceColor,
       foregroundColor: bar.foregroundColor,
       iconTheme: bar.iconTheme,
       actionsIconTheme: bar.actionsIconTheme,
@@ -498,7 +500,7 @@ class AppPane extends StatelessWidget {
     bool includeAppBar = true,
     bool includeBottomBar = true,
   }) {
-    Widget buildPaneBody(BoxConstraints constraints) {
+    Widget buildPaneBody(BuildContext context, BoxConstraints constraints) {
       final content = Padding(
         padding: padding,
         child: Align(
@@ -556,7 +558,7 @@ class AppPane extends StatelessWidget {
 
     final body = LayoutBuilder(
       builder: (context, constraints) {
-        return buildPaneBody(constraints);
+        return buildPaneBody(context, constraints);
       },
     );
 

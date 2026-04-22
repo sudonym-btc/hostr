@@ -8,6 +8,7 @@ import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:models/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
+import 'package:web3dart/web3dart.dart' show BlockNum;
 
 /// Registers all JSON-RPC method handlers on a per-client [json_rpc.Server].
 class DaemonHandler {
@@ -67,15 +68,20 @@ class DaemonHandler {
     final threads = hostr.messaging.threads;
     final trades = daemon.trades.values.toList()
       ..sort((a, b) {
-        // Pending (funded) first, then by updatedAt descending.
+        // Pending (funded) first, then newest chain event descending.
         final aP = a.status == TradeStatus.funded ? 0 : 1;
         final bP = b.status == TradeStatus.funded ? 0 : 1;
         if (aP != bP) return aP.compareTo(bP);
+        final aBlock = a.updatedBlockNum;
+        final bBlock = b.updatedBlockNum;
+        if (aBlock != null && bBlock != null && aBlock != bBlock) {
+          return bBlock.compareTo(aBlock);
+        }
         return b.updatedAt.compareTo(a.updatedAt);
       });
     return {
       'trades': trades.map((t) {
-        final json = t.toJson();
+        final json = _snapshotJson(t);
         json['disputed'] = threads.findByConversationTag(t.tradeId).isNotEmpty;
         // Enrich with symbol, which requires chain config knowledge.
         json['tokenSymbol'] = _resolveTokenSymbol(
@@ -84,6 +90,29 @@ class DaemonHandler {
         return json;
       }).toList(),
     };
+  }
+
+  Map<String, dynamic> _snapshotJson(TradeSnapshot snapshot) {
+    return snapshot.toJson();
+  }
+
+  Future<Map<String, dynamic>> _snapshotDetailJson(
+    TradeSnapshot snapshot,
+  ) async {
+    final json = _snapshotJson(snapshot);
+    final updatedBlockNum = snapshot.updatedBlockNum;
+    if (updatedBlockNum == null) return json;
+
+    try {
+      final block = await daemon.context.configuredChain.getBlockInformation(
+        blockNumber: BlockNum.exact(updatedBlockNum).toBlockParam(),
+      );
+      json['updatedBlockTimestamp'] = block.timestamp.toIso8601String();
+    } catch (_) {
+      // Detail views can still show the block number if timestamp resolution
+      // fails transiently.
+    }
+    return json;
   }
 
   /// Resolve a human-readable symbol for an EVM token address using the
@@ -119,7 +148,7 @@ class DaemonHandler {
     return {
       'tradeId': tradeId,
       'threadAnchor': threadAnchor,
-      'cached': snapshot?.toJson(),
+      'cached': snapshot != null ? await _snapshotDetailJson(snapshot) : null,
       'onChain': onChain != null
           ? {
               'isActive': onChain.isActive,

@@ -34,7 +34,7 @@ Future<Navigation> tradeListScreen(DaemonClient client) async {
     return Navigation.to(Screen.mainMenu);
   }
 
-  // ── Selection (already sorted by daemon: pending first, then updatedAt) ─
+  // ── Selection (already sorted by daemon: pending first, then newest block) ─
   final options = trades.map((t) {
     final short =
         t.tradeId.length > 12 ? '${t.tradeId.substring(0, 12)}…' : t.tradeId;
@@ -50,8 +50,10 @@ Future<Navigation> tradeListScreen(DaemonClient client) async {
             .foreground(Colors.warning)
             .render('⚠ disputed'.padRight(12))
         : ''.padRight(12);
-    final time = kDimStyle.render(relativeTime(t.updatedAt));
-    return '$short  $amount  $status  $disputed  $time';
+    final block = kDimStyle.render(
+      t.updatedBlockNum != null ? 'block ${t.updatedBlockNum}' : 'block —',
+    );
+    return '$short  $amount  $status  $disputed  $block';
   }).toList();
 
   final idx = SelectOrBack(prompt: 'Trades', options: options).interact();

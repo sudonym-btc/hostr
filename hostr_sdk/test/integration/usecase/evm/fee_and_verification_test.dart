@@ -493,7 +493,7 @@ void main() {
         final configured = hostr.evm.configuredChains.first;
         final realBytecodeHash =
             await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-              configured.client,
+              configured,
               EthereumAddress.fromHex(
                 env.evmConfig.chains.first.escrowContractAddress!,
               ),

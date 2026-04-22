@@ -162,7 +162,7 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
   Future<OnChainTrade?> getTrade(String tradeId);
 
   Future<void> ensureDeployed() async {
-    final code = await contract.client.getCode(contract.self.address);
+    final code = await client.getCode(contract.self.address);
     if (code.isEmpty) {
       throw StateError(
         'Escrow contract not deployed at ${contract.self.address}. '

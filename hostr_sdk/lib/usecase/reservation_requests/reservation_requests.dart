@@ -145,4 +145,20 @@ class ReservationRequests extends CrudUseCase {
 
     return counterOffer.signAs(signerKeyPair, Reservation.fromNostrEvent);
   });
+
+  Future<Reservation> createCancellation({
+    required Reservation previousRequest,
+    required KeyPair signerKeyPair,
+  }) => logger.span('createCancellation', () async {
+    return previousRequest
+        .copy(
+          createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          id: null,
+          pubKey: signerKeyPair.publicKey,
+          content: previousRequest.parsedContent.copyWith(
+            stage: ReservationStage.cancel,
+          ),
+        )
+        .signAs(signerKeyPair, Reservation.fromNostrEvent);
+  });
 }

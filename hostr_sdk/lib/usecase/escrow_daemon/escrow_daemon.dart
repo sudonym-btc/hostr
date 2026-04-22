@@ -110,7 +110,7 @@ class EscrowDaemon {
         contractAddress: contractAddress,
         contractBytecodeHash:
             await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-              chain.client,
+              chain,
               EthereumAddress.fromHex(contractAddress),
             ),
         chainId: chain.config.chainId,
@@ -203,6 +203,8 @@ class EscrowDaemon {
   /// Lookup a single trade.
   TradeSnapshot? getTrade(String tradeId) => _trades[tradeId];
 
+  int? get latestBlockNum => _latestBlockNum;
+
   /// Eagerly update (or insert) a trade snapshot and notify listeners.
   ///
   /// Used after the daemon itself sends a transaction (e.g. arbitrate) so the
@@ -293,6 +295,7 @@ class EscrowDaemon {
         amount: event.amount,
         lastTxHash: event.transactionHash,
         updatedAt: updatedAt,
+        updatedBlockNum: event.blockNum,
       );
     } else if (event is EscrowArbitratedEvent) {
       _logger.i(
@@ -306,6 +309,7 @@ class EscrowDaemon {
           status: TradeStatus.arbitrated,
           lastTxHash: event.transactionHash,
           updatedAt: updatedAt,
+          updatedBlockNum: event.blockNum,
         );
       }
     } else if (event is EscrowReleasedEvent) {
@@ -316,6 +320,7 @@ class EscrowDaemon {
           status: TradeStatus.released,
           lastTxHash: event.transactionHash,
           updatedAt: updatedAt,
+          updatedBlockNum: event.blockNum,
         );
       }
     } else if (event is EscrowClaimedEvent) {
@@ -326,6 +331,7 @@ class EscrowDaemon {
           status: TradeStatus.claimed,
           lastTxHash: event.transactionHash,
           updatedAt: updatedAt,
+          updatedBlockNum: event.blockNum,
         );
       }
     }
@@ -337,16 +343,7 @@ class EscrowDaemon {
     final block = event.block;
     if (block != null) return block.timestamp;
 
-    final latestBlockNum = _latestBlockNum;
-    if (latestBlockNum == null || latestBlockNum <= event.blockNum) {
-      return DateTime.now().toUtc();
-    }
-
-    const estimatedBlockSeconds = 12;
-    final blocksAgo = latestBlockNum - event.blockNum;
-    return DateTime.now().toUtc().subtract(
-      Duration(seconds: blocksAgo * estimatedBlockSeconds),
-    );
+    return DateTime.now().toUtc();
   }
 
   // ── Nostr thread messages ─────────────────────────────────────────────────

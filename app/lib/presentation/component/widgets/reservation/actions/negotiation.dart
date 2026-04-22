@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/escrow/fund/escrow_fund.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
+import 'package:hostr/presentation/component/widgets/reservation/trade_controls.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_button_styles.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
+import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
@@ -34,49 +35,38 @@ class NegotiationWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      formatAmount(tradeState.amount!, exact: false),
-                      style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: constraints.maxWidth * 0.6,
-                    ),
-                    child: StreamBuilder<SwapInOperation?>(
-                      stream: registry.watchForParent(tradeState.tradeId),
-                      builder: (context, snapshot) {
-                        final activeSwap = snapshot.data;
-                        return Wrap(
-                          spacing: kSpace2,
-                          runSpacing: kSpace2,
-                          alignment: WrapAlignment.end,
-                          children: [
-                            if (_statusMessage != null)
-                              _statusChip(context, message: _statusMessage!),
-                            if (hasCancel) _cancelButton(context),
-                            if (hasCounter && activeSwap == null)
-                              _counterButton(context),
-                            if (hasPay)
-                              _payButton(context, activeSwap: activeSwap)
-                            else if (hasAccept)
-                              _acceptButton(context),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+          TradeMetaRail(
+            amount: Row(
+              children: [
+                Text(
+                  formatAmount(tradeState.amount!, exact: false),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold),
+                ),
+                if (_statusMessage != null) ...[
+                  Gap.horizontal.md(),
+                  _statusChip(context, message: _statusMessage!),
                 ],
-              );
-            },
+              ],
+            ),
+            actions: StreamBuilder<SwapInOperation?>(
+              stream: registry.watchForParent(tradeState.tradeId),
+              builder: (context, snapshot) {
+                final activeSwap = snapshot.data;
+                return TradeActionBar(
+                  children: [
+                    if (hasCancel) _cancelButton(context),
+                    if (hasCounter && activeSwap == null)
+                      _counterButton(context),
+                    if (hasPay)
+                      _payButton(context, activeSwap: activeSwap)
+                    else if (hasAccept)
+                      _acceptButton(context),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -123,7 +113,7 @@ class NegotiationWidget extends StatelessWidget {
 
   // ─── Button helpers ────────────────────────────────────────────────
 
-  Widget _cancelButton(BuildContext context) => OutlinedButton(
+  Widget _cancelButton(BuildContext context) => TextButton(
     key: const ValueKey('trade_action_cancel'),
     onPressed: () {
       showAppModal(
@@ -148,8 +138,10 @@ class NegotiationWidget extends StatelessWidget {
         ),
       );
     },
-    style: AppButtonStyles.destructiveOutline(
-      context,
+    style: AppButtonStyles.text(context).copyWith(
+      foregroundColor: WidgetStatePropertyAll(
+        Theme.of(context).colorScheme.error,
+      ),
       visualDensity: VisualDensity.compact,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),

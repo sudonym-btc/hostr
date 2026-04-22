@@ -1,6 +1,5 @@
 import 'package:models/main.dart';
 import 'package:wallet/wallet.dart';
-import 'package:web3dart/web3dart.dart';
 
 import '../../../util/custom_logger.dart';
 import '../../escrow/supported_escrow_contract/multi_escrow.dart';
@@ -51,7 +50,6 @@ class EscrowCapability {
       if (contractName == 'MultiEscrow') {
         return MultiEscrowWrapper(
           chain: chain,
-          client: chain.client,
           address: address,
           logger: _logger,
         );
@@ -59,7 +57,7 @@ class EscrowCapability {
 
       return SupportedEscrowContractRegistry.getSupportedContract(
         contractName,
-        chain.client,
+        chain,
         address,
       )!;
     });

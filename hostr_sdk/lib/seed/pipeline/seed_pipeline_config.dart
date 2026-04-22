@@ -188,7 +188,7 @@ class SeedPipelineConfig {
   const SeedPipelineConfig({
     this.relayUrl = 'wss://relay.hostr.development',
     this.rpcUrl = 'https://arbitrum.hostr.development',
-    this.fundProfiles = true,
+    this.fundProfiles = false,
     this.setupLnbits = true,
     this.fundAmountWei,
     this.tradeSponsorPrivateKey,
@@ -219,7 +219,7 @@ class SeedPipelineConfig {
     return SeedPipelineConfig(
       relayUrl: _str(json['relayUrl']) ?? 'wss://relay.hostr.development',
       rpcUrl: _str(json['rpcUrl']) ?? 'https://arbitrum.hostr.development',
-      fundProfiles: _bool(json['fundProfiles'], true),
+      fundProfiles: _bool(json['fundProfiles'], false),
       setupLnbits: _bool(json['setupLnbits'], false),
       fundAmountWei: _bigInt(json['fundAmountWei']),
       tradeSponsorPrivateKey: _str(json['tradeSponsorPrivateKey']),

@@ -624,7 +624,7 @@ void main() {
         httpClient = http.Client();
         web3 = Web3Client(IntegrationTestHarness.anvilRpc, httpClient);
         escrowWrapper = MultiEscrowWrapper(
-          client: web3,
+          chain: harness.hostr.evm.configuredChains.first,
           address: EthereumAddress.fromHex(_contractAddress),
           logger: CustomLogger(),
         );

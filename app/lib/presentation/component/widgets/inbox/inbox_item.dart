@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
+import 'package:hostr/core/util/format_date.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -154,6 +155,67 @@ class InboxItem extends StatelessWidget {
     required this.onSelect,
   });
 
+  String _reservationDateRange(BuildContext context, Reservation reservation) {
+    final start = reservation.start;
+    final end = reservation.end;
+    if (start == null || end == null) return '';
+
+    return formatDateRangeShort(
+      DateTimeRange(start: start.toLocal(), end: end.toLocal()),
+      Localizations.localeOf(context),
+    );
+  }
+
+  String _reservationPreview(
+    BuildContext context, {
+    required Reservation reservation,
+    required Listing? listing,
+  }) {
+    if (reservation.stage == ReservationStage.cancel) {
+      return 'Reservation cancelled';
+    }
+
+    final listingTitle = (listing ?? reservation.proof?.listing)?.title.trim();
+    final dateRange = _reservationDateRange(context, reservation);
+    final action =
+        reservation.pubKey ==
+            getPubKeyFromAnchor(reservation.parsedTags.listingAnchor)
+        ? 'proposed'
+        : 'requested';
+
+    final details = [
+      if (dateRange.isNotEmpty) dateRange,
+      if (listingTitle != null && listingTitle.isNotEmpty) listingTitle,
+    ].join(' ');
+
+    return details.isEmpty
+        ? 'Reservation $action'
+        : 'Reservation $action for $details';
+  }
+
+  Widget _buildItem({
+    required BuildContext context,
+    required ThreadState state,
+    required Message? lastEvent,
+    required String subtitleBody,
+  }) {
+    final activePubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
+    final sentByUs = lastEvent?.pubKey == activePubkey;
+    final subtitlePrefix = sentByUs ? 'You: ' : '';
+
+    return InboxItemView(
+      counterparties: [...state.counterpartyPubkeys],
+      subtitle: subtitlePrefix + subtitleBody,
+      lastDateTime: state.getLastDateTime,
+      selected: selected,
+      sentByUs: sentByUs,
+      read: state.read,
+      received: state.received,
+      hasUnread: state.unreadCount(activePubkey) > 0,
+      onTap: () => onSelect(thread.anchor),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
@@ -161,39 +223,50 @@ class InboxItem extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return Container();
         final state = snapshot.data!;
-        final lastDateTime = state.getLastDateTime;
         final lastEvent = state.readableEvents.isNotEmpty
             ? state.readableEvents.last
             : null;
 
-        final subtitlePrefix =
-            lastEvent != null &&
-                lastEvent.pubKey == getIt<Hostr>().auth.getActiveKey().publicKey
-            ? 'You: '
-            : '';
         String subtitleBody = '';
         if (lastEvent is Message) {
           subtitleBody = lastEvent.content;
-          if (lastEvent.child is Reservation) {
-            subtitleBody = 'Reservation Proposal';
+          final reservation = lastEvent.child;
+          if (reservation is Reservation) {
+            final listing = reservation.proof?.listing;
+            if (listing != null ||
+                reservation.stage == ReservationStage.cancel) {
+              subtitleBody = _reservationPreview(
+                context,
+                reservation: reservation,
+                listing: listing,
+              );
+            } else {
+              return FutureBuilder<Listing?>(
+                future: getIt<Hostr>().listings.getOneByAnchor(
+                  reservation.parsedTags.listingAnchor,
+                ),
+                builder: (context, listingSnapshot) {
+                  return _buildItem(
+                    context: context,
+                    state: state,
+                    lastEvent: lastEvent,
+                    subtitleBody: _reservationPreview(
+                      context,
+                      reservation: reservation,
+                      listing: listingSnapshot.data,
+                    ),
+                  );
+                },
+              );
+            }
           }
         }
 
-        final subtitle = subtitlePrefix + subtitleBody;
-
-        return InboxItemView(
-          counterparties: [...state.counterpartyPubkeys],
-          subtitle: subtitle,
-          lastDateTime: lastDateTime,
-          selected: selected,
-          sentByUs:
-              lastEvent?.pubKey == getIt<Hostr>().auth.getActiveKey().publicKey,
-          read: state.read,
-          received: state.received,
-          hasUnread:
-              state.unreadCount(getIt<Hostr>().auth.getActiveKey().publicKey) >
-              0,
-          onTap: () => onSelect(thread.anchor),
+        return _buildItem(
+          context: context,
+          state: state,
+          lastEvent: lastEvent,
+          subtitleBody: subtitleBody,
         );
       },
     );

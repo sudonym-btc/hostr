@@ -150,7 +150,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
             try {
               bytecodeHashes.add(
                 await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-                  chain.client,
+                  chain,
                   EthereumAddress.fromHex(addr),
                 ),
               );

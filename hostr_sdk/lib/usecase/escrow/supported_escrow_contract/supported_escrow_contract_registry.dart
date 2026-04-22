@@ -1,20 +1,19 @@
 import 'package:crypto/crypto.dart';
 import 'package:wallet/wallet.dart';
-import 'package:web3dart/web3dart.dart';
-
 import '../../../injection.dart';
 import '../../../util/custom_logger.dart';
+import '../../evm/chain/evm_chain.dart';
 import 'multi_escrow.dart';
 import 'supported_escrow_contract.dart';
 
 class SupportedEscrowContractRegistry {
   static final Map<
     String,
-    SupportedEscrowContract Function(Web3Client client, EthereumAddress address)
+    SupportedEscrowContract Function(EvmChain chain, EthereumAddress address)
   >
   _registry = {
-    'MultiEscrow': (client, address) => MultiEscrowWrapper(
-      client: client,
+    'MultiEscrow': (chain, address) => MultiEscrowWrapper(
+      chain: chain,
       address: address,
       logger: getIt<CustomLogger>(),
     ),
@@ -22,12 +21,12 @@ class SupportedEscrowContractRegistry {
 
   static SupportedEscrowContract? getSupportedContract(
     String contractName,
-    Web3Client client,
+    EvmChain chain,
     EthereumAddress address,
   ) {
     final constructor = _registry[contractName];
     if (constructor != null) {
-      return constructor(client, address);
+      return constructor(chain, address);
     }
     return null;
   }
@@ -39,10 +38,10 @@ class SupportedEscrowContractRegistry {
   /// This is the single authoritative place for bytecode-hash calculation so
   /// that the daemon, the SDK, and any tooling all produce identical values.
   static Future<String> bytecodeHashForAddress(
-    Web3Client client,
+    EvmChain chain,
     EthereumAddress address,
   ) async {
-    final runtimeCode = await client.getCode(address);
+    final runtimeCode = await chain.getCode(address);
     return sha256.convert(runtimeCode).toString();
   }
 }
