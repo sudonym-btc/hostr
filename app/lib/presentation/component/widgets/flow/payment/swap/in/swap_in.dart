@@ -204,8 +204,12 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
           AmountTapInput(
             controller: _amountController,
             hintText: 'Amount',
-            min: params.minAmount?.toDenominated(),
-            max: params.maxAmount?.toDenominated(),
+            min: [
+              if (params.minAmount != null) params.minAmount!.toDenominated(),
+            ],
+            max: [
+              if (params.maxAmount != null) params.maxAmount!.toDenominated(),
+            ],
             required: true,
             enabled: !_loading,
             editable: isEditable,

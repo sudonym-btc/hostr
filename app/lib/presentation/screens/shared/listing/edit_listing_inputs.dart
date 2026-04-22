@@ -3,6 +3,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/logic/forms/listing_spec_field_controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
+import 'package:models/main.dart';
 
 import 'image_picker.dart';
 
@@ -98,7 +99,7 @@ class PriceInput extends StatelessWidget {
           hintText: 'Tap to set price',
           suffixText: '/ day',
           possibleDenominations: possibleDenominations,
-          minForAmount: listingReservationMinimumFor,
+          min: listingPricesMin,
           required: true,
           validator: (_) => controller.priceField.validatePrice(),
         );
@@ -436,7 +437,7 @@ class SecurityDepositInput extends StatelessWidget {
       controller: controller.securityDepositField,
       hintText: 'Tap to set deposit',
       possibleDenominations: possibleDenominations,
-      minForAmount: listingReservationMinimumFor,
+      min: listingPricesMin,
     );
   }
 }
@@ -457,7 +458,7 @@ class MinPaymentInput extends StatelessWidget {
       controller: controller.minPaymentField,
       hintText: 'Tap to set minimum',
       possibleDenominations: possibleDenominations,
-      minForAmount: listingReservationMinimumFor,
+      min: listingPricesMin,
     );
   }
 }

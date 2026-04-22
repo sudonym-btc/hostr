@@ -159,8 +159,8 @@ class _ReserveState extends State<Reserve> {
 
                               return AmountTapInput(
                                 controller: _amountController,
-                                minForAmount: listingReservationMinimumFor,
-                                max: listingAmount,
+                                min: listingPricesMin,
+                                max: [listingAmount],
                                 enabled: true,
                                 editable: widget.listing.negotiable,
                                 exact: false,
