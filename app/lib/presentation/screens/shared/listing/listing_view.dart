@@ -180,7 +180,7 @@ class ListingViewBody extends StatelessWidget {
   Widget _buildHeroCarousel() {
     return PreloadListingImages(
       listing: listing,
-      child: ListingCarousel(listing: listing),
+      child: ListingCarousel(listing: listing, showArrows: true),
     );
   }
 
