@@ -33,6 +33,10 @@ class EnvConfig {
 
     if (tokens.contains('prod') || tokens.contains('production')) return 'prod';
     if (tokens.contains('staging')) return 'staging';
+    // Compose integration profiles like "test,ci" still run against the real
+    // relay/chain stack, so they must use the live SDK environment rather
+    // than the in-memory SDK test environment.
+    if (tokens.contains('test') && tokens.contains('ci')) return 'dev';
     if (tokens.contains('test')) return 'test';
     if (tokens.contains('mock')) return 'mock';
     return 'dev';

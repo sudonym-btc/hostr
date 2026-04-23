@@ -88,6 +88,8 @@ services:
     volumes:
       - ./escrow/lib:/workspace/escrow/lib
       - ./escrow/bin:/workspace/escrow/bin
+      - ./hostr_sdk/lib:/workspace/hostr_sdk/lib
+      - ./models/lib:/workspace/models/lib
     entrypoint:
       - sh
       - -c

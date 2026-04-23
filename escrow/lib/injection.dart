@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:get_it/get_it.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:ndk/ndk.dart' show MemCacheManager, NdkConfig, NdkEngine;
 
 import 'env_config.dart';
 
@@ -52,6 +53,13 @@ Future<void> setupInjection({
         bootstrapBlossom: [env.blossomUrl],
         hostrRelay: env.relayUrl,
         evmConfig: env.evmConfig,
+        ndk: NdkConfig(
+          eventVerifier: CoinlibVerifier(),
+          cache: MemCacheManager(),
+          engine: NdkEngine.RELAY_SETS,
+          bootstrapRelays: [env.relayUrl],
+          defaultQueryTimeout: const Duration(seconds: 10),
+        ),
         syncAccountSeedRemotely: false,
         telemetry: Telemetry(
           serviceName: 'hostr-escrow',

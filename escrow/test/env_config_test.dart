@@ -7,6 +7,10 @@ void main() {
       expect(EnvConfig.sdkEnvironment('local,seed,ci'), 'dev');
     });
 
+    test('maps compose integration test profiles to dev', () {
+      expect(EnvConfig.sdkEnvironment('test,ci'), 'dev');
+    });
+
     test('keeps hosted environments', () {
       expect(EnvConfig.sdkEnvironment('staging'), 'staging');
       expect(EnvConfig.sdkEnvironment('prod'), 'prod');
@@ -14,7 +18,7 @@ void main() {
     });
 
     test('keeps test and mock environments', () {
-      expect(EnvConfig.sdkEnvironment('test,ci'), 'test');
+      expect(EnvConfig.sdkEnvironment('test'), 'test');
       expect(EnvConfig.sdkEnvironment('mock'), 'mock');
     });
   });

@@ -13,6 +13,62 @@ _compose() {
     (cd "$REPO_ROOT" && hostr_compose_cmd "$ENVIRONMENT" "$@")
 }
 
+wait_for_oneshot_service() {
+    local service_name="$1"
+    local cid
+
+    cid="$(_compose ps -aq "$service_name" 2>/dev/null | head -n 1 || true)"
+    if [ -z "$cid" ]; then
+        return 0
+    fi
+
+    docker wait "$cid" >/dev/null 2>&1 || true
+    local exit_code
+    exit_code="$(docker inspect "$cid" --format '{{.State.ExitCode}}')"
+    if [ "$exit_code" -ne 0 ]; then
+        echo "$service_name failed with exit code: $exit_code"
+        return "$exit_code"
+    fi
+}
+
+wait_for_arbitrum_tokens() {
+    if [ "$ENVIRONMENT" != "local" ] && [ "$ENVIRONMENT" != "test" ]; then
+        return 0
+    fi
+
+    wait_for_oneshot_service arbitrum-init
+
+    local rpc_url="${ARBITRUM_RPC:-http://127.0.0.1:8546}"
+    local tbtc="${EVM_CHAIN_ARBITRUM_REGTEST_TBTC_ADDRESS:-}"
+    local usdt="${EVM_CHAIN_ARBITRUM_REGTEST_USDT_ADDRESS:-}"
+    local attempts=0
+    local max_attempts=120
+
+    if [ -z "$tbtc" ] || [ -z "$usdt" ]; then
+        return 0
+    fi
+
+    echo "Waiting for Arbitrum token contracts to exist on-chain..."
+    while true; do
+        local tbtc_code=""
+        local usdt_code=""
+        tbtc_code="$(cast code "$tbtc" --rpc-url "$rpc_url" 2>/dev/null || true)"
+        usdt_code="$(cast code "$usdt" --rpc-url "$rpc_url" 2>/dev/null || true)"
+        if [ -n "$tbtc_code" ] && [ "$tbtc_code" != "0x" ] && \
+           [ -n "$usdt_code" ] && [ "$usdt_code" != "0x" ]; then
+            echo "Arbitrum token contracts ready (${attempts}s)."
+            return 0
+        fi
+
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            echo "Timed out waiting for token contracts at $tbtc / $usdt"
+            return 1
+        fi
+        sleep 1
+    done
+}
+
 reset_relay() {
     echo "Resetting relay container and state..."
 
@@ -79,6 +135,7 @@ seed_relay() {
     fi
     
     reset_relay
+    wait_for_arbitrum_tokens
 
     (
         set -o pipefail
