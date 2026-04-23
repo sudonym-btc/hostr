@@ -1,6 +1,7 @@
 export 'badge_award.dart';
 export 'badge_definition.dart';
 export 'commit_terms.dart';
+export 'commit_authorization.dart';
 export 'escrow_method.dart';
 export 'escrow_service.dart';
 export 'escrow_service_selected.dart';
@@ -22,6 +23,7 @@ export 'seen_status.dart';
 export 'serializable.dart';
 export 'tag_builder.dart';
 export 'tag_promotion.dart';
+export 'trade_key_authorization.dart';
 export 'type_json_content.dart';
 export 'type_parent.dart';
 export 'typing_indicator.dart';

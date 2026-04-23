@@ -54,15 +54,18 @@ class HostrSDKStorage {
   static const relaysKey = 'relays';
   static const nwcKey = 'nwc';
   static const authKey = 'auth';
+  static const seedKey = 'seed';
 
   final Storage<List<String>> relays;
   final Storage<List<String>> nwc;
   final Storage<List<String>> auth;
+  final Storage<List<String>> seed;
 
   const HostrSDKStorage({
     required this.relays,
     required this.nwc,
     required this.auth,
+    required this.seed,
   });
 
   factory HostrSDKStorage.fromKeyValue(KeyValueStorage storage) {
@@ -70,6 +73,7 @@ class HostrSDKStorage {
       relays: _KeyedStringListStorage(storage, relaysKey),
       nwc: _KeyedStringListStorage(storage, nwcKey),
       auth: _KeyedStringListStorage(storage, authKey),
+      seed: _KeyedStringListStorage(storage, seedKey),
     );
   }
 
@@ -77,6 +81,7 @@ class HostrSDKStorage {
     relays: InMemoryStorage<List<String>>(),
     nwc: InMemoryStorage<List<String>>(),
     auth: InMemoryStorage<List<String>>(),
+    seed: InMemoryStorage<List<String>>(),
   );
 }
 

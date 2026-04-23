@@ -79,14 +79,8 @@ void main() {
     test(
       'cancelled commitment hash is skipped by subscribeUncancelledReservations',
       () async {
-        final keepCommitment = ParticipationProof.computeCommitmentHash(
-          MockKeys.guest.publicKey,
-          'salt-keep',
-        );
-        final dropCommitment = ParticipationProof.computeCommitmentHash(
-          MockKeys.guest.publicKey,
-          'salt-drop',
-        );
+        const keepCommitment = 'trade-keep';
+        const dropCommitment = 'trade-drop';
 
         final keep = await _reservation(
           listing: listing,

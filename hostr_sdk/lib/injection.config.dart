@@ -24,6 +24,8 @@ import 'package:hostr_sdk/usecase/badge_definitions/badge_definitions.dart'
     as _i978;
 import 'package:hostr_sdk/usecase/blossom/blossom.dart' as _i824;
 import 'package:hostr_sdk/usecase/calendar/calendar.dart' as _i733;
+import 'package:hostr_sdk/usecase/deterministic_keys/account_seed_store.dart'
+    as _i756;
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart'
     as _i149;
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys_impl.dart'
@@ -232,6 +234,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i218.NwcStorage>(
       () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
+    gh.singleton<_i218.AccountSeedStorage>(
+      () =>
+          _i218.AccountSeedStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
+    );
     gh.singleton<_i588.Nwc>(
       () => _i588.MockNwc(
         gh<_i218.NwcStorage>(),
@@ -249,12 +255,6 @@ extension GetItInjectableX on _i174.GetIt {
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
         ndk: gh<_i857.Ndk>(),
-      ),
-    );
-    gh.singleton<_i149.DeterministicKeys>(
-      () => _i1020.DeterministicKeysImpl(
-        auth: gh<_i1000.Auth>(),
-        logger: gh<_i331.CustomLogger>(),
       ),
     );
     gh.singleton<_i305.Evm>(
@@ -277,6 +277,16 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i216.CommonDatabase>(),
         gh<_i910.HostrConfig>(),
         gh<_i1000.Auth>(),
+      ),
+    );
+    gh.singleton<_i756.AccountSeedStore>(
+      () => _i756.AccountSeedStore(
+        auth: gh<_i1000.Auth>(),
+        ndk: gh<_i857.Ndk>(),
+        requests: gh<_i1014.Requests>(),
+        storage: gh<_i218.AccountSeedStorage>(),
+        logger: gh<_i372.CustomLogger>(),
+        config: gh<_i910.HostrConfig>(),
       ),
     );
     gh.singleton<_i175.Heartbeats>(
@@ -360,6 +370,13 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i647.EscrowVerification(
         evm: gh<_i305.Evm>(),
         logger: gh<_i372.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i149.DeterministicKeys>(
+      () => _i1020.DeterministicKeysImpl(
+        auth: gh<_i1000.Auth>(),
+        seedStore: gh<_i756.AccountSeedStore>(),
+        logger: gh<_i331.CustomLogger>(),
       ),
     );
     gh.singleton<_i883.Relays>(
@@ -518,6 +535,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i733.Calendar(
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         listings: gh<_i906.Listings>(),
+        auth: gh<_i1000.Auth>(),
         metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i331.CustomLogger>(),
         port: gh<_i733.CalendarPort>(),
@@ -661,6 +679,7 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         config: gh<_i910.HostrConfig>(),
         relays: gh<_i883.Relays>(),
+        accountSeedStore: gh<_i756.AccountSeedStore>(),
         metadata: gh<_i149.MetadataUseCase>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         paymentProofOrchestrator: gh<_i850.PaymentProofOrchestrator>(),

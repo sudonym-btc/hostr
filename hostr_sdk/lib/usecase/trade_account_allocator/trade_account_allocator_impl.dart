@@ -120,46 +120,6 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   }
 
   @override
-  Future<int> findTradeAccountIndexBySalt(String salt, {int maxScan = 20}) =>
-      _logger.span('findTradeAccountIndexBySalt', () async {
-        final index = await tryFindTradeAccountIndexBySalt(
-          salt,
-          maxScan: maxScan,
-        );
-        if (index != null) {
-          return index;
-        }
-        throw StateError('No trade account index matches salt $salt');
-      });
-
-  @override
-  Future<int?> tryFindTradeAccountIndexBySalt(
-    String salt, {
-    int maxScan = 20,
-  }) async {
-    await _cache.ensureLoaded();
-
-    // O(1) cache hit (only works for fully-derived entries).
-    final cached = _cache.indexBySalt(salt);
-    if (cached != null) return cached;
-
-    // Cache miss — lightweight scan using only getTradeSalt.
-    final upperBound = _scanUpperBound(maxScan);
-    for (var index = 0; index < upperBound; index++) {
-      if (_cache.containsIndex(index)) {
-        await _yieldToEventLoop();
-        continue;
-      }
-      if (await _hd.getTradeSalt(accountIndex: index) == salt) {
-        await _cache.put(index);
-        return index;
-      }
-      await _yieldToEventLoop();
-    }
-    return null;
-  }
-
-  @override
   List<int> getReservedTradeIndices() {
     if (_auth.activeKeyPair == null) {
       return const [];

@@ -125,11 +125,13 @@ class NegotiationWidget extends StatelessWidget {
           buttons: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              FilledButton(
+              FutureButton.filled(
                 style: AppButtonStyles.destructive(context),
-                onPressed: () {
-                  Navigator.of(modalContext).pop();
-                  context.read<Trade>().execute(TradeAction.cancel);
+                onPressed: () async {
+                  await context.read<Trade>().execute(TradeAction.cancel);
+                  if (modalContext.mounted) {
+                    Navigator.of(modalContext).pop();
+                  }
                 },
                 child: Text(AppLocalizations.of(context)!.ok),
               ),

@@ -228,6 +228,9 @@ class BackgroundWorker {
     await _userSubscriptions.start();
     await _bootstrapHeartbeatBoundary(mode);
     _wireProcessors();
+    if (mode == _BackgroundWorkerMode.run) {
+      await _seedInitialNotifications();
+    }
 
     _maintenanceFuture = _startMaintenanceProcessors(
       mode: mode,
@@ -302,47 +305,48 @@ class BackgroundWorker {
   }
 
   void _bindMessagesProcessor() {
-    final source = _userSubscriptions.giftwraps$;
-    _mirrorStatus(source, _messagesProcessor$);
-    _messagesProcessor$.addSubscription(
-      source.replayStream
-          .asyncMap(_signalFromEvent)
-          .where((signal) => signal != null)
-          .cast<_BackgroundSignal>()
-          .listen(
-            _messagesProcessor$.add,
-            onError: _messagesProcessor$.addError,
-          ),
-    );
+    final processed = _userSubscriptions.giftwraps$
+        .asyncMap(_signalFromEvent)
+        .where((signal) => signal != null)
+        .map((signal) => signal!);
+    _messagesProcessor$.pipeFrom(processed);
   }
 
   void _bindHostingsProcessor() {
-    _mirrorStatus(_userSubscriptions.myHostings$, _myHostingsProcessor$);
-    _myHostingsProcessor$.addSubscription(
-      _userSubscriptions.myHostings$.replayStream
-          .asyncMap(_signalFromHosting)
-          .where((signal) => signal != null)
-          .cast<_BackgroundSignal>()
-          .listen(
-            _myHostingsProcessor$.add,
-            onError: _myHostingsProcessor$.addError,
-          ),
-    );
+    final processed = _userSubscriptions.myHostings$
+        .asyncMap(_signalFromHosting)
+        .where((signal) => signal != null)
+        .map((signal) => signal!);
+    _myHostingsProcessor$.pipeFrom(processed);
   }
 
   void _bindTripsProcessor() {
-    _mirrorStatus(_userSubscriptions.myTrips$, _myTripsProcessor$);
-    _myTripsProcessor$.addSubscription(
-      _userSubscriptions.myTrips$.replayStream
-          .asyncMap(_signalFromTrip)
-          .where((signal) => signal != null)
-          .cast<_BackgroundSignal>()
-          .listen(_myTripsProcessor$.add, onError: _myTripsProcessor$.addError),
-    );
+    final processed = _userSubscriptions.myTrips$
+        .asyncMap(_signalFromTrip)
+        .where((signal) => signal != null)
+        .map((signal) => signal!);
+    _myTripsProcessor$.pipeFrom(processed);
+  }
+
+  Future<void> _seedInitialNotifications() async {
+    for (final raw in _userSubscriptions.giftwraps$.items) {
+      final signal = await _signalFromEvent(raw);
+      if (signal != null) _emitSignal(signal);
+    }
+
+    for (final group in _userSubscriptions.myHostings$.items) {
+      final signal = await _signalFromHosting(group);
+      if (signal != null) _emitSignal(signal);
+    }
+
+    for (final group in _userSubscriptions.myTrips$.items) {
+      final signal = await _signalFromTrip(group);
+      if (signal != null) _emitSignal(signal);
+    }
   }
 
   /// Listens to completed trips and fires a one-time "leave a review"
-  /// notification per trade.  Uses [NotificationLog] for persistent
+  /// notification per trade. Uses [NotificationLog] for persistent
   /// deduplication so the notification is shown at most once per device,
   /// even across app restarts.
   void _bindTripReviewProcessor() {
@@ -398,7 +402,7 @@ class BackgroundWorker {
         if (!statuses.every(_isReadyStatus)) return;
 
         _heartbeatPublished = true;
-        await _publishHeartbeat();
+        _publishHeartbeat();
         _ready.add(true);
       }),
     );
@@ -550,17 +554,6 @@ class BackgroundWorker {
     );
   }
 
-  void _mirrorStatus<T>(
-    StreamWithStatus<T> source,
-    StreamWithStatus<_BackgroundSignal> target,
-  ) {
-    target.addSubscription(
-      source.status
-          .distinct((a, b) => a.runtimeType == b.runtimeType)
-          .listen(target.addStatus, onError: target.addError),
-    );
-  }
-
   void _emitSignal(_BackgroundSignal signal) {
     if (!_isAfterHeartbeatBoundary(signal.createdAt)) return;
     if (!_emittedNotificationIds.add(signal.id)) return;
@@ -575,15 +568,18 @@ class BackgroundWorker {
     _watchProgress?.call(notification);
   }
 
-  Future<void> _publishHeartbeat() =>
+  void _publishHeartbeat() {
+    unawaited(
       _logger.span('_publishHeartbeat', () async {
         await _runSafe('upsertHeartbeat', () async {
-          final heartbeat = await _heartbeats.upsertCurrent();
+          final heartbeat = await _heartbeats.requestUpsertCurrent();
           if (heartbeat.createdAt > _latestHeartbeatCreatedAt) {
             _latestHeartbeatCreatedAt = heartbeat.createdAt;
           }
         });
-      });
+      }),
+    );
+  }
 
   bool _isReadyStatus(StreamStatus status) =>
       status is StreamStatusLive || status is StreamStatusQueryComplete;

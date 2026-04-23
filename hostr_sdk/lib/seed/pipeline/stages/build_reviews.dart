@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:models/main.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../entity_factory.dart';
 import '../seed_context.dart';
@@ -45,7 +46,8 @@ List<Review> buildReviews({
       signer: thread.guest.keyPair,
       reservationAnchor: thread.reservation!.anchor!,
       listingAnchor: thread.listing.anchor!,
-      tweakMaterial: thread.request.tweakMaterial!,
+      reservation: thread.reservation!,
+      reservationAuthorKeyPair: _reservationAuthorKeyPair(thread),
       dTag: 'seed-review-${i + 1}',
       paidViaEscrow: thread.paidViaEscrow,
       createdAt: ctx.timestampDaysAfter(90 + i),
@@ -56,4 +58,28 @@ List<Review> buildReviews({
   }
 
   return reviews;
+}
+
+KeyPair _reservationAuthorKeyPair(SeedThread thread) {
+  final reservation = thread.reservation;
+  if (reservation == null) {
+    throw StateError('Cannot resolve review proof key without a reservation');
+  }
+
+  if (reservation.pubKey == thread.host.keyPair.publicKey) {
+    return thread.host.keyPair;
+  }
+
+  if (reservation.pubKey == thread.guest.keyPair.publicKey) {
+    return thread.guest.keyPair;
+  }
+
+  if (reservation.pubKey == thread.requestAuthorKeyPair.publicKey) {
+    return thread.requestAuthorKeyPair;
+  }
+
+  throw StateError(
+    'Unable to resolve reservation author key for seeded review: '
+    'reservation pubkey ${reservation.pubKey}',
+  );
 }

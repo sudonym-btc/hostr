@@ -23,7 +23,7 @@ import 'package:ndk/shared/nips/nip01/helpers.dart';
 /// ```
 class BackupKeyWidget extends StatelessWidget {
   final String publicKeyHex;
-  final String privateKeyHex;
+  final String? privateKeyHex;
   final String? mnemonic;
 
   const BackupKeyWidget({
@@ -36,11 +36,17 @@ class BackupKeyWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final npub = Helpers.encodeBech32(publicKeyHex, 'npub');
-    final nsec = Helpers.encodeBech32(privateKeyHex, 'nsec');
-    final recoverySentence =
-        mnemonic ??
-        Mnemonic(hex.decode(privateKeyHex), Language.english).sentence;
-    final words = recoverySentence.split(' ');
+    final hasPrivateKey = privateKeyHex != null && privateKeyHex!.isNotEmpty;
+    final hasMnemonic = mnemonic != null && mnemonic!.trim().isNotEmpty;
+    final nsec = hasPrivateKey
+        ? Helpers.encodeBech32(privateKeyHex!, 'nsec')
+        : null;
+    final recoverySentence = hasMnemonic
+        ? mnemonic!.trim()
+        : hasPrivateKey
+        ? Mnemonic(hex.decode(privateKeyHex!), Language.english).sentence
+        : null;
+    final words = recoverySentence?.split(' ') ?? const <String>[];
 
     return ModalBottomSheet(
       buttons: Row(
@@ -60,32 +66,36 @@ class BackupKeyWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _KeySection(label: 'Public key (npub)', value: npub),
-          Gap.vertical.md(),
-          _KeySection(
-            label: 'Private key (nsec)',
-            value: nsec,
-            sensitive: true,
-          ),
-          Gap.vertical.custom(kSpace5),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Recovery words',
-                  style: Theme.of(context).textTheme.titleMedium,
+          if (nsec != null) ...[
+            Gap.vertical.md(),
+            _KeySection(
+              label: 'Private key (nsec)',
+              value: nsec,
+              sensitive: true,
+            ),
+          ],
+          if (recoverySentence != null) ...[
+            Gap.vertical.custom(kSpace5),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Recovery words',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: CopyFeedbackButton.icon(
-                  value: () => recoverySentence,
-                  tooltip: AppLocalizations.of(context)!.copyWords,
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: CopyFeedbackButton.icon(
+                    value: () => recoverySentence,
+                    tooltip: AppLocalizations.of(context)!.copyWords,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          Gap.vertical.sm(),
-          _MnemonicGrid(words: words),
+              ],
+            ),
+            Gap.vertical.sm(),
+            _MnemonicGrid(words: words),
+          ],
         ],
       ),
     );

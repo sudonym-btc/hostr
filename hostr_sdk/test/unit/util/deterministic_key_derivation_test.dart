@@ -73,15 +73,17 @@ void main() {
       );
       expect(
         identical(
-          derivation.deriveTradeSalt(accountIndex: 2),
-          derivation.deriveTradeSalt(accountIndex: 2),
+          derivation.deriveTradeKeyPair(accountIndex: 2),
+          derivation.deriveTradeKeyPair(accountIndex: 2),
         ),
         isTrue,
       );
     });
 
     test('class-based derivation matches top-level helpers', () async {
-      final derivation = DeterministicKeyDerivation(nostrPrivateKeyHex);
+      final derivation = DeterministicKeyDerivation(
+        await deriveHostrSeedHexFromPrivateKey(nostrPrivateKeyHex),
+      );
 
       expect(
         await derivation.deriveAccountMnemonicWords(),
@@ -92,8 +94,9 @@ void main() {
         await deriveTradeId(nostrPrivateKeyHex, accountIndex: 2),
       );
       expect(
-        await derivation.deriveTradeSalt(accountIndex: 2),
-        await deriveTradeSalt(nostrPrivateKeyHex, accountIndex: 2),
+        (await derivation.deriveTradeKeyPair(accountIndex: 2)).publicKey,
+        (await deriveTradeKeyPair(nostrPrivateKeyHex, accountIndex: 2))
+            .publicKey,
       );
 
       final asyncKey = await derivation.deriveEvmKey(accountIndex: 2);
@@ -116,20 +119,20 @@ void main() {
       expect(key2.address, key1.address);
     });
 
-    test('trade material derivation is deterministic', () async {
+    test('trade id derivation is deterministic', () async {
       final tradeId1 = await deriveTradeId(nostrPrivateKeyHex, accountIndex: 5);
       final tradeId2 = await deriveTradeId(nostrPrivateKeyHex, accountIndex: 5);
-      final tradeSalt1 = await deriveTradeSalt(
-        nostrPrivateKeyHex,
-        accountIndex: 5,
-      );
-      final tradeSalt2 = await deriveTradeSalt(
-        nostrPrivateKeyHex,
-        accountIndex: 5,
-      );
 
       expect(tradeId2, tradeId1);
-      expect(tradeSalt2, tradeSalt1);
+    });
+
+    test('trade key derivation is deterministic', () async {
+      final derivation = DeterministicKeyDerivation(nostrPrivateKeyHex);
+      final key1 = await derivation.deriveTradeKeyPair(accountIndex: 5);
+      final key2 = await derivation.deriveTradeKeyPair(accountIndex: 5);
+
+      expect(key2.publicKey, key1.publicKey);
+      expect(key2.privateKey, key1.privateKey);
     });
   });
 }

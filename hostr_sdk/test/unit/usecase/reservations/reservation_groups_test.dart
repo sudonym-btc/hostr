@@ -86,7 +86,6 @@ Future<Reservation> _negotiate({
   start: DateTime(2026, 3, 1),
   end: DateTime(2026, 3, 5),
   quantity: 1,
-  tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
   createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -127,8 +126,7 @@ Future<Reservation> _cancel({
     amount: source.amount,
     recipient: source.recipient,
     proof: source.proof,
-    signatures: source.signatures,
-    tweakMaterial: source.tweakMaterial,
+    commitAuthorization: source.commitAuthorization,
     pTags: [
       for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
     ],
@@ -205,7 +203,6 @@ Future<Reservation> _buildNegotiate({
             decimals: 8,
           )
         : null,
-    tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
   );
 }
@@ -241,7 +238,6 @@ Future<Reservation> _buildSelfSignedCommit({
   end: negotiate.end,
   quantity: negotiate.quantity,
   amount: negotiate.amount,
-  tweakMaterial: negotiate.tweakMaterial,
   proof: proof,
   pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
@@ -267,8 +263,7 @@ Future<Reservation> _buildCancel({
     amount: source.amount,
     recipient: source.recipient,
     proof: source.proof,
-    signatures: source.signatures,
-    tweakMaterial: source.tweakMaterial,
+    commitAuthorization: source.commitAuthorization,
     pTags: [
       for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
     ],

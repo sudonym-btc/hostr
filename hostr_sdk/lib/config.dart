@@ -15,6 +15,17 @@ EventVerifier _defaultEventVerifier() {
   return CoinlibVerifier();
 }
 
+EventSigner _defaultEventSignerFactory({
+  required String publicKey,
+  String? privateKey,
+}) {
+  return CoinlibEventSigner(privateKey: privateKey, publicKey: publicKey);
+}
+
+Nip44Cryptography _defaultNip44Cryptography() {
+  return CoinlibNip44Cryptography();
+}
+
 /// Fast secp256k1-backed BIP-340 verifier.
 ///
 /// This uses the shared `models` secp256k1 engine, which can use a fast
@@ -126,6 +137,29 @@ class CoinlibEventSigner implements EventSigner {
   }
 }
 
+/// Fast NIP-44 cryptography backed by Hostr's configured crypto provider.
+class CoinlibNip44Cryptography implements Nip44Cryptography {
+  CoinlibNip44Cryptography();
+
+  @override
+  Future<String> encrypt({
+    required String plaintext,
+    required String privateKey,
+    required String publicKey,
+  }) {
+    return coinlibEncryptNip44(plaintext, privateKey, publicKey);
+  }
+
+  @override
+  Future<String> decrypt({
+    required String ciphertext,
+    required String privateKey,
+    required String publicKey,
+  }) {
+    return coinlibDecryptNip44(ciphertext, privateKey, publicKey);
+  }
+}
+
 /// Test-only verifier that accepts every event immediately.
 ///
 /// Useful for profiling whether time is being spent in NDK signature
@@ -166,6 +200,9 @@ class HostrConfig {
   final Telemetry telemetry;
   final CalendarPort? calendarPort;
   final EventVerifier eventVerifier;
+  final EventSignerFactory eventSignerFactory;
+  final Nip44Cryptography nip44Cryptography;
+  final bool syncAccountSeedRemotely;
 
   static List<String> _ndkBootstrapRelays({
     required String hostrRelay,
@@ -200,7 +237,10 @@ class HostrConfig {
     required this.evmConfig,
     this.calendarPort,
     this.showNotification,
+    this.syncAccountSeedRemotely = true,
     EventVerifier? eventVerifier,
+    EventSignerFactory? eventSignerFactory,
+    Nip44Cryptography? nip44Cryptography,
     KeyValueStorage? storage,
     AppDatabase? appDatabase,
     NdkConfig? ndk,
@@ -212,10 +252,16 @@ class HostrConfig {
          storage ?? InMemoryKeyValueStorage(),
        ),
        eventVerifier = eventVerifier ?? _defaultEventVerifier(),
+       eventSignerFactory = eventSignerFactory ?? _defaultEventSignerFactory,
+       nip44Cryptography = nip44Cryptography ?? _defaultNip44Cryptography(),
        ndkConfig =
            ndk ??
            NdkConfig(
              eventVerifier: eventVerifier ?? _defaultEventVerifier(),
+             eventSignerFactory:
+                 eventSignerFactory ?? _defaultEventSignerFactory,
+             nip44Cryptography:
+                 nip44Cryptography ?? _defaultNip44Cryptography(),
              cache: MemCacheManager(),
              fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,

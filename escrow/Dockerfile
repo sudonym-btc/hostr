@@ -17,7 +17,21 @@ FROM build AS dev
 ARG COMMIT_SHA=dev
 ARG BUILD_DATE=
 ENV COMMIT_SHA=$COMMIT_SHA \
-    BUILD_DATE=$BUILD_DATE
+    BUILD_DATE=$BUILD_DATE \
+    PATH="/root/.cargo/bin:${PATH}" \
+    RUSTUP_TOOLCHAIN="1.90.0-aarch64-unknown-linux-gnu"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl build-essential pkg-config libssl-dev libsecp256k1-2 \
+    && curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal \
+    && rustup toolchain install 1.90.0-aarch64-unknown-linux-gnu \
+    && rustup default 1.90.0-aarch64-unknown-linux-gnu \
+    && ln -sf "$(find /usr/lib -name 'libsecp256k1.so.2' -print -quit)" /usr/lib/libsecp256k1.so \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN dart build cli --target bin/daemon.dart -o /out/daemon \
+    && cp /out/daemon/bundle/bin/daemon /usr/local/bin/daemon \
+    && cp -r /out/daemon/bundle/lib/* /usr/local/lib/
 
 RUN chmod +x docker/entrypoint.sh docker/escrow-cli.sh \
     && install -m 0755 docker/escrow-cli.sh /usr/local/bin/escrow-cli \

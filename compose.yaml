@@ -43,6 +43,7 @@ services:
         aliases:
           - relay.${DOMAIN}
           - blossom.${DOMAIN}
+          - bunker-nostr.${DOMAIN}
           - app.${DOMAIN}
           # - landing.${DOMAIN}
           - telemetry.${DOMAIN}

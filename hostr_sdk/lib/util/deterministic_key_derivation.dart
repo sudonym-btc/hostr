@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:coinlib/coinlib.dart' as coinlib;
 import 'package:convert/convert.dart' as convert;
+import 'package:models/bip340.dart';
 import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 
@@ -13,7 +15,7 @@ import 'crypto_provider.dart';
 const _evmPathPrefix = "m/44'/60'/0'/0";
 const _nostrPathPrefix = "m/44'/1237'";
 const _tradeIdPathPrefix = "m/1237'/9277'/1'/0";
-const _tradeSaltPathPrefix = "m/1237'/9277'/2'/0";
+const _tradeKeyPathPrefix = "m/1237'/9277'/3'/0";
 const _appSeedSalt = 'hostr/root/v1';
 const _appEntropyInfo = 'deterministic-app-entropy';
 const _bip39SeedSaltPrefix = 'mnemonic';
@@ -69,7 +71,7 @@ Future<Uint8List> _mnemonicToSeed(
 }
 
 class DeterministicKeyDerivation {
-  final String nostrPrivateKeyHex;
+  final String rootSeedHex;
 
   Future<Uint8List>? _appEntropyFuture;
   Future<List<String>>? _evmMnemonicWordsFuture;
@@ -83,9 +85,9 @@ class DeterministicKeyDerivation {
   final Map<int, Future<EthPrivateKey>> _evmKeyFutures = {};
   final Map<int, Future<bip.EthereumAddress>> _evmAddressFutures = {};
   final Map<int, Future<String>> _tradeIdFutures = {};
-  final Map<int, Future<String>> _tradeSaltFutures = {};
+  final Map<int, Future<KeyPair>> _tradeKeyFutures = {};
 
-  DeterministicKeyDerivation(this.nostrPrivateKeyHex);
+  DeterministicKeyDerivation(this.rootSeedHex);
 
   /// Returns the [HDPrivateKey] at [pathPrefix], caching it so that
   /// subsequent calls with a different [accountIndex] only need to derive
@@ -101,8 +103,8 @@ class DeterministicKeyDerivation {
   }
 
   Future<Uint8List> deriveAppEntropy() {
-    return _appEntropyFuture ??= _deriveAppEntropyFromPrivateKey(
-      nostrPrivateKeyHex,
+    return _appEntropyFuture ??= Future.value(
+      Uint8List.fromList(convert.hex.decode(rootSeedHex)),
     );
   }
 
@@ -165,12 +167,13 @@ class DeterministicKeyDerivation {
     });
   }
 
-  Future<String> deriveTradeSalt({int accountIndex = 0}) {
-    return _tradeSaltFutures.putIfAbsent(accountIndex, () async {
+  Future<KeyPair> deriveTradeKeyPair({int accountIndex = 0}) {
+    return _tradeKeyFutures.putIfAbsent(accountIndex, () async {
       final master = await deriveAppMaster();
-      final parent = _prefixKey(master, _tradeSaltPathPrefix);
+      final parent = _prefixKey(master, _tradeKeyPathPrefix);
       final child = parent.derive(accountIndex);
-      return _sha256Hex(child.privateKey.data);
+      final privateKeyHex = convert.hex.encode(child.privateKey.data);
+      return Bip340.fromPrivateKey(privateKeyHex);
     });
   }
 }
@@ -187,18 +190,30 @@ Future<Uint8List> _deriveAppEntropyFromPrivateKey(
   );
 }
 
-DeterministicKeyDerivation _forPrivateKey(String nostrPrivateKeyHex) {
-  return DeterministicKeyDerivation(nostrPrivateKeyHex);
+Future<String> deriveHostrSeedHexFromPrivateKey(
+  String nostrPrivateKeyHex,
+) async {
+  final entropy = await _deriveAppEntropyFromPrivateKey(nostrPrivateKeyHex);
+  return convert.hex.encode(entropy);
+}
+
+Future<DeterministicKeyDerivation> _forPrivateKey(
+  String nostrPrivateKeyHex,
+) async {
+  final seedHex = await deriveHostrSeedHexFromPrivateKey(nostrPrivateKeyHex);
+  return DeterministicKeyDerivation(seedHex);
 }
 
 Future<List<String>> deriveAccountMnemonicWords(
   String nostrPrivateKeyHex,
 ) async {
-  return _forPrivateKey(nostrPrivateKeyHex).deriveAccountMnemonicWords();
+  final derivation = await _forPrivateKey(nostrPrivateKeyHex);
+  return derivation.deriveAccountMnemonicWords();
 }
 
 Future<String> deriveAccountMnemonic(String nostrPrivateKeyHex) async {
-  return _forPrivateKey(nostrPrivateKeyHex).deriveAccountMnemonic();
+  final derivation = await _forPrivateKey(nostrPrivateKeyHex);
+  return derivation.deriveAccountMnemonic();
 }
 
 Future<String> deriveNostrPrivateKeyFromMnemonic(
@@ -217,25 +232,22 @@ Future<EthPrivateKey> deriveEvmKey(
   String nostrPrivateKeyHex, {
   int accountIndex = 0,
 }) async {
-  return _forPrivateKey(
-    nostrPrivateKeyHex,
-  ).deriveEvmKey(accountIndex: accountIndex);
+  final derivation = await _forPrivateKey(nostrPrivateKeyHex);
+  return derivation.deriveEvmKey(accountIndex: accountIndex);
 }
 
 Future<String> deriveTradeId(
   String nostrPrivateKeyHex, {
   int accountIndex = 0,
 }) async {
-  return _forPrivateKey(
-    nostrPrivateKeyHex,
-  ).deriveTradeId(accountIndex: accountIndex);
+  final derivation = await _forPrivateKey(nostrPrivateKeyHex);
+  return derivation.deriveTradeId(accountIndex: accountIndex);
 }
 
-Future<String> deriveTradeSalt(
+Future<KeyPair> deriveTradeKeyPair(
   String nostrPrivateKeyHex, {
   int accountIndex = 0,
 }) async {
-  return _forPrivateKey(
-    nostrPrivateKeyHex,
-  ).deriveTradeSalt(accountIndex: accountIndex);
+  final derivation = await _forPrivateKey(nostrPrivateKeyHex);
+  return derivation.deriveTradeKeyPair(accountIndex: accountIndex);
 }

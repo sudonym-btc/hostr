@@ -102,6 +102,9 @@ generate_cert "relay.${DOMAIN}" \
 generate_cert "blossom.${DOMAIN}" \
   "DNS:blossom.${DOMAIN},DNS:blossom,DNS:localhost,IP:127.0.0.1"
 
+generate_cert "bunker-nostr.${DOMAIN}" \
+  "DNS:bunker-nostr.${DOMAIN},DNS:bunker-nostr,DNS:localhost,IP:127.0.0.1"
+
 generate_cert "lnbits.${DOMAIN}" \
   "DNS:lnbits.${DOMAIN},DNS:lnbits,DNS:localhost,IP:127.0.0.1"
 

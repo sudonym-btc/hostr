@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:hostr_sdk/usecase/auth/auth_identity_resolver.dart';
 import 'package:hostr_sdk/usecase/auth/auth_models.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:ndk/ndk.dart';
 import 'package:test/test.dart';
 
 // ── Well-known test data ───────────────────────────────────────────────
@@ -157,6 +158,28 @@ void main() {
       expect(record!.keyPair, isNotNull);
       expect(record.keyPair!.privateKey, _hexPrivKey);
     });
+
+    test('JSON with bunker connection → parses bunker session fields', () {
+      final json = {
+        'version': 1,
+        'credentialType': 'bunker',
+        'secret': '',
+        'publicKey': 'abcd1234' * 8,
+        'bunkerConnection': {
+          'privateKey': _hexPrivKey,
+          'remotePubkey': 'beef5678' * 8,
+          'relays': ['wss://relay.hostr.development'],
+        },
+      };
+      final record = AuthRecord.fromStorage([jsonEncode(json)]);
+      expect(record, isNotNull);
+      expect(record!.credentialType, 'bunker');
+      expect(record.publicKeyHex, 'abcd1234' * 8);
+      expect(record.bunkerConnection, isNotNull);
+      expect(record.bunkerConnection!.relays, [
+        'wss://relay.hostr.development',
+      ]);
+    });
   });
 
   group('AuthRecord — toJson / copyWith', () {
@@ -216,6 +239,28 @@ void main() {
       expect(copy.nostrAccountIndex, original.nostrAccountIndex);
       expect(copy.maxAccountIndex, original.maxAccountIndex);
     });
+
+    test('round-trip preserves bunker connection fields', () {
+      final original = AuthRecord(
+        version: 1,
+        credentialType: 'bunker',
+        secret: '',
+        publicKey: 'abcd1234' * 8,
+        bunkerConnection: BunkerConnection(
+          privateKey: _hexPrivKey,
+          remotePubkey: 'beef5678' * 8,
+          relays: const ['wss://relay.hostr.development'],
+        ),
+      );
+      final restored = AuthRecord.fromStorage([jsonEncode(original.toJson())]);
+      expect(restored, isNotNull);
+      expect(restored!.publicKeyHex, original.publicKeyHex);
+      expect(restored.bunkerConnection, isNotNull);
+      expect(
+        restored.bunkerConnection!.remotePubkey,
+        original.bunkerConnection!.remotePubkey,
+      );
+    });
   });
 
   group('AuthRecord — getters', () {
@@ -235,6 +280,16 @@ void main() {
         secret: _hexPrivKey,
       );
       expect(record.publicKeyHex, isNull);
+    });
+
+    test('publicKeyHex prefers explicit publicKey when present', () {
+      final record = AuthRecord(
+        version: 1,
+        credentialType: 'bunker',
+        secret: '',
+        publicKey: 'abcd1234' * 8,
+      );
+      expect(record.publicKeyHex, 'abcd1234' * 8);
     });
   });
 }

@@ -18,7 +18,9 @@ import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../reservation_groups/reservation_groups.dart';
 import '../reservation_requests/reservation_requests.dart';
+import '../reservations/reservation_pubkey_proofs.dart';
 import '../reservations/reservations.dart';
+import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'actions/payment.dart';
 import 'actions/reservation.dart';
@@ -150,21 +152,13 @@ class Trade extends Cubit<TradeState> {
   Future<String?>
   resolveGuestPubkey() => _logger.span('resolveGuestPubkey', () async {
     final request = thread!.state.value.reservationRequests.last;
-    final tweakMaterial = request.tweakMaterial;
-    final salt = tweakMaterial?.salt;
-    final parity = tweakMaterial?.parity;
-    final tweakedPubkey = request.recipient;
-    if (salt == null || parity == null || tweakedPubkey == null) {
-      throw StateError(
-        'Cannot resolve guest pubkey: missing tweak material or tweaked pubkey',
-      );
-    }
-
-    return untweakPublicKey(
-      tweakedPublicKey: tweakedPubkey,
-      tweakedPublicKeyParity: parity,
-      salt: salt,
+    final proof = await request.resolvePubkeyProof(
+      role: 'buyer',
+      recipientKeyPair: _auth.getActiveKey(),
     );
+    return proof?.pubkey ??
+        request.parsedTags.getTagValueByMarker('p', 'buyer') ??
+        request.recipient;
   });
 
   Future<void> start() => _logger.span('start', () async {
@@ -443,12 +437,15 @@ class Trade extends Cubit<TradeState> {
       _bootstrapped ? reservationGroup$.items : const [];
 
   Future<KeyPair> activeKeyPair() => _logger.span('activeKeyPair', () async {
-    return role == TradeRole.host
-        ? _auth.getActiveKey()
-        : tweakKeyPair(
-            privateKey: _auth.getActiveKey().privateKey!,
-            salt: _tradeSaltFromThread() ?? tradeId,
-          ).keyPair;
+    if (role == TradeRole.host) {
+      return _auth.getActiveKey();
+    }
+
+    final tradeAccountAllocator = getIt<TradeAccountAllocator>();
+    final accountIndex = await tradeAccountAllocator.findTradeAccountIndexByTradeId(
+      tradeId,
+    );
+    return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
   });
 
   String _resolveNegotiationPubkey(List<Reservation> reservationRequests) {
@@ -456,31 +453,18 @@ class Trade extends Cubit<TradeState> {
       return _auth.getActiveKey().publicKey;
     }
 
-    final salt =
-        reservationRequests.lastOrNull?.tweakMaterial?.salt ??
-        reservationRequests
-            .where((request) => request.tweakMaterial != null)
-            .map((request) => request.tweakMaterial!.salt)
-            .lastOrNull;
-
-    if (salt == null) {
-      return _auth.getActiveKey().publicKey;
-    }
-
-    return tweakKeyPair(
-      privateKey: _auth.getActiveKey().privateKey!,
-      salt: salt,
-    ).publicKey;
+    return _firstGuestNegotiationPubkey(reservationRequests) ??
+        reservationRequests.lastOrNull?.recipient ??
+        _auth.getActiveKey().publicKey;
   }
 
-  String? _tradeSaltFromThread() {
-    final requests = thread?.state.value.reservationRequests;
-    if (requests == null || requests.isEmpty) return null;
-    return requests.lastOrNull?.tweakMaterial?.salt ??
-        requests
-            .where((request) => request.tweakMaterial != null)
-            .map((request) => request.tweakMaterial!.salt)
-            .lastOrNull;
+  String? _firstGuestNegotiationPubkey(List<Reservation> reservationRequests) {
+    for (final request in reservationRequests.reversed) {
+      if (request.pubKey != sellerPubkey) {
+        return request.pubKey;
+      }
+    }
+    return null;
   }
 
   Future<void> counter(DenominatedAmount amount) =>
@@ -520,7 +504,7 @@ class Trade extends Cubit<TradeState> {
           signerKeyPair: await activeKeyPair(),
         );
 
-        await thread!.replyEvent(event);
+        await thread!.replyEventAndWait(event);
       });
 
   Future<void> acceptLatestOffer() => _logger.span(
@@ -555,7 +539,7 @@ class Trade extends Cubit<TradeState> {
         signerKeyPair: await activeKeyPair(),
       );
 
-      await thread!.replyEvent(event);
+      await thread!.replyEventAndWait(event);
     },
   );
 
@@ -586,7 +570,7 @@ class Trade extends Cubit<TradeState> {
           signerKeyPair: await activeKeyPair(),
         );
 
-        await thread!.replyEvent(event);
+        await thread!.replyEventAndWait(event);
       });
 
   /// Returns the Nostr pubkey of the escrow service used in this trade.

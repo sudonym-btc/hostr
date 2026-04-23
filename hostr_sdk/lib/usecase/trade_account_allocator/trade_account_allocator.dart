@@ -18,9 +18,5 @@ abstract class TradeAccountAllocator {
     int maxScan = 20,
   });
 
-  Future<int> findTradeAccountIndexBySalt(String salt, {int maxScan = 20});
-
-  Future<int?> tryFindTradeAccountIndexBySalt(String salt, {int maxScan = 20});
-
   List<int> getReservedTradeIndices();
 }

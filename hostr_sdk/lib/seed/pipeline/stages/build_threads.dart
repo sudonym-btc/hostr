@@ -1,6 +1,7 @@
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 
+import '../../../util/deterministic_key_derivation.dart';
 import '../entity_factory.dart';
 import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
@@ -73,6 +74,10 @@ Future<List<SeedThread>> buildThreads({
         start = end.subtract(Duration(days: stayDays));
       }
 
+      final requestAuthorKeyPair = await deriveTradeKeyPair(
+        guest.keyPair.privateKey!,
+        accountIndex: guestTradeIndex,
+      );
       final request = await f.reservation(
         guestKeyPair: guest.keyPair,
         listing: listing,
@@ -91,6 +96,8 @@ Future<List<SeedThread>> buildThreads({
           guest: guest,
           listing: listing,
           request: request,
+          guestTradeAccountIndex: guestTradeIndex - 1,
+          requestAuthorKeyPair: requestAuthorKeyPair,
           id: tradeId,
           start: start,
           end: end,

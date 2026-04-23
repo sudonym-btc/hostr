@@ -8,6 +8,7 @@ import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
+import 'package:hostr_sdk/usecase/reservations/reservation_pubkey_proofs.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/reviews/reviews.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -24,17 +25,10 @@ import '../../../support/fakes.dart';
 
 final _f = EntityFactory();
 
-// ── Fakes ───────────────────────────────────────────────────────────
-
-/// Fake requests that supports both `subscribe` (returning a manually-
-/// controlled StreamWithStatus) and `query` (returning filter-matched
-/// events from an in-memory store).
 class _FakeRequests extends Fake implements hostr_requests.Requests {
   final List<Nip01Event> events = [];
   final List<StreamWithStatus<dynamic>> _subscriptions = [];
 
-  /// Creates a StreamWithStatus that the test can push events into.
-  /// Events are also matched against the filter from the in-memory store.
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
     required Filter filter,
@@ -45,7 +39,6 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     final source = StreamWithStatus<T>();
     _subscriptions.add(source);
 
-    // Emit existing matching events, then go live.
     Future.microtask(() {
       source.addStatus(StreamStatusQuerying());
       for (final event in events) {
@@ -109,8 +102,6 @@ class _StubEscrowVerification extends Fake implements EscrowVerification {
   }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────
-
 Future<Reservation> _reservation({
   required Listing listing,
   required KeyPair signer,
@@ -121,7 +112,7 @@ Future<Reservation> _reservation({
   ReservationStage stage = ReservationStage.negotiate,
   int createdAtOffsetSeconds = 0,
   String? recipient,
-  ReservationTweakMaterial? tweakMaterial,
+  List<PTag>? pTags,
 }) => _f.reservation(
   listing: listing,
   dTag: tradeId,
@@ -131,27 +122,48 @@ Future<Reservation> _reservation({
   proof: proof,
   stage: stage,
   recipient: recipient,
-  tweakMaterial: tweakMaterial,
+  pTags: pTags,
   createdAt:
       DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000 +
       createdAtOffsetSeconds,
 );
 
+Future<Reservation> _withBuyerProof({
+  required Reservation reservation,
+  required KeyPair identityKeyPair,
+  required KeyPair reservationAuthorKeyPair,
+}) {
+  return reservation.attachPubkeyProof(
+    role: 'buyer',
+    proofKeyPair: identityKeyPair,
+    encryptionKeyPair: reservationAuthorKeyPair,
+  );
+}
+
 Review _review({
   required KeyPair signer,
   required Listing listing,
-  required ReservationTweakMaterial tweakMaterial,
+  required Reservation proofReservation,
+  required KeyPair proofReservationAuthorKeyPair,
+  String? reservationAnchor,
 }) {
+  final revealKeyPair = deriveReviewRevealKeyPair(
+    reservation: proofReservation,
+    reservationAuthorKeyPair: proofReservationAuthorKeyPair,
+    role: 'buyer',
+  );
+
   return Review(
     pubKey: signer.publicKey,
     createdAt: DateTime(2026, 6, 1).millisecondsSinceEpoch ~/ 1000,
     tags: ReviewTags([
       [kListingRefTag, listing.anchor!],
+      if (reservationAnchor != null) [kReservationRefTag, reservationAnchor],
     ]),
     content: ReviewContent(
       rating: 5,
       content: 'Great stay!',
-      proof: ParticipationProof(tweakMaterial: tweakMaterial),
+      proof: ParticipationProof(revealPrivateKey: revealKeyPair.privateKey!),
     ),
   ).signAs(signer, Review.fromNostrEvent);
 }
@@ -238,7 +250,6 @@ void main() {
       );
 
       listing = _fixtureListing();
-      // Seed the listing so getOneByAnchor can find it.
       fakeRequests.events.add(listing);
     });
 
@@ -246,61 +257,81 @@ void main() {
       await fakeRequests.closeAll();
     });
 
-    test('host-confirmed reservation validates a review', () async {
-      final salt = 'salt-host-confirmed';
-      final tweakMaterial = ReservationTweakMaterial(salt: salt, parity: true);
+    test(
+      'host-confirmed reservation validates a review via trade-group proof',
+      () async {
+        final buyerAlias = MockKeys.reviewer;
 
-      // Host published the reservation (auto-valid, no payment proof needed).
-      final tweakedKey = tweakKeyPair(
-        privateKey: MockKeys.guest.privateKey!,
-        salt: salt,
-      );
-      final hostReservation = await _reservation(
-        listing: listing,
-        signer: MockKeys.hoster,
-        tradeId: 'trade-host-confirmed',
-        start: DateTime(2026, 2, 1),
-        end: DateTime(2026, 2, 3),
-        stage: ReservationStage.commit,
-        recipient: tweakedKey.publicKey,
-      );
-      fakeRequests.events.add(hostReservation);
+        final negotiate = await _withBuyerProof(
+          reservation: await _reservation(
+            listing: listing,
+            signer: buyerAlias,
+            tradeId: 'trade-host-confirmed',
+            start: DateTime(2026, 2, 1),
+            end: DateTime(2026, 2, 3),
+            recipient: buyerAlias.publicKey,
+            pTags: [
+              PTag.seller(listing.pubKey),
+              PTag.buyer(buyerAlias.publicKey),
+            ],
+          ),
+          identityKeyPair: MockKeys.guest,
+          reservationAuthorKeyPair: buyerAlias,
+        );
+        final hostCommit = await _reservation(
+          listing: listing,
+          signer: MockKeys.hoster,
+          tradeId: 'trade-host-confirmed',
+          start: DateTime(2026, 2, 1),
+          end: DateTime(2026, 2, 3),
+          stage: ReservationStage.commit,
+          recipient: buyerAlias.publicKey,
+          pTags: [
+            PTag.seller(listing.pubKey),
+            PTag.buyer(buyerAlias.publicKey),
+          ],
+        );
+        final review = _review(
+          signer: MockKeys.guest,
+          listing: listing,
+          proofReservation: negotiate,
+          proofReservationAuthorKeyPair: buyerAlias,
+        );
 
-      // Guest writes a review with proof.
-      final review = _review(
-        signer: MockKeys.guest,
-        listing: listing,
-        tweakMaterial: tweakMaterial.copyWith(parity: tweakedKey.parity),
-      );
-      fakeRequests.events.add(review);
+        fakeRequests.events.addAll([negotiate, hostCommit, review]);
 
-      final verified = reviews.subscribeVerified(
-        filter: Filter(
-          tags: {
-            kListingRefTag: [listing.anchor!],
-          },
-        ),
-        debounce: Duration.zero,
-      );
+        final verified = reviews.subscribeVerified(
+          filter: Filter(
+            tags: {
+              kListingRefTag: [listing.anchor!],
+            },
+          ),
+          debounce: Duration.zero,
+        );
 
-      // Wait for the verification pipeline to process all items.
-      final snapshot = await verified.itemsStream.firstWhere(
-        (items) => items.isNotEmpty,
-      );
-      expect(snapshot, hasLength(1));
-      expect(snapshot.first, isA<Valid<Review>>());
+        final snapshot = await verified.itemsStream.firstWhere(
+          (items) => items.isNotEmpty,
+        );
+        expect(snapshot, hasLength(1));
+        expect(snapshot.first, isA<Valid<Review>>());
 
-      await verified.close();
-    });
+        await verified.close();
+      },
+    );
 
     test('invalid review when no reservation exists', () async {
-      final salt = 'salt-no-reservation';
-
-      // No reservation seeded — only the review.
+      final proofReservation = Reservation.create(
+        pubKey: MockKeys.guest.publicKey,
+        dTag: 'trade-missing',
+        listingAnchor: listing.anchor!,
+        start: DateTime(2026, 2, 1),
+        end: DateTime(2026, 2, 3),
+      );
       final review = _review(
         signer: MockKeys.guest,
         listing: listing,
-        tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
+        proofReservation: proofReservation,
+        proofReservationAuthorKeyPair: MockKeys.guest,
       );
       fakeRequests.events.add(review);
 
@@ -326,61 +357,70 @@ void main() {
       await verified.close();
     });
 
-    test('invalid review when proof does not match commitment', () async {
-      final reviewSalt = 'salt-wrong';
-      final reservationSalt = 'salt-correct';
+    test(
+      'invalid review when reveal key does not match any proof capsule',
+      () async {
+        final buyerAlias = MockKeys.reviewer;
+        final seededReservation = await _withBuyerProof(
+          reservation: await _reservation(
+            listing: listing,
+            signer: buyerAlias,
+            tradeId: 'trade-correct',
+            start: DateTime(2026, 2, 1),
+            end: DateTime(2026, 2, 3),
+            recipient: buyerAlias.publicKey,
+            pTags: [
+              PTag.seller(listing.pubKey),
+              PTag.buyer(buyerAlias.publicKey),
+            ],
+          ),
+          identityKeyPair: MockKeys.guest,
+          reservationAuthorKeyPair: buyerAlias,
+        );
+        final wrongAlias = MockKeys.escrow;
+        final wrongReservation = Reservation.create(
+          pubKey: wrongAlias.publicKey,
+          dTag: 'trade-wrong',
+          listingAnchor: listing.anchor!,
+          start: DateTime(2026, 2, 1),
+          end: DateTime(2026, 2, 3),
+        );
+        final review = _review(
+          signer: MockKeys.guest,
+          listing: listing,
+          proofReservation: wrongReservation,
+          proofReservationAuthorKeyPair: wrongAlias,
+        );
 
-      // Reservation with a different salt/commitment.
-      final commitment = ParticipationProof.computeCommitmentHash(
-        MockKeys.guest.publicKey,
-        reservationSalt,
-      );
+        fakeRequests.events.addAll([seededReservation, review]);
 
-      final hostReservation = await _reservation(
-        listing: listing,
-        signer: MockKeys.hoster,
-        tradeId: commitment,
-        start: DateTime(2026, 2, 1),
-        end: DateTime(2026, 2, 3),
-        // No recipient — simulates a reservation that does not name this guest.
-      );
-      fakeRequests.events.add(hostReservation);
+        final verified = reviews.subscribeVerified(
+          filter: Filter(
+            tags: {
+              kListingRefTag: [listing.anchor!],
+            },
+          ),
+          debounce: Duration.zero,
+        );
 
-      // Review with wrong salt — findByTag for the review's computed
-      // commitment hash won't find the reservation.
-      final review = _review(
-        signer: MockKeys.guest,
-        listing: listing,
-        tweakMaterial: ReservationTweakMaterial(
-          salt: reviewSalt,
-          parity: false,
-        ),
-      );
-      fakeRequests.events.add(review);
+        final snapshot = await verified.itemsStream.firstWhere(
+          (items) => items.isNotEmpty,
+        );
+        expect(snapshot, hasLength(1));
+        expect(snapshot.first, isA<Invalid<Review>>());
+        expect(
+          (snapshot.first as Invalid<Review>).reason,
+          contains('Participation proof does not match'),
+        );
 
-      final verified = reviews.subscribeVerified(
-        filter: Filter(
-          tags: {
-            kListingRefTag: [listing.anchor!],
-          },
-        ),
-        debounce: Duration.zero,
-      );
-
-      final snapshot = await verified.itemsStream.firstWhere(
-        (items) => items.isNotEmpty,
-      );
-      expect(snapshot, hasLength(1));
-      expect(snapshot.first, isA<Invalid<Review>>());
-
-      await verified.close();
-    });
+        await verified.close();
+      },
+    );
 
     test('multiple reviews batch their dependency lookups', () async {
-      // Create multiple reviews, each with an escrow-backed paid reservation.
-      final salts = ['salt-a', 'salt-b', 'salt-c'];
+      final tradeIds = ['trade-a', 'trade-b', 'trade-c'];
       escrowVerification = _StubEscrowVerification(
-        validTradeIds: {for (final salt in salts) 'trade-$salt'},
+        validTradeIds: tradeIds.toSet(),
       );
       reviews = Reviews(
         requests: fakeRequests,
@@ -389,35 +429,34 @@ void main() {
         listings: listings,
         escrowVerification: escrowVerification,
       );
-      for (final salt in salts) {
-        final tweakedRecipient = tweakKeyPair(
-          privateKey: MockKeys.guest.privateKey!,
-          salt: salt,
-        );
-        fakeRequests.events.add(
-          await _reservation(
+
+      for (final tradeId in tradeIds) {
+        final commit = await _withBuyerProof(
+          reservation: await _reservation(
             listing: listing,
             signer: MockKeys.guest,
-            tradeId: 'trade-$salt',
+            tradeId: tradeId,
             start: DateTime(2026, 3, 1),
             end: DateTime(2026, 3, 5),
             stage: ReservationStage.commit,
-            recipient: tweakedRecipient.publicKey,
-            tweakMaterial: ReservationTweakMaterial(
-              salt: salt,
-              parity: tweakedRecipient.parity,
-            ),
+            recipient: MockKeys.guest.publicKey,
             proof: _escrowPaymentProof(listing: listing),
+            pTags: [
+              PTag.seller(listing.pubKey),
+              PTag.buyer(MockKeys.guest.publicKey),
+              PTag.escrow(MockKeys.escrow.publicKey),
+            ],
           ),
+          identityKeyPair: MockKeys.guest,
+          reservationAuthorKeyPair: MockKeys.guest,
         );
+        fakeRequests.events.add(commit);
         fakeRequests.events.add(
           _review(
             signer: MockKeys.guest,
             listing: listing,
-            tweakMaterial: ReservationTweakMaterial(
-              salt: salt,
-              parity: tweakedRecipient.parity,
-            ),
+            proofReservation: commit,
+            proofReservationAuthorKeyPair: MockKeys.guest,
           ),
         );
       }
@@ -441,39 +480,29 @@ void main() {
     });
 
     test(
-      'escrow-backed buyer reservation validates review when confirmedCommitted=true',
+      'escrow-backed buyer reservation validates review when confirmed committed',
       () async {
-        const salt = 'salt-escrow-valid';
-        final tweakedKey = tweakKeyPair(
-          privateKey: MockKeys.guest.privateKey!,
-          salt: salt,
-        );
-        final negotiate = await _reservation(
-          listing: listing,
-          signer: MockKeys.guest,
-          tradeId: 'trade-$salt',
-          start: DateTime(2026, 4, 1),
-          end: DateTime(2026, 4, 3),
-          recipient: tweakedKey.publicKey,
-          tweakMaterial: ReservationTweakMaterial(
-            salt: salt,
-            parity: tweakedKey.parity,
+        const tradeId = 'trade-escrow-valid';
+        final commit = await _withBuyerProof(
+          reservation: await _reservation(
+            listing: listing,
+            signer: MockKeys.guest,
+            tradeId: tradeId,
+            start: DateTime(2026, 4, 1),
+            end: DateTime(2026, 4, 3),
+            stage: ReservationStage.commit,
+            recipient: MockKeys.guest.publicKey,
+            proof: _escrowPaymentProof(listing: listing),
+            pTags: [
+              PTag.seller(listing.pubKey),
+              PTag.buyer(MockKeys.guest.publicKey),
+              PTag.escrow(MockKeys.escrow.publicKey),
+            ],
           ),
+          identityKeyPair: MockKeys.guest,
+          reservationAuthorKeyPair: MockKeys.guest,
         );
-        final commit = await _reservation(
-          listing: listing,
-          signer: MockKeys.guest,
-          tradeId: 'trade-$salt',
-          start: negotiate.start!,
-          end: negotiate.end!,
-          stage: ReservationStage.commit,
-          recipient: negotiate.recipient,
-          tweakMaterial: negotiate.tweakMaterial,
-          proof: _escrowPaymentProof(listing: listing),
-        );
-        escrowVerification = _StubEscrowVerification(
-          validTradeIds: {'trade-$salt'},
-        );
+        escrowVerification = _StubEscrowVerification(validTradeIds: {tradeId});
         reviews = Reviews(
           requests: fakeRequests,
           logger: CustomLogger(),
@@ -487,10 +516,8 @@ void main() {
           _review(
             signer: MockKeys.guest,
             listing: listing,
-            tweakMaterial: ReservationTweakMaterial(
-              salt: salt,
-              parity: tweakedKey.parity,
-            ),
+            proofReservation: commit,
+            proofReservationAuthorKeyPair: MockKeys.guest,
           ),
         );
 
@@ -516,24 +543,25 @@ void main() {
     test(
       'later buyer cancellation does not erase review when escrow proof stays valid',
       () async {
-        const salt = 'salt-escrow-cancelled';
-        final tweakedKey = tweakKeyPair(
-          privateKey: MockKeys.guest.privateKey!,
-          salt: salt,
-        );
-        final commit = await _reservation(
-          listing: listing,
-          signer: MockKeys.guest,
-          tradeId: 'trade-$salt',
-          start: DateTime(2026, 4, 1),
-          end: DateTime(2026, 4, 3),
-          stage: ReservationStage.commit,
-          recipient: tweakedKey.publicKey,
-          tweakMaterial: ReservationTweakMaterial(
-            salt: salt,
-            parity: tweakedKey.parity,
+        const tradeId = 'trade-escrow-cancelled';
+        final commit = await _withBuyerProof(
+          reservation: await _reservation(
+            listing: listing,
+            signer: MockKeys.guest,
+            tradeId: tradeId,
+            start: DateTime(2026, 4, 1),
+            end: DateTime(2026, 4, 3),
+            stage: ReservationStage.commit,
+            recipient: MockKeys.guest.publicKey,
+            proof: _escrowPaymentProof(listing: listing),
+            pTags: [
+              PTag.seller(listing.pubKey),
+              PTag.buyer(MockKeys.guest.publicKey),
+              PTag.escrow(MockKeys.escrow.publicKey),
+            ],
           ),
-          proof: _escrowPaymentProof(listing: listing),
+          identityKeyPair: MockKeys.guest,
+          reservationAuthorKeyPair: MockKeys.guest,
         );
         final cancel = commit
             .copy(
@@ -545,9 +573,7 @@ void main() {
             )
             .signAs(MockKeys.guest, Reservation.fromNostrEvent);
 
-        escrowVerification = _StubEscrowVerification(
-          validTradeIds: {'trade-$salt'},
-        );
+        escrowVerification = _StubEscrowVerification(validTradeIds: {tradeId});
         reviews = Reviews(
           requests: fakeRequests,
           logger: CustomLogger(),
@@ -556,17 +582,16 @@ void main() {
           escrowVerification: escrowVerification,
         );
 
-        fakeRequests.events.add(cancel);
-        fakeRequests.events.add(
+        fakeRequests.events.addAll([
+          commit,
+          cancel,
           _review(
             signer: MockKeys.guest,
             listing: listing,
-            tweakMaterial: ReservationTweakMaterial(
-              salt: salt,
-              parity: tweakedKey.parity,
-            ),
+            proofReservation: commit,
+            proofReservationAuthorKeyPair: MockKeys.guest,
           ),
-        );
+        ]);
 
         final verified = reviews.subscribeVerified(
           filter: Filter(

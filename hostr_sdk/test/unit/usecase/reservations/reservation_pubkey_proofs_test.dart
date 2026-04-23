@@ -12,7 +12,8 @@ import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart' show Filter, Nip01Event;
+import 'package:ndk/ndk.dart'
+    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -27,13 +28,15 @@ class _FakeAuth extends Fake implements Auth {
 }
 
 class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
+  static final KeyPair _tradeKey = mockKeys[31];
+
   @override
   Future<String> getTradeId({required int accountIndex}) async =>
       'trade-id-$accountIndex';
 
   @override
-  Future<String> getTradeSalt({required int accountIndex}) async =>
-      'trade-salt-$accountIndex';
+  Future<KeyPair> getTradeKeyPair({required int accountIndex}) async =>
+      _tradeKey;
 }
 
 class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
@@ -42,6 +45,9 @@ class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
 }
 
 class _FakeRequests extends Fake implements Requests {
+  @override
+  Ndk get ndk => _FakeNdk();
+
   @override
   Future<List<RelayBroadcastResponse>> broadcast({
     required Nip01Event event,
@@ -57,6 +63,24 @@ class _FakeRequests extends Fake implements Requests {
     bool cacheRead = true,
     bool cacheWrite = true,
   }) => const Stream.empty();
+}
+
+class _FakeAccounts extends Fake implements Accounts {
+  @override
+  String? getPublicKey() => null;
+
+  @override
+  Future<Nip01Event> sign(Nip01Event event) async {
+    return Nip01Utils.signWithPrivateKey(
+      event: event,
+      privateKey: MockKeys.guest.privateKey!,
+    );
+  }
+}
+
+class _FakeNdk extends Fake implements Ndk {
+  @override
+  Accounts get accounts => _FakeAccounts();
 }
 
 Reservation _reservation({
@@ -129,6 +153,11 @@ void main() {
 
     test('encrypts buyer proof to seller and escrow', () async {
       final reservation = _reservation(author: disposableBuyer);
+      final revealRecipient = deriveReviewRevealKeyPair(
+        reservation: reservation,
+        reservationAuthorKeyPair: disposableBuyer,
+        role: 'buyer',
+      ).publicKey;
 
       final attached = await reservation.attachPubkeyProof(
         role: 'buyer',
@@ -137,10 +166,10 @@ void main() {
       );
 
       expect(attached.sig, isNull);
-      expect(attached.parsedTags.pubkeyProofs, hasLength(2));
+      expect(attached.parsedTags.pubkeyProofs, hasLength(3));
       expect(
         attached.parsedTags.pubkeyProofs.map((p) => p.recipientPubkey).toSet(),
-        {MockKeys.hoster.publicKey, MockKeys.escrow.publicKey},
+        {MockKeys.hoster.publicKey, MockKeys.escrow.publicKey, revealRecipient},
       );
       expect(
         attached.parsedTags.pubkeyProofs.every(
@@ -222,6 +251,11 @@ void main() {
         includeEscrow: false,
         pubkeyProofs: [existing, otherRole],
       );
+      final revealRecipient = deriveReviewRevealKeyPair(
+        reservation: reservation,
+        reservationAuthorKeyPair: disposableBuyer,
+        role: 'buyer',
+      ).publicKey;
 
       final attached = await reservation.attachPubkeyProof(
         role: 'buyer',
@@ -230,9 +264,13 @@ void main() {
       );
 
       final proofs = attached.parsedTags.pubkeyProofs;
-      expect(proofs, hasLength(2));
+      expect(proofs, hasLength(3));
       expect(proofs.where((p) => p.ciphertext == 'old-ciphertext'), isEmpty);
       expect(proofs.where((p) => p.ciphertext == 'keep-me'), hasLength(1));
+      expect(
+        proofs.where((p) => p.recipientPubkey == revealRecipient),
+        hasLength(1),
+      );
       expect(
         await attached.resolvePubkeyProof(
           role: 'buyer',
@@ -242,24 +280,24 @@ void main() {
       );
     });
 
-    test('supports explicit recipients for future roles', () async {
+    test('supports explicit recipients for seller proofs', () async {
       final attached =
           await _reservation(
             author: disposableBuyer,
             includeEscrow: false,
           ).attachPubkeyProof(
-            role: 'arbiter',
-            proofKeyPair: MockKeys.guest,
+            role: 'seller',
+            proofKeyPair: MockKeys.hoster,
             encryptionKeyPair: disposableBuyer,
             recipientPubkeys: [MockKeys.reviewer.publicKey],
           );
 
       final proof = await attached.resolvePubkeyProof(
-        role: 'arbiter',
+        role: 'seller',
         recipientKeyPair: MockKeys.reviewer,
       );
 
-      expect(proof?.pubkey, MockKeys.guest.publicKey);
+      expect(proof?.pubkey, MockKeys.hoster.publicKey);
     });
 
     test('throws when encryption key does not match reservation author', () {
@@ -304,10 +342,12 @@ void main() {
         );
 
         expect(reservation.pubKey, isNot(MockKeys.guest.publicKey));
-        expect(reservation.parsedTags.pubkeyProofs, hasLength(1));
+        expect(reservation.parsedTags.pubkeyProofs, hasLength(2));
         expect(
-          reservation.parsedTags.pubkeyProofs.single.recipientPubkey,
-          MockKeys.hoster.publicKey,
+          reservation.parsedTags.pubkeyProofs
+              .map((p) => p.recipientPubkey)
+              .contains(MockKeys.hoster.publicKey),
+          isTrue,
         );
 
         final proof = await reservation.resolvePubkeyProof(

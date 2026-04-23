@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
-import '../../hostr.dart';
 import '../../config.dart' show CoinlibEventSigner;
+import '../../hostr.dart';
 import '../../util/main.dart';
 import '../escrow/escrow_verification.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
@@ -202,9 +203,8 @@ class EscrowReservationNotifier {
       end: end,
     );
     return 'You successfully reserved $reservation, hosted by $hostName. '
-        "We've reached out to the host to confirm, and they should be in touch soon. "
-        'If your host does not confirm in a timely manner, rest assured that '
-        'the payment can be reversed.';
+        "Your payment is safely in escrow. We've reached out to the host to confirm, and they should be in touch soon. "
+        'If they do not confirm in a timely manner, you can be refunded.';
   }
 
   static String _sellerNoticeContent({
@@ -217,10 +217,9 @@ class EscrowReservationNotifier {
       start: start,
       end: end,
     );
-    return 'Someone placed a reservation for $reservation. '
-        'Payment has been paid and sits in escrow. '
-        'Please login to https://hostr.network to initiate a conversation '
-        'with the guest.';
+    return 'A reservation was placed for $reservation. '
+        'Payment has been paid and is sitting in escrow. '
+        'Please login to https://hostr.network to confirm the booking with the guest.';
   }
 
   static String _reservationDescription({
@@ -282,6 +281,7 @@ class EscrowDaemon {
   late final EscrowVerification _escrowVerification;
   late final EscrowReservationNotifier _reservationNotifier;
   final Map<String, ReservationGroup> _reservationGroups = {};
+  final Map<String, Timer> _reservationRetryTimers = {};
 
   // ── Subscriptions ───────────────────────────────────────────────────────
   StreamSubscription? _eventSub;
@@ -292,6 +292,7 @@ class EscrowDaemon {
   StreamSubscription? _reservationAuthorSub;
   Timer? _reservationDebounce;
   int? _latestBlockNum;
+  static const _reservationRetryDelay = Duration(seconds: 5);
 
   EscrowDaemon({required Hostr hostr})
     : _hostr = hostr,
@@ -477,6 +478,10 @@ class EscrowDaemon {
     await _reservationPTagSub?.cancel();
     await _reservationAuthorSub?.cancel();
     _reservationDebounce?.cancel();
+    for (final timer in _reservationRetryTimers.values) {
+      timer.cancel();
+    }
+    _reservationRetryTimers.clear();
     _tradesSubject.close();
   }
 
@@ -508,6 +513,11 @@ class EscrowDaemon {
   /// All reservation groups the escrow is involved in.
   Map<String, ReservationGroup> get reservationGroups =>
       Map.unmodifiable(_reservationGroups);
+
+  @visibleForTesting
+  static Stream<Reservation> reservationListenerEvents(
+    StreamWithStatus<Reservation> source,
+  ) => source.replayStream;
 
   // ── Contract events ───────────────────────────────────────────────────────
 
@@ -677,7 +687,7 @@ class EscrowDaemon {
     final pTagStream = _hostr.reservations.subscribe(
       Filter(pTags: [escrowPubkey]),
     );
-    _reservationPTagSub = pTagStream.stream.listen(
+    _reservationPTagSub = reservationListenerEvents(pTagStream).listen(
       _onReservation,
       onError: (e) => _logger.e('Reservation p-tag stream error: $e'),
     );
@@ -688,7 +698,7 @@ class EscrowDaemon {
     final authorStream = _hostr.reservations.subscribe(
       Filter(authors: [escrowPubkey]),
     );
-    _reservationAuthorSub = authorStream.stream.listen(
+    _reservationAuthorSub = reservationListenerEvents(authorStream).listen(
       _onReservation,
       onError: (e) => _logger.e('Reservation author stream error: $e'),
     );
@@ -722,11 +732,28 @@ class EscrowDaemon {
     }
   }
 
+  void _scheduleReservationRetry(String groupId) {
+    _reservationRetryTimers[groupId]?.cancel();
+    _reservationRetryTimers[groupId] = Timer(_reservationRetryDelay, () {
+      _reservationRetryTimers.remove(groupId);
+      final latestGroup = _reservationGroups[groupId];
+      if (latestGroup == null) return;
+      unawaited(_processGroup(latestGroup));
+    });
+  }
+
   Future<void> _processGroup(ReservationGroup group) async {
+    final groupId = group.reservations.isEmpty
+        ? null
+        : ReservationGroup.groupIdFromEvent(group.reservations.last);
+
     // Already confirmed/cancelled by us — do not publish another reservation,
     // but still run the idempotent notifier in case the daemon restarted after
     // confirming and before sending participant DMs.
     if (group.escrowReservation != null) {
+      if (groupId != null) {
+        _reservationRetryTimers.remove(groupId)?.cancel();
+      }
       await _reservationNotifier.notifyReservation(group);
       return;
     }
@@ -747,10 +774,24 @@ class EscrowDaemon {
       );
 
       if (result is Valid<ReservationGroup>) {
+        if (groupId != null) {
+          _reservationRetryTimers.remove(groupId)?.cancel();
+        }
         await _publishEscrowConfirmation(group, buyer);
         await _reservationNotifier.notifyReservation(group);
       } else if (result is Invalid<ReservationGroup>) {
         final reason = result.reason;
+        if (reason != null &&
+            isRetryableReservationVerificationFailure(reason)) {
+          _logger.w(
+            'Escrow proof pending verification for trade=$tradeId: $reason. '
+            'Retrying in ${_reservationRetryDelay.inSeconds}s.',
+          );
+          if (groupId != null) {
+            _scheduleReservationRetry(groupId);
+          }
+          return;
+        }
         _logger.w('Escrow proof INVALID for trade=$tradeId: $reason');
         await _publishEscrowCancellation(group, buyer);
       }
@@ -791,4 +832,9 @@ class EscrowDaemon {
 
     _logger.i('✗ Published escrow CANCEL for trade=${group.tradeId}');
   }
+
+  @visibleForTesting
+  static bool isRetryableReservationVerificationFailure(String reason) =>
+      reason.startsWith('Escrow logs do not contain a funding event') ||
+      reason.startsWith('Failed to query escrow logs for trade ');
 }

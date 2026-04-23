@@ -93,12 +93,12 @@ abstract class Message<T extends Event>
     }
   }
 
-  factory Message.safeFromNostrEvent(Nip01Event e) {
+  static Message<Event> safeParse(Nip01Event e) {
     final child = parseChild(e);
     if (child != null || JsonMessage.kinds.contains(e.kind)) {
-      return JsonMessage<T>.fromNostrEvent(e, child as T?);
+      return JsonMessage<Event>.fromNostrEvent(e, child);
     }
-    return TextMessage.fromNostrEvent(e) as Message<T>;
+    return TextMessage.fromNostrEvent(e);
   }
 }
 
@@ -150,7 +150,6 @@ class JsonMessage<T extends Event> extends Message<T> {
   JsonMessage.fromNostrEvent(Nip01Event e, T? child)
       : super._fromNostrEvent(e, child: child);
 
-  factory JsonMessage.safeFromNostrEvent(Nip01Event e) {
-    return JsonMessage.fromNostrEvent(e, Message.parseChild(e) as T?);
-  }
+  static JsonMessage<Event> safeParse(Nip01Event e) =>
+      JsonMessage<Event>.fromNostrEvent(e, Message.parseChild(e));
 }

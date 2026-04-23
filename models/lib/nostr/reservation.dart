@@ -9,7 +9,6 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 const _publishedAtTag = 'published_at';
 const kReservationPubkeyProofTag = 'pubkey_proof';
 const kReservationPubkeyProofSchemeNip44V1 = 'nip44-v1';
-const kReservationPubkeyProofPayloadV1 = 'v1';
 
 List<List<String>> _withPublishedAt(
   List<List<String>> tags,
@@ -131,69 +130,62 @@ class ReservationPubkeyProofTag {
 
 /// Compact plaintext encrypted into a [ReservationPubkeyProofTag].
 ///
-/// Shape: `v1:<realPubkey>:<signature>`.
-/// The signature is made by [pubkey] over [messageForTradeId].
+/// Plaintext is the JSON-encoded signed [TradeKeyAuthorization] event.
 class ReservationPubkeyProofPayload {
-  final String version;
   final String pubkey;
-  final String signature;
+  final TradeKeyAuthorization authorizationEvent;
 
   const ReservationPubkeyProofPayload({
-    this.version = kReservationPubkeyProofPayloadV1,
     required this.pubkey,
-    required this.signature,
+    required this.authorizationEvent,
   });
 
-  static String messageForTradeId(String tradeId) {
-    final trimmed = tradeId.trim();
-    final bytes32Hex = RegExp(r'^[0-9a-fA-F]{64}$');
-    if (bytes32Hex.hasMatch(trimmed)) return trimmed.toLowerCase();
-    return sha256.convert(utf8.encode(trimmed)).toString();
-  }
-
-  factory ReservationPubkeyProofPayload.sign({
-    required String tradeId,
-    required KeyPair keyPair,
-  }) {
-    final privateKey = keyPair.privateKey;
-    if (privateKey == null || privateKey.isEmpty) {
-      throw StateError('Private key is required to sign pubkey proof');
-    }
+  factory ReservationPubkeyProofPayload.fromAuthorizationEvent(
+    TradeKeyAuthorization authorizationEvent,
+  ) {
     return ReservationPubkeyProofPayload(
-      pubkey: keyPair.publicKey,
-      signature: signSchnorr(
-        privateKey: privateKey,
-        message: messageForTradeId(tradeId),
-      ),
+      pubkey: authorizationEvent.pubKey,
+      authorizationEvent: authorizationEvent,
     );
   }
 
-  String encode() => '$version:$pubkey:$signature';
+  String encode() => authorizationEvent.model.toJsonString();
 
   static ReservationPubkeyProofPayload? tryDecode(String plaintext) {
-    final parts = plaintext.split(':');
-    if (parts.length != 3 || parts[0] != kReservationPubkeyProofPayloadV1) {
+    try {
+      final event = Nip01EventModel.fromJson(jsonDecode(plaintext));
+      if (event.kind != kNostrKindTradeKeyAuthorization) {
+        return null;
+      }
+      final authorization = TradeKeyAuthorization.fromNostrEvent(event);
+      return ReservationPubkeyProofPayload.fromAuthorizationEvent(
+        authorization,
+      );
+    } catch (_) {
       return null;
     }
-    return ReservationPubkeyProofPayload(
-      version: parts[0],
-      pubkey: parts[1],
-      signature: parts[2],
-    );
   }
 
-  bool verifiesForTradeId(String tradeId) {
-    return verifySchnorrSignatureSync(
-      publicKey: pubkey,
-      message: messageForTradeId(tradeId),
-      signature: signature,
+  bool verifiesForReservation({
+    required String tradeId,
+    required String listingAnchor,
+    required String participantPubkey,
+    required String role,
+  }) {
+    return authorizationEvent.authorizesParticipant(
+      identityPubkey: pubkey,
+      listingAnchor: listingAnchor,
+      tradeId: tradeId,
+      participantPubkey: participantPubkey,
+      role: role,
     );
   }
 }
 
 // Public reservations can reveal a durable participant pubkey to authorized
 // recipients with encrypted `pubkey_proof` tags while keeping role-marked `p`
-// tags disposable. The decrypted signature remains the authority.
+// tags disposable. The decrypted signed authorization event remains the
+// authority.
 class ReservationExpectedAmount {
   final DenominatedAmount listingPrice;
   final DenominatedAmount? negotiatedAmount;
@@ -245,12 +237,12 @@ class Reservation
   DateTime? get end => parsedContent.end;
   bool get cancelled => stage == ReservationStage.cancel;
   PaymentProof? get proof => parsedContent.proof;
-  ReservationTweakMaterial? get tweakMaterial => parsedContent.tweakMaterial;
   ReservationStage get stage => parsedContent.stage;
   int get quantity => parsedContent.quantity;
   DenominatedAmount? get amount => parsedContent.amount;
   String? get recipient => parsedContent.recipient;
-  Map<String, String> get signatures => parsedContent.signatures;
+  CommitAuthorization? get commitAuthorization =>
+      parsedContent.commitAuthorization;
   bool get isNegotiation => parsedContent.isNegotiation;
   bool get isCommit => parsedContent.isCommit;
   bool get isCancel => parsedContent.isCancel;
@@ -258,8 +250,16 @@ class Reservation
   bool get isBuyer => !isSeller;
 
   String commitHash() => parsedContent.commitHash();
-  String signCommit(KeyPair keyPair) => parsedContent.signCommit(keyPair);
-  bool verifyCommit([String? pubkey]) => parsedContent.verifyCommit(pubkey);
+  bool verifyCommit(String authorPubkey) {
+    final tradeId = getDtag();
+    if (tradeId == null || commitAuthorization == null) return false;
+    return commitAuthorization!.authorizesReservation(
+      authorPubkey: authorPubkey,
+      listingAnchor: parsedTags.listingAnchor,
+      tradeId: tradeId,
+      commitHash: commitHash(),
+    );
+  }
 
   ReservationExpectedAmount resolveExpectedAmount({required Listing listing}) {
     final listingAuthor = getPubKeyFromAnchor(parsedTags.listingAnchor);
@@ -323,9 +323,8 @@ class Reservation
     int quantity = 1,
     DenominatedAmount? amount,
     String? recipient,
-    ReservationTweakMaterial? tweakMaterial,
     PaymentProof? proof,
-    Map<String, String> signatures = const {},
+    CommitAuthorization? commitAuthorization,
     // Tag fields
     String? threadAnchor,
     List<PTag> pTags = const [],
@@ -362,9 +361,8 @@ class Reservation
         quantity: quantity,
         amount: amount,
         recipient: recipient,
-        tweakMaterial: tweakMaterial,
         proof: proof,
-        signatures: signatures,
+        commitAuthorization: commitAuthorization,
       ),
     );
   }
@@ -600,9 +598,6 @@ class ReservationContent extends EventContent with CommitTerms {
   final DateTime? end;
   final PaymentProof? proof;
 
-  /// Private recipient witness used to derive recipient commitments.
-  final ReservationTweakMaterial? tweakMaterial;
-
   /// The lifecycle stage of this reservation snapshot.
   final ReservationStage stage;
 
@@ -615,9 +610,8 @@ class ReservationContent extends EventContent with CommitTerms {
   /// Public key of the intended recipient (e.g. the guest).
   final String? recipient;
 
-  /// Schnorr signatures over [commitHash], keyed by public key.
-  @override
-  final Map<String, String> signatures;
+  /// Structured seller authorization event over [commitHash].
+  final CommitAuthorization? commitAuthorization;
 
   /// The fields whose values are locked into the commitment hash.
   @override
@@ -631,34 +625,31 @@ class ReservationContent extends EventContent with CommitTerms {
     this.start,
     this.end,
     this.proof,
-    this.tweakMaterial,
     this.stage = ReservationStage.negotiate,
     this.quantity = 1,
     this.amount,
     this.recipient,
-    this.signatures = const {},
+    this.commitAuthorization,
   });
 
   factory ReservationContent.negotiate({
     DateTime? start,
     DateTime? end,
     PaymentProof? proof,
-    ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
     DenominatedAmount? amount,
     String? recipient,
-    Map<String, String> signatures = const {},
+    CommitAuthorization? commitAuthorization,
   }) {
     return ReservationContent(
       start: start,
       end: end,
       proof: proof,
-      tweakMaterial: tweakMaterial,
       stage: ReservationStage.negotiate,
       quantity: quantity,
       amount: amount,
       recipient: recipient,
-      signatures: signatures,
+      commitAuthorization: commitAuthorization,
     );
   }
 
@@ -666,22 +657,20 @@ class ReservationContent extends EventContent with CommitTerms {
     DateTime? start,
     DateTime? end,
     PaymentProof? proof,
-    ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
     DenominatedAmount? amount,
     String? recipient,
-    Map<String, String> signatures = const {},
+    CommitAuthorization? commitAuthorization,
   }) {
     return ReservationContent(
       start: start,
       end: end,
       proof: proof,
-      tweakMaterial: tweakMaterial,
       stage: ReservationStage.commit,
       quantity: quantity,
       amount: amount,
       recipient: recipient,
-      signatures: signatures,
+      commitAuthorization: commitAuthorization,
     );
   }
 
@@ -689,22 +678,20 @@ class ReservationContent extends EventContent with CommitTerms {
     DateTime? start,
     DateTime? end,
     PaymentProof? proof,
-    ReservationTweakMaterial? tweakMaterial,
     int quantity = 1,
     DenominatedAmount? amount,
     String? recipient,
-    Map<String, String> signatures = const {},
+    CommitAuthorization? commitAuthorization,
   }) {
     return ReservationContent(
       start: start,
       end: end,
       proof: proof,
-      tweakMaterial: tweakMaterial,
       stage: ReservationStage.cancel,
       quantity: quantity,
       amount: amount,
       recipient: recipient,
-      signatures: signatures,
+      commitAuthorization: commitAuthorization,
     );
   }
 
@@ -714,13 +701,13 @@ class ReservationContent extends EventContent with CommitTerms {
       if (start != null) "start": start!.toUtc().toIso8601String(),
       if (end != null) "end": end!.toUtc().toIso8601String(),
       "proof": proof?.toJson(),
-      if (tweakMaterial != null) "tweakMaterial": tweakMaterial!.toJson(),
       "stage": stage.name,
       "quantity": quantity,
       if (amount != null) "amount": amount!.toJson(),
       if (recipient != null) "recipient": recipient,
-      if (signatures.isNotEmpty)
-        "signatures": Map<String, String>.from(signatures),
+      if (commitAuthorization != null)
+        "commitAuthorization":
+            Nip01EventModel.fromEntity(commitAuthorization!).toJson(),
     };
   }
 
@@ -728,23 +715,21 @@ class ReservationContent extends EventContent with CommitTerms {
     DateTime? start,
     DateTime? end,
     PaymentProof? proof,
-    ReservationTweakMaterial? tweakMaterial,
     ReservationStage? stage,
     int? quantity,
     DenominatedAmount? amount,
     String? recipient,
-    Map<String, String>? signatures,
+    CommitAuthorization? commitAuthorization,
   }) {
     return ReservationContent(
       start: start ?? this.start,
       end: end ?? this.end,
       proof: proof ?? this.proof,
-      tweakMaterial: tweakMaterial ?? this.tweakMaterial,
       stage: stage ?? this.stage,
       quantity: quantity ?? this.quantity,
       amount: amount ?? this.amount,
       recipient: recipient ?? this.recipient,
-      signatures: signatures ?? this.signatures,
+      commitAuthorization: commitAuthorization ?? this.commitAuthorization,
     );
   }
 
@@ -752,23 +737,24 @@ class ReservationContent extends EventContent with CommitTerms {
     final stage = ReservationStage.values.firstWhere(
       (e) => e.name == json["stage"],
     );
-    final sigs = json["signatures"] as Map<String, dynamic>?;
-    final tweakMaterialJson = json["tweakMaterial"] as Map<String, dynamic>?;
+    final commitAuthorizationJson =
+        json["commitAuthorization"] as Map<String, dynamic>?;
     return ReservationContent(
       start: json["start"] != null ? DateTime.parse(json["start"]) : null,
       end: json["end"] != null ? DateTime.parse(json["end"]) : null,
       proof:
           json["proof"] != null ? PaymentProof.fromJson(json["proof"]) : null,
-      tweakMaterial: tweakMaterialJson != null
-          ? ReservationTweakMaterial.fromJson(tweakMaterialJson)
-          : null,
       stage: stage,
       quantity: json["quantity"] as int? ?? 1,
       amount: json["amount"] != null
           ? DenominatedAmount.fromJson(json["amount"])
           : null,
       recipient: json["recipient"] as String?,
-      signatures: sigs?.map((k, v) => MapEntry(k, v as String)) ?? const {},
+      commitAuthorization: commitAuthorizationJson != null
+          ? CommitAuthorization.fromNostrEvent(
+              Nip01EventModel.fromJson(commitAuthorizationJson),
+            )
+          : null,
     );
   }
 
@@ -780,40 +766,6 @@ class ReservationContent extends EventContent with CommitTerms {
 
   /// Whether this reservation is a cancellation.
   bool get isCancel => stage == ReservationStage.cancel;
-}
-
-class ReservationTweakMaterial {
-  const ReservationTweakMaterial({
-    required this.salt,
-    required this.parity,
-  });
-
-  final String salt;
-  final bool parity;
-
-  Map<String, dynamic> toJson() {
-    return {
-      "salt": salt,
-      "parity": parity,
-    };
-  }
-
-  ReservationTweakMaterial copyWith({
-    String? salt,
-    bool? parity,
-  }) {
-    return ReservationTweakMaterial(
-      salt: salt ?? this.salt,
-      parity: parity ?? this.parity,
-    );
-  }
-
-  static ReservationTweakMaterial fromJson(Map<String, dynamic> json) {
-    return ReservationTweakMaterial(
-      salt: json["salt"] as String,
-      parity: json["parity"] as bool,
-    );
-  }
 }
 
 class PaymentProof {

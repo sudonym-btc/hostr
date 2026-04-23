@@ -344,6 +344,22 @@ class MockAuth extends _i1.Mock implements _i13.Auth {
           as bool);
 
   @override
+  bool get isBunkerBacked =>
+      (super.noSuchMethod(
+            Invocation.getter(#isBunkerBacked),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get hasLocalPrivateKey =>
+      (super.noSuchMethod(
+            Invocation.getter(#hasLocalPrivateKey),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
   int get storedMaxAccountIndex =>
       (super.noSuchMethod(
             Invocation.getter(#storedMaxAccountIndex),
@@ -372,6 +388,38 @@ class MockAuth extends _i1.Mock implements _i13.Auth {
   _i27.Future<void> signin(String? input) =>
       (super.noSuchMethod(
             Invocation.method(#signin, [input]),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
+          )
+          as _i27.Future<void>);
+
+  @override
+  _i27.Future<void> signinWithBunkerUrl(
+    String? bunkerUrl, {
+    void Function(String)? authCallback,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #signinWithBunkerUrl,
+              [bunkerUrl],
+              {#authCallback: authCallback},
+            ),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
+          )
+          as _i27.Future<void>);
+
+  @override
+  _i27.Future<void> signinWithNostrConnect(
+    _i6.NostrConnect? nostrConnect, {
+    void Function(String)? authCallback,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #signinWithNostrConnect,
+              [nostrConnect],
+              {#authCallback: authCallback},
+            ),
             returnValue: _i27.Future<void>.value(),
             returnValueForMissingStub: _i27.Future<void>.value(),
           )
@@ -649,6 +697,21 @@ class MockMetadataUseCase extends _i1.Mock implements _i29.MetadataUseCase {
       (super.noSuchMethod(
             Invocation.method(
               #loadMetadata,
+              [pubkey],
+              {#forceRefresh: forceRefresh},
+            ),
+            returnValue: _i27.Future<_i9.ProfileMetadata?>.value(),
+          )
+          as _i27.Future<_i9.ProfileMetadata?>);
+
+  @override
+  _i27.Future<_i9.ProfileMetadata?> loadMetadataFromSources(
+    String? pubkey, {
+    required bool? forceRefresh,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #loadMetadataFromSources,
               [pubkey],
               {#forceRefresh: forceRefresh},
             ),
@@ -2897,6 +2960,32 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
                   tags,
                   recipientPubkeys,
                 ]),
+              ),
+            ),
+          )
+          as _i27.Future<_i6.Nip01Event>);
+
+  @override
+  _i27.Future<_i6.Nip01Event> getJsonRumour(
+    String? content,
+    List<List<String>>? tags,
+    List<String>? recipientPubkeys, {
+    String? altText,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #getJsonRumour,
+              [content, tags, recipientPubkeys],
+              {#altText: altText},
+            ),
+            returnValue: _i27.Future<_i6.Nip01Event>.value(
+              _FakeNip01Event_37(
+                this,
+                Invocation.method(
+                  #getJsonRumour,
+                  [content, tags, recipientPubkeys],
+                  {#altText: altText},
+                ),
               ),
             ),
           )

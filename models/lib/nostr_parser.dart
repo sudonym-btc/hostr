@@ -25,7 +25,7 @@ T parser<T extends Nip01Event>(Nip01Event event) {
     } else if (ReservationTransition.kinds.contains(eventKind)) {
       return ReservationTransition.fromNostrEvent(event) as T;
     } else if (Message.kinds.contains(eventKind)) {
-      return Message.safeFromNostrEvent(event) as T;
+      return Message.safeParse(event) as T;
     } else if (ReceivedHeartbeat.kinds.contains(eventKind)) {
       return ReceivedHeartbeat.fromNostrEvent(event) as T;
     } else if (SeenStatus.kinds.contains(eventKind)) {

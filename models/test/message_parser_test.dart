@@ -65,5 +65,29 @@ void main() {
       expect((parsed as JsonMessage).child, isA<ReceivedHeartbeat>());
       expect(parsed.kind, kNostrKindDM);
     });
+
+    test('parses reservation child message without generic cast failure', () {
+      final child = Reservation.create(
+        pubKey: 'a' * 64,
+        dTag: 'trade-123',
+        listingAnchor: '32121:${'b' * 64}:listing-1',
+        recipient: 'c' * 64,
+      );
+      final event = Nip01Event(
+        pubKey: 'a' * 64,
+        kind: kNostrKindJsonMessage,
+        tags: const [
+          ['p', 'b'],
+        ],
+        content: child.toString(),
+        createdAt: 124,
+      );
+
+      final parsed = parser<Nip01Event>(event);
+
+      expect(parsed, isA<JsonMessage>());
+      expect((parsed as JsonMessage).child, isA<Reservation>());
+      expect((parsed.child as Reservation).getDtag(), 'trade-123');
+    });
   });
 }

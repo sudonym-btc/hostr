@@ -149,13 +149,16 @@ class DaemonHandler {
         ? await daemon.context.configuredChain.resolveToken(tokenAddress)
         : null;
 
-    // Resolve trade ID → thread anchor so the CLI can navigate directly.
-    final threadAnchor =
-        hostr.messaging.threads.findPreferredConversationIdByTradeId(tradeId);
+    // Resolve trade ID → thread anchor from reservation proof participants so
+    // the CLI can always navigate to the buyer/seller conversation even if
+    // escrow never participated in the thread itself.
+    final threadAnchor = await _resolveTradeThreadAnchor(tradeId);
+    final participants = await _resolveTradeParticipants(tradeId);
 
     return {
       'tradeId': tradeId,
       'threadAnchor': threadAnchor,
+      'participants': participants,
       'cached': snapshot != null ? await _snapshotDetailJson(snapshot) : null,
       'onChain': onChain != null
           ? {
@@ -173,6 +176,122 @@ class DaemonHandler {
             }
           : null,
     };
+  }
+
+  Future<Map<String, dynamic>?> _resolveTradeParticipants(String tradeId) async {
+    final group = await _loadTradeReservationGroup(tradeId);
+    if (group == null) return null;
+
+    final escrowKeyPair = hostr.auth.activeKeyPair;
+    if (escrowKeyPair == null) return null;
+
+    String? buyerPubkey;
+    String? sellerPubkey;
+    for (final reservation in group.reservations) {
+      buyerPubkey ??= await reservation
+          .resolvePubkeyProof(role: 'buyer', recipientKeyPair: escrowKeyPair)
+          .then((proof) => proof?.pubkey);
+      sellerPubkey ??= await reservation
+          .resolvePubkeyProof(role: 'seller', recipientKeyPair: escrowKeyPair)
+          .then((proof) => proof?.pubkey);
+      if (buyerPubkey != null && sellerPubkey != null) break;
+    }
+
+    final resolvedSellerPubkey = sellerPubkey ?? group.sellerPubkey;
+    if (buyerPubkey == null || resolvedSellerPubkey.isEmpty) return null;
+
+    final names = await _resolveDisplayNames([
+      buyerPubkey,
+      resolvedSellerPubkey,
+    ]);
+
+    return {
+      'buyer': {
+        'pubkey': buyerPubkey,
+        'displayName': names[buyerPubkey],
+      },
+      'seller': {
+        'pubkey': resolvedSellerPubkey,
+        'displayName': names[resolvedSellerPubkey],
+      },
+    };
+  }
+
+  Future<String?> _resolveTradeThreadAnchor(String tradeId) async {
+    final group = await _loadTradeReservationGroup(tradeId);
+    if (group == null) {
+      return hostr.messaging.threads.findPreferredConversationIdByTradeId(
+        tradeId,
+      );
+    }
+
+    final participants = await _resolveTradeThreadParticipants(group);
+    if (participants == null || participants.length < 2) {
+      return hostr.messaging.threads.findPreferredConversationIdByTradeId(
+        tradeId,
+      );
+    }
+
+    final thread = hostr.messaging.threads.ensureConversation(
+      participants: participants,
+      conversationTag: tradeId,
+    );
+    return thread.anchor;
+  }
+
+  Future<ReservationGroup?> _loadTradeReservationGroup(String tradeId) async {
+    for (final group in daemon.reservationGroups.values) {
+      try {
+        if (group.tradeId == tradeId) return group;
+      } catch (_) {
+        // Ignore incomplete groups; we'll fall back to a direct query below.
+      }
+    }
+
+    final reservations = await hostr.reservations.getByTradeId(tradeId);
+    if (reservations.isEmpty) return null;
+
+    final groups = Reservations.toReservationGroups(reservations: reservations)
+        .values
+        .toList();
+    groups.sort((a, b) => b.reservations.length.compareTo(a.reservations.length));
+    for (final group in groups) {
+      try {
+        if (group.tradeId == tradeId) return group;
+      } catch (_) {
+        // Skip malformed groups and keep looking.
+      }
+    }
+    return null;
+  }
+
+  Future<List<String>?> _resolveTradeThreadParticipants(
+    ReservationGroup group,
+  ) async {
+    final escrowKeyPair = hostr.auth.activeKeyPair;
+    if (escrowKeyPair == null) return null;
+
+    String? buyerPubkey;
+    String? sellerPubkey;
+    for (final reservation in group.reservations) {
+      buyerPubkey ??= await reservation
+          .resolvePubkeyProof(role: 'buyer', recipientKeyPair: escrowKeyPair)
+          .then((proof) => proof?.pubkey);
+      sellerPubkey ??= await reservation
+          .resolvePubkeyProof(role: 'seller', recipientKeyPair: escrowKeyPair)
+          .then((proof) => proof?.pubkey);
+      if (buyerPubkey != null && sellerPubkey != null) break;
+    }
+
+    final resolvedSellerPubkey = sellerPubkey ?? group.sellerPubkey;
+    if (buyerPubkey == null || resolvedSellerPubkey.isEmpty) {
+      return null;
+    }
+
+    return Threads.normalizeParticipants([
+      buyerPubkey,
+      resolvedSellerPubkey,
+    ]);
   }
 
   Future<Map<String, dynamic>> _audit(json_rpc.Parameters params) async {
@@ -667,6 +786,14 @@ class DaemonHandler {
     final pubkeys =
         (params['pubkeys'].value as List).map((e) => e as String).toList();
 
+    return {
+      'names': await _resolveDisplayNames(pubkeys),
+    };
+  }
+
+  Future<Map<String, String?>> _resolveDisplayNames(List<String> pubkeys) async {
+    if (pubkeys.isEmpty) return {};
+
     // Only fetch pubkeys we haven't cached yet.
     final uncached =
         pubkeys.where((pk) => !_nameCache.containsKey(pk)).toList();
@@ -688,9 +815,7 @@ class DaemonHandler {
       }));
     }
 
-    return {
-      'names': {for (final pk in pubkeys) pk: _nameCache[pk]},
-    };
+    return {for (final pk in pubkeys) pk: _nameCache[pk]};
   }
 
   // ── Badges ────────────────────────────────────────────────────────────────

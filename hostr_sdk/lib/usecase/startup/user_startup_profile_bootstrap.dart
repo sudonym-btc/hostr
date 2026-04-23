@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:models/main.dart';
 
 import '../metadata/metadata.dart';
@@ -38,7 +40,7 @@ class UserStartupProfileBootstrapper {
     }
 
     if (metadata != null) {
-      await _metadata.ensureUserConfig(pubkey);
+      unawaited(_metadata.ensureUserConfig(pubkey).catchError((_) {}));
     }
 
     return UserStartupProfileBootstrapResult(

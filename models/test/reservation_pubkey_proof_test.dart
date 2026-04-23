@@ -1,7 +1,6 @@
 @Tags(['unit'])
 library;
 
-import 'package:crypto/crypto.dart' show sha256;
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
@@ -48,45 +47,51 @@ void main() {
   });
 
   group('ReservationPubkeyProofPayload', () {
-    test('uses bytes32 trade ids directly', () {
-      final tradeId = 'A' * 64;
-
-      expect(
-        ReservationPubkeyProofPayload.messageForTradeId(tradeId),
-        'a' * 64,
-      );
-    });
-
-    test('hashes non-bytes32 trade ids', () {
-      expect(
-        ReservationPubkeyProofPayload.messageForTradeId('trade-123'),
-        sha256.convert('trade-123'.codeUnits).toString(),
-      );
-    });
-
-    test('signs, encodes, decodes, and verifies for the trade id', () {
-      final proof = ReservationPubkeyProofPayload.sign(
+    test('encodes, decodes, and verifies a signed authorization event', () {
+      final authorization = TradeKeyAuthorization.create(
+        identityPubkey: MockKeys.guest.publicKey,
+        listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
         tradeId: 'trade-123',
-        keyPair: MockKeys.guest,
+        participantPubkey: 'alias-pubkey',
+        role: 'buyer',
+      ).signAs(MockKeys.guest, TradeKeyAuthorization.fromNostrEvent);
+      final payload = ReservationPubkeyProofPayload.fromAuthorizationEvent(
+        authorization,
       );
-      final decoded = ReservationPubkeyProofPayload.tryDecode(proof.encode());
+      final decoded = ReservationPubkeyProofPayload.tryDecode(payload.encode());
 
       expect(decoded, isNotNull);
       expect(decoded!.pubkey, MockKeys.guest.publicKey);
-      expect(decoded.verifiesForTradeId('trade-123'), isTrue);
-      expect(decoded.verifiesForTradeId('trade-456'), isFalse);
+      expect(
+        decoded.verifiesForReservation(
+          tradeId: 'trade-123',
+          listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+          participantPubkey: 'alias-pubkey',
+          role: 'buyer',
+        ),
+        isTrue,
+      );
+      expect(
+        decoded.verifiesForReservation(
+          tradeId: 'trade-456',
+          listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+          participantPubkey: 'alias-pubkey',
+          role: 'buyer',
+        ),
+        isFalse,
+      );
     });
 
-    test('rejects unknown payload versions and malformed payloads', () {
+    test('rejects malformed payloads and wrong event kinds', () {
       expect(ReservationPubkeyProofPayload.tryDecode(''), isNull);
       expect(
-        ReservationPubkeyProofPayload.tryDecode(
-          'v2:${MockKeys.guest.publicKey}:sig',
-        ),
+        ReservationPubkeyProofPayload.tryDecode('{}'),
         isNull,
       );
       expect(
-        ReservationPubkeyProofPayload.tryDecode('v1:only-two-parts'),
+        ReservationPubkeyProofPayload.tryDecode(
+          '{"kind":1,"pubkey":"${MockKeys.guest.publicKey}","tags":[],"content":"","id":"id","sig":"sig"}',
+        ),
         isNull,
       );
     });

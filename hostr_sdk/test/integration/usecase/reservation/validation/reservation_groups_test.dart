@@ -135,7 +135,6 @@ Reservation _buildNegotiate({
       denomination: 'BTC',
       decimals: 8,
     ),
-    tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
     pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
     createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);
@@ -176,7 +175,6 @@ Reservation _buildSelfSignedCommit({
     stage: ReservationStage.commit,
     quantity: negotiate.quantity,
     amount: negotiate.amount,
-    tweakMaterial: negotiate.tweakMaterial,
     proof: proof,
     pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
@@ -202,8 +200,7 @@ Reservation _buildCancel({
     quantity: source.quantity,
     amount: source.amount,
     recipient: source.recipient,
-    tweakMaterial: source.tweakMaterial,
-    signatures: source.signatures,
+    commitAuthorization: source.commitAuthorization,
     pTags: [
       for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
     ],

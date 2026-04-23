@@ -217,6 +217,75 @@ services:
       retries: 30
       start_period: 5s
 
+  signet:
+    build:
+      context: https://github.com/Letdown2491/signet.git#7c79aa0f334f661c709705435179b1ac9c2116d5
+      dockerfile: apps/signet/Dockerfile
+    depends_on:
+      relay:
+        condition: service_healthy
+      tls-init:
+        condition: service_completed_successfully
+    environment:
+      - DATABASE_URL=file:/app/config/signet.db
+      - EXTERNAL_URL=https://bunker-nostr.${DOMAIN}
+      - NODE_EXTRA_CA_CERTS=/tls/ca-bundle.crt
+    entrypoint:
+      - sh
+      - -lc
+    command:
+      - >
+        set -eu;
+        mkdir -p /app/config;
+        if [ ! -f /app/config/signet.json ]; then
+          sed "s/__DOMAIN__/${DOMAIN}/g" /seed/signet.template.json > /app/config/signet.json;
+        fi;
+        exec ./entrypoint.sh start --config /app/config/signet.json
+    volumes:
+      - ./docker/data/signet:/app/config
+      - ./docker/signet/signet.template.json:/seed/signet.template.json:ro
+      - ./docker/tls/ca:/tls:ro
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - default
+
+  signet-ui:
+    build:
+      context: https://github.com/Letdown2491/signet.git#7c79aa0f334f661c709705435179b1ac9c2116d5
+      dockerfile: apps/signet-ui/Dockerfile
+    depends_on:
+      signet:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    environment:
+      - VIRTUAL_HOST=bunker-nostr.${DOMAIN}
+      - VIRTUAL_PORT=4174
+      - UI_HOST=0.0.0.0
+      - DAEMON_URL=http://signet:3000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:4174', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - default
+
   escrow-contract-deploy:
     build:
       context: ./escrow/contracts

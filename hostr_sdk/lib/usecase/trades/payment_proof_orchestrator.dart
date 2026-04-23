@@ -16,6 +16,7 @@ import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../reservations/reservations.dart';
+import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 /// Long-running singleton that watches the user-level payment and reservation
@@ -190,7 +191,7 @@ class PaymentProofOrchestrator {
             : null,
       );
 
-      final activeKeyPair = _deriveKeyPair(
+      final activeKeyPair = await _deriveKeyPair(
         sellerPubkey: listing.pubKey,
         tradeId: tradeId,
         lastRequest: lastRequest,
@@ -247,19 +248,18 @@ class PaymentProofOrchestrator {
   String _threadPayload(String threadId) =>
       Uri(scheme: 'hostr', host: 'thread', pathSegments: [threadId]).toString();
 
-  KeyPair _deriveKeyPair({
+  Future<KeyPair> _deriveKeyPair({
     required String sellerPubkey,
     required String tradeId,
     required Reservation lastRequest,
-  }) => _logger.spanSync('_deriveKeyPair', () {
+  }) => _logger.span('_deriveKeyPair', () async {
     final myPubkey = _auth.getActiveKey().publicKey;
     if (sellerPubkey == myPubkey) {
       return _auth.getActiveKey();
     }
-    return tweakKeyPair(
-      privateKey: _auth.getActiveKey().privateKey!,
-      salt: lastRequest.tweakMaterial?.salt ?? tradeId,
-    ).keyPair;
+    final allocator = getIt<TradeAccountAllocator>();
+    final accountIndex = await allocator.findTradeAccountIndexByTradeId(tradeId);
+    return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
   });
 
   Future<void> reset() => _logger.span('reset', () async {

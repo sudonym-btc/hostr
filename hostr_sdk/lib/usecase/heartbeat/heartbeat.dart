@@ -1,21 +1,81 @@
+import 'dart:async';
+
 import 'package:injectable/injectable.dart';
+import 'package:meta/meta.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
+import '../requests/requests.dart';
 
 @Singleton()
 class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
+  static const Duration defaultDebounceDuration = Duration(seconds: 5);
+
   final Auth _auth;
+  final Duration _debounceDuration;
+  Timer? _pendingUpsertTimer;
+  Completer<ReceivedHeartbeat>? _pendingUpsertCompleter;
+  int? _pendingCreatedAt;
+  List<List<String>> _pendingExtraTags = const [];
 
   Heartbeats({
+    required Requests requests,
+    required CustomLogger logger,
+    required Auth auth,
+  }) : this.withDebounce(
+         requests: requests,
+         logger: logger,
+         auth: auth,
+         debounceDuration: defaultDebounceDuration,
+       );
+
+  @visibleForTesting
+  Heartbeats.withDebounce({
     required super.requests,
     required super.logger,
     required Auth auth,
+    Duration debounceDuration = defaultDebounceDuration,
   }) : _auth = auth,
+       _debounceDuration = debounceDuration,
        super(kind: ReceivedHeartbeat.kinds[0]);
+
+  Future<ReceivedHeartbeat> requestUpsertCurrent({
+    int? createdAt,
+    List<List<String>> extraTags = const [],
+  }) => logger.span('requestUpsertCurrent', () {
+    _pendingCreatedAt = createdAt;
+    _pendingExtraTags = extraTags;
+
+    final completer = _pendingUpsertCompleter ??=
+        Completer<ReceivedHeartbeat>();
+
+    _pendingUpsertTimer?.cancel();
+    _pendingUpsertTimer = Timer(_debounceDuration, () async {
+      final pendingCompleter = _pendingUpsertCompleter;
+      final pendingCreatedAt = _pendingCreatedAt;
+      final pendingExtraTags = _pendingExtraTags;
+
+      _pendingUpsertTimer = null;
+      _pendingUpsertCompleter = null;
+      _pendingCreatedAt = null;
+      _pendingExtraTags = const [];
+
+      try {
+        final heartbeat = await upsertCurrent(
+          createdAt: pendingCreatedAt,
+          extraTags: pendingExtraTags,
+        );
+        pendingCompleter?.complete(heartbeat);
+      } catch (e, st) {
+        pendingCompleter?.completeError(e, st);
+      }
+    });
+
+    return completer.future;
+  });
 
   Future<ReceivedHeartbeat> upsertCurrent({
     int? createdAt,
@@ -26,11 +86,16 @@ class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
       throw StateError('No active key pair');
     }
 
-    final heartbeat = ReceivedHeartbeat.create(
+    final unsignedHeartbeat = ReceivedHeartbeat.create(
       pubKey: keyPair.publicKey,
       createdAt: createdAt,
       extraTags: extraTags,
-    ).signAs(keyPair, ReceivedHeartbeat.fromNostrEvent);
+    );
+    final heartbeat = requests.ndk.accounts.getPublicKey() == keyPair.publicKey
+        ? ReceivedHeartbeat.fromNostrEvent(
+            await requests.ndk.accounts.sign(unsignedHeartbeat),
+          )
+        : unsignedHeartbeat.signAs(keyPair, ReceivedHeartbeat.fromNostrEvent);
 
     await upsert(heartbeat);
     return heartbeat;

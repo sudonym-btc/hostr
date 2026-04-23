@@ -16,7 +16,6 @@ class EditReviewController extends UpsertFormController {
   final EditReviewSubmit? onUpsert;
   final Listing listing;
   final Reservation? reservation;
-  final ReservationTweakMaterial? tweakMaterial;
 
   int _rating = 5;
   int _originalRating = 5;
@@ -30,7 +29,6 @@ class EditReviewController extends UpsertFormController {
     Review? existingReview,
     required this.listing,
     this.reservation,
-    this.tweakMaterial,
   }) {
     registerField(reviewField);
     setState(existingReview);
@@ -81,13 +79,34 @@ class EditReviewController extends UpsertFormController {
 
   @override
   Future<void> upsert() async {
+    final activeKeyPair = getIt<Hostr>().auth.activeKeyPair!;
+    final reservationContext = reservation;
+    if (reservationContext == null) {
+      throw StateError('Reservation context is required to publish a review');
+    }
+    final tradeId = reservationContext.getDtag();
+    if (tradeId == null || tradeId.isEmpty) {
+      throw StateError('Reservation trade id is required to publish a review');
+    }
+    final tradeAccountIndex = await getIt<Hostr>()
+        .tradeAccountAllocator
+        .findTradeAccountIndexByTradeId(tradeId);
+    final reservationAuthorKeyPair = await getIt<Hostr>().auth.hd
+        .getTradeKeyPair(accountIndex: tradeAccountIndex);
+    final revealKeyPair = deriveReviewRevealKeyPair(
+      reservation: reservationContext,
+      reservationAuthorKeyPair: reservationAuthorKeyPair,
+      role: 'buyer',
+    );
     await getIt<Hostr>().reviews.upsert(
       Review(
-        pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+        pubKey: activeKeyPair.publicKey,
         content: ReviewContent(
           rating: rating,
           content: reviewField.text,
-          proof: ParticipationProof(tweakMaterial: tweakMaterial!),
+          proof: ParticipationProof(
+            revealPrivateKey: revealKeyPair.privateKey!,
+          ),
         ),
         tags: ReviewTags([
           [kListingRefTag, listing.anchor!],
@@ -109,7 +128,6 @@ class EditReview extends StatefulWidget {
   final Review? existingReview;
   final Listing listing;
   final Reservation? reservation;
-  final ReservationTweakMaterial? tweakMaterial;
   final VoidCallback? onSaved;
 
   const EditReview({
@@ -118,7 +136,6 @@ class EditReview extends StatefulWidget {
     this.onSaved,
     required this.listing,
     this.reservation,
-    this.tweakMaterial,
   });
 
   @override
@@ -128,6 +145,12 @@ class EditReview extends StatefulWidget {
 class _EditReviewState extends State<EditReview> {
   late final EditReviewController _controller;
 
+  String _formatError(Object error) {
+    final raw = error.toString().trim();
+    if (raw.isEmpty) return 'Failed to publish review. Please try again.';
+    return raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -135,7 +158,6 @@ class _EditReviewState extends State<EditReview> {
       existingReview: widget.existingReview,
       listing: widget.listing,
       reservation: widget.reservation,
-      tweakMaterial: widget.tweakMaterial,
     );
   }
 
@@ -154,9 +176,19 @@ class _EditReviewState extends State<EditReview> {
   }
 
   Future<void> _handleSave() async {
-    final didSave = await _controller.save();
-    if (didSave) {
-      widget.onSaved?.call();
+    try {
+      final didSave = await _controller.save();
+      if (didSave) {
+        widget.onSaved?.call();
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_formatError(error)),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 

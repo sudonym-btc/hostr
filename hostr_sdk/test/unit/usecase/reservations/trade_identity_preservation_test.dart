@@ -16,7 +16,8 @@ import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils;
+import 'package:ndk/ndk.dart'
+    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -25,7 +26,17 @@ import '../../../support/fakes.dart';
 final _f = EntityFactory();
 
 class _FakeRequests extends Fake implements Requests {
+  _FakeRequests({String? activePubkey, String? signingPrivateKey})
+    : _ndk = _FakeNdk(
+        activePubkey: activePubkey,
+        signingPrivateKey: signingPrivateKey,
+      );
+
   final List<Nip01Event> broadcastedEvents = [];
+  final Ndk _ndk;
+
+  @override
+  Ndk get ndk => _ndk;
 
   @override
   Future<List<RelayBroadcastResponse>> broadcast({
@@ -55,6 +66,37 @@ class _FakeRequests extends Fake implements Requests {
   }) => StreamWithStatus<T>();
 }
 
+class _FakeAccounts extends Fake implements Accounts {
+  _FakeAccounts({this.activePubkey, this.signingPrivateKey});
+
+  final String? activePubkey;
+  final String? signingPrivateKey;
+
+  @override
+  String? getPublicKey() => activePubkey;
+
+  @override
+  Future<Nip01Event> sign(Nip01Event event) async {
+    return Nip01Utils.signWithPrivateKey(
+      event: event,
+      privateKey: signingPrivateKey ?? MockKeys.guest.privateKey!,
+    );
+  }
+}
+
+class _FakeNdk extends Fake implements Ndk {
+  _FakeNdk({this.activePubkey, this.signingPrivateKey});
+
+  final String? activePubkey;
+  final String? signingPrivateKey;
+
+  @override
+  Accounts get accounts => _FakeAccounts(
+    activePubkey: activePubkey,
+    signingPrivateKey: signingPrivateKey,
+  );
+}
+
 class _FakeAuth extends Fake implements Auth {
   _FakeAuth(this._activeKeyPair);
 
@@ -69,13 +111,15 @@ class _FakeAuth extends Fake implements Auth {
 }
 
 class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
+  static final KeyPair _tradeKey = mockKeys[30];
+
   @override
   Future<String> getTradeId({required int accountIndex}) async =>
       'trade-id-$accountIndex';
 
   @override
-  Future<String> getTradeSalt({required int accountIndex}) async =>
-      'trade-salt-$accountIndex';
+  Future<KeyPair> getTradeKeyPair({required int accountIndex}) async =>
+      _tradeKey;
 }
 
 class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
@@ -195,45 +239,145 @@ void main() {
         signerKeyPair: MockKeys.hoster,
       );
 
-      final guestTradeKey = tweakKeyPair(
-        privateKey: MockKeys.guest.privateKey!,
-        salt: hostCounter.tweakMaterial!.salt,
-      );
+      final guestTradeKey = await auth.hd.getTradeKeyPair(accountIndex: 7);
 
       final commit = await reservations.createSelfSigned(
-        activeKeyPair: guestTradeKey.keyPair,
+        activeKeyPair: guestTradeKey,
         negotiateReservation: hostCounter,
         proof: _f.zapPaymentProof(hostProfile: hostProfile, listing: listing),
       );
 
       expect(initialRequest.getDtag(), 'trade-id-7');
-      expect(initialRequest.tweakMaterial?.salt, 'trade-salt-7');
 
       expect(hostCounter.getDtag(), initialRequest.getDtag());
-      expect(
-        hostCounter.tweakMaterial?.salt,
-        initialRequest.tweakMaterial?.salt,
-      );
       expect(hostCounter.recipient, initialRequest.recipient);
       expect(
         hostCounter.parsedTags.listingAnchor,
         initialRequest.parsedTags.listingAnchor,
       );
-      expect(hostCounter.signatures.keys, contains(MockKeys.hoster.publicKey));
+      expect(
+        hostCounter.commitAuthorization?.pubKey,
+        MockKeys.hoster.publicKey,
+      );
 
       expect(commit.getDtag(), initialRequest.getDtag());
-      expect(commit.tweakMaterial, isNull);
       expect(commit.recipient, initialRequest.recipient);
       expect(
         commit.parsedTags.listingAnchor,
         initialRequest.parsedTags.listingAnchor,
       );
-      expect(commit.signatures, hostCounter.signatures);
+      expect(
+        commit.commitAuthorization?.id,
+        hostCounter.commitAuthorization?.id,
+      );
       expect(commit.pubKey, guestTradeKey.publicKey);
 
       expect(requests.broadcastedEvents, isNotEmpty);
       expect(requests.broadcastedEvents.last, same(commit));
       expect(transitions.recordCalls, 1);
+    },
+  );
+
+  test(
+    'guest reservation requests can use deterministic trade keys without a local identity private key',
+    () async {
+      final listing = _listing();
+      final bunkerGuestRequests = _FakeRequests(
+        activePubkey: MockKeys.guest.publicKey,
+        signingPrivateKey: MockKeys.guest.privateKey,
+      );
+      final bunkerGuestAuth = _FakeAuth(
+        KeyPair.justPublicKey(MockKeys.guest.publicKey),
+      );
+      final bunkerGuestReservationRequests = ReservationRequests(
+        requests: bunkerGuestRequests,
+        logger: CustomLogger(),
+        auth: bunkerGuestAuth,
+        tradeAccountAllocator: _FakeTradeAccountAllocator(),
+        relays: FakeRelays(),
+      );
+
+      final initialRequest = await bunkerGuestReservationRequests
+          .createReservationRequest(
+            listing: listing,
+            startDate: DateTime(2026, 3, 1),
+            endDate: DateTime(2026, 3, 4),
+          );
+
+      final expectedTradeKey = await bunkerGuestAuth.hd.getTradeKeyPair(
+        accountIndex: 7,
+      );
+
+      expect(initialRequest.pubKey, expectedTradeKey.publicKey);
+      expect(initialRequest.recipient, expectedTradeKey.publicKey);
+      expect(initialRequest.sig, isNotNull);
+      expect(initialRequest.valid(), isTrue);
+    },
+  );
+
+  test(
+    'host negotiation events can be signed through the active NDK signer without a local private key',
+    () async {
+      final listing = _listing();
+      final guestRequests = _FakeRequests();
+      final guestAuth = _FakeAuth(MockKeys.guest);
+      final guestReservationRequests = ReservationRequests(
+        requests: guestRequests,
+        logger: CustomLogger(),
+        auth: guestAuth,
+        tradeAccountAllocator: _FakeTradeAccountAllocator(),
+        relays: FakeRelays(),
+      );
+
+      final initialRequest = await guestReservationRequests
+          .createReservationRequest(
+            listing: listing,
+            startDate: DateTime(2026, 3, 1),
+            endDate: DateTime(2026, 3, 4),
+          );
+
+      final bunkerHostRequests = _FakeRequests(
+        activePubkey: MockKeys.hoster.publicKey,
+        signingPrivateKey: MockKeys.hoster.privateKey,
+      );
+      final bunkerHostAuth = _FakeAuth(
+        KeyPair.justPublicKey(MockKeys.hoster.publicKey),
+      );
+      final bunkerHostReservationRequests = ReservationRequests(
+        requests: bunkerHostRequests,
+        logger: CustomLogger(),
+        auth: bunkerHostAuth,
+        tradeAccountAllocator: _FakeTradeAccountAllocator(),
+        relays: FakeRelays(),
+      );
+
+      final hostCounter = await bunkerHostReservationRequests
+          .createCounterOffer(
+            listing: listing,
+            previousRequest: initialRequest,
+            amount: DenominatedAmount(
+              value: BigInt.from(90000),
+              denomination: 'BTC',
+              decimals: 8,
+            ),
+            signerKeyPair: KeyPair.justPublicKey(MockKeys.hoster.publicKey),
+          );
+
+      final cancellation = await bunkerHostReservationRequests
+          .createCancellation(
+            previousRequest: hostCounter,
+            signerKeyPair: KeyPair.justPublicKey(MockKeys.hoster.publicKey),
+          );
+
+      expect(hostCounter.pubKey, MockKeys.hoster.publicKey);
+      expect(hostCounter.sig, isNotNull);
+      expect(
+        hostCounter.commitAuthorization?.pubKey,
+        MockKeys.hoster.publicKey,
+      );
+      expect(cancellation.pubKey, MockKeys.hoster.publicKey);
+      expect(cancellation.sig, isNotNull);
+      expect(cancellation.stage, ReservationStage.cancel);
     },
   );
 }

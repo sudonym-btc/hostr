@@ -152,13 +152,7 @@ Future<Reservation> buildReservationForPlan({
 
   thread.selfSigned = plan.selfSigned;
 
-  final requestTweakMaterial = thread.request.tweakMaterial;
-  final buyerSigningKey = requestTweakMaterial != null
-      ? tweakKeyPair(
-          privateKey: thread.guest.keyPair.privateKey!,
-          salt: requestTweakMaterial.salt,
-        ).keyPair
-      : thread.guest.keyPair;
+  final buyerSigningKey = thread.requestAuthorKeyPair;
   final reservationSigner = plan.selfSigned
       ? buyerSigningKey
       : thread.host.keyPair;

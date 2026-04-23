@@ -622,7 +622,7 @@ function renderLineSeriesTrend(rows, series, title) {
       `    title "${mermaidString(`${title}: ${s.label}`)}"`,
       `    x-axis [${labels.map((label) => `"${mermaidString(label)}"`).join(", ")}]`,
       `    y-axis "Events" 0 --> ${chartMax(s.values)}`,
-      `    line [${s.values.join(", ")}]`,
+      `    bar [${s.values.join(", ")}]`,
       "```",
     );
   }

@@ -112,7 +112,6 @@ Reservation _buildSelfSignedCommit({
     stage: ReservationStage.commit,
     quantity: negotiate.quantity,
     amount: negotiate.amount,
-    tweakMaterial: negotiate.tweakMaterial,
     proof: proof,
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
   ).signAs(buyer, Reservation.fromNostrEvent);

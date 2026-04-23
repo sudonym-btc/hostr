@@ -72,11 +72,13 @@ class CommitMenu extends StatelessWidget {
                     buttons: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        FilledButton(
+                        FutureButton.filled(
                           style: AppButtonStyles.destructive(context),
-                          onPressed: () {
-                            Navigator.of(modalContext).pop();
-                            trade.execute(TradeAction.cancel);
+                          onPressed: () async {
+                            await trade.execute(TradeAction.cancel);
+                            if (modalContext.mounted) {
+                              Navigator.of(modalContext).pop();
+                            }
                           },
                           child: Text(AppLocalizations.of(context)!.ok),
                         ),
@@ -123,16 +125,11 @@ class CommitMenu extends StatelessWidget {
               final commitStage = tradeState.stage;
               if (commitStage is! CommitStage) return null;
               final group = commitStage.reservationGroup;
-              // Get the tweak material from the thread's reservation requests.
-              final requests =
-                  trade.thread?.state.value.reservationRequests ?? [];
-              final tweakMaterial = requests
-                  .where((r) => r.tweakMaterial != null)
-                  .map((r) => r.tweakMaterial!)
-                  .lastOrNull;
-              if (tweakMaterial == null) return null;
               // Use the buyer's reservation as the anchor for the review.
-              final reservation = group.buyerReservation;
+              final reservation =
+                  group.buyerReservation ??
+                  group.sellerReservation ??
+                  group.escrowReservation;
               return (
                 label: 'Review',
                 icon: Icons.star_outline,
@@ -142,7 +139,6 @@ class CommitMenu extends StatelessWidget {
                     child: EditReview(
                       listing: tradeState.listing,
                       reservation: reservation,
-                      tweakMaterial: tweakMaterial,
                       onSaved: () {
                         Navigator.of(modalContext).pop();
                       },

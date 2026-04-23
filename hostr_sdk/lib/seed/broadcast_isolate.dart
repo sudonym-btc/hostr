@@ -7,6 +7,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:hostr_sdk/config.dart'
+    show CoinlibEventSigner, CoinlibNip44Cryptography;
 import 'package:ndk/ndk.dart';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -213,6 +215,9 @@ Future<void> _isolateEntry(_IsolateArgs args) async {
   final ndk = Ndk(
     NdkConfig(
       eventVerifier: Bip340EventVerifier(),
+      eventSignerFactory: ({required publicKey, String? privateKey}) =>
+          CoinlibEventSigner(privateKey: privateKey, publicKey: publicKey),
+      nip44Cryptography: CoinlibNip44Cryptography(),
       cache: MemCacheManager(),
       bootstrapRelays: [relayUrl],
     ),
