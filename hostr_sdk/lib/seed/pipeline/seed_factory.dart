@@ -68,7 +68,7 @@ class SeedFactory {
       stage_profiles.buildProfiles(ctx: _ctx, users: users, factory: _entities);
 
   Future<ProfileMetadata> buildEscrowProfile() =>
-      stage_profiles.buildEscrowProfile(ctx: _ctx, factory: _entities);
+      stage_profiles.buildEscrowProfile(ctx: _ctx, config: config, factory: _entities);
 
   Future<List<EscrowService>> buildEscrowServices({
     String? contractAddress,

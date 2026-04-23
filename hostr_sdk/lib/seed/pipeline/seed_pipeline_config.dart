@@ -164,6 +164,10 @@ class SeedPipelineConfig {
   final String? usdtAddress;
   final int usdtDecimals;
 
+  // ── Escrow identity ──
+  final String escrowProfileName;
+  final String? escrowProfilePicture;
+
   // ── Determinism ──
   final int seed;
 
@@ -204,6 +208,8 @@ class SeedPipelineConfig {
     this.tbtcDecimals = 18,
     this.usdtAddress,
     this.usdtDecimals = 6,
+    this.escrowProfileName = 'Hostr Escrow',
+    this.escrowProfilePicture,
     this.userCount = 50,
     this.hostRatio = 0.5,
     this.hostHasEvmRatio = 1,
@@ -237,6 +243,9 @@ class SeedPipelineConfig {
       tbtcDecimals: _int(json['tbtcDecimals'], 18),
       usdtAddress: _str(json['usdtAddress']),
       usdtDecimals: _int(json['usdtDecimals'], 6),
+      escrowProfileName:
+          _str(json['escrowProfileName']) ?? 'Hostr Escrow',
+      escrowProfilePicture: _str(json['escrowProfilePicture']),
       seed: _int(json['seed'], 1),
       userCount: _int(json['userCount'], 50),
       hostRatio: _dbl(json['hostRatio'], 0.25),
@@ -281,6 +290,8 @@ class SeedPipelineConfig {
     'tbtcDecimals': tbtcDecimals,
     'usdtAddress': usdtAddress,
     'usdtDecimals': usdtDecimals,
+    'escrowProfileName': escrowProfileName,
+    'escrowProfilePicture': escrowProfilePicture,
     'seed': seed,
     'userCount': userCount,
     'hostRatio': hostRatio,
@@ -318,6 +329,8 @@ class SeedPipelineConfig {
     int? tbtcDecimals,
     String? usdtAddress,
     int? usdtDecimals,
+    String? escrowProfileName,
+    String? escrowProfilePicture,
     int? seed,
     int? userCount,
     double? hostRatio,
@@ -347,6 +360,9 @@ class SeedPipelineConfig {
     tbtcDecimals: tbtcDecimals ?? this.tbtcDecimals,
     usdtAddress: usdtAddress ?? this.usdtAddress,
     usdtDecimals: usdtDecimals ?? this.usdtDecimals,
+    escrowProfileName: escrowProfileName ?? this.escrowProfileName,
+    escrowProfilePicture:
+        escrowProfilePicture ?? this.escrowProfilePicture,
     seed: seed ?? this.seed,
     userCount: userCount ?? this.userCount,
     hostRatio: hostRatio ?? this.hostRatio,

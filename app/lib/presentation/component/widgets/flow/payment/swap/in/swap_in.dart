@@ -358,16 +358,31 @@ class SwapInSuccessWidget extends StatefulWidget {
 
 class _SwapInSuccessWidgetState extends State<SwapInSuccessWidget> {
   Timer? _autoDismissTimer;
+  Route<dynamic>? _route;
 
   @override
   void initState() {
     super.initState();
     final delay = widget.autoDismissAfter;
     if (delay != null) {
-      _autoDismissTimer = Timer(delay, () {
-        if (mounted) Navigator.of(context).maybePop();
-      });
+      _autoDismissTimer = Timer(delay, _dismissOwningRoute);
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route ??= ModalRoute.of(context);
+  }
+
+  void _dismissOwningRoute() {
+    final route = _route;
+    final navigator = route?.navigator;
+    if (!mounted || route == null || navigator == null || !route.isActive) {
+      return;
+    }
+
+    navigator.removeRoute(route);
   }
 
   @override

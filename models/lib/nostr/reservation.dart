@@ -7,6 +7,9 @@ import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 const _publishedAtTag = 'published_at';
+const kReservationPubkeyProofTag = 'pubkey_proof';
+const kReservationPubkeyProofSchemeNip44V1 = 'nip44-v1';
+const kReservationPubkeyProofPayloadV1 = 'v1';
 
 List<List<String>> _withPublishedAt(
   List<List<String>> tags,
@@ -66,21 +69,131 @@ class PTag {
 class ReservationTags extends EventTags
     with ReferencesListing<ReservationTags> {
   ReservationTags(super.tags);
+
+  List<ReservationPubkeyProofTag> get pubkeyProofs => tags
+      .map(ReservationPubkeyProofTag.tryFromTag)
+      .whereType<ReservationPubkeyProofTag>()
+      .toList(growable: false);
+
+  List<ReservationPubkeyProofTag> pubkeyProofsFor({
+    required String role,
+    required String recipientPubkey,
+  }) {
+    return pubkeyProofs
+        .where(
+          (proof) =>
+              proof.role == role && proof.recipientPubkey == recipientPubkey,
+        )
+        .toList(growable: false);
+  }
 }
 
-// TODO(protocol): Add encrypted buyer-contact capsules for public reservations.
-// Public reservations should be able to expose a trade-scoped buyer pubkey while
-// hiding the buyer's real DM pubkey from public observers. Proposal:
-// - Keep role-marked participant tags for seller, escrow, and buyer alias.
-// - Add one encrypted contact tag per authorized recipient, e.g. seller and
-//   escrow, encrypted with NIP-44 or the app's current DM encryption primitive.
-// - Capsule payload should include trade id, listing anchor, buyer alias pubkey,
-//   buyer real pubkey, buyer relay hints, seller pubkey, escrow pubkey, expiry,
-//   and a buyer-real-key signature binding all of those fields.
-// - Seller/escrow can then recover real DM participants from the public
-//   reservation alone, while public observers only see the buyer alias.
-// - Clients must not trust an unencrypted buyer-real-pubkey tag; the decrypted
-//   capsule signature is the authority.
+/// Encrypted reservation tag that can prove a hidden participant pubkey.
+///
+/// Shape:
+/// `["pubkey_proof", role, recipientPubkey, scheme, ciphertext]`
+///
+/// The current scheme is [kReservationPubkeyProofSchemeNip44V1], where
+/// [ciphertext] decrypts to a [ReservationPubkeyProofPayload].
+class ReservationPubkeyProofTag {
+  final String role;
+  final String recipientPubkey;
+  final String scheme;
+  final String ciphertext;
+
+  const ReservationPubkeyProofTag({
+    required this.role,
+    required this.recipientPubkey,
+    required this.scheme,
+    required this.ciphertext,
+  });
+
+  List<String> toTag() => [
+        kReservationPubkeyProofTag,
+        role,
+        recipientPubkey,
+        scheme,
+        ciphertext,
+      ];
+
+  static ReservationPubkeyProofTag? tryFromTag(List<String> tag) {
+    if (tag.length < 5 || tag.first != kReservationPubkeyProofTag) {
+      return null;
+    }
+    return ReservationPubkeyProofTag(
+      role: tag[1],
+      recipientPubkey: tag[2],
+      scheme: tag[3],
+      ciphertext: tag[4],
+    );
+  }
+}
+
+/// Compact plaintext encrypted into a [ReservationPubkeyProofTag].
+///
+/// Shape: `v1:<realPubkey>:<signature>`.
+/// The signature is made by [pubkey] over [messageForTradeId].
+class ReservationPubkeyProofPayload {
+  final String version;
+  final String pubkey;
+  final String signature;
+
+  const ReservationPubkeyProofPayload({
+    this.version = kReservationPubkeyProofPayloadV1,
+    required this.pubkey,
+    required this.signature,
+  });
+
+  static String messageForTradeId(String tradeId) {
+    final trimmed = tradeId.trim();
+    final bytes32Hex = RegExp(r'^[0-9a-fA-F]{64}$');
+    if (bytes32Hex.hasMatch(trimmed)) return trimmed.toLowerCase();
+    return sha256.convert(utf8.encode(trimmed)).toString();
+  }
+
+  factory ReservationPubkeyProofPayload.sign({
+    required String tradeId,
+    required KeyPair keyPair,
+  }) {
+    final privateKey = keyPair.privateKey;
+    if (privateKey == null || privateKey.isEmpty) {
+      throw StateError('Private key is required to sign pubkey proof');
+    }
+    return ReservationPubkeyProofPayload(
+      pubkey: keyPair.publicKey,
+      signature: signSchnorr(
+        privateKey: privateKey,
+        message: messageForTradeId(tradeId),
+      ),
+    );
+  }
+
+  String encode() => '$version:$pubkey:$signature';
+
+  static ReservationPubkeyProofPayload? tryDecode(String plaintext) {
+    final parts = plaintext.split(':');
+    if (parts.length != 3 || parts[0] != kReservationPubkeyProofPayloadV1) {
+      return null;
+    }
+    return ReservationPubkeyProofPayload(
+      version: parts[0],
+      pubkey: parts[1],
+      signature: parts[2],
+    );
+  }
+
+  bool verifiesForTradeId(String tradeId) {
+    return verifySchnorrSignatureSync(
+      publicKey: pubkey,
+      message: messageForTradeId(tradeId),
+      signature: signature,
+    );
+  }
+}
+
+// Public reservations can reveal a durable participant pubkey to authorized
+// recipients with encrypted `pubkey_proof` tags while keeping role-marked `p`
+// tags disposable. The decrypted signature remains the authority.
 class ReservationExpectedAmount {
   final DenominatedAmount listingPrice;
   final DenominatedAmount? negotiatedAmount;
@@ -216,6 +329,7 @@ class Reservation
     // Tag fields
     String? threadAnchor,
     List<PTag> pTags = const [],
+    List<ReservationPubkeyProofTag> pubkeyProofs = const [],
     List<List<String>> extraTags = const [],
     // Event-level
     String? id,
@@ -235,6 +349,7 @@ class Reservation
             ['d', dTag],
             if (threadAnchor != null) [kThreadRefTag, threadAnchor],
             for (final p in pTags) p.toTag(),
+            for (final proof in pubkeyProofs) proof.toTag(),
             ...extraTags,
           ],
           eventCreatedAt,
@@ -261,6 +376,7 @@ class Reservation
     String? pubKey,
     ReservationContent? content,
     ReservationTags? tags,
+    Object? sig = _unset,
   }) {
     final firstPublishedAt = parsedTags.getTagInt(_publishedAtTag);
     final copiedTags = tags ?? this.parsedTags;
@@ -275,7 +391,7 @@ class Reservation
             : _withPublishedAt(copiedTags.tags, firstPublishedAt),
       ),
       content: content ?? this.parsedContent,
-      sig: sig ?? this.sig,
+      sig: identical(sig, _unset) ? this.sig : sig as String?,
     );
   }
 

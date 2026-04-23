@@ -2,17 +2,253 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Filter;
+import 'package:ndk/ndk.dart' show Filter, Nip01Event;
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import '../../hostr.dart';
+import '../../config.dart' show CoinlibEventSigner;
 import '../../util/main.dart';
 import '../escrow/escrow_verification.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../reservation_groups/reservation_groups.dart';
+import '../reservations/reservation_pubkey_proofs.dart';
 import 'escrow_daemon_models.dart';
+
+typedef EscrowReservationNoticeSender =
+    Future<void> Function({
+      required String content,
+      required List<List<String>> tags,
+      required List<String> recipientPubkeys,
+    });
+
+typedef EscrowReservationLegacyNoticeSender =
+    Future<void> Function({
+      required String content,
+      required List<List<String>> tags,
+      required String recipientPubkey,
+    });
+
+typedef EscrowReservationExistingMessages =
+    Iterable<TextMessage> Function(String tradeId);
+
+const _hostrTradeIdTag = 'tradeId';
+
+class EscrowReservationNotifier {
+  final KeyPair Function() escrowKeyPair;
+  final DateTime Function() clock;
+  final Future<Listing?> Function(String listingAnchor) loadListing;
+  final Future<ProfileMetadata?> Function(String pubkey) loadMetadata;
+  final EscrowReservationNoticeSender sendText;
+  final EscrowReservationLegacyNoticeSender sendLegacyText;
+  final EscrowReservationExistingMessages existingMessagesForTrade;
+  final CustomLogger _logger;
+
+  EscrowReservationNotifier({
+    required this.escrowKeyPair,
+    DateTime Function()? clock,
+    required this.loadListing,
+    required this.loadMetadata,
+    required this.sendText,
+    required this.sendLegacyText,
+    required this.existingMessagesForTrade,
+    required CustomLogger logger,
+  }) : clock = clock ?? (() => DateTime.now().toUtc()),
+       _logger = logger.scope('reservation-notifier');
+
+  Future<void> notifyReservation(ReservationGroup group) async {
+    final tradeId = group.tradeId;
+    if (_hasEnded(group)) {
+      _logger.d('Skipping reservation notice for $tradeId: reservation ended');
+      return;
+    }
+
+    final buyerPubkey = await _resolveProvenPubkey(group, role: 'buyer');
+    final sellerPubkey =
+        await _resolveProvenPubkey(group, role: 'seller') ?? group.sellerPubkey;
+
+    if (buyerPubkey == null) {
+      _logger.d('Skipping reservation notice for $tradeId: no buyer proof');
+      return;
+    }
+
+    final listing = await loadListing(group.listingAnchor);
+    final hostName = await _displayNameFor(sellerPubkey);
+    final buyerContent = _buyerNoticeContent(
+      hostName: hostName,
+      listingTitle: listing?.title,
+      start: group.start,
+      end: group.end,
+    );
+    final sellerContent = _sellerNoticeContent(
+      listingTitle: listing?.title,
+      start: group.start,
+      end: group.end,
+    );
+
+    await _maybeSend(
+      tradeId: tradeId,
+      role: 'buyer',
+      recipientPubkey: buyerPubkey,
+      content: buyerContent,
+    );
+    await _maybeSend(
+      tradeId: tradeId,
+      role: 'seller',
+      recipientPubkey: sellerPubkey,
+      content: sellerContent,
+    );
+  }
+
+  bool _hasEnded(ReservationGroup group) {
+    final end = group.end;
+    if (end == null) return false;
+    return !end.toUtc().isAfter(clock().toUtc());
+  }
+
+  Future<String?> _resolveProvenPubkey(
+    ReservationGroup group, {
+    required String role,
+  }) async {
+    final keyPair = escrowKeyPair();
+    for (final reservation in group.reservations) {
+      final proof = await reservation.resolvePubkeyProof(
+        role: role,
+        recipientKeyPair: keyPair,
+      );
+      if (proof != null) return proof.pubkey;
+    }
+    return null;
+  }
+
+  Future<void> _maybeSend({
+    required String tradeId,
+    required String role,
+    required String recipientPubkey,
+    required String content,
+  }) async {
+    if (_hasExistingNotice(
+      tradeId: tradeId,
+      role: role,
+      recipientPubkey: recipientPubkey,
+    )) {
+      _logger.d(
+        'Skipping duplicate reservation notice: '
+        'trade=$tradeId role=$role recipient=$recipientPubkey',
+      );
+      return;
+    }
+
+    final tags = [
+      [_hostrTradeIdTag, tradeId],
+      ['hostr_notice', 'reservation_placed', role, recipientPubkey],
+    ];
+
+    await sendText(
+      content: content,
+      tags: tags,
+      recipientPubkeys: [recipientPubkey],
+    );
+    await sendLegacyText(
+      content: content,
+      tags: tags,
+      recipientPubkey: recipientPubkey,
+    );
+  }
+
+  bool _hasExistingNotice({
+    required String tradeId,
+    required String role,
+    required String recipientPubkey,
+  }) {
+    final escrowPubkey = escrowKeyPair().publicKey;
+    return existingMessagesForTrade(tradeId).any((message) {
+      if (message.pubKey != escrowPubkey) return false;
+      if (!message.pTags.contains(recipientPubkey)) return false;
+      final hasTradeId = message.tags.any(
+        (tag) =>
+            tag.length >= 2 && tag[0] == _hostrTradeIdTag && tag[1] == tradeId,
+      );
+      if (!hasTradeId) return false;
+      return message.tags.any(
+        (tag) =>
+            tag.length >= 4 &&
+            tag[0] == 'hostr_notice' &&
+            tag[1] == 'reservation_placed' &&
+            tag[2] == role &&
+            tag[3] == recipientPubkey,
+      );
+    });
+  }
+
+  Future<String> _displayNameFor(String pubkey) async {
+    final profile = await loadMetadata(pubkey);
+    return profile?.metadata.displayName ??
+        profile?.metadata.name ??
+        _shortPubkey(pubkey);
+  }
+
+  static String _buyerNoticeContent({
+    required String hostName,
+    required String? listingTitle,
+    required DateTime? start,
+    required DateTime? end,
+  }) {
+    final reservation = _reservationDescription(
+      listingTitle: listingTitle,
+      start: start,
+      end: end,
+    );
+    return 'You successfully reserved $reservation, hosted by $hostName. '
+        "We've reached out to the host to confirm, and they should be in touch soon. "
+        'If your host does not confirm in a timely manner, rest assured that '
+        'the payment can be reversed.';
+  }
+
+  static String _sellerNoticeContent({
+    required String? listingTitle,
+    required DateTime? start,
+    required DateTime? end,
+  }) {
+    final reservation = _reservationDescription(
+      listingTitle: listingTitle,
+      start: start,
+      end: end,
+    );
+    return 'Someone placed a reservation for $reservation. '
+        'Payment has been paid and sits in escrow. '
+        'Please login to https://hostr.network to initiate a conversation '
+        'with the guest.';
+  }
+
+  static String _reservationDescription({
+    required String? listingTitle,
+    required DateTime? start,
+    required DateTime? end,
+  }) {
+    final title = listingTitle?.trim().isNotEmpty == true
+        ? listingTitle!.trim()
+        : 'a listing';
+    final range = _dateRange(start, end);
+    final suffix = range.isEmpty ? '' : ' $range';
+    return '$title$suffix';
+  }
+
+  static String _dateRange(DateTime? start, DateTime? end) {
+    if (start == null && end == null) return '';
+    if (start == null) return _date(end!);
+    if (end == null) return _date(start);
+    return '${_date(start)} - ${_date(end)}';
+  }
+
+  static String _date(DateTime date) =>
+      date.toUtc().toIso8601String().split('T').first;
+
+  static String _shortPubkey(String pubkey) =>
+      pubkey.length <= 8 ? pubkey : pubkey.substring(0, 8);
+}
 
 /// Use case that encapsulates all escrow-daemon business logic:
 ///
@@ -44,6 +280,7 @@ class EscrowDaemon {
 
   // ── Reservation auto-confirmation state ─────────────────────────────────
   late final EscrowVerification _escrowVerification;
+  late final EscrowReservationNotifier _reservationNotifier;
   final Map<String, ReservationGroup> _reservationGroups = {};
 
   // ── Subscriptions ───────────────────────────────────────────────────────
@@ -60,6 +297,59 @@ class EscrowDaemon {
     : _hostr = hostr,
       _logger = hostr.logger.scope('escrow-daemon') {
     _escrowVerification = EscrowVerification(evm: hostr.evm, logger: _logger);
+    _reservationNotifier = EscrowReservationNotifier(
+      escrowKeyPair: () => _hostr.auth.activeKeyPair!,
+      loadListing: (anchor) => _hostr.listings.getOneByAnchor(anchor),
+      loadMetadata: (pubkey) => _hostr.metadata.loadMetadata(pubkey),
+      existingMessagesForTrade: (_) => _hostr.messaging.threads.threads.values
+          .expand((thread) => thread.state.value.textMessages),
+      sendText:
+          ({required content, required tags, required recipientPubkeys}) async {
+            await _hostr.messaging.broadcastText(
+              content: content,
+              tags: tags,
+              recipientPubkeys: recipientPubkeys,
+            );
+          },
+      sendLegacyText:
+          ({required content, required tags, required recipientPubkey}) async {
+            await _sendLegacyDm(
+              content: content,
+              tags: tags,
+              recipientPubkey: recipientPubkey,
+            );
+          },
+      logger: _logger,
+    );
+  }
+
+  Future<void> _sendLegacyDm({
+    required String content,
+    required List<List<String>> tags,
+    required String recipientPubkey,
+  }) async {
+    final keyPair = _hostr.auth.activeKeyPair!;
+    final signer = CoinlibEventSigner(
+      privateKey: keyPair.privateKey,
+      publicKey: keyPair.publicKey,
+    );
+    final encrypted = await signer.encrypt(content, recipientPubkey);
+    if (encrypted == null) {
+      throw StateError('Failed to encrypt legacy DM for $recipientPubkey');
+    }
+
+    await _hostr.requests.broadcast(
+      event: Nip01Event(
+        pubKey: keyPair.publicKey,
+        kind: kNostrKindLegacyDM,
+        tags: [
+          ['p', recipientPubkey],
+          ...tags,
+        ],
+        content: encrypted,
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      ),
+    );
   }
 
   // ── Getters ───────────────────────────────────────────────────────────────
@@ -433,8 +723,13 @@ class EscrowDaemon {
   }
 
   Future<void> _processGroup(ReservationGroup group) async {
-    // Already handled — our own reservation is in the group (from the relay).
-    if (group.escrowReservation != null) return;
+    // Already confirmed/cancelled by us — do not publish another reservation,
+    // but still run the idempotent notifier in case the daemon restarted after
+    // confirming and before sending participant DMs.
+    if (group.escrowReservation != null) {
+      await _reservationNotifier.notifyReservation(group);
+      return;
+    }
 
     final buyer = group.buyerReservation;
     if (buyer == null) return;
@@ -453,6 +748,7 @@ class EscrowDaemon {
 
       if (result is Valid<ReservationGroup>) {
         await _publishEscrowConfirmation(group, buyer);
+        await _reservationNotifier.notifyReservation(group);
       } else if (result is Invalid<ReservationGroup>) {
         final reason = result.reason;
         _logger.w('Escrow proof INVALID for trade=$tradeId: $reason');

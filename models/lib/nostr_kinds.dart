@@ -15,6 +15,10 @@ const kNostrKindEscrowMethod = 30301;
 const kNostrKindEscrowServiceSelected = 30302;
 
 const kNostrKindProfile = 0;
+
+/// Legacy NIP-04 encrypted direct message event.
+const kNostrKindLegacyDM = 4;
+
 const kNostrKindDM = 14;
 const kNostrKindJsonMessage = 1327;
 const kNostrKindSeenStatus = 16;

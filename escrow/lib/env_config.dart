@@ -23,11 +23,26 @@ class EnvConfig {
     required this.evmConfig,
   });
 
+  /// Normalizes compose profiles and user-facing names into SDK env names.
+  static String sdkEnvironment(String environment) {
+    final tokens = environment
+        .split(',')
+        .map((token) => token.trim().toLowerCase())
+        .where((token) => token.isNotEmpty)
+        .toSet();
+
+    if (tokens.contains('prod') || tokens.contains('production')) return 'prod';
+    if (tokens.contains('staging')) return 'staging';
+    if (tokens.contains('test')) return 'test';
+    if (tokens.contains('mock')) return 'mock';
+    return 'dev';
+  }
+
   /// Resolve the correct [EnvConfig] for the given [environment] name.
   ///
   /// Falls back to the test/dev config for unrecognised values.
   factory EnvConfig.forEnvironment(String environment) {
-    return switch (environment) {
+    return switch (sdkEnvironment(environment)) {
       'staging' => const EnvConfig(
           relayUrl: staging_env.relayUrl,
           blossomUrl: staging_env.blossomUrl,
@@ -38,7 +53,7 @@ class EnvConfig {
           blossomUrl: production_env.blossomUrl,
           evmConfig: production_env.evmConfig,
         ),
-      'development' => const EnvConfig(
+      'dev' || 'mock' => const EnvConfig(
           relayUrl: development_env.relayUrl,
           blossomUrl: development_env.blossomUrl,
           evmConfig: development_env.evmConfig,
