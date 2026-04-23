@@ -1,0 +1,82 @@
+name: Reset Compose VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: Environment to reset
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  reset:
+    name: Reset compose VM
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_env }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Resolve target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ inputs.target_env }}" in
+            staging)
+              echo "project_id=hostr-staging-d4c52998" >> "$GITHUB_OUTPUT"
+              echo "vm_name=hostr-staging-compose" >> "$GITHUB_OUTPUT"
+              echo "zone=us-central1-b" >> "$GITHUB_OUTPUT"
+              echo "app_url=https://staging.hostr.network" >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              echo "project_id=hostr-production-d3ba05b4" >> "$GITHUB_OUTPUT"
+              echo "vm_name=hostr-production-compose" >> "$GITHUB_OUTPUT"
+              echo "zone=us-central1-b" >> "$GITHUB_OUTPUT"
+              echo "app_url=https://hostr.network" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported environment: ${{ inputs.target_env }}" >&2
+              exit 64
+              ;;
+          esac
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Reset VM
+        run: |
+          gcloud compute instances reset "${{ steps.target.outputs.vm_name }}" \
+            --project "${{ steps.target.outputs.project_id }}" \
+            --zone "${{ steps.target.outputs.zone }}"
+
+      - name: Wait for app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          app_url="${{ steps.target.outputs.app_url }}"
+          for attempt in $(seq 1 60); do
+            status_code="$(curl -k -L -s -o /dev/null -w '%{http_code}' "$app_url" || true)"
+            if [[ "$status_code" == "200" || "$status_code" == "301" || "$status_code" == "302" ]]; then
+              echo "App responded with HTTP $status_code"
+              exit 0
+            fi
+            echo "Attempt $attempt: app returned HTTP ${status_code:-000}; waiting..."
+            sleep 10
+          done
+
+          echo "App did not become reachable after reset" >&2
+          exit 1
