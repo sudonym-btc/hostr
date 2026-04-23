@@ -43,6 +43,34 @@ ReservationGroup _group({
 
 void main() {
   group('ReservationGroupStatus', () {
+    group('date range', () {
+      test(
+          'falls back to first non-null dates when committed reservation is blank',
+          () {
+        final start = DateTime.utc(2026, 4, 27);
+        final end = DateTime.utc(2026, 4, 28);
+        final blankCommittedSeller = Reservation.create(
+          pubKey: MockKeys.hoster.publicKey,
+          dTag: 'test-reservation',
+          listingAnchor: _listingAnchor,
+          stage: ReservationStage.commit,
+        ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
+        final datedBuyer = _reservation(
+          signer: MockKeys.guest,
+          stage: ReservationStage.commit,
+          start: start,
+          end: end,
+        );
+
+        final status = ReservationGroup(
+          reservations: [blankCommittedSeller, datedBuyer],
+        );
+
+        expect(status.start, start);
+        expect(status.end, end);
+      });
+    });
+
     group('cancelled', () {
       test('returns false when empty', () {
         final status = ReservationGroup();

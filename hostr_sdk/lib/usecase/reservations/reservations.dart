@@ -15,6 +15,7 @@ import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../relays/relays.dart';
 import '../reservation_transitions/reservation_transitions.dart';
+import 'reservation_pubkey_proofs.dart';
 
 class Commitment {
   final String hash;
@@ -257,7 +258,7 @@ class Reservations extends CrudUseCase<Reservation>
     final escrowHint = escrowPk != null
         ? await _relays.relayHintFor(escrowPk)
         : '';
-    final reservation = Reservation.create(
+    var reservation = Reservation.create(
       pubKey: activeKeyPair.publicKey,
       dTag: tradeId!,
       listingAnchor: listingAnchor,
@@ -275,6 +276,11 @@ class Reservations extends CrudUseCase<Reservation>
       recipient: negotiateReservation.recipient,
       proof: proof,
       signatures: negotiateReservation.signatures,
+    );
+    reservation = await reservation.attachPubkeyProof(
+      role: 'buyer',
+      proofKeyPair: auth.getActiveKey(),
+      encryptionKeyPair: activeKeyPair,
     );
 
     final signedReservation = reservation.signAs(
@@ -333,6 +339,8 @@ class Reservations extends CrudUseCase<Reservation>
       listingAnchor: reservationGroup.listingAnchor,
       stage: ReservationStage.cancel,
       pTags: pTags,
+      start: reservationGroup.start,
+      end: reservationGroup.end,
     ).signAs(keyPair, Reservation.fromNostrEvent);
     final updated = myReservation == null
         ? blank

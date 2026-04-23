@@ -10,6 +10,7 @@ import 'package:hostr/background_task_type.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/in_app_notification_toast.dart';
 import 'package:hostr/presentation/main.dart';
+import 'package:hostr/presentation/reservation_published_popup_listener.dart';
 import 'package:hostr/route/nostr_link_handler.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr/router.dart';
@@ -148,6 +149,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: getTheme(false),
       darkTheme: getTheme(true),
       themeMode: ThemeMode.system, // Use system theme mode
+      builder: (context, child) => ReservationPublishedPopupListener(
+        navigatorKey: _appRouter.navigatorKey,
+        child: child ?? const SizedBox.shrink(),
+      ),
 
       routerConfig: _appRouter.config(navigatorObservers: () => [MyObserver()]),
     );

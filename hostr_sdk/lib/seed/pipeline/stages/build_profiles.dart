@@ -2,6 +2,7 @@ import 'package:models/main.dart';
 
 import '../entity_factory.dart';
 import '../seed_context.dart';
+import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
 
 /// Stage 2: Build kind-0 profile metadata events for all users.
@@ -36,10 +37,14 @@ Future<List<ProfileMetadata>> buildProfiles({
 
 Future<ProfileMetadata> buildEscrowProfile({
   required SeedContext ctx,
+  required SeedPipelineConfig config,
   EntityFactory? factory,
 }) async {
   final f = factory ?? EntityFactory(ctx: ctx);
   return f.escrowProfile(
+    name: config.escrowProfileName,
+    displayName: config.escrowProfileName,
+    picture: config.escrowProfilePicture,
     createdAt: ctx.baseDate.millisecondsSinceEpoch ~/ 1000,
   );
 }

@@ -27,6 +27,7 @@ export 'requests/requests.dart';
 export 'reservation_groups/reservation_groups.dart';
 export 'reservation_requests/reservation_requests.dart';
 export 'reservation_transitions/reservation_transitions.dart';
+export 'reservations/reservation_pubkey_proofs.dart';
 export 'reservations/reservations.dart';
 export 'reviews/reviews.dart';
 export 'startup/main.dart';

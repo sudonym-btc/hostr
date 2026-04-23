@@ -111,6 +111,14 @@ SeedPipelineConfig _withEnvOverrides(SeedPipelineConfig base) {
   var tbtcDec = base.tbtcDecimals;
   var usdtDec = base.usdtDecimals;
 
+  final appBaseUrl = _resolveAppBaseUrl(env: env, relayUrl: base.relayUrl);
+  final resolvedEscrowPicture =
+      (base.escrowProfilePicture?.trim().isNotEmpty ?? false)
+          ? base.escrowProfilePicture!.trim()
+          : (env['SEED_ESCROW_PROFILE_PICTURE']?.trim().isNotEmpty ?? false)
+              ? env['SEED_ESCROW_PROFILE_PICTURE']!.trim()
+              : '$appBaseUrl/assets/assets/images/logo/generated/logo_base_1024.png';
+
   // Fallback: read the token manifest produced by arbitrum-init.
   if (tbtcAddr == null || usdtAddr == null) {
     final manifest = _readTokenManifest(base.chainId);
@@ -146,7 +154,33 @@ SeedPipelineConfig _withEnvOverrides(SeedPipelineConfig base) {
     usdtDecimals: usdtDec,
     tradeSponsorPrivateKey:
         base.tradeSponsorPrivateKey ?? env['SEED_TRADE_SPONSOR_PRIVATE_KEY'],
+    escrowProfilePicture: resolvedEscrowPicture,
   );
+}
+
+String _resolveAppBaseUrl({
+  required Map<String, String> env,
+  required String? relayUrl,
+}) {
+  final explicit = env['SEED_APP_BASE_URL']?.trim();
+  if (explicit != null && explicit.isNotEmpty) {
+    return explicit.endsWith('/') ? explicit.substring(0, explicit.length - 1) : explicit;
+  }
+
+  final domain = env['DOMAIN']?.trim();
+  if (domain != null && domain.isNotEmpty) return 'https://$domain';
+
+  final relay = (relayUrl ?? env['RELAY_URL'])?.trim();
+  final uri = relay == null ? null : Uri.tryParse(relay);
+  final host = uri?.host.trim();
+  if (host != null && host.isNotEmpty) {
+    if (host.startsWith('relay.')) {
+      return 'https://${host.substring('relay.'.length)}';
+    }
+    return 'https://$host';
+  }
+
+  return 'https://hostr.development';
 }
 
 /// Try to read token addresses from the JSON manifest written by

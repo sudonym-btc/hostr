@@ -922,18 +922,24 @@ class EntityFactory {
   /// Build the static escrow service profile (Hostr).
   Future<ProfileMetadata> escrowProfile({
     KeyPair? signer,
+    String? name,
+    String? displayName,
+    String? about,
+    String? nip05,
+    String? picture,
     int? createdAt,
   }) async {
     final kp = signer ?? MockKeys.escrow;
 
     final metadata = Metadata(
       pubKey: kp.publicKey,
-      name: 'Hostr',
-      displayName: 'Hostr',
-      about: 'Provides cheap escrow services for nostr',
-      nip05: 'escrow@hostr.development',
+      name: name ?? 'Hostr Escrow',
+      displayName: displayName ?? name ?? 'Hostr Escrow',
+      about: about ?? 'Provides cheap escrow services for nostr',
+      nip05: nip05 ?? 'escrow@hostr.development',
       picture:
-          'https://wp.decrypt.co/wp-content/uploads/2019/03/bitcoin-logo-bitboy.png',
+          picture ??
+          'https://hostr.development/assets/assets/images/logo/generated/logo_base_1024.png',
     ).toEvent();
 
     final escrowEvmKey = await deriveEvmKey(kp.privateKey!);

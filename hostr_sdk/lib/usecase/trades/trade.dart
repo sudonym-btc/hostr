@@ -131,12 +131,10 @@ class Trade extends Cubit<TradeState> {
         transitions$.status,
         (a, b, c) => [a, b, c],
       ).listen((statuses) {
-        print(
+        logger.d(
           'ReservationGroup status: ${reservationGroup$.status.value}, '
           'Payments status: ${payments$.status.value}, '
-          'Transitions status: ${transitions$.status.value}',
-        );
-        logger.d(
+          'Transitions status: ${transitions$.status.value}; '
           'ReservationGroup seller: ${reservationGroup$.items.lastOrNull?.event.sellerReservation}, '
           'ReservationGroup buyer: ${reservationGroup$.items.lastOrNull?.event.buyerReservation}, '
           'ReservationGroup escrow: ${reservationGroup$.items.lastOrNull?.event.escrowReservation}, ',
@@ -264,9 +262,25 @@ class Trade extends Cubit<TradeState> {
         ? reservationRequests.last
         : null;
 
-    final start = lastRequest?.start;
-    final end = lastRequest?.end;
-    final amount = lastRequest?.amount;
+    // Trade dates should remain available even when the reservation request
+    // did not travel via DMs (or the thread cannot be resolved).
+    final validReservationGroup = ownReservations
+        .whereType<Valid<ReservationGroup>>()
+        .map((v) => v.event)
+        .where((g) => !g.cancelled)
+        .firstOrNull;
+    final anyReservationGroup = ownReservations
+        .whereType<Valid<ReservationGroup>>()
+        .map((v) => v.event)
+        .firstOrNull;
+    final reservationGroupForSummary =
+        validReservationGroup ?? anyReservationGroup;
+
+    final start = lastRequest?.start ?? reservationGroupForSummary?.start;
+    final end = lastRequest?.end ?? reservationGroupForSummary?.end;
+    final amount =
+        lastRequest?.amount ??
+        reservationGroupForSummary?.buyerReservation?.amount;
     final ourPubkey = _resolveNegotiationPubkey(reservationRequests);
     final latestRequestCancelled =
         lastRequest?.stage == ReservationStage.cancel;

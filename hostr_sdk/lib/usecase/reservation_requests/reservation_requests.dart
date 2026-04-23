@@ -6,6 +6,7 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../relays/relays.dart';
+import '../reservations/reservation_pubkey_proofs.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 
 /// Use-case for creating negotiate-stage [Reservation] events (formerly
@@ -66,8 +67,9 @@ class ReservationRequests extends CrudUseCase {
       parity: recipientKey.parity,
     );
 
-    // should sign as temp key
-    return Reservation.create(
+    // Sign and publish with the disposable trade key, but attach an encrypted
+    // proof from the real buyer key for authorized recipients.
+    final reservation = Reservation.create(
       pubKey: recipientKey.publicKey,
       dTag: nonce,
       listingAnchor: listing.anchor!,
@@ -90,7 +92,16 @@ class ReservationRequests extends CrudUseCase {
           relayHint: await _relays.relayHintFor(recipientKey.publicKey),
         ),
       ],
-    ).signAs(recipientKey.keyPair, Reservation.fromNostrEvent);
+    );
+    final withBuyerProof = await reservation.attachPubkeyProof(
+      role: 'buyer',
+      proofKeyPair: _auth.getActiveKey(),
+      encryptionKeyPair: recipientKey.keyPair,
+    );
+    return withBuyerProof.signAs(
+      recipientKey.keyPair,
+      Reservation.fromNostrEvent,
+    );
   });
 
   Future<Reservation> createCounterOffer({
@@ -140,6 +151,12 @@ class ReservationRequests extends CrudUseCase {
             signerKeyPair.publicKey: counterOffer.signCommit(signerKeyPair),
           },
         ),
+      );
+    } else {
+      counterOffer = await counterOffer.attachPubkeyProof(
+        role: 'buyer',
+        proofKeyPair: _auth.getActiveKey(),
+        encryptionKeyPair: signerKeyPair,
       );
     }
 

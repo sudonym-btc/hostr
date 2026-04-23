@@ -143,7 +143,7 @@ class _CounterpartyNamesText extends StatelessWidget {
       pubkey.length <= 8 ? pubkey : pubkey.substring(0, 8);
 }
 
-class InboxItem extends StatelessWidget {
+class InboxItem extends StatefulWidget {
   final Thread thread;
   final bool selected;
   final ValueChanged<String> onSelect;
@@ -154,6 +154,23 @@ class InboxItem extends StatelessWidget {
     this.selected = false,
     required this.onSelect,
   });
+
+  @override
+  State<InboxItem> createState() => _InboxItemState();
+}
+
+class _InboxItemState extends State<InboxItem> {
+  String? _listingAnchor;
+  Future<Listing?>? _listingFuture;
+
+  Future<Listing?> _listingForAnchor(String listingAnchor) {
+    if (_listingAnchor != listingAnchor || _listingFuture == null) {
+      _listingAnchor = listingAnchor;
+      _listingFuture = getIt<Hostr>().listings.getOneByAnchor(listingAnchor);
+    }
+
+    return _listingFuture!;
+  }
 
   String _reservationDateRange(BuildContext context, Reservation reservation) {
     final start = reservation.start;
@@ -207,19 +224,19 @@ class InboxItem extends StatelessWidget {
       counterparties: [...state.counterpartyPubkeys],
       subtitle: subtitlePrefix + subtitleBody,
       lastDateTime: state.getLastDateTime,
-      selected: selected,
+      selected: widget.selected,
       sentByUs: sentByUs,
       read: state.read,
       received: state.received,
       hasUnread: state.unreadCount(activePubkey) > 0,
-      onTap: () => onSelect(thread.anchor),
+      onTap: () => widget.onSelect(widget.thread.anchor),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: thread.state,
+      stream: widget.thread.state,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return Container();
         final state = snapshot.data!;
@@ -242,9 +259,7 @@ class InboxItem extends StatelessWidget {
               );
             } else {
               return FutureBuilder<Listing?>(
-                future: getIt<Hostr>().listings.getOneByAnchor(
-                  reservation.parsedTags.listingAnchor,
-                ),
+                future: _listingForAnchor(reservation.parsedTags.listingAnchor),
                 builder: (context, listingSnapshot) {
                   return _buildItem(
                     context: context,

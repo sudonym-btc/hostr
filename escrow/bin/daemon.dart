@@ -46,7 +46,9 @@ void main(List<String> arguments) async {
 
   final String privateKey =
       Platform.environment['PRIVATE_KEY'] ?? MockKeys.escrow.privateKey!;
-  final String environment = Platform.environment['ENV'] ?? 'dev';
+  final String environment = EnvConfig.sdkEnvironment(
+    Platform.environment['ENV'] ?? 'dev',
+  );
 
   await setupInjection(environment: environment, logger: logger);
   final hostr = getIt<Hostr>();

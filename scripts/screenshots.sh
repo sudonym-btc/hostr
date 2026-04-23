@@ -14,6 +14,7 @@ set -euo pipefail
 #   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # target captured viewport
 #   CHROME_DEVICE_SCALE_FACTOR=2 ./scripts/screenshots.sh   # Retina DPR
 #   CHROMEDRIVER_PORT=4445 ./scripts/screenshots.sh        # fixed WebDriver port
+#   CHROMEDRIVER_AUTO_DOWNLOAD=0 ./scripts/screenshots.sh   # disable local driver cache
 #   SCREENSHOT_TRADE_SPONSOR_PRIVATE_KEY=0x... ./scripts/screenshots.sh
 #   RECORD_VIDEO=1 ./scripts/screenshots.sh    # also record screen video
 #
@@ -36,6 +37,8 @@ CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-}"
 CHROME_FLUTTER_DRIVE_TIMEOUT="${CHROME_FLUTTER_DRIVE_TIMEOUT:-360}"
 CHROME_EXPECTED_SCREENSHOTS="${CHROME_EXPECTED_SCREENSHOTS:-16}"
 CHROMEDRIVER_ALLOW_VERSION_MISMATCH="${CHROMEDRIVER_ALLOW_VERSION_MISMATCH:-0}"
+CHROMEDRIVER_AUTO_DOWNLOAD="${CHROMEDRIVER_AUTO_DOWNLOAD:-1}"
+CHROMEDRIVER_CACHE_DIR="${CHROMEDRIVER_CACHE_DIR:-$REPO_ROOT/.cache/chromedriver}"
 
 if [[ -z "${CHROME_FLUTTER_DRIVE_ARGS+x}" ]]; then
   CHROME_FLUTTER_DRIVE_ARGS=(--no-dds)
@@ -259,6 +262,147 @@ version_major() {
   echo "$1" | cut -d. -f1
 }
 
+chromedriver_platform() {
+  local os_name
+  local arch_name
+
+  os_name="$(uname -s)"
+  arch_name="$(uname -m)"
+
+  case "$os_name:$arch_name" in
+    Darwin:arm64) echo "mac-arm64" ;;
+    Darwin:x86_64) echo "mac-x64" ;;
+    Linux:x86_64) echo "linux64" ;;
+    Linux:amd64) echo "linux64" ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+download_matching_chromedriver() {
+  local browser_version=""
+  local browser_major=""
+  local platform=""
+  local resolution=""
+  local driver_version=""
+  local driver_url=""
+  local driver_dir=""
+  local driver_bin=""
+  local tmpdir=""
+  local extracted_bin=""
+
+  browser_version="$(chrome_version)"
+  if [[ -z "$browser_version" ]]; then
+    echo "   ❌ Could not determine the local Chrome version." >&2
+    return 1
+  fi
+
+  browser_major="$(version_major "$browser_version")"
+  platform="$(chromedriver_platform)" || {
+    echo "   ❌ Automatic ChromeDriver download is not supported on $(uname -s)/$(uname -m)." >&2
+    return 1
+  }
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "   ❌ python3 is required to resolve Chrome-for-Testing metadata." >&2
+    return 1
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "   ❌ curl is required to download ChromeDriver." >&2
+    return 1
+  fi
+  if ! command -v unzip >/dev/null 2>&1; then
+    echo "   ❌ unzip is required to unpack ChromeDriver." >&2
+    return 1
+  fi
+
+  resolution="$(
+    CHROME_VERSION="$browser_version" \
+    CHROME_MAJOR="$browser_major" \
+    CHROMEDRIVER_PLATFORM="$platform" \
+    python3 - <<'PY'
+import json
+import os
+import sys
+import urllib.request
+
+metadata_url = "https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json"
+browser_version = os.environ["CHROME_VERSION"]
+browser_major = os.environ["CHROME_MAJOR"]
+platform = os.environ["CHROMEDRIVER_PLATFORM"]
+
+try:
+    with urllib.request.urlopen(metadata_url, timeout=30) as response:
+        payload = json.load(response)
+except Exception as exc:
+    print(f"failed to fetch Chrome-for-Testing metadata: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+matches = []
+for version in payload.get("versions", []):
+    if version.get("version", "").split(".", 1)[0] != browser_major:
+        continue
+    downloads = version.get("downloads", {}).get("chromedriver", [])
+    for download in downloads:
+        if download.get("platform") == platform:
+            matches.append((version["version"], download["url"]))
+            break
+
+if not matches:
+    print(f"no ChromeDriver found for Chrome major {browser_major} on {platform}", file=sys.stderr)
+    sys.exit(1)
+
+exact = next((match for match in matches if match[0] == browser_version), None)
+chosen = exact or matches[-1]
+print(f"{chosen[0]}\t{chosen[1]}")
+PY
+  )" || {
+    echo "   ❌ Could not resolve a matching ChromeDriver download." >&2
+    return 1
+  }
+
+  driver_version="$(printf '%s' "$resolution" | awk -F '\t' '{print $1}')"
+  driver_url="$(printf '%s' "$resolution" | awk -F '\t' '{print $2}')"
+  driver_dir="$CHROMEDRIVER_CACHE_DIR/$driver_version/$platform"
+  driver_bin="$driver_dir/chromedriver"
+
+  if [[ -x "$driver_bin" ]]; then
+    echo "   📦 Using cached ChromeDriver $driver_version ($driver_bin)" >&2
+    echo "$driver_bin"
+    return 0
+  fi
+
+  echo "   ⬇️  Downloading ChromeDriver $driver_version for $platform..." >&2
+  tmpdir="$(mktemp -d)"
+  curl -fsSL "$driver_url" -o "$tmpdir/chromedriver.zip" || {
+    rm -rf "$tmpdir"
+    echo "   ❌ ChromeDriver download failed: $driver_url" >&2
+    return 1
+  }
+  unzip -q "$tmpdir/chromedriver.zip" -d "$tmpdir" || {
+    rm -rf "$tmpdir"
+    echo "   ❌ ChromeDriver unzip failed." >&2
+    return 1
+  }
+
+  extracted_bin="$(find "$tmpdir" -type f -name chromedriver -print -quit)"
+  if [[ -z "$extracted_bin" ]]; then
+    rm -rf "$tmpdir"
+    echo "   ❌ Downloaded archive did not contain a chromedriver binary." >&2
+    return 1
+  fi
+
+  mkdir -p "$driver_dir"
+  cp "$extracted_bin" "$driver_bin"
+  chmod +x "$driver_bin"
+  xattr -d com.apple.quarantine "$driver_bin" 2>/dev/null || true
+  rm -rf "$tmpdir"
+
+  echo "   ✅ Cached ChromeDriver at $driver_bin" >&2
+  echo "$driver_bin"
+}
+
 validate_chromedriver_version() {
   local chromedriver_bin="$1"
   local driver_version=""
@@ -313,14 +457,26 @@ ensure_chromedriver() {
     return 1
   fi
 
-  chromedriver_bin="$(find_chromedriver)" || {
+  chromedriver_bin="$(find_chromedriver || true)"
+  if [[ -n "$chromedriver_bin" ]]; then
+    if ! validate_chromedriver_version "$chromedriver_bin"; then
+      if [[ "$CHROMEDRIVER_AUTO_DOWNLOAD" != "1" ]]; then
+        return 1
+      fi
+      echo "   ↻ Resolving a matching ChromeDriver automatically..."
+      chromedriver_bin="$(download_matching_chromedriver)" || return 1
+      validate_chromedriver_version "$chromedriver_bin" || return 1
+    fi
+  elif [[ "$CHROMEDRIVER_AUTO_DOWNLOAD" == "1" ]]; then
+    echo "   ↻ ChromeDriver not found; resolving a matching local driver automatically..."
+    chromedriver_bin="$(download_matching_chromedriver)" || return 1
+    validate_chromedriver_version "$chromedriver_bin" || return 1
+  else
     echo "   ❌ ChromeDriver is not installed."
     echo "   Install it with Homebrew: brew install --cask chromedriver"
     echo "   Or set CHROMEDRIVER_BIN to an existing ChromeDriver binary."
     return 1
-  }
-
-  validate_chromedriver_version "$chromedriver_bin" || return 1
+  fi
 
   mkdir -p "$(dirname "$CHROMEDRIVER_LOG")"
 
@@ -480,11 +636,11 @@ run_chrome_screenshots() {
     --driver=test_driver/screenshot_test.dart \
     --target=integration_test/screenshots.dart \
     -d chrome \
-    "${chrome_binary_args[@]}" \
+    ${chrome_binary_args[@]+"${chrome_binary_args[@]}"} \
     --driver-port="$CHROMEDRIVER_PORT" \
     --browser-dimension="$browser_dimension" \
     --timeout="$CHROME_FLUTTER_DRIVE_TIMEOUT" \
-    "${chrome_flags[@]/#/--web-browser-flag=}" \
+    ${chrome_flags[@]+"${chrome_flags[@]/#/--web-browser-flag=}"} \
     ${CHROME_FLUTTER_DRIVE_ARGS[@]+"${CHROME_FLUTTER_DRIVE_ARGS[@]}"} \
     --no-pub 2>&1 | sed -l 's/^/   /'
   drive_status=${PIPESTATUS[0]}

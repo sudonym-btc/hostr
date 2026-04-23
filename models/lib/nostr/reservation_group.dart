@@ -168,19 +168,29 @@ class ReservationGroup {
     return null;
   }
 
-  /// The start date from the committed reservation, falling back to the
-  /// first available reservation.
+  /// The start date from the committed reservation when present, falling back
+  /// to the first reservation in the group that carries a start date.
   DateTime? get start {
-    final committed = _committedReservation;
-    if (committed != null) return committed.start;
-    return (sellerReservation ?? buyerReservation)?.start;
+    final committedStart = _committedReservation?.start;
+    if (committedStart != null) return committedStart;
+
+    for (final r in reservations) {
+      final start = r.start;
+      if (start != null) return start;
+    }
+    return null;
   }
 
   /// The end date — same precedence as [start].
   DateTime? get end {
-    final committed = _committedReservation;
-    if (committed != null) return committed.end;
-    return (sellerReservation ?? buyerReservation)?.end;
+    final committedEnd = _committedReservation?.end;
+    if (committedEnd != null) return committedEnd;
+
+    for (final r in reservations) {
+      final end = r.end;
+      if (end != null) return end;
+    }
+    return null;
   }
 
   /// `true` when **any** reservation has cancelled.
