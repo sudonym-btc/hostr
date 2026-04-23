@@ -207,6 +207,7 @@ locals {
   ci_roles = [
     "roles/compute.admin",
     "roles/secretmanager.admin",
+    "roles/artifactregistry.admin",
     "roles/iam.serviceAccountUser",
     "roles/iam.serviceAccountAdmin", # manage IAM policies on SAs (WIF binding)
     "roles/storage.admin",
