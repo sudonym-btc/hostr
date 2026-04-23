@@ -1,17 +1,14 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
-
-import '../bip340.dart';
 import 'serializable.dart';
 
-/// Field-agnostic commitment mixin.
+/// Field-agnostic commitment hashing mixin.
 ///
 /// Any [Serializable] subclass can mix in [CommitTerms] to declare which of
-/// its JSON keys are locked into a commitment hash. The mixin provides
-/// hashing, signing and verification — without knowing anything about the
-/// specific field names or their types.
+/// its JSON keys are locked into a commitment hash. The mixin provides the
+/// canonical hash without knowing anything about the specific field names or
+/// their types.
 ///
 /// ```dart
 /// class ReservationContent extends EventContent with CommitTerms {
@@ -31,13 +28,6 @@ mixin CommitTerms on Serializable {
   /// included in the hash. The concrete class decides what matters.
   Set<String> get committedFields;
 
-  /// Schnorr signatures over [commitHash], keyed by public key.
-  ///
-  /// When a seller signs the commit, the buyer can carry this signature
-  /// inside their own event so third parties can verify the seller agreed
-  /// to these exact terms.
-  Map<String, String> get signatures;
-
   // ── Hashing ───────────────────────────────────────────────────────
 
   /// SHA-256 hash of the committed fields' canonical (sorted-key) JSON.
@@ -55,31 +45,5 @@ mixin CommitTerms on Serializable {
       committed.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
     );
     return sha256.convert(utf8.encode(jsonEncode(sorted))).toString();
-  }
-
-  // ── Signing ───────────────────────────────────────────────────────
-
-  /// Compute a BIP-340 Schnorr signature over [commitHash].
-  ///
-  /// Returns the hex-encoded signature string. The caller is responsible
-  /// for storing it in [signatures] (typically via `copyWith`).
-  String signCommit(KeyPair keyPair) {
-    return Bip340.sign(commitHash(), keyPair.privateKey!);
-  }
-
-  /// Check whether a valid signature exists for [pubkey].
-  ///
-  /// If [pubkey] is `null`, returns `true` when **every** signature in
-  /// [signatures] is valid.
-  bool verifyCommit([String? pubkey]) {
-    if (pubkey != null) {
-      final sig = signatures[pubkey];
-      if (sig == null) return false;
-      return Bip340.verify(commitHash(), sig, pubkey);
-    }
-    if (signatures.isEmpty) return false;
-    return signatures.entries.every(
-      (entry) => Bip340.verify(commitHash(), entry.value, entry.key),
-    );
   }
 }

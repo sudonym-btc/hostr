@@ -69,7 +69,7 @@ class _FakeHeartbeats extends Fake implements Heartbeats {
   }) => source;
 
   @override
-  Future<ReceivedHeartbeat> upsertCurrent({
+  Future<ReceivedHeartbeat> requestUpsertCurrent({
     int? createdAt,
     List<List<String>> extraTags = const [],
   }) async {

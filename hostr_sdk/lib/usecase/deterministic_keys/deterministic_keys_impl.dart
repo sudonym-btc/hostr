@@ -1,41 +1,52 @@
 import 'package:injectable/injectable.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 
 import '../../util/custom_logger.dart';
 import '../../util/deterministic_key_derivation.dart';
 import '../auth/auth.dart';
+import 'account_seed_store.dart';
 import 'deterministic_keys.dart';
 
 @Singleton(as: DeterministicKeys)
 class DeterministicKeysImpl implements DeterministicKeys {
   final Auth _auth;
+  final AccountSeedStore _seedStore;
   final CustomLogger _logger;
   final Map<String, DeterministicKeyDerivation> _derivationCache = {};
 
-  DeterministicKeysImpl({required Auth auth, required CustomLogger logger})
-    : _auth = auth,
-      _logger = logger.scope('deterministic_keys');
+  DeterministicKeysImpl({
+    required Auth auth,
+    required AccountSeedStore seedStore,
+    required CustomLogger logger,
+  }) : _auth = auth,
+       _seedStore = seedStore,
+       _logger = logger.scope('deterministic_keys');
 
-  DeterministicKeyDerivation _activeDerivation() {
-    final privateKey = _auth.getActiveKey().privateKey!;
+  Future<DeterministicKeyDerivation> _activeDerivation() async {
+    final seedHex = await _seedStore.getActiveSeedHex(
+      pubkey: _auth.activePubkey,
+    );
     return _derivationCache.putIfAbsent(
-      privateKey,
-      () => DeterministicKeyDerivation(privateKey),
+      seedHex,
+      () => DeterministicKeyDerivation(seedHex),
     );
   }
 
   @override
   Future<EthPrivateKey> getActiveEvmKey({int accountIndex = 0}) {
     return _logger.span('getActiveEvmKeyAsync', () async {
-      return _activeDerivation().deriveEvmKey(accountIndex: accountIndex);
+      final derivation = await _activeDerivation();
+      return derivation.deriveEvmKey(accountIndex: accountIndex);
     });
   }
 
   @override
   Future<bip.EthereumAddress> getEvmAddress({int accountIndex = 0}) {
     return _logger.span('getEvmAddressAsync', () async {
-      return _activeDerivation().deriveEvmAddress(accountIndex: accountIndex);
+      final derivation = await _activeDerivation();
+      return derivation.deriveEvmAddress(accountIndex: accountIndex);
     });
   }
 
@@ -71,21 +82,24 @@ class DeterministicKeysImpl implements DeterministicKeys {
   @override
   Future<List<String>> getEvmMnemonic() {
     return _logger.span('getEvmMnemonicAsync', () async {
-      return _activeDerivation().deriveAccountMnemonicWords();
+      final derivation = await _activeDerivation();
+      return derivation.deriveAccountMnemonicWords();
     });
   }
 
   @override
   Future<String> getTradeId({required int accountIndex}) {
     return _logger.span('getTradeIdAsync', () async {
-      return _activeDerivation().deriveTradeId(accountIndex: accountIndex);
+      final derivation = await _activeDerivation();
+      return derivation.deriveTradeId(accountIndex: accountIndex);
     });
   }
 
   @override
-  Future<String> getTradeSalt({required int accountIndex}) {
-    return _logger.span('getTradeSaltAsync', () async {
-      return _activeDerivation().deriveTradeSalt(accountIndex: accountIndex);
+  Future<KeyPair> getTradeKeyPair({required int accountIndex}) {
+    return _logger.span('getTradeKeyPairAsync', () async {
+      final derivation = await _activeDerivation();
+      return derivation.deriveTradeKeyPair(accountIndex: accountIndex);
     });
   }
 

@@ -174,11 +174,15 @@ Reservation _reservation({
   );
 
   if (includeSellerSignature) {
+    final authorization = CommitAuthorization.create(
+      pubKey: MockKeys.hoster.publicKey,
+      listingAnchor: listing.anchor!,
+      tradeId: reservation.getDtag()!,
+      commitHash: reservation.commitHash(),
+    ).signAs(MockKeys.hoster, CommitAuthorization.fromNostrEvent);
     reservation = reservation.copy(
       content: reservation.parsedContent.copyWith(
-        signatures: {
-          MockKeys.hoster.publicKey: reservation.signCommit(MockKeys.hoster),
-        },
+        commitAuthorization: authorization,
       ),
     );
   }

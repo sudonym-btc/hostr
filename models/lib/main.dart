@@ -1,5 +1,4 @@
 export 'bip340.dart';
-export 'bip341.dart';
 export 'denominated_amount.dart';
 export 'nostr/main.dart';
 export 'nostr_kinds.dart';

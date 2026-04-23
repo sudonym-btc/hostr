@@ -4,7 +4,15 @@ import 'package:equatable/equatable.dart';
 
 enum StartupScope { public, user, background, escrow }
 
-enum StartupItemId { relays, evm, relayHints, profile, inbox, accountServices }
+enum StartupItemId {
+  relays,
+  evm,
+  relayHints,
+  seed,
+  profile,
+  inbox,
+  accountServices,
+}
 
 enum StartupItemState { pending, running, complete, skipped, degraded, failed }
 

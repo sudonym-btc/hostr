@@ -15,6 +15,7 @@ import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.da
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
+import 'package:models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' as bip;
@@ -51,6 +52,8 @@ class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
   /// Map from accountIndex → EVM address.
   final Map<int, bip.EthereumAddress> evmAddresses;
 
+  static final KeyPair _tradeKey = MockKeys.reviewer;
+
   _FakeDeterministicKeys({
     this.tradeIds = const {},
     this.evmAddresses = const {},
@@ -68,8 +71,8 @@ class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
       );
 
   @override
-  Future<String> getTradeSalt({required int accountIndex}) async =>
-      'salt-$accountIndex';
+  Future<KeyPair> getTradeKeyPair({required int accountIndex}) async =>
+      _tradeKey;
 }
 
 class _FakeEvmChain extends Fake implements EvmChain {
@@ -326,48 +329,6 @@ void main() {
 
       final index = await allocator.tryFindTradeAccountIndexByTradeId(
         'missing',
-        maxScan: 3,
-      );
-
-      expect(index, isNull);
-      expect(timerFired, isTrue);
-    });
-  });
-
-  group('findTradeAccountIndexBySalt', () {
-    test('returns matching index', () async {
-      // Default salt for index 5 is 'salt-5'.
-      final index = await allocator.findTradeAccountIndexBySalt('salt-5');
-      expect(index, 5);
-    });
-
-    test('throws StateError when no match', () async {
-      expect(
-        () => allocator.findTradeAccountIndexBySalt('salt-9999'),
-        throwsStateError,
-      );
-    });
-  });
-
-  group('tryFindTradeAccountIndexBySalt', () {
-    test('returns index on match', () async {
-      final index = await allocator.tryFindTradeAccountIndexBySalt('salt-10');
-      expect(index, 10);
-    });
-
-    test('returns null when no match', () async {
-      final index = await allocator.tryFindTradeAccountIndexBySalt('no-such');
-      expect(index, isNull);
-    });
-
-    test('yields to the event queue while scanning misses', () async {
-      var timerFired = false;
-      Timer.run(() {
-        timerFired = true;
-      });
-
-      final index = await allocator.tryFindTradeAccountIndexBySalt(
-        'no-such',
         maxScan: 3,
       );
 

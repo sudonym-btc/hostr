@@ -6,6 +6,7 @@ import '../../config.dart';
 import '../auth/auth.dart';
 import '../background_worker/background_worker.dart';
 import '../calendar/calendar.dart';
+import '../deterministic_keys/account_seed_store.dart';
 import '../evm/operations/funds_monitor/funds_monitor_service.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
@@ -104,7 +105,7 @@ class BackgroundStartupProfile implements StartupProfile {
       ]);
       context.token.throwIfCancelled();
 
-      final pubkey = _auth.activeKeyPair?.publicKey;
+      final pubkey = _auth.activePubkey;
       if (pubkey == null) {
         tracker.skip(StartupItemId.relayHints, detail: 'No active user');
       } else {
@@ -135,6 +136,7 @@ class UserStartupProfile implements StartupProfile {
   final Auth _auth;
   final HostrConfig _config;
   final Relays _relays;
+  final AccountSeedStore _accountSeedStore;
   final MetadataUseCase _metadata;
   final UserSubscriptions _userSubscriptions;
   final PaymentProofOrchestrator _paymentProofOrchestrator;
@@ -151,6 +153,7 @@ class UserStartupProfile implements StartupProfile {
     required Auth auth,
     required HostrConfig config,
     required Relays relays,
+    required AccountSeedStore accountSeedStore,
     required MetadataUseCase metadata,
     required UserSubscriptions userSubscriptions,
     required PaymentProofOrchestrator paymentProofOrchestrator,
@@ -164,6 +167,7 @@ class UserStartupProfile implements StartupProfile {
        _auth = auth,
        _config = config,
        _relays = relays,
+       _accountSeedStore = accountSeedStore,
        _metadata = metadata,
        _userSubscriptions = userSubscriptions,
        _paymentProofOrchestrator = paymentProofOrchestrator,
@@ -181,7 +185,7 @@ class UserStartupProfile implements StartupProfile {
 
   @override
   Future<StartupResult> launch(StartupLaunchContext context) async {
-    final pubkey = _auth.activeKeyPair?.publicKey;
+    final pubkey = _auth.activePubkey;
     if (pubkey == null) {
       throw StateError('Cannot launch user startup without an active user');
     }
@@ -198,6 +202,10 @@ class UserStartupProfile implements StartupProfile {
         StartupItemProgress(
           id: StartupItemId.relayHints,
           label: 'Loading relay list',
+        ),
+        StartupItemProgress(
+          id: StartupItemId.seed,
+          label: 'Unlocking account',
         ),
         StartupItemProgress(
           id: StartupItemId.profile,
@@ -222,6 +230,12 @@ class UserStartupProfile implements StartupProfile {
         StartupItemId.relayHints,
         () => _relays.loadNip65Hints(pubkey),
       );
+
+      await tracker.run(
+        StartupItemId.seed,
+        () => _accountSeedStore.ensureReady(pubkey: pubkey),
+      );
+      context.token.throwIfCancelled();
 
       final metadataFuture = tracker.run(
         StartupItemId.profile,

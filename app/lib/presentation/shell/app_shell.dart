@@ -10,6 +10,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:models/main.dart';
 
 /// The navigation-chrome shell of the app.
 ///
@@ -100,20 +101,27 @@ class _AppShellScreenState extends State<AppShellScreen>
     required List<AppNavigationDestination> destinations,
     required int selectedIndex,
     required Color navBg,
+    required String? currentUserPubkey,
+    required ProfileMetadata? currentUserProfile,
   }) {
     final items = [
-      for (final destination in destinations)
+      for (var index = 0; index < destinations.length; index++)
         _navItem(
-          icon: _badgedIcon(
-            icon: Icon(
-              destination.icon,
-              size: destination.route.routeName == ExploreRoute.name
-                  ? kIconLg
-                  : kIconMd,
-            ),
-            badgeStream: destination.badgeStream,
+          icon: _buildDestinationIcon(
+            context,
+            destination: destinations[index],
+            selected: index == selectedIndex,
+            size: destinations[index].route.routeName == ExploreRoute.name
+                ? kIconLg
+                : kIconMd,
+            currentUserPubkey: currentUserPubkey,
+            currentUserProfile: currentUserProfile,
           ),
-          label: destination.label,
+          label: _resolveDestinationLabel(
+            destinations[index],
+            currentUserPubkey: currentUserPubkey,
+            currentUserProfile: currentUserProfile,
+          ),
         ),
     ];
 
@@ -190,6 +198,8 @@ class _AppShellScreenState extends State<AppShellScreen>
     required List<AppNavigationDestination> destinations,
     required int selectedIndex,
     required ValueChanged<int> onDestinationSelected,
+    required String? currentUserPubkey,
+    required ProfileMetadata? currentUserProfile,
   }) {
     final safeSelectedIndex = min(
       max(0, selectedIndex),
@@ -206,9 +216,19 @@ class _AppShellScreenState extends State<AppShellScreen>
             itemBuilder: (context, index) {
               final destination = destinations[index];
               return _SidebarNavItem(
-                label: destination.label,
-                icon: destination.icon,
-                badgeStream: destination.badgeStream,
+                label: _resolveDestinationLabel(
+                  destination,
+                  currentUserPubkey: currentUserPubkey,
+                  currentUserProfile: currentUserProfile,
+                ),
+                icon: _buildDestinationIcon(
+                  context,
+                  destination: destination,
+                  selected: index == safeSelectedIndex,
+                  size: kIconMd,
+                  currentUserPubkey: currentUserPubkey,
+                  currentUserProfile: currentUserProfile,
+                ),
                 selected: index == safeSelectedIndex,
                 onTap: () => onDestinationSelected(index),
               );
@@ -240,6 +260,61 @@ class _AppShellScreenState extends State<AppShellScreen>
   // Build
   // ---------------------------------------------------------------------------
 
+  Widget _buildDestinationIcon(
+    BuildContext context, {
+    required AppNavigationDestination destination,
+    required bool selected,
+    required double size,
+    required String? currentUserPubkey,
+    required ProfileMetadata? currentUserProfile,
+  }) {
+    final Widget icon;
+    if (destination.route.routeName == ProfileRoute.name &&
+        currentUserPubkey != null) {
+      icon = _CurrentUserNavIcon(
+        pubkey: currentUserPubkey,
+        profile: currentUserProfile,
+        selected: selected,
+        size: size,
+      );
+    } else {
+      icon = Icon(destination.icon, size: size);
+    }
+
+    return _badgedIcon(icon: icon, badgeStream: destination.badgeStream);
+  }
+
+  String _resolveDestinationLabel(
+    AppNavigationDestination destination, {
+    required String? currentUserPubkey,
+    required ProfileMetadata? currentUserProfile,
+  }) {
+    if (destination.route.routeName != ProfileRoute.name) {
+      return destination.label;
+    }
+    return _profileNavLabel(
+      pubkey: currentUserPubkey,
+      profile: currentUserProfile,
+    );
+  }
+
+  String _profileNavLabel({
+    required String? pubkey,
+    required ProfileMetadata? profile,
+  }) {
+    final name = profile?.metadata.getName().trim() ?? '';
+    if (name.isNotEmpty) return _truncateNavLabel(name);
+    if (pubkey == null || pubkey.isEmpty) return 'Profile';
+    return pubkey.length <= 8 ? pubkey : '${pubkey.substring(0, 8)}...';
+  }
+
+  String _truncateNavLabel(String value) {
+    const maxChars = 14;
+    final trimmed = value.trim();
+    if (trimmed.characters.length <= maxChars) return trimmed;
+    return '${trimmed.characters.take(maxChars - 1)}...';
+  }
+
   @override
   Widget build(BuildContext context) {
     return RelayConnectivityBanner(
@@ -251,6 +326,9 @@ class _AppShellScreenState extends State<AppShellScreen>
             initialData: getIt<Hostr>().auth.authState.value,
             builder: (context, snapshot) {
               final isLoggedIn = snapshot.data is LoggedIn;
+              final currentUserPubkey = isLoggedIn
+                  ? getIt<Hostr>().auth.activePubkey
+                  : null;
 
               return BlocBuilder<ModeCubit, ModeCubitState>(
                 builder: (context, modeState) {
@@ -259,136 +337,157 @@ class _AppShellScreenState extends State<AppShellScreen>
                     modeState: modeState,
                   );
 
-                  return AutoRouter(
-                    builder: (context, child) {
-                      final router = AutoRouter.of(context);
+                  Widget buildShell(ProfileMetadata? currentUserProfile) {
+                    return AutoRouter(
+                      builder: (context, child) {
+                        final router = AutoRouter.of(context);
 
-                      // Rebuild when deeply-nested routes change.
-                      // auto_route's notifyAll() always pings the root
-                      // controller, but intermediate shell controllers
-                      // are not notified, so without this the
-                      // bottom-nav visibility check would use stale
-                      // segments (e.g. ThreadRoute inside InboxRoute).
-                      return ListenableBuilder(
-                        listenable: router.root,
-                        builder: (context, _) {
-                          final topRouteName = router.topRoute.name;
-                          final layout = AppLayoutSpec.of(context);
-                          final theme = Theme.of(context);
+                        // Rebuild when deeply-nested routes change.
+                        // auto_route's notifyAll() always pings the root
+                        // controller, but intermediate shell controllers
+                        // are not notified, so without this the
+                        // bottom-nav visibility check would use stale
+                        // segments (e.g. ThreadRoute inside InboxRoute).
+                        return ListenableBuilder(
+                          listenable: router.root,
+                          builder: (context, _) {
+                            final topRouteName = router.topRoute.name;
+                            final layout = AppLayoutSpec.of(context);
+                            final theme = Theme.of(context);
 
-                          final segments = router.currentSegments;
-                          final currentRouteName = segments.isNotEmpty
-                              ? segments.last.name
-                              : topRouteName;
+                            final segments = router.currentSegments;
+                            final currentRouteName = segments.isNotEmpty
+                                ? segments.last.name
+                                : topRouteName;
 
-                          final selectedIndex = resolveAppNavigationIndex(
-                            currentRouteName: currentRouteName,
-                            destinations: destinations,
-                            isLoggedIn: isLoggedIn,
-                            modeState: modeState,
-                          );
+                            final selectedIndex = resolveAppNavigationIndex(
+                              currentRouteName: currentRouteName,
+                              destinations: destinations,
+                              isLoggedIn: isLoggedIn,
+                              modeState: modeState,
+                            );
 
-                          final showSidebar = layout.showsSidebarNavigation;
-                          // router.currentSegments may be empty on the
-                          // very first frame (child routes haven't
-                          // resolved yet). Fall back to topRoute which
-                          // is always available once AutoRouter calls
-                          // its builder.
-                          final isOnTabs =
-                              topRouteName == TabShellRoute.name ||
-                              segments.any((s) => s.name == TabShellRoute.name);
+                            final showSidebar = layout.showsSidebarNavigation;
+                            // router.currentSegments may be empty on the
+                            // very first frame (child routes haven't
+                            // resolved yet). Fall back to topRoute which
+                            // is always available once AutoRouter calls
+                            // its builder.
+                            final isOnTabs =
+                                topRouteName == TabShellRoute.name ||
+                                segments.any(
+                                  (s) => s.name == TabShellRoute.name,
+                                );
 
-                          // On compact viewports, hide the bottom nav
-                          // when the user has navigated into a nested
-                          // child route (e.g. ThreadRoute inside
-                          // InboxRoute). Tab destinations sit at depth
-                          // 2 ([TabShellRoute, <dest>]); anything
-                          // deeper is a nested child.
-                          final isOnNestedChild =
-                              !showSidebar && isOnTabs && segments.length > 2;
-                          final showBottomNav =
-                              !showSidebar && isOnTabs && !isOnNestedChild;
+                            // On compact viewports, hide the bottom nav
+                            // when the user has navigated into a nested
+                            // child route (e.g. ThreadRoute inside
+                            // InboxRoute). Tab destinations sit at depth
+                            // 2 ([TabShellRoute, <dest>]); anything
+                            // deeper is a nested child.
+                            final isOnNestedChild =
+                                !showSidebar && isOnTabs && segments.length > 2;
+                            final showBottomNav =
+                                !showSidebar && isOnTabs && !isOnNestedChild;
 
-                          // ── Single stable Scaffold ──────────────────
-                          // The child always sits at Row index 1, so
-                          // crossing the breakpoint never unmounts
-                          // TabShellScreen / IndexedStack — tab state
-                          // and initState fetches are preserved.
-                          // The root surface is the lowest-elevation
-                          // tone so nested AppSurface widgets can step
-                          // progressively toward higher elevation
-                          // (darker in light mode, lighter in dark mode).
-                          final rootSurface =
-                              theme.colorScheme.surfaceContainerLowest;
+                            // ── Single stable Scaffold ──────────────────
+                            // The child always sits at Row index 1, so
+                            // crossing the breakpoint never unmounts
+                            // TabShellScreen / IndexedStack — tab state
+                            // and initState fetches are preserved.
+                            // The root surface is the lowest-elevation
+                            // tone so nested AppSurface widgets can step
+                            // progressively toward higher elevation
+                            // (darker in light mode, lighter in dark mode).
+                            final rootSurface =
+                                theme.colorScheme.surfaceContainerLowest;
 
-                          return Scaffold(
-                            backgroundColor: rootSurface,
-                            extendBody: showBottomNav,
-                            body: AppSurface.inherit(
-                              color: rootSurface,
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: layout.shellMaxWidth,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      // Sidebar — always at index 0,
-                                      // zero width when hidden. Keeps
-                                      // the content child at a stable
-                                      // tree position.
-                                      SizedBox(
-                                        width: showSidebar
-                                            ? kAppSidebarWidth
-                                            : 0,
-                                        child: showSidebar
-                                            ? SafeArea(
-                                                right: false,
-                                                bottom: false,
-                                                child: _buildSidebar(
-                                                  context,
-                                                  destinations: destinations,
-                                                  selectedIndex: selectedIndex,
-                                                  onDestinationSelected: (idx) {
-                                                    _selectDestination(
-                                                      router,
-                                                      destinations,
-                                                      idx,
-                                                    );
-                                                  },
-                                                ),
-                                              )
-                                            : null,
-                                      ),
-                                      // Content — always at index 1.
-                                      Expanded(
-                                        child:
-                                            NotificationListener<
-                                              ScrollNotification
-                                            >(
-                                              onNotification:
-                                                  _onScrollNotification,
-                                              child: child,
-                                            ),
-                                      ),
-                                    ],
+                            return Scaffold(
+                              backgroundColor: rootSurface,
+                              extendBody: showBottomNav,
+                              body: AppSurface.inherit(
+                                color: rootSurface,
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: layout.shellMaxWidth,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Sidebar — always at index 0,
+                                        // zero width when hidden. Keeps
+                                        // the content child at a stable
+                                        // tree position.
+                                        SizedBox(
+                                          width: showSidebar
+                                              ? kAppSidebarWidth
+                                              : 0,
+                                          child: showSidebar
+                                              ? SafeArea(
+                                                  right: false,
+                                                  bottom: false,
+                                                  child: _buildSidebar(
+                                                    context,
+                                                    destinations: destinations,
+                                                    selectedIndex:
+                                                        selectedIndex,
+                                                    onDestinationSelected:
+                                                        (idx) {
+                                                          _selectDestination(
+                                                            router,
+                                                            destinations,
+                                                            idx,
+                                                          );
+                                                        },
+                                                    currentUserPubkey:
+                                                        currentUserPubkey,
+                                                    currentUserProfile:
+                                                        currentUserProfile,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                        // Content — always at index 1.
+                                        Expanded(
+                                          child:
+                                              NotificationListener<
+                                                ScrollNotification
+                                              >(
+                                                onNotification:
+                                                    _onScrollNotification,
+                                                child: child,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            bottomNavigationBar: showBottomNav
-                                ? _buildBottomNav(
-                                    context,
-                                    router: router,
-                                    destinations: destinations,
-                                    selectedIndex: selectedIndex,
-                                    navBg: rootSurface,
-                                  )
-                                : null,
-                          );
-                        },
-                      );
-                    },
+                              bottomNavigationBar: showBottomNav
+                                  ? _buildBottomNav(
+                                      context,
+                                      router: router,
+                                      destinations: destinations,
+                                      selectedIndex: selectedIndex,
+                                      navBg: rootSurface,
+                                      currentUserPubkey: currentUserPubkey,
+                                      currentUserProfile: currentUserProfile,
+                                    )
+                                  : null,
+                            );
+                          },
+                        );
+                      },
+                    );
+                  }
+
+                  if (currentUserPubkey == null) {
+                    return buildShell(null);
+                  }
+
+                  return ProfileProvider(
+                    pubkey: currentUserPubkey,
+                    builder: (context, snapshot) => buildShell(snapshot.data),
                   );
                 },
               );
@@ -406,15 +505,13 @@ class _AppShellScreenState extends State<AppShellScreen>
 
 class _SidebarNavItem extends StatelessWidget {
   final String label;
-  final IconData icon;
-  final Stream<int>? badgeStream;
+  final Widget icon;
   final bool selected;
   final VoidCallback onTap;
 
   const _SidebarNavItem({
     required this.label,
     required this.icon,
-    this.badgeStream,
     required this.selected,
     required this.onTap,
   });
@@ -442,7 +539,10 @@ class _SidebarNavItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _buildBadgedIcon(foregroundColor),
+              IconTheme(
+                data: IconThemeData(color: foregroundColor),
+                child: icon,
+              ),
               const SizedBox(width: kSpace3),
               Expanded(
                 child: Text(
@@ -459,21 +559,47 @@ class _SidebarNavItem extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildBadgedIcon(Color color) {
-    final baseIcon = Icon(icon, color: color);
-    if (badgeStream == null) return baseIcon;
-    return StreamBuilder<int>(
-      stream: badgeStream,
-      initialData: 0,
-      builder: (context, snapshot) {
-        final count = snapshot.data ?? 0;
-        return Badge(
-          isLabelVisible: count > 0,
-          label: Text(count.toString()),
-          child: baseIcon,
-        );
-      },
+class _CurrentUserNavIcon extends StatelessWidget {
+  final String pubkey;
+  final ProfileMetadata? profile;
+  final bool selected;
+  final double size;
+
+  const _CurrentUserNavIcon({
+    required this.pubkey,
+    required this.profile,
+    required this.selected,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outlineVariant;
+    final metadata = profile?.metadata;
+    final label = metadata?.getName().trim();
+
+    return AnimatedContainer(
+      duration: kAnimationDuration,
+      curve: kAnimationCurve,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: borderColor, width: selected ? 1.5 : 1),
+      ),
+      child: AppAvatar.custom(
+        radius: max(10, size / 2),
+        image: metadata?.picture,
+        pubkey: pubkey,
+        label: (label != null && label.isNotEmpty) ? label : pubkey,
+        color: selected
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.surfaceContainerHighest,
+      ),
     );
   }
 }

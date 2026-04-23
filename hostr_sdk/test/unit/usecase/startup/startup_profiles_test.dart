@@ -8,6 +8,7 @@ import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart' as usecase_mocks;
 import 'package:hostr_sdk/usecase/background_worker/background_worker.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/calendar/calendar.dart';
+import 'package:hostr_sdk/usecase/deterministic_keys/account_seed_store.dart';
 import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
@@ -93,6 +94,7 @@ void main() {
       final auth = usecase_mocks.MockAuth();
       final relays = usecase_mocks.MockRelays();
       final metadata = usecase_mocks.MockMetadataUseCase();
+      final seedStore = _FakeAccountSeedStore();
       final userSubscriptions = _FakeUserSubscriptions()..markLive();
       final paymentProof = _FakePaymentProofOrchestrator();
       final fundsMonitor = _FakeFundsMonitorService();
@@ -105,6 +107,7 @@ void main() {
       when(auth.activeKeyPair).thenReturn(
         KeyPair('privkey', 'user-pubkey', null, null),
       );
+      when(auth.activePubkey).thenReturn('user-pubkey');
       when(relays.loadNip65Hints('user-pubkey')).thenAnswer((_) async => false);
       when(
         metadata.loadMetadata('user-pubkey', forceRefresh: false),
@@ -121,6 +124,7 @@ void main() {
           evmConfig: const EvmConfig(),
         ),
         relays: relays,
+        accountSeedStore: seedStore,
         metadata: metadata,
         userSubscriptions: userSubscriptions,
         paymentProofOrchestrator: paymentProof,
@@ -145,6 +149,7 @@ void main() {
         ),
       );
       expect(userSubscriptions.starts, 1);
+      expect(seedStore.ensureCalls, ['user-pubkey']);
       expect(paymentProof.starts, 1);
       expect(fundsMonitor.starts, 1);
       expect(backgroundWorker.watchCalls, 1);
@@ -160,6 +165,7 @@ void main() {
       final auth = usecase_mocks.MockAuth();
       final relays = usecase_mocks.MockRelays();
       final metadata = usecase_mocks.MockMetadataUseCase();
+      final seedStore = _FakeAccountSeedStore();
       final userSubscriptions = _FakeUserSubscriptions()..markLive();
       final paymentProof = _FakePaymentProofOrchestrator();
       final fundsMonitor = _FakeFundsMonitorService();
@@ -173,6 +179,7 @@ void main() {
       when(auth.activeKeyPair).thenReturn(
         KeyPair('privkey', 'user-pubkey', null, null),
       );
+      when(auth.activePubkey).thenReturn('user-pubkey');
       when(relays.loadNip65Hints('user-pubkey')).thenAnswer((_) async => true);
       when(
         metadata.loadMetadata('user-pubkey', forceRefresh: false),
@@ -193,6 +200,7 @@ void main() {
           evmConfig: const EvmConfig(),
         ),
         relays: relays,
+        accountSeedStore: seedStore,
         metadata: metadata,
         userSubscriptions: userSubscriptions,
         paymentProofOrchestrator: paymentProof,
@@ -218,6 +226,7 @@ void main() {
       );
       verify(metadata.loadMetadata('user-pubkey', forceRefresh: false))
           .called(1);
+      expect(seedStore.ensureCalls, ['user-pubkey']);
       verify(metadata.loadMetadata('user-pubkey', forceRefresh: true))
           .called(1);
       verify(metadata.ensureUserConfig('user-pubkey')).called(1);
@@ -255,6 +264,20 @@ class _FakeAuth extends Fake implements Auth {
   KeyPair? get activeKeyPair {
     final value = pubkey;
     return value == null ? null : KeyPair('privkey', value, null, null);
+  }
+
+  @override
+  String? get activePubkey => pubkey;
+}
+
+class _FakeAccountSeedStore extends Fake implements AccountSeedStore {
+  final List<String> ensureCalls = [];
+
+  @override
+  Future<void> ensureReady({String? pubkey}) async {
+    if (pubkey != null) {
+      ensureCalls.add(pubkey);
+    }
   }
 }
 

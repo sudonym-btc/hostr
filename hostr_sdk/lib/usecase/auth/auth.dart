@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
-import 'package:models/bip341.dart' show loadBip341Backend;
+import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -44,9 +44,18 @@ class Auth {
        _logger = logger,
        _identityResolver = identityResolver;
 
-  KeyPair? get activeKeyPair => _authRecord?.keyPair;
+  KeyPair? get activeKeyPair {
+    final record = _authRecord;
+    if (record == null) return null;
+    return record.keyPair ?? _publicOnlyKeyPair(record.publicKeyHex);
+  }
+
+  String? get activePubkey =>
+      _authRecord?.publicKeyHex ?? activeKeyPair?.publicKey;
 
   bool get isMnemonicBacked => _authRecord?.credentialType == 'mnemonic';
+  bool get isBunkerBacked => _authRecord?.credentialType == 'bunker';
+  bool get hasLocalPrivateKey => _authRecord?.keyPair?.privateKey != null;
 
   String? get activeMnemonic => isMnemonicBacked ? _authRecord?.secret : null;
 
@@ -68,10 +77,80 @@ class Auth {
   /// Imports a private key (hex or nsec) or a mnemonic and stores it.
   Future<void> signin(String input) => _logger.span('signin', () async {
     _logger.i('AuthService.signin');
+    if (_looksLikeBunkerUrl(input)) {
+      await signinWithBunkerUrl(input);
+      return;
+    }
     final record = await _identityResolver.prepareIdentity(input);
     await _authStorage.set([jsonEncode(record.toJson())]);
     _setAuthenticated(record);
-    ensureNdkAccountsMatch();
+    await _ensureNdkAccountsMatchAsync();
+    _syncAuthState();
+  });
+
+  Future<void> signinWithBunkerUrl(
+    String bunkerUrl, {
+    void Function(String challenge)? authCallback,
+  }) => _logger.span('signinWithBunkerUrl', () async {
+    _logger.i('AuthService.signinWithBunkerUrl');
+    final bunkerConnection = await _ndk.accounts.loginWithBunkerUrl(
+      bunkerUrl: bunkerUrl.trim(),
+      bunkers: _ndk.bunkers,
+      authCallback: authCallback,
+    );
+    if (bunkerConnection == null) {
+      throw StateError('Bunker login was not completed');
+    }
+
+    final pubkey = _ndk.accounts.getPublicKey();
+    if (pubkey == null || pubkey.isEmpty) {
+      throw StateError('Bunker login did not yield a public key');
+    }
+
+    final record = AuthRecord(
+      version: kCurrentAuthRecordVersion,
+      credentialType: 'bunker',
+      secret: '',
+      publicKey: pubkey,
+      maxAccountIndex: -1,
+      bunkerConnection: bunkerConnection,
+    );
+    await _authStorage.set([jsonEncode(record.toJson())]);
+    _setAuthenticated(record);
+    await _ensureNdkAccountsMatchAsync();
+    _syncAuthState();
+  });
+
+  Future<void> signinWithNostrConnect(
+    NostrConnect nostrConnect, {
+    void Function(String challenge)? authCallback,
+  }) => _logger.span('signinWithNostrConnect', () async {
+    _logger.i('AuthService.signinWithNostrConnect');
+    final bunkerConnection = await _ndk.accounts.loginWithNostrConnect(
+      nostrConnect: nostrConnect,
+      bunkers: _ndk.bunkers,
+      authCallback: authCallback,
+    );
+    if (bunkerConnection == null) {
+      throw StateError('Nostr Connect login was not completed');
+    }
+
+    final pubkey = _ndk.accounts.getPublicKey();
+    if (pubkey == null || pubkey.isEmpty) {
+      throw StateError('Nostr Connect login did not yield a public key');
+    }
+
+    final record = AuthRecord(
+      version: kCurrentAuthRecordVersion,
+      credentialType: 'bunker',
+      secret: '',
+      publicKey: pubkey,
+      maxAccountIndex: -1,
+      bunkerConnection: bunkerConnection,
+    );
+    await _authStorage.set([jsonEncode(record.toJson())]);
+    _setAuthenticated(record);
+    await _ensureNdkAccountsMatchAsync();
     _syncAuthState();
   });
 
@@ -91,50 +170,66 @@ class Auth {
     clearNip44ConvKeyCache();
     await _authStorage.wipe();
     await _loadActiveKeyPair();
-    ensureNdkAccountsMatch();
+    await _ensureNdkAccountsMatchAsync();
     _syncAuthState();
   });
 
   Future<void> init() => _logger.span('init', () async {
-    await loadBip341Backend();
+    await loadSecp256k1Backend();
     await _loadActiveKeyPair();
-    ensureNdkAccountsMatch();
+    await _ensureNdkAccountsMatchAsync();
     _syncAuthState();
   });
 
   /// Returns whether there is an active key pair.
   Future<bool> isAuthenticated() => _logger.span('isAuthenticated', () async {
     await _loadActiveKeyPair();
-    return activeKeyPair != null;
+    return activePubkey != null;
   });
 
-  /// Restores NDK login using the stored key, if any.
-  bool ensureNdkAccountsMatch() => _logger.spanSync(
-    'ensureNdkAccountsMatch',
-    () {
-      if (activeKeyPair == null) {
-        final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
-        for (final pubkey in pubkeys) {
-          _ndk.accounts.removeAccount(pubkey: pubkey);
-        }
-      } else {
-        final pubkey = activeKeyPair!.publicKey;
-        final privkey = activeKeyPair!.privateKey!;
-        final alreadyLoggedIn =
-            _ndk.accounts.accounts.containsKey(pubkey) ||
-            _ndk.accounts.getPublicKey() == pubkey;
+  /// Best-effort compatibility wrapper for older call sites/tests.
+  bool ensureNdkAccountsMatch() {
+    unawaited(_ensureNdkAccountsMatchAsync());
+    return true;
+  }
 
-        if (!alreadyLoggedIn) {
-          _logger.i('Restoring NDK account for stored key');
-          _ndk.accounts.loginExternalSigner(
-            signer: CoinlibEventSigner(privateKey: privkey, publicKey: pubkey),
-          );
-        }
-      }
+  Future<bool> _ensureNdkAccountsMatchAsync() =>
+      _logger.span('ensureNdkAccountsMatch', () async {
+        final activePubkey = this.activePubkey;
+        if (activePubkey == null) {
+          final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
+          for (final pubkey in pubkeys) {
+            _ndk.accounts.removeAccount(pubkey: pubkey);
+          }
+        } else {
+          final loggedPubkey = _ndk.accounts.getPublicKey();
+          if (loggedPubkey == activePubkey) {
+            return true;
+          }
 
-      return true;
-    },
-  );
+          if (_ndk.accounts.accounts.containsKey(activePubkey)) {
+            _logger.i('Switching NDK account to stored pubkey');
+            _ndk.accounts.switchAccount(pubkey: activePubkey);
+          } else if (hasLocalPrivateKey) {
+            final privkey = _authRecord!.keyPair!.privateKey!;
+            _logger.i('Restoring NDK account for stored key');
+            _ndk.accounts.loginExternalSigner(
+              signer: CoinlibEventSigner(
+                privateKey: privkey,
+                publicKey: activePubkey,
+              ),
+            );
+          } else if (_authRecord?.bunkerConnection != null) {
+            _logger.i('Restoring NDK bunker session');
+            await _ndk.accounts.loginWithBunkerConnection(
+              connection: _authRecord!.bunkerConnection!,
+              bunkers: _ndk.bunkers,
+            );
+          }
+        }
+
+        return true;
+      });
 
   Future<void> _loadActiveKeyPair() =>
       _logger.span('_loadActiveKeyPair', () async {
@@ -166,7 +261,7 @@ class Auth {
   // ---------------------------------------------------------------------------
 
   void _syncAuthState() {
-    final activePubkey = activeKeyPair?.publicKey;
+    final activePubkey = this.activePubkey;
     _emitAuthState(activePubkey != null ? LoggedIn(activePubkey) : LoggedOut());
   }
 
@@ -182,8 +277,8 @@ class Auth {
   }
 
   void _setAuthenticated(AuthRecord record) {
-    if (record.keyPair == null) {
-      throw StateError('Authenticated auth record must include a keyPair');
+    if (record.publicKeyHex == null || record.publicKeyHex!.isEmpty) {
+      throw StateError('Authenticated auth record must include a public key');
     }
     _authRecord = record;
   }
@@ -200,6 +295,16 @@ class Auth {
 
   Future<void> dispose() async {
     await _authStateContoller.close();
+  }
+
+  bool _looksLikeBunkerUrl(String input) {
+    final trimmed = input.trim();
+    return trimmed.startsWith('bunker://');
+  }
+
+  KeyPair? _publicOnlyKeyPair(String? pubkey) {
+    if (pubkey == null || pubkey.isEmpty) return null;
+    return KeyPair.justPublicKey(pubkey);
   }
 }
 

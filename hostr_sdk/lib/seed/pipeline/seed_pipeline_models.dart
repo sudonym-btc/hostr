@@ -6,6 +6,10 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import 'seed_pipeline_config.dart';
 
+String _nsecFor(KeyPair keyPair) => keyPair.privateKey == null
+    ? '(read-only)'
+    : (keyPair.privateKeyBech32 ?? '(read-only)');
+
 // ─── Core models ────────────────────────────────────────────────────────────
 
 enum EscrowOutcome { releaseToCounterparty, arbitrated, claimedByHost }
@@ -38,6 +42,8 @@ class SeedThread {
   final SeedUser guest;
   final Listing listing;
   final Reservation request;
+  final int guestTradeAccountIndex;
+  final KeyPair requestAuthorKeyPair;
 
   /// Stable deterministic identifier for this seeded negotiation/thread.
   final String id;
@@ -60,6 +66,8 @@ class SeedThread {
     required this.guest,
     required this.listing,
     required this.request,
+    required this.guestTradeAccountIndex,
+    required this.requestAuthorKeyPair,
     required this.id,
     required this.start,
     required this.end,
@@ -378,6 +386,7 @@ class SeedPipelineSpec {
           <String, dynamic>{
             'pubkey': host.keyPair.publicKey,
             'privkey': host.keyPair.privateKey ?? '(read-only)',
+            'nsec': _nsecFor(host.keyPair),
             'has_evm': host.hasEvm,
             'listings': listings
                 .where((l) => l.pubKey == host.keyPair.publicKey)
@@ -396,6 +405,7 @@ class SeedPipelineSpec {
           <String, dynamic>{
             'pubkey': guest.keyPair.publicKey,
             'privkey': guest.keyPair.privateKey ?? '(read-only)',
+            'nsec': _nsecFor(guest.keyPair),
             'threads': [
               for (final t in threads.where(
                 (t) => t.guest.keyPair.publicKey == guest.keyPair.publicKey,
@@ -488,16 +498,19 @@ class SeedPipelineOutcome {
   static List<Map<String, dynamic>> _groupByHost(List<SeedOutcomePlan> plans) {
     final byHost = <String, List<SeedOutcomePlan>>{};
     final privkeyByHost = <String, String>{};
+    final nsecByHost = <String, String>{};
     for (final p in plans) {
       final pub = p.thread.host.keyPair.publicKey;
       byHost.putIfAbsent(pub, () => []).add(p);
       privkeyByHost[pub] = p.thread.host.keyPair.privateKey ?? '(read-only)';
+      nsecByHost[pub] = _nsecFor(p.thread.host.keyPair);
     }
     return [
       for (final pub in byHost.keys)
         <String, dynamic>{
           'pubkey': pub,
           'privkey': privkeyByHost[pub],
+          'nsec': nsecByHost[pub],
           'threads': byHost[pub]!.map(_threadOutcomeEntry).toList(),
         },
     ];
@@ -506,16 +519,19 @@ class SeedPipelineOutcome {
   static List<Map<String, dynamic>> _groupByGuest(List<SeedOutcomePlan> plans) {
     final byGuest = <String, List<SeedOutcomePlan>>{};
     final privkeyByGuest = <String, String>{};
+    final nsecByGuest = <String, String>{};
     for (final p in plans) {
       final pub = p.thread.guest.keyPair.publicKey;
       byGuest.putIfAbsent(pub, () => []).add(p);
       privkeyByGuest[pub] = p.thread.guest.keyPair.privateKey ?? '(read-only)';
+      nsecByGuest[pub] = _nsecFor(p.thread.guest.keyPair);
     }
     return [
       for (final pub in byGuest.keys)
         <String, dynamic>{
           'pubkey': pub,
           'privkey': privkeyByGuest[pub],
+          'nsec': nsecByGuest[pub],
           'threads': byGuest[pub]!.map(_threadOutcomeEntry).toList(),
         },
     ];

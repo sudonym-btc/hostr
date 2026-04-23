@@ -62,4 +62,29 @@ void main() {
     expect(config.ndkConfig.bootstrapRelays, ['wss://relay.hostr.development']);
     expect(config.ndkConfig.ignoreRelays, isEmpty);
   });
+
+  test('default NDK config uses the coinlib event signer factory', () {
+    final config = buildConfig(
+      hostrRelay: 'wss://relay.hostr.network',
+      bootstrapRelays: const ['wss://relay.hostr.network'],
+    );
+
+    final signer = config.ndkConfig.eventSignerFactory(
+      publicKey: 'pubkey',
+      privateKey: 'privkey',
+    );
+
+    expect(signer, isA<CoinlibEventSigner>());
+    expect((signer as CoinlibEventSigner).publicKey, 'pubkey');
+    expect(signer.privateKey, 'privkey');
+  });
+
+  test('default NDK config uses coinlib nip44 cryptography', () {
+    final config = buildConfig(
+      hostrRelay: 'wss://relay.hostr.network',
+      bootstrapRelays: const ['wss://relay.hostr.network'],
+    );
+
+    expect(config.ndkConfig.nip44Cryptography, isA<CoinlibNip44Cryptography>());
+  });
 }

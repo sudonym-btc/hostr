@@ -11,4 +11,4 @@ fi
 # The daemon resolves the escrow contract address from
 # `escrow/contracts/contract-addresses.json` (or an explicit
 # `ESCROW_CONTRACT_ADDRESS` override) before starting.
-exec dart run bin/daemon.dart
+exec daemon

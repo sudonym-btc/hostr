@@ -8,6 +8,7 @@ import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import 'seed_context.dart';
+import '../../usecase/reservations/reservation_pubkey_proofs.dart';
 
 // ─── Seed identity data ────────────────────────────────────────────────────
 
@@ -1082,13 +1083,13 @@ class EntityFactory {
 
   /// Build a single signed [Reservation].
   ///
-  /// Derives a tweaked key pair from [guestKeyPair] when [stage] is
-  /// [ReservationStage.negotiate] (matching production behaviour).
+  /// Derives a deterministic trade key pair from [guestKeyPair] when [stage]
+  /// is [ReservationStage.negotiate] (matching production behaviour).
   ///
   /// For commit-stage reservations, pass [signerOverride] to control
   /// whether the host or guest signs.  When both [dTag] *and*
-  /// [signerOverride] are supplied the expensive key-derivation /
-  /// tweak step is skipped entirely — useful when the caller already
+  /// [signerOverride] are supplied the expensive key-derivation step is
+  /// skipped entirely — useful when the caller already
   /// knows the trade ID and signer (e.g. the outcome stage).
   Future<Reservation> reservation({
     KeyPair? guestKeyPair,
@@ -1101,9 +1102,8 @@ class EntityFactory {
     DenominatedAmount? amount,
     String? recipient,
     PaymentProof? proof,
+    CommitAuthorization? commitAuthorization,
     KeyPair? signerOverride,
-    ReservationTweakMaterial? tweakMaterial,
-    Map<String, String>? signatures,
     List<List<String>> extraTags = const [],
     List<PTag>? pTags,
     int? createdAt,
@@ -1129,7 +1129,7 @@ class EntityFactory {
             PTag.seller(listing.pubKey),
             if (!isSeller) PTag.buyer(signerOverride.publicKey),
           ];
-      return Reservation.create(
+      var reservation = Reservation.create(
         pubKey: signerOverride.publicKey,
         dTag: dTag,
         listingAnchor: listing.anchor!,
@@ -1139,43 +1139,35 @@ class EntityFactory {
         quantity: quantity ?? 1,
         amount: amount ?? listing.cost(start: resolvedStart, end: resolvedEnd),
         recipient: recipient,
-        tweakMaterial: tweakMaterial,
         proof: proof,
-        signatures: signatures ?? const {},
+        commitAuthorization: commitAuthorization,
         threadAnchor: stage != ReservationStage.negotiate ? dTag : null,
         pTags: resolvedPTags,
         extraTags: extraTags,
         createdAt: createdAt ?? _defaultCreatedAt(),
-      ).signAs(signerOverride, Reservation.fromNostrEvent);
+      );
+      reservation = await reservation.attachPubkeyProof(
+        role: 'buyer',
+        proofKeyPair: guest,
+        encryptionKeyPair: signerOverride,
+      );
+      return reservation.signAs(signerOverride, Reservation.fromNostrEvent);
     }
 
     // ── Standard path: derive trade keys ──────────────────────────────
     final tradeId =
         dTag ?? await deriveTradeId(guest.privateKey!, accountIndex: acctIdx);
-    final tradeSalt = await deriveTradeSalt(
+    final tradeKey = await deriveTradeKeyPair(
       guest.privateKey!,
       accountIndex: acctIdx,
     );
 
-    final tweakedGuestKey = tweakKeyPair(
-      privateKey: guest.privateKey!,
-      salt: tradeSalt,
-    );
-
     final resolvedSigner =
-        signerOverride ??
-        (stage == ReservationStage.negotiate ? tweakedGuestKey.keyPair : guest);
+        signerOverride ?? (stage == ReservationStage.negotiate ? tradeKey : guest);
 
-    final resolvedTweakMaterial =
-        tweakMaterial ??
-        ReservationTweakMaterial(
-          salt: tradeSalt,
-          parity: tweakedGuestKey.parity,
-        );
-
-    return Reservation.create(
+    var reservation = Reservation.create(
       pubKey: stage == ReservationStage.negotiate
-          ? tweakedGuestKey.publicKey
+          ? tradeKey.publicKey
           : resolvedSigner.publicKey,
       dTag: tradeId,
       listingAnchor: listing.anchor!,
@@ -1184,9 +1176,9 @@ class EntityFactory {
       stage: stage,
       quantity: quantity ?? 1,
       amount: amount ?? listing.cost(start: resolvedStart, end: resolvedEnd),
-      recipient: recipient ?? tweakedGuestKey.publicKey,
-      tweakMaterial: resolvedTweakMaterial,
+      recipient: recipient ?? tradeKey.publicKey,
       proof: proof,
+      commitAuthorization: commitAuthorization,
       threadAnchor: stage != ReservationStage.negotiate ? tradeId : null,
       pTags:
           pTags ??
@@ -1194,13 +1186,19 @@ class EntityFactory {
             PTag.seller(listing.pubKey),
             PTag.buyer(
               stage == ReservationStage.negotiate
-                  ? tweakedGuestKey.publicKey
+                  ? tradeKey.publicKey
                   : resolvedSigner.publicKey,
             ),
-          ],
+      ],
       extraTags: extraTags,
       createdAt: createdAt ?? _defaultCreatedAt(),
-    ).signAs(resolvedSigner, Reservation.fromNostrEvent);
+    );
+    reservation = await reservation.attachPubkeyProof(
+      role: 'buyer',
+      proofKeyPair: guest,
+      encryptionKeyPair: resolvedSigner,
+    );
+    return reservation.signAs(resolvedSigner, Reservation.fromNostrEvent);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1212,7 +1210,8 @@ class EntityFactory {
     KeyPair? signer,
     required String reservationAnchor,
     required String listingAnchor,
-    required ReservationTweakMaterial tweakMaterial,
+    required Reservation reservation,
+    required KeyPair reservationAuthorKeyPair,
     String? dTag,
     int? rating,
     String? content,
@@ -1242,7 +1241,13 @@ class EntityFactory {
       content: ReviewContent(
         rating: resolvedRating,
         content: resolvedContent,
-        proof: ParticipationProof(tweakMaterial: tweakMaterial),
+        proof: ParticipationProof(
+          revealPrivateKey: deriveReviewRevealKeyPair(
+            reservation: reservation,
+            reservationAuthorKeyPair: reservationAuthorKeyPair,
+            role: 'buyer',
+          ).privateKey!,
+        ),
       ),
     ).signAs(kp, Review.fromNostrEvent);
   }

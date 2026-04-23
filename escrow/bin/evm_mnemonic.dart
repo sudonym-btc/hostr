@@ -19,7 +19,9 @@ Future<void> main(List<String> args) async {
 
   await loadSecp256k1Backend();
 
-  final derivation = DeterministicKeyDerivation(hex);
+  final derivation = DeterministicKeyDerivation(
+    await deriveHostrSeedHexFromPrivateKey(hex),
+  );
 
   final mnemonic = await derivation.deriveAccountMnemonic();
   final address = await derivation.deriveEvmAddress();

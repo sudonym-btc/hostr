@@ -9,42 +9,39 @@ import '../deterministic_keys/deterministic_keys.dart';
 /// deterministic identifiers.
 ///
 /// Entries can be **partial** (only [tradeId] populated) or **full** (all
-/// fields populated).  Partial entries are created during lightweight scans
+/// fields populated). Partial entries are created during lightweight scans
 /// that only need tradeId lookups, and are promoted to full entries lazily
-/// when salt / evmAddress are needed.
+/// when the EVM address is needed.
 class TradeAccountEntry {
   final int accountIndex;
   final String tradeId;
-  final String? salt;
   final String? evmAddress;
 
   const TradeAccountEntry({
     required this.accountIndex,
     required this.tradeId,
-    this.salt,
     this.evmAddress,
   });
 
   /// Whether this entry has all fields populated.
-  bool get isFull => salt != null && evmAddress != null;
+  bool get isFull => evmAddress != null;
 }
 
 /// Pure in-memory indexed cache for trade account derivations.
 ///
 /// ## Problem
 ///
-/// [TradeAccountAllocator] derives `(tradeId, salt, evmAddress)` from each
-/// HD account index via cryptographic operations. Look-ups by `tradeId` or
-/// `salt` previously required an O(N) linear scan — re-deriving keys for
-/// every index from 0 to `maxAccountIndex` until a match was found.
+/// [TradeAccountAllocator] derives `(tradeId, evmAddress)` from each HD
+/// account index via cryptographic operations. Look-ups by `tradeId`
+/// previously required an O(N) linear scan — re-deriving keys for every
+/// index from 0 to `maxAccountIndex` until a match was found.
 ///
 /// ## Solution
 ///
 /// On first access per pubkey, this cache eagerly derives **tradeIds only**
 /// for indices `0..maxAccountIndex` (cheap — one HMAC-SHA256 per index).
-/// Salt and evmAddress are derived lazily on demand via [ensureFullEntry]
-/// or [put].  Indexed maps provide O(1) lookups by tradeId, salt, or
-/// evmAddress.
+/// EVM addresses are derived lazily on demand via [ensureFullEntry] or [put].
+/// Indexed maps provide O(1) lookups by tradeId or evmAddress.
 ///
 /// The cache lives only in memory — derivation is deterministic from the
 /// HD master key so it can always be rebuilt cheaply on app restart.
@@ -59,7 +56,7 @@ class TradeAccountCache {
   /// Pubkey for which the in-memory cache is currently loaded.
   String? _loadedPubkey;
 
-  /// Whether all entries have been fully promoted (salt + evmAddress).
+  /// Whether all entries have been fully promoted (evmAddress).
   bool _fullyLoaded = false;
 
   // ── In-memory indices ───────────────────────────────────────────────
@@ -69,9 +66,6 @@ class TradeAccountCache {
 
   /// tradeId → accountIndex
   final Map<String, int> _byTradeId = {};
-
-  /// salt → accountIndex  (only populated for full entries)
-  final Map<String, int> _bySalt = {};
 
   /// evmAddress (lowercase) → accountIndex  (only populated for full entries)
   final Map<String, int> _byEvmAddress = {};
@@ -92,7 +86,7 @@ class TradeAccountCache {
   /// `0..storedMaxAccountIndex`.
   ///
   /// This is the lightweight initial load — only one derivation per index.
-  /// Salt and evmAddress are NOT derived here; use [ensureLoaded] or
+  /// EVM addresses are NOT derived here; use [ensureLoaded] or
   /// [ensureFullEntry] for that.
   Future<void> ensureTradeIdsLoaded() async {
     final pubkey = _currentPubkey();
@@ -118,10 +112,10 @@ class TradeAccountCache {
     _logger.d('TradeId cache ready: ${_byIndex.length} entries');
   }
 
-  /// Ensure the cache is **fully** populated (tradeId + salt + evmAddress)
+  /// Ensure the cache is **fully** populated (tradeId + evmAddress)
   /// for all indices `0..storedMaxAccountIndex`.
   ///
-  /// Calls [ensureTradeIdsLoaded] first, then backfills salt and evmAddress
+  /// Calls [ensureTradeIdsLoaded] first, then backfills evmAddress
   /// for any partial entries.
   Future<void> ensureLoaded() async {
     await ensureTradeIdsLoaded();
@@ -129,7 +123,7 @@ class TradeAccountCache {
 
     final partial = _byIndex.values.where((e) => !e.isFull).toList();
     if (partial.isNotEmpty) {
-      _logger.d('Backfilling ${partial.length} entries with salt + evmAddress');
+      _logger.d('Backfilling ${partial.length} entries with evmAddress');
       for (final entry in partial) {
         await _promoteEntry(entry.accountIndex);
         await _yieldToEventLoop();
@@ -140,12 +134,6 @@ class TradeAccountCache {
 
   /// Look up an account index by trade ID. Returns `null` on miss.
   int? indexByTradeId(String tradeId) => _byTradeId[tradeId];
-
-  /// Look up an account index by salt. Returns `null` on miss.
-  ///
-  /// Only finds entries that have been fully derived (via [ensureLoaded],
-  /// [put], or [ensureFullEntry]).
-  int? indexBySalt(String salt) => _bySalt[salt];
 
   /// Look up an account index by EVM address. Returns `null` on miss.
   ///
@@ -207,7 +195,6 @@ class TradeAccountCache {
   void _clear() {
     _byIndex.clear();
     _byTradeId.clear();
-    _bySalt.clear();
     _byEvmAddress.clear();
     _loadedPubkey = null;
     _fullyLoaded = false;
@@ -223,7 +210,6 @@ class TradeAccountCache {
   void _indexFullEntry(TradeAccountEntry entry) {
     _byIndex[entry.accountIndex] = entry;
     _byTradeId[entry.tradeId] = entry.accountIndex;
-    if (entry.salt != null) _bySalt[entry.salt!] = entry.accountIndex;
     if (entry.evmAddress != null) {
       _byEvmAddress[entry.evmAddress!.toLowerCase()] = entry.accountIndex;
     }
@@ -235,8 +221,6 @@ class TradeAccountCache {
     final existing = _byIndex[accountIndex];
     final tradeId =
         existing?.tradeId ?? await _hd.getTradeId(accountIndex: accountIndex);
-    final salt =
-        existing?.salt ?? await _hd.getTradeSalt(accountIndex: accountIndex);
     final evmAddress =
         existing?.evmAddress ??
         (await _hd.getEvmAddress(accountIndex: accountIndex)).eip55With0x;
@@ -244,7 +228,6 @@ class TradeAccountCache {
     final entry = TradeAccountEntry(
       accountIndex: accountIndex,
       tradeId: tradeId,
-      salt: salt,
       evmAddress: evmAddress,
     );
     _indexFullEntry(entry);

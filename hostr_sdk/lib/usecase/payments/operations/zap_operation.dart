@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
+import '../../../injection.dart';
 import '../../../util/stream_status.dart';
 import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
@@ -85,7 +86,7 @@ class ZapPayOperation
     );
 
     final activeKeyPair = auth.activeKeyPair;
-    if (activeKeyPair == null || activeKeyPair.privateKey == null) {
+    if (activeKeyPair == null) {
       throw Exception('Cannot create zap request without active signing key');
     }
 
@@ -94,26 +95,38 @@ class ZapPayOperation
       throw Exception('Cannot create zap request without at least one relay');
     }
 
-    final zapRequest = Nip01Utils.signWithPrivateKey(
-      privateKey: activeKeyPair.privateKey!,
-      event: ZapRequest(
-        pubKey: activeKeyPair.publicKey,
-        tags: [
-          ['p', zapTargetPubKey],
-          ['amount', (params.amount!.getInSats.toInt() * 1000).toString()],
-          ['relays', ...relayTags],
-          ['lnurl', params.to],
-          if (params.event?.id != null) ['e', params.event!.id],
-        ],
-        content: (params.comment ?? '').trim(),
-      ),
+    final unsignedZapRequest = ZapRequest(
+      pubKey: activeKeyPair.publicKey,
+      tags: [
+        ['p', zapTargetPubKey],
+        ['amount', (params.amount!.getInSats.toInt() * 1000).toString()],
+        ['relays', ...relayTags],
+        ['lnurl', params.to],
+        if (params.event?.id != null) ['e', params.event!.id],
+      ],
+      content: (params.comment ?? '').trim(),
+    );
+    final ndk = getIt.isRegistered<Ndk>() ? getIt<Ndk>() : null;
+    final activeNdkPubkey = ndk?.accounts.getPublicKey();
+    final zapRequest = activeNdkPubkey == activeKeyPair.publicKey && ndk != null
+        ? await ndk.accounts.sign(unsignedZapRequest)
+        : activeKeyPair.privateKey != null
+        ? Nip01Utils.signWithPrivateKey(
+            privateKey: activeKeyPair.privateKey!,
+            event: unsignedZapRequest,
+          )
+        : throw Exception(
+            'Cannot create zap request without an active signer or local private key',
+          );
+    final normalizedZapRequest = ZapRequest.nip01Event(
+      event: zapRequest.copyWith(content: (params.comment ?? '').trim()),
     );
 
     logger.d('Fetching invoice for zap with params: ${state.params}');
     final invoice = await lnurl.fetchInvoice(
       lnurlResponse: (resolvedDetails as ZapResolvedDetails).response,
       amountSats: params.amount!.getInSats.toInt(),
-      zapRequest: ZapRequest.nip01Event(event: zapRequest),
+      zapRequest: normalizedZapRequest,
     );
     logger.i('Fetched invoice for zap: $invoice');
     if (invoice == null) {

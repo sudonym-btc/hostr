@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_reply.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 
 void main() {
   group('ThreadReplyView', () {
@@ -61,6 +62,53 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
 
       expect(sendCount, 0);
+    });
+
+    testWidgets('shows loading indicator instead of send icon', (tester) async {
+      final controller = TextEditingController(text: 'Hello');
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ThreadReplyView(
+              controller: controller,
+              isLoading: true,
+              errorText: null,
+              label: null,
+              hintText: 'Type a message',
+              onChanged: (_) {},
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(AppLoadingIndicator), findsOneWidget);
+      expect(find.byIcon(Icons.send_rounded), findsNothing);
+    });
+
+    testWidgets('renders inline error text', (tester) async {
+      final controller = TextEditingController(text: 'Hello');
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ThreadReplyView(
+              controller: controller,
+              isLoading: false,
+              errorText: 'Failed to send message',
+              label: null,
+              hintText: 'Type a message',
+              onChanged: (_) {},
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Failed to send message'), findsOneWidget);
     });
   });
 }

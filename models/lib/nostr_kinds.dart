@@ -2,6 +2,9 @@ const kNostrKindListing = 32121;
 const kNostrKindReservation = 32122;
 
 const kNostrKindReview = 32124;
+const kNostrKindCommitAuthorization = 1328;
+const kNostrKindTradeKeyAuthorization = 1329;
+const kNostrKindHostrSeed = 17389;
 
 /// Reservation transitions are append-only audit events, so this kind must
 /// stay outside NIP-16 replaceable ranges.
@@ -67,6 +70,9 @@ const kHostrOnlyKinds = <int>{
   kNostrKindListing,
   kNostrKindReservation,
   kNostrKindReview,
+  kNostrKindCommitAuthorization,
+  kNostrKindTradeKeyAuthorization,
+  kNostrKindHostrSeed,
   kNostrKindReservationTransition,
   kNostrKindEscrowService,
   kNostrKindEscrowTrust,

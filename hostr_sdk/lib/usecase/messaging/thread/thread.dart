@@ -306,6 +306,17 @@ class Thread {
     );
   });
 
+  Future<Nip01Event> replyEventAndWait<T extends Nip01Event>(
+    T event, {
+    List<List<String>> tags = const [],
+  }) => _logger.span('replyEventAndWait', () async {
+    return _messaging.broadcastEventAndWait(
+      event: event,
+      tags: [..._conversationTags, ...tags],
+      recipientPubkeys: _recipientPubkeys,
+    );
+  });
+
   Future<void> broadcastSeenReceipt<T extends Nip01Event>() =>
       _logger.span('broadcastSeenReceipt', () async {
         return _messaging.broadcastSeenReceipt(

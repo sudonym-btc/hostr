@@ -1,6 +1,7 @@
 import 'dart:math';
 
-import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
+import 'package:hostr_sdk/config.dart'
+    show CoinlibEventSigner, CoinlibNip44Cryptography;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
@@ -278,6 +279,9 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
 Ndk _createGiftWrapNdk() => Ndk(
   NdkConfig(
     eventVerifier: Bip340EventVerifier(),
+    eventSignerFactory: ({required publicKey, String? privateKey}) =>
+        CoinlibEventSigner(privateKey: privateKey, publicKey: publicKey),
+    nip44Cryptography: CoinlibNip44Cryptography(),
     cache: MemCacheManager(),
     engine: NdkEngine.JIT,
     bootstrapRelays: [], // No relay needed — gift-wrapping is local crypto.

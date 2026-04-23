@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
+import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 
@@ -11,7 +12,7 @@ import 'package:hostr/presentation/layout/app_layout.dart';
 /// disabled when the form cannot submit or has no changes.
 class SaveBottomBar extends StatelessWidget {
   final UpsertFormController controller;
-  final VoidCallback onSave;
+  final Future<void> Function() onSave;
 
   const SaveBottomBar({
     super.key,
@@ -32,7 +33,7 @@ class SaveBottomBar extends StatelessWidget {
               ListenableBuilder(
                 listenable: controller.submitListenable,
                 builder: (context, _) {
-                  return FilledButton(
+                  return FutureButton.filled(
                     onPressed: controller.canSubmit && controller.isDirty
                         ? onSave
                         : null,

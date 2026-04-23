@@ -7,6 +7,7 @@ import '../escrow/escrow_verification.dart';
 import '../evm/evm.dart';
 import '../listings/listings.dart';
 import '../reservation_groups/reservation_groups.dart';
+import '../reservations/reservation_pubkey_proofs.dart';
 import '../reservations/reservations.dart';
 
 /// Dependencies resolved for a single review verification.
@@ -74,17 +75,36 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
       }
     }
 
-    final proofMatchedReservations = candidateReservations
-        .where(
-          (reservation) =>
-              Review.validateProof(reservation, review.pubKey, review.proof),
-        )
+    final proofMatches = await Future.wait(
+      candidateReservations.map((reservation) async {
+        final proof = await reservation.resolvePubkeyProof(
+          role: review.proof.role,
+          recipientKeyPair: review.proof.revealKeyPair,
+        );
+        if (proof?.pubkey != review.pubKey) return null;
+        return reservation;
+      }),
+    );
+    final proofMatchedReservations = proofMatches
+        .whereType<Reservation>()
         .toList();
+    final proofMatchedTradeIds = proofMatchedReservations
+        .map((reservation) => reservation.getDtag())
+        .whereType<String>()
+        .toSet();
+    final groupReservations = proofMatchedTradeIds.isEmpty
+        ? const <Reservation>[]
+        : candidateReservations
+              .where(
+                (reservation) =>
+                    proofMatchedTradeIds.contains(reservation.getDtag()),
+              )
+              .toList();
 
-    final validatedGroup = proofMatchedReservations.isEmpty
+    final validatedGroup = groupReservations.isEmpty
         ? null
         : await ReservationGroups.verifyGroupOnChain(
-            ReservationGroup(reservations: proofMatchedReservations),
+            ReservationGroup(reservations: groupReservations),
             escrowVerification: _escrowVerification,
           );
 

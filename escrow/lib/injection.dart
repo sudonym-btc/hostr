@@ -52,6 +52,7 @@ Future<void> setupInjection({
         bootstrapBlossom: [env.blossomUrl],
         hostrRelay: env.relayUrl,
         evmConfig: env.evmConfig,
+        syncAccountSeedRemotely: false,
         telemetry: Telemetry(
           serviceName: 'hostr-escrow',
           enableExport:

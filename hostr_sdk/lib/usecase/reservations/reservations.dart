@@ -275,12 +275,16 @@ class Reservations extends CrudUseCase<Reservation>
       amount: negotiateReservation.amount,
       recipient: negotiateReservation.recipient,
       proof: proof,
-      signatures: negotiateReservation.signatures,
+      commitAuthorization: negotiateReservation.commitAuthorization,
     );
     reservation = await reservation.attachPubkeyProof(
       role: 'buyer',
       proofKeyPair: auth.getActiveKey(),
       encryptionKeyPair: activeKeyPair,
+      signAuthorization:
+          requests.ndk.accounts.getPublicKey() == auth.getActiveKey().publicKey
+          ? (unsignedEvent) => requests.ndk.accounts.sign(unsignedEvent)
+          : null,
     );
 
     final signedReservation = reservation.signAs(

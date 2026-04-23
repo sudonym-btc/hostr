@@ -1,4 +1,9 @@
+import 'dart:convert' show utf8;
+
+import 'package:convert/convert.dart' as convert;
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/coinlib_gift_wrap.dart';
@@ -17,7 +22,53 @@ typedef ReservationPubkeyProofDecryptor =
       String senderPubkey,
     );
 
+typedef ReservationPubkeyProofEventSigner =
+    Future<Nip01Event> Function(TradeKeyAuthorization unsignedEvent);
+
+String _reviewRevealScope({
+  required Reservation reservation,
+  required String role,
+}) {
+  final tradeId = reservation.getDtag();
+  if (tradeId == null || tradeId.isEmpty) {
+    throw StateError('Cannot derive review reveal key without trade id');
+  }
+  return 'review-reveal/v1/$role/${reservation.parsedTags.listingAnchor}/$tradeId';
+}
+
+KeyPair deriveReviewRevealKeyPair({
+  required Reservation reservation,
+  required KeyPair reservationAuthorKeyPair,
+  required String role,
+}) {
+  final authorPrivateKey = reservationAuthorKeyPair.privateKey;
+  if (authorPrivateKey == null || authorPrivateKey.isEmpty) {
+    throw StateError('Private key is required to derive review reveal key');
+  }
+  final digest = crypto.sha256.convert(
+    <int>[
+      ...utf8.encode(_reviewRevealScope(reservation: reservation, role: role)),
+      ...convert.hex.decode(authorPrivateKey),
+    ],
+  );
+  return Bip340.fromPrivateKey(convert.hex.encode(digest.bytes));
+}
+
 extension ReservationPubkeyProofAttachment on Reservation {
+  String pubkeyForRole(String role) {
+    switch (role) {
+      case 'buyer':
+        return parsedTags.getTagValueByMarker('p', 'buyer') ??
+            recipient ??
+            pubKey;
+      case 'seller':
+        return parsedTags.getTagValueByMarker('p', 'seller') ??
+            getPubKeyFromAnchor(parsedTags.listingAnchor);
+      default:
+        throw UnsupportedError('No participant pubkey mapping for role: $role');
+    }
+  }
+
   /// Attaches encrypted proof that [proofKeyPair.publicKey] controls this
   /// reservation's trade id for [role].
   ///
@@ -31,6 +82,7 @@ extension ReservationPubkeyProofAttachment on Reservation {
     required KeyPair encryptionKeyPair,
     Iterable<String>? recipientPubkeys,
     ReservationPubkeyProofEncryptor? encrypt,
+    ReservationPubkeyProofEventSigner? signAuthorization,
   }) async {
     if (encryptionKeyPair.publicKey != pubKey) {
       throw StateError(
@@ -47,17 +99,39 @@ extension ReservationPubkeyProofAttachment on Reservation {
     if (tradeId == null || tradeId.isEmpty) {
       throw StateError('Cannot attach pubkey proof without trade id');
     }
+    final participantPubkey = pubkeyForRole(role);
 
     final recipients = (recipientPubkeys ?? pubkeyProofRecipientsFor(role))
         .where((pubkey) => pubkey.isNotEmpty)
         .toSet();
+    recipients.add(
+      deriveReviewRevealKeyPair(
+        reservation: this,
+        reservationAuthorKeyPair: encryptionKeyPair,
+        role: role,
+      ).publicKey,
+    );
     if (recipients.isEmpty) {
       throw StateError('No recipients available for $role pubkey proof');
     }
 
-    final payload = ReservationPubkeyProofPayload.sign(
+    final unsignedAuthorization = TradeKeyAuthorization.create(
+      identityPubkey: proofKeyPair.publicKey,
+      listingAnchor: parsedTags.listingAnchor,
       tradeId: tradeId,
-      keyPair: proofKeyPair,
+      participantPubkey: participantPubkey,
+      role: role,
+    );
+    final signedAuthorization = signAuthorization != null
+        ? TradeKeyAuthorization.fromNostrEvent(
+            await signAuthorization(unsignedAuthorization),
+          )
+        : unsignedAuthorization.signAs(
+            proofKeyPair,
+            TradeKeyAuthorization.fromNostrEvent,
+          );
+    final payload = ReservationPubkeyProofPayload.fromAuthorizationEvent(
+      signedAuthorization,
     ).encode();
     final encryptFn = encrypt ?? coinlibEncryptNip44;
     final proofTags = <ReservationPubkeyProofTag>[];
@@ -137,6 +211,7 @@ extension ReservationPubkeyProofResolution on Reservation {
     if (tradeId == null || tradeId.isEmpty) return null;
 
     final decryptFn = decrypt ?? coinlibDecryptNip44;
+    final participantPubkey = pubkeyForRole(role);
     final proofTags = parsedTags.pubkeyProofsFor(
       role: role,
       recipientPubkey: recipientKeyPair.publicKey,
@@ -152,7 +227,13 @@ extension ReservationPubkeyProofResolution on Reservation {
           pubKey,
         );
         final proof = ReservationPubkeyProofPayload.tryDecode(plaintext);
-        if (proof != null && proof.verifiesForTradeId(tradeId)) {
+        if (proof != null &&
+            proof.verifiesForReservation(
+              tradeId: tradeId,
+              listingAnchor: parsedTags.listingAnchor,
+              participantPubkey: participantPubkey,
+              role: role,
+            )) {
           return proof;
         }
       } catch (_) {

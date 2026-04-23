@@ -231,6 +231,9 @@ class _FakeAuth extends Fake implements Auth {
   ValueStream<AuthState> get authState => _authState;
 
   @override
+  String? get activePubkey => pubkey;
+
+  @override
   KeyPair? get activeKeyPair {
     final value = pubkey;
     return value == null ? null : KeyPair('privkey', value, null, null);

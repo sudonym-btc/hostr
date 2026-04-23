@@ -30,6 +30,7 @@ Future<Navigation> tradeDetailScreen(
   }
 
   final threadAnchor = data['threadAnchor'] as String?;
+  final participants = data['participants'] as Map<String, dynamic>?;
 
   // ── Display ────────────────────────────────────────────────────────────
   print('');
@@ -89,6 +90,23 @@ Future<Navigation> tradeDetailScreen(
   } else if (cached == null) {
     print('  Trade not found in cache or on chain.');
   }
+
+  if (participants != null) {
+    final buyer = participants['buyer'] as Map<String, dynamic>?;
+    final seller = participants['seller'] as Map<String, dynamic>?;
+    print(kvTable({
+      if (buyer != null)
+        'Buyer Nostr': _formatParticipant(
+          buyer['displayName'] as String?,
+          buyer['pubkey'] as String?,
+        ),
+      if (seller != null)
+        'Seller Nostr': _formatParticipant(
+          seller['displayName'] as String?,
+          seller['pubkey'] as String?,
+        ),
+    }));
+  }
   print('');
 
   // ── Actions ────────────────────────────────────────────────────────────
@@ -120,4 +138,12 @@ int? _jsonInt(Object? value) {
   if (value is int) return value;
   if (value is String) return int.tryParse(value);
   return null;
+}
+
+String _formatParticipant(String? displayName, String? pubkey) {
+  if (pubkey == null || pubkey.isEmpty) return '—';
+  final short = pubkey.substring(0, 5);
+  return displayName != null && displayName.isNotEmpty
+      ? '$displayName ($short)'
+      : short;
 }

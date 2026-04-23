@@ -549,11 +549,11 @@ class UserSubscriptions {
       _logger.span('_emitCurrentHeartbeat', () async {
         if (!_started) return;
         try {
-          await _heartbeats.upsertCurrent();
-          _logger.d('Published heartbeat: $reason');
+          await _heartbeats.requestUpsertCurrent();
+          _logger.d('Requested heartbeat: $reason');
         } catch (e, st) {
           _logger.w(
-            'Failed to publish heartbeat: $reason',
+            'Failed to request heartbeat: $reason',
             error: e,
             stackTrace: st,
           );

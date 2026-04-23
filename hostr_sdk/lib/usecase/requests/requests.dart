@@ -436,7 +436,9 @@ class Requests extends RequestsModel {
 
     if (event.sig == null) {
       final keyPair = _auth.activeKeyPair;
-      if (keyPair != null &&
+      if (_ndk.accounts.getPublicKey() == event.pubKey) {
+        eventToBroadcast = await _ndk.accounts.sign(event);
+      } else if (keyPair != null &&
           keyPair.privateKey != null &&
           event.pubKey == keyPair.publicKey) {
         final signer = CoinlibEventSigner(

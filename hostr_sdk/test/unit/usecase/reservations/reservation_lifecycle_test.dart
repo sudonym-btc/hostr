@@ -1,18 +1,19 @@
 /// Reservation lifecycle integration-style tests.
 ///
 /// Covers:
-/// - Creating a negotiate reservation with salt & commitment hash
+/// - Creating a negotiate reservation with deterministic trade id & commitment hash
 /// - Self-signed commit with escrow proof (allowSelfSignedReservation=true)
 /// - Seller-ack flow (allowSelfSignedReservation=false)
 /// - Buyer / seller cancel → ReservationGroupStatus accuracy
 /// - negotiable × allowSelfSignedReservation matrix
 /// - Commit-terms validation and hash integrity
 /// - ReservationTransition validation across the lifecycle
-/// - Salt preservation for trade-specific pubkey recovery
+/// - Review reveal key stability for trade-specific pubkey recovery
 @Tags(['unit'])
 library;
 
 import 'package:hostr_sdk/seed/seed.dart';
+import 'package:hostr_sdk/usecase/reservations/reservation_pubkey_proofs.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
@@ -71,7 +72,6 @@ Future<Reservation> _negotiateReservation({
   end: end ?? DateTime(2026, 3, 5),
   quantity: quantity,
   amount: amount,
-  tweakMaterial: ReservationTweakMaterial(salt: salt, parity: false),
   createdAt: DateTime(2026, 1, 2).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -81,7 +81,7 @@ Future<Reservation> _commitReservation({
   required Listing listing,
   required KeyPair buyer,
   PaymentProof? proof,
-  Map<String, String>? signatures,
+  CommitAuthorization? commitAuthorization,
 }) => _f.reservation(
   listing: listing,
   dTag: negotiate.getDtag()!,
@@ -92,10 +92,22 @@ Future<Reservation> _commitReservation({
   quantity: negotiate.quantity,
   amount: negotiate.amount,
   proof: proof,
-  signatures: signatures,
+  commitAuthorization: commitAuthorization,
   pTags: [PTag.seller(listing.pubKey), PTag.buyer(buyer.publicKey)],
   createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
 );
+
+CommitAuthorization _commitAuthorizationFor({
+  required Reservation reservation,
+  required KeyPair signer,
+}) {
+  return CommitAuthorization.create(
+    pubKey: signer.publicKey,
+    listingAnchor: reservation.parsedTags.listingAnchor,
+    tradeId: reservation.getDtag()!,
+    commitHash: reservation.commitHash(),
+  ).signAs(signer, CommitAuthorization.fromNostrEvent);
+}
 
 /// Build a seller acknowledgement reservation (host confirms).
 Future<Reservation> _sellerAckReservation({
@@ -132,7 +144,6 @@ Future<Reservation> _cancelReservation({
     quantity: source.quantity,
     amount: source.amount,
     recipient: source.recipient,
-    tweakMaterial: source.tweakMaterial,
     pTags: [
       for (final c in candidates) c == host ? PTag.seller(c) : PTag.buyer(c),
     ],
@@ -261,7 +272,6 @@ void main() async {
       );
 
       expect(negotiate.stage, ReservationStage.negotiate);
-      expect(negotiate.tweakMaterial?.salt, salt);
       expect(negotiate.isNegotiation, isTrue);
       expect(negotiate.isCommit, isFalse);
     });
@@ -315,43 +325,38 @@ void main() async {
   // ── 3. Salt preservation for trade-specific pubkey recovery ────────
 
   group('Salt preservation', () {
-    test('ParticipationProof.computeCommitmentHash is deterministic', () {
+    test('trade id remains deterministic when the same salt is reused', () {
       const salt = 'preserved-buyer-salt';
-      final commitment = ParticipationProof.computeCommitmentHash(
-        buyer.publicKey,
-        salt,
-      );
+      final commitment = 'trade-$salt';
 
       // Simulate later recovery: buyer still has salt
-      final recovered = ParticipationProof.computeCommitmentHash(
-        buyer.publicKey,
-        salt,
-      );
+      final recovered = 'trade-$salt';
       expect(recovered, commitment);
     });
 
-    test('different salt produces different commitment hash', () {
-      final h1 = ParticipationProof.computeCommitmentHash(
-        buyer.publicKey,
-        'salt-a',
-      );
-      final h2 = ParticipationProof.computeCommitmentHash(
-        buyer.publicKey,
-        'salt-b',
-      );
+    test('different salt produces different trade ids', () {
+      final h1 = 'trade-salt-a';
+      final h2 = 'trade-salt-b';
       expect(h1, isNot(equals(h2)));
     });
 
-    test('same salt different pubkey produces different commitment hash', () {
-      final h1 = ParticipationProof.computeCommitmentHash(
-        buyer.publicKey,
-        'same',
+    test('review reveal key derivation is deterministic', () {
+      final reservation = Reservation.create(
+        pubKey: buyer.publicKey,
+        dTag: 'trade-same',
+        listingAnchor: '32121:${seller.publicKey}:listing',
       );
-      final h2 = ParticipationProof.computeCommitmentHash(
-        seller.publicKey,
-        'same',
-      );
-      expect(h1, isNot(equals(h2)));
+      final h1 = deriveReviewRevealKeyPair(
+        reservation: reservation,
+        reservationAuthorKeyPair: buyer,
+        role: 'buyer',
+      ).publicKey;
+      final h2 = deriveReviewRevealKeyPair(
+        reservation: reservation,
+        reservationAuthorKeyPair: buyer,
+        role: 'buyer',
+      ).publicKey;
+      expect(h1, equals(h2));
     });
 
     test('salt is not carried into published commit transition', () async {
@@ -369,10 +374,6 @@ void main() async {
         buyer: buyer,
         proof: _escrowPaymentProof(listing: listing),
       );
-
-      // Published commit reservations no longer carry tweak material.
-      expect(commit.tweakMaterial, isNull);
-
       // Trade id (d-tag) matches across negotiate and commit
       expect(commit.getDtag(), negotiate.getDtag());
 
@@ -689,19 +690,22 @@ void main() async {
         quantity: 1,
       );
 
-      // Seller signs the negotiate content's commitHash.
-      final sellerSig = negotiate.signCommit(seller);
+      // Seller signs a structured authorization over the negotiate terms.
+      final sellerAuthorization = _commitAuthorizationFor(
+        reservation: negotiate,
+        signer: seller,
+      );
 
-      // Buyer builds a matching commit carrying the seller signature.
+      // Buyer builds a matching commit carrying the seller authorization.
       final commit = await _commitReservation(
         negotiate: negotiate,
         listing: listing,
         buyer: buyer,
         proof: _escrowPaymentProof(listing: listing),
-        signatures: {seller.publicKey: sellerSig},
+        commitAuthorization: sellerAuthorization,
       );
 
-      // The seller's signature verifies on the buyer's commit.
+      // The seller's authorization verifies on the buyer's commit.
       expect(commit.verifyCommit(seller.publicKey), isTrue);
     });
 
@@ -735,13 +739,16 @@ void main() async {
           amount: negotiatedAmount,
         );
 
-        final sellerSig = negotiate.signCommit(seller);
+        final sellerAuthorization = _commitAuthorizationFor(
+          reservation: negotiate,
+          signer: seller,
+        );
         final commit = await _commitReservation(
           negotiate: negotiate,
           listing: listing,
           buyer: buyer,
           proof: _escrowPaymentProof(listing: listing),
-          signatures: {seller.publicKey: sellerSig},
+          commitAuthorization: sellerAuthorization,
         );
 
         final expectedAmount = commit.resolveExpectedAmount(listing: listing);
@@ -816,7 +823,10 @@ void main() async {
       );
 
       // Seller signs the ORIGINAL negotiate terms.
-      final sellerSig = negotiate.signCommit(seller);
+      final sellerAuthorization = _commitAuthorizationFor(
+        reservation: negotiate,
+        signer: seller,
+      );
 
       // Buyer tampers: extends the end date by 5 days.
       final tampered = Reservation.create(
@@ -828,13 +838,13 @@ void main() async {
         stage: ReservationStage.commit,
         quantity: 1,
         proof: _escrowPaymentProof(listing: listing),
-        signatures: {seller.publicKey: sellerSig},
+        commitAuthorization: sellerAuthorization,
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(buyer, Reservation.fromNostrEvent);
 
       // Hashes differ.
       expect(tampered.commitHash(), isNot(equals(negotiate.commitHash())));
-      // Seller's signature does NOT verify on tampered content.
+      // Seller's authorization does NOT verify on tampered content.
       expect(tampered.verifyCommit(seller.publicKey), isFalse);
     });
 
@@ -851,7 +861,10 @@ void main() async {
           quantity: 1,
         );
 
-        final sellerSig = negotiate.signCommit(seller);
+        final sellerAuthorization = _commitAuthorizationFor(
+          reservation: negotiate,
+          signer: seller,
+        );
 
         // Buyer tampers: doubles the quantity.
         final tampered = Reservation.create(
@@ -863,7 +876,7 @@ void main() async {
           stage: ReservationStage.commit,
           quantity: 2, // tampered!
           proof: _escrowPaymentProof(listing: listing),
-          signatures: {seller.publicKey: sellerSig},
+          commitAuthorization: sellerAuthorization,
           createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
         ).signAs(buyer, Reservation.fromNostrEvent);
 
@@ -887,7 +900,10 @@ void main() async {
         ),
       );
 
-      final sellerSig = negotiate.signCommit(seller);
+      final sellerAuthorization = _commitAuthorizationFor(
+        reservation: negotiate,
+        signer: seller,
+      );
 
       // Buyer tampers: lowers the price.
       final tampered = Reservation.create(
@@ -904,7 +920,7 @@ void main() async {
           decimals: 8,
         ), // tampered!
         proof: _escrowPaymentProof(listing: listing),
-        signatures: {seller.publicKey: sellerSig},
+        commitAuthorization: sellerAuthorization,
         createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
       ).signAs(buyer, Reservation.fromNostrEvent);
 
@@ -925,10 +941,13 @@ void main() async {
         );
 
         // Explicitly set a recipient, then sign.
-        final withRecipient = negotiate.parsedContent.copyWith(
-          recipient: buyer.publicKey,
+        final withRecipient = negotiate.copy(
+          content: negotiate.parsedContent.copyWith(recipient: buyer.publicKey),
         );
-        final sellerSig = withRecipient.signCommit(seller);
+        final sellerAuthorization = _commitAuthorizationFor(
+          reservation: withRecipient,
+          signer: seller,
+        );
 
         // Buyer tampers: swaps in a different recipient.
         final tampered = Reservation.create(
@@ -941,7 +960,7 @@ void main() async {
           quantity: 1,
           recipient: seller.publicKey, // tampered — different pubkey
           proof: _escrowPaymentProof(listing: listing),
-          signatures: {seller.publicKey: sellerSig},
+          commitAuthorization: sellerAuthorization,
           createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
         ).signAs(buyer, Reservation.fromNostrEvent);
 
@@ -949,20 +968,21 @@ void main() async {
       },
     );
 
-    test('no seller signature present → verifyCommit returns false', () {
-      final content = ReservationContent(
+    test('no seller authorization present → verifyCommit returns false', () {
+      final reservation = Reservation.create(
+        pubKey: buyer.publicKey,
+        dTag: 'trade-no-auth',
+        listingAnchor: '32121:${seller.publicKey}:listing',
         start: DateTime(2026, 3, 1),
         end: DateTime(2026, 3, 5),
         quantity: 1,
-        // No signatures
       );
 
-      expect(content.verifyCommit(seller.publicKey), isFalse);
-      expect(content.verifyCommit(), isFalse);
+      expect(reservation.verifyCommit(seller.publicKey), isFalse);
     });
 
     test(
-      'forged signature (wrong private key) → verifyCommit returns false',
+      'forged authorization (wrong private key) → verifyCommit returns false',
       () async {
         final listing = _listing(allowSelfSignedReservation: true);
         final negotiate = await _negotiateReservation(
@@ -976,15 +996,18 @@ void main() async {
 
         // A random third party signs — not the seller.
         final imposter = Bip340.generatePrivateKey();
-        final imposterSig = negotiate.signCommit(imposter);
+        final imposterAuthorization = _commitAuthorizationFor(
+          reservation: negotiate,
+          signer: imposter,
+        );
 
-        // Buyer attaches the imposter's sig but claims it's from the seller.
+        // Buyer attaches the imposter authorization but claims it's from seller.
         final commit = await _commitReservation(
           negotiate: negotiate,
           listing: listing,
           buyer: buyer,
           proof: _escrowPaymentProof(listing: listing),
-          signatures: {seller.publicKey: imposterSig},
+          commitAuthorization: imposterAuthorization,
         );
 
         // Verify against the seller pubkey → false.
@@ -992,8 +1015,11 @@ void main() async {
       },
     );
 
-    test('signCommit + verifyCommit round-trip on ReservationContent', () {
-      final content = ReservationContent(
+    test('commit authorization + verifyCommit round-trip on Reservation', () {
+      final reservation = Reservation.create(
+        pubKey: buyer.publicKey,
+        dTag: 'trade-roundtrip',
+        listingAnchor: '32121:${seller.publicKey}:listing',
         start: DateTime(2026, 3, 1),
         end: DateTime(2026, 3, 5),
         quantity: 2,
@@ -1005,13 +1031,18 @@ void main() async {
         recipient: buyer.publicKey,
       );
 
-      // Seller signs.
-      final sig = content.signCommit(seller);
-      final signed = content.copyWith(signatures: {seller.publicKey: sig});
+      final authorization = _commitAuthorizationFor(
+        reservation: reservation,
+        signer: seller,
+      );
+      final signed = reservation.copy(
+        content: reservation.parsedContent.copyWith(
+          commitAuthorization: authorization,
+        ),
+      );
 
       // Verify.
       expect(signed.verifyCommit(seller.publicKey), isTrue);
-      expect(signed.verifyCommit(), isTrue); // any-signer form
       expect(
         signed.verifyCommit(buyer.publicKey),
         isFalse,

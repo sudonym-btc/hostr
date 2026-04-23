@@ -59,7 +59,7 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
         );
         return;
       }
-      await thread.replyEvent(
+      await thread.replyEventAndWait(
         EscrowServiceSelected(
           pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
           tags: EscrowServiceSelectedTags([]),

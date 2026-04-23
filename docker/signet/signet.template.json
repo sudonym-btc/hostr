@@ -1,0 +1,15 @@
+{
+  "nostr": {
+    "relays": ["wss://relay.__DOMAIN__"]
+  },
+  "authPort": 3000,
+  "authHost": "0.0.0.0",
+  "baseUrl": "https://bunker-nostr.__DOMAIN__",
+  "allowedOrigins": [
+    "https://bunker-nostr.__DOMAIN__",
+    "http://localhost:4174",
+    "http://127.0.0.1:4174"
+  ],
+  "requireAuth": false,
+  "verbose": false
+}

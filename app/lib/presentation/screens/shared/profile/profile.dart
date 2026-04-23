@@ -30,7 +30,7 @@ class ProfileScreen extends StatelessWidget {
             context,
             builder: (_) => BackupKeyWidget(
               publicKeyHex: keyPair.publicKey,
-              privateKeyHex: keyPair.privateKey!,
+              privateKeyHex: keyPair.privateKey,
               mnemonic: auth.activeMnemonic,
             ),
           );

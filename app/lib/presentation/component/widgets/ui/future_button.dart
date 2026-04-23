@@ -45,6 +45,12 @@ enum _FutureButtonVariant { filled, tonal, outlined }
 class _FutureButtonState extends State<FutureButton> {
   bool _loading = false;
 
+  String _formatError(Object error) {
+    final raw = error.toString().trim();
+    if (raw.isEmpty) return 'Something went wrong. Please try again.';
+    return raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+  }
+
   Future<void> _handlePressed() async {
     if (_loading) return;
     final callback = widget.onPressed;
@@ -56,7 +62,7 @@ class _FutureButtonState extends State<FutureButton> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(_formatError(e)),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

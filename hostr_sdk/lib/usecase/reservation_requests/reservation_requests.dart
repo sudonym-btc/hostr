@@ -28,6 +28,20 @@ class ReservationRequests extends CrudUseCase {
        _relays = relays,
        super(kind: Reservation.kinds[0]);
 
+  Future<Reservation> _signReservation({
+    required Reservation reservation,
+    required KeyPair signerKeyPair,
+  }) async {
+    final activeNdkPubkey = requests.ndk.accounts.getPublicKey();
+    if (activeNdkPubkey == signerKeyPair.publicKey) {
+      return Reservation.fromNostrEvent(
+        await requests.ndk.accounts.sign(reservation),
+      );
+    }
+
+    return reservation.signAs(signerKeyPair, Reservation.fromNostrEvent);
+  }
+
   static String getReservationRequestId({
     required Listing listing,
     required Reservation request,
@@ -40,9 +54,8 @@ class ReservationRequests extends CrudUseCase {
   /// `createReservationRequest`). The returned event is a full [Reservation]
   /// with `stage = negotiate` and a `commit` object.
   ///
-  /// The `recipient` field is automatically set to the tweaked public
-  /// key derived from the active user's private key and the generated salt.
-  /// This allows later review verification via [ParticipationProof].
+  /// The `recipient` field is automatically set to the deterministic
+  /// trade pubkey allocated for this trade.
   Future<Reservation> createReservationRequest({
     required Listing listing,
     required DateTime startDate,
@@ -51,20 +64,14 @@ class ReservationRequests extends CrudUseCase {
   }) => logger.span('createReservationRequest', () async {
     final accountIndex = await _tradeAccountAllocator.reserveNextTradeIndex();
     final nonce = await _auth.hd.getTradeId(accountIndex: accountIndex);
-    final salt = await _auth.hd.getTradeSalt(accountIndex: accountIndex);
 
     logger.d(
       'Creating negotiate reservation with deterministic tradeId $nonce '
       'at account index $accountIndex',
     );
 
-    final recipientKey = tweakKeyPair(
-      privateKey: _auth.getActiveKey().privateKey!,
-      salt: salt,
-    );
-    final tweakMaterial = ReservationTweakMaterial(
-      salt: salt,
-      parity: recipientKey.parity,
+    final recipientKey = await _auth.hd.getTradeKeyPair(
+      accountIndex: accountIndex,
     );
 
     // Sign and publish with the disposable trade key, but attach an encrypted
@@ -78,7 +85,6 @@ class ReservationRequests extends CrudUseCase {
       stage: ReservationStage.negotiate,
       quantity: 1,
       amount: amount ?? listing.cost(start: startDate, end: endDate),
-      tweakMaterial: tweakMaterial,
       recipient: recipientKey.publicKey,
       pTags: [
         PTag.seller(
@@ -96,11 +102,15 @@ class ReservationRequests extends CrudUseCase {
     final withBuyerProof = await reservation.attachPubkeyProof(
       role: 'buyer',
       proofKeyPair: _auth.getActiveKey(),
-      encryptionKeyPair: recipientKey.keyPair,
+      encryptionKeyPair: recipientKey,
+      signAuthorization:
+          requests.ndk.accounts.getPublicKey() == _auth.getActiveKey().publicKey
+          ? (unsignedEvent) => requests.ndk.accounts.sign(unsignedEvent)
+          : null,
     );
-    return withBuyerProof.signAs(
-      recipientKey.keyPair,
-      Reservation.fromNostrEvent,
+    return _signReservation(
+      reservation: withBuyerProof,
+      signerKeyPair: recipientKey,
     );
   });
 
@@ -122,7 +132,6 @@ class ReservationRequests extends CrudUseCase {
       stage: ReservationStage.negotiate,
       quantity: previousRequest.quantity,
       amount: amount,
-      tweakMaterial: previousRequest.tweakMaterial,
       recipient: previousRequest.recipient,
       pTags: [
         PTag.seller(
@@ -145,11 +154,25 @@ class ReservationRequests extends CrudUseCase {
     );
 
     if (signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)) {
+      final unsignedCommitAuthorization = CommitAuthorization.create(
+        pubKey: signerKeyPair.publicKey,
+        listingAnchor: listingAnchor,
+        tradeId: previousRequest.getDtag()!,
+        commitHash: counterOffer.commitHash(),
+      );
+      final activeNdkPubkey = requests.ndk.accounts.getPublicKey();
+      final signedCommitAuthorization =
+          activeNdkPubkey == signerKeyPair.publicKey
+          ? CommitAuthorization.fromNostrEvent(
+              await requests.ndk.accounts.sign(unsignedCommitAuthorization),
+            )
+          : unsignedCommitAuthorization.signAs(
+              signerKeyPair,
+              CommitAuthorization.fromNostrEvent,
+            );
       counterOffer = counterOffer.copy(
         content: counterOffer.parsedContent.copyWith(
-          signatures: {
-            signerKeyPair.publicKey: counterOffer.signCommit(signerKeyPair),
-          },
+          commitAuthorization: signedCommitAuthorization,
         ),
       );
     } else {
@@ -157,25 +180,36 @@ class ReservationRequests extends CrudUseCase {
         role: 'buyer',
         proofKeyPair: _auth.getActiveKey(),
         encryptionKeyPair: signerKeyPair,
+        signAuthorization:
+            requests.ndk.accounts.getPublicKey() ==
+                _auth.getActiveKey().publicKey
+            ? (unsignedEvent) => requests.ndk.accounts.sign(unsignedEvent)
+            : null,
       );
     }
 
-    return counterOffer.signAs(signerKeyPair, Reservation.fromNostrEvent);
+    return _signReservation(
+      reservation: counterOffer,
+      signerKeyPair: signerKeyPair,
+    );
   });
 
   Future<Reservation> createCancellation({
     required Reservation previousRequest,
     required KeyPair signerKeyPair,
   }) => logger.span('createCancellation', () async {
-    return previousRequest
-        .copy(
-          createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          id: null,
-          pubKey: signerKeyPair.publicKey,
-          content: previousRequest.parsedContent.copyWith(
-            stage: ReservationStage.cancel,
-          ),
-        )
-        .signAs(signerKeyPair, Reservation.fromNostrEvent);
+    final cancellation = previousRequest.copy(
+      createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      id: null,
+      pubKey: signerKeyPair.publicKey,
+      content: previousRequest.parsedContent.copyWith(
+        stage: ReservationStage.cancel,
+      ),
+    );
+
+    return _signReservation(
+      reservation: cancellation,
+      signerKeyPair: signerKeyPair,
+    );
   });
 }

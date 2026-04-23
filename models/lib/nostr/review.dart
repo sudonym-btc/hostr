@@ -38,31 +38,9 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
           tagParser: _tagParser,
           contentParser: _contentParser,
         );
-
-  /// Validate that a review's proof matches the reservation's guest commitment
-  ///
-  /// Parameters:
-  /// - reservation: The reservation being reviewed
-  /// - reviewerPubKey: The public key of the person posting the review (should be the guest)
-  /// - proof: The proof of participation being revealed
-  ///
-  /// Returns true if reviewer pubkey matches reservation recipient key.
-  static bool validateProof(
-    Reservation reservation,
-    String reviewerPubKey,
-    ParticipationProof proof,
-  ) {
-    final recipient = reservation.recipient;
-    if (recipient == null) return false;
-    return proof.verifyTweakedPubKey(
-      pubKey: reviewerPubKey,
-      tweakedPubKey: recipient,
-      tweakMaterial: proof.tweakMaterial,
-    );
-  }
 }
 
-/// Content of a review event, which includes proof of reservation participation
+/// Content of a review event, which includes proof of reservation participation.
 class ReviewContent extends EventContent {
   /// Rating from 1-5
   final int rating;
@@ -70,9 +48,8 @@ class ReviewContent extends EventContent {
   /// Review text
   final String content;
 
-  /// Proof that the reviewer (guest) was a participant in the reservation
-  /// When revealed here, only this specific reservation can be linked to the reviewer
-  /// since the tweak material is unique per reservation
+  /// Proof that reveals the private key needed to decrypt the reservation's
+  /// identity authorization capsule for this review.
   final ParticipationProof proof;
 
   ReviewContent({

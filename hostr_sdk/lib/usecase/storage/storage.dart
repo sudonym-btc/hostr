@@ -23,7 +23,7 @@ abstract class StringListStorage {
        _defaults = defaults,
        _auth = auth;
 
-  String? _currentUserKey() => auth.getActiveKey().publicKey;
+  String? _currentUserKey() => auth.activePubkey;
 
   String _prefix(String pubkey) => '$pubkey:';
 
@@ -107,7 +107,7 @@ class RelayStorage {
       _defaults = config.bootstrapRelays,
       _auth = auth;
 
-  String? _currentPubkey() => _auth.activeKeyPair?.publicKey;
+  String? _currentPubkey() => _auth.activePubkey;
 
   Future<List<String>> get() async {
     final pubkey = _currentPubkey();
@@ -170,6 +170,23 @@ class RelayStorage {
 class NwcStorage extends StringListStorage {
   NwcStorage(HostrConfig config, Auth auth)
     : super(storage: config.storage.nwc, auth: auth);
+}
+
+@singleton
+class AccountSeedStorage extends StringListStorage {
+  AccountSeedStorage(HostrConfig config, Auth auth)
+    : super(storage: config.storage.seed, auth: auth);
+
+  Future<String?> getSeed() async {
+    final items = await get();
+    if (items.isEmpty) return null;
+    final seed = items.first.trim();
+    return seed.isEmpty ? null : seed;
+  }
+
+  Future<void> setSeed(String seed) async {
+    await set([seed]);
+  }
 }
 
 @singleton

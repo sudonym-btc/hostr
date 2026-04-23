@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hostr/_localization/app_localizations.dart';
+import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:provider/provider.dart';
 
@@ -31,6 +32,15 @@ class ThreadReplyView extends StatelessWidget {
     final isEmpty = controller.text.trim().isEmpty;
     final isEnabled = !isLoading && !isEmpty;
     final theme = Theme.of(context);
+    final suffixIcon = isLoading
+        ? AppLoadingIndicator.small(color: theme.colorScheme.onPrimary)
+        : Icon(
+            Icons.send_rounded,
+            size: 16,
+            color: isEnabled
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurfaceVariant,
+          );
 
     return Focus(
       onKeyEvent: (_, event) {
@@ -74,13 +84,7 @@ class ThreadReplyView extends StatelessWidget {
           ),
           suffixIcon: IconButton.filled(
             onPressed: isEnabled ? onSend : null,
-            icon: Icon(
-              Icons.send_rounded,
-              size: 16,
-              color: isEnabled
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
+            icon: suffixIcon,
           ),
         ),
       ),
@@ -99,6 +103,12 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
   late TextEditingController _replyController;
   _ThreadReplyStatus _status = _ThreadReplyStatus.initial;
   String? _error;
+
+  String _formatError(Object error) {
+    final raw = error.toString().trim();
+    if (raw.isEmpty) return 'Failed to send message. Please try again.';
+    return raw.startsWith('Exception: ') ? raw.substring(11) : raw;
+  }
 
   @override
   void initState() {
@@ -132,13 +142,20 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
       });
     } catch (e) {
       if (!mounted) return;
+      final error = _formatError(e);
       setState(() {
         _status = _ThreadReplyStatus.error;
-        _error = e.toString();
+        _error = error;
         if (_replyController.text.trim().isEmpty) {
           _replyController.text = message;
         }
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
@@ -158,6 +175,13 @@ class _ThreadReplyWidgetState extends State<ThreadReplyWidget> {
             : null,
         hintText: AppLocalizations.of(context)!.typeAMessage,
         onChanged: (_) {
+          if (_status == _ThreadReplyStatus.error || _error != null) {
+            setState(() {
+              _status = _ThreadReplyStatus.initial;
+              _error = null;
+            });
+            return;
+          }
           setState(() {});
         },
         onSend: _sendReply,

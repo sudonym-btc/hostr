@@ -55,6 +55,7 @@ class Hostr {
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
   Heartbeats get heartbeats => getIt<Heartbeats>();
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
+  AccountSeedStore get accountSeedStore => getIt<AccountSeedStore>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();
   Calendar get calendar => getIt<Calendar>();

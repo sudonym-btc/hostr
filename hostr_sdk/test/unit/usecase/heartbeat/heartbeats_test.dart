@@ -11,19 +11,30 @@ import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart' show Filter, Nip01Event;
+import 'package:ndk/ndk.dart'
+    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 class _FakeRequests extends Fake implements Requests {
+  _FakeRequests({String? activePubkey, String? signingPrivateKey})
+    : _ndk = _FakeNdk(
+        activePubkey: activePubkey,
+        signingPrivateKey: signingPrivateKey,
+      );
+
   final StreamWithStatus<ReceivedHeartbeat> subscribeSource =
       StreamWithStatus<ReceivedHeartbeat>();
   final StreamController<ReceivedHeartbeat> queryController =
       StreamController<ReceivedHeartbeat>.broadcast();
+  final Ndk _ndk;
 
   Filter? lastSubscribeFilter;
   Filter? lastQueryFilter;
   Nip01Event? lastBroadcastEvent;
+
+  @override
+  Ndk get ndk => _ndk;
 
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
@@ -66,6 +77,37 @@ class _FakeRequests extends Fake implements Requests {
   }
 }
 
+class _FakeAccounts extends Fake implements Accounts {
+  _FakeAccounts({this.activePubkey, this.signingPrivateKey});
+
+  final String? activePubkey;
+  final String? signingPrivateKey;
+
+  @override
+  String? getPublicKey() => activePubkey;
+
+  @override
+  Future<Nip01Event> sign(Nip01Event event) async {
+    return Nip01Utils.signWithPrivateKey(
+      event: event,
+      privateKey: signingPrivateKey ?? MockKeys.hoster.privateKey!,
+    );
+  }
+}
+
+class _FakeNdk extends Fake implements Ndk {
+  _FakeNdk({this.activePubkey, this.signingPrivateKey});
+
+  final String? activePubkey;
+  final String? signingPrivateKey;
+
+  @override
+  Accounts get accounts => _FakeAccounts(
+    activePubkey: activePubkey,
+    signingPrivateKey: signingPrivateKey,
+  );
+}
+
 class _FakeAuth extends Fake implements Auth {
   @override
   KeyPair? activeKeyPair = MockKeys.hoster;
@@ -92,10 +134,11 @@ void main() {
   setUp(() {
     requests = _FakeRequests();
     auth = _FakeAuth();
-    heartbeats = Heartbeats(
+    heartbeats = Heartbeats.withDebounce(
       requests: requests,
       logger: CustomLogger(),
       auth: auth,
+      debounceDuration: const Duration(milliseconds: 20),
     );
   });
 
@@ -117,6 +160,35 @@ void main() {
       expect(broadcast, isNotNull);
       expect(broadcast!.pubKey, MockKeys.hoster.publicKey);
       expect(broadcast.createdAt, 1710000000);
+    },
+  );
+
+  test(
+    'upsertCurrent can sign through the active NDK signer without a local private key',
+    () async {
+      requests = _FakeRequests(
+        activePubkey: MockKeys.hoster.publicKey,
+        signingPrivateKey: MockKeys.hoster.privateKey,
+      );
+      auth = _FakeAuth()
+        ..activeKeyPair = KeyPair.justPublicKey(MockKeys.hoster.publicKey);
+      heartbeats = Heartbeats.withDebounce(
+        requests: requests,
+        logger: CustomLogger(),
+        auth: auth,
+        debounceDuration: const Duration(milliseconds: 20),
+      );
+
+      final heartbeat = await heartbeats.upsertCurrent(createdAt: 1710000001);
+
+      expect(heartbeat.pubKey, MockKeys.hoster.publicKey);
+      expect(heartbeat.sig, isNotNull);
+      expect(heartbeat.valid(), isTrue);
+
+      final broadcast = requests.lastBroadcastEvent as ReceivedHeartbeat?;
+      expect(broadcast, isNotNull);
+      expect(broadcast!.pubKey, MockKeys.hoster.publicKey);
+      expect(broadcast.createdAt, 1710000001);
     },
   );
 
@@ -177,6 +249,26 @@ void main() {
     expect(latest[MockKeys.hoster.publicKey]?.createdAt, 300);
     expect(latest[MockKeys.guest.publicKey]?.createdAt, 200);
   });
+
+  test(
+    'requestUpsertCurrent debounces multiple requests into one publish',
+    () async {
+      final first = heartbeats.requestUpsertCurrent(createdAt: 1710000010);
+      final second = heartbeats.requestUpsertCurrent(createdAt: 1710000020);
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      final firstHeartbeat = await first;
+      final secondHeartbeat = await second;
+
+      expect(firstHeartbeat.createdAt, 1710000020);
+      expect(secondHeartbeat.createdAt, 1710000020);
+
+      final broadcast = requests.lastBroadcastEvent as ReceivedHeartbeat?;
+      expect(broadcast, isNotNull);
+      expect(broadcast!.createdAt, 1710000020);
+    },
+  );
 
   test('subscribeUsers rejects empty pubkey lists', () {
     expect(() => heartbeats.subscribeUsers(const []), throwsArgumentError);

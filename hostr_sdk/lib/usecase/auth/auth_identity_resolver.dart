@@ -64,6 +64,13 @@ class AuthIdentityResolver {
 
   Future<AuthRecord> resolveRecord(AuthRecord record) async {
     if (record.keyPair != null) {
+      if (record.publicKeyHex == null) {
+        return record.copyWith(publicKey: record.keyPair!.publicKey);
+      }
+      return record;
+    }
+
+    if (record.credentialType == 'bunker') {
       return record;
     }
 
@@ -75,7 +82,10 @@ class AuthIdentityResolver {
     }
 
     final privateKeyHex = _parseAndValidateKey(record.secret);
-    return record.copyWith(keyPair: Bip340.fromPrivateKey(privateKeyHex));
+    return record.copyWith(
+      publicKey: Bip340.getPublicKey(privateKeyHex),
+      keyPair: Bip340.fromPrivateKey(privateKeyHex),
+    );
   }
 
   Future<AuthRecord> _resolveMnemonicIdentity(
@@ -90,6 +100,7 @@ class AuthIdentityResolver {
       version: kCurrentAuthRecordVersion,
       credentialType: 'mnemonic',
       secret: mnemonicSentence,
+      publicKey: Bip340.getPublicKey(privateKeyHex),
       nostrAccountIndex: nostrAccountIndex,
       maxAccountIndex: -1,
       keyPair: Bip340.fromPrivateKey(privateKeyHex),

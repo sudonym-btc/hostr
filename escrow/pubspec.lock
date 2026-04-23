@@ -57,6 +57,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.0+1"
+  ascii_qr:
+    dependency: transitive
+    description:
+      name: ascii_qr
+      sha256: "2046e400a0fa4ea0de5df44c87b992cdd1f76403bb15e64513b89263598750ae"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   async:
     dependency: transitive
     description:
@@ -113,6 +121,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  bs58check:
+    dependency: transitive
+    description:
+      name: bs58check
+      sha256: c4a164d42b25c2f6bc88a8beccb9fc7d01440f3c60ba23663a20a70faf484ea9
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
+  cbor:
+    dependency: transitive
+    description:
+      name: cbor
+      sha256: "2c5c37650f0a2d25149f03e748ab7b2857787bde338f95fe947738b80d713da2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.5.1"
   chalkdart:
     dependency: transitive
     description:
@@ -647,14 +671,31 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.17.5"
+  native_toolchain_rust:
+    dependency: transitive
+    description:
+      name: native_toolchain_rust
+      sha256: e53ef1025e2c190333ec61f638513c890c1becf11222e27b115b03bac369c6be
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   ndk:
     dependency: "direct main"
     description:
-      name: ndk
-      sha256: cb65ac0c2a5b57b42352f35edbdeb6c359fe80e145e9cc4e527fc39e435deac3
+      path: "packages/ndk"
+      ref: "codex/hostr-ndk-fixes"
+      resolved-ref: a146d5375a152f54a4b7dfa6b3125061a899520f
+      url: "https://github.com/sudonym-btc/ndk.git"
+    source: git
+    version: "0.8.2-dev.5"
+  ndk_bip32_keys:
+    dependency: transitive
+    description:
+      name: ndk_bip32_keys
+      sha256: "6bc311451646b6d488ca8e4c9907dc0e8486d93de752d5ab09c5c7b6c96238d8"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.1"
+    version: "0.1.0"
   node_preamble:
     dependency: transitive
     description:
@@ -751,6 +792,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  qr:
+    dependency: transitive
+    description:
+      name: qr
+      sha256: "5a1d2586170e172b8a8c8470bbbffd5eb0cd38a66c0d77155ea138d3af3a4445"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
   qs_dart:
     dependency: transitive
     description:
@@ -791,6 +840,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  sembast:
+    dependency: transitive
+    description:
+      name: sembast
+      sha256: "139cf71496105de32e7a08a4e3a1ead0f81c4a616ec9703ed07e8f0d10cdd505"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.8.6"
   shelf:
     dependency: transitive
     description:
@@ -943,6 +1000,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  toml:
+    dependency: transitive
+    description:
+      name: toml
+      sha256: "35a35f782228656a2af31e8c73d1353cc4ef3d683fd68af1111b44631879c05e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.0"
   typed_data:
     dependency: transitive
     description:

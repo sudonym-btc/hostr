@@ -248,5 +248,5 @@ class StartupCoordinator {
     await _snapshots.close();
   }
 
-  String? get _activePubkey => _auth.activeKeyPair?.publicKey;
+  String? get _activePubkey => _auth.activePubkey;
 }

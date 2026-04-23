@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
+import '../../injection.dart';
 import '../../util/custom_logger.dart';
+import '../auth/auth.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
+import '../reservations/reservation_pubkey_proofs.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 abstract class CalendarPort {
@@ -66,6 +70,7 @@ class CalendarEntry extends Equatable {
 class Calendar {
   final UserSubscriptions _userSubscriptions;
   final Listings _listings;
+  final Auth _auth;
   final MetadataUseCase _metadata;
   final CustomLogger _logger;
   final CalendarPort _port;
@@ -79,11 +84,13 @@ class Calendar {
   Calendar({
     required UserSubscriptions userSubscriptions,
     required Listings listings,
+    required Auth auth,
     required MetadataUseCase metadata,
     required CustomLogger logger,
     required CalendarPort port,
   }) : _userSubscriptions = userSubscriptions,
        _listings = listings,
+       _auth = auth,
        _metadata = metadata,
        _logger = logger,
        _port = port;
@@ -147,7 +154,7 @@ class Calendar {
         if (!_isFuture(group)) return;
 
         try {
-          final guestPubkey = _resolveGuestPubkey(group);
+          final guestPubkey = await _resolveGuestPubkey(group);
           String guestName = 'Guest';
           if (guestPubkey != null) {
             final profile = await _metadata.loadMetadata(guestPubkey);
@@ -256,24 +263,68 @@ class Calendar {
         }
       });
 
-  String? _resolveGuestPubkey(ReservationGroup group) {
-    final tweakedPubkey =
-        group.buyerReservation?.recipient ?? group.buyerReservation?.pubKey;
-    final tweakMaterial = group.buyerReservation?.tweakMaterial;
-    final salt = tweakMaterial?.salt;
-    final parity = tweakMaterial?.parity;
-    if (tweakedPubkey == null ||
-        salt == null ||
-        salt.isEmpty ||
-        parity == null) {
-      return null;
+  Future<String?> _resolveGuestPubkey(ReservationGroup group) async {
+    final buyerReservation = group.buyerReservation;
+    if (buyerReservation == null) return null;
+
+    final activeKey = _auth.getActiveKey();
+    final proof = activeKey.privateKey != null
+        ? await buyerReservation.resolvePubkeyProof(
+            role: 'buyer',
+            recipientKeyPair: activeKey,
+          )
+        : await _resolveGuestProofWithSigner(
+            buyerReservation,
+            recipientPubkey: activeKey.publicKey,
+          );
+    return proof?.pubkey ??
+        buyerReservation.parsedTags.getTagValueByMarker('p', 'buyer') ??
+        buyerReservation.recipient ??
+        buyerReservation.pubKey;
+  }
+
+  Future<ReservationPubkeyProofPayload?> _resolveGuestProofWithSigner(
+    Reservation reservation, {
+    required String recipientPubkey,
+  }) async {
+    final signer = getIt<Ndk>().accounts.getLoggedAccount()?.signer;
+    if (signer == null) return null;
+
+    final tradeId = reservation.getDtag();
+    if (tradeId == null || tradeId.isEmpty) return null;
+
+    final participantPubkey = reservation.pubkeyForRole('buyer');
+    final proofTags = reservation.parsedTags.pubkeyProofsFor(
+      role: 'buyer',
+      recipientPubkey: recipientPubkey,
+    );
+
+    for (final tag in proofTags) {
+      if (tag.scheme != kReservationPubkeyProofSchemeNip44V1) continue;
+
+      try {
+        final plaintext = await signer.decryptNip44(
+          ciphertext: tag.ciphertext,
+          senderPubKey: reservation.pubKey,
+        );
+        if (plaintext == null || plaintext.isEmpty) continue;
+
+        final proof = ReservationPubkeyProofPayload.tryDecode(plaintext);
+        if (proof != null &&
+            proof.verifiesForReservation(
+              tradeId: tradeId,
+              listingAnchor: reservation.parsedTags.listingAnchor,
+              participantPubkey: participantPubkey,
+              role: 'buyer',
+            )) {
+          return proof;
+        }
+      } catch (_) {
+        // Keep trying other proof capsules if the signer rejects one.
+      }
     }
 
-    return untweakPublicKey(
-      tweakedPublicKey: tweakedPubkey,
-      tweakedPublicKeyParity: parity,
-      salt: salt,
-    );
+    return null;
   }
 
   bool _isFuture(ReservationGroup group) {
