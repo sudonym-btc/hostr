@@ -23,6 +23,29 @@ compose_up_args=(-d --remove-orphans --yes)
 # (tls-init, alby-init, lnbits-init, etc.) that exit 0 as failures.
 hostr_compose_cmd "$ENVIRONMENT" up "${compose_up_args[@]}"
 
+wait_for_oneshot_service() {
+    local service_name="$1"
+    local required="${2:-true}"
+    local cid
+
+    cid="$(hostr_compose_cmd "$ENVIRONMENT" ps -aq "$service_name" 2>/dev/null | head -n 1 || true)"
+    if [ -z "$cid" ]; then
+        if [ "$required" = "true" ]; then
+            echo "missing expected one-shot service container: $service_name"
+            exit 1
+        fi
+        return 0
+    fi
+
+    docker wait "$cid" >/dev/null 2>&1 || true
+    local exit_code
+    exit_code="$(docker inspect "$cid" --format '{{.State.ExitCode}}')"
+    if [ "$exit_code" -ne 0 ]; then
+        echo "$service_name failed with exit code: $exit_code"
+        exit "$exit_code"
+    fi
+}
+
 # Block until tls-init finishes so the CA cert is available for trust
 # and for containers that mount it.
 # Use `docker wait` (not `docker compose wait`) because compose wait
@@ -32,15 +55,13 @@ if [ -n "$tls_init_cid" ]; then
     docker wait "$tls_init_cid" >/dev/null 2>&1 || true
 fi
 
-# Block until the one-shot bootstrap container finishes.
-bootstrap_cid="$(hostr_compose_cmd "$ENVIRONMENT" ps -aq bootstrap 2>/dev/null | head -n 1 || true)"
-if [ -n "$bootstrap_cid" ]; then
-    docker wait "$bootstrap_cid" >/dev/null 2>&1
-    bootstrap_exit_code="$(docker inspect "$bootstrap_cid" --format '{{.State.ExitCode}}')"
-    if [ "$bootstrap_exit_code" -ne 0 ]; then
-        echo "bootstrap failed with exit code: $bootstrap_exit_code"
-        exit "$bootstrap_exit_code"
-    fi
+# Block until critical one-shot init containers finish so callers can safely
+# interact with the local chain and seeded services immediately after start.
+wait_for_oneshot_service bootstrap
+if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then
+    wait_for_oneshot_service arbitrum-init
+    wait_for_oneshot_service contract-deployer false
+    wait_for_oneshot_service escrow-contract-deploy false
 fi
 
 if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then
