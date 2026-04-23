@@ -1,21 +1,27 @@
 # ── Toolchain base ────────────────────────────────────────────────────
 FROM dart:stable AS toolchain
 
-ENV PATH="/usr/local/bin:/root/.cargo/bin:${PATH}" \
-    RUSTUP_TOOLCHAIN="1.90.0-aarch64-unknown-linux-gnu"
+ARG TARGETARCH
+
+ENV PATH="/usr/local/bin:/root/.cargo/bin:${PATH}"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl build-essential pkg-config libssl-dev libsecp256k1-2 \
+    && case "${TARGETARCH}" in \
+         amd64) rust_triple="x86_64-unknown-linux-gnu" ;; \
+         arm64) rust_triple="aarch64-unknown-linux-gnu" ;; \
+         *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+       esac \
     && curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain none \
-    && rustup toolchain install 1.90.0-aarch64-unknown-linux-gnu \
-    && rustup default 1.90.0-aarch64-unknown-linux-gnu \
+    && rustup toolchain install "1.90.0-${rust_triple}" \
+    && rustup default "1.90.0-${rust_triple}" \
     && mv /root/.cargo/bin/rustup /root/.cargo/bin/rustup-real \
     && printf '%s\n' \
       '#!/bin/sh' \
       'set -e' \
       '' \
       'if [ "$1" = "show" ] && [ "$2" = "active-toolchain" ]; then' \
-      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.90.0-aarch64-unknown-linux-gnu}"' \
+      "  printf '%s (default)\n' \"\${RUSTUP_TOOLCHAIN:-1.90.0-${rust_triple}}\"" \
       '  exit 0' \
       'fi' \
       '' \
@@ -23,7 +29,7 @@ RUN apt-get update \
       '  toolchain="$2"' \
       '  shift 2' \
       '  if [ "$1" = "cargo" ]; then' \
-      '    toolchain_bin="/root/.rustup/toolchains/${RUSTUP_TOOLCHAIN:-${toolchain}-aarch64-unknown-linux-gnu}/bin"' \
+      "    toolchain_bin=\"/root/.rustup/toolchains/\${RUSTUP_TOOLCHAIN:-\${toolchain}-${rust_triple}}/bin\"" \
       '    export PATH="${toolchain_bin}:$PATH"' \
       '    shift 1' \
       '    exec "${toolchain_bin}/cargo" "$@"' \
