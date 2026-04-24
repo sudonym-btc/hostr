@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
@@ -9,13 +10,21 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import '../../config.dart' show CoinlibEventSigner;
-import '../../hostr.dart';
 import '../../util/main.dart';
+import '../auth/auth.dart';
 import '../escrow/escrow_verification.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
+import '../escrows/escrows.dart';
+import '../evm/evm.dart';
+import '../listings/listings.dart';
+import '../messaging/messaging.dart';
+import '../metadata/metadata.dart';
+import '../requests/requests.dart';
 import '../reservation_groups/reservation_groups.dart';
 import '../reservations/reservation_pubkey_proofs.dart';
+import '../reservations/reservations.dart';
+import '../user_subscriptions/user_subscriptions.dart';
 import 'escrow_daemon_models.dart';
 
 typedef EscrowReservationNoticeSender =
@@ -62,7 +71,9 @@ class EscrowReservationNotifier {
   Future<void> notifyReservation(ReservationGroup group) async {
     final tradeId = group.tradeId;
     if (_hasEnded(group)) {
-      _logger.d('Skipping reservation notice for $tradeId: reservation ended');
+      _logger.i(
+        'Skipping reservation notice: trade=$tradeId reason=reservation_ended',
+      );
       return;
     }
 
@@ -71,9 +82,16 @@ class EscrowReservationNotifier {
         await _resolveProvenPubkey(group, role: 'seller') ?? group.sellerPubkey;
 
     if (buyerPubkey == null) {
-      _logger.d('Skipping reservation notice for $tradeId: no buyer proof');
+      _logger.i(
+        'Skipping reservation notice: trade=$tradeId reason=no_buyer_proof',
+      );
       return;
     }
+
+    _logger.i(
+      'Reservation notice recipients resolved: '
+      'trade=$tradeId buyer=$buyerPubkey seller=$sellerPubkey',
+    );
 
     final listing = await loadListing(group.listingAnchor);
     final hostName = await _displayNameFor(sellerPubkey);
@@ -135,7 +153,7 @@ class EscrowReservationNotifier {
       role: role,
       recipientPubkey: recipientPubkey,
     )) {
-      _logger.d(
+      _logger.i(
         'Skipping duplicate reservation notice: '
         'trade=$tradeId role=$role recipient=$recipientPubkey',
       );
@@ -147,6 +165,10 @@ class EscrowReservationNotifier {
       ['hostr_notice', 'reservation_placed', role, recipientPubkey],
     ];
 
+    _logger.i(
+      'Sending reservation notice: '
+      'trade=$tradeId role=$role recipient=$recipientPubkey',
+    );
     await sendText(
       content: content,
       tags: tags,
@@ -257,18 +279,28 @@ class EscrowReservationNotifier {
 ///      messages, and reservation events; auto-confirm or cancel buyer
 ///      self-signed reservations.
 ///
-/// This is a long-lived object. Create it with a [Hostr] that is already
-/// authenticated (`hostr.auth.signin(…)` / `hostr.auth.init()` completed).
+/// This is a long-lived object. Resolve it from dependency injection after auth
+/// is initialized (`hostr.auth.signin(…)` / `hostr.auth.init()` completed).
 ///
 /// ```dart
-/// final daemon = EscrowDaemon(hostr: hostr);
+/// final daemon = hostr.escrowDaemon;
 /// final ctx = await daemon.bootstrap(config);
 /// daemon.start();
 /// // … later …
 /// await daemon.stop();
 /// ```
+@Singleton()
 class EscrowDaemon {
-  final Hostr _hostr;
+  final Auth _auth;
+  final Evm _evm;
+  final Listings _listings;
+  final MetadataUseCase _metadata;
+  final Messaging _messaging;
+  final Requests _requests;
+  final Escrows _escrows;
+  final Reservations _reservations;
+  final UserSubscriptions _userSubscriptions;
+  final EscrowVerification _escrowVerification;
   final CustomLogger _logger;
 
   EscrowDaemonContext? _context;
@@ -278,7 +310,6 @@ class EscrowDaemon {
   final _tradesSubject = BehaviorSubject<Map<String, TradeSnapshot>>.seeded({});
 
   // ── Reservation auto-confirmation state ─────────────────────────────────
-  late final EscrowVerification _escrowVerification;
   late final EscrowReservationNotifier _reservationNotifier;
   final Map<String, ReservationGroup> _reservationGroups = {};
   final Map<String, Timer> _reservationRetryTimers = {};
@@ -294,19 +325,39 @@ class EscrowDaemon {
   int? _latestBlockNum;
   static const _reservationRetryDelay = Duration(seconds: 5);
 
-  EscrowDaemon({required Hostr hostr})
-    : _hostr = hostr,
-      _logger = hostr.logger.scope('escrow-daemon') {
-    _escrowVerification = EscrowVerification(evm: hostr.evm, logger: _logger);
+  EscrowDaemon({
+    required Auth auth,
+    required Evm evm,
+    required Listings listings,
+    required MetadataUseCase metadata,
+    required Messaging messaging,
+    required Requests requests,
+    required Escrows escrows,
+    required Reservations reservations,
+    required UserSubscriptions userSubscriptions,
+    required EscrowVerification escrowVerification,
+    required CustomLogger logger,
+  }) : _auth = auth,
+       _evm = evm,
+       _listings = listings,
+       _metadata = metadata,
+       _messaging = messaging,
+       _requests = requests,
+       _escrows = escrows,
+       _reservations = reservations,
+       _userSubscriptions = userSubscriptions,
+       _escrowVerification = escrowVerification,
+       _logger = logger.scope('escrow-daemon') {
     _reservationNotifier = EscrowReservationNotifier(
-      escrowKeyPair: () => _hostr.auth.activeKeyPair!,
-      loadListing: (anchor) => _hostr.listings.getOneByAnchor(anchor),
-      loadMetadata: (pubkey) => _hostr.metadata.loadMetadata(pubkey),
-      existingMessagesForTrade: (_) => _hostr.messaging.threads.threads.values
-          .expand((thread) => thread.state.value.textMessages),
+      escrowKeyPair: () => _auth.activeKeyPair!,
+      loadListing: (anchor) => _listings.getOneByAnchor(anchor),
+      loadMetadata: (pubkey) => _metadata.loadMetadata(pubkey),
+      existingMessagesForTrade: (_) => _messaging.threads.threads.values.expand(
+        (thread) => thread.state.value.textMessages,
+      ),
       sendText:
           ({required content, required tags, required recipientPubkeys}) async {
-            await _hostr.messaging.broadcastText(
+            await _messaging.broadcastTextAllowingExternalRelays(
               content: content,
               tags: tags,
               recipientPubkeys: recipientPubkeys,
@@ -329,7 +380,7 @@ class EscrowDaemon {
     required List<List<String>> tags,
     required String recipientPubkey,
   }) async {
-    final keyPair = _hostr.auth.activeKeyPair!;
+    final keyPair = _auth.activeKeyPair!;
     final signer = CoinlibEventSigner(
       privateKey: keyPair.privateKey,
       publicKey: keyPair.publicKey,
@@ -339,7 +390,7 @@ class EscrowDaemon {
       throw StateError('Failed to encrypt legacy DM for $recipientPubkey');
     }
 
-    await _hostr.requests.broadcast(
+    await _requests.broadcast(
       event: Nip01Event(
         pubKey: keyPair.publicKey,
         kind: kNostrKindLegacyDM,
@@ -354,9 +405,6 @@ class EscrowDaemon {
   }
 
   // ── Getters ───────────────────────────────────────────────────────────────
-
-  /// The underlying [Hostr] instance.
-  Hostr get hostr => _hostr;
 
   /// The daemon context created by [bootstrap]. Throws if not bootstrapped.
   EscrowDaemonContext get context {
@@ -377,14 +425,14 @@ class EscrowDaemon {
   /// Builds the [EscrowService], verifies the contract is deployed, and
   /// publishes the service to the relay.
   ///
-  /// The [Hostr] must already be authenticated before calling this.
+  /// Auth must already be initialized before calling this.
   Future<EscrowDaemonContext> bootstrap(EscrowDaemonConfig config) async {
     _logger.i('Bootstrapping escrow daemon…');
 
-    final chain = _hostr.evm.configuredChains[config.chainIndex];
+    final chain = _evm.configuredChains[config.chainIndex];
     final contractAddress = chain.config.escrowContractAddress!;
-    final pubKey = _hostr.auth.activeKeyPair!.publicKey;
-    final evmKey = await _hostr.auth.hd.getActiveEvmKey();
+    final pubKey = _auth.activeKeyPair!.publicKey;
+    final evmKey = await _auth.hd.getActiveEvmKey();
     final existingService = await _findExistingService(
       pubKey: pubKey,
       contractAddress: contractAddress,
@@ -412,13 +460,13 @@ class EscrowDaemon {
       ),
     );
 
-    final configuredChain = _hostr.evm.getChainForEscrowService(escrowService);
+    final configuredChain = _evm.getChainForEscrowService(escrowService);
     final contract = configuredChain.escrow.getSupportedEscrowContract(
       escrowService,
     );
 
     await contract.ensureDeployed();
-    await _hostr.escrows.upsert(escrowService);
+    await _escrows.upsert(escrowService);
 
     _logger.i('Escrow service published: ${escrowService.content}');
 
@@ -436,7 +484,7 @@ class EscrowDaemon {
     required String pubKey,
     required String contractAddress,
   }) async {
-    final services = await _hostr.escrows.list(
+    final services = await _escrows.list(
       Filter(kinds: EscrowService.kinds, authors: [pubKey]),
     );
     final matches =
@@ -525,7 +573,7 @@ class EscrowDaemon {
   /// address. For each discovered trade ID, spin up a per-trade stream
   /// (phase 2) that delivers ALL lifecycle events for that trade.
   void _startContractListener() {
-    _hostr.auth.hd.getActiveEvmKey().then((evmKey) {
+    _auth.hd.getActiveEvmKey().then((evmKey) {
       final streamer = context.contract.allEvents(
         ContractEventsParams(arbiterEvmAddress: evmKey.address),
         null,
@@ -650,10 +698,10 @@ class EscrowDaemon {
 
   Future<void> _startThreadListener() async {
     _logger.i('Starting thread listener…');
-    await _hostr.userSubscriptions.start();
+    await _userSubscriptions.start();
     _logger.i('UserSubscriptions started');
 
-    _threadSub = _hostr.messaging.threads.threadStream.listen((thread) {
+    _threadSub = _messaging.threads.threadStream.listen((thread) {
       _logger.d('New/updated thread: ${thread.anchor}');
     }, onError: (e) => _logger.e('Thread stream error: $e'));
 
@@ -662,7 +710,7 @@ class EscrowDaemon {
     // a slow relay doesn't block startup indefinitely.
     _logger.i('Waiting for thread query to complete…');
     try {
-      await _hostr.messaging.threads.status
+      await _messaging.threads.status
           .firstWhere(
             (s) => s is StreamStatusQueryComplete || s is StreamStatusLive,
           )
@@ -670,23 +718,21 @@ class EscrowDaemon {
     } on TimeoutException {
       _logger.w(
         'Thread loading timed out after 30s — '
-        'continuing with ${_hostr.messaging.threads.threads.length} threads',
+        'continuing with ${_messaging.threads.threads.length} threads',
       );
     }
     _logger.i(
-      'Threads ready: ${_hostr.messaging.threads.threads.length} conversations',
+      'Threads ready: ${_messaging.threads.threads.length} conversations',
     );
   }
 
   // ── Reservation auto-confirmation ─────────────────────────────────────────
 
   void _startReservationListener() {
-    final escrowPubkey = _hostr.auth.activeKeyPair!.publicKey;
+    final escrowPubkey = _auth.activeKeyPair!.publicKey;
 
     // 1. Reservations that p-tag the escrow (buyer's self-signed commits).
-    final pTagStream = _hostr.reservations.subscribe(
-      Filter(pTags: [escrowPubkey]),
-    );
+    final pTagStream = _reservations.subscribe(Filter(pTags: [escrowPubkey]));
     _reservationPTagSub = reservationListenerEvents(pTagStream).listen(
       _onReservation,
       onError: (e) => _logger.e('Reservation p-tag stream error: $e'),
@@ -695,7 +741,7 @@ class EscrowDaemon {
     // 2. Reservations authored by the escrow (our own past confirmations/
     //    cancellations). Needed so group.escrowReservation is populated and
     //    we skip groups we've already handled.
-    final authorStream = _hostr.reservations.subscribe(
+    final authorStream = _reservations.subscribe(
       Filter(authors: [escrowPubkey]),
     );
     _reservationAuthorSub = reservationListenerEvents(authorStream).listen(
@@ -781,8 +827,7 @@ class EscrowDaemon {
         await _reservationNotifier.notifyReservation(group);
       } else if (result is Invalid<ReservationGroup>) {
         final reason = result.reason;
-        if (reason != null &&
-            isRetryableReservationVerificationFailure(reason)) {
+        if (isRetryableReservationVerificationFailure(reason)) {
           _logger.w(
             'Escrow proof pending verification for trade=$tradeId: $reason. '
             'Retrying in ${_reservationRetryDelay.inSeconds}s.',
@@ -805,9 +850,9 @@ class EscrowDaemon {
     ReservationGroup group,
     Reservation buyer,
   ) async {
-    final keyPair = _hostr.auth.activeKeyPair!;
+    final keyPair = _auth.activeKeyPair!;
 
-    final reservation = await _hostr.reservations.confirm(group, keyPair);
+    final reservation = await _reservations.confirm(group, keyPair);
 
     // Update local group so we don't re-process.
     final groupId = ReservationGroup.groupIdFromEvent(reservation);
@@ -821,9 +866,9 @@ class EscrowDaemon {
     ReservationGroup group,
     Reservation buyer,
   ) async {
-    final keyPair = _hostr.auth.activeKeyPair!;
+    final keyPair = _auth.activeKeyPair!;
 
-    final reservation = await _hostr.reservations.cancel(group, keyPair);
+    final reservation = await _reservations.cancel(group, keyPair);
 
     // Update local group so we don't re-process.
     final groupId = ReservationGroup.groupIdFromEvent(reservation);

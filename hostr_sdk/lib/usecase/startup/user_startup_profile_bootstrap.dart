@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:models/main.dart';
 
 import '../metadata/metadata.dart';
@@ -40,7 +38,13 @@ class UserStartupProfileBootstrapper {
     }
 
     if (metadata != null) {
-      unawaited(_metadata.ensureUserConfig(pubkey).catchError((_) {}));
+      // Temporarily do not write user config during startup. In particular,
+      // Hostr should not auto-publish Blossom server lists or NIP-65 relay lists
+      // while the app is scoped to Hostr-owned infrastructure. Keep the hook
+      // here so we can re-enable config reconciliation once relay/list semantics
+      // are part of the product again.
+      //
+      // unawaited(_metadata.ensureUserConfig(pubkey).catchError((_) {}));
     }
 
     return UserStartupProfileBootstrapResult(

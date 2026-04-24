@@ -137,6 +137,7 @@ class _FakeReservationTransitions extends Fake
     required ReservationTransitionType transitionType,
     required ReservationStage fromStage,
     required ReservationStage toStage,
+    KeyPair? signerKeyPair,
     String? commitTermsHash,
     String? reason,
     Map<String, dynamic>? updatedFields,

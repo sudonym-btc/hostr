@@ -257,6 +257,34 @@ void main() {
     );
   });
 
+  test(
+    'marks historical thread messages locally read when giftwraps go live',
+    () async {
+      final conversationId = _cid('trade-live');
+
+      userSubscriptions.emit(
+        _textMessage(
+          id: 'm-live-1',
+          sender: MockKeys.hoster.publicKey,
+          recipients: [MockKeys.guest.publicKey],
+          conversationTag: 'trade-live',
+          createdAt: 120,
+        ),
+      );
+      await _pump();
+
+      final thread = threads.threads[conversationId]!;
+      expect(thread.state.value.unreadCount(MockKeys.guest.publicKey), 1);
+      expect(thread.shouldSendReceiptNow, isTrue);
+
+      userSubscriptions.emitStatus(StreamStatusLive());
+      await _pump();
+
+      expect(thread.state.value.unreadCount(MockKeys.guest.publicKey), 0);
+      expect(thread.shouldSendReceiptNow, isFalse);
+    },
+  );
+
   test('creates a new thread when participant set changes', () async {
     final guestHostConversation = _cid('trade-z');
     final guestHostEscrowConversation = _cid('trade-z', [

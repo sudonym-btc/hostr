@@ -336,6 +336,17 @@ class MockAuth extends _i1.Mock implements _i13.Auth {
           as _i2.ValueStream<_i13.AuthState>);
 
   @override
+  _i2.ValueStream<_i13.BunkerSessionState> get bunkerSessionState =>
+      (super.noSuchMethod(
+            Invocation.getter(#bunkerSessionState),
+            returnValue: _FakeValueStream_0<_i13.BunkerSessionState>(
+              this,
+              Invocation.getter(#bunkerSessionState),
+            ),
+          )
+          as _i2.ValueStream<_i13.BunkerSessionState>);
+
+  @override
   bool get isMnemonicBacked =>
       (super.noSuchMethod(
             Invocation.getter(#isMnemonicBacked),
@@ -355,6 +366,14 @@ class MockAuth extends _i1.Mock implements _i13.Auth {
   bool get hasLocalPrivateKey =>
       (super.noSuchMethod(
             Invocation.getter(#hasLocalPrivateKey),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get needsBunkerRecovery =>
+      (super.noSuchMethod(
+            Invocation.getter(#needsBunkerRecovery),
             returnValue: false,
           )
           as bool);
@@ -482,6 +501,14 @@ class MockAuth extends _i1.Mock implements _i13.Auth {
             returnValue: false,
           )
           as bool);
+
+  @override
+  _i27.Future<bool> retryBunkerSessionRestore() =>
+      (super.noSuchMethod(
+            Invocation.method(#retryBunkerSessionRestore, []),
+            returnValue: _i27.Future<bool>.value(false),
+          )
+          as _i27.Future<bool>);
 
   @override
   _i5.KeyPair getActiveKey() =>
@@ -731,15 +758,6 @@ class MockMetadataUseCase extends _i1.Mock implements _i29.MetadataUseCase {
   _i27.Future<void> ensureUserConfig(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#ensureUserConfig, [pubkey]),
-            returnValue: _i27.Future<void>.value(),
-            returnValueForMissingStub: _i27.Future<void>.value(),
-          )
-          as _i27.Future<void>);
-
-  @override
-  _i27.Future<void> ensureEvmAddress() =>
-      (super.noSuchMethod(
-            Invocation.method(#ensureEvmAddress, []),
             returnValue: _i27.Future<void>.value(),
             returnValueForMissingStub: _i27.Future<void>.value(),
           )
@@ -3025,6 +3043,26 @@ class MockMessaging extends _i1.Mock implements _i12.Messaging {
   }) =>
       (super.noSuchMethod(
             Invocation.method(#broadcastText, [], {
+              #content: content,
+              #tags: tags,
+              #recipientPubkeys: recipientPubkeys,
+            }),
+            returnValue:
+                _i27.Future<
+                  List<_i27.Future<List<_i28.RelayBroadcastResponse>>>
+                >.value(<_i27.Future<List<_i28.RelayBroadcastResponse>>>[]),
+          )
+          as _i27.Future<List<_i27.Future<List<_i28.RelayBroadcastResponse>>>>);
+
+  @override
+  _i27.Future<List<_i27.Future<List<_i28.RelayBroadcastResponse>>>>
+  broadcastTextAllowingExternalRelays({
+    required String? content,
+    required List<List<String>>? tags,
+    required List<String>? recipientPubkeys,
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#broadcastTextAllowingExternalRelays, [], {
               #content: content,
               #tags: tags,
               #recipientPubkeys: recipientPubkeys,

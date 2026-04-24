@@ -53,6 +53,7 @@ void main() {
         escrowService: escrowService,
         negotiateReservation: negotiateReservation,
         sellerProfile: sellerProfile,
+        sellerEvmAddress: trade.sellerEvmAddress,
         amount: negotiateReservation.amount!,
         dexInputBuffer: SwapInDexBuffer.zero,
       ),

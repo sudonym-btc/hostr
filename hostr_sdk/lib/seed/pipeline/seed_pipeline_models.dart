@@ -118,6 +118,7 @@ class SeedOutcomePlan {
 class SeedPipelineData {
   final List<SeedUser> users;
   final List<ProfileMetadata> profiles;
+  final List<IdentityClaims> identityClaims;
   final List<Listing> listings;
   final List<EscrowService> escrowServices;
   final List<EscrowMethod> escrowMethods;
@@ -134,6 +135,7 @@ class SeedPipelineData {
   const SeedPipelineData({
     required this.users,
     required this.profiles,
+    required this.identityClaims,
     required this.listings,
     required this.escrowServices,
     required this.escrowMethods,
@@ -150,6 +152,7 @@ class SeedPipelineData {
 
   List<Nip01Event> get allEvents => [
     ...profiles,
+    ...identityClaims,
     ...escrowServices,
     ...escrowMethods,
     ...listings,

@@ -143,7 +143,7 @@ void main() {
       final fundArgs = FundArgs(
         tradeId: negotiation.getDtag()!,
         amount: usdtAmount,
-        sellerEvmAddress: trade.sellerProfile.evmAddress!,
+        sellerEvmAddress: trade.sellerEvmAddress,
         arbiterEvmAddress: escrowService.evmAddress,
         unlockAt: negotiation.end!.millisecondsSinceEpoch ~/ 1000,
         escrowFee: TokenAmount(value: escrowFee, token: usdtToken),

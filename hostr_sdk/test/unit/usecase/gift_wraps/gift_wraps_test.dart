@@ -1,6 +1,8 @@
 @Tags(['unit'])
 library;
 
+import 'dart:async';
+
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/util/main.dart';
@@ -27,6 +29,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
   List<String>? lastSubscribeRelays;
   Type? lastSubscribeType;
   Nip01Event? lastBroadcastEvent;
+  List<String>? lastBroadcastRelays;
 
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
@@ -47,6 +50,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     List<String>? relays,
   }) async {
     lastBroadcastEvent = event;
+    lastBroadcastRelays = relays;
     return const [];
   }
 }
@@ -106,6 +110,109 @@ void main() {
 
     expect(statuses, everyElement(isA<StreamStatus>()));
     expect(statuses.whereType<StreamStatusQueryComplete>(), isNotEmpty);
+    await parsed.close();
+  });
+
+  test('parser delays live status until historical unwraps finish', () async {
+    final raw = StreamWithStatus<Nip01Event>();
+    final first = Completer<Nip01Event?>();
+    final second = Completer<Nip01Event?>();
+    final parsed = parseGiftWrapsConcurrently(
+      raw: raw,
+      maxConcurrent: 2,
+      parse: (event) => event.id == 'raw-1' ? first.future : second.future,
+    );
+
+    final statuses = <StreamStatus>[];
+    final events = <Nip01Event>[];
+    parsed.status.listen(statuses.add);
+    parsed.replayStream.listen(events.add);
+
+    raw.add(
+      Nip01Event(
+        id: 'raw-1',
+        pubKey: 'aabb' * 16,
+        kind: kNostrKindGiftWrap,
+        tags: const [],
+        content: 'one',
+      ),
+    );
+    raw.add(
+      Nip01Event(
+        id: 'raw-2',
+        pubKey: 'ccdd' * 16,
+        kind: kNostrKindGiftWrap,
+        tags: const [],
+        content: 'two',
+      ),
+    );
+    raw.addStatus(StreamStatusLive());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(statuses.whereType<StreamStatusLive>(), isEmpty);
+
+    first.complete(
+      Nip01Event(
+        id: 'inner-1',
+        pubKey: 'aabb' * 16,
+        kind: 14,
+        tags: const [],
+        content: 'one',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(statuses.whereType<StreamStatusLive>(), isEmpty);
+
+    second.complete(
+      Nip01Event(
+        id: 'inner-2',
+        pubKey: 'ccdd' * 16,
+        kind: 14,
+        tags: const [],
+        content: 'two',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      events.map((event) => event.id),
+      containsAll(['inner-1', 'inner-2']),
+    );
+    expect(statuses.whereType<StreamStatusLive>(), hasLength(1));
+
+    await parsed.close();
+  });
+
+  test('parser deduplicates raw giftwrap ids before decrypting', () async {
+    final raw = StreamWithStatus<Nip01Event>();
+    var parseCount = 0;
+    final parsed = parseGiftWrapsConcurrently(
+      raw: raw,
+      parse: (event) async {
+        parseCount++;
+        return Nip01Event(
+          id: 'inner-${event.id}',
+          pubKey: event.pubKey,
+          kind: 14,
+          tags: const [],
+          content: event.content,
+        );
+      },
+    );
+    parsed.replayStream.listen((_) {});
+
+    final event = Nip01Event(
+      id: 'same-raw',
+      pubKey: 'aabb' * 16,
+      kind: kNostrKindGiftWrap,
+      tags: const [],
+      content: 'encrypted',
+    );
+    raw.add(event);
+    raw.add(event);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(parseCount, 1);
     await parsed.close();
   });
 

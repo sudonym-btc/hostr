@@ -160,10 +160,9 @@ class SignInScreenState extends State<SignInScreen> {
   NostrConnect? _buildNostrConnect() {
     final hostr = getIt<Hostr>();
     final config = hostr.config;
-    final relays = <String>{
-      if (config.hostrRelay.isNotEmpty) config.hostrRelay,
-      ...config.bootstrapRelays.where((relay) => relay.trim().isNotEmpty),
-    }.toList(growable: false);
+    final relays = [
+      if (config.hostrRelay.trim().isNotEmpty) config.hostrRelay.trim(),
+    ];
     if (relays.isEmpty) return null;
 
     return NostrConnect(
@@ -423,10 +422,7 @@ class SignInScreenState extends State<SignInScreen> {
                   Gap.horizontal.sm(),
                 ],
                 Expanded(
-                  child: Text(
-                    _progress!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  child: Text(_progress!, style: theme.textTheme.bodyMedium),
                 ),
               ],
             ),

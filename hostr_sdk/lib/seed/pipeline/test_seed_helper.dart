@@ -208,9 +208,17 @@ class TestSeedHelper {
     );
 
     final profile = (await _factory.buildProfiles([user])).first;
+    final identityClaims = hasEvm
+        ? (await _factory.buildIdentityClaims([user])).first
+        : null;
     final listings = _factory.buildListings([user]);
 
-    return TestHost(user: user, profile: profile, listings: listings);
+    return TestHost(
+      user: user,
+      profile: profile,
+      identityClaims: identityClaims,
+      listings: listings,
+    );
   }
 
   /// Create a key pair from a known private key (for testing with specific keys).
@@ -236,11 +244,13 @@ class TestGuest {
 class TestHost {
   final SeedUser user;
   final ProfileMetadata profile;
+  final IdentityClaims? identityClaims;
   final List<Listing> listings;
 
   const TestHost({
     required this.user,
     required this.profile,
+    this.identityClaims,
     required this.listings,
   });
 
@@ -248,6 +258,7 @@ class TestHost {
   String get publicKey => user.keyPair.publicKey;
   String get privateKey => user.keyPair.privateKey!;
   Listing get listing => listings.first;
+  String? get evmAddress => identityClaims?.evmAddress;
 }
 
 /// Result of [TestSeedHelper.freshTrade].
@@ -265,4 +276,5 @@ class TestTrade {
   Listing get listing => thread.listing;
   Reservation get negotiateReservation => thread.request;
   ProfileMetadata get sellerProfile => host.profile;
+  String get sellerEvmAddress => host.evmAddress!;
 }

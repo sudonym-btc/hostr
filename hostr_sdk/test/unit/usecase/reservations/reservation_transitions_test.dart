@@ -18,11 +18,14 @@ import 'package:test/test.dart';
 // ── Fakes ──────────────────────────────────────────────────────────────
 
 class _FakeAccounts extends Fake implements Accounts {
+  int signCalls = 0;
+
   @override
   String? getPublicKey() => MockKeys.guest.publicKey;
 
   @override
   Future<Nip01Event> sign(Nip01Event event) async {
+    signCalls += 1;
     return Nip01Utils.signWithPrivateKey(
       event: event,
       privateKey: MockKeys.guest.privateKey!,
@@ -31,8 +34,10 @@ class _FakeAccounts extends Fake implements Accounts {
 }
 
 class _FakeNdk extends Fake implements Ndk {
+  final _FakeAccounts fakeAccounts = _FakeAccounts();
+
   @override
-  Accounts get accounts => _FakeAccounts();
+  Accounts get accounts => fakeAccounts;
 }
 
 class _FakeRequests extends Fake implements hostr_requests.Requests {
@@ -102,14 +107,16 @@ Future<Reservation> _makeReservation({
 
 void main() {
   late _FakeRequests relay;
+  late _FakeNdk ndk;
   late ReservationTransitions usecase;
 
   setUp(() {
     relay = _FakeRequests();
+    ndk = _FakeNdk();
     usecase = ReservationTransitions(
       requests: relay,
       logger: CustomLogger(),
-      ndk: _FakeNdk(),
+      ndk: ndk,
     );
   });
 
@@ -134,6 +141,29 @@ void main() {
         expect(result.kind, kNostrKindReservationTransition);
         expect(relay.broadcasted, hasLength(1));
       });
+
+      test(
+        'uses provided local signer without asking ndk accounts to sign',
+        () async {
+          final reservation = await _makeReservation(
+            dTag: 'trade-local-signer',
+            signer: MockKeys.hoster,
+          );
+
+          final result = await usecase.record(
+            reservation: reservation,
+            transitionType: ReservationTransitionType.cancel,
+            fromStage: ReservationStage.commit,
+            toStage: ReservationStage.cancel,
+            signerKeyPair: MockKeys.hoster,
+          );
+
+          expect(ndk.fakeAccounts.signCalls, 0);
+          expect(result.pubKey, MockKeys.hoster.publicKey);
+          expect(result.valid(), isTrue);
+          expect(relay.broadcasted, hasLength(1));
+        },
+      );
 
       test('transition content round-trips correctly', () async {
         final reservation = await _makeReservation(dTag: 'trade-2');

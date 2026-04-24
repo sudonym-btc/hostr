@@ -14,13 +14,13 @@ import 'package:web3dart/web3dart.dart' show BlockNum;
 /// Registers all JSON-RPC method handlers on a per-client [json_rpc.Server].
 class DaemonHandler {
   final EscrowDaemon daemon;
+  final Hostr hostr;
 
   /// In-memory cache: pubkey → display name (null = looked up but no name).
   final Map<String, String?> _nameCache = {};
 
-  DaemonHandler({required this.daemon});
+  DaemonHandler({required this.daemon, required this.hostr});
 
-  Hostr get hostr => daemon.hostr;
   SupportedEscrowContract get contract => daemon.context.contract;
   EscrowService get escrowService => daemon.context.escrowService;
 
@@ -178,7 +178,8 @@ class DaemonHandler {
     };
   }
 
-  Future<Map<String, dynamic>?> _resolveTradeParticipants(String tradeId) async {
+  Future<Map<String, dynamic>?> _resolveTradeParticipants(
+      String tradeId) async {
     final group = await _loadTradeReservationGroup(tradeId);
     if (group == null) return null;
 
@@ -254,7 +255,8 @@ class DaemonHandler {
     final groups = Reservations.toReservationGroups(reservations: reservations)
         .values
         .toList();
-    groups.sort((a, b) => b.reservations.length.compareTo(a.reservations.length));
+    groups
+        .sort((a, b) => b.reservations.length.compareTo(a.reservations.length));
     for (final group in groups) {
       try {
         if (group.tradeId == tradeId) return group;
@@ -702,12 +704,7 @@ class DaemonHandler {
     }
 
     final m = profile.metadata;
-    String? evmAddr;
-    try {
-      evmAddr = profile.evmAddress;
-    } catch (_) {
-      // No EVM address tag set yet.
-    }
+    final evmAddr = await hostr.identityClaims.loadEvmAddress(pubkey);
     return {
       'pubkey': pubkey,
       'name': m.name,
@@ -791,7 +788,8 @@ class DaemonHandler {
     };
   }
 
-  Future<Map<String, String?>> _resolveDisplayNames(List<String> pubkeys) async {
+  Future<Map<String, String?>> _resolveDisplayNames(
+      List<String> pubkeys) async {
     if (pubkeys.isEmpty) return {};
 
     // Only fetch pubkeys we haven't cached yet.

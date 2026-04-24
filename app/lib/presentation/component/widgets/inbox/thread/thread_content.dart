@@ -3,6 +3,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
+import 'package:hostr/presentation/component/widgets/inbox/thread/message/reservation_request/reservation_request.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:provider/provider.dart';
@@ -40,7 +41,7 @@ class _ThreadContentState extends State<ThreadContent> {
   void initState() {
     super.initState();
     _scrollToBottom(animated: false);
-    // Mark the conversation as read when it's opened.
+    // The SDK suppresses network receipts until historical hydration is live.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<Thread>().markAsRead();
     });
@@ -69,7 +70,8 @@ class _ThreadContentState extends State<ThreadContent> {
   /// Whether [event] is a visible event (i.e. would be rendered
   /// by [_buildEvent]).
   bool _isVisibleEvent(Event event) {
-    return event is TextMessage;
+    return event is TextMessage ||
+        (event is Message && event.child is Reservation);
   }
 
   /// Whether [message] should show a profile header (avatar + timestamp).
@@ -231,6 +233,13 @@ class _ThreadContentState extends State<ThreadContent> {
     final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final isSentByMe = event.pubKey == activePubKey;
 
+    if (event is Message && event.child is Reservation) {
+      return ThreadReservationRequestWidget(
+        item: event,
+        isSentByMe: isSentByMe,
+      );
+    }
+
     if (event is TextMessage) {
       if (event.content.trim().isNotEmpty) {
         return ThreadMessageWidget(
@@ -241,7 +250,7 @@ class _ThreadContentState extends State<ThreadContent> {
       }
       return Text(AppLocalizations.of(context)!.unknownMessageType);
     }
-    // Reservation, EscrowServiceSelected, SeenStatus — not rendered.
+    // EscrowServiceSelected and SeenStatus are not rendered in the thread view.
     return null;
   }
 }

@@ -136,80 +136,106 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
     final background = Theme.of(context).colorScheme.surfaceContainerLowest;
     return ColoredBox(
       color: background,
-      child: BlocConsumer<StartupGateCubit, StartupGateState>(
-        listener: (context, state) async {
-          if (state is! StartupGateReady) {
-            // Gate left Ready (reset → Initial/InProgress) — allow the
-            // next Ready to be processed.
-            _handlingReady = false;
-            return;
-          }
-          if (_handlingReady) {
-            _gateLog.d('StartupGate: skipping duplicate Ready');
-            return;
-          }
-          _handlingReady = true;
-
-          _gateLog.d(
-            'StartupGate: Ready '
-            '(hasMetadata=${state.hasMetadata}, '
-            'hasPending=${getIt<PendingNavigation>().hasPending})',
-          );
-          final router = context.router;
-
-          await _applyStartupReadyEffects(context, state);
-          if (!mounted) return;
-
-          final pendingNavigation = getIt<PendingNavigation>();
-          final navigationPlan = planStartupReadyNavigation(
-            hasMetadata: state.hasMetadata,
-            hasPendingNavigation: pendingNavigation.hasPending,
-          );
-
-          if (navigationPlan.action ==
-              StartupReadyNavigationAction.editProfile) {
-            // Profile incomplete — navigate to edit-profile.
-            // Using navigate() (not push()) so auto_route properly nests
-            // EditProfileRoute under AppShellRoute in the route tree.
-            // Set ProfileRoute as the pending target so that after save,
-            // EditProfile.onSave consumes it and lands on the profile tab
-            // instead of trying to pop into an empty stack.
-            if (navigationPlan.seedProfilePendingRoute) {
-              pendingNavigation.set(ProfileRoute());
-            }
-            _gateLog.d(
-              'StartupGate: navigating to EditProfileRoute (no metadata)',
-            );
-            router.navigate(EditProfileRoute());
-            return;
-          }
-
-          // All prerequisites met — consume and navigate to the
-          // pending destination (e.g. the listing from a reserve flow).
-          _consumeAndNavigate(router);
-        },
-        builder: (context, state) {
-          final child = switch (state) {
-            StartupGateError(:final message) => _ErrorView(
-              key: const ValueKey('error'),
-              message: message,
-              onRetry: () {
-                context.read<StartupGateCubit>().retry();
+      child: StreamBuilder<BunkerSessionState>(
+        stream: getIt<Hostr>().auth.bunkerSessionState,
+        initialData: getIt<Hostr>().auth.bunkerSessionState.value,
+        builder: (context, bunkerSnapshot) {
+          final bunkerState = bunkerSnapshot.data;
+          if (bunkerState is BunkerSessionRecoveryRequired) {
+            return _BunkerRecoveryView(
+              state: bunkerState,
+              onRetry: () async {
+                final gateCubit = context.read<StartupGateCubit>();
+                final restored = await getIt<Hostr>().auth
+                    .retryBunkerSessionRestore();
+                if (!mounted || !restored) return;
+                await gateCubit.retry();
               },
-            ),
-            StartupGateReady() => const AutoRouter(key: ValueKey('ready')),
-            StartupGateInProgress() => _SplashProgressView(
-              key: const ValueKey('progress'),
-              state: state,
-            ),
-            _ => _SplashProgressView(
-              key: const ValueKey('initial'),
-              state: const StartupGateInProgress(
-                items: startupGateInitialItems,
-              ),
-            ),
-          };
-          return child;
+              onSignOut: () async {
+                final gateCubit = context.read<StartupGateCubit>();
+                await getIt<Hostr>().auth.logout();
+                if (!mounted) return;
+                await gateCubit.retry();
+              },
+            );
+          }
+
+          return BlocConsumer<StartupGateCubit, StartupGateState>(
+            listener: (context, state) async {
+              if (state is! StartupGateReady) {
+                // Gate left Ready (reset → Initial/InProgress) — allow the
+                // next Ready to be processed.
+                _handlingReady = false;
+                return;
+              }
+              if (_handlingReady) {
+                _gateLog.d('StartupGate: skipping duplicate Ready');
+                return;
+              }
+              _handlingReady = true;
+
+              _gateLog.d(
+                'StartupGate: Ready '
+                '(hasMetadata=${state.hasMetadata}, '
+                'hasPending=${getIt<PendingNavigation>().hasPending})',
+              );
+              final router = context.router;
+
+              await _applyStartupReadyEffects(context, state);
+              if (!mounted) return;
+
+              final pendingNavigation = getIt<PendingNavigation>();
+              final navigationPlan = planStartupReadyNavigation(
+                hasMetadata: state.hasMetadata,
+                hasPendingNavigation: pendingNavigation.hasPending,
+              );
+
+              if (navigationPlan.action ==
+                  StartupReadyNavigationAction.editProfile) {
+                // Profile incomplete — navigate to edit-profile.
+                // Using navigate() (not push()) so auto_route properly nests
+                // EditProfileRoute under AppShellRoute in the route tree.
+                // Set ProfileRoute as the pending target so that after save,
+                // EditProfile.onSave consumes it and lands on the profile tab
+                // instead of trying to pop into an empty stack.
+                if (navigationPlan.seedProfilePendingRoute) {
+                  pendingNavigation.set(ProfileRoute());
+                }
+                _gateLog.d(
+                  'StartupGate: navigating to EditProfileRoute (no metadata)',
+                );
+                router.navigate(EditProfileRoute());
+                return;
+              }
+
+              // All prerequisites met — consume and navigate to the
+              // pending destination (e.g. the listing from a reserve flow).
+              _consumeAndNavigate(router);
+            },
+            builder: (context, state) {
+              final child = switch (state) {
+                StartupGateError(:final message) => _ErrorView(
+                  key: const ValueKey('error'),
+                  message: message,
+                  onRetry: () {
+                    context.read<StartupGateCubit>().retry();
+                  },
+                ),
+                StartupGateReady() => const AutoRouter(key: ValueKey('ready')),
+                StartupGateInProgress() => _SplashProgressView(
+                  key: const ValueKey('progress'),
+                  state: state,
+                ),
+                _ => _SplashProgressView(
+                  key: const ValueKey('initial'),
+                  state: const StartupGateInProgress(
+                    items: startupGateInitialItems,
+                  ),
+                ),
+              };
+              return child;
+            },
+          );
         },
       ),
     );
@@ -390,6 +416,106 @@ class _ErrorView extends StatelessWidget {
               label: Text(AppLocalizations.of(context)!.retryButton),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BunkerRecoveryView extends StatefulWidget {
+  final BunkerSessionRecoveryRequired state;
+  final Future<void> Function() onRetry;
+  final Future<void> Function() onSignOut;
+
+  const _BunkerRecoveryView({
+    required this.state,
+    required this.onRetry,
+    required this.onSignOut,
+  });
+
+  @override
+  State<_BunkerRecoveryView> createState() => _BunkerRecoveryViewState();
+}
+
+class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Center(
+      child: CustomPadding.horizontal.lg(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.phonelink_lock_outlined,
+                size: kIconHero,
+                color: colors.primary,
+              ),
+              Gap.vertical.md(),
+              Text(
+                'Reconnect your remote signer',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Gap.vertical.sm(),
+              Text(
+                'Hostr could not restore the saved bunker session. Open your Nostr signer, then retry. If that session was ended, sign out and connect again.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              Gap.vertical.sm(),
+              Text(
+                widget.state.message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.outline,
+                ),
+              ),
+              Gap.vertical.custom(kSpace5),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: kSpace3,
+                runSpacing: kSpace3,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _run(widget.onRetry),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _run(widget.onSignOut),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign out'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

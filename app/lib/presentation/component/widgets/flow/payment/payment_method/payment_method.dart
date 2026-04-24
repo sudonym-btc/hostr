@@ -13,11 +13,13 @@ import '../escrow/fund/escrow_fund.dart';
 /// Escrow selection is now handled directly inside [EscrowFundWidget].
 class PaymentMethodWidget extends StatelessWidget {
   final ProfileMetadata counterparty;
+  final String sellerEvmAddress;
   final Reservation negotiateReservation;
   final String? listingName;
   const PaymentMethodWidget({
     super.key,
     required this.counterparty,
+    required this.sellerEvmAddress,
     required this.negotiateReservation,
     this.listingName,
   });
@@ -57,6 +59,7 @@ class PaymentMethodWidget extends StatelessWidget {
                     context,
                     builder: (_) => EscrowFundWidget(
                       counterparty: counterparty,
+                      sellerEvmAddress: sellerEvmAddress,
                       negotiateReservation: negotiateReservation,
                       listingName: listingName,
                     ),

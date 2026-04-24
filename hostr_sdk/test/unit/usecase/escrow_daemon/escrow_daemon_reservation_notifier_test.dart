@@ -224,9 +224,9 @@ void main() {
               )
               .content,
           'You successfully reserved Lake House 2026-05-01 - 2026-05-03, '
-          "hosted by Maya. We've reached out to the host to confirm, and "
-          'they should be in touch soon. If your host does not confirm in a '
-          'timely manner, rest assured that the payment can be reversed.',
+          "hosted by Maya. Your payment is safely in escrow. We've reached "
+          'out to the host to confirm, and they should be in touch soon. If '
+          'they do not confirm in a timely manner, you can be refunded.',
         );
         expect(
           sent
@@ -234,18 +234,18 @@ void main() {
                 (n) => n.recipientPubkeys.single == MockKeys.reviewer.publicKey,
               )
               .content,
-          'Someone placed a reservation for Lake House 2026-05-01 - 2026-05-03. '
-          'Payment has been paid and sits in escrow. Please login to '
-          'https://hostr.network to initiate a conversation with the guest.',
+          'A reservation was placed for Lake House 2026-05-01 - 2026-05-03. '
+          'Payment has been paid and is sitting in escrow. Please login to '
+          'https://hostr.network to confirm the booking with the guest.',
         );
         expect(
           sentLegacy
               .singleWhere((n) => n.recipientPubkey == MockKeys.guest.publicKey)
               .content,
           'You successfully reserved Lake House 2026-05-01 - 2026-05-03, '
-          "hosted by Maya. We've reached out to the host to confirm, and "
-          'they should be in touch soon. If your host does not confirm in a '
-          'timely manner, rest assured that the payment can be reversed.',
+          "hosted by Maya. Your payment is safely in escrow. We've reached "
+          'out to the host to confirm, and they should be in touch soon. If '
+          'they do not confirm in a timely manner, you can be refunded.',
         );
         expect(
           sentLegacy
@@ -253,9 +253,9 @@ void main() {
                 (n) => n.recipientPubkey == MockKeys.reviewer.publicKey,
               )
               .content,
-          'Someone placed a reservation for Lake House 2026-05-01 - 2026-05-03. '
-          'Payment has been paid and sits in escrow. Please login to '
-          'https://hostr.network to initiate a conversation with the guest.',
+          'A reservation was placed for Lake House 2026-05-01 - 2026-05-03. '
+          'Payment has been paid and is sitting in escrow. Please login to '
+          'https://hostr.network to confirm the booking with the guest.',
         );
         expect(
           sent

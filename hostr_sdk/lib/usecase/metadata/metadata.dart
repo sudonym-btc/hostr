@@ -8,43 +8,46 @@ import 'package:ndk/ndk.dart' hide Requests;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import '../../config.dart';
-import '../auth/auth.dart';
 import '../blossom/blossom.dart';
 import '../crud.usecase.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../escrow_methods/escrows_methods.dart';
 import '../evm/evm.dart';
+import '../identity_claims/identity_claims.dart';
 import '../relays/relays.dart';
 
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   static const Duration metadataLoadTimeout = Duration(seconds: 40);
 
-  final Auth _auth;
   final Ndk _ndk;
   final Relays _relays;
   final EscrowMethods _escrowMethods;
+  // Keep injected while automatic Blossom list publishing is paused so the
+  // future re-enable path stays obvious and local to ensureUserConfig.
+  // ignore: unused_field
   final BlossomUseCase _blossom;
   final Evm _evm;
+  final IdentityClaimsUseCase _identityClaims;
   final HostrConfig _config;
   final Map<String, Future<ProfileMetadata?>> _inFlightLoads = {};
 
   MetadataUseCase({
-    required Auth auth,
     required Ndk ndk,
     required Relays relays,
     required EscrowMethods escrowMethods,
     required BlossomUseCase blossom,
     required Evm evm,
+    required IdentityClaimsUseCase identityClaims,
     required HostrConfig config,
     required super.requests,
     required super.logger,
-  }) : _auth = auth,
-       _ndk = ndk,
+  }) : _ndk = ndk,
        _relays = relays,
        _escrowMethods = escrowMethods,
        _blossom = blossom,
        _evm = evm,
+       _identityClaims = identityClaims,
        _config = config,
        super(kind: Metadata.kKind);
 
@@ -163,7 +166,12 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   }
 
   /// Ensures Hostr-managed user config is up to date:
-  /// EVM address tag, escrow methods, blossom servers.
+  /// identity claims and escrow methods.
+  ///
+  /// Blossom and NIP-65 list writes are intentionally paused. We do not want the
+  /// app to rely on user-published server/relay lists while Hostr traffic is
+  /// scoped to Hostr-owned infrastructure, but the code remains nearby so it can
+  /// be re-enabled when those lists become part of the product contract again.
   ///
   /// Called automatically after every [upsert] and by user startup.
   ///
@@ -181,9 +189,9 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         }
 
         try {
-          await ensureEvmAddress();
+          await _identityClaims.ensureEvmAddress();
         } catch (e) {
-          logger.e('ensureEvmAddress failed: $e');
+          logger.e('IdentityClaims.ensureEvmAddress failed: $e');
         }
 
         try {
@@ -213,52 +221,13 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
           logger.e('ensureEscrowMethod failed: $e');
         }
 
+        logger.i('Skipping automatic Blossom server-list publish for $pubkey');
+        /*
         try {
           await _blossom.ensureBlossomServer(pubkey);
         } catch (e) {
           logger.e('ensureBlossomServer failed: $e');
         }
+        */
       });
-
-  /// Ensures the current user's profile is present on the Hostr relay with an
-  /// EVM address tag.
-  Future<void> ensureEvmAddress() => logger.span('ensureEvmAddress', () async {
-    final metadata = await loadMetadata(_auth.activeKeyPair!.publicKey);
-    if (metadata == null) return; // No profile yet — nothing to patch.
-
-    final address = await _auth.hd.getEvmAddress();
-    try {
-      if (metadata.evmAddress == address.eip55With0x) return;
-    } catch (_) {
-      // No EVM tag yet.
-    }
-
-    final updated = _profileWithEvmAddress(metadata, address.eip55With0x);
-    await requests.broadcast(
-      event: updated,
-      relays: _config.hostrRelay.isEmpty ? null : [_config.hostrRelay],
-    );
-    notifyUpdate(updated);
-  });
-
-  ProfileMetadata _profileWithEvmAddress(
-    ProfileMetadata metadata,
-    String address,
-  ) {
-    final updatedTags = List<List<String>>.from(
-      metadata.tags.where((tag) {
-        return tag.length < 2 || tag[0] != 'i' || tag[1] != 'evm:address';
-      }),
-    )..add(['i', 'evm:address', address]);
-
-    return ProfileMetadata.fromNostrEvent(
-      Nip01Event(
-        pubKey: metadata.pubKey,
-        kind: metadata.kind,
-        tags: updatedTags,
-        content: metadata.content,
-        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      ),
-    );
-  }
 }

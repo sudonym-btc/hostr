@@ -16,6 +16,7 @@ export 'escrows/escrows.dart';
 export 'evm/main.dart';
 export 'gift_wraps/main.dart';
 export 'heartbeat/main.dart';
+export 'identity_claims/main.dart';
 export 'listings/listings.dart';
 export 'lnurl/lnurl.dart';
 export 'location/location.dart';

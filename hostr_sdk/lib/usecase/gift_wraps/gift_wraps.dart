@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:collection';
+
 import 'package:injectable/injectable.dart';
+import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
@@ -9,6 +13,85 @@ import '../../injection.dart';
 import '../../util/coinlib_gift_wrap.dart';
 import '../../util/main.dart';
 import '../crud.usecase.dart';
+
+bool _isCompletionStatus(StreamStatus status) =>
+    status is StreamStatusQueryComplete || status is StreamStatusLive;
+
+@visibleForTesting
+StreamWithStatus<Nip01Event> parseGiftWrapsConcurrently({
+  required StreamWithStatus<Nip01Event> raw,
+  required Future<Nip01Event?> Function(Nip01Event event) parse,
+  int maxConcurrent = 8,
+}) {
+  final parsed = StreamWithStatus<Nip01Event>(onClose: raw.close);
+  final rawSeen = <String>{};
+  final parsedSeen = <String>{};
+  final queue = Queue<({Nip01Event event, bool historical})>();
+
+  var active = 0;
+  var historicalPending = 0;
+  var historicalPhase = true;
+  StreamStatus? pendingCompletionStatus;
+
+  void maybeEmitCompletionStatus() {
+    final status = pendingCompletionStatus;
+    if (status == null || historicalPending > 0) return;
+    pendingCompletionStatus = null;
+    parsed.addStatus(status);
+  }
+
+  void drain() {
+    while (active < maxConcurrent && queue.isNotEmpty) {
+      final item = queue.removeFirst();
+      active++;
+      unawaited(
+        parse(item.event)
+            .then((event) {
+              if (event == null) return;
+              if (!parsedSeen.add(event.id)) return;
+              parsed.add(event);
+            }, onError: parsed.addError)
+            .whenComplete(() {
+              active--;
+              if (item.historical) {
+                historicalPending--;
+                maybeEmitCompletionStatus();
+              }
+              drain();
+            }),
+      );
+    }
+  }
+
+  void enqueue(Nip01Event event, {required bool historical}) {
+    if (!rawSeen.add(event.id)) return;
+    if (historical) historicalPending++;
+    queue.add((event: event, historical: historical));
+    drain();
+  }
+
+  parsed.addSubscription(
+    raw.replayStream.listen((event) {
+      enqueue(event, historical: historicalPhase);
+    }, onError: parsed.addError),
+  );
+  parsed.addSubscription(
+    raw.status.listen((status) {
+      if (!_isCompletionStatus(status)) {
+        parsed.addStatus(status);
+        return;
+      }
+      for (final event in raw.items) {
+        enqueue(event, historical: true);
+      }
+      historicalPhase = false;
+      pendingCompletionStatus = status;
+      maybeEmitCompletionStatus();
+    }, onError: parsed.addError),
+  );
+
+  return parsed;
+}
 
 /// CRUD-style use case for NIP-59 gift wraps.
 ///
@@ -60,7 +143,11 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
     required String recipientPubkey,
   }) => logger.span('upsertWrapped', () async {
     final wrapped = await wrap(rumor: rumor, recipientPubkey: recipientPubkey);
-    return upsert(wrapped);
+    final hostrRelay = _hostrRelay();
+    return requests.broadcast(
+      event: wrapped,
+      relays: hostrRelay.isEmpty ? null : [hostrRelay],
+    );
   });
 
   /// Subscribes to kind `1059` events and returns parsed inner events.
@@ -78,25 +165,10 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
           setSinceOnLiveFilter: false,
         );
 
-        final parsed = StreamWithStatus<Nip01Event>(onClose: raw.close);
-        final seen = <String>{};
-        parsed.addSubscription(
-          raw.replayStream
-              .asyncMap(
-                (event) => safeParserWithGiftWrap<Nip01Event>(event, _ndk),
-              )
-              .where((event) => event != null)
-              .cast<Nip01Event>()
-              // NIP-59: setSinceOnLiveFilter is disabled, so the relay may
-              // resend recent events when transitioning query → live.
-              // Deduplicate by inner-event ID before forwarding.
-              .where((event) => seen.add(event.id))
-              .listen(parsed.add, onError: parsed.addError),
+        return parseGiftWrapsConcurrently(
+          raw: raw,
+          parse: (event) => safeParserWithGiftWrap<Nip01Event>(event, _ndk),
         );
-        parsed.addSubscription(
-          raw.status.listen(parsed.addStatus, onError: parsed.addError),
-        );
-        return parsed;
       });
 
   String _hostrRelay() {

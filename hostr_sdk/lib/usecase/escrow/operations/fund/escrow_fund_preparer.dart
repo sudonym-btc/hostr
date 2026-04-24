@@ -254,7 +254,7 @@ class EscrowFundPreparer {
       tradeId: params.negotiateReservation.getDtag()!,
       amount: amount,
       bondAmount: bondAmount,
-      sellerEvmAddress: params.sellerProfile.evmAddress!,
+      sellerEvmAddress: params.sellerEvmAddress,
       arbiterEvmAddress: params.escrowService.evmAddress,
       unlockAt: params.negotiateReservation.end != null
           ? params.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000 +

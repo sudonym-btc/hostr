@@ -31,6 +31,7 @@ Widget tradeHeaderKnobs(BuildContext context) {
         tradeState: TradeReady(
           listing: listing,
           sellerProfile: listingProfile,
+          sellerEvmAddress: '0x0000000000000000000000000000000000000000',
           sellerPubkey: listing.pubKey,
           role: TradeRole.guest,
           tradeId: 'mock-trade-id',

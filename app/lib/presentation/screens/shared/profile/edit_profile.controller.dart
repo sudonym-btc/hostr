@@ -69,11 +69,9 @@ class EditProfileController extends UpsertFormController {
       picture: image,
     );
     metadata.pubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
-    final profile = ProfileMetadata.fromNostrEvent(metadata.toEvent())
-        .withImageMetas(imageMeta == null ? const [] : [imageMeta])
-        .withEvmAddress(
-          (await getIt<Hostr>().auth.hd.getActiveEvmKey()).address.eip55With0x,
-        );
+    final profile = ProfileMetadata.fromNostrEvent(
+      metadata.toEvent(),
+    ).withImageMetas(imageMeta == null ? const [] : [imageMeta]);
 
     await getIt<Hostr>().metadata.upsert(profile);
 

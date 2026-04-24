@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:injectable/injectable.dart';
+import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
@@ -33,8 +35,11 @@ class Thread {
   String conversationTag = '';
   final Map<String, int> _seenUntil = {};
   Timer? _seenReceiptDebounce;
+  int _suppressSeenReceiptsThrough = 0;
+  bool _seenReceiptsArmed = false;
 
   bool _isTradeCandidate(ThreadState current) =>
+      current.reservationRequests.isNotEmpty ||
       current.events.any((e) => e is Reservation);
 
   bool get isTradeCandidate =>
@@ -127,13 +132,16 @@ class Thread {
     final pubkey = status.pubKey;
     final timestamp = status.seenUntil;
     if (timestamp == null || pubkey.isEmpty) return;
+    _recordSeenUntil(pubkey: pubkey, timestamp: timestamp);
+  }
 
+  void _recordSeenUntil({required String pubkey, required int timestamp}) {
     final existing = _seenUntil[pubkey] ?? 0;
-    if (timestamp > existing) {
-      _seenUntil[pubkey] = timestamp;
-      if (state.isClosed) return;
-      state.add(state.value.copyWith(seenUntil: Map.unmodifiable(_seenUntil)));
-    }
+    if (timestamp <= existing) return;
+
+    _seenUntil[pubkey] = timestamp;
+    if (state.isClosed) return;
+    state.add(state.value.copyWith(seenUntil: Map.unmodifiable(_seenUntil)));
   }
 
   /// Binary-inserts [event] into an already-sorted list, returning a new list.
@@ -259,6 +267,49 @@ class Thread {
     _emitParticipantState();
   }
 
+  int _latestCounterpartyReadableCreatedAt([ThreadState? current]) {
+    final snapshot = current ?? state.value;
+    return snapshot.readableEvents
+        .where((event) => event.pubKey != snapshot.ourPubkey)
+        .map((event) => event.createdAt)
+        .fold(0, math.max);
+  }
+
+  @visibleForTesting
+  bool get shouldSendReceiptNow {
+    final ourPubkey = _auth.getActiveKey().publicKey;
+    final seenFloor = math.max(
+      _seenUntil[ourPubkey] ?? 0,
+      _suppressSeenReceiptsThrough,
+    );
+    return _latestCounterpartyReadableCreatedAt() > seenFloor;
+  }
+
+  /// Marks everything currently loaded in the thread as locally read without
+  /// broadcasting a network seen receipt. This is used when the inbox first
+  /// finishes hydrating so we do not acknowledge historical backlog as if it
+  /// just arrived live.
+  void markHistoryAsReadLocally() {
+    final timestamp = _latestCounterpartyReadableCreatedAt();
+    if (timestamp <= 0) return;
+
+    _suppressSeenReceiptsThrough = math.max(
+      _suppressSeenReceiptsThrough,
+      timestamp,
+    );
+    _recordSeenUntil(
+      pubkey: _auth.getActiveKey().publicKey,
+      timestamp: timestamp,
+    );
+  }
+
+  /// Enables network seen receipts after the initial giftwrap history has
+  /// hydrated. Existing backlog becomes locally read without being broadcast.
+  void armSeenReceiptsAfterHydration() {
+    markHistoryAsReadLocally();
+    _seenReceiptsArmed = true;
+  }
+
   List<String> get _recipientPubkeys {
     final myPubkey = _auth.getActiveKey().publicKey;
     final recipients = <String>{
@@ -337,7 +388,8 @@ class Thread {
   }
 
   Future<void> _sendSeenReceipt() => _logger.span('_sendSeenReceipt', () async {
-    if (!state.value.shouldSendReceipt) return;
+    if (!_seenReceiptsArmed) return;
+    if (!shouldSendReceiptNow) return;
     if (_recipientPubkeys.isEmpty) return;
 
     final sorted = state.value.events;

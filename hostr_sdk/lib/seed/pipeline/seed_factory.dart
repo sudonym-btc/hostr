@@ -67,8 +67,18 @@ class SeedFactory {
   Future<List<ProfileMetadata>> buildProfiles(List<SeedUser> users) =>
       stage_profiles.buildProfiles(ctx: _ctx, users: users, factory: _entities);
 
-  Future<ProfileMetadata> buildEscrowProfile() =>
-      stage_profiles.buildEscrowProfile(ctx: _ctx, config: config, factory: _entities);
+  Future<List<IdentityClaims>> buildIdentityClaims(List<SeedUser> users) =>
+      stage_profiles.buildIdentityClaims(
+        ctx: _ctx,
+        users: users,
+        factory: _entities,
+      );
+
+  Future<ProfileMetadata> buildEscrowProfile() => stage_profiles
+      .buildEscrowProfile(ctx: _ctx, config: config, factory: _entities);
+
+  Future<IdentityClaims> buildEscrowIdentityClaims() =>
+      stage_profiles.buildEscrowIdentityClaims(ctx: _ctx, factory: _entities);
 
   Future<List<EscrowService>> buildEscrowServices({
     String? contractAddress,
@@ -170,6 +180,10 @@ class SeedFactory {
       ...await buildProfiles(users),
       await buildEscrowProfile(),
     ];
+    final identityClaims = [
+      ...await buildIdentityClaims(users),
+      await buildEscrowIdentityClaims(),
+    ];
     final escrowServices = await buildEscrowServices();
     final escrowMethods = await buildEscrowMethods(users);
 
@@ -194,6 +208,7 @@ class SeedFactory {
     return SeedPipelineData(
       users: users,
       profiles: profiles,
+      identityClaims: identityClaims,
       listings: listings,
       escrowServices: escrowServices,
       escrowMethods: escrowMethods,

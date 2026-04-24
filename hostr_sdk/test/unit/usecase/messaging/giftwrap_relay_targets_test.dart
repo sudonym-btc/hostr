@@ -2,7 +2,10 @@
 library;
 
 import 'package:hostr_sdk/usecase/messaging/messaging.dart'
-    show ensureSuccessfulGiftWrapBroadcast, resolveGiftWrapBroadcastRelays;
+    show
+        ensureSuccessfulGiftWrapBroadcast,
+        resolveGiftWrapBroadcastRelays,
+        resolveHostrOnlyGiftWrapBroadcastRelays;
 import 'package:ndk/entities.dart'
     show ReadWriteMarker, RelayBroadcastResponse, UserRelayList;
 import 'package:test/test.dart';
@@ -53,6 +56,22 @@ void main() {
       );
 
       expect(result, ['wss://relay.damus.io', 'wss://relay.hostr.test']);
+    });
+  });
+
+  group('resolveHostrOnlyGiftWrapBroadcastRelays', () {
+    test('returns only the hostr relay', () {
+      final result = resolveHostrOnlyGiftWrapBroadcastRelays(
+        hostrRelay: 'wss://relay.hostr.test',
+      );
+
+      expect(result, ['wss://relay.hostr.test']);
+    });
+
+    test('returns an empty list when hostr relay is blank', () {
+      final result = resolveHostrOnlyGiftWrapBroadcastRelays(hostrRelay: '');
+
+      expect(result, isEmpty);
     });
   });
 

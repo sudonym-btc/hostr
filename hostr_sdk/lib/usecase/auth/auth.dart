@@ -31,7 +31,11 @@ class Auth {
   final AuthIdentityResolver _identityResolver;
   final BehaviorSubject<AuthState> _authStateContoller =
       BehaviorSubject<AuthState>.seeded(AuthInitial());
+  final BehaviorSubject<BunkerSessionState> _bunkerSessionController =
+      BehaviorSubject<BunkerSessionState>.seeded(const BunkerSessionInactive());
   ValueStream<AuthState> get authState => _authStateContoller;
+  ValueStream<BunkerSessionState> get bunkerSessionState =>
+      _bunkerSessionController;
   AuthRecord? _authRecord;
 
   Auth({
@@ -56,6 +60,8 @@ class Auth {
   bool get isMnemonicBacked => _authRecord?.credentialType == 'mnemonic';
   bool get isBunkerBacked => _authRecord?.credentialType == 'bunker';
   bool get hasLocalPrivateKey => _authRecord?.keyPair?.privateKey != null;
+  bool get needsBunkerRecovery =>
+      _bunkerSessionController.value is BunkerSessionRecoveryRequired;
 
   String? get activeMnemonic => isMnemonicBacked ? _authRecord?.secret : null;
 
@@ -193,43 +199,91 @@ class Auth {
     return true;
   }
 
-  Future<bool> _ensureNdkAccountsMatchAsync() =>
-      _logger.span('ensureNdkAccountsMatch', () async {
-        final activePubkey = this.activePubkey;
-        if (activePubkey == null) {
-          final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
-          for (final pubkey in pubkeys) {
-            _ndk.accounts.removeAccount(pubkey: pubkey);
-          }
+  Future<bool> retryBunkerSessionRestore() async {
+    final restored = await _ensureNdkAccountsMatchAsync(
+      forceBunkerRestore: true,
+    );
+    if (restored) {
+      _syncAuthState(force: true);
+    }
+    return restored;
+  }
+
+  Future<bool> _ensureNdkAccountsMatchAsync({
+    bool forceBunkerRestore = false,
+  }) => _logger.span('ensureNdkAccountsMatch', () async {
+    final activePubkey = this.activePubkey;
+    if (activePubkey == null) {
+      _emitBunkerSessionState(const BunkerSessionInactive());
+      final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
+      for (final pubkey in pubkeys) {
+        _ndk.accounts.removeAccount(pubkey: pubkey);
+      }
+    } else {
+      final loggedPubkey = _ndk.accounts.getPublicKey();
+      if (!forceBunkerRestore && loggedPubkey == activePubkey) {
+        if (isBunkerBacked) {
+          _emitBunkerSessionState(BunkerSessionReady(pubkey: activePubkey));
         } else {
-          final loggedPubkey = _ndk.accounts.getPublicKey();
-          if (loggedPubkey == activePubkey) {
-            return true;
-          }
-
-          if (_ndk.accounts.accounts.containsKey(activePubkey)) {
-            _logger.i('Switching NDK account to stored pubkey');
-            _ndk.accounts.switchAccount(pubkey: activePubkey);
-          } else if (hasLocalPrivateKey) {
-            final privkey = _authRecord!.keyPair!.privateKey!;
-            _logger.i('Restoring NDK account for stored key');
-            _ndk.accounts.loginExternalSigner(
-              signer: CoinlibEventSigner(
-                privateKey: privkey,
-                publicKey: activePubkey,
-              ),
-            );
-          } else if (_authRecord?.bunkerConnection != null) {
-            _logger.i('Restoring NDK bunker session');
-            await _ndk.accounts.loginWithBunkerConnection(
-              connection: _authRecord!.bunkerConnection!,
-              bunkers: _ndk.bunkers,
-            );
-          }
+          _emitBunkerSessionState(const BunkerSessionInactive());
         }
-
         return true;
-      });
+      }
+
+      if (!forceBunkerRestore &&
+          _ndk.accounts.accounts.containsKey(activePubkey)) {
+        _logger.i('Switching NDK account to stored pubkey');
+        _ndk.accounts.switchAccount(pubkey: activePubkey);
+      } else if (hasLocalPrivateKey) {
+        _emitBunkerSessionState(const BunkerSessionInactive());
+        final privkey = _authRecord!.keyPair!.privateKey!;
+        _logger.i('Restoring NDK account for stored key');
+        _ndk.accounts.loginExternalSigner(
+          signer: CoinlibEventSigner(
+            privateKey: privkey,
+            publicKey: activePubkey,
+          ),
+        );
+      } else if (_authRecord?.bunkerConnection != null) {
+        return _restoreBunkerSession(activePubkey);
+      }
+    }
+
+    return true;
+  });
+
+  Future<bool> _restoreBunkerSession(String activePubkey) async {
+    _logger.i('Restoring NDK bunker session');
+    _emitBunkerSessionState(BunkerSessionRestoring(pubkey: activePubkey));
+
+    try {
+      await _ndk.accounts
+          .loginWithBunkerConnection(
+            connection: _authRecord!.bunkerConnection!,
+            bunkers: _ndk.bunkers,
+          )
+          .timeout(const Duration(seconds: 5));
+
+      final restoredPubkey = _ndk.accounts.getPublicKey();
+      if (restoredPubkey != activePubkey) {
+        throw StateError(
+          'Bunker restored $restoredPubkey instead of $activePubkey',
+        );
+      }
+
+      _emitBunkerSessionState(BunkerSessionReady(pubkey: activePubkey));
+      return true;
+    } catch (e) {
+      _logger.w('Bunker session restore requires user recovery: $e');
+      _emitBunkerSessionState(
+        BunkerSessionRecoveryRequired(
+          pubkey: activePubkey,
+          message: _bunkerRecoveryMessage(e),
+        ),
+      );
+      return false;
+    }
+  }
 
   Future<void> _loadActiveKeyPair() =>
       _logger.span('_loadActiveKeyPair', () async {
@@ -260,9 +314,12 @@ class Auth {
 
   // ---------------------------------------------------------------------------
 
-  void _syncAuthState() {
+  void _syncAuthState({bool force = false}) {
     final activePubkey = this.activePubkey;
-    _emitAuthState(activePubkey != null ? LoggedIn(activePubkey) : LoggedOut());
+    _emitAuthState(
+      activePubkey != null ? LoggedIn(activePubkey) : LoggedOut(),
+      force: force,
+    );
   }
 
   Future<void> updateMaxAccountIndex(int maxAccountIndex) async {
@@ -287,14 +344,28 @@ class Auth {
     _authRecord = null;
   }
 
-  void _emitAuthState(AuthState state) {
-    if (_authStateContoller.value != state) {
+  void _emitAuthState(AuthState state, {bool force = false}) {
+    if (force || _authStateContoller.value != state) {
       _authStateContoller.add(state);
     }
   }
 
+  void _emitBunkerSessionState(BunkerSessionState state) {
+    if (_bunkerSessionController.value != state) {
+      _bunkerSessionController.add(state);
+    }
+  }
+
+  String _bunkerRecoveryMessage(Object error) {
+    if (error is TimeoutException) {
+      return 'The remote signer did not respond. It may be offline, locked, or the session may have been ended.';
+    }
+    return error.toString();
+  }
+
   Future<void> dispose() async {
     await _authStateContoller.close();
+    await _bunkerSessionController.close();
   }
 
   bool _looksLikeBunkerUrl(String input) {
@@ -306,6 +377,48 @@ class Auth {
     if (pubkey == null || pubkey.isEmpty) return null;
     return KeyPair.justPublicKey(pubkey);
   }
+}
+
+sealed class BunkerSessionState extends Equatable {
+  const BunkerSessionState();
+
+  @override
+  List<Object?> get props => [];
+}
+
+class BunkerSessionInactive extends BunkerSessionState {
+  const BunkerSessionInactive();
+}
+
+class BunkerSessionRestoring extends BunkerSessionState {
+  final String pubkey;
+
+  const BunkerSessionRestoring({required this.pubkey});
+
+  @override
+  List<Object?> get props => [pubkey];
+}
+
+class BunkerSessionReady extends BunkerSessionState {
+  final String pubkey;
+
+  const BunkerSessionReady({required this.pubkey});
+
+  @override
+  List<Object?> get props => [pubkey];
+}
+
+class BunkerSessionRecoveryRequired extends BunkerSessionState {
+  final String pubkey;
+  final String message;
+
+  const BunkerSessionRecoveryRequired({
+    required this.pubkey,
+    required this.message,
+  });
+
+  @override
+  List<Object?> get props => [pubkey, message];
 }
 
 /// Abstract class representing the state of authentication.

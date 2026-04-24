@@ -11,6 +11,7 @@ import '../../util/custom_logger.dart';
 import '../../util/stream_status.dart';
 import '../auth/auth.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import '../identity_claims/identity_claims.dart';
 import '../listings/listings.dart';
 import '../messaging/thread/state.dart';
 import '../messaging/thread/thread.dart';
@@ -46,6 +47,7 @@ class Trade extends Cubit<TradeState> {
   final Auth _auth;
   final Listings _listings;
   final MetadataUseCase _metadata;
+  final IdentityClaimsUseCase _identityClaims;
   final ReservationGroups _reservationGroups;
   final Threads _threads;
 
@@ -89,6 +91,7 @@ class Trade extends Cubit<TradeState> {
   _allListingReservationsList$;
   Listing? _listing;
   ProfileMetadata? _hostProfile;
+  String? _sellerEvmAddress;
   bool _bootstrapped = false;
 
   Trade({
@@ -98,6 +101,7 @@ class Trade extends Cubit<TradeState> {
     required Auth auth,
     required Listings listings,
     required MetadataUseCase metadata,
+    required IdentityClaimsUseCase identityClaims,
     required UserSubscriptions userSubscriptions,
     required ReservationGroups reservationGroups,
     required Threads threads,
@@ -105,6 +109,7 @@ class Trade extends Cubit<TradeState> {
        _auth = auth,
        _listings = listings,
        _metadata = metadata,
+       _identityClaims = identityClaims,
        _reservationGroups = reservationGroups,
        _threads = threads,
        thread = threads.findPreferredThreadByTradeId(tradeId),
@@ -149,17 +154,17 @@ class Trade extends Cubit<TradeState> {
     );
   }
 
-  Future<String?>
-  resolveGuestPubkey() => _logger.span('resolveGuestPubkey', () async {
-    final request = thread!.state.value.reservationRequests.last;
-    final proof = await request.resolvePubkeyProof(
-      role: 'buyer',
-      recipientKeyPair: _auth.getActiveKey(),
-    );
-    return proof?.pubkey ??
-        request.parsedTags.getTagValueByMarker('p', 'buyer') ??
-        request.recipient;
-  });
+  Future<String?> resolveGuestPubkey() =>
+      _logger.span('resolveGuestPubkey', () async {
+        final request = thread!.state.value.reservationRequests.last;
+        final proof = await request.resolvePubkeyProof(
+          role: 'buyer',
+          recipientKeyPair: _auth.getActiveKey(),
+        );
+        return proof?.pubkey ??
+            request.parsedTags.getTagValueByMarker('p', 'buyer') ??
+            request.recipient;
+      });
 
   Future<void> start() => _logger.span('start', () async {
     if (_bootstrapped || isClosed) return;
@@ -174,6 +179,7 @@ class Trade extends Cubit<TradeState> {
     _listing = fetchedListing;
 
     _hostProfile = await _metadata.loadMetadata(sellerPubkey);
+    _sellerEvmAddress = await _identityClaims.loadEvmAddress(sellerPubkey);
 
     _wirePipeline();
   });
@@ -181,6 +187,7 @@ class Trade extends Cubit<TradeState> {
   void _wirePipeline() => _logger.spanSync('_wirePipeline', () {
     final listing = _listing!;
     final hostProfile = _hostProfile;
+    final sellerEvmAddress = _sellerEvmAddress;
 
     allListingReservations$ = _reservationGroups.queryVerified(
       listingAnchor: listingAnchor,
@@ -214,6 +221,7 @@ class Trade extends Cubit<TradeState> {
             return _resolve(
               listing: listing,
               hostProfile: hostProfile,
+              sellerEvmAddress: sellerEvmAddress,
               ownReservations: ownReservations,
               ownReservationsStatus: reservationGroup$.status.value,
               payments: payments,
@@ -239,6 +247,7 @@ class Trade extends Cubit<TradeState> {
   TradeReady _resolve({
     required Listing listing,
     required ProfileMetadata? hostProfile,
+    required String? sellerEvmAddress,
     required List<Validation<ReservationGroup>> ownReservations,
     required StreamStatus ownReservationsStatus,
     required List<PaymentEvent> payments,
@@ -387,6 +396,7 @@ class Trade extends Cubit<TradeState> {
     return TradeReady(
       listing: listing,
       sellerProfile: hostProfile,
+      sellerEvmAddress: sellerEvmAddress,
       sellerPubkey: sellerPubkey,
       role: role,
       tradeId: tradeId,
@@ -442,9 +452,8 @@ class Trade extends Cubit<TradeState> {
     }
 
     final tradeAccountAllocator = getIt<TradeAccountAllocator>();
-    final accountIndex = await tradeAccountAllocator.findTradeAccountIndexByTradeId(
-      tradeId,
-    );
+    final accountIndex = await tradeAccountAllocator
+        .findTradeAccountIndexByTradeId(tradeId);
     return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
   });
 

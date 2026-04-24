@@ -19,11 +19,11 @@ class InboxThreadList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: getIt<Hostr>().messaging.threads.events$.stream,
+      stream: getIt<Hostr>().messaging.threads.events$.itemsStream,
       builder: (context, snapshot) {
         final threads =
             getIt<Hostr>().messaging.threads.threads.values
-                .where((thread) => thread.state.value.events.isNotEmpty)
+                .where((thread) => thread.state.value.readableEvents.isNotEmpty)
                 .toList()
               ..sort(
                 (a, b) => b.state.value.getLastDateTime.compareTo(

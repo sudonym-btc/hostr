@@ -24,7 +24,6 @@ import 'dart:math';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
 import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:models/main.dart';
@@ -75,18 +74,15 @@ EscrowMethod _buildSignedEscrowMethod({
   return EscrowMethod.fromNostrEvent(event);
 }
 
-/// Builds a signed profile event for a host with an EVM address.
-Nip01Event _buildSignedProfile({required KeyPair key, String? evmAddress}) {
+/// Builds a signed profile event for a host.
+Nip01Event _buildSignedProfile({required KeyPair key}) {
   final meta = <String, dynamic>{
     'name': 'test-user-${key.publicKey.substring(0, 6)}',
   };
-  final tags = <List<String>>[
-    if (evmAddress != null) ['i', 'evm:address', evmAddress],
-  ];
   final unsigned = Nip01Event(
     pubKey: key.publicKey,
     kind: 0,
-    tags: tags,
+    tags: const [],
     content: jsonEncode(meta),
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   );
@@ -515,6 +511,7 @@ void main() {
             escrowService: escrowService,
             negotiateReservation: negotiateReservation,
             sellerProfile: sellerProfile,
+            sellerEvmAddress: trade.sellerEvmAddress,
             amount: negotiateReservation.amount!,
             dexInputBuffer: SwapInDexBuffer.zero,
           ),
@@ -551,15 +548,8 @@ void main() {
 
         // ── 6. Build self-signed reservation with escrow proof ──
         final hostKeyPair = trade.host.keyPair;
-        final hostEvmAddress = (await deriveEvmKey(
-          hostKeyPair.privateKey!,
-        )).address.eip55With0x;
-
         final listing = trade.listing;
-        final hosterProfile = _buildSignedProfile(
-          key: hostKeyPair,
-          evmAddress: hostEvmAddress,
-        );
+        final hosterProfile = _buildSignedProfile(key: hostKeyPair);
         final bridgeToken = await configured.resolveBridgeToken();
         final acceptedPaymentForms = <AcceptedPaymentForm>[
           AcceptedPaymentForm(
