@@ -446,7 +446,7 @@ class _ProfileChipSamples extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final profiles = MOCK_PROFILES.take(2).toList();
+    final profiles = mockProfiles.take(2).toList();
 
     return Wrap(
       spacing: kSpace2,
@@ -569,8 +569,8 @@ class _AmountTapInputSamplesState extends State<_AmountTapInputSamples> {
             label: 'Reserve',
             child: AmountTapInput(
               controller: _reserveController,
-              min: _btcAmount(1),
-              max: _btcAmount(390000),
+              min: [_btcAmount(1)],
+              max: [_btcAmount(390000)],
               editable: true,
               exact: false,
               textStyle: reserveTextStyle,
@@ -581,8 +581,8 @@ class _AmountTapInputSamplesState extends State<_AmountTapInputSamples> {
             child: AmountTapInput(
               controller: _paymentController,
               hintText: 'Amount',
-              min: _btcAmount(1000),
-              max: _btcAmount(100000),
+              min: [_btcAmount(1000)],
+              max: [_btcAmount(100000)],
               required: true,
               textStyle: paymentTextStyle,
               autovalidateMode: AutovalidateMode.onUserInteraction,

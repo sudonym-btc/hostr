@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:injectable/injectable.dart';
-import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 
@@ -24,6 +23,28 @@ class _Subscription<T extends Nip01Event> {
   });
 }
 
+/// Returns the key used to replace an event in the in-memory relay store.
+///
+/// Nostr replaceable events are scoped by author and kind. Addressable events
+/// add a `d` tag identifier, which is what keeps different authors' events for
+/// the same trade from clobbering each other.
+String? inMemoryReplacementKeyFor(Nip01Event event) {
+  final dTag = event.getFirstTag('d');
+  if (dTag != null) {
+    return '${event.kind}:${event.pubKey}:$dTag';
+  }
+
+  if (_isRegularReplaceableKind(event.kind)) {
+    return '${event.kind}:${event.pubKey}:';
+  }
+
+  return null;
+}
+
+bool _isRegularReplaceableKind(int kind) {
+  return kind == 0 || kind == 3 || (kind >= 10000 && kind < 20000);
+}
+
 /// Pure in-memory implementation of [Requests].
 ///
 /// No relay, chain, or Docker needed.  All events live in a local list and
@@ -38,6 +59,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
   final Ndk _ndk;
   @override
   Ndk get ndk => _ndk;
+  final CustomLogger _logger;
   final List<Nip01Event> _events = [];
   final List<_Subscription> _subscriptions = [];
   int _subCounter = 0;
@@ -47,25 +69,16 @@ class InMemoryRequests extends Requests implements RequestsModel {
     required super.auth,
     required super.logger,
   }) : _ndk = ndk,
+       _logger = logger.scope('in-memory-requests'),
        super();
 
   /// Add an event to the in-memory store and notify active subscriptions.
   void addEvent(Nip01Event event) {
-    // Update existing event if it has an 'a' tag match @TODO SHOULD BE D TAG!
-    List<Nip01Event> existingEvents = _events
-        .where(
-          (e) =>
-              e.pubKey == event.pubKey &&
-              e.getFirstTag('a') != null &&
-              event.getFirstTag('a') != null &&
-              e.getFirstTag('a') == event.getFirstTag('a'),
-        )
-        .toList();
-
-    if (existingEvents.isNotEmpty) {
-      for (var e in existingEvents) {
-        _events.remove(e);
-      }
+    final replacementKey = inMemoryReplacementKeyFor(event);
+    if (replacementKey != null) {
+      _events.removeWhere(
+        (existing) => inMemoryReplacementKeyFor(existing) == replacementKey,
+      );
     }
 
     _events.add(event);
@@ -97,7 +110,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
       filter: filter,
       response: response,
       emit: (event) {
-        final parsedEvent = safeParser<T>(event);
+        final parsedEvent = _parseEvent<T>(event);
         if (parsedEvent != null) {
           response.add(parsedEvent);
         }
@@ -114,7 +127,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
     final initialFuture = () async {
       final List<T> parsedEvents = [];
       for (final event in initialEvents) {
-        final parsedEvent = safeParser<T>(event);
+        final parsedEvent = _parseEvent<T>(event);
         if (parsedEvent != null) {
           parsedEvents.add(parsedEvent);
         }
@@ -144,7 +157,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
     final snapshot = List<Nip01Event>.of(_events);
     for (var event in snapshot) {
       if (matchEvent(event, filter)) {
-        final parsedEvent = safeParser<T>(event);
+        final parsedEvent = _parseEvent<T>(event);
         if (parsedEvent != null) {
           yield parsedEvent;
         }
@@ -205,7 +218,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
       filter: filter,
       response: response,
       emit: (event) {
-        final parsedEvent = safeParser<T>(event);
+        final parsedEvent = _parseEvent<T>(event);
         if (parsedEvent != null) {
           response.add(parsedEvent);
         }
@@ -220,6 +233,18 @@ class InMemoryRequests extends Requests implements RequestsModel {
       await listener.cancel();
       _subscriptions.remove(subscription);
     }, subId);
+  }
+
+  T? _parseEvent<T extends Nip01Event>(Nip01Event event) {
+    return parseNostrEventForSdk<T>(event: event, onParseError: _logParseError);
+  }
+
+  void _logParseError(Nip01Event event, Object error, StackTrace stackTrace) {
+    _logger.w(
+      'Failed to parse in-memory Nostr event kind=${event.kind} id=${event.id}',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   /// Seed events in bulk.

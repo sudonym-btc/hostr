@@ -21,7 +21,7 @@ Future<void> main() async {
           image.writeAsBytesSync(bytes);
           count++;
           final sizeKB = (bytes.length / 1024).toStringAsFixed(0);
-          print('📸 [$count] $path (${sizeKB}KB)');
+          stdout.writeln('📸 [$count] $path (${sizeKB}KB)');
           return true;
         },
   );

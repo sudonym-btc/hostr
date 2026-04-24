@@ -6,7 +6,7 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import '../seed_data.dart';
 
-final _scenario = MOCK_THREAD_SCENARIOS.first;
+final _scenario = mockThreadScenarios.first;
 
 TextMessage _buildTextMessage({required bool sentByHost}) {
   return TextMessage(

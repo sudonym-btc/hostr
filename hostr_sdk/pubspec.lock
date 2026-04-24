@@ -58,7 +58,7 @@ packages:
     source: hosted
     version: "0.2.2"
   bip340:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: bip340
       sha256: "4c2df9fa2409d26f1d9334b2801015ebe4dc3978191f186743e60e89a90230c4"
@@ -610,7 +610,7 @@ packages:
     source: hosted
     version: "2.7.0"
   logging:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: logging
       sha256: c8245ada5f1717ed44271ed1c26b8ce85ca3228fd2ffdb75468ab01979309d61
@@ -650,7 +650,7 @@ packages:
     source: hosted
     version: "2.0.0"
   mockito:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       name: mockito
       sha256: eff30d002f0c8bf073b6f929df4483b543133fcafce056870163587b03f1d422
@@ -850,7 +850,7 @@ packages:
     source: hosted
     version: "3.8.6"
   shelf:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       name: shelf
       sha256: e7dd780a7ffb623c57850b33f43309312fc863fb6aa3d276a754bb299839ef12
@@ -866,7 +866,7 @@ packages:
     source: hosted
     version: "3.0.2"
   shelf_router:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       name: shelf_router
       sha256: f5e5d492440a7fb165fe1e2e1a623f31f734d3370900070b2b1e0d0428d59864

@@ -14,7 +14,7 @@ class BackgroundTasks extends StatefulWidget {
   const BackgroundTasks({super.key});
 
   @override
-  _BackgroundTasksState createState() => _BackgroundTasksState();
+  State<BackgroundTasks> createState() => _BackgroundTasksState();
 }
 
 class _BackgroundTasksState extends State<BackgroundTasks> {
@@ -40,6 +40,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
               if (Platform.isIOS) {
                 final status = await Permission.backgroundRefresh.status;
                 if (status != PermissionStatus.granted) {
+                  if (!context.mounted) return;
                   _showNoPermission(context, status);
                   return;
                 }
@@ -51,6 +52,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
                   debugPrint('Error initializing Workmanager: $e');
                   return;
                 }
+                if (!mounted) return;
                 setState(() => workmanagerInitialized = true);
               }
             },
@@ -198,6 +200,7 @@ class _BackgroundTasksState extends State<BackgroundTasks> {
       Workmanager().printScheduledTasks();
     }
 
+    if (!mounted) return;
     setState(() {});
   }
 

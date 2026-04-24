@@ -12,7 +12,7 @@ Widget profileHeaderDefault(BuildContext context) {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: ProfileHeaderWidget(
-          profile: ProfileMetadata.fromNostrEvent(MOCK_PROFILES.first),
+          profile: ProfileMetadata.fromNostrEvent(mockProfiles.first),
         ),
       ),
     ),

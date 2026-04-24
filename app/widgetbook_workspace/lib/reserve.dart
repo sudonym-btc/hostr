@@ -12,7 +12,7 @@ Widget reserve(BuildContext context) {
   return Align(
     alignment: Alignment.center,
     child: Reserve(
-      listing: MOCK_LISTINGS[0],
+      listing: mockListings[0],
       reservationGroupItemsStream:
           Stream<List<Validation<ReservationGroup>>>.value(const []),
     ),

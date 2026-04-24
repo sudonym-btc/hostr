@@ -116,7 +116,7 @@ TransitionChainResolution resolveStateTransitionChain(
     originalIndex[t] = i;
 
     final id = t.id;
-    if (id == null || id.isEmpty) {
+    if (id.isEmpty) {
       return TransitionChainResolution(
         transitions: transitions,
         validation: TransitionValidationResult.invalid(
@@ -201,7 +201,7 @@ TransitionChainResolution resolveStateTransitionChain(
   var current = genesis.first;
 
   while (true) {
-    final id = current.id!;
+    final id = current.id;
     if (!visited.add(id)) {
       final cycleIndex = originalIndex[current] ?? 0;
       return TransitionChainResolution(

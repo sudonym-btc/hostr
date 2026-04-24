@@ -8,6 +8,6 @@ import '../seed_data.dart';
 Widget listing(BuildContext context) {
   return Align(
     alignment: Alignment.center,
-    child: ProfileChipWidget(id: MOCK_PROFILES[0].pubKey),
+    child: ProfileChipWidget(id: mockProfiles[0].pubKey),
   );
 }
