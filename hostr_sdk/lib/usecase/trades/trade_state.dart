@@ -17,6 +17,7 @@ class TradeInitialising extends TradeState {
 class TradeReady extends TradeState {
   final Listing listing;
   final ProfileMetadata? sellerProfile;
+  final String? sellerEvmAddress;
   final String sellerPubkey;
   final TradeRole role;
   final String tradeId;
@@ -33,6 +34,7 @@ class TradeReady extends TradeState {
   const TradeReady({
     required this.listing,
     required this.sellerProfile,
+    required this.sellerEvmAddress,
     required this.sellerPubkey,
     required this.role,
     required this.tradeId,
@@ -57,6 +59,7 @@ class TradeReady extends TradeState {
     return TradeReady(
       listing: listing,
       sellerProfile: sellerProfile,
+      sellerEvmAddress: sellerEvmAddress,
       sellerPubkey: sellerPubkey,
       role: role,
       tradeId: tradeId,

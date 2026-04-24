@@ -6,6 +6,7 @@ class EscrowFundParams {
   final EscrowService escrowService;
   final Reservation negotiateReservation;
   final ProfileMetadata sellerProfile;
+  final String sellerEvmAddress;
   final DenominatedAmount amount;
 
   /// The seller's escrow-method event, used to determine which on-chain token
@@ -32,6 +33,7 @@ class EscrowFundParams {
     required this.escrowService,
     required this.negotiateReservation,
     required this.sellerProfile,
+    required this.sellerEvmAddress,
     required this.amount,
     this.sellerEscrowMethod,
     this.securityDeposit,

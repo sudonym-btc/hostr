@@ -101,6 +101,7 @@ class _RecordingTransitions extends Fake implements ReservationTransitions {
       ReservationStage to,
       String? commitTermsHash,
       String? reason,
+      KeyPair? signerKeyPair,
     })
   >
   recorded = [];
@@ -111,6 +112,7 @@ class _RecordingTransitions extends Fake implements ReservationTransitions {
     required ReservationTransitionType transitionType,
     required ReservationStage fromStage,
     required ReservationStage toStage,
+    KeyPair? signerKeyPair,
     String? commitTermsHash,
     String? reason,
     Map<String, dynamic>? updatedFields,
@@ -122,6 +124,7 @@ class _RecordingTransitions extends Fake implements ReservationTransitions {
       to: toStage,
       commitTermsHash: commitTermsHash,
       reason: reason,
+      signerKeyPair: signerKeyPair,
     ));
     final unsigned = Nip01Event(
       kind: kNostrKindReservationTransition,
@@ -321,6 +324,18 @@ void main() {
         final t = transitions.recorded.first;
         expect(t.type, ReservationTransitionType.cancel);
         expect(t.to, ReservationStage.cancel);
+      },
+    );
+
+    test(
+      'passes the cancellation signer through to the transition recorder',
+      () async {
+        final group = _buildCommittedGroup(tradeId: 'trade-cancel-signer');
+
+        await reservations.cancel(group, MockKeys.hoster);
+
+        expect(transitions.recorded, hasLength(1));
+        expect(transitions.recorded.first.signerKeyPair, MockKeys.hoster);
       },
     );
 

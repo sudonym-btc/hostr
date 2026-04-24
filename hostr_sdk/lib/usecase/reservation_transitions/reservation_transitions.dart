@@ -1,6 +1,7 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/main.dart';
 import '../crud.usecase.dart';
@@ -36,13 +37,17 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
     required ReservationTransitionType transitionType,
     required ReservationStage fromStage,
     required ReservationStage toStage,
+    KeyPair? signerKeyPair,
     String? commitTermsHash,
     String? reason,
     Map<String, dynamic>? updatedFields,
     String? prevTransitionId,
   }) async {
     final tradeId = reservation.getDtag() ?? '';
-    final pubkey = _ndk.accounts.getPublicKey()!;
+    final privateKey = signerKeyPair?.privateKey;
+    final pubkey = privateKey != null && privateKey.isNotEmpty
+        ? signerKeyPair!.publicKey
+        : _ndk.accounts.getPublicKey()!;
     final effectivePrevTransitionId =
         prevTransitionId ??
         await _resolvePreviousTransitionId(tradeId: tradeId, pubkey: pubkey);
@@ -55,23 +60,29 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
         [kListingRefTag, reservation.parsedTags.listingAnchor],
     ];
 
-    final transition = ReservationTransition.fromNostrEvent(
-      await _ndk.accounts.sign(
-        Nip01Event(
-          kind: kNostrKindReservationTransition,
-          pubKey: pubkey,
-          tags: tags,
-          content: ReservationTransitionContent(
-            transitionType: transitionType,
-            fromStage: fromStage,
-            toStage: toStage,
-            commitTermsHash: commitTermsHash ?? reservation.commitHash(),
-            reason: reason,
-            updatedFields: updatedFields,
-          ).toString(),
-        ),
-      ),
+    final unsigned = Nip01Event(
+      kind: kNostrKindReservationTransition,
+      pubKey: pubkey,
+      tags: tags,
+      content: ReservationTransitionContent(
+        transitionType: transitionType,
+        fromStage: fromStage,
+        toStage: toStage,
+        commitTermsHash: commitTermsHash ?? reservation.commitHash(),
+        reason: reason,
+        updatedFields: updatedFields,
+      ).toString(),
     );
+    final transition = privateKey != null && privateKey.isNotEmpty
+        ? ReservationTransition.fromNostrEvent(
+            Nip01Utils.signWithPrivateKey(
+              event: unsigned,
+              privateKey: privateKey,
+            ),
+          )
+        : ReservationTransition.fromNostrEvent(
+            await _ndk.accounts.sign(unsigned),
+          );
 
     await upsert(transition);
     return transition;

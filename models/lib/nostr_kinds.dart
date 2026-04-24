@@ -18,6 +18,7 @@ const kNostrKindEscrowMethod = 30301;
 const kNostrKindEscrowServiceSelected = 30302;
 
 const kNostrKindProfile = 0;
+const kNostrKindIdentityClaims = 10011;
 
 /// Legacy NIP-04 encrypted direct message event.
 const kNostrKindLegacyDM = 4;

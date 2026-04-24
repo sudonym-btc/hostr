@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'dart:math';
 
+import 'package:convert/convert.dart';
 import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
+import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart'
+    show evmIdentityClaimMessage;
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -898,16 +902,10 @@ class EntityFactory {
           'https://picsum.photos/seed/$resolvedName/200/200',
     ).toEvent();
 
-    final tags = List<List<String>>.from(metadata.tags);
-    if (hasEvm) {
-      final evmKey = await deriveEvmKey(kp.privateKey!);
-      tags.add(['i', 'evm:address', evmKey.address.eip55With0x]);
-    }
-
     final event = Nip01Event(
       pubKey: metadata.pubKey,
       kind: metadata.kind,
-      tags: tags,
+      tags: metadata.tags,
       content: metadata.content,
       createdAt: createdAt ?? _defaultCreatedAt(),
     );
@@ -943,15 +941,10 @@ class EntityFactory {
           'https://hostr.development/assets/assets/images/logo/generated/logo_base_1024.png',
     ).toEvent();
 
-    final escrowEvmKey = await deriveEvmKey(kp.privateKey!);
-
-    final tags = List<List<String>>.from(metadata.tags)
-      ..add(['i', 'evm:address', escrowEvmKey.address.eip55With0x]);
-
     final event = Nip01Event(
       pubKey: metadata.pubKey,
       kind: metadata.kind,
-      tags: tags,
+      tags: metadata.tags,
       content: metadata.content,
       createdAt:
           createdAt ??
@@ -966,6 +959,26 @@ class EntityFactory {
     );
 
     return ProfileMetadata.fromNostrEvent(signed);
+  }
+
+  Future<IdentityClaims> identityClaims({
+    required KeyPair signer,
+    int? createdAt,
+  }) async {
+    final evmKey = await deriveEvmKey(signer.privateKey!);
+    final evmAddress = evmKey.address.eip55With0x;
+    final message = evmIdentityClaimMessage(
+      nostrPubkey: signer.publicKey,
+      evmAddress: evmAddress,
+    );
+    final proof =
+        '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(message)))}';
+    return IdentityClaims.build(
+      pubKey: signer.publicKey,
+      evmAddress: evmAddress,
+      eip191Proof: proof,
+      createdAt: createdAt ?? _defaultCreatedAt(),
+    ).signAs(signer, IdentityClaims.fromNostrEvent);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1163,7 +1176,8 @@ class EntityFactory {
     );
 
     final resolvedSigner =
-        signerOverride ?? (stage == ReservationStage.negotiate ? tradeKey : guest);
+        signerOverride ??
+        (stage == ReservationStage.negotiate ? tradeKey : guest);
 
     var reservation = Reservation.create(
       pubKey: stage == ReservationStage.negotiate
@@ -1189,7 +1203,7 @@ class EntityFactory {
                   ? tradeKey.publicKey
                   : resolvedSigner.publicKey,
             ),
-      ],
+          ],
       extraTags: extraTags,
       createdAt: createdAt ?? _defaultCreatedAt(),
     );

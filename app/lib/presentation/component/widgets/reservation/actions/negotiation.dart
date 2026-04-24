@@ -175,13 +175,16 @@ class NegotiationWidget extends StatelessWidget {
     }
     return FilledButton(
       key: const ValueKey('trade_action_pay'),
-      onPressed: tradeState.sellerProfile == null
+      onPressed:
+          tradeState.sellerProfile == null ||
+              tradeState.sellerEvmAddress == null
           ? null
           : () => showAppModal(
               context,
               useRootNavigator: true,
               builder: (_) => EscrowFundWidget(
                 counterparty: tradeState.sellerProfile!,
+                sellerEvmAddress: tradeState.sellerEvmAddress!,
                 negotiateReservation: (tradeState.stage as NegotiationStage)
                     .reservationRequests
                     .last,

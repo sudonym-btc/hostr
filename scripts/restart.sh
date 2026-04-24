@@ -41,13 +41,14 @@ restart_hostr() {
 
 
     # Rebuild local-source images so restarts always pick up workspace
-    # changes. Only local needs the web app image.
+    # changes. `docker compose build` retains cached layers by default.
+    # Only local needs the web app image.
     if [ "$ENVIRONMENT" = "local" ]; then
         (hostr_load_env "$REPO_ROOT" "$ENVIRONMENT"; cd "$REPO_ROOT" && \
-            hostr_compose_cmd "$ENVIRONMENT" build app escrow-contract-deploy)
+            hostr_compose_cmd "$ENVIRONMENT" build app escrow escrow-contract-deploy)
     elif [ "$ENVIRONMENT" = "test" ]; then
         (hostr_load_env "$REPO_ROOT" "$ENVIRONMENT"; cd "$REPO_ROOT" && \
-            hostr_compose_cmd "$ENVIRONMENT" build escrow-contract-deploy)
+            hostr_compose_cmd "$ENVIRONMENT" build escrow escrow-contract-deploy)
     fi
     
     "$SCRIPT_DIR/start.sh" "$ENVIRONMENT"

@@ -29,12 +29,14 @@ import '../../payment_method/escrow_selector/escrow_selector.dart';
 
 class EscrowFundWidget extends StatefulWidget {
   final ProfileMetadata counterparty;
+  final String sellerEvmAddress;
   final Reservation negotiateReservation;
   final String? listingName;
 
   const EscrowFundWidget({
     super.key,
     required this.counterparty,
+    required this.sellerEvmAddress,
     required this.negotiateReservation,
     this.listingName,
   });
@@ -67,6 +69,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
         negotiateReservation: widget.negotiateReservation,
         amount: widget.negotiateReservation.amount!,
         sellerProfile: widget.counterparty,
+        sellerEvmAddress: widget.sellerEvmAddress,
         escrowService: escrow,
         sellerEscrowMethod: sellerMethod,
         listingName: widget.listingName,

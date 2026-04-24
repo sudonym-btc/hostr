@@ -10,6 +10,7 @@ export 'event.dart';
 // export 'gift_wrap.dart';
 export 'guest_participation_proof.dart';
 export 'imeta.dart';
+export 'identity_claims.dart';
 export 'listing.dart';
 export 'message.dart';
 export 'profile_metadata.dart';

@@ -234,6 +234,9 @@ class _FakeAuth extends Fake implements Auth {
   String? get activePubkey => pubkey;
 
   @override
+  bool get needsBunkerRecovery => false;
+
+  @override
   KeyPair? get activeKeyPair {
     final value = pubkey;
     return value == null ? null : KeyPair('privkey', value, null, null);

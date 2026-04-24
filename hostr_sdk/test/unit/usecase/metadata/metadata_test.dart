@@ -4,10 +4,10 @@ library;
 import 'dart:async';
 
 import 'package:hostr_sdk/config.dart';
-import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/blossom/blossom.dart';
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
+import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
@@ -16,8 +16,6 @@ import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 import 'package:test/test.dart';
-
-class _FakeAuth extends Fake implements Auth {}
 
 class _FakeNdk extends Fake implements Ndk {}
 
@@ -28,6 +26,8 @@ class _FakeEscrowMethods extends Fake implements EscrowMethods {}
 class _FakeBlossomUseCase extends Fake implements BlossomUseCase {}
 
 class _FakeEvm extends Fake implements Evm {}
+
+class _FakeIdentityClaimsUseCase extends Fake implements IdentityClaimsUseCase {}
 
 class _FakeHostrConfig extends Fake implements HostrConfig {}
 
@@ -40,12 +40,12 @@ class _TestMetadataUseCase extends MetadataUseCase {
 
   _TestMetadataUseCase()
     : super(
-        auth: _FakeAuth(),
         ndk: _FakeNdk(),
         relays: _FakeRelays(),
         escrowMethods: _FakeEscrowMethods(),
         blossom: _FakeBlossomUseCase(),
         evm: _FakeEvm(),
+        identityClaims: _FakeIdentityClaimsUseCase(),
         config: _FakeHostrConfig(),
         requests: _FakeRequests(),
         logger: CustomLogger(),

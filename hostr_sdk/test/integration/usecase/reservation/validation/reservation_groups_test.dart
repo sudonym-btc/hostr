@@ -85,23 +85,16 @@ Listing _buildListing({
   ).signAs(host, Listing.fromNostrEvent);
 }
 
-/// Builds a signed profile event with optional `lud16` and EVM address tag.
-Nip01Event _buildProfileEvent({
-  required KeyPair key,
-  String? lud16,
-  String? evmAddress,
-}) {
+/// Builds a signed profile event with optional `lud16`.
+Nip01Event _buildProfileEvent({required KeyPair key, String? lud16}) {
   final meta = <String, dynamic>{
     'name': 'test-user-${key.publicKey.substring(0, 6)}',
     'lud16': ?lud16,
   };
-  final tags = <List<String>>[
-    if (evmAddress != null) ['i', 'evm:address', evmAddress],
-  ];
   final unsigned = Nip01Event(
     pubKey: key.publicKey,
     kind: 0,
-    tags: tags,
+    tags: const [],
     content: jsonEncode(meta),
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   );
@@ -638,9 +631,6 @@ void main() {
         hosterProfile = _buildProfileEvent(
           key: host,
           lud16: 'host@hostr.development',
-          evmAddress: (await deriveEvmKey(
-            host.privateKey!,
-          )).address.eip55With0x,
         );
       });
 

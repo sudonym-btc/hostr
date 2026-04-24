@@ -57,7 +57,7 @@ void main(List<String> arguments) async {
   // ── 1. Bootstrap + Monitor via SDK ────────────────────────────────────────
   final env = EnvConfig.forEnvironment(environment);
   final chain = env.evmConfig.chains.first;
-  final daemon = EscrowDaemon(hostr: hostr);
+  final daemon = hostr.escrowDaemon;
   await daemon.bootstrap(EscrowDaemonConfig(
     feePercent: 1,
     maxDuration: const Duration(days: 365),
@@ -70,7 +70,7 @@ void main(List<String> arguments) async {
   await daemon.start();
 
   // ── 2. RPC server ─────────────────────────────────────────────────────────
-  final handler = DaemonHandler(daemon: daemon);
+  final handler = DaemonHandler(daemon: daemon, hostr: hostr);
   final server = RpcSocketServer(
     socketPath: socketPath,
     registerMethods: handler.register,

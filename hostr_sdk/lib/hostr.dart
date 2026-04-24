@@ -54,7 +54,9 @@ class Hostr {
   SwapOutTracker get swapOutTracker => getIt<SwapOutTracker>();
   BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
   Heartbeats get heartbeats => getIt<Heartbeats>();
+  IdentityClaimsUseCase get identityClaims => getIt<IdentityClaimsUseCase>();
   UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
+  EscrowDaemon get escrowDaemon => getIt<EscrowDaemon>();
   AccountSeedStore get accountSeedStore => getIt<AccountSeedStore>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
       getIt<PaymentProofOrchestrator>();

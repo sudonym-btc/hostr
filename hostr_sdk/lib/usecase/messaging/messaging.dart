@@ -32,6 +32,14 @@ List<String> resolveGiftWrapBroadcastRelays({
 }
 
 @visibleForTesting
+List<String> resolveHostrOnlyGiftWrapBroadcastRelays({
+  required String hostrRelay,
+}) {
+  if (hostrRelay.isEmpty) return const [];
+  return [hostrRelay];
+}
+
+@visibleForTesting
 void ensureSuccessfulGiftWrapBroadcast({
   required String recipientPubkey,
   required List<RelayBroadcastResponse> responses,
@@ -117,8 +125,9 @@ class Messaging {
 
   Future<List<Future<List<RelayBroadcastResponse>>>> _broadcastRumour(
     Nip01Event rumor,
-    List<String> recipientPubkeys,
-  ) => _logger.span('_broadcastRumour', () async {
+    List<String> recipientPubkeys, {
+    bool allowExternalRelays = false,
+  }) => _logger.span('_broadcastRumour', () async {
     final pubkeys = {...recipientPubkeys, _ndk.accounts.getPublicKey()!};
     final rawSigner = _ndk.accounts.getLoggedAccount()?.signer;
     final signer = rawSigner is CoinlibEventSigner ? rawSigner : null;
@@ -139,7 +148,10 @@ class Messaging {
     final results = await Future.wait(
       pubkeys.map((pubkey) async {
         final wrapped = await wrap(pubkey);
-        final relays = await _giftWrapBroadcastRelays(pubkey);
+        final relays = await _giftWrapBroadcastRelays(
+          pubkey,
+          allowExternalRelays: allowExternalRelays,
+        );
         final responses = await _requests.broadcast(
           event: wrapped,
           relays: relays,
@@ -166,8 +178,18 @@ class Messaging {
     return results.map(Future.value).toList(growable: false);
   });
 
-  Future<List<String>> _giftWrapBroadcastRelays(String recipientPubkey) async {
+  Future<List<String>> _giftWrapBroadcastRelays(
+    String recipientPubkey, {
+    bool allowExternalRelays = false,
+  }) async {
     final config = getIt<HostrConfig>();
+    if (!allowExternalRelays) {
+      final relays = resolveHostrOnlyGiftWrapBroadcastRelays(
+        hostrRelay: config.hostrRelay,
+      );
+      _logger.d('Giftwrap relay targets for $recipientPubkey: $relays');
+      return relays;
+    }
     UserRelayList? recipientRelayList;
 
     try {
@@ -227,6 +249,21 @@ class Messaging {
     );
     final rumor = await getRumour(content, tags, recipientPubkeys);
     return _broadcastRumour(rumor, recipientPubkeys);
+  });
+
+  /// Escrow-only path: allows NIP-17/NIP-65 relay fan-out for recipients.
+  Future<List<Future<List<RelayBroadcastResponse>>>>
+  broadcastTextAllowingExternalRelays({
+    required String content,
+    required List<List<String>> tags,
+    required List<String> recipientPubkeys,
+  }) => _logger.span('broadcastTextAllowingExternalRelays', () async {
+    _logger.d(
+      'Broadcasting text with external relays: $content to $recipientPubkeys '
+      'with tags: $tags',
+    );
+    final rumor = await getRumour(content, tags, recipientPubkeys);
+    return _broadcastRumour(rumor, recipientPubkeys, allowExternalRelays: true);
   });
 
   Future<Nip01Event> broadcastEventAndWait({

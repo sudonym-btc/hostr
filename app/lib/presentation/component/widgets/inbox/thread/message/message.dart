@@ -5,7 +5,7 @@ import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
-  final TextMessage item;
+  final Message item;
   final bool isSentByMe;
 
   /// When true, shows the sender's display name above the message bubble.

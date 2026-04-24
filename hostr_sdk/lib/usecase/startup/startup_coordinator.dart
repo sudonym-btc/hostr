@@ -50,7 +50,9 @@ class StartupCoordinator {
 
     final initialAuth = _auth.authState.value;
     _setTarget(
-      initialAuth is LoggedIn ? StartupScope.user : StartupScope.public,
+      initialAuth is LoggedIn && !_auth.needsBunkerRecovery
+          ? StartupScope.user
+          : StartupScope.public,
     );
     _startPublic();
 
@@ -126,6 +128,15 @@ class StartupCoordinator {
 
   Future<void> _handleAuthState(AuthState state) async {
     if (state is! LoggedIn) {
+      _runningUserPubkey = null;
+      _userToken?.cancel();
+      _userRun = null;
+      _setTarget(StartupScope.public);
+      await _userProfile.stop();
+      return;
+    }
+
+    if (_auth.needsBunkerRecovery) {
       _runningUserPubkey = null;
       _userToken?.cancel();
       _userRun = null;

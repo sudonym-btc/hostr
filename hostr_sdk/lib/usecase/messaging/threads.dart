@@ -37,6 +37,7 @@ class Threads {
   final Set<String> _processedIds = {};
 
   final Map<String, Thread> threads = {};
+  bool _seenReceiptsArmed = false;
 
   /// Number of conversations with unread messages;
   final BehaviorSubject<int> _unreadCount = BehaviorSubject<int>.seeded(0);
@@ -73,6 +74,12 @@ class Threads {
           _statusSubject.add(status);
           events$.addStatus(status);
           _logger.d("Thread stats $status");
+          if (status is StreamStatusLive && !_seenReceiptsArmed) {
+            _seenReceiptsArmed = true;
+            for (final thread in threads.values) {
+              thread.armSeenReceiptsAfterHydration();
+            }
+          }
           if (status is StreamStatusQueryComplete) {
             _logger.d('Threads query complete');
           }
@@ -93,6 +100,7 @@ class Threads {
     await stop();
     _state = const [];
     _processedIds.clear();
+    _seenReceiptsArmed = false;
     _unreadCount.add(0);
     _statusSubject.add(StreamStatusIdle());
     await events$.reset();
@@ -145,6 +153,9 @@ class Threads {
       participants: participants,
     );
     if (created) {
+      if (_seenReceiptsArmed) {
+        thread.armSeenReceiptsAfterHydration();
+      }
       threadController.add(thread);
       _threadStateSubscriptions[anchor] = thread.state.listen(
         (_) => _recomputeUnreadCount(),
@@ -194,7 +205,7 @@ class Threads {
 
     final routingParticipants = [raw.pubKey, ...raw.pTags];
     _logger.d(
-      'Received ${raw.runtimeType} ${raw.id} routing ${routingParticipants}',
+      'Received ${raw.runtimeType} ${raw.id} routing $routingParticipants',
     );
 
     // Route to (or create) the thread using the envelope's DM routing tags.

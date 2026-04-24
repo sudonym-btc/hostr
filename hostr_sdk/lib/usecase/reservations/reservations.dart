@@ -238,6 +238,7 @@ class Reservations extends CrudUseCase<Reservation>
       transitionType: ReservationTransitionType.commit,
       fromStage: ReservationStage.negotiate,
       toStage: ReservationStage.commit,
+      signerKeyPair: auth.activeKeyPair,
       commitTermsHash: request.commitHash(),
     );
   }
@@ -296,6 +297,7 @@ class Reservations extends CrudUseCase<Reservation>
       transitionType: ReservationTransitionType.commit,
       fromStage: ReservationStage.negotiate,
       toStage: ReservationStage.commit,
+      signerKeyPair: activeKeyPair,
       commitTermsHash: signedReservation.commitHash(),
     );
     logger.d('Created self-signed reservation: $signedReservation');
@@ -365,6 +367,7 @@ class Reservations extends CrudUseCase<Reservation>
       transitionType: ReservationTransitionType.cancel,
       fromStage: myReservation?.stage ?? ReservationStage.negotiate,
       toStage: ReservationStage.cancel,
+      signerKeyPair: keyPair,
       commitTermsHash: updated.commitHash(),
     );
     return updated;
@@ -422,6 +425,7 @@ class Reservations extends CrudUseCase<Reservation>
       transitionType: ReservationTransitionType.confirm,
       fromStage: ReservationStage.commit,
       toStage: ReservationStage.commit,
+      signerKeyPair: keyPair,
       commitTermsHash: updated.commitHash(),
     );
     return updated;
@@ -439,6 +443,7 @@ class Reservations extends CrudUseCase<Reservation>
     required ReservationTransitionType transitionType,
     required ReservationStage fromStage,
     required ReservationStage toStage,
+    KeyPair? signerKeyPair,
     String? commitTermsHash,
     String? reason,
   }) async {
@@ -448,6 +453,7 @@ class Reservations extends CrudUseCase<Reservation>
       transitionType: transitionType,
       fromStage: fromStage,
       toStage: toStage,
+      signerKeyPair: signerKeyPair,
       commitTermsHash: commitTermsHash,
       reason: reason,
     );

@@ -61,6 +61,10 @@ class Seeder {
       ...await factory.buildProfiles(users),
       await factory.buildEscrowProfile(),
     ];
+    final identityClaims = [
+      ...await factory.buildIdentityClaims(users),
+      await factory.buildEscrowIdentityClaims(),
+    ];
     final escrowServices = await factory.buildEscrowServices();
     final escrowMethods = await factory.buildEscrowMethods(users);
 
@@ -70,6 +74,9 @@ class Seeder {
     // Publish profiles + escrow config eagerly.
     for (final p in profiles) {
       await sink.publish(p);
+    }
+    for (final claim in identityClaims) {
+      await sink.publish(claim);
     }
     for (final e in escrowServices) {
       await sink.publish(e);
@@ -223,6 +230,7 @@ class Seeder {
     return SeedPipelineData(
       users: users,
       profiles: profiles,
+      identityClaims: identityClaims,
       listings: listings,
       escrowServices: escrowServices,
       escrowMethods: escrowMethods,
