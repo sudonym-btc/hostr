@@ -165,11 +165,21 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
           setSinceOnLiveFilter: false,
         );
 
-        return parseGiftWrapsConcurrently(
-          raw: raw,
-          parse: (event) => safeParserWithGiftWrap<Nip01Event>(event, _ndk),
-        );
+        return parseGiftWrapsConcurrently(raw: raw, parse: _parseWrappedEvent);
       });
+
+  Future<Nip01Event?> _parseWrappedEvent(Nip01Event event) async {
+    try {
+      return await parserWithGiftWrap<Nip01Event>(event, _ndk);
+    } catch (error, stackTrace) {
+      logger.w(
+        'Failed to parse gift wrap event kind=${event.kind} id=${event.id}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
 
   String _hostrRelay() {
     final config = _config;

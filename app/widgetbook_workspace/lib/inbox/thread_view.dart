@@ -9,11 +9,11 @@ import '../seed_data.dart';
 
 @widgetbook.UseCase(name: 'Scenario', type: ThreadView)
 Widget threadViewScenario(BuildContext context) {
-  final scenarioId = context.knobs.list(
+  final scenarioId = context.knobs.object.dropdown<String>(
     label: 'Scenario',
-    options: MOCK_THREAD_SCENARIOS.map((s) => s.id).toList(),
+    options: mockThreadScenarios.map((s) => s.id).toList(),
   );
-  final scenario = MOCK_THREAD_SCENARIOS.firstWhere((s) => s.id == scenarioId);
+  final scenario = mockThreadScenarios.firstWhere((s) => s.id == scenarioId);
 
   final thread = Thread(
     scenario.threadAnchor,

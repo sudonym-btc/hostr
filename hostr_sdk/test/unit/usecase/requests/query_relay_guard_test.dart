@@ -2,9 +2,14 @@
 library;
 
 import 'package:hostr_sdk/usecase/requests/requests.dart'
-    show applyQueryRelayGuard, applyQueryRelayGuardForFilter;
+    show
+        applyQueryRelayGuard,
+        applyQueryRelayGuardForFilter,
+        parseNostrEventsForSdk,
+        requestInFlightKeyFor;
+import 'package:models/main.dart' show ProfileMetadata;
 import 'package:models/nostr_kinds.dart';
-import 'package:ndk/ndk.dart' show Filter;
+import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:test/test.dart';
 
 const _hostrRelay = 'wss://relay.hostr.test';
@@ -129,6 +134,84 @@ void main() {
         relays: relays,
       );
       expect(result, same(relays));
+    });
+  });
+
+  group('requestInFlightKeyFor', () {
+    test('includes request behavior inputs', () {
+      final filter = Filter(kinds: [1], authors: ['alice']);
+      final base = requestInFlightKeyFor(filter: filter);
+
+      expect(
+        requestInFlightKeyFor(filter: filter, relays: [_externalRelay]),
+        isNot(base),
+      );
+      expect(
+        requestInFlightKeyFor(filter: filter, timeout: Duration(seconds: 2)),
+        isNot(base),
+      );
+      expect(
+        requestInFlightKeyFor(filter: filter, cacheRead: false),
+        isNot(base),
+      );
+      expect(
+        requestInFlightKeyFor(filter: filter, cacheWrite: false),
+        isNot(base),
+      );
+    });
+
+    test('keeps identical behavior inputs stable', () {
+      final filter = Filter(kinds: [1], authors: ['alice']);
+
+      expect(
+        requestInFlightKeyFor(
+          filter: filter,
+          relays: [_externalRelay],
+          timeout: Duration(seconds: 2),
+          cacheRead: false,
+          cacheWrite: false,
+        ),
+        requestInFlightKeyFor(
+          filter: filter,
+          relays: [_externalRelay],
+          timeout: Duration(seconds: 2),
+          cacheRead: false,
+          cacheWrite: false,
+        ),
+      );
+    });
+  });
+
+  group('parseNostrEventsForSdk', () {
+    test('logs parse failures and continues with later events', () async {
+      final badEvent = Nip01Event(
+        pubKey: 'bad',
+        kind: 1,
+        tags: [],
+        content: 'plain note',
+        createdAt: 1,
+      );
+      final goodEvent = Nip01Event(
+        pubKey: 'good',
+        kind: 0,
+        tags: [],
+        content: '{}',
+        createdAt: 2,
+      );
+      final failures = <({Nip01Event event, Object error})>[];
+
+      final parsed = await parseNostrEventsForSdk<ProfileMetadata>(
+        source: Stream.fromIterable([badEvent, goodEvent]),
+        onParseError: (event, error, stackTrace) {
+          failures.add((event: event, error: error));
+        },
+      ).toList();
+
+      expect(parsed, hasLength(1));
+      expect(parsed.single.pubKey, equals('good'));
+      expect(failures, hasLength(1));
+      expect(failures.single.event, same(badEvent));
+      expect(failures.single.error, isA<TypeError>());
     });
   });
 }

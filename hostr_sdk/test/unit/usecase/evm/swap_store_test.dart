@@ -43,7 +43,7 @@ void main() {
 
   tearDown(() {
     store.dispose();
-    db.dispose();
+    db.close();
   });
 
   group('OperationStateStore', () {
@@ -477,6 +477,20 @@ void main() {
         );
 
         expect(result.written, isTrue);
+      });
+
+      test('reports skipped write when no user is active', () {
+        activeKeyPair = null;
+
+        final result = store.writeIfOwned(
+          namespace: 'swap_in',
+          id: 'new-op',
+          expectedState: 'anything',
+          json: {'id': 'new-op', 'state': 'funded', 'isTerminal': false},
+        );
+
+        expect(result.written, isFalse);
+        expect(result, same(WriteIfOwnedResult.skippedNoActiveUser));
       });
     });
 

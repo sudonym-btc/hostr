@@ -76,6 +76,52 @@ List<String>? applyQueryRelayGuardForFilter({
   return relays;
 }
 
+@visibleForTesting
+String requestInFlightKeyFor({
+  required Filter filter,
+  List<String>? relays,
+  Duration? timeout,
+  bool cacheRead = true,
+  bool cacheWrite = true,
+}) {
+  return jsonEncode({
+    'filter': cleanTags(filter)?.toMap() ?? filter.toMap(),
+    'relays': relays,
+    'timeoutUs': timeout?.inMicroseconds,
+    'cacheRead': cacheRead,
+    'cacheWrite': cacheWrite,
+  });
+}
+
+typedef NostrParseErrorHandler =
+    void Function(Nip01Event event, Object error, StackTrace stackTrace);
+
+T? parseNostrEventForSdk<T extends Nip01Event>({
+  required Nip01Event event,
+  required NostrParseErrorHandler onParseError,
+}) {
+  try {
+    return parser<T>(event);
+  } catch (error, stackTrace) {
+    onParseError(event, error, stackTrace);
+    return null;
+  }
+}
+
+Stream<T> parseNostrEventsForSdk<T extends Nip01Event>({
+  required Stream<Nip01Event> source,
+  required NostrParseErrorHandler onParseError,
+}) {
+  return source.expand((event) {
+    final parsed = parseNostrEventForSdk<T>(
+      event: event,
+      onParseError: onParseError,
+    );
+    if (parsed == null) return <T>[];
+    return [parsed];
+  });
+}
+
 abstract class RequestsModel {
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,
@@ -198,7 +244,18 @@ class Requests extends RequestsModel {
   }
 
   Stream<T> _parseEvents<T extends Nip01Event>(Stream<Nip01Event> source) {
-    return source.map(safeParser<T>).whereType<T>();
+    return parseNostrEventsForSdk<T>(
+      source: source,
+      onParseError: _logParseError,
+    );
+  }
+
+  void _logParseError(Nip01Event event, Object error, StackTrace stackTrace) {
+    _logger.w(
+      'Failed to parse Nostr event kind=${event.kind} id=${event.id}',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   Stream<Nip01Event> _openQueryStream({
@@ -326,13 +383,6 @@ class Requests extends RequestsModel {
     return response;
   });
 
-  /// Canonical key for a filter, used to dedup identical in-flight queries.
-  // TODO: Include relays, timeout, cacheRead, and cacheWrite in this key so
-  // queries with the same filter but different request behavior do not merge.
-  String _filterKey(Filter filter) {
-    return jsonEncode(cleanTags(filter)?.toMap() ?? filter.toMap());
-  }
-
   @override
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,
@@ -342,13 +392,6 @@ class Requests extends RequestsModel {
     bool cacheRead = true,
     bool cacheWrite = true,
   }) => _logger.spanSync('query', () {
-    final key = _filterKey(filter);
-
-    // If there's already an in-flight query for this exact filter, share it.
-    if (_inFlightQueries.containsKey(key)) {
-      return _parseEvents<T>(_inFlightQueries[key]!);
-    }
-
     // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
     final guardedRelays = applyQueryRelayGuardForFilter(
       filter: filter,
@@ -361,6 +404,19 @@ class Requests extends RequestsModel {
       );
     }
     relays = guardedRelays;
+
+    final key = requestInFlightKeyFor(
+      filter: filter,
+      relays: relays,
+      timeout: timeout,
+      cacheRead: cacheRead,
+      cacheWrite: cacheWrite,
+    );
+
+    // If there's already an in-flight query with identical behavior, share it.
+    if (_inFlightQueries.containsKey(key)) {
+      return _parseEvents<T>(_inFlightQueries[key]!);
+    }
 
     final sw = Stopwatch()..start();
     final queryName = name ?? _namedRequest('query');

@@ -15,7 +15,7 @@ StreamWithStatus<Validation<T>> _emptyValidatedStream<T>() {
 @widgetbook.UseCase(name: 'Default', type: ListingListItemWidget)
 Widget listing(BuildContext context) {
   return ListingListItemWidget(
-    listing: MOCK_LISTINGS[0],
+    listing: mockListings[0],
     dateRange: DateTimeRange(
       start: DateTime.now(),
       end: DateTime.now().add(Duration(days: 1)),
@@ -26,7 +26,7 @@ Widget listing(BuildContext context) {
 @widgetbook.UseCase(name: 'Pure - date selected', type: ListingListItemView)
 Widget listingPureDateSelected(BuildContext context) {
   final dependencies = ListingDependencies(
-    listing: MOCK_LISTINGS[0],
+    listing: mockListings[0],
     verifiedReviews: _emptyValidatedStream<Review>(),
     verifiedReservationGroups: _emptyValidatedStream<ReservationGroup>(),
   );
@@ -48,7 +48,7 @@ Widget listingPureDateSelected(BuildContext context) {
 @widgetbook.UseCase(name: 'Pure - no date selected', type: ListingListItemView)
 Widget listingPureNoDateSelected(BuildContext context) {
   final dependencies = ListingDependencies(
-    listing: MOCK_LISTINGS[0],
+    listing: mockListings[0],
     verifiedReviews: _emptyValidatedStream<Review>(),
     verifiedReservationGroups: _emptyValidatedStream<ReservationGroup>(),
   );

@@ -8,7 +8,7 @@ import '../seed_data.dart';
 @widgetbook.UseCase(name: 'With profile', type: TrustedEscrowListItemWidget)
 Widget trustedEscrowWithProfile(BuildContext context) {
   return TrustedEscrowListItemWidget(
-    profile: ProfileMetadata.fromNostrEvent(MOCK_PROFILES.first),
+    profile: ProfileMetadata.fromNostrEvent(mockProfiles.first),
   );
 }
 

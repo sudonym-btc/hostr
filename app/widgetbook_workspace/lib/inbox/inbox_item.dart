@@ -6,10 +6,10 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 import '../seed_data.dart';
 
 final ProfileMetadata _hostProfile = ProfileMetadata.fromNostrEvent(
-  MOCK_PROFILES.first,
+  mockProfiles.first,
 );
 final ProfileMetadata _guestProfile = ProfileMetadata.fromNostrEvent(
-  MOCK_PROFILES[1],
+  mockProfiles[1],
 );
 
 @widgetbook.UseCase(name: 'Sent - normal message', type: InboxItemView)

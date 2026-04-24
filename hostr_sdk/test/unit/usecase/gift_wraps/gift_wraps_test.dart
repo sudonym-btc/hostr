@@ -223,8 +223,8 @@ void main() {
       final events = <Nip01Event>[];
       parsed.replayStream.listen(events.add);
 
-      // Push a raw event that safeParserWithGiftWrap can't decrypt with
-      // FakeNdk — it will return null and be filtered out.
+      // Push a raw event that parserWithGiftWrap can't decrypt with FakeNdk.
+      // The SDK logs the parse failure and filters it out.
       final unparseable = Nip01Event(
         pubKey: 'deadbeef' * 8,
         kind: kNostrKindGiftWrap,

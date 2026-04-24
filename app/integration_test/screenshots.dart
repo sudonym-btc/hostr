@@ -13,7 +13,7 @@
 ///   flutter drive \
 ///     --driver=test_driver/screenshot_test.dart \
 ///     --target=integration_test/screenshots.dart \
-///     -d <device_id>
+///     -d DEVICE_ID
 ///
 /// Or via the orchestrator script (all configured devices):
 ///   ./scripts/screenshots.sh
@@ -385,7 +385,7 @@ void main() {
 
     final appRouter = AppRouter();
     final app = MyApp(appRouter: appRouter);
-    debugPrint('📸 Bootstrap complete (web=${kIsWeb})');
+    debugPrint('📸 Bootstrap complete (web=$kIsWeb)');
 
     await mockNetworkImages(() async {
       // ── Mount the app once — keep it alive for the whole suite ─────

@@ -28,10 +28,7 @@ class WidgetbookApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Widgetbook.material(
       addons: [
-        DeviceFrameAddon(
-          devices: [Devices.ios.iPhone12, Devices.ios.iPhone13],
-          initialDevice: Devices.ios.iPhone13,
-        ),
+        ViewportAddon([IosViewports.iPhone12, IosViewports.iPhone13]),
         BuilderAddon(
           name: 'Use case layout',
           builder: (context, child) {
@@ -131,7 +128,7 @@ class _AuthLoaderState extends State<AuthLoader> {
     final privateKey = mode == 'guest'
         ? MockKeys.guest.privateKey!
         : MockKeys.hoster.privateKey!;
-    print('Signing in with mode: $mode, privateKey: $privateKey');
+    debugPrint('Signing in with mode: $mode');
     await getIt<Hostr>().auth.signin(privateKey);
     if (!mounted) return;
     setState(() {

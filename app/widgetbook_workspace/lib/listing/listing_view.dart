@@ -12,7 +12,7 @@ Widget listingViewBodyDateSelected(BuildContext context) {
     body: SingleChildScrollView(
       child: CustomPadding(
         child: ListingViewBody(
-          listing: MOCK_LISTINGS.first,
+          listing: mockListings.first,
           selectedDateRange: DateTimeRange(
             start: DateTime.now(),
             end: DateTime.now().add(const Duration(days: 2)),
@@ -41,7 +41,7 @@ Widget listingViewBodyNoDateSelected(BuildContext context) {
     body: SingleChildScrollView(
       child: CustomPadding(
         child: ListingViewBody(
-          listing: MOCK_LISTINGS.first,
+          listing: mockListings.first,
           selectedDateRange: null,
           isOwner: false,
           hostedByText: 'Hosted by',

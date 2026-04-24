@@ -70,19 +70,19 @@ Future<void> initSeedData() async {
 SeedPipelineData get seedData => _data;
 
 /// Deterministic listings from the seed factory.
-List<Listing> get MOCK_LISTINGS => _data.listings;
+List<Listing> get mockListings => _data.listings;
 
 /// Deterministic profile metadata events.
-List<ProfileMetadata> get MOCK_PROFILES => _data.profiles;
+List<ProfileMetadata> get mockProfiles => _data.profiles;
 
 /// Deterministic reservations (one per thread, mock-signed).
-List<Reservation> get MOCK_RESERVATIONS => _threadScenarios
+List<Reservation> get mockReservations => _threadScenarios
     .where((s) => s.reservation != null)
     .map((s) => s.reservation!)
     .toList();
 
 /// Thread scenarios with all the fields widgetbook use cases expect.
-List<ThreadScenario> get MOCK_THREAD_SCENARIOS => _threadScenarios;
+List<ThreadScenario> get mockThreadScenarios => _threadScenarios;
 
 // ─── Thread scenario adapter ────────────────────────────────────────────────
 

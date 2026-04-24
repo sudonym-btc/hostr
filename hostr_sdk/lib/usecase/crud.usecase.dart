@@ -266,7 +266,6 @@ class CrudUseCase<T extends Nip01Event> {
         );
   }
 
-  // @TODO: Can't just be d tag as multiple pubkeys might have same. Pass A tag and get pubkey + dTag to filter correctly
   Future<T?> getOneByAnchor(String anchor) {
     return getOne(
       Filter(

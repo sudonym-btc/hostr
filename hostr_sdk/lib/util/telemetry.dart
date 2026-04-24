@@ -176,7 +176,7 @@ class Telemetry {
       span.setAttribute(attribute);
     }
 
-    final childCtx = parentCtx.withSpan(span);
+    final childCtx = contextWithSpan(parentCtx, span);
 
     try {
       final result = await runZoned(fn, zoneValues: {_contextKey: childCtx});
@@ -204,7 +204,7 @@ class Telemetry {
       span.setAttribute(attribute);
     }
 
-    final childCtx = parentCtx.withSpan(span);
+    final childCtx = contextWithSpan(parentCtx, span);
 
     try {
       final result = runZoned(fn, zoneValues: {_contextKey: childCtx});
@@ -222,14 +222,14 @@ class Telemetry {
   /// Adds an event to the currently active span (from the zone context).
   /// Use this for log-like messages inside an existing span.
   void addEvent(String name, {Map<String, Object?>? attributes}) {
-    final span = _zoneContext.span;
+    final span = spanFromContext(_zoneContext);
     final attrs = _buildAttributes(attributes).toList();
     span.addEvent(name, attributes: attrs);
   }
 
   /// Sets an attribute on the currently active span.
   void setSpanAttribute(String key, Object value) {
-    final span = _zoneContext.span;
+    final span = spanFromContext(_zoneContext);
     span.setAttribute(
       Attribute.fromString(key, _attributeValueToString(value)),
     );
@@ -237,7 +237,7 @@ class Telemetry {
 
   /// Sets multiple attributes on the currently active span.
   void setSpanAttributes(Map<String, Object?> attributes) {
-    final span = _zoneContext.span;
+    final span = spanFromContext(_zoneContext);
     for (final attribute in _buildAttributes(attributes)) {
       span.setAttribute(attribute);
     }

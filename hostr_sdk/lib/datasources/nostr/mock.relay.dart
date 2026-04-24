@@ -237,13 +237,18 @@ bool matchEvent(Nip01Event event, Filter filter) {
     }
   }
 
-  if (filter.authors != null &&
-      (!filter.authors!.contains(event.pubKey) ||
-          (event.tags.contains((tag) => tag[0] == "delegation") &&
-              !filter.authors!.contains(
-                event.tags.lastWhere((tag) => tag[0] == "delegation")[1],
-              )))) {
-    return false;
+  final authors = filter.authors;
+  if (authors != null) {
+    final delegatedPubkey = event.tags
+        .where((tag) => tag.isNotEmpty && tag[0] == 'delegation')
+        .map((tag) => tag.length > 1 ? tag[1] : null)
+        .whereType<String>()
+        .lastOrNull;
+
+    if (!authors.contains(event.pubKey) &&
+        (delegatedPubkey == null || !authors.contains(delegatedPubkey))) {
+      return false;
+    }
   }
 
   return true;

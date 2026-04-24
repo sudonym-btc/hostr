@@ -10,17 +10,17 @@ import '../seed_data.dart';
 
 @widgetbook.UseCase(name: 'Trade header (knobs)', type: TradeHeaderView)
 Widget tradeHeaderKnobs(BuildContext context) {
-  final availability = context.knobs.list<TradeAvailability>(
+  final availability = context.knobs.object.dropdown<TradeAvailability>(
     label: 'Availability',
     initialOption: TradeAvailability.available,
     options: TradeAvailability.values,
     labelBuilder: (v) => v.name,
   );
 
-  final listing = MOCK_LISTINGS.first;
-  final listingProfile = MOCK_PROFILES.firstWhere(
+  final listing = mockListings.first;
+  final listingProfile = mockProfiles.firstWhere(
     (p) => p.pubKey == listing.pubKey,
-    orElse: () => MOCK_PROFILES.first,
+    orElse: () => mockProfiles.first,
   );
   final start = DateTime.now();
   final end = DateTime.now().add(const Duration(days: 2));
