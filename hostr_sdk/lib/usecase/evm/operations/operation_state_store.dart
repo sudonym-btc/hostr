@@ -46,6 +46,7 @@ class WriteIfOwnedResult {
   const WriteIfOwnedResult._(this.written, [this.persistedJson]);
 
   static const success = WriteIfOwnedResult._(true);
+  static const skippedNoActiveUser = WriteIfOwnedResult._(false);
 
   const WriteIfOwnedResult.rejected(Map<String, dynamic>? json)
     : this._(false, json);
@@ -302,9 +303,10 @@ class OperationStateStore {
   /// Runs inside `BEGIN IMMEDIATE` so no other connection can interleave
   /// between the check and the write.
   ///
-  /// Returns [WriteIfOwnedResult.success] if written, or
-  /// [WriteIfOwnedResult.rejected] with the current persisted JSON
-  /// so the caller can sync its Cubit state.
+  /// Returns [WriteIfOwnedResult.success] if written,
+  /// [WriteIfOwnedResult.skippedNoActiveUser] if no user is active, or
+  /// [WriteIfOwnedResult.rejected] with the current persisted JSON so the
+  /// caller can sync its Cubit state.
   WriteIfOwnedResult writeIfOwned({
     required String namespace,
     required String id,
@@ -312,7 +314,7 @@ class OperationStateStore {
     required Map<String, dynamic> json,
   }) {
     final pubkey = _currentPubkey();
-    if (pubkey == null) return WriteIfOwnedResult.success;
+    if (pubkey == null) return WriteIfOwnedResult.skippedNoActiveUser;
 
     _db.execute('BEGIN IMMEDIATE');
     try {

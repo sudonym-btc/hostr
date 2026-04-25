@@ -256,24 +256,33 @@ class Auth {
     _logger.i('Restoring NDK bunker session');
     _emitBunkerSessionState(BunkerSessionRestoring(pubkey: activePubkey));
 
-    try {
-      await _ndk.accounts
-          .loginWithBunkerConnection(
-            connection: _authRecord!.bunkerConnection!,
-            bunkers: _ndk.bunkers,
-          )
-          .timeout(const Duration(seconds: 5));
+    final existingAccount = _ndk.accounts.accounts[activePubkey];
+    if (existingAccount != null) {
+      _ndk.accounts.removeAccount(pubkey: activePubkey);
+    }
 
-      final restoredPubkey = _ndk.accounts.getPublicKey();
+    final signer = _ndk.bunkers.createSigner(_authRecord!.bunkerConnection!);
+    try {
+      final restoredPubkey = await signer.getPublicKeyAsync().timeout(
+        const Duration(seconds: 5),
+      );
+
       if (restoredPubkey != activePubkey) {
         throw StateError(
           'Bunker restored $restoredPubkey instead of $activePubkey',
         );
       }
 
+      if (_ndk.accounts.accounts.containsKey(activePubkey)) {
+        _ndk.accounts.removeAccount(pubkey: activePubkey);
+      }
+      _ndk.accounts.loginExternalSigner(signer: signer);
+      await existingAccount?.dispose();
       _emitBunkerSessionState(BunkerSessionReady(pubkey: activePubkey));
       return true;
     } catch (e) {
+      await signer.dispose();
+      await existingAccount?.dispose();
       _logger.w('Bunker session restore requires user recovery: $e');
       _emitBunkerSessionState(
         BunkerSessionRecoveryRequired(

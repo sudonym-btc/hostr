@@ -174,10 +174,9 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
 
   OperationMachine({
     required this.store,
-    required CustomLogger logger,
+    required this.logger,
     required S initialState,
-  }) : logger = logger,
-       super(initialState);
+  }) : super(initialState);
 
   // ── Telemetry hook ────────────────────────────────────────────────
   //
