@@ -269,7 +269,7 @@ class EscrowVerification {
       if (onChainBond.value < scaledExpectedBond) {
         return EscrowVerificationResult.invalid(
           'Onchain bond (${onChainBond.value}) is less than required '
-          'security deposit (${scaledExpectedBond})',
+          'security deposit ($scaledExpectedBond)',
         );
       }
     }

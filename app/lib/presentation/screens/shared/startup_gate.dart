@@ -86,6 +86,12 @@ StartupReadyNavigationPlan planStartupReadyNavigation({
   );
 }
 
+@visibleForTesting
+bool shouldBlockStartupForBunker(BunkerSessionState? state) {
+  return state is BunkerSessionRecoveryRequired ||
+      state is BunkerSessionRestoring;
+}
+
 /// Route names that live inside [TabShellRoute].
 const _tabRouteNames = {
   ExploreRoute.name,
@@ -141,9 +147,9 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
         initialData: getIt<Hostr>().auth.bunkerSessionState.value,
         builder: (context, bunkerSnapshot) {
           final bunkerState = bunkerSnapshot.data;
-          if (bunkerState is BunkerSessionRecoveryRequired) {
+          if (shouldBlockStartupForBunker(bunkerState)) {
             return _BunkerRecoveryView(
-              state: bunkerState,
+              state: bunkerState!,
               onRetry: () async {
                 final gateCubit = context.read<StartupGateCubit>();
                 final restored = await getIt<Hostr>().auth
@@ -423,7 +429,7 @@ class _ErrorView extends StatelessWidget {
 }
 
 class _BunkerRecoveryView extends StatefulWidget {
-  final BunkerSessionRecoveryRequired state;
+  final BunkerSessionState state;
   final Future<void> Function() onRetry;
   final Future<void> Function() onSignOut;
 
@@ -439,6 +445,17 @@ class _BunkerRecoveryView extends StatefulWidget {
 
 class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
   bool _busy = false;
+
+  bool get _isRestoring => widget.state is BunkerSessionRestoring;
+
+  String get _detailMessage {
+    final state = widget.state;
+    if (state is BunkerSessionRecoveryRequired) return state.message;
+    if (state is BunkerSessionRestoring) {
+      return 'Trying to reconnect to the saved bunker session...';
+    }
+    return '';
+  }
 
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
@@ -484,7 +501,7 @@ class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
               ),
               Gap.vertical.sm(),
               Text(
-                widget.state.message,
+                _detailMessage,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.outline,
@@ -497,8 +514,10 @@ class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
                 runSpacing: kSpace3,
                 children: [
                   FilledButton.icon(
-                    onPressed: _busy ? null : () => _run(widget.onRetry),
-                    icon: _busy
+                    onPressed: (_busy || _isRestoring)
+                        ? null
+                        : () => _run(widget.onRetry),
+                    icon: (_busy || _isRestoring)
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -508,7 +527,9 @@ class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
                     label: const Text('Retry'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _run(widget.onSignOut),
+                    onPressed: (_busy || _isRestoring)
+                        ? null
+                        : () => _run(widget.onSignOut),
                     icon: const Icon(Icons.logout),
                     label: const Text('Sign out'),
                   ),

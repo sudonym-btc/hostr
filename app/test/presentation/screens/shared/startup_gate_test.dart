@@ -1,19 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/presentation/screens/shared/startup_gate.dart';
 import 'package:hostr/router.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 
 void main() {
   group('planStartupReadyNavigation', () {
-    test('navigates to edit profile and seeds profile route when missing data',
-        () {
-      final plan = planStartupReadyNavigation(
-        hasMetadata: false,
-        hasPendingNavigation: false,
-      );
+    test(
+      'navigates to edit profile and seeds profile route when missing data',
+      () {
+        final plan = planStartupReadyNavigation(
+          hasMetadata: false,
+          hasPendingNavigation: false,
+        );
 
-      expect(plan.action, StartupReadyNavigationAction.editProfile);
-      expect(plan.seedProfilePendingRoute, isTrue);
-    });
+        expect(plan.action, StartupReadyNavigationAction.editProfile);
+        expect(plan.seedProfilePendingRoute, isTrue);
+      },
+    );
 
     test('preserves existing pending route when metadata is missing', () {
       final plan = planStartupReadyNavigation(
@@ -33,6 +36,37 @@ void main() {
 
       expect(plan.action, StartupReadyNavigationAction.consumePending);
       expect(plan.seedProfilePendingRoute, isFalse);
+    });
+  });
+
+  group('shouldBlockStartupForBunker', () {
+    test('blocks while bunker recovery is required or restoring', () {
+      expect(
+        shouldBlockStartupForBunker(
+          const BunkerSessionRecoveryRequired(
+            pubkey: 'pubkey',
+            message: 'offline',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        shouldBlockStartupForBunker(
+          const BunkerSessionRestoring(pubkey: 'pubkey'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not block inactive or ready bunker states', () {
+      expect(
+        shouldBlockStartupForBunker(const BunkerSessionInactive()),
+        isFalse,
+      );
+      expect(
+        shouldBlockStartupForBunker(const BunkerSessionReady(pubkey: 'pubkey')),
+        isFalse,
+      );
     });
   });
 
