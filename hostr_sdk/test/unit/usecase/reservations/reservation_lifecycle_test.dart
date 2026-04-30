@@ -8,12 +8,11 @@
 /// - negotiable × allowSelfSignedReservation matrix
 /// - Commit-terms validation and hash integrity
 /// - ReservationTransition validation across the lifecycle
-/// - Review reveal key stability for trade-specific pubkey recovery
+/// - Participant proof payload hash stability
 @Tags(['unit'])
 library;
 
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/reservations/reservation_pubkey_proofs.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
@@ -340,22 +339,13 @@ void main() async {
       expect(h1, isNot(equals(h2)));
     });
 
-    test('review reveal key derivation is deterministic', () {
-      final reservation = Reservation.create(
-        pubKey: buyer.publicKey,
-        dTag: 'trade-same',
-        listingAnchor: '32121:${seller.publicKey}:listing',
+    test('participant proof payload hash is deterministic', () {
+      final h1 = ReservationParticipantProofTag.hashPayload(
+        'signed-authorization',
       );
-      final h1 = deriveReviewRevealKeyPair(
-        reservation: reservation,
-        reservationAuthorKeyPair: buyer,
-        role: 'buyer',
-      ).publicKey;
-      final h2 = deriveReviewRevealKeyPair(
-        reservation: reservation,
-        reservationAuthorKeyPair: buyer,
-        role: 'buyer',
-      ).publicKey;
+      final h2 = ReservationParticipantProofTag.hashPayload(
+        'signed-authorization',
+      );
       expect(h1, equals(h2));
     });
 

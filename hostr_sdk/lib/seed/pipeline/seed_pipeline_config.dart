@@ -156,6 +156,7 @@ class SeedPipelineConfig {
   final String lnbitsExtensionName;
   final String? lnbitsNostrPrivateKey;
   final String multiEscrowBytecodeHash;
+  final String? signetBunkerUrl;
 
   // ── EVM chain / token addresses ──
   final int chainId;
@@ -203,6 +204,7 @@ class SeedPipelineConfig {
     this.lnbitsNostrPrivateKey,
     this.seed = 1,
     this.multiEscrowBytecodeHash = '0xMockMultiEscrowBytecodeHash',
+    this.signetBunkerUrl,
     this.chainId = 412346,
     this.tbtcAddress,
     this.tbtcDecimals = 18,
@@ -238,13 +240,13 @@ class SeedPipelineConfig {
       multiEscrowBytecodeHash:
           _str(json['multiEscrowBytecodeHash']) ??
           '0xMockMultiEscrowBytecodeHash',
+      signetBunkerUrl: _str(json['signetBunkerUrl']),
       chainId: _int(json['chainId'], 412346),
       tbtcAddress: _str(json['tbtcAddress']),
       tbtcDecimals: _int(json['tbtcDecimals'], 18),
       usdtAddress: _str(json['usdtAddress']),
       usdtDecimals: _int(json['usdtDecimals'], 6),
-      escrowProfileName:
-          _str(json['escrowProfileName']) ?? 'Hostr Escrow',
+      escrowProfileName: _str(json['escrowProfileName']) ?? 'Hostr Escrow',
       escrowProfilePicture: _str(json['escrowProfilePicture']),
       seed: _int(json['seed'], 1),
       userCount: _int(json['userCount'], 50),
@@ -285,6 +287,7 @@ class SeedPipelineConfig {
     'lnbitsExtensionName': lnbitsExtensionName,
     'lnbitsNostrPrivateKey': lnbitsNostrPrivateKey,
     'multiEscrowBytecodeHash': multiEscrowBytecodeHash,
+    'signetBunkerUrl': signetBunkerUrl,
     'chainId': chainId,
     'tbtcAddress': tbtcAddress,
     'tbtcDecimals': tbtcDecimals,
@@ -324,6 +327,7 @@ class SeedPipelineConfig {
     String? lnbitsExtensionName,
     String? lnbitsNostrPrivateKey,
     String? multiEscrowBytecodeHash,
+    String? signetBunkerUrl,
     int? chainId,
     String? tbtcAddress,
     int? tbtcDecimals,
@@ -355,14 +359,14 @@ class SeedPipelineConfig {
     lnbitsNostrPrivateKey: lnbitsNostrPrivateKey ?? this.lnbitsNostrPrivateKey,
     multiEscrowBytecodeHash:
         multiEscrowBytecodeHash ?? this.multiEscrowBytecodeHash,
+    signetBunkerUrl: signetBunkerUrl ?? this.signetBunkerUrl,
     chainId: chainId ?? this.chainId,
     tbtcAddress: tbtcAddress ?? this.tbtcAddress,
     tbtcDecimals: tbtcDecimals ?? this.tbtcDecimals,
     usdtAddress: usdtAddress ?? this.usdtAddress,
     usdtDecimals: usdtDecimals ?? this.usdtDecimals,
     escrowProfileName: escrowProfileName ?? this.escrowProfileName,
-    escrowProfilePicture:
-        escrowProfilePicture ?? this.escrowProfilePicture,
+    escrowProfilePicture: escrowProfilePicture ?? this.escrowProfilePicture,
     seed: seed ?? this.seed,
     userCount: userCount ?? this.userCount,
     hostRatio: hostRatio ?? this.hostRatio,

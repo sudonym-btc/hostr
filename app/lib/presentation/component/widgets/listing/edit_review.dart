@@ -79,6 +79,7 @@ class EditReviewController extends UpsertFormController {
 
   @override
   Future<void> upsert() async {
+    debugPrint('REVIEW_SAVE upsert:start');
     final activeKeyPair = getIt<Hostr>().auth.activeKeyPair!;
     final reservationContext = reservation;
     if (reservationContext == null) {
@@ -88,15 +89,24 @@ class EditReviewController extends UpsertFormController {
     if (tradeId == null || tradeId.isEmpty) {
       throw StateError('Reservation trade id is required to publish a review');
     }
-    final tradeAccountIndex = await getIt<Hostr>()
-        .tradeAccountAllocator
+    debugPrint('REVIEW_SAVE upsert:tradeId=$tradeId');
+    final tradeAccountIndex = await getIt<Hostr>().tradeAccountAllocator
         .findTradeAccountIndexByTradeId(tradeId);
+    debugPrint('REVIEW_SAVE upsert:accountIndex=$tradeAccountIndex');
     final reservationAuthorKeyPair = await getIt<Hostr>().auth.hd
         .getTradeKeyPair(accountIndex: tradeAccountIndex);
-    final revealKeyPair = deriveReviewRevealKeyPair(
-      reservation: reservationContext,
-      reservationAuthorKeyPair: reservationAuthorKeyPair,
-      role: 'buyer',
+    debugPrint(
+      'REVIEW_SAVE upsert:reservationAuthor=${reservationAuthorKeyPair.publicKey}',
+    );
+    final proof = await getIt<Hostr>().reservations
+        .createParticipationProofForReview(
+          reservation: reservationContext,
+          role: 'buyer',
+          recipientKeyPair: reservationAuthorKeyPair,
+          identityKeyPair: activeKeyPair,
+        );
+    debugPrint(
+      'REVIEW_SAVE upsert:proof participant=${proof.participantPubkey} hash=${proof.authorizationPayloadHash}',
     );
     await getIt<Hostr>().reviews.upsert(
       Review(
@@ -104,9 +114,7 @@ class EditReviewController extends UpsertFormController {
         content: ReviewContent(
           rating: rating,
           content: reviewField.text,
-          proof: ParticipationProof(
-            revealPrivateKey: revealKeyPair.privateKey!,
-          ),
+          proof: proof,
         ),
         tags: ReviewTags([
           [kListingRefTag, listing.anchor!],
@@ -115,6 +123,7 @@ class EditReviewController extends UpsertFormController {
         ]),
       ),
     );
+    debugPrint('REVIEW_SAVE upsert:done');
   }
 
   @override
@@ -176,12 +185,17 @@ class _EditReviewState extends State<EditReview> {
   }
 
   Future<void> _handleSave() async {
+    debugPrint(
+      'REVIEW_SAVE handle:start canSubmit=${_controller.canSubmit} isSaving=${_controller.isSaving}',
+    );
     try {
       final didSave = await _controller.save();
+      debugPrint('REVIEW_SAVE handle:didSave=$didSave');
       if (didSave) {
         widget.onSaved?.call();
       }
     } catch (error) {
+      debugPrint('REVIEW_SAVE handle:error=$error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -207,6 +221,7 @@ class _EditReviewState extends State<EditReview> {
                 label: AppLocalizations.of(context)!.reviewMessageLabel,
               ),
               TextFormField(
+                key: const ValueKey('review_message_input'),
                 controller: _controller.reviewField.textController,
                 validator: (value) => _controller.validateReview(
                   value,
@@ -242,6 +257,7 @@ class _EditReviewState extends State<EditReview> {
                             final star = index + 1;
                             final selected = star <= _controller.rating;
                             return IconButton(
+                              key: ValueKey('review_rating_star_$star'),
                               visualDensity: VisualDensity.compact,
                               onPressed: () {
                                 _controller.setRating(star);
@@ -281,6 +297,7 @@ class _EditReviewState extends State<EditReview> {
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(
+                  key: const ValueKey('review_save_button'),
                   onPressed: _controller.canSubmit ? _handleSave : null,
                   child: _controller.isSaving
                       ? AppLoadingIndicator.small(

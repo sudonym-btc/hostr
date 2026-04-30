@@ -63,25 +63,10 @@ class Hostr {
   Calendar get calendar => getIt<Calendar>();
   StartupCoordinator get startup => getIt<StartupCoordinator>();
 
-  Trade trade(String tradeId) {
-    final thread = messaging.threads.findPreferredThreadByTradeId(tradeId);
-    final listingAnchor =
-        thread?.state.value.reservationRequests
-            .map((e) => e.parsedTags.listingAnchor)
-            .where((a) => a.isNotEmpty)
-            .firstOrNull ??
-        userSubscriptions.allMyReservations$.stream.items
-            .where(
-              (r) =>
-                  r.getDtag() == tradeId &&
-                  r.parsedTags.listingAnchor.isNotEmpty,
-            )
-            .map((r) => r.parsedTags.listingAnchor)
-            .firstOrNull;
-    if (listingAnchor == null) {
-      throw StateError('Unable to resolve listing anchor for trade $tradeId');
-    }
-    return getIt<Trade>(param1: tradeId, param2: listingAnchor);
+  Trade trade(String tradeId, Iterable<String> participants) {
+    return getIt<Trade>(
+      param1: TradeContext(tradeId: tradeId, participants: participants),
+    );
   }
 
   bool _authInitialized = false;

@@ -248,7 +248,7 @@ class _FakeStartupCore extends Fake implements StartupCore {
 
   @override
   Future<void> ensureRelaysReady({
-    Duration timeout = const Duration(seconds: 15),
+    Duration timeout = const Duration(seconds: 30),
   }) {
     relayStarts++;
     return relayCompleter?.future ?? Future.value();

@@ -189,6 +189,56 @@ void main() {
     );
 
     test(
+      'does not replay a previous user ready snapshot for a new user',
+      () async {
+        coordinator.start();
+        await pumpEventQueue();
+
+        auth.pubkey = 'pubkey-a';
+        authState.add(const LoggedIn('pubkey-a'));
+        await pumpEventQueue();
+
+        userProfile.complete(
+          const UserStartupReady(
+            pubkey: 'pubkey-a',
+            hasMetadata: true,
+            inboxLive: true,
+          ),
+        );
+        await pumpEventQueue();
+
+        expect(snapshots.last.result, isA<UserStartupReady>());
+
+        auth.pubkey = null;
+        authState.add(LoggedOut());
+        await pumpEventQueue();
+
+        final emittedBeforeSecondLogin = snapshots.length;
+        auth.pubkey = 'pubkey-b';
+        authState.add(const LoggedIn('pubkey-b'));
+        await pumpEventQueue();
+
+        final emittedForSecondLogin = snapshots.skip(emittedBeforeSecondLogin);
+        expect(
+          emittedForSecondLogin,
+          isNot(
+            contains(
+              predicate<StartupSnapshot>((snapshot) {
+                final result = snapshot.result;
+                return result is UserStartupReady &&
+                    result.pubkey == 'pubkey-a';
+              }),
+            ),
+          ),
+          reason:
+              'A new login must wait for that user startup result instead of '
+              'replaying the previous user readiness snapshot.',
+        );
+        expect(userProfile.launches, 2);
+      },
+    );
+
+    test(
       'launches background startup on demand without retargeting gate',
       () async {
         coordinator.start();

@@ -243,9 +243,22 @@ class StartupCoordinator {
   void _setTarget(StartupScope scope) {
     _targetScope = scope;
     final latest = _latestSnapshots[scope];
-    if (latest != null && !_snapshots.isClosed) {
+    if (latest != null &&
+        _snapshotMatchesCurrentTarget(latest) &&
+        !_snapshots.isClosed) {
       _snapshots.add(latest);
     }
+  }
+
+  bool _snapshotMatchesCurrentTarget(StartupSnapshot snapshot) {
+    if (snapshot.scope != _targetScope) return false;
+    if (snapshot.scope != StartupScope.user) return true;
+
+    final activePubkey = _activePubkey;
+    if (activePubkey == null) return false;
+
+    final result = snapshot.result;
+    return result is UserStartupReady && result.pubkey == activePubkey;
   }
 
   Future<void> dispose() async {

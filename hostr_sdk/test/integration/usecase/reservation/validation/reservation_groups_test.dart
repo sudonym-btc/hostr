@@ -215,23 +215,6 @@ Future<EscrowService> _buildEscrowService() async {
   ).first;
 }
 
-/// Builds an [EscrowTrust] NIP-51 list event published by [host],
-/// containing the escrow service's pubkey.
-EscrowTrust _buildEscrowTrust({required KeyPair host}) {
-  return EscrowTrust.fromNostrEvent(
-    Nip01Event(
-      pubKey: host.publicKey,
-      kind: kNostrKindEscrowTrust,
-      tags: [
-        ['d', 'escrow-trust'],
-        ['p', MockKeys.escrow.publicKey],
-      ],
-      content: '',
-      createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    ),
-  );
-}
-
 /// Builds an [EscrowMethod] NIP-51 list event published by [host],
 /// containing the escrow type and accepted payment forms.
 EscrowMethod _buildEscrowMethod({required KeyPair host}) {
@@ -329,7 +312,6 @@ PaymentProof _buildEscrowPaymentProof({
   required Nip01Event hosterProfile,
   required String txHash,
   required EscrowService escrowService,
-  required EscrowTrust escrowTrust,
   required EscrowMethod escrowMethod,
 }) {
   return PaymentProof(
@@ -585,7 +567,6 @@ void main() {
       late MultiEscrowWrapper escrowWrapper;
       late Listing listing;
       late EscrowService escrowService;
-      late EscrowTrust escrowTrust;
       late EscrowMethod escrowMethod;
       late Nip01Event hosterProfile;
 
@@ -625,7 +606,6 @@ void main() {
           instantBook: true,
         );
         escrowService = await _buildEscrowService();
-        escrowTrust = _buildEscrowTrust(host: host);
         escrowMethod = _buildEscrowMethod(host: host);
 
         hosterProfile = _buildProfileEvent(
@@ -682,7 +662,6 @@ void main() {
           hosterProfile: hosterProfile,
           txHash: txHash,
           escrowService: escrowService,
-          escrowTrust: escrowTrust,
           escrowMethod: escrowMethod,
         );
 
@@ -1424,7 +1403,6 @@ void main() {
 
     test('buyer with escrow proof → valid (current implementation)', () async {
       final escrowService = await _buildEscrowService();
-      final escrowTrust = _buildEscrowTrust(host: host);
       final escrowMethod = _buildEscrowMethod(host: host);
       final hosterProfile = _buildProfileEvent(key: host);
 
@@ -1433,7 +1411,6 @@ void main() {
         hosterProfile: hosterProfile,
         txHash: '0x${'a' * 64}',
         escrowService: escrowService,
-        escrowTrust: escrowTrust,
         escrowMethod: escrowMethod,
       );
 

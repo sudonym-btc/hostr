@@ -52,6 +52,7 @@ class EditProfileViewState extends State<EditProfileView> {
               noImageSetPlaceholder(context),
               Center(
                 child: FilledButton.icon(
+                  key: const ValueKey('edit_profile_add_image_button'),
                   onPressed: () =>
                       controller.imageField.cubit.pickMultipleImages(
                         limit: 1,
@@ -77,12 +78,14 @@ class EditProfileViewState extends State<EditProfileView> {
           children: [
             FormLabel(label: 'Name'),
             TextFormField(
+              key: const ValueKey('edit_profile_name_input'),
               controller: controller.nameField.textController,
               decoration: const InputDecoration(hintText: 'John Doe'),
             ),
             Gap.vertical.md(),
             FormLabel(label: 'About me'),
             TextFormField(
+              key: const ValueKey('edit_profile_about_input'),
               controller: controller.aboutMeField.textController,
               maxLines: 3,
               minLines: 1,
@@ -170,6 +173,7 @@ class EditProfileViewState extends State<EditProfileView> {
       ),
     );
     final bottomBar = SaveBottomBar(
+      saveButtonKey: const ValueKey('edit_profile_save_button'),
       controller: controller,
       onSave: () async {
         final saved = await controller.save();

@@ -1,0 +1,26 @@
+# Dev/test CORS for direct browser access to AlbyHub from Flutter web.
+if ($request_method = OPTIONS) {
+    add_header Access-Control-Allow-Origin "$http_origin" always;
+    add_header Access-Control-Allow-Credentials "true" always;
+    add_header Access-Control-Allow-Methods "GET, POST, PATCH, DELETE, OPTIONS" always;
+    add_header Access-Control-Allow-Headers "authorization, content-type, x-csrf-token, accept, origin" always;
+    add_header Access-Control-Max-Age 86400 always;
+    add_header Vary "Origin" always;
+    return 204;
+}
+
+include /etc/nginx/vhost.d/default_location;
+
+proxy_hide_header Access-Control-Allow-Origin;
+proxy_hide_header Access-Control-Allow-Credentials;
+proxy_hide_header Access-Control-Allow-Methods;
+proxy_hide_header Access-Control-Allow-Headers;
+proxy_hide_header Access-Control-Max-Age;
+proxy_hide_header Vary;
+
+add_header Access-Control-Allow-Origin "$http_origin" always;
+add_header Access-Control-Allow-Credentials "true" always;
+add_header Access-Control-Allow-Methods "GET, POST, PATCH, DELETE, OPTIONS" always;
+add_header Access-Control-Allow-Headers "authorization, content-type, x-csrf-token, accept, origin" always;
+add_header Access-Control-Max-Age 86400 always;
+add_header Vary "Origin" always;

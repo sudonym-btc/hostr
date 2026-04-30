@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:ndk/ndk.dart' hide Nwc;
@@ -30,6 +32,10 @@ class NwcCubit extends Cubit<NwcCubitState> {
     emit(NwcLoading());
     return nwc
         .getInfo(connection!)
+        // NWC get_info is relay-mediated. If the wallet response is lost,
+        // the underlying request can otherwise wait forever and wedge auth or
+        // test startup flows that only need to know the connection failed.
+        .timeout(const Duration(seconds: 20))
         .then((value) {
           emit(NwcSuccess(value));
         })

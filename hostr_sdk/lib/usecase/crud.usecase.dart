@@ -86,6 +86,7 @@ class CrudUseCase<T extends Nip01Event> {
       logger: logger,
       name: '$T-$name',
       filterSource: kindMerged,
+      localUpdates: updates,
       debounceDuration: debounceDuration,
     );
   }
@@ -100,6 +101,7 @@ class CrudUseCase<T extends Nip01Event> {
       requests: requests,
       logger: logger,
       name: '$T-$name',
+      localUpdates: updates,
       debounceDuration: debounceDuration,
     );
   }
@@ -127,19 +129,46 @@ class CrudUseCase<T extends Nip01Event> {
 
   Future<List<RelayBroadcastResponse>> upsert(T event) =>
       logger.span('upsert', () async {
-        return requests.broadcast(event: event).then((r) {
-          _updates.add(event);
-          return r;
-        });
+        // `updates` is consumed by UI flows that treat an event as published.
+        // Emit only after relay broadcast completes so failed writes cannot
+        // appear locally as successful reservations/listings/etc.
+        final responses = await requests.broadcast(event: event);
+        _ensureBroadcastSucceeded(event, responses);
+        _updates.add(event);
+        return responses;
       });
 
   Future<List<RelayBroadcastResponse>> delete(T event) =>
       logger.span('delete', () async {
-        return requests.broadcast(event: event).then((r) {
-          _updates.add(event);
-          return r;
-        });
+        // Keep delete semantics aligned with upsert: local observers should
+        // only react once the relay accepted the mutation.
+        final responses = await requests.broadcast(event: event);
+        _ensureBroadcastSucceeded(event, responses);
+        _updates.add(event);
+        return responses;
       });
+
+  void _ensureBroadcastSucceeded(
+    T event,
+    List<RelayBroadcastResponse> responses,
+  ) {
+    // Tests and in-memory request implementations sometimes return an empty
+    // response list, so preserve that existing success convention. Real relay
+    // responses, when present, must contain at least one successful broadcast.
+    if (responses.isEmpty ||
+        responses.any((response) => response.broadcastSuccessful)) {
+      return;
+    }
+
+    final details = responses
+        .map(
+          (response) =>
+              '${response.relayUrl}{ok=${response.okReceived}, '
+              'success=${response.broadcastSuccessful}, msg=${response.msg}}',
+        )
+        .join(', ');
+    throw StateError('Broadcast failed for $T ${event.id}: $details');
+  }
 
   Future<List<T>> list(Filter f, {String? name}) =>
       logger.span('list', () async {

@@ -1,31 +1,40 @@
 import 'package:models/main.dart';
-import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
-/// Proof that reveals the private key needed to decrypt the reservation's
-/// attached identity authorization capsule for public review verification.
+/// Proof that reveals the signed participant authorization plaintext used in a
+/// reservation `participant_proof`. Review verification matches this plaintext
+/// against the reservation proof's hash before trusting the authorization.
 class ParticipationProof {
-  final String revealPrivateKey;
   final String role;
+  final String participantPubkey;
+  final String authorizationPayload;
 
   ParticipationProof({
-    required this.revealPrivateKey,
     this.role = 'buyer',
+    required this.participantPubkey,
+    required this.authorizationPayload,
   });
 
-  KeyPair get revealKeyPair => Bip340.fromPrivateKey(revealPrivateKey);
-  String get revealPubkey => revealKeyPair.publicKey;
+  String get authorizationPayloadHash =>
+      ReservationParticipantProofTag.hashPayload(authorizationPayload);
+
+  ReservationParticipantAuthorizationPayload? get authorization =>
+      ReservationParticipantAuthorizationPayload.tryDecode(
+        authorizationPayload,
+      );
 
   Map<String, dynamic> toJson() {
     return {
-      "revealPrivateKey": revealPrivateKey,
       "role": role,
+      "participantPubkey": participantPubkey,
+      "authorizationPayload": authorizationPayload,
     };
   }
 
   static ParticipationProof fromJson(Map<String, dynamic> json) {
     return ParticipationProof(
-      revealPrivateKey: json["revealPrivateKey"] as String,
       role: json["role"] as String? ?? 'buyer',
+      participantPubkey: json["participantPubkey"] as String,
+      authorizationPayload: json["authorizationPayload"] as String,
     );
   }
 }

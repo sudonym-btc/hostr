@@ -1,24 +1,22 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
+
+import '../../util/http_client_factory.dart';
 
 class AlbyHubClient {
   final Uri baseUri;
   final String unlockPassword;
-  final HttpClient _httpClient;
-  final Map<String, Cookie> _cookieJar = <String, Cookie>{};
+  final http.Client _httpClient;
+  final Map<String, String> _cookieJar = <String, String>{};
   String? _lastAuthToken;
 
   AlbyHubClient({
     required this.baseUri,
     required this.unlockPassword,
-    HttpClient? httpClient,
-  }) : _httpClient =
-           httpClient ??
-           (HttpClient()
-             ..badCertificateCallback = (X509Certificate _, String _, int _) =>
-                 true);
+    http.Client? httpClient,
+  }) : _httpClient = httpClient ?? createPlatformHttpClient();
 
   Future<void> setup() async {
     final response = await _request(
@@ -285,6 +283,15 @@ class AlbyHubClient {
     return ListSwapsResponse(swaps: swaps);
   }
 
+  Future<void> payInvoice({required String invoice}) async {
+    final token = await unlock();
+    await _request(
+      method: 'POST',
+      path: '/api/payments/${Uri.encodeComponent(invoice)}',
+      bearerToken: token.isEmpty ? null : token,
+    );
+  }
+
   Future<SwapResponse> lookupSwap({
     required String token,
     required String swapId,
@@ -304,40 +311,38 @@ class AlbyHubClient {
     String? bearerToken,
     bool throwOnHttpError = true,
   }) async {
-    final request = switch (method) {
-      'GET' => await _httpClient.getUrl(baseUri.resolve(path)),
-      'POST' => await _httpClient.postUrl(baseUri.resolve(path)),
-      'DELETE' => await _httpClient.deleteUrl(baseUri.resolve(path)),
-      _ => throw UnsupportedError('Unsupported method: $method'),
-    };
-
-    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    final headers = <String, String>{'accept': 'application/json'};
     if (_cookieJar.isNotEmpty) {
-      request.cookies.addAll(_cookieJar.values);
+      headers['cookie'] = _cookieJar.entries
+          .map((entry) => '${entry.key}=${entry.value}')
+          .join('; ');
     }
 
     if (bearerToken != null && bearerToken.isNotEmpty) {
-      request.headers.set(
-        HttpHeaders.authorizationHeader,
-        'Bearer $bearerToken',
-      );
+      headers['authorization'] = 'Bearer $bearerToken';
     }
 
-    if (body != null) {
-      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-      request.write(jsonEncode(body));
+    final encodedBody = body == null ? null : jsonEncode(body);
+    if (encodedBody != null) {
+      headers['content-type'] = 'application/json';
     }
+    final uri = baseUri.resolve(path);
+    final response = switch (method) {
+      'GET' => await _httpClient.get(uri, headers: headers),
+      'POST' => await _httpClient.post(
+        uri,
+        headers: headers,
+        body: encodedBody,
+      ),
+      'DELETE' => await _httpClient.delete(uri, headers: headers),
+      _ => throw UnsupportedError('Unsupported method: $method'),
+    };
 
-    final response = await request.close();
-    final responseBody = await utf8.decodeStream(response);
-
-    for (final cookie in response.cookies) {
-      _cookieJar[cookie.name] = cookie;
-    }
+    _storeCookies(response.headers['set-cookie']);
 
     Map<String, dynamic> decodedMap = <String, dynamic>{};
-    if (responseBody.trim().isNotEmpty) {
-      final decoded = jsonDecode(responseBody);
+    if (response.body.trim().isNotEmpty) {
+      final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
         decodedMap = decoded;
       }
@@ -354,8 +359,20 @@ class AlbyHubClient {
     return _HttpResponseJson(
       statusCode: response.statusCode,
       map: decodedMap,
-      cookies: response.cookies,
+      cookies: _cookieJar.entries
+          .map((entry) => _SimpleCookie(entry.key, entry.value))
+          .toList(),
     );
+  }
+
+  void _storeCookies(String? setCookieHeader) {
+    if (setCookieHeader == null || setCookieHeader.isEmpty) return;
+    for (final rawCookie in setCookieHeader.split(',')) {
+      final pair = rawCookie.split(';').first.trim();
+      final equals = pair.indexOf('=');
+      if (equals <= 0) continue;
+      _cookieJar[pair.substring(0, equals)] = pair.substring(equals + 1);
+    }
   }
 
   String? _extractToken(Map<String, dynamic> map) {
@@ -420,7 +437,7 @@ class AlbyHubClient {
   }
 
   void close() {
-    _httpClient.close(force: true);
+    _httpClient.close();
   }
 }
 
@@ -511,11 +528,18 @@ class ListSwapsResponse {
 class _HttpResponseJson {
   final int statusCode;
   final Map<String, dynamic> map;
-  final List<Cookie> cookies;
+  final List<_SimpleCookie> cookies;
 
   const _HttpResponseJson({
     required this.statusCode,
     required this.map,
     required this.cookies,
   });
+}
+
+class _SimpleCookie {
+  final String name;
+  final String value;
+
+  const _SimpleCookie(this.name, this.value);
 }

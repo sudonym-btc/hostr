@@ -480,6 +480,10 @@ class EscrowEventScanner {
   ) async {
     final blockNum = _blockNumForLog(log);
     final txHash = log.transactionHash!;
+    final chainId = _chainIdForEvent();
+    final contractAddress = _contractAddressForEvent();
+    final transactionIndex = _transactionIndexForLog(log);
+    final logIndex = _logIndexForLog(log);
 
     switch (eventNamesByTopic[log.topics?.first]) {
       case 'TradeCreated':
@@ -489,12 +493,16 @@ class EscrowEventScanner {
         );
         return EscrowFundedEvent(
           tradeId: bytesToHex(tradeCreated.tradeId),
+          transactionHash: txHash,
           blockNum: blockNum,
           block: null,
+          chainId: chainId,
+          contractAddress: contractAddress,
+          transactionIndex: transactionIndex,
+          logIndex: logIndex,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
-          transactionHash: txHash,
           amount: await _tokenAmountFromEvent(
             tradeCreated.token,
             tradeCreated.paymentAmount,
@@ -511,12 +519,16 @@ class EscrowEventScanner {
         final arb = Arbitrated(_decodeEvent('Arbitrated', log), log);
         return EscrowArbitratedEvent(
           tradeId: bytesToHex(arb.tradeId),
+          transactionHash: txHash,
           blockNum: blockNum,
           block: null,
+          chainId: chainId,
+          contractAddress: contractAddress,
+          transactionIndex: transactionIndex,
+          logIndex: logIndex,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
-          transactionHash: txHash,
           paymentForwarded: arb.paymentFactor.toInt() / 1000,
           bondForwarded: arb.bondFactor.toInt() / 1000,
         );
@@ -527,23 +539,31 @@ class EscrowEventScanner {
         );
         return EscrowReleasedEvent(
           tradeId: bytesToHex(released.tradeId),
+          transactionHash: txHash,
           blockNum: blockNum,
           block: null,
+          chainId: chainId,
+          contractAddress: contractAddress,
+          transactionIndex: transactionIndex,
+          logIndex: logIndex,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
-          transactionHash: txHash,
         );
       case 'Claimed':
         final claimed = Claimed(_decodeEvent('Claimed', log), log);
         return EscrowClaimedEvent(
           tradeId: bytesToHex(claimed.tradeId),
+          transactionHash: txHash,
           blockNum: blockNum,
           block: null,
+          chainId: chainId,
+          contractAddress: contractAddress,
+          transactionIndex: transactionIndex,
+          logIndex: logIndex,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
-          transactionHash: txHash,
         );
       default:
         logger.w(
@@ -551,8 +571,13 @@ class EscrowEventScanner {
         );
         return UnknownEscrowEvent(
           tradeId: '',
+          transactionHash: txHash,
           blockNum: blockNum,
           block: null,
+          chainId: chainId,
+          contractAddress: contractAddress,
+          transactionIndex: transactionIndex,
+          logIndex: logIndex,
           escrowService: selectedEscrow,
           chain: chain,
           contract: parentContract,
@@ -627,6 +652,38 @@ class EscrowEventScanner {
       );
     }
     return blockNum;
+  }
+
+  int _chainIdForEvent() {
+    final eventChain = chain;
+    if (eventChain == null) {
+      throw StateError('Escrow event scanner has no configured EVM chain');
+    }
+    return eventChain.config.chainId;
+  }
+
+  String _contractAddressForEvent() {
+    final eventContract = parentContract;
+    return eventContract?.address.eip55With0x ??
+        contract.self.address.eip55With0x;
+  }
+
+  int _transactionIndexForLog(FilterEvent log) {
+    final transactionIndex = log.transactionIndex;
+    if (transactionIndex == null) {
+      throw StateError(
+        'Escrow log ${log.transactionHash} has no transaction index',
+      );
+    }
+    return transactionIndex;
+  }
+
+  int _logIndexForLog(FilterEvent log) {
+    final logIndex = log.logIndex;
+    if (logIndex == null) {
+      throw StateError('Escrow log ${log.transactionHash} has no log index');
+    }
+    return logIndex;
   }
 
   List<dynamic> _decodeEvent(String eventName, FilterEvent log) => contract

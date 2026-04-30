@@ -205,7 +205,7 @@ class Seeder {
     }
 
     // Reviews.
-    final reviews = factory.buildReviews(threads);
+    final reviews = await factory.buildReviews(threads);
     for (final r in reviews) {
       await sink.publish(r);
     }

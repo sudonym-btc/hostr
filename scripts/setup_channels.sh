@@ -76,6 +76,20 @@ wait_for_sync() {
             echo "$cmd_name synced (LND)"
             break
         fi
+        local lnd_blockheight
+        lnd_blockheight=$(echo "$info" | jq -r '.block_height // empty' 2>/dev/null)
+        if [[ "$lnd_blockheight" =~ ^[0-9]+$ ]]; then
+            local chain_height
+            if [ "$cmd_name" == "LND" ]; then
+                chain_height=$(BTC getblockcount 2>/dev/null | tr -d '[:space:]' || echo "")
+            else
+                chain_height=$(docker exec boltz-scripts bash -lc "source /etc/profile.d/utils.sh && bitcoin-cli-sim-client getblockcount" 2>/dev/null | tr -d '[:space:]' || echo "")
+            fi
+            if [[ "$chain_height" =~ ^[0-9]+$ ]] && [ "$chain_height" -ne 0 ] && [ "$lnd_blockheight" -eq "$chain_height" ]; then
+                echo "$cmd_name synced (LND block height=$lnd_blockheight)"
+                break
+            fi
+        fi
 
         # CLN: synced when warning_lightningd_sync is absent/null
         local cln_warning
@@ -217,6 +231,43 @@ sync_nodes() {
     wait_all_pids "${pids[@]}"
 }
 
+wait_for_lnd_synced_to_chain() {
+    local max_attempts=36
+    local attempt=0
+    local synced
+
+    while [ $attempt -lt $max_attempts ]; do
+        synced=$(LND getinfo 2>/dev/null | jq -r '.synced_to_chain // false' 2>/dev/null || echo "false")
+        if [ "$synced" == "true" ]; then
+            echo "LND wallet reports synced_to_chain=true"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        if [ $((attempt % 5)) -eq 0 ]; then
+            echo "Waiting for LND wallet strict sync before opening channels (attempt $attempt/$max_attempts)..."
+        fi
+        sleep 1
+    done
+
+    echo "Failed: LND wallet did not report synced_to_chain=true"
+    return 1
+}
+
+ensure_lnd_wallet_synced_for_channel_open() {
+    local synced
+
+    synced=$(LND getinfo 2>/dev/null | jq -r '.synced_to_chain // false' 2>/dev/null || echo "false")
+    if [ "$synced" == "true" ]; then
+        echo "LND wallet is strictly synced for channel opens."
+        return 0
+    fi
+
+    echo "LND wallet strict sync is false. Mining one fresh regtest block before channel opens..."
+    BTC generatetoaddress 1 $LND_ADDR >/dev/null
+    ensure_bitcoind_blockheights_match
+    wait_for_lnd_synced_to_chain
+}
+
 reconnect_expected_peers() {
     local pids=()
 
@@ -266,11 +317,171 @@ wait_for_expected_hostr_channels() {
     wait_all_pids "${pids[@]}"
 }
 
+hostr_lnd_local_channel_balance() {
+    LND channelbalance 2>/dev/null | jq -r '.local_balance.sat // .balance // "0"' 2>/dev/null || echo "0"
+}
+
+lnd_wallet_confirmed_balance() {
+    LND walletbalance 2>/dev/null | jq -r '.confirmed_balance // "0"' 2>/dev/null || echo "0"
+}
+
+lnd_pending_open_channel_count() {
+    LND pendingchannels 2>/dev/null | jq -r '(.pending_open_channels // []) | length' 2>/dev/null || echo "0"
+}
+
+ensure_lnd_confirmed_balance() {
+    local required_balance=$1
+    local max_rounds=8
+    local round=0
+    local confirmed_balance
+
+    while [ $round -lt $max_rounds ]; do
+        confirmed_balance=$(lnd_wallet_confirmed_balance)
+        if [[ "$confirmed_balance" =~ ^[0-9]+$ ]] && [ "$confirmed_balance" -ge "$required_balance" ]; then
+            echo "LND confirmed wallet balance ready: $confirmed_balance sats"
+            return 0
+        fi
+
+        round=$((round + 1))
+        echo "LND confirmed wallet balance below $required_balance sats (current=$confirmed_balance). Mining mature funding round $round/$max_rounds..."
+        LND_NEW_ADDR=$(LND newaddress p2wkh 2>/dev/null | jq -r '.address' 2>/dev/null)
+        if [ -z "$LND_NEW_ADDR" ] || [ "$LND_NEW_ADDR" == "null" ]; then
+            echo "Failed: could not get a fresh LND funding address."
+            return 1
+        fi
+
+        # Channel opens spend confirmed, mature witness outputs. Mining only
+        # funding blocks leaves most coinbase outputs immature on regtest, so
+        # we mine a maturity tail before trying to open the next channel.
+        BTC generatetoaddress "${HOSTR_LND_FUNDING_BLOCKS:-160}" "$LND_NEW_ADDR" >/dev/null
+        BTC generatetoaddress "${HOSTR_LND_MATURITY_BLOCKS:-101}" "$LND_NEW_ADDR" >/dev/null
+        sync_nodes "LND"
+    done
+
+    confirmed_balance=$(lnd_wallet_confirmed_balance)
+    echo "Failed: LND confirmed wallet balance stayed below $required_balance sats (current=$confirmed_balance)."
+    return 1
+}
+
+wait_for_pending_hostr_open_channels() {
+    local pending_count
+    pending_count=$(lnd_pending_open_channel_count)
+    if [[ ! "$pending_count" =~ ^[0-9]+$ ]] || [ "$pending_count" -eq 0 ]; then
+        return 0
+    fi
+
+    echo "Found $pending_count pending hostr LND channel open(s). Mining confirmations before opening more."
+    BTC generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} $LND_ADDR >/dev/null
+    sync_nodes "LND" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+               "lightning-cli-sim 1" "lightning-cli-sim 2"
+}
+
+lnd_has_channel_with_peer() {
+    local pubkey=$1
+
+    if LND listchannels 2>/dev/null | jq -e --arg pk "$pubkey" \
+        'any(.channels[]?; .remote_pubkey == $pk)' >/dev/null 2>&1; then
+        return 0
+    fi
+
+    LND pendingchannels 2>/dev/null | jq -e --arg pk "$pubkey" \
+        'any(.pending_open_channels[]?; .channel.remote_node_pub == $pk)' >/dev/null 2>&1
+}
+
+open_hostr_outbound_channel_if_missing() {
+    local pubkey=$1
+    local label=$2
+
+    if lnd_has_channel_with_peer "$pubkey"; then
+        echo "Hostr outbound channel to $label already exists or is pending."
+        return 1
+    fi
+
+    # Check per-channel spendable balance immediately before each open because
+    # earlier opens lock UTXOs and LND will otherwise fail partway through.
+    ensure_lnd_confirmed_balance "$((HOSTR_OUTBOUND_CHANNEL_SIZE + 1000000))"
+    echo "Opening hostr outbound channel to $label (${HOSTR_OUTBOUND_CHANNEL_SIZE} sats)..."
+    LND openchannel "$pubkey" "$HOSTR_OUTBOUND_CHANNEL_SIZE" >/dev/null
+    return 0
+}
+
+open_missing_hostr_outbound_channels() {
+    local opened=0
+
+    open_hostr_outbound_channel_if_missing "$BOLTZ_LND1_PUB" "boltz lnd-1" && opened=1
+    open_hostr_outbound_channel_if_missing "$BOLTZ_LND2_PUB" "boltz lnd-2" && opened=1
+    open_hostr_outbound_channel_if_missing "$BOLTZ_LND3_PUB" "boltz lnd-3" && opened=1
+    open_hostr_outbound_channel_if_missing "$BOLTZ_CLN1_PUB" "boltz cln-1" && opened=1
+    open_hostr_outbound_channel_if_missing "$BOLTZ_CLN2_PUB" "boltz cln-2" && opened=1
+
+    if [ "$opened" -eq 1 ]; then
+        BTC generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} $LND_ADDR >/dev/null
+        sync_nodes "LND" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+                   "lightning-cli-sim 1" "lightning-cli-sim 2"
+    fi
+}
+
+wait_for_hostr_lnd_local_liquidity() {
+    local min_balance=$1
+    local max_attempts=120
+    local attempt=0
+    local local_balance
+
+    while [ $attempt -lt $max_attempts ]; do
+        local_balance=$(hostr_lnd_local_channel_balance)
+        if [[ "$local_balance" =~ ^[0-9]+$ ]] && [ "$local_balance" -ge "$min_balance" ]; then
+            echo "Hostr LND local channel liquidity ready: $local_balance sats"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        if [ $((attempt % 10)) -eq 0 ]; then
+            echo "Waiting for Hostr LND local liquidity >= $min_balance sats (current=$local_balance, attempt $attempt/$max_attempts)..."
+        fi
+        sleep 1
+    done
+
+    echo "Warning: Hostr LND local channel liquidity stayed below $min_balance sats"
+    return 1
+}
+
+ensure_hostr_outbound_liquidity() {
+    local min_balance="${HOSTR_LND_LOCAL_LIQUIDITY_MIN:-30000000}"
+    local local_balance
+
+    local_balance=$(hostr_lnd_local_channel_balance)
+    echo "Hostr LND local channel liquidity: $local_balance sats"
+
+    if [[ "$local_balance" =~ ^[0-9]+$ ]] && [ "$local_balance" -ge "$min_balance" ]; then
+        echo "Hostr LND has enough outbound liquidity for e2e runs."
+        return 0
+    fi
+
+    echo "Hostr LND outbound liquidity below $min_balance sats. Opening top-up channels..."
+    ensure_lnd_wallet_synced_for_channel_open
+    sync_nodes "LND" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
+               "lightning-cli-sim 1" "lightning-cli-sim 2"
+    reconnect_expected_peers
+
+    open_missing_hostr_outbound_channels
+    wait_for_hostr_lnd_local_liquidity "$min_balance"
+}
+
 # ── Main entry point ────────────────────────────────────────────────────
 
 setup_channels() {
     source "$SCRIPT_DIR/aliases.sh"
     source "$SCRIPT_DIR/../dependencies/boltz-regtest/aliases.sh"
+
+    # Local regtest tests spend from Alby/hostr to Boltz. Use the largest
+    # channel size accepted by the unmodified Boltz LND peers, and keep
+    # Boltz→hostr channels small because we do not need meaningful inbound
+    # liquidity for these reservation payment tests.
+    HOSTR_OUTBOUND_CHANNEL_SIZE="${HOSTR_OUTBOUND_CHANNEL_SIZE_SATS:-1000000000}"
+    BOLTZ_INBOUND_CHANNEL_SIZE="${BOLTZ_INBOUND_CHANNEL_SIZE_SATS:-${CHANNEL_SIZE:-10000000}}"
+    CHANNEL_SIZE="$HOSTR_OUTBOUND_CHANNEL_SIZE"
+    LND_MIN_BALANCE="${HOSTR_LND_MIN_BALANCE_SATS:-$((HOSTR_OUTBOUND_CHANNEL_SIZE * 5 + 1000000))}"
+    HOSTR_LND_LOCAL_LIQUIDITY_MIN="${HOSTR_LND_LOCAL_LIQUIDITY_MIN:-$HOSTR_OUTBOUND_CHANNEL_SIZE}"
+    INITIAL_MINING_BLOCKS="${HOSTR_INITIAL_MINING_BLOCKS:-130}"
 
     # Override boltz-regtest helper commands for non-interactive execution.
     run_in_boltz_scripts() {
@@ -292,16 +503,11 @@ setup_channels() {
     wait_all_pids "${pids[@]}"
 
     # ── Phase 1: Fund hostr LND nodes if needed ───────────────────────
-    local lnd_balance=$(LND walletbalance 2>/dev/null | jq -r '.total_balance // "0"' 2>/dev/null || echo "0")
-    echo "LND balance: $lnd_balance sats"
-
-    if [ "$lnd_balance" -lt ${LND_MIN_BALANCE} ]; then
-        echo "LND needs funding. Generating address and mining blocks..."
-        LND_NEW_ADDR=$(LND newaddress p2wkh 2>/dev/null | jq -r '.address' 2>/dev/null)
-        if [ -n "$LND_NEW_ADDR" ]; then
-            BTC generatetoaddress ${INITIAL_MINING_BLOCKS} $LND_NEW_ADDR >/dev/null
-        fi
-    fi
+    # LND channel opens require confirmed spendable wallet outputs. The total
+    # balance can include immature coinbase outputs and pending change.
+    local lnd_balance=$(lnd_wallet_confirmed_balance)
+    echo "LND confirmed balance: $lnd_balance sats"
+    ensure_lnd_confirmed_balance "$((HOSTR_OUTBOUND_CHANNEL_SIZE + 1000000))"
 
     # ── Phase 2: Collect pubkeys & reconnect persisted peers ──────────
     BOLTZ_LND1_PUB=$(lncli-sim 1 getinfo | jq -r .identity_pubkey)
@@ -323,14 +529,19 @@ setup_channels() {
         sleep 5
     done
 
-    if [ "$lnd_channels" -gt 0 ]; then
-        echo "Channels already exist. Waiting for persisted channels to reactivate."
+    local lnd_pending_channels
+    lnd_pending_channels=$(lnd_pending_open_channel_count)
+    if [ "$lnd_channels" -gt 0 ] || { [[ "$lnd_pending_channels" =~ ^[0-9]+$ ]] && [ "$lnd_pending_channels" -gt 0 ]; }; then
+        echo "Channels already exist or are pending. Waiting for persisted channels to reactivate."
+        wait_for_pending_hostr_open_channels
+        open_missing_hostr_outbound_channels
         wait_for_expected_hostr_channels
-        echo "Persisted channels are active. Skipping channel creation."
+        ensure_hostr_outbound_liquidity
+        echo "Persisted channels are active."
         return 0
     fi
 
-    echo "No channels found. Creating all lightning channels..."
+    echo "No channels found. Creating hostr outbound channels with ${HOSTR_OUTBOUND_CHANNEL_SIZE} sats each..."
 
     # ── Phase 3: Connect every peer before opening channels ───────────
 
@@ -347,14 +558,9 @@ setup_channels() {
 
     # ── Phase 5: Batch 1 — all outbound opens from hostr LND ──────
     # LND → boltz LND1/LND2/LND3/CLN1/CLN2 = 5 channels.
-    echo "Opening 5 outbound channels (hostr LND → all boltz peers)..."
-    LND openchannel ${BOLTZ_LND1_PUB} ${CHANNEL_SIZE} >/dev/null
-    LND openchannel ${BOLTZ_LND2_PUB} ${CHANNEL_SIZE} >/dev/null
-    LND openchannel ${BOLTZ_LND3_PUB} ${CHANNEL_SIZE} >/dev/null
-    LND openchannel ${BOLTZ_CLN1_PUB} ${CHANNEL_SIZE} >/dev/null
-    LND openchannel ${BOLTZ_CLN2_PUB} ${CHANNEL_SIZE} >/dev/null
-
-    BTC generatetoaddress ${CHANNEL_BLOCK_CONFIRMATIONS} $LND_ADDR >/dev/null
+    ensure_lnd_wallet_synced_for_channel_open
+    echo "Opening 5 outbound channels (hostr LND → all boltz peers, ${HOSTR_OUTBOUND_CHANNEL_SIZE} sats each)..."
+    open_missing_hostr_outbound_channels
 
     pids=()
     wait_for_channel "LND" "${BOLTZ_LND1_PUB}" & pids+=($!)
@@ -364,17 +570,17 @@ setup_channels() {
     wait_for_channel "LND" "${BOLTZ_CLN2_PUB}" & pids+=($!)
     wait_all_pids "${pids[@]}"
 
-    # ── Phase 6: Batch 2 — all 8 inbound opens from boltz → hostr ────
+    # ── Phase 6: Batch 2 — small inbound opens from boltz → hostr ────
     sync_nodes "LND" "lncli-sim 1" "lncli-sim 2" "lncli-sim 3" \
                "lightning-cli-sim 1" "lightning-cli-sim 2"
 
-    echo "Opening 5 inbound channels (boltz → hostr LND)..."
-    lncli-sim 1 openchannel ${LND_PUB} ${CHANNEL_SIZE} >/dev/null
-    lncli-sim 2 openchannel ${LND_PUB} ${CHANNEL_SIZE} >/dev/null
-    lncli-sim 3 openchannel ${LND_PUB} ${CHANNEL_SIZE} >/dev/null
+    echo "Opening 5 small inbound channels (boltz → hostr LND, ${BOLTZ_INBOUND_CHANNEL_SIZE} sats each)..."
+    lncli-sim 1 openchannel ${LND_PUB} ${BOLTZ_INBOUND_CHANNEL_SIZE} >/dev/null
+    lncli-sim 2 openchannel ${LND_PUB} ${BOLTZ_INBOUND_CHANNEL_SIZE} >/dev/null
+    lncli-sim 3 openchannel ${LND_PUB} ${BOLTZ_INBOUND_CHANNEL_SIZE} >/dev/null
     # CLN: sequential per node to avoid wallet UTXO lock conflicts.
-    lightning-cli-sim 1 fundchannel ${LND_PUB} ${CHANNEL_SIZE} >/dev/null
-    lightning-cli-sim 2 fundchannel ${LND_PUB} ${CHANNEL_SIZE} >/dev/null
+    lightning-cli-sim 1 fundchannel ${LND_PUB} ${BOLTZ_INBOUND_CHANNEL_SIZE} >/dev/null
+    lightning-cli-sim 2 fundchannel ${LND_PUB} ${BOLTZ_INBOUND_CHANNEL_SIZE} >/dev/null
 
     # Mine on Boltz's bitcoind — the funding txs were broadcast by Boltz
     # nodes and may not have propagated to hostr's mempool yet.
@@ -388,6 +594,7 @@ setup_channels() {
     wait_for_channel "lightning-cli-sim 2" "${LND_PUB}" & pids+=($!)
     wait_all_pids "${pids[@]}"
 
+    wait_for_hostr_lnd_local_liquidity "${HOSTR_LND_LOCAL_LIQUIDITY_MIN:-30000000}"
     echo "All channels created successfully."
 }
 

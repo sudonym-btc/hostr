@@ -1,24 +1,79 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
+import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
+import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-const _signerApprovalDelay = Duration(seconds: 5);
+const kSignerApprovalDelay = Duration(seconds: 5);
 
-const _criticalSignerKinds = <int>{
-  kNostrKindCommitAuthorization,
-  kNostrKindTradeKeyAuthorization,
-  kNostrKindReservation,
-  kNostrKindReservationTransition,
-  kNostrKindReview,
-  kNostrKindEscrowServiceSelected,
-  kNostrKindHostrSeed,
-};
+const kNonBlockingSignerRequestEventKinds = <int>{kNostrKindReceivedHeartbeat};
+
+bool shouldShowFullPageSignerRequest(PendingSignerRequest request) {
+  if (request.method != SignerMethod.signEvent) return true;
+  final kind = request.event?.kind;
+  if (kind == null) return true;
+  return !kNonBlockingSignerRequestEventKinds.contains(kind);
+}
+
+PendingSignerRequest? visibleFullPageSignerRequest({
+  required Iterable<PendingSignerRequest> requests,
+  required Set<String> dismissedRequestIds,
+  required DateTime now,
+  Duration approvalDelay = kSignerApprovalDelay,
+}) {
+  for (final request in requests) {
+    if (dismissedRequestIds.contains(request.id)) continue;
+    if (!shouldShowFullPageSignerRequest(request)) continue;
+    if (now.difference(request.createdAt) < approvalDelay) continue;
+    return request;
+  }
+  return null;
+}
+
+String signerRequestEventKindDescription(int? kind) {
+  return switch (kind) {
+    kNostrKindProfile => 'profile metadata',
+    kNostrKindListing => 'listing',
+    kNostrKindReservation => 'reservation update',
+    kNostrKindReview => 'review',
+    kNostrKindCommitAuthorization => 'payment commit authorization',
+    kNostrKindTradeKeyAuthorization => 'trade key authorization',
+    kNostrKindHostrSeed => 'account recovery seed',
+    kNostrKindReservationTransition => 'reservation transition',
+    kNostrKindEscrowService => 'escrow service advertisement',
+    kNostrKindEscrowMethod => 'escrow payment methods',
+    kNostrKindEscrowServiceSelected => 'escrow selection',
+    kNostrKindIdentityClaims => 'identity claim',
+    kNostrKindLegacyDM => 'legacy direct message',
+    kNostrKindDM => 'direct message',
+    kNostrKindJsonMessage => 'Hostr message',
+    kNostrKindSeenStatus => 'seen status',
+    kNostrKindReaction => 'reaction',
+    kNostrKindZapRequest => 'zap request',
+    kNostrKindZapReceipt => 'zap receipt',
+    kNostrKindConnect => 'Nostr Connect request',
+    kNostrKindSeal => 'encrypted message seal',
+    kNostrKindGiftWrap => 'encrypted message wrapper',
+    kNostrKindDmRelays => 'direct message relay list',
+    kNostrKindReceivedHeartbeat => 'heartbeat',
+    kNostrKindTypingIndicator => 'typing indicator',
+    kNostrKindSeenMessages => 'seen message marker',
+    kNostrKindNWCInfo => 'Nostr Wallet Connect info',
+    kNostrKindNWCRequest => 'Nostr Wallet Connect request',
+    kNostrKindNWCResponse => 'Nostr Wallet Connect response',
+    kNostrKindNWCNotification => 'Nostr Wallet Connect notification',
+    kNostrKindBadgeAward => 'badge award',
+    kNostrKindBadgeDefinition => 'badge definition',
+    kNostrKindProfileBadges => 'profile badges',
+    null => 'signer request',
+    _ => 'Nostr event kind $kind',
+  };
+}
 
 class SignerRequestPopupListener extends StatefulWidget {
   final Widget child;
@@ -42,6 +97,7 @@ class _SignerRequestPopupListenerState
   @override
   void initState() {
     super.initState();
+    if (!getIt.isRegistered<Hostr>()) return;
     _attachToCurrentAccount();
     _authSub = getIt<Hostr>().auth.authState.listen((_) {
       _attachToCurrentAccount();
@@ -61,6 +117,7 @@ class _SignerRequestPopupListenerState
   }
 
   void _attachToCurrentAccount() {
+    if (!mounted || !getIt.isRegistered<Hostr>()) return;
     final hostr = getIt<Hostr>();
     final pubkey = hostr.auth.activePubkey;
     final account = pubkey == null ? null : hostr.ndk.accounts.accounts[pubkey];
@@ -84,20 +141,11 @@ class _SignerRequestPopupListenerState
   }
 
   PendingSignerRequest? get _visibleRequest {
-    final now = DateTime.now();
-    for (final request in _pendingRequests) {
-      if (_dismissedRequestIds.contains(request.id)) continue;
-      if (!_isCriticalRequest(request)) continue;
-      if (now.difference(request.createdAt) < _signerApprovalDelay) continue;
-      return request;
-    }
-    return null;
-  }
-
-  bool _isCriticalRequest(PendingSignerRequest request) {
-    if (request.method != SignerMethod.signEvent) return false;
-    final kind = request.event?.kind;
-    return kind != null && _criticalSignerKinds.contains(kind);
+    return visibleFullPageSignerRequest(
+      requests: _pendingRequests,
+      dismissedRequestIds: _dismissedRequestIds,
+      now: DateTime.now(),
+    );
   }
 
   void _keepWaiting(PendingSignerRequest request) {
@@ -107,6 +155,7 @@ class _SignerRequestPopupListenerState
   }
 
   void _cancel(PendingSignerRequest request) {
+    if (!getIt.isRegistered<Hostr>()) return;
     final hostr = getIt<Hostr>();
     final pubkey = hostr.auth.activePubkey;
     final account = pubkey == null ? null : hostr.ndk.accounts.accounts[pubkey];
@@ -124,8 +173,11 @@ class _SignerRequestPopupListenerState
         widget.child,
         if (request != null)
           Positioned.fill(
-            child: _SignerRequestOverlay(
-              request: request,
+            child: SignerRequestPopupPage(
+              kind: request.event?.kind,
+              method: request.method.protocolString,
+              createdAt: request.createdAt,
+              eventPreview: request.event?.content,
               onKeepWaiting: () => _keepWaiting(request),
               onCancel: () => _cancel(request),
             ),
@@ -135,13 +187,20 @@ class _SignerRequestPopupListenerState
   }
 }
 
-class _SignerRequestOverlay extends StatelessWidget {
-  final PendingSignerRequest request;
+class SignerRequestPopupPage extends StatelessWidget {
+  final int? kind;
+  final String method;
+  final DateTime createdAt;
+  final String? eventPreview;
   final VoidCallback onKeepWaiting;
   final VoidCallback onCancel;
 
-  const _SignerRequestOverlay({
-    required this.request,
+  const SignerRequestPopupPage({
+    super.key,
+    required this.kind,
+    required this.method,
+    required this.createdAt,
+    this.eventPreview,
     required this.onKeepWaiting,
     required this.onCancel,
   });
@@ -150,72 +209,76 @@ class _SignerRequestOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final kind = request.event?.kind;
-    final title = _titleForKind(kind);
+    final description = signerRequestEventKindDescription(kind);
 
-    return Material(
-      color: colors.scrim.withValues(alpha: 0.72),
-      child: Center(
-        child: CustomPadding.horizontal.lg(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: AppBorderRadii.xl,
-                border: Border.all(color: colors.outlineVariant),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.shadow.withValues(alpha: 0.22),
-                    blurRadius: 32,
-                    offset: const Offset(0, 18),
-                  ),
-                ],
-              ),
-              child: CustomPadding.lg(
+    return Scaffold(
+      key: const ValueKey('signer_request_popup_page'),
+      body: AppPane(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.approval_outlined,
-                      size: kIconHero,
-                      color: colors.primary,
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: colors.tertiaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.approval_outlined,
+                        size: 40,
+                        color: colors.onTertiaryContainer,
+                      ),
                     ),
-                    Gap.vertical.md(),
+                    Gap.vertical.lg(),
                     Text(
                       'Approve in your Nostr app',
+                      key: const ValueKey('signer_request_popup_title'),
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Gap.vertical.sm(),
                     Text(
-                      'Hostr is waiting for your remote signer to approve $title. This usually means your signer app needs attention.',
+                      'Hostr is waiting for your remote signer to approve the $description. This usually means your signer app needs attention.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colors.onSurfaceVariant,
                       ),
                     ),
-                    Gap.vertical.md(),
-                    _RequestMetadata(request: request),
-                    Gap.vertical.custom(kSpace5),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: kSpace3,
-                      runSpacing: kSpace3,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: onKeepWaiting,
-                          icon: const Icon(Icons.hourglass_empty),
-                          label: const Text('Keep waiting'),
+                    Gap.vertical.lg(),
+                    _EventPreviewMessage(
+                      method: method,
+                      kind: kind,
+                      createdAt: createdAt,
+                      eventPreview: eventPreview,
+                    ),
+                    Gap.vertical.lg(),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        key: const ValueKey(
+                          'signer_request_keep_waiting_button',
                         ),
-                        OutlinedButton.icon(
-                          onPressed: onCancel,
-                          icon: const Icon(Icons.close),
-                          label: const Text('Cancel request'),
-                        ),
-                      ],
+                        onPressed: onKeepWaiting,
+                        child: const Text('Keep waiting'),
+                      ),
+                    ),
+                    Gap.vertical.sm(),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        key: const ValueKey('signer_request_cancel_button'),
+                        onPressed: onCancel,
+                        child: const Text('Cancel request'),
+                      ),
                     ),
                   ],
                 ),
@@ -226,49 +289,57 @@ class _SignerRequestOverlay extends StatelessWidget {
       ),
     );
   }
-
-  String _titleForKind(int? kind) {
-    return switch (kind) {
-      kNostrKindTradeKeyAuthorization => 'the trade key authorization',
-      kNostrKindCommitAuthorization => 'the payment commit authorization',
-      kNostrKindReservation => 'the reservation update',
-      kNostrKindReservationTransition => 'the reservation transition',
-      kNostrKindReview => 'the review',
-      kNostrKindEscrowServiceSelected => 'the escrow selection',
-      kNostrKindHostrSeed => 'the account recovery seed',
-      _ => 'a Hostr event',
-    };
-  }
 }
 
-class _RequestMetadata extends StatelessWidget {
-  final PendingSignerRequest request;
+class _EventPreviewMessage extends StatelessWidget {
+  final String method;
+  final int? kind;
+  final DateTime createdAt;
+  final String? eventPreview;
 
-  const _RequestMetadata({required this.request});
+  const _EventPreviewMessage({
+    required this.method,
+    required this.kind,
+    required this.createdAt,
+    this.eventPreview,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final kind = request.event?.kind;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: AppBorderRadii.md,
-      ),
-      child: CustomPadding.md(
+    final preview = eventPreview?.trim();
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: MessageContainer(
+        isSentByMe: false,
         child: DefaultTextStyle(
-          style: theme.textTheme.bodySmall!.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Method: ${request.method.protocolString}'),
-              if (kind != null) Text('Kind: $kind'),
-              Text('Waiting since: ${_formatTime(request.createdAt)}'),
-            ],
+          style: theme.textTheme.bodySmall!.copyWith(color: colors.onSurface),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Event preview',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Gap.vertical.xs(),
+                Text('Method: $method'),
+                Text('Kind: ${signerRequestEventKindDescription(kind)}'),
+                if (kind != null) Text('Kind number: $kind'),
+                Text('Waiting since: ${_formatTime(createdAt)}'),
+                if (preview != null && preview.isNotEmpty) ...[
+                  Gap.vertical.sm(),
+                  Text(preview, maxLines: 4, overflow: TextOverflow.ellipsis),
+                ],
+              ],
+            ),
           ),
         ),
       ),

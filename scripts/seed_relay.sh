@@ -69,6 +69,26 @@ wait_for_arbitrum_tokens() {
     done
 }
 
+wait_for_signet_bunker() {
+    local bunker_url="${SEED_SIGNET_BUNKER_URL:-}"
+    if [ -z "$bunker_url" ]; then
+        return 0
+    fi
+
+    echo "Waiting for Signet bunker to become ready..."
+    local attempts=0
+    local max_attempts=60
+    while ! curl -sf -o /dev/null --max-time 2 "$bunker_url/health" --insecure 2>/dev/null; do
+        attempts=$((attempts + 1))
+        if [ "$attempts" -ge "$max_attempts" ]; then
+            echo "Timed out waiting for Signet bunker at $bunker_url"
+            return 1
+        fi
+        sleep 1
+    done
+    echo "Signet bunker ready (${attempts}s)."
+}
+
 reset_relay() {
     echo "Resetting relay container and state..."
 
@@ -133,9 +153,14 @@ seed_relay() {
         # users do not need native ETH just to pay gas.
         export SEED_TRADE_SPONSOR_PRIVATE_KEY="0x47e179ec197488bf6f2a5af2f4f01a49510f4f62b6bdcb2e9495d5c83e8d4d3d"
     fi
+
+    if { [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; } && [ -z "${SEED_SIGNET_BUNKER_URL:-}" ]; then
+        export SEED_SIGNET_BUNKER_URL="https://bunker-nostr.hostr.development"
+    fi
     
     reset_relay
     wait_for_arbitrum_tokens
+    wait_for_signet_bunker
 
     (
         set -o pipefail

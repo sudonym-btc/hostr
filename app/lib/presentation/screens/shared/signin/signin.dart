@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
@@ -10,8 +11,11 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
+import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:ndk/ndk.dart' show NostrConnect;
+import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
+import 'package:ndk/ndk.dart'
+    show BunkerConnection, Bunkers, Filter, NdkResponse, NostrConnect;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -33,6 +37,15 @@ class SignInScreenState extends State<SignInScreen> {
   String? _nostrConnectStatus;
   String? _nostrConnectError;
   Future<void>? _nostrConnectLoginFuture;
+  // Nostr Connect login opens a live bunker-request subscription. Keep the
+  // handle and explicit relay list so refresh/dispose can send CLOSE to the
+  // actual relay instead of leaving stale Signet subscriptions behind.
+  NdkResponse? _nostrConnectSubscription;
+  List<String>? _nostrConnectSubscriptionRelays;
+  // Each QR refresh increments this token. Async callbacks compare against it
+  // so an old timed-out subscription cannot update the current login screen.
+  var _nostrConnectDisposed = false;
+  var _nostrConnectAttempt = 0;
 
   @override
   void initState() {
@@ -42,6 +55,16 @@ class SignInScreenState extends State<SignInScreen> {
 
   @override
   void dispose() {
+    _nostrConnectDisposed = true;
+    final subscription = _nostrConnectSubscription;
+    if (subscription != null) {
+      unawaited(
+        _closeNostrConnectSubscription(
+          subscription,
+          relays: _nostrConnectSubscriptionRelays ?? const [],
+        ),
+      );
+    }
     _controller.dispose();
     super.dispose();
   }
@@ -192,23 +215,60 @@ class SignInScreenState extends State<SignInScreen> {
       return;
     }
 
+    final attempt = ++_nostrConnectAttempt;
     setState(() {
       _nostrConnect = nostrConnect;
       _nostrConnectError = null;
       _nostrConnectStatus = '';
     });
 
-    _nostrConnectLoginFuture = _listenForNostrConnectLogin(nostrConnect);
+    _nostrConnectLoginFuture = _listenForNostrConnectLogin(
+      nostrConnect,
+      attempt,
+    );
   }
 
-  Future<void> _listenForNostrConnectLogin(NostrConnect nostrConnect) async {
-    final auth = getIt<Hostr>().auth;
+  Future<void> restartNostrConnect() async {
+    // Restart must close the old relay subscription first; otherwise Signet
+    // keeps serving approvals to an abandoned nostrconnect URI.
+    _nostrConnectAttempt++;
+    final subscription = _nostrConnectSubscription;
+    final subscriptionRelays = _nostrConnectSubscriptionRelays ?? const [];
+    _nostrConnectSubscription = null;
+    _nostrConnectSubscriptionRelays = null;
+    _nostrConnectLoginFuture = null;
+    if (mounted) {
+      setState(() {
+        _nostrConnect = null;
+        _nostrConnectStatus = null;
+        _nostrConnectError = null;
+      });
+    }
+    if (subscription != null) {
+      await _closeNostrConnectSubscription(
+        subscription,
+        relays: subscriptionRelays,
+      );
+    }
+    if (!mounted) return;
+    _initializeNostrConnect();
+  }
+
+  bool _isActiveNostrConnectAttempt(int attempt) {
+    return !_nostrConnectDisposed && mounted && attempt == _nostrConnectAttempt;
+  }
+
+  Future<void> _listenForNostrConnectLogin(
+    NostrConnect nostrConnect,
+    int attempt,
+  ) async {
     var shouldRetry = false;
     try {
-      await auth.signinWithNostrConnect(
+      await _signinWithCancellableNostrConnect(
         nostrConnect,
+        attempt: attempt,
         authCallback: (challenge) {
-          if (!mounted) return;
+          if (!_isActiveNostrConnectAttempt(attempt)) return;
           setState(() {
             _nostrConnectStatus = challenge.trim().isEmpty
                 ? 'Waiting for signer approval...'
@@ -216,7 +276,7 @@ class SignInScreenState extends State<SignInScreen> {
           });
         },
       );
-      if (mounted) {
+      if (_isActiveNostrConnectAttempt(attempt)) {
         setState(() {
           _nostrConnectStatus = 'Signed in. Finishing setup...';
           _nostrConnectError = null;
@@ -224,28 +284,125 @@ class SignInScreenState extends State<SignInScreen> {
       }
     } on TimeoutException catch (e) {
       shouldRetry = true;
-      if (mounted) {
+      if (_isActiveNostrConnectAttempt(attempt)) {
         setState(() {
           _nostrConnectError = e.toString();
           _nostrConnectStatus = 'Signer timed out. Retrying in 5 seconds...';
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (_isActiveNostrConnectAttempt(attempt)) {
         setState(() {
           _nostrConnectError = e.toString();
           _nostrConnectStatus = 'Could not connect. Refresh and try again.';
         });
       }
     } finally {
-      _nostrConnectLoginFuture = null;
+      if (attempt == _nostrConnectAttempt) {
+        _nostrConnectLoginFuture = null;
+      }
     }
 
-    if (!shouldRetry) return;
+    if (!shouldRetry || attempt != _nostrConnectAttempt) return;
 
     await Future<void>.delayed(const Duration(seconds: 5));
-    if (!mounted || _nostrConnectLoginFuture != null) return;
+    if (!_isActiveNostrConnectAttempt(attempt) ||
+        _nostrConnectLoginFuture != null) {
+      return;
+    }
     _initializeNostrConnect();
+  }
+
+  Future<void> _signinWithCancellableNostrConnect(
+    NostrConnect nostrConnect, {
+    required int attempt,
+    void Function(String challenge)? authCallback,
+  }) async {
+    // Auth.signinWithNostrConnect hides the subscription handle, which makes it
+    // impossible for the UI to cancel a stale QR attempt. This local copy keeps
+    // the same protocol steps but exposes cancellation to the widget lifecycle.
+    final hostr = getIt<Hostr>();
+    final relays = nostrConnect.relays;
+    if (relays.isEmpty) {
+      throw ArgumentError('At least one relay is required');
+    }
+
+    final keyPair = nostrConnect.keyPair;
+    final localEventSigner = defaultEventSignerFactory(
+      publicKey: keyPair.publicKey,
+      privateKey: keyPair.privateKey,
+    );
+    final subscription = hostr.ndk.requests.subscription(
+      explicitRelays: relays,
+      filter: Filter(
+        kinds: [BunkerRequest.kKind],
+        pTags: [localEventSigner.getPublicKey()],
+        since: hostr.ndk.bunkers.someTimeAgo(),
+      ),
+      name: 'signin-nostrconnect',
+    );
+    _nostrConnectSubscription = subscription;
+    _nostrConnectSubscriptionRelays = relays.toList(growable: false);
+
+    BunkerConnection? connection;
+    try {
+      await for (final event in subscription.stream.timeout(
+        const Duration(seconds: Bunkers.kMaxWaitingTimeForConnectionSeconds),
+      )) {
+        if (!_isActiveNostrConnectAttempt(attempt)) return;
+
+        final decryptedContent = await localEventSigner.decryptNip44(
+          ciphertext: event.content,
+          senderPubKey: event.pubKey,
+        );
+        if (decryptedContent == null || decryptedContent.isEmpty) continue;
+
+        final response = jsonDecode(decryptedContent);
+        if (response is! Map || response['result'] != nostrConnect.secret) {
+          continue;
+        }
+
+        connection = BunkerConnection(
+          privateKey: keyPair.privateKey!,
+          remotePubkey: event.pubKey,
+          relays: relays,
+        );
+        break;
+      }
+    } finally {
+      if (identical(_nostrConnectSubscription, subscription)) {
+        _nostrConnectSubscription = null;
+        _nostrConnectSubscriptionRelays = null;
+      }
+      await _closeNostrConnectSubscription(subscription, relays: relays);
+    }
+
+    if (!_isActiveNostrConnectAttempt(attempt) || connection == null) return;
+    await hostr.auth.signinWithBunkerConnection(
+      connection,
+      authCallback: authCallback,
+    );
+  }
+
+  Future<void> _closeNostrConnectSubscription(
+    NdkResponse subscription, {
+    required Iterable<String> relays,
+  }) async {
+    final hostr = getIt<Hostr>();
+    final requests = hostr.ndk.requests;
+    for (var attempt = 0; attempt < 5; attempt++) {
+      // NDK can lose the relay-url mapping for this short-lived subscription,
+      // so send CLOSE directly to the nostrconnect relays before asking the
+      // request manager to clean up its local bookkeeping.
+      for (final relay in relays) {
+        hostr.ndk.relays.sendCloseToRelay(relay, subscription.requestId);
+      }
+      await requests.closeSubscription(
+        subscription.requestId,
+        debugLabel: 'signin-nostrconnect-close-$attempt',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   TextStyle? _sectionLabelStyle(BuildContext context) {
@@ -312,6 +469,7 @@ class SignInScreenState extends State<SignInScreen> {
                     children: [
                       Expanded(
                         child: Text(
+                          key: const ValueKey('signin_nostrconnect_uri'),
                           nostrConnectUrl,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -394,7 +552,7 @@ class SignInScreenState extends State<SignInScreen> {
           ),
           Gap.vertical.xl(),
           TextFormField(
-            key: const ValueKey('key'),
+            key: const ValueKey('signin_private_key_input'),
             controller: _controller,
             onChanged: (value) {
               setState(() {
@@ -429,7 +587,7 @@ class SignInScreenState extends State<SignInScreen> {
           ],
           Gap.vertical.lg(),
           FilledButton(
-            key: const ValueKey('login'),
+            key: const ValueKey('signin_manual_login_button'),
             onPressed: !_isSigningIn && _isValidInput ? _handleSignin : null,
             child: Text(l10n.signIn),
           ),
@@ -439,6 +597,7 @@ class SignInScreenState extends State<SignInScreen> {
           Align(
             alignment: Alignment.center,
             child: TextButton(
+              key: const ValueKey('signin_signup_button'),
               onPressed: !_isSigningIn && _private.trim().isEmpty
                   ? _handleSignup
                   : null,

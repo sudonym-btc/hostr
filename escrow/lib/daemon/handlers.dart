@@ -68,7 +68,6 @@ class DaemonHandler {
   Future<Map<String, dynamic>> _listTrades(json_rpc.Parameters params) async {
     await _reconcileFundedTrades();
 
-    final threads = hostr.messaging.threads;
     final trades = daemon.trades.values.toList()
       ..sort((a, b) {
         // Pending (funded) first, then newest chain event descending.
@@ -85,7 +84,7 @@ class DaemonHandler {
     return {
       'trades': trades.map((t) {
         final json = _snapshotJson(t);
-        json['disputed'] = threads.findByConversationTag(t.tradeId).isNotEmpty;
+        json['disputed'] = false;
         // Enrich with symbol, which requires chain config knowledge.
         json['tokenSymbol'] = _resolveTokenSymbol(
           json['tokenAddress'] as String,
@@ -149,9 +148,8 @@ class DaemonHandler {
         ? await daemon.context.configuredChain.resolveToken(tokenAddress)
         : null;
 
-    // Resolve trade ID → thread anchor from reservation proof participants so
-    // the CLI can always navigate to the buyer/seller conversation even if
-    // escrow never participated in the thread itself.
+    // Resolve trade ID → canonical thread anchor from reservation participant
+    // proofs so hidden trade keys map back to the real conversation ids.
     final threadAnchor = await _resolveTradeThreadAnchor(tradeId);
     final participants = await _resolveTradeParticipants(tradeId);
 
@@ -180,30 +178,21 @@ class DaemonHandler {
 
   Future<Map<String, dynamic>?> _resolveTradeParticipants(
       String tradeId) async {
-    final group = await _loadTradeReservationGroup(tradeId);
-    if (group == null) return null;
+    final resolved = await _resolveTradeParticipantSet(tradeId);
+    if (resolved == null) return null;
 
-    final escrowKeyPair = hostr.auth.activeKeyPair;
-    if (escrowKeyPair == null) return null;
-
-    String? buyerPubkey;
-    String? sellerPubkey;
-    for (final reservation in group.reservations) {
-      buyerPubkey ??= await reservation
-          .resolvePubkeyProof(role: 'buyer', recipientKeyPair: escrowKeyPair)
-          .then((proof) => proof?.pubkey);
-      sellerPubkey ??= await reservation
-          .resolvePubkeyProof(role: 'seller', recipientKeyPair: escrowKeyPair)
-          .then((proof) => proof?.pubkey);
-      if (buyerPubkey != null && sellerPubkey != null) break;
+    final buyerPubkey = resolved.resolvedParticipantPubkeyForRole('buyer');
+    final sellerPubkey = resolved.resolvedParticipantPubkeyForRole('seller');
+    if (buyerPubkey == null ||
+        buyerPubkey.isEmpty ||
+        sellerPubkey == null ||
+        sellerPubkey.isEmpty) {
+      return null;
     }
-
-    final resolvedSellerPubkey = sellerPubkey ?? group.sellerPubkey;
-    if (buyerPubkey == null || resolvedSellerPubkey.isEmpty) return null;
 
     final names = await _resolveDisplayNames([
       buyerPubkey,
-      resolvedSellerPubkey,
+      sellerPubkey,
     ]);
 
     return {
@@ -212,32 +201,40 @@ class DaemonHandler {
         'displayName': names[buyerPubkey],
       },
       'seller': {
-        'pubkey': resolvedSellerPubkey,
-        'displayName': names[resolvedSellerPubkey],
+        'pubkey': sellerPubkey,
+        'displayName': names[sellerPubkey],
       },
     };
   }
 
   Future<String?> _resolveTradeThreadAnchor(String tradeId) async {
-    final group = await _loadTradeReservationGroup(tradeId);
-    if (group == null) {
-      return hostr.messaging.threads.findPreferredConversationIdByTradeId(
-        tradeId,
-      );
+    final resolved = await _resolveTradeParticipantSet(tradeId);
+    if (resolved == null || resolved.resolvedParticipantSet.length < 2) {
+      return null;
     }
 
-    final participants = await _resolveTradeThreadParticipants(group);
-    if (participants == null || participants.length < 2) {
-      return hostr.messaging.threads.findPreferredConversationIdByTradeId(
-        tradeId,
-      );
-    }
-
-    final thread = hostr.messaging.threads.ensureConversation(
-      participants: participants,
-      conversationTag: tradeId,
+    final thread = hostr.messaging.threads.ensureTradeConversation(
+      tradeId: tradeId,
+      participants: resolved.resolvedParticipantSet,
     );
     return thread.anchor;
+  }
+
+  Future<ResolvedReservationGroupParticipants?> _resolveTradeParticipantSet(
+    String tradeId,
+  ) async {
+    final group = await _loadTradeReservationGroup(tradeId);
+    if (group == null) return null;
+
+    final escrowKeyPair = hostr.auth.activeKeyPair;
+    if (escrowKeyPair == null) return null;
+
+    return ReservationGroupParticipantResolver(
+      keyring: KeyPairReservationParticipantKeyring(
+        keyPairs: [escrowKeyPair],
+        logger: hostr.logger,
+      ),
+    ).resolve(group);
   }
 
   Future<ReservationGroup?> _loadTradeReservationGroup(String tradeId) async {
@@ -265,35 +262,6 @@ class DaemonHandler {
       }
     }
     return null;
-  }
-
-  Future<List<String>?> _resolveTradeThreadParticipants(
-    ReservationGroup group,
-  ) async {
-    final escrowKeyPair = hostr.auth.activeKeyPair;
-    if (escrowKeyPair == null) return null;
-
-    String? buyerPubkey;
-    String? sellerPubkey;
-    for (final reservation in group.reservations) {
-      buyerPubkey ??= await reservation
-          .resolvePubkeyProof(role: 'buyer', recipientKeyPair: escrowKeyPair)
-          .then((proof) => proof?.pubkey);
-      sellerPubkey ??= await reservation
-          .resolvePubkeyProof(role: 'seller', recipientKeyPair: escrowKeyPair)
-          .then((proof) => proof?.pubkey);
-      if (buyerPubkey != null && sellerPubkey != null) break;
-    }
-
-    final resolvedSellerPubkey = sellerPubkey ?? group.sellerPubkey;
-    if (buyerPubkey == null || resolvedSellerPubkey.isEmpty) {
-      return null;
-    }
-
-    return Threads.normalizeParticipants([
-      buyerPubkey,
-      resolvedSellerPubkey,
-    ]);
   }
 
   Future<Map<String, dynamic>> _audit(json_rpc.Parameters params) async {

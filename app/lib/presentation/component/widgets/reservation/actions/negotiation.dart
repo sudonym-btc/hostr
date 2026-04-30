@@ -56,11 +56,21 @@ class NegotiationWidget extends StatelessWidget {
                 final activeSwap = snapshot.data;
                 return TradeActionBar(
                   children: [
-                    if (hasCancel) _cancelButton(context),
+                    if (hasCancel)
+                      KeyedSubtree(
+                        key: const ValueKey('trade_request_cancel_button'),
+                        child: _cancelButton(context),
+                      ),
                     if (hasCounter && activeSwap == null)
-                      _counterButton(context),
+                      KeyedSubtree(
+                        key: const ValueKey('trade_action_counter'),
+                        child: _counterButton(context),
+                      ),
                     if (hasPay)
-                      _payButton(context, activeSwap: activeSwap)
+                      KeyedSubtree(
+                        key: const ValueKey('trade_action_pay'),
+                        child: _payButton(context, activeSwap: activeSwap),
+                      )
                     else if (hasAccept)
                       _acceptButton(context),
                   ],
@@ -113,50 +123,60 @@ class NegotiationWidget extends StatelessWidget {
 
   // ─── Button helpers ────────────────────────────────────────────────
 
-  Widget _cancelButton(BuildContext context) => TextButton(
-    key: const ValueKey('trade_action_cancel'),
-    onPressed: () {
-      showAppModal(
-        context,
-        builder: (modalContext) => ModalBottomSheet(
-          title: AppLocalizations.of(context)!.cancelReservation,
-          subtitle: AppLocalizations.of(context)!.areYouSure,
-          content: const SizedBox.shrink(),
-          buttons: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              FutureButton.filled(
-                style: AppButtonStyles.destructive(context),
-                onPressed: () async {
-                  await context.read<Trade>().execute(TradeAction.cancel);
-                  if (modalContext.mounted) {
-                    Navigator.of(modalContext).pop();
-                  }
-                },
-                child: Text(AppLocalizations.of(context)!.ok),
-              ),
-            ],
+  Widget _cancelButton(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final trade = context.read<Trade>();
+    final destructiveStyle = AppButtonStyles.destructive(context);
+
+    return TextButton(
+      key: ValueKey('trade_request_cancel_button_${trade.tradeId}'),
+      onPressed: () {
+        showAppModal(
+          context,
+          builder: (modalContext) => ModalBottomSheet(
+            title: l10n.cancelReservation,
+            subtitle: l10n.areYouSure,
+            content: const SizedBox.shrink(),
+            buttons: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FutureButton.filled(
+                  key: ValueKey(
+                    'trade_request_cancel_confirm_button_${trade.tradeId}',
+                  ),
+                  style: destructiveStyle,
+                  onPressed: () async {
+                    await trade.execute(TradeAction.cancel);
+                    if (modalContext.mounted) {
+                      Navigator.of(modalContext).pop();
+                    }
+                  },
+                  child: Text(l10n.ok),
+                ),
+              ],
+            ),
           ),
+        );
+      },
+      style: AppButtonStyles.text(context).copyWith(
+        foregroundColor: WidgetStatePropertyAll(
+          Theme.of(context).colorScheme.error,
         ),
-      );
-    },
-    style: AppButtonStyles.text(context).copyWith(
-      foregroundColor: WidgetStatePropertyAll(
-        Theme.of(context).colorScheme.error,
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      visualDensity: VisualDensity.compact,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    ),
-    child: const Text('Cancel'),
-  );
+      child: const Text('Cancel'),
+    );
+  }
 
   Widget _payButton(
     BuildContext context, {
     required SwapInOperation? activeSwap,
   }) {
+    final tradeId = context.read<Trade>().tradeId;
     if (activeSwap != null) {
       return FilledButton(
-        key: const ValueKey('trade_action_pay'),
+        key: ValueKey('trade_action_pay_$tradeId'),
         onPressed: () {
           showAppModal(
             context,
@@ -174,7 +194,7 @@ class NegotiationWidget extends StatelessWidget {
       );
     }
     return FilledButton(
-      key: const ValueKey('trade_action_pay'),
+      key: ValueKey('trade_action_pay_$tradeId'),
       onPressed:
           tradeState.sellerProfile == null ||
               tradeState.sellerEvmAddress == null
@@ -202,16 +222,18 @@ class NegotiationWidget extends StatelessWidget {
   );
 
   Widget _counterButton(BuildContext context) => OutlinedButton(
-    key: const ValueKey('trade_action_counter'),
+    key: ValueKey('trade_action_counter_${context.read<Trade>().tradeId}'),
     onPressed: () => _showCounterOfferSheet(context),
     child: const Text('Counter'),
   );
 
   void _showCounterOfferSheet(BuildContext context) {
-    final submitCounter = context.read<Trade>().counter;
+    final trade = context.read<Trade>();
+    final submitCounter = trade.counter;
     showAppModal(
       context,
       builder: (_) => _CounterOfferSheet(
+        tradeId: trade.tradeId,
         initialAmount: policy.counterMin ?? tradeState.amount!,
         minAmount: policy.counterMin,
         maxAmount: policy.counterMax,
@@ -222,12 +244,14 @@ class NegotiationWidget extends StatelessWidget {
 }
 
 class _CounterOfferSheet extends StatefulWidget {
+  final String tradeId;
   final DenominatedAmount initialAmount;
   final DenominatedAmount? minAmount;
   final DenominatedAmount? maxAmount;
   final Future<void> Function(DenominatedAmount amount) onSubmit;
 
   const _CounterOfferSheet({
+    required this.tradeId,
     required this.initialAmount,
     required this.onSubmit,
     this.minAmount,
@@ -301,19 +325,29 @@ class _CounterOfferSheetState extends State<_CounterOfferSheet> {
             setState(() {});
           }
         },
-        child: AmountInputWidget(
-          key: _amountFieldKey,
-          initialValue: _amount,
-          min: _minimums,
-          max: _maximums,
+        child: KeyedSubtree(
+          key: const ValueKey('trade_counter_amount_input'),
+          child: KeyedSubtree(
+            key: ValueKey('trade_counter_amount_input_${widget.tradeId}'),
+            child: AmountInputWidget(
+              key: _amountFieldKey,
+              initialValue: _amount,
+              min: _minimums,
+              max: _maximums,
+            ),
+          ),
         ),
       ),
       buttons: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FutureButton.filled(
-            onPressed: _isValid ? _submit : null,
-            child: const Text('Counter'),
+          KeyedSubtree(
+            key: const ValueKey('trade_counter_submit_button'),
+            child: FutureButton.filled(
+              key: ValueKey('trade_counter_submit_button_${widget.tradeId}'),
+              onPressed: _isValid ? _submit : null,
+              child: const Text('Counter'),
+            ),
           ),
         ],
       ),

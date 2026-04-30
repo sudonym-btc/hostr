@@ -88,6 +88,7 @@ class ModalBottomSheet extends StatelessWidget {
   final Widget? leading;
   final ModalBottomSheetType type;
   final bool expandToMaxHeight;
+  final bool scrollContent;
   const ModalBottomSheet({
     super.key,
     this.title,
@@ -97,6 +98,7 @@ class ModalBottomSheet extends StatelessWidget {
     this.buttons,
     this.leading,
     this.expandToMaxHeight = false,
+    this.scrollContent = true,
   });
 
   ColorScheme _scheme(ColorScheme base) {
@@ -128,6 +130,7 @@ class ModalBottomSheet extends StatelessWidget {
         buttons: buttons,
         leading: leading,
         expandToMaxHeight: expandToMaxHeight,
+        scrollContent: scrollContent,
       ),
     );
   }
@@ -140,6 +143,7 @@ class _ScrollableModalViewport extends StatelessWidget {
   final Widget? buttons;
   final Widget? leading;
   final bool expandToMaxHeight;
+  final bool scrollContent;
 
   const _ScrollableModalViewport({
     this.title,
@@ -148,6 +152,7 @@ class _ScrollableModalViewport extends StatelessWidget {
     this.buttons,
     this.leading,
     required this.expandToMaxHeight,
+    required this.scrollContent,
   });
 
   @override
@@ -171,6 +176,7 @@ class _ScrollableModalViewport extends StatelessWidget {
                       content: content,
                       buttons: buttons,
                       leading: leading,
+                      scrollContent: scrollContent,
                     )
                   : _ScrollableModalLayout(
                       title: title,
@@ -238,6 +244,7 @@ class _FixedActionModalLayout extends StatelessWidget {
   final Widget? content;
   final Widget? buttons;
   final Widget? leading;
+  final bool scrollContent;
 
   const _FixedActionModalLayout({
     this.title,
@@ -245,6 +252,7 @@ class _FixedActionModalLayout extends StatelessWidget {
     this.content,
     this.buttons,
     this.leading,
+    required this.scrollContent,
   });
 
   @override
@@ -266,10 +274,13 @@ class _FixedActionModalLayout extends StatelessWidget {
           ],
           if (title != null && subtitle != null) Gap.vertical.md(),
           Expanded(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: content ?? const SizedBox.shrink(),
-            ),
+            child: scrollContent
+                ? SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: content ?? const SizedBox.shrink(),
+                  )
+                : content ?? const SizedBox.shrink(),
           ),
           if (buttons != null) ...[Gap.vertical.custom(kSpace5), buttons!],
         ],

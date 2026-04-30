@@ -376,126 +376,146 @@ class PaymentExternalRequiredWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ModalBottomSheet(
-      type: ModalBottomSheetType.normal,
-      title: AppLocalizations.of(context)!.payInvoiceTitle,
-      subtitle: AppLocalizations.of(context)!.payInvoiceSubtitle,
-      content: Builder(
-        builder: (context) {
-          switch (state.callbackDetails) {
-            case LightningCallbackDetails():
-              final invoice =
-                  (state.callbackDetails! as LightningCallbackDetails).invoice;
-              final pr = invoice.paymentRequest;
-              final unixUntilExpired =
-                  invoice.timestamp.toInt() +
-                  invoice.tags.where((e) => e.type == 'expiry').first.data;
-              final uri = Uri.parse('lightning:$pr');
+    final l10n = AppLocalizations.of(context)!;
 
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CountDownText(
-                    due: DateTime.fromMillisecondsSinceEpoch(
-                      (unixUntilExpired * 1000).toInt(),
-                    ),
-                    finishedText: AppLocalizations.of(context)!.invoiceExpired,
-                    showLabel: false,
-                    longDateName: true,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error.withAlpha(150),
-                    ),
-                  ),
-                  Gap.vertical.custom(6),
+    switch (state.callbackDetails) {
+      case LightningCallbackDetails(:final invoice):
+        final pr = invoice.paymentRequest;
+        final unixUntilExpired =
+            invoice.timestamp.toInt() + _invoiceExpirySeconds(invoice.tags);
+        final uri = Uri.parse('lightning:$pr');
 
-                  Center(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final maxWidth = constraints.maxWidth;
-                        final maxHeight = constraints.hasBoundedHeight
-                            ? constraints.maxHeight
-                            : maxWidth;
-                        final side = maxWidth < maxHeight
-                            ? maxWidth
-                            : maxHeight;
+        return ModalBottomSheet(
+          type: ModalBottomSheetType.normal,
+          title: l10n.payInvoiceTitle,
+          subtitle: l10n.payInvoiceSubtitle,
+          expandToMaxHeight: true,
+          scrollContent: false,
+          content: _PaymentInvoiceBody(
+            due: DateTime.fromMillisecondsSinceEpoch(
+              (unixUntilExpired * 1000).toInt(),
+            ),
+            paymentRequest: pr,
+          ),
+          buttons: _PaymentInvoiceActions(paymentRequest: pr, uri: uri),
+        );
+      default:
+        return ModalBottomSheet(
+          type: ModalBottomSheetType.normal,
+          title: l10n.payInvoiceTitle,
+          subtitle: l10n.payInvoiceSubtitle,
+          content: Text(l10n.completePaymentInConnectedWallet),
+        );
+    }
+  }
+}
 
-                        return SizedBox.square(
-                          dimension: side,
+class _PaymentInvoiceBody extends StatelessWidget {
+  final DateTime due;
+  final String paymentRequest;
 
-                          // @todo: QRImageView package paints outside of its boundary. Nothing we can do but ensure it has default 10px padding.
-                          child: QrImageView(
-                            backgroundColor: Colors.transparent,
-                            dataModuleStyle: QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.circle,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                            eyeStyle: QrEyeStyle(
-                              eyeShape: QrEyeShape.square,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                            data: pr,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+  const _PaymentInvoiceBody({required this.due, required this.paymentRequest});
 
-                  Gap.vertical.lg(),
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      CopyFeedbackButton(
-                        value: () =>
-                            (state.callbackDetails! as LightningCallbackDetails)
-                                .invoice
-                                .paymentRequest,
-                        label: AppLocalizations.of(context)!.copy,
-                        variant: CopyFeedbackButtonVariant.filled,
-                        style: AppButtonStyles.secondary(context),
-                        showCopyIcon: false,
-                      ),
-                      FutureBuilder(
-                        future: canLaunchUrl(uri),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData && snapshot.data == true) {
-                            return Row(
-                              children: [
-                                Gap.horizontal.custom(kSpace3),
-                                FilledButton(
-                                  onPressed: () async {
-                                    if (await canLaunchUrl(uri)) {
-                                      await launchUrl(
-                                        uri,
-                                        mode: LaunchMode.externalApplication,
-                                      );
-                                    }
-                                  },
-                                  style: AppButtonStyles.secondary(context),
-                                  child: Text(
-                                    AppLocalizations.of(context)!.openWallet,
-                                  ),
-                                ),
-                              ],
-                            );
-                          }
-                          return Container();
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            default:
-              return Text(
-                AppLocalizations.of(context)!.completePaymentInConnectedWallet,
-              );
-          }
-        },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CountDownText(
+          due: due,
+          finishedText: AppLocalizations.of(context)!.invoiceExpired,
+          showLabel: false,
+          longDateName: true,
+          style: TextStyle(color: theme.colorScheme.error.withAlpha(150)),
+        ),
+        Gap.vertical.custom(6),
+        Expanded(
+          child: Center(
+            child: AspectRatio(
+              key: const ValueKey('payment_invoice_qr'),
+              aspectRatio: 1,
+              // @todo: QRImageView package paints outside of its boundary. Nothing we can do but ensure it has default 10px padding.
+              child: QrImageView(
+                backgroundColor: Colors.transparent,
+                dataModuleStyle: QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.circle,
+                  color: theme.colorScheme.onSurface,
+                ),
+                eyeStyle: QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: theme.colorScheme.onSurface,
+                ),
+                data: paymentRequest,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaymentInvoiceActions extends StatelessWidget {
+  final String paymentRequest;
+  final Uri uri;
+
+  const _PaymentInvoiceActions({
+    required this.paymentRequest,
+    required this.uri,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: kSpace3,
+        runSpacing: kSpace2,
+        children: [
+          CopyFeedbackButton(
+            key: const ValueKey('payment_invoice_copy_button'),
+            value: () => paymentRequest,
+            label: AppLocalizations.of(context)!.copy,
+            variant: CopyFeedbackButtonVariant.filled,
+            style: AppButtonStyles.secondary(context),
+            showCopyIcon: false,
+          ),
+          FutureBuilder(
+            future: canLaunchUrl(uri),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data == true) {
+                return FilledButton(
+                  onPressed: () async {
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  },
+                  style: AppButtonStyles.secondary(context),
+                  child: Text(AppLocalizations.of(context)!.openWallet),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
       ),
     );
   }
+}
+
+int _invoiceExpirySeconds(List<dynamic> tags) {
+  for (final tag in tags) {
+    if (tag.type != 'expiry') continue;
+    final data = tag.data;
+    if (data is num) return data.toInt();
+  }
+  return 3600;
 }
 
 class PaymentSuccessWidget extends StatelessWidget {

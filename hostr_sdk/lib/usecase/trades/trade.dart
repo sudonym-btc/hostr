@@ -17,9 +17,9 @@ import '../messaging/thread/state.dart';
 import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
+import '../reservation_groups/reservation_group_participant_resolver.dart';
 import '../reservation_groups/reservation_groups.dart';
 import '../reservation_requests/reservation_requests.dart';
-import '../reservations/reservation_pubkey_proofs.dart';
 import '../reservations/reservations.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
@@ -32,6 +32,21 @@ import 'trade_state.dart';
 
 /// Role of the local user in a trade.
 enum TradeRole { host, guest }
+
+class TradeContext {
+  final String tradeId;
+  final List<String> participants;
+  final String conversationId;
+
+  TradeContext({required this.tradeId, required Iterable<String> participants})
+    : participants = Threads.normalizeParticipants(participants),
+      conversationId = Threads.conversationId(tradeId, participants);
+
+  String get participantKey => participants.join('\u0000');
+
+  bool matchesParticipants(Iterable<String> other) =>
+      Threads.normalizeParticipants(other).join('\u0000') == participantKey;
+}
 
 /// A short-lived, reactive view-model for a single trade.
 ///
@@ -48,6 +63,7 @@ class Trade extends Cubit<TradeState> {
   final Listings _listings;
   final MetadataUseCase _metadata;
   final IdentityClaimsUseCase _identityClaims;
+  final UserSubscriptions _userSubscriptions;
   final ReservationGroups _reservationGroups;
   final Threads _threads;
 
@@ -56,20 +72,32 @@ class Trade extends Cubit<TradeState> {
   Thread? thread;
 
   /// The trade ID (d-tag of the reservation).
-  final String tradeId;
+  String get tradeId => context.tradeId;
 
-  /// Listing anchor — provided as a hint for immediate fetching.
-  final String listingAnchor;
+  final TradeContext context;
+
+  String get listingAnchor {
+    final anchor = _listingAnchor;
+    if (anchor == null || anchor.isEmpty) {
+      throw StateError('Listing anchor has not been resolved for $tradeId');
+    }
+    return anchor;
+  }
+
+  List<String> get participants => context.participants;
+  String get conversationId => context.conversationId;
 
   /// Seller pubkey derived from listing anchor.
-  final String sellerPubkey;
+  late final String sellerPubkey;
 
   /// Our role in this trade.
-  final TradeRole role;
+  late final TradeRole role;
 
   // ── Filtered streams (from UserSubscriptions) ──────────────────────
 
-  final StreamWithStatus<Validation<ReservationGroup>> reservationGroup$;
+  late final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  resolvedReservationGroup$;
+  late final StreamWithStatus<Validation<ReservationGroup>> reservationGroup$;
   final StreamWithStatus<PaymentEvent> payments$;
   final StreamWithStatus<ReservationTransition> transitions$;
   final StreamWithStatus<Review> myReviews$;
@@ -90,13 +118,13 @@ class Trade extends Cubit<TradeState> {
   StreamWithStatus<List<Validation<ReservationGroup>>>?
   _allListingReservationsList$;
   Listing? _listing;
+  String? _listingAnchor;
   ProfileMetadata? _hostProfile;
   String? _sellerEvmAddress;
   bool _bootstrapped = false;
 
   Trade({
-    @factoryParam required this.tradeId,
-    @factoryParam required this.listingAnchor,
+    @factoryParam required this.context,
     required CustomLogger logger,
     required Auth auth,
     required Listings listings,
@@ -110,27 +138,27 @@ class Trade extends Cubit<TradeState> {
        _listings = listings,
        _metadata = metadata,
        _identityClaims = identityClaims,
+       _userSubscriptions = userSubscriptions,
        _reservationGroups = reservationGroups,
        _threads = threads,
-       thread = threads.findPreferredThreadByTradeId(tradeId),
-       sellerPubkey = getPubKeyFromAnchor(listingAnchor),
-       role =
-           getPubKeyFromAnchor(listingAnchor) == auth.getActiveKey().publicKey
-           ? TradeRole.host
-           : TradeRole.guest,
-       reservationGroup$ = userSubscriptions.allMyReservationGroups$.where(
-         (item) => item.event.tradeId == tradeId,
+       thread = threads.findTradeThread(
+         tradeId: context.tradeId,
+         participants: context.participants,
        ),
        payments$ = userSubscriptions.paymentEvents$.where(
-         (event) => event.tradeId == tradeId,
+         (event) => event.tradeId == context.tradeId,
        ),
        transitions$ = userSubscriptions.allTransitions$.stream.where(
-         (t) => t.parsedTags.tradeId == tradeId,
+         (t) => t.parsedTags.tradeId == context.tradeId,
        ),
-       myReviews$ = userSubscriptions.myReviews$.where(
-         (review) => review.parsedTags.listingAnchor == listingAnchor,
-       ),
+       myReviews$ = userSubscriptions.myReviews$,
        super(const TradeInitialising()) {
+    resolvedReservationGroup$ = userSubscriptions
+        .allMyResolvedReservationGroups$
+        .where(_matchesResolvedReservationGroup);
+    reservationGroup$ = resolvedReservationGroup$.map(
+      (item) => item.validation,
+    );
     _subscriptions.add(
       Rx.combineLatest3(
         reservationGroup$.status,
@@ -154,21 +182,64 @@ class Trade extends Cubit<TradeState> {
     );
   }
 
-  Future<String?> resolveGuestPubkey() =>
-      _logger.span('resolveGuestPubkey', () async {
-        final request = thread!.state.value.reservationRequests.last;
-        final proof = await request.resolvePubkeyProof(
-          role: 'buyer',
-          recipientKeyPair: _auth.getActiveKey(),
-        );
-        return proof?.pubkey ??
-            request.parsedTags.getTagValueByMarker('p', 'buyer') ??
-            request.recipient;
-      });
+  bool _matchesResolvedReservationGroup(
+    ResolvedValidatedReservationGroupParticipants item,
+  ) {
+    if (item.group.tradeId != context.tradeId) return false;
+    if (item.participants.resolvedGroupId == context.conversationId) {
+      return true;
+    }
+    if (context.matchesParticipants(item.participants.resolvedParticipantSet)) {
+      return true;
+    }
+
+    final expected = context.participants.toSet();
+    final resolved = item.participants.resolvedParticipantSet;
+    if (!resolved.containsAll(expected)) return false;
+
+    final extraParticipants = resolved.difference(expected);
+    final escrowPubkey = item.group.escrowPubkey;
+    return extraParticipants.isEmpty ||
+        (escrowPubkey != null &&
+            extraParticipants.every((pubkey) => pubkey == escrowPubkey));
+  }
+
+  Future<String?> resolveGuestPubkey() => _logger.span(
+    'resolveGuestPubkey',
+    () async {
+      for (final item in resolvedReservationGroup$.items.reversed) {
+        final group = item.group;
+        final buyerPubkey = group.buyerPubkey ?? group.buyerReservation?.pubKey;
+        if (buyerPubkey == null || buyerPubkey.isEmpty) continue;
+        final resolved =
+            item.participants.identityByParticipantPubkey[buyerPubkey];
+        if (resolved != null && resolved.isNotEmpty) return resolved;
+      }
+
+      final request = thread?.state.value.reservationRequests.lastOrNull;
+      if (request == null) return null;
+      return request.parsedTags.getTagValueByMarker('p', 'buyer') ??
+          request.recipient;
+    },
+  );
 
   Future<void> start() => _logger.span('start', () async {
     if (_bootstrapped || isClosed) return;
     _bootstrapped = true;
+    _userSubscriptions.trackTradeId(tradeId);
+    thread ??= _findThreadForTrade();
+
+    final resolvedListingAnchor = await _resolveListingAnchor();
+    if (resolvedListingAnchor == null || resolvedListingAnchor.isEmpty) {
+      _logger.w('Cannot start trade $tradeId: listing anchor unavailable');
+      if (!isClosed) emit(TradeError('Listing unavailable'));
+      return;
+    }
+    _listingAnchor = resolvedListingAnchor;
+    sellerPubkey = getPubKeyFromAnchor(resolvedListingAnchor);
+    role = sellerPubkey == _auth.getActiveKey().publicKey
+        ? TradeRole.host
+        : TradeRole.guest;
 
     final fetchedListing = await _listings.getOneByAnchor(listingAnchor);
     if (fetchedListing == null) {
@@ -183,6 +254,85 @@ class Trade extends Cubit<TradeState> {
 
     _wirePipeline();
   });
+
+  Future<String?> _resolveListingAnchor() async {
+    thread ??= _findThreadForTrade();
+    final fromThread = _listingAnchorFromThread(thread);
+    if (fromThread != null) return fromThread;
+
+    final immediate = _listingAnchorFromLoadedItems();
+    if (immediate != null) return immediate;
+
+    final anchorStreams = <Stream<String>>[];
+    final currentThread = thread;
+    if (currentThread != null) {
+      anchorStreams.add(
+        currentThread.state.stream
+            .map(_listingAnchorFromThreadState)
+            .whereType<String>()
+            .where((anchor) => anchor.isNotEmpty),
+      );
+    }
+
+    final groupMatch = reservationGroup$.replayStream
+        .map((validation) {
+          try {
+            return validation.event.listingAnchor;
+          } catch (_) {
+            return '';
+          }
+        })
+        .where((anchor) => anchor.isNotEmpty);
+    anchorStreams.add(groupMatch);
+
+    final reservationMatch = _userSubscriptions
+        .allMyReservations$
+        .stream
+        .replayStream
+        .where(_matchesReservation)
+        .map((reservation) => reservation.parsedTags.listingAnchor)
+        .where((anchor) => anchor.isNotEmpty);
+    anchorStreams.add(reservationMatch);
+
+    try {
+      return await Rx.merge(anchorStreams).first;
+    } on StateError {
+      return null;
+    }
+  }
+
+  String? _listingAnchorFromThread(Thread? thread) {
+    return _listingAnchorFromThreadState(thread?.state.value);
+  }
+
+  String? _listingAnchorFromThreadState(ThreadState? state) {
+    return state?.reservationRequests
+        .map((request) => request.parsedTags.listingAnchor)
+        .where((anchor) => anchor.isNotEmpty)
+        .firstOrNull;
+  }
+
+  String? _listingAnchorFromLoadedItems() {
+    for (final validation in reservationGroup$.items) {
+      try {
+        final anchor = validation.event.listingAnchor;
+        if (anchor.isNotEmpty) return anchor;
+      } catch (_) {
+        // Keep looking; incomplete groups may not have a listing anchor yet.
+      }
+    }
+
+    return _userSubscriptions.allMyReservations$.stream.items
+        .where(_matchesReservation)
+        .map((reservation) => reservation.parsedTags.listingAnchor)
+        .where((anchor) => anchor.isNotEmpty)
+        .firstOrNull;
+  }
+
+  bool _matchesReservation(Reservation reservation) {
+    if (reservation.getDtag() != tradeId) return false;
+    return true;
+  }
 
   void _wirePipeline() => _logger.spanSync('_wirePipeline', () {
     final listing = _listing!;
@@ -218,6 +368,11 @@ class Trade extends Cubit<TradeState> {
             ThreadState? threadState,
             List<Review> myReviews,
           ) {
+            final listingReviews = myReviews
+                .where(
+                  (review) => review.parsedTags.listingAnchor == listingAnchor,
+                )
+                .toList();
             return _resolve(
               listing: listing,
               hostProfile: hostProfile,
@@ -229,7 +384,7 @@ class Trade extends Cubit<TradeState> {
               transitions: transitions,
               allListingReservations: allListingReservations,
               threadState: threadState,
-              myReviews: myReviews,
+              myReviews: listingReviews,
             );
           },
         ).listen(
@@ -257,7 +412,12 @@ class Trade extends Cubit<TradeState> {
     required ThreadState? threadState,
     List<Review> myReviews = const [],
   }) => _logger.spanSync('_resolve', () {
-    thread = _threads.findPreferredThreadByTradeId(tradeId);
+    thread =
+        _threads.findTradeThread(
+          tradeId: tradeId,
+          participants: participants,
+        ) ??
+        _findThreadForTrade();
 
     // Derive last reservation request from thread (if available).
     final reservationRequests = threadState?.reservationRequests ?? const [];
@@ -419,6 +579,25 @@ class Trade extends Cubit<TradeState> {
       ),
     );
   });
+
+  Thread? _findThreadForTrade() {
+    final exact = _threads.findTradeThread(
+      tradeId: tradeId,
+      participants: participants,
+    );
+    if (exact != null) return exact;
+
+    final matches = _threads.findByConversationTag(tradeId);
+    if (matches.length == 1) return matches.single;
+    for (final thread in matches) {
+      if (thread.state.value.reservationRequests.any(
+        (request) => request.getDtag() == tradeId,
+      )) {
+        return thread;
+      }
+    }
+    return null;
+  }
 
   static TradeAvailability _resolveAvailability({
     required List<Validation<ReservationGroup>> ownReservations,

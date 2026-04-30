@@ -103,9 +103,6 @@ class ExploreViewState extends State<ExploreView> {
         providers: [
           BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
           BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
-          BlocProvider.value(
-            value: BlocProvider.of<PostResultFilterCubit<Listing>>(context),
-          ),
         ],
         child: const FiltersScreen(),
       ),
@@ -321,9 +318,6 @@ class ExploreViewState extends State<ExploreView> {
       providers: [
         BlocProvider.value(value: BlocProvider.of<DateRangeCubit>(context)),
         BlocProvider.value(value: BlocProvider.of<FilterCubit>(context)),
-        BlocProvider.value(
-          value: BlocProvider.of<PostResultFilterCubit<Listing>>(context),
-        ),
       ],
       child: BlocProvider(
         create: (context) => MapViewCubit(),

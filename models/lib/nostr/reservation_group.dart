@@ -72,6 +72,20 @@ class ReservationGroup {
     return result;
   }
 
+  static List<String> normalizeParticipants(Iterable<String> participants) =>
+      (participants.where((p) => p.isNotEmpty).toSet().toList()..sort());
+
+  static String groupIdForParticipants({
+    required String tradeId,
+    required Iterable<String> participants,
+  }) {
+    final preimage = jsonEncode([
+      normalizeParticipants(participants),
+      tradeId.trim(),
+    ]);
+    return sha256.convert(utf8.encode(preimage)).toString();
+  }
+
   /// Computes a stable group key from a **single** [Reservation] event.
   ///
   /// Because every participant declares the full set of counterparties in
@@ -80,22 +94,18 @@ class ReservationGroup {
   /// who don't know (or don't match) the full set produce a different key
   /// and are automatically isolated into their own group.
   ///
-  /// Formula: SHA-256 of `sorted(participantSet).join(':') + ':' + dTag`.
+  /// Formula: SHA-256 of the JSON tuple
+  /// `[sorted(unique(participantSet)), dTag]`, matching thread identifiers.
   static String groupIdFromEvent(Reservation r) {
     final dTag = r.getDtag() ?? r.id;
     final participants = {r.pubKey, ...r.parsedTags.getTags('p')};
-    final sorted = participants.toList()..sort();
-    final input = '${sorted.join(':')}:$dTag';
-    return sha256.convert(utf8.encode(input)).toString();
+    return groupIdForParticipants(tradeId: dTag, participants: participants);
   }
 
   /// The group's stable composite identity: `groupIdFromEvent` applied to
   /// the accumulated [participantSet] and [tradeId].
-  String get groupId {
-    final sorted = participantSet.toList()..sort();
-    final input = '${sorted.join(':')}:$tradeId';
-    return sha256.convert(utf8.encode(input)).toString();
-  }
+  String get groupId =>
+      groupIdForParticipants(tradeId: tradeId, participants: participantSet);
 
   // ── Role-based getters ──────────────────────────────────────────────
 

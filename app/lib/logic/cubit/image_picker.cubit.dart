@@ -66,6 +66,12 @@ class ImageError extends ImagePickerState {
 /// changes, allowing form controllers to merge it into their submit listenable.
 class ImagePickerCubit extends Cubit<ImagePickerState> {
   static const List<String> defaultAllowedFileTypes = ['png', 'jpg'];
+  @visibleForTesting
+  static Future<List<XFile>?> Function({
+    required List<String> allowedFileTypes,
+    required int limit,
+  })?
+  debugPickAllowedImagesFromGallery;
 
   final ImagePicker _picker = ImagePicker();
   final List<CustomImage> images = [];
@@ -125,10 +131,12 @@ class ImagePickerCubit extends Cubit<ImagePickerState> {
         return;
       }
 
-      final webPickedImages = await web_gallery.pickAllowedImagesFromGallery(
-        allowedFileTypes: allowedExtensions.toList(),
-        limit: effectiveLimit,
-      );
+      final webPickedImages =
+          await (debugPickAllowedImagesFromGallery ??
+              web_gallery.pickAllowedImagesFromGallery)(
+            allowedFileTypes: allowedExtensions.toList(),
+            limit: effectiveLimit,
+          );
       if (webPickedImages != null) {
         if (webPickedImages.isNotEmpty) {
           addImages(webPickedImages.map(CustomImage.file).toList());

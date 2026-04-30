@@ -7,6 +7,7 @@ import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../../util/coinlib_gift_wrap.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../can_verify.dart';
@@ -15,7 +16,8 @@ import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../relays/relays.dart';
 import '../reservation_transitions/reservation_transitions.dart';
-import 'reservation_pubkey_proofs.dart';
+import 'reservation_participant_authorization_resolver.dart';
+import 'reservation_participant_tags.dart';
 
 class Commitment {
   final String hash;
@@ -38,6 +40,9 @@ class Reservations extends CrudUseCase<Reservation>
   final ReservationTransitions _transitions;
   final Listings _listings;
   final Relays _relays;
+  late final ReservationParticipantAuthorizationResolver
+  _participantAuthorizationResolver =
+      ReservationParticipantAuthorizationResolver(logger: logger);
   Messaging get messaging => _messaging;
   Auth get auth => _auth;
   ReservationTransitions get transitions => _transitions;
@@ -58,6 +63,32 @@ class Reservations extends CrudUseCase<Reservation>
        _listings = listings,
        _relays = relays,
        super(kind: Reservation.kinds[0]);
+
+  int _nextReplacementCreatedAt(Reservation existing) {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return now <= existing.createdAt ? existing.createdAt + 1 : now;
+  }
+
+  Future<Reservation> _signReservation({
+    required Reservation reservation,
+    required KeyPair signerKeyPair,
+  }) async {
+    final activeNdkPubkey = requests.ndk.accounts.getPublicKey();
+    if (activeNdkPubkey == signerKeyPair.publicKey) {
+      return Reservation.fromNostrEvent(
+        await requests.ndk.accounts.sign(reservation),
+      );
+    }
+
+    final privateKey = signerKeyPair.privateKey;
+    if (privateKey == null || privateKey.isEmpty) {
+      throw StateError(
+        'No signer available for reservation pubkey ${signerKeyPair.publicKey}',
+      );
+    }
+
+    return reservation.signAs(signerKeyPair, Reservation.fromNostrEvent);
+  }
 
   /// Query all reservations for a given trade id (d-tag).
   Future<List<Reservation>> getByTradeId(String tradeId) {
@@ -80,6 +111,72 @@ class Reservations extends CrudUseCase<Reservation>
 
   String _tradeIdFor(Reservation reservation) {
     return reservation.getDtag() ?? reservation.id;
+  }
+
+  Future<String> _signParticipantAuthorization({
+    required String listingAnchor,
+    required KeyPair identityKeyPair,
+    required ReservationParticipantAuthorizationDraft draft,
+  }) async {
+    if (draft.identityPubkey != identityKeyPair.publicKey) {
+      throw StateError(
+        'Participant authorization identity must match the signer key',
+      );
+    }
+
+    final authorization = TradeKeyAuthorization.create(
+      identityPubkey: draft.identityPubkey,
+      listingAnchor: listingAnchor,
+      tradeId: draft.tradeId,
+      participantPubkey: draft.participantPubkey,
+      role: draft.role,
+    );
+    final activeNdkPubkey = requests.ndk.accounts.getPublicKey();
+    final signedAuthorization = activeNdkPubkey == identityKeyPair.publicKey
+        ? TradeKeyAuthorization.fromNostrEvent(
+            await requests.ndk.accounts.sign(authorization),
+          )
+        : authorization.signAs(
+            identityKeyPair,
+            TradeKeyAuthorization.fromNostrEvent,
+          );
+    return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+      signedAuthorization,
+    ).encode();
+  }
+
+  Iterable<Reservation> _threadReservationCandidates({
+    required String tradeId,
+    Reservation? fallback,
+  }) sync* {
+    final seen = <String>{};
+
+    if (fallback != null) {
+      if (seen.add(fallback.id)) yield fallback;
+    }
+    for (final thread in messaging.threads.findByConversationTag(tradeId)) {
+      for (final reservation in thread.state.value.reservationRequests) {
+        if (seen.add(reservation.id)) yield reservation;
+      }
+      for (final reservation
+          in thread.state.value.events.whereType<Reservation>()) {
+        if (seen.add(reservation.id)) yield reservation;
+      }
+    }
+  }
+
+  Future<ParticipationProof> createParticipationProofForReview({
+    required Reservation reservation,
+    required String role,
+    required KeyPair recipientKeyPair,
+    required KeyPair identityKeyPair,
+  }) {
+    return _participantAuthorizationResolver.createReviewProof(
+      reservation: reservation,
+      role: role,
+      recipientKeyPair: recipientKeyPair,
+      identityPubkey: identityKeyPair.publicKey,
+    );
   }
 
   Map<String, List<Reservation>> groupByCommitment(
@@ -154,16 +251,25 @@ class Reservations extends CrudUseCase<Reservation>
     for (final reservation in reservations) {
       final tradeId = reservation.getDtag();
       if (tradeId == null || tradeId.isEmpty) continue;
-      final thread = messaging.threads.findPreferredThreadByTradeId(tradeId);
+      final participants = {
+        reservation.pubKey,
+        ...reservation.parsedTags.getTags('p'),
+      };
+      final thread = messaging.threads.findTradeThread(
+        tradeId: tradeId,
+        participants: participants,
+      );
       if (thread == null) continue;
 
-      grouped.putIfAbsent(tradeId, () => []);
-      grouped[tradeId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
-      grouped[tradeId]!.add(reservation);
+      final groupId = ReservationGroup.groupIdFromEvent(reservation);
+      grouped.putIfAbsent(groupId, () => []);
+      grouped[groupId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
+      grouped[groupId]!.add(reservation);
     }
 
     return grouped.map(
-      (hash, list) => MapEntry(hash, ReservationGroup(reservations: list)),
+      (groupId, list) =>
+          MapEntry(groupId, ReservationGroup(reservations: list)),
     );
   }
 
@@ -253,22 +359,52 @@ class Reservations extends CrudUseCase<Reservation>
     final listingAnchor = negotiateReservation.parsedTags.listingAnchor;
 
     final sellerPk = getPubKeyFromAnchor(listingAnchor);
-    final sellerHint = await _relays.relayHintFor(sellerPk);
-    final buyerHint = await _relays.relayHintFor(activeKeyPair.publicKey);
     final escrowPk = proof.escrowProof?.escrowService.escrowPubkey;
-    final escrowHint = escrowPk != null
-        ? await _relays.relayHintFor(escrowPk)
-        : '';
-    var reservation = Reservation.create(
+    final participantPlan = await buildReservationParticipantTagPlan(
+      tradeId: tradeId!,
+      reservationAuthorKey: activeKeyPair,
+      participants: [
+        ReservationParticipant.real(role: 'seller', pubkey: sellerPk),
+        ReservationParticipant(
+          role: 'buyer',
+          participantPubkey: activeKeyPair.publicKey,
+          identityPubkey: auth.getActiveKey().publicKey,
+        ),
+        if (escrowPk != null)
+          ReservationParticipant.real(role: 'escrow', pubkey: escrowPk),
+      ],
+      relayHintFor: _relays.relayHintFor,
+      signAuthorization: (draft) async {
+        final reused = await _participantAuthorizationResolver
+            .findReusableAuthorization(
+              draft: draft,
+              recipientKeyPair: activeKeyPair,
+              candidates: _threadReservationCandidates(
+                tradeId: tradeId,
+                fallback: negotiateReservation,
+              ),
+            );
+        if (reused != null) return reused;
+        return _signParticipantAuthorization(
+          listingAnchor: listingAnchor,
+          identityKeyPair: auth.getActiveKey(),
+          draft: draft,
+        );
+      },
+      encryptAuthorization:
+          ({
+            required plaintext,
+            required senderPrivateKey,
+            required recipientPubkey,
+          }) =>
+              coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+    );
+
+    final reservation = Reservation.create(
       pubKey: activeKeyPair.publicKey,
-      dTag: tradeId!,
+      dTag: tradeId,
       listingAnchor: listingAnchor,
       threadAnchor: threadAnchor,
-      pTags: [
-        PTag.seller(sellerPk, relayHint: sellerHint),
-        PTag.buyer(activeKeyPair.publicKey, relayHint: buyerHint),
-        if (escrowPk != null) PTag.escrow(escrowPk, relayHint: escrowHint),
-      ],
       start: negotiateReservation.start,
       end: negotiateReservation.end,
       stage: ReservationStage.commit,
@@ -277,15 +413,7 @@ class Reservations extends CrudUseCase<Reservation>
       recipient: negotiateReservation.recipient,
       proof: proof,
       commitAuthorization: negotiateReservation.commitAuthorization,
-    );
-    reservation = await reservation.attachPubkeyProof(
-      role: 'buyer',
-      proofKeyPair: auth.getActiveKey(),
-      encryptionKeyPair: activeKeyPair,
-      signAuthorization:
-          requests.ndk.accounts.getPublicKey() == auth.getActiveKey().publicKey
-          ? (unsignedEvent) => requests.ndk.accounts.sign(unsignedEvent)
-          : null,
+      extraTags: participantPlan.tags,
     );
 
     final signedReservation = reservation.signAs(
@@ -347,20 +475,22 @@ class Reservations extends CrudUseCase<Reservation>
       pTags: pTags,
       start: reservationGroup.start,
       end: reservationGroup.end,
-    ).signAs(keyPair, Reservation.fromNostrEvent);
-    final updated = myReservation == null
+    );
+    final unsigned = myReservation == null
         ? blank
-        : myReservation
-              .copy(
-                createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                id: null,
-                content: myReservation.parsedContent.copyWith(
-                  stage: ReservationStage.cancel,
-                ),
+        : myReservation.copy(
+            createdAt: _nextReplacementCreatedAt(myReservation),
+            id: null,
+            content: myReservation.parsedContent.copyWith(
+              stage: ReservationStage.cancel,
+            ),
 
-                pubKey: keyPair.publicKey,
-              )
-              .signAs(keyPair, Reservation.fromNostrEvent);
+            pubKey: keyPair.publicKey,
+          );
+    final updated = await _signReservation(
+      reservation: unsigned,
+      signerKeyPair: keyPair,
+    );
     logger.d('Cancelling reservation: $updated');
     await _upsertWithTransition(
       reservation: updated,
@@ -406,19 +536,21 @@ class Reservations extends CrudUseCase<Reservation>
       listingAnchor: reservationGroup.listingAnchor,
       stage: ReservationStage.commit,
       pTags: pTags,
-    ).signAs(keyPair, Reservation.fromNostrEvent);
-    final updated = myReservation == null
+    );
+    final unsigned = myReservation == null
         ? blank
-        : myReservation
-              .copy(
-                createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                id: null,
-                content: myReservation.parsedContent.copyWith(
-                  stage: ReservationStage.commit,
-                ),
-                pubKey: keyPair.publicKey,
-              )
-              .signAs(keyPair, Reservation.fromNostrEvent);
+        : myReservation.copy(
+            createdAt: _nextReplacementCreatedAt(myReservation),
+            id: null,
+            content: myReservation.parsedContent.copyWith(
+              stage: ReservationStage.commit,
+            ),
+            pubKey: keyPair.publicKey,
+          );
+    final updated = await _signReservation(
+      reservation: unsigned,
+      signerKeyPair: keyPair,
+    );
     logger.d('Confirming reservation: $updated');
     await _upsertWithTransition(
       reservation: updated,

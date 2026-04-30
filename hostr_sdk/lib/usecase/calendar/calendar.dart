@@ -3,14 +3,11 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
-import '../../injection.dart';
 import '../../util/custom_logger.dart';
-import '../auth/auth.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
-import '../reservations/reservation_pubkey_proofs.dart';
+import '../reservation_groups/reservation_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 abstract class CalendarPort {
@@ -70,7 +67,6 @@ class CalendarEntry extends Equatable {
 class Calendar {
   final UserSubscriptions _userSubscriptions;
   final Listings _listings;
-  final Auth _auth;
   final MetadataUseCase _metadata;
   final CustomLogger _logger;
   final CalendarPort _port;
@@ -84,13 +80,11 @@ class Calendar {
   Calendar({
     required UserSubscriptions userSubscriptions,
     required Listings listings,
-    required Auth auth,
     required MetadataUseCase metadata,
     required CustomLogger logger,
     required CalendarPort port,
   }) : _userSubscriptions = userSubscriptions,
        _listings = listings,
-       _auth = auth,
        _metadata = metadata,
        _logger = logger,
        _port = port;
@@ -116,7 +110,7 @@ class Calendar {
     _logger.d('Calendar: subscribed to hosting and trip updates');
 
     _subscriptions.add(
-      _userSubscriptions.myHostingsList$.stream.listen(
+      _userSubscriptions.myResolvedHostingsList$.stream.listen(
         _onHostingSnapshot,
         onError: (e, st) => _logger.w(
           'Calendar: hostings stream error',
@@ -147,14 +141,15 @@ class Calendar {
     _publishedEntries.clear();
   });
 
-  Future<void> _onHosting(Validation<ReservationGroup> validation) =>
+  Future<void> _onHosting(ResolvedValidatedReservationGroupParticipants item) =>
       _logger.span('_onHosting', () async {
+        final validation = item.validation;
         if (validation is! Valid<ReservationGroup>) return;
-        final group = validation.event;
+        final group = item.group;
         if (!_isFuture(group)) return;
 
         try {
-          final guestPubkey = await _resolveGuestPubkey(group);
+          final guestPubkey = _resolveGuestPubkey(item);
           String guestName = 'Guest';
           if (guestPubkey != null) {
             final profile = await _metadata.loadMetadata(guestPubkey);
@@ -205,10 +200,10 @@ class Calendar {
       });
 
   Future<void> _onHostingSnapshot(
-    List<Validation<ReservationGroup>> validations,
+    List<ResolvedValidatedReservationGroupParticipants> items,
   ) => _logger.span('_onHostingSnapshot', () async {
-    for (final validation in validations) {
-      await _onHosting(validation);
+    for (final item in items) {
+      await _onHosting(item);
     }
   });
 
@@ -263,68 +258,20 @@ class Calendar {
         }
       });
 
-  Future<String?> _resolveGuestPubkey(ReservationGroup group) async {
+  String? _resolveGuestPubkey(
+    ResolvedValidatedReservationGroupParticipants item,
+  ) {
+    final group = item.group;
     final buyerReservation = group.buyerReservation;
+    final resolved = item.participants.resolvedParticipantPubkeyForRole(
+      'buyer',
+    );
+    if (resolved != null && resolved.isNotEmpty) return resolved;
     if (buyerReservation == null) return null;
-
-    final activeKey = _auth.getActiveKey();
-    final proof = activeKey.privateKey != null
-        ? await buyerReservation.resolvePubkeyProof(
-            role: 'buyer',
-            recipientKeyPair: activeKey,
-          )
-        : await _resolveGuestProofWithSigner(
-            buyerReservation,
-            recipientPubkey: activeKey.publicKey,
-          );
-    return proof?.pubkey ??
+    return group.buyerPubkey ??
         buyerReservation.parsedTags.getTagValueByMarker('p', 'buyer') ??
         buyerReservation.recipient ??
         buyerReservation.pubKey;
-  }
-
-  Future<ReservationPubkeyProofPayload?> _resolveGuestProofWithSigner(
-    Reservation reservation, {
-    required String recipientPubkey,
-  }) async {
-    final signer = getIt<Ndk>().accounts.getLoggedAccount()?.signer;
-    if (signer == null) return null;
-
-    final tradeId = reservation.getDtag();
-    if (tradeId == null || tradeId.isEmpty) return null;
-
-    final participantPubkey = reservation.pubkeyForRole('buyer');
-    final proofTags = reservation.parsedTags.pubkeyProofsFor(
-      role: 'buyer',
-      recipientPubkey: recipientPubkey,
-    );
-
-    for (final tag in proofTags) {
-      if (tag.scheme != kReservationPubkeyProofSchemeNip44V1) continue;
-
-      try {
-        final plaintext = await signer.decryptNip44(
-          ciphertext: tag.ciphertext,
-          senderPubKey: reservation.pubKey,
-        );
-        if (plaintext == null || plaintext.isEmpty) continue;
-
-        final proof = ReservationPubkeyProofPayload.tryDecode(plaintext);
-        if (proof != null &&
-            proof.verifiesForReservation(
-              tradeId: tradeId,
-              listingAnchor: reservation.parsedTags.listingAnchor,
-              participantPubkey: participantPubkey,
-              role: 'buyer',
-            )) {
-          return proof;
-        }
-      } catch (_) {
-        // Keep trying other proof capsules if the signer rejects one.
-      }
-    }
-
-    return null;
   }
 
   bool _isFuture(ReservationGroup group) {

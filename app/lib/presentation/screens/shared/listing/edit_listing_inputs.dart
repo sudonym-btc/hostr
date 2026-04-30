@@ -46,6 +46,7 @@ class ImagesInput extends StatelessWidget {
         ),
         Center(
           child: FilledButton.icon(
+            key: const ValueKey('edit_listing_add_image_button'),
             onPressed: () => controller.imageField.cubit.pickMultipleImages(
               allowedFileTypes: ImagePickerCubit.defaultAllowedFileTypes,
             ),
@@ -67,6 +68,7 @@ class TitleInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      key: const ValueKey('edit_listing_title_input'),
       controller: controller.titleField.textController,
       validator: controller.titleField.validate,
       decoration: const InputDecoration(
@@ -95,6 +97,7 @@ class PriceInput extends StatelessWidget {
       listenable: controller.priceField,
       builder: (context, _) {
         return AmountTapInput(
+          key: const ValueKey('edit_listing_price_input'),
           controller: controller.priceField.amountField,
           hintText: 'Tap to set price',
           suffixText: '/ day',
@@ -164,6 +167,7 @@ class DescriptionInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      key: const ValueKey('edit_listing_description_input'),
       controller: controller.descriptionField.textController,
       validator: controller.descriptionField.validate,
       minLines: 2,

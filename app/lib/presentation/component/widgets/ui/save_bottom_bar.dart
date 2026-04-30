@@ -13,11 +13,13 @@ import 'package:hostr/presentation/layout/app_layout.dart';
 class SaveBottomBar extends StatelessWidget {
   final UpsertFormController controller;
   final Future<void> Function() onSave;
+  final Key? saveButtonKey;
 
   const SaveBottomBar({
     super.key,
     required this.controller,
     required this.onSave,
+    this.saveButtonKey,
   });
 
   @override
@@ -34,6 +36,7 @@ class SaveBottomBar extends StatelessWidget {
                 listenable: controller.submitListenable,
                 builder: (context, _) {
                   return FutureButton.filled(
+                    key: saveButtonKey,
                     onPressed: controller.canSubmit && controller.isDirty
                         ? onSave
                         : null,

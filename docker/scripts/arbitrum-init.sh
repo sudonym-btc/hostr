@@ -9,11 +9,43 @@
 # Runs once at startup via the `arbitrum-init` service.
 # ─────────────────────────────────────────────────────────────────────────────
 set -eu
+export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-true}"
 
 ARBITRUM_RPC="http://anvil-arbitrum:8545"
 
 # Anvil Account #1 — deployer for swap contracts (deterministic addresses)
 DEPLOYER_PK="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+LOCAL_BYTECODES="${LOCAL_BYTECODES_DIR:-/scripts/local-chain-bytecodes}"
+DEPLOY_CREATE_ADDRESS=""
+
+deploy_create() {
+  local name="$1"
+  local bytecode_file="$2"
+  local private_key="$3"
+  local constructor_args="${4:-}"
+  local bytecode args tx deployed code
+
+  bytecode=$(cat "$bytecode_file")
+  args=$(echo "$constructor_args" | sed 's/^0x//')
+  tx=$(cast send --rpc-url "$ARBITRUM_RPC" --private-key "$private_key" \
+    --create "${bytecode}${args}" --json 2>&1)
+  deployed=$(echo "$tx" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
+
+  if [ -z "$deployed" ]; then
+    echo "ERROR: Failed to extract $name address from deployment output"
+    echo "$tx"
+    exit 1
+  fi
+
+  code=$(cast code --rpc-url "$ARBITRUM_RPC" "$deployed")
+  if [ "$code" = "0x" ] || [ -z "$code" ]; then
+    echo "ERROR: No contract code at $name address $deployed"
+    exit 1
+  fi
+
+  DEPLOY_CREATE_ADDRESS="$deployed"
+  echo "  ✓ $name deployed at $deployed"
+}
 
 echo "Waiting for anvil-arbitrum..."
 until cast chain-id --rpc-url "$ARBITRUM_RPC" 2>/dev/null; do sleep 0.5; done
@@ -38,159 +70,23 @@ cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" --create $ERC20
 
 # ── 2. Deploy MockTBTC ERC20 (nonce 2) ───────────────────────────────────
 echo "Deploying MockTBTC..."
-mkdir -p /tmp/tbtc/src
-
-cat > /tmp/tbtc/src/MockTBTC.sol << 'SOLEOF'
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
-
-contract MockTBTC {
-    // Storage layout matches OpenZeppelin ERC20:
-    //   slot 0 → balanceOf, slot 1 → allowance
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    string public name     = "tBTC";
-    string public symbol   = "tBTC";
-    uint8  public decimals = 18;
-    uint256 public totalSupply;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    constructor(uint256 _supply) {
-        totalSupply = _supply;
-        balanceOf[msg.sender] = _supply;
-        emit Transfer(address(0), msg.sender, _supply);
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(msg.sender, to, amount);
-        return true;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        emit Approval(msg.sender, spender, amount);
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        allowance[from][msg.sender] -= amount;
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(from, to, amount);
-        return true;
-    }
-}
-SOLEOF
-
-cat > /tmp/tbtc/foundry.toml << 'FEOF'
-[profile.default]
-src = "src"
-out = "out"
-FEOF
-
-cd /tmp/tbtc
 TBTC_SUPPLY="1000000000000000000000000"  # 1M tBTC (18 decimals)
-FORGE_OUTPUT=$(forge create src/MockTBTC.sol:MockTBTC \
-  --rpc-url "$ARBITRUM_RPC" \
-  --private-key "$DEPLOYER_PK" \
-  --broadcast \
-  --constructor-args "$TBTC_SUPPLY" 2>&1)
-echo "$FORGE_OUTPUT"
-
-# Extract deployed address from forge output
-TBTC_ADDRESS=$(echo "$FORGE_OUTPUT" | grep -i "Deployed to:" | awk '{print $NF}')
-if [ -z "$TBTC_ADDRESS" ]; then
-  echo "ERROR: Failed to extract MockTBTC address from forge create output"
-  exit 1
-fi
-
-# Verify contract code exists at the deployed address
-CODE=$(cast code --rpc-url "$ARBITRUM_RPC" "$TBTC_ADDRESS")
-if [ "$CODE" = "0x" ] || [ -z "$CODE" ]; then
-  echo "ERROR: No contract code at MockTBTC address $TBTC_ADDRESS"
-  exit 1
-fi
+TBTC_ARGS=$(cast abi-encode "constructor(uint256)" "$TBTC_SUPPLY")
+deploy_create "MockTBTC" "$LOCAL_BYTECODES/MockTBTC.hex" "$DEPLOYER_PK" "$TBTC_ARGS"
+TBTC_ADDRESS="$DEPLOY_CREATE_ADDRESS"
 
 EXPECTED_ADDRESS="0x948B3c65b89DF0B4894ABE91E6D02FE579834F8F"
-if [ "$TBTC_ADDRESS" != "$EXPECTED_ADDRESS" ]; then
+if [ "$(echo "$TBTC_ADDRESS" | tr '[:upper:]' '[:lower:]')" != "$(echo "$EXPECTED_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]; then
   echo "WARNING: MockTBTC deployed at $TBTC_ADDRESS (expected $EXPECTED_ADDRESS)"
   echo "         Update docker/boltz.conf contractAddress if this persists!"
 fi
 
 # ── 3. Deploy MockUSDT ERC20 (nonce 3) ───────────────────────────────────
 echo "Deploying MockUSDT..."
-
-cat > /tmp/tbtc/src/MockUSDT.sol << 'SOLEOF'
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
-
-contract MockUSDT {
-    // Storage layout matches OpenZeppelin ERC20:
-    //   slot 0 → balanceOf, slot 1 → allowance
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    string public name     = "Tether USD";
-    string public symbol   = "USDT";
-    uint8  public decimals = 6;
-    uint256 public totalSupply;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    constructor(uint256 _supply) {
-        totalSupply = _supply;
-        balanceOf[msg.sender] = _supply;
-        emit Transfer(address(0), msg.sender, _supply);
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(msg.sender, to, amount);
-        return true;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        emit Approval(msg.sender, spender, amount);
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        allowance[from][msg.sender] -= amount;
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        emit Transfer(from, to, amount);
-        return true;
-    }
-}
-SOLEOF
-
 USDT_SUPPLY="1000000000000"  # 1M USDT (6 decimals)
-FORGE_OUTPUT_USDT=$(forge create src/MockUSDT.sol:MockUSDT \
-  --rpc-url "$ARBITRUM_RPC" \
-  --private-key "$DEPLOYER_PK" \
-  --broadcast \
-  --constructor-args "$USDT_SUPPLY" 2>&1)
-echo "$FORGE_OUTPUT_USDT"
-
-USDT_ADDRESS=$(echo "$FORGE_OUTPUT_USDT" | grep -i "Deployed to:" | awk '{print $NF}')
-if [ -z "$USDT_ADDRESS" ]; then
-  echo "ERROR: Failed to extract MockUSDT address from forge create output"
-  exit 1
-fi
-
-CODE=$(cast code --rpc-url "$ARBITRUM_RPC" "$USDT_ADDRESS")
-if [ "$CODE" = "0x" ] || [ -z "$CODE" ]; then
-  echo "ERROR: No contract code at MockUSDT address $USDT_ADDRESS"
-  exit 1
-fi
+USDT_ARGS=$(cast abi-encode "constructor(uint256)" "$USDT_SUPPLY")
+deploy_create "MockUSDT" "$LOCAL_BYTECODES/MockUSDT.hex" "$DEPLOYER_PK" "$USDT_ARGS"
+USDT_ADDRESS="$DEPLOY_CREATE_ADDRESS"
 
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -230,27 +126,27 @@ for ACCT in \
 do
   echo "  Sending 100k tBTC to $ACCT"
   cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
-    "$TBTC_ADDRESS" "transfer(address,uint256)" "$ACCT" "$TBTC_AMOUNT"
+    "$TBTC_ADDRESS" "transfer(address,uint256)" "$ACCT" "$TBTC_AMOUNT" >/dev/null
   echo "  Sending 100k USDT to $ACCT"
   cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
-    "$USDT_ADDRESS" "transfer(address,uint256)" "$ACCT" "$USDT_AMOUNT"
+    "$USDT_ADDRESS" "transfer(address,uint256)" "$ACCT" "$USDT_AMOUNT" >/dev/null
 done
 
 # Fund explicit boltz wallet if specified
 if [ -n "${BOLTZ_WALLET_ADDRESS:-}" ]; then
   echo "  Sending 100k tBTC to boltz wallet $BOLTZ_WALLET_ADDRESS"
   cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
-    "$TBTC_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$TBTC_AMOUNT"
+    "$TBTC_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$TBTC_AMOUNT" >/dev/null
 
   echo "  Sending 100k USDT to boltz wallet $BOLTZ_WALLET_ADDRESS"
   cast send --rpc-url "$ARBITRUM_RPC" --private-key "$DEPLOYER_PK" \
-    "$USDT_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$USDT_AMOUNT"
+    "$USDT_ADDRESS" "transfer(address,uint256)" "$BOLTZ_WALLET_ADDRESS" "$USDT_AMOUNT" >/dev/null
 
   # Also send native ETH/ARB for gas
   echo "  Sending 1000 ETH to boltz wallet for gas"
   cast send --rpc-url "$ARBITRUM_RPC" \
     --private-key "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" \
-    --value 1000ether "$BOLTZ_WALLET_ADDRESS"
+    --value 1000ether "$BOLTZ_WALLET_ADDRESS" >/dev/null
 fi
 
 # ── 6. Deploy Uniswap V3 stack ───────────────────────────────────────────

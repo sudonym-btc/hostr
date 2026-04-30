@@ -56,7 +56,10 @@ class _SearchFormState extends State<SearchForm> {
           // ── Location ────────────────────────────────────────────
           FormLabel(label: 'Where are you going?'),
           Gap.vertical.md(),
-          AreaLocationInput(controller: _c.locationField),
+          AreaLocationInput(
+            controller: _c.locationField,
+            textFieldKey: const ValueKey('search_filters_location_input'),
+          ),
           Gap.vertical.lg(),
 
           // ── Date range ──────────────────────────────────────────
@@ -79,6 +82,7 @@ class _SearchFormState extends State<SearchForm> {
 
           // ── Advanced section ────────────────────────────────────
           _AdvancedHeader(
+            key: const ValueKey('search_filters_advanced_toggle'),
             expanded: _showAdvanced,
             onToggle: () => setState(() => _showAdvanced = !_showAdvanced),
           ),
@@ -92,24 +96,28 @@ class _SearchFormState extends State<SearchForm> {
             ),
             Gap.vertical.lg(),
             SwitchListTile(
+              key: const ValueKey('search_filters_beachfront_switch'),
               contentPadding: EdgeInsets.zero,
               title: const Text('Beachfront'),
               value: _c.beachfrontField.value,
               onChanged: _c.beachfrontField.setValue,
             ),
             SwitchListTile(
+              key: const ValueKey('search_filters_kitchen_switch'),
               contentPadding: EdgeInsets.zero,
               title: const Text('Kitchen'),
               value: _c.kitchenField.value,
               onChanged: _c.kitchenField.setValue,
             ),
             SwitchListTile(
+              key: const ValueKey('search_filters_allows_pets_switch'),
               contentPadding: EdgeInsets.zero,
               title: const Text('Allows pets'),
               value: _c.allowsPetsField.value,
               onChanged: _c.allowsPetsField.setValue,
             ),
             SwitchListTile(
+              key: const ValueKey('search_filters_negotiable_switch'),
               contentPadding: EdgeInsets.zero,
               title: const Text('Negotiable'),
               value: _c.negotiableField.value,
@@ -192,7 +200,11 @@ class _AdvancedHeader extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
-  const _AdvancedHeader({required this.expanded, required this.onToggle});
+  const _AdvancedHeader({
+    super.key,
+    required this.expanded,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {

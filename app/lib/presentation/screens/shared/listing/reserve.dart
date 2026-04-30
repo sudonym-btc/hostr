@@ -158,6 +158,9 @@ class _ReserveState extends State<Reserve> {
                               _syncAmountController(dateRange);
 
                               return AmountTapInput(
+                                key: const ValueKey(
+                                  'listing_reserve_amount_input',
+                                ),
                                 controller: _amountController,
                                 min: listingPricesMin,
                                 max: [listingAmount],
@@ -203,6 +206,7 @@ class _ReserveState extends State<Reserve> {
                             statusSnapshot.data is StreamStatusQueryComplete ||
                             statusSnapshot.data is StreamStatusLive;
                         return FilledButton(
+                          key: const ValueKey('listing_reserve_button'),
                           onPressed:
                               state.status == ReservationCubitStatus.loading ||
                                   dateRange == null ||
@@ -223,15 +227,14 @@ class _ReserveState extends State<Reserve> {
                                           ),
                                           onSuccess: (reservation) {
                                             final anchor =
-                                                Threads.conversationIdentifier(
+                                                Threads.conversationId(
+                                                  reservation.getDtag()!,
                                                   [
                                                     getIt<Hostr>().auth
                                                         .getActiveKey()
                                                         .publicKey,
                                                     widget.listing.pubKey,
                                                   ],
-                                                  conversationTag: reservation
-                                                      .getDtag()!,
                                                 );
                                             AutoRouter.of(
                                               context,

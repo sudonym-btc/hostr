@@ -5,14 +5,16 @@ import 'package:convert/convert.dart';
 import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
 import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart'
     show evmIdentityClaimMessage;
+import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+import '../../usecase/reservations/reservation_participant_tags.dart';
+import '../../usecase/reservations/reservation_participant_authorization.dart';
 import 'seed_context.dart';
-import '../../usecase/reservations/reservation_pubkey_proofs.dart';
 
 // ─── Seed identity data ────────────────────────────────────────────────────
 
@@ -1094,6 +1096,138 @@ class EntityFactory {
   // Reservation
   // ═══════════════════════════════════════════════════════════════════════════
 
+  Future<String> _signParticipantAuthorization({
+    required String listingAnchor,
+    required KeyPair identityKeyPair,
+    required ReservationParticipantAuthorizationDraft draft,
+  }) async {
+    if (draft.identityPubkey != identityKeyPair.publicKey) {
+      throw StateError(
+        'Participant authorization identity must match the signer key',
+      );
+    }
+
+    final authorization = TradeKeyAuthorization.create(
+      identityPubkey: draft.identityPubkey,
+      listingAnchor: listingAnchor,
+      tradeId: draft.tradeId,
+      participantPubkey: draft.participantPubkey,
+      role: draft.role,
+    ).signAs(identityKeyPair, TradeKeyAuthorization.fromNostrEvent);
+    return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+      authorization,
+    ).encode();
+  }
+
+  Future<ReservationParticipantTagPlan> _reservationParticipantTagPlan({
+    required String tradeId,
+    required Listing listing,
+    required KeyPair reservationAuthorKey,
+    required KeyPair buyerIdentityKey,
+    required String buyerParticipantPubkey,
+    required Iterable<PTag> pTags,
+    required PaymentProof? proof,
+  }) async {
+    final hintsByPubkey = <String, String>{};
+    final participantsByRole = <String, ReservationParticipant>{};
+
+    void addPTagParticipant(PTag tag) {
+      if (tag.pubkey.isEmpty) return;
+      if (tag.relayHint.isNotEmpty) {
+        hintsByPubkey[tag.pubkey] = tag.relayHint;
+      }
+
+      final role = tag.role ?? _inferReservationParticipantRole(tag, listing);
+      if (role == null || role.isEmpty) return;
+
+      participantsByRole[role] = _participantForRole(
+        role: role,
+        pubkey: tag.pubkey,
+        buyerIdentityKey: buyerIdentityKey,
+      );
+    }
+
+    for (final tag in pTags) {
+      addPTagParticipant(tag);
+    }
+
+    participantsByRole.putIfAbsent(
+      'seller',
+      () => ReservationParticipant.real(role: 'seller', pubkey: listing.pubKey),
+    );
+    participantsByRole.putIfAbsent(
+      'buyer',
+      () => ReservationParticipant(
+        role: 'buyer',
+        participantPubkey: buyerParticipantPubkey,
+        identityPubkey: buyerIdentityKey.publicKey,
+      ),
+    );
+
+    final escrowPubkey = proof?.escrowProof?.escrowService.escrowPubkey;
+    if (escrowPubkey != null && escrowPubkey.isNotEmpty) {
+      participantsByRole.putIfAbsent(
+        'escrow',
+        () => ReservationParticipant.real(role: 'escrow', pubkey: escrowPubkey),
+      );
+    }
+
+    return buildReservationParticipantTagPlan(
+      tradeId: tradeId,
+      reservationAuthorKey: reservationAuthorKey,
+      participants: participantsByRole.values,
+      relayHintFor: (pubkey) async => hintsByPubkey[pubkey] ?? '',
+      signAuthorization: (draft) => _signParticipantAuthorization(
+        listingAnchor: listing.anchor!,
+        identityKeyPair: draft.role == 'buyer'
+            ? buyerIdentityKey
+            : reservationAuthorKey,
+        draft: draft,
+      ),
+      encryptAuthorization:
+          ({
+            required plaintext,
+            required senderPrivateKey,
+            required recipientPubkey,
+          }) =>
+              coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+    );
+  }
+
+  String? _inferReservationParticipantRole(PTag tag, Listing listing) {
+    if (tag.pubkey == listing.pubKey) return 'seller';
+    return 'buyer';
+  }
+
+  ReservationParticipant _participantForRole({
+    required String role,
+    required String pubkey,
+    required KeyPair buyerIdentityKey,
+  }) {
+    if (role == 'buyer') {
+      return ReservationParticipant(
+        role: role,
+        participantPubkey: pubkey,
+        identityPubkey: buyerIdentityKey.publicKey,
+      );
+    }
+    return ReservationParticipant.real(role: role, pubkey: pubkey);
+  }
+
+  String _buyerParticipantPubkey({
+    required Iterable<PTag> pTags,
+    required Listing listing,
+    required String? recipient,
+    required KeyPair fallback,
+  }) {
+    for (final tag in pTags) {
+      final role = tag.role ?? _inferReservationParticipantRole(tag, listing);
+      if (role == 'buyer' && tag.pubkey.isNotEmpty) return tag.pubkey;
+    }
+    if (recipient != null && recipient.isNotEmpty) return recipient;
+    return fallback.publicKey;
+  }
+
   /// Build a single signed [Reservation].
   ///
   /// Derives a deterministic trade key pair from [guestKeyPair] when [stage]
@@ -1133,15 +1267,29 @@ class EntityFactory {
     // No key derivation needed — the caller supplies everything.
     if (dTag != null && signerOverride != null) {
       // Auto-compute pTags when not provided:
-      // - If the signer is NOT the seller (i.e. buyer), p-tag the seller.
-      // - If the signer IS the seller, no auto-compute — caller must supply.
+      // Always include the host and buyer participant so reservation groups
+      // created by the seeder use the same raw participant set as live app
+      // reservations, even when the host publishes the commit.
       final isSeller = signerOverride.publicKey == listing.pubKey;
+      final defaultBuyerPubkey =
+          recipient ?? (isSeller ? guest.publicKey : signerOverride.publicKey);
       final resolvedPTags =
           pTags ??
-          <PTag>[
-            PTag.seller(listing.pubKey),
-            if (!isSeller) PTag.buyer(signerOverride.publicKey),
-          ];
+          <PTag>[PTag.seller(listing.pubKey), PTag.buyer(defaultBuyerPubkey)];
+      final participantPlan = await _reservationParticipantTagPlan(
+        tradeId: dTag,
+        listing: listing,
+        reservationAuthorKey: signerOverride,
+        buyerIdentityKey: guest,
+        buyerParticipantPubkey: _buyerParticipantPubkey(
+          pTags: resolvedPTags,
+          listing: listing,
+          recipient: recipient,
+          fallback: guest,
+        ),
+        pTags: resolvedPTags,
+        proof: proof,
+      );
       var reservation = Reservation.create(
         pubKey: signerOverride.publicKey,
         dTag: dTag,
@@ -1155,14 +1303,8 @@ class EntityFactory {
         proof: proof,
         commitAuthorization: commitAuthorization,
         threadAnchor: stage != ReservationStage.negotiate ? dTag : null,
-        pTags: resolvedPTags,
-        extraTags: extraTags,
+        extraTags: [...participantPlan.tags, ...extraTags],
         createdAt: createdAt ?? _defaultCreatedAt(),
-      );
-      reservation = await reservation.attachPubkeyProof(
-        role: 'buyer',
-        proofKeyPair: guest,
-        encryptionKeyPair: signerOverride,
       );
       return reservation.signAs(signerOverride, Reservation.fromNostrEvent);
     }
@@ -1178,6 +1320,32 @@ class EntityFactory {
     final resolvedSigner =
         signerOverride ??
         (stage == ReservationStage.negotiate ? tradeKey : guest);
+    final resolvedPTags =
+        pTags ??
+        [
+          PTag.seller(listing.pubKey),
+          PTag.buyer(
+            stage == ReservationStage.negotiate
+                ? tradeKey.publicKey
+                : resolvedSigner.publicKey,
+          ),
+        ];
+    final participantPlan = await _reservationParticipantTagPlan(
+      tradeId: tradeId,
+      listing: listing,
+      reservationAuthorKey: resolvedSigner,
+      buyerIdentityKey: guest,
+      buyerParticipantPubkey: _buyerParticipantPubkey(
+        pTags: resolvedPTags,
+        listing: listing,
+        recipient: recipient,
+        fallback: stage == ReservationStage.negotiate
+            ? tradeKey
+            : resolvedSigner,
+      ),
+      pTags: resolvedPTags,
+      proof: proof,
+    );
 
     var reservation = Reservation.create(
       pubKey: stage == ReservationStage.negotiate
@@ -1194,23 +1362,8 @@ class EntityFactory {
       proof: proof,
       commitAuthorization: commitAuthorization,
       threadAnchor: stage != ReservationStage.negotiate ? tradeId : null,
-      pTags:
-          pTags ??
-          [
-            PTag.seller(listing.pubKey),
-            PTag.buyer(
-              stage == ReservationStage.negotiate
-                  ? tradeKey.publicKey
-                  : resolvedSigner.publicKey,
-            ),
-          ],
-      extraTags: extraTags,
+      extraTags: [...participantPlan.tags, ...extraTags],
       createdAt: createdAt ?? _defaultCreatedAt(),
-    );
-    reservation = await reservation.attachPubkeyProof(
-      role: 'buyer',
-      proofKeyPair: guest,
-      encryptionKeyPair: resolvedSigner,
     );
     return reservation.signAs(resolvedSigner, Reservation.fromNostrEvent);
   }
@@ -1220,7 +1373,58 @@ class EntityFactory {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Build a single signed [Review].
-  Review review({
+  Future<ParticipationProof> _participationProofForReview({
+    required Reservation reservation,
+    required KeyPair recipientKeyPair,
+    required String identityPubkey,
+    required String role,
+  }) async {
+    final recipientPrivateKey = recipientKeyPair.privateKey;
+    if (recipientPrivateKey == null || recipientPrivateKey.isEmpty) {
+      throw StateError('Review proof recipient key requires a private key');
+    }
+    final tradeId = reservation.getDtag();
+    if (tradeId == null || tradeId.isEmpty) {
+      throw StateError('Reservation trade id is required for review proof');
+    }
+    final participantPubkey = reservation.participantPubkeyForRole(role);
+
+    for (final proof in reservation.parsedTags.participantProofs) {
+      if (proof.role != role) continue;
+      if (proof.participantPubkey != participantPubkey) continue;
+      if (proof.recipientPubkey != recipientKeyPair.publicKey) continue;
+      if (proof.scheme != kReservationParticipantProofSchemeNip44) continue;
+
+      final plaintext = await coinlibDecryptNip44(
+        proof.payload,
+        recipientPrivateKey,
+        reservation.pubKey,
+      );
+      if (!proof.matchesPayload(plaintext)) continue;
+      final payload = ReservationParticipantAuthorizationPayload.tryDecode(
+        plaintext,
+      );
+      if (payload == null || payload.pubkey != identityPubkey) continue;
+      if (!payload.verifiesForReservation(
+        tradeId: tradeId,
+        listingAnchor: reservation.parsedTags.listingAnchor,
+        participantPubkey: participantPubkey,
+        role: role,
+      )) {
+        continue;
+      }
+
+      return ParticipationProof(
+        role: role,
+        participantPubkey: participantPubkey,
+        authorizationPayload: plaintext,
+      );
+    }
+
+    throw StateError('No matching participant proof found for seeded review');
+  }
+
+  Future<Review> review({
     KeyPair? signer,
     required String reservationAnchor,
     required String listingAnchor,
@@ -1232,7 +1436,7 @@ class EntityFactory {
     bool paidViaEscrow = false,
     int? createdAt,
     Random? rng,
-  }) {
+  }) async {
     final kp = signer ?? _defaultSigner;
     final r = rng ?? Random(42);
     final resolvedRating = rating ?? _pickReviewRating(r);
@@ -1255,12 +1459,11 @@ class EntityFactory {
       content: ReviewContent(
         rating: resolvedRating,
         content: resolvedContent,
-        proof: ParticipationProof(
-          revealPrivateKey: deriveReviewRevealKeyPair(
-            reservation: reservation,
-            reservationAuthorKeyPair: reservationAuthorKeyPair,
-            role: 'buyer',
-          ).privateKey!,
+        proof: await _participationProofForReview(
+          reservation: reservation,
+          recipientKeyPair: reservationAuthorKeyPair,
+          identityPubkey: kp.publicKey,
+          role: 'buyer',
         ),
       ),
     ).signAs(kp, Review.fromNostrEvent);

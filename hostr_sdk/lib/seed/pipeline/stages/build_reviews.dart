@@ -25,11 +25,11 @@ Random _reviewRng(int seed, int threadIndex) =>
 /// All randomness is drawn from an isolated [_reviewRng] seeded by
 /// `(ctx.seed, threadIndex)`, so reviews are stable across re-runs even
 /// when [SeedPipelineConfig.userCount] changes.
-List<Review> buildReviews({
+Future<List<Review>> buildReviews({
   required SeedContext ctx,
   required List<SeedThread> threads,
   EntityFactory? factory,
-}) {
+}) async {
   final f = factory ?? EntityFactory(ctx: ctx);
   final reviews = <Review>[];
 
@@ -42,7 +42,7 @@ List<Review> buildReviews({
 
     if (rr.nextDouble() >= thread.stageSpec.reviewRatio) continue;
 
-    final review = f.review(
+    final review = await f.review(
       signer: thread.guest.keyPair,
       reservationAnchor: thread.reservation!.anchor!,
       listingAnchor: thread.listing.anchor!,

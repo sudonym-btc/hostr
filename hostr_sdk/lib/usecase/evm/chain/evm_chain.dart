@@ -1289,11 +1289,23 @@ class EvmChain {
     List<permissionless.StateOverride>? stateOverride,
   }) async {
     if (aa != null) {
-      return aa!.estimateGasFee(
-        signer,
-        calls: calls,
-        stateOverride: stateOverride,
-      );
+      try {
+        return await aa!.estimateGasFee(
+          signer,
+          calls: calls,
+          stateOverride: stateOverride,
+        );
+      } on FormatException catch (error) {
+        logger.w(
+          'AA gas estimation returned an invalid response; '
+          'falling back to EOA gas estimation: $error',
+        );
+        return _estimateEoaGas(
+          signer,
+          calls: calls,
+          stateOverride: stateOverride,
+        );
+      }
     }
     return _estimateEoaGas(signer, calls: calls, stateOverride: stateOverride);
   }

@@ -87,7 +87,6 @@ void main() {
       kNostrKindReview,
       kNostrKindReservationTransition,
       kNostrKindEscrowService,
-      kNostrKindEscrowTrust,
       kNostrKindEscrowMethod,
       kNostrKindEscrowServiceSelected,
       kNostrKindJsonMessage,

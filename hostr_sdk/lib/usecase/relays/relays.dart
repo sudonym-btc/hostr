@@ -26,7 +26,10 @@ class Relays {
   Ndk get ndk => _ndk;
   RelayStorage get relayStorage => _relayStorage;
 
-  static const _coreRelayConnectRetryInterval = Duration(seconds: 15);
+  // Keep retry cadence shorter than the startup readiness timeout so a single
+  // transient handshake miss does not immediately push startup onto the error
+  // screen while the very next reconnect would have succeeded.
+  static const _coreRelayConnectRetryInterval = Duration(seconds: 5);
   static const _reconnectNowDebounce = Duration(seconds: 10);
   static const _developmentRelay = 'wss://relay.hostr.development';
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
+import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class ReservationStatusSections {
@@ -60,5 +61,20 @@ class ReservationStatusSections {
         ],
       ),
     );
+  }
+
+  static int compareResolved(
+    ResolvedValidatedReservationGroupParticipants a,
+    ResolvedValidatedReservationGroupParticipants b,
+  ) {
+    return compare(a.validation, b.validation);
+  }
+
+  static Widget? buildResolvedHeader(
+    BuildContext context,
+    ResolvedValidatedReservationGroupParticipants? previous,
+    ResolvedValidatedReservationGroupParticipants current,
+  ) {
+    return buildHeader(context, previous?.validation, current.validation);
   }
 }

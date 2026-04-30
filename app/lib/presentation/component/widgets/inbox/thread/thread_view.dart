@@ -61,7 +61,10 @@ class ThreadReadyWidget extends StatelessWidget {
           if (thread.tradeId != null)
             AppSurface(
               child: CustomPadding(
-                child: TradeHeader(tradeId: thread.tradeId!),
+                child: TradeHeader(
+                  tradeId: thread.tradeId!,
+                  participants: thread.state.value.participantPubkeys,
+                ),
               ),
             ),
           Expanded(child: ThreadContent()),

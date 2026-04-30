@@ -40,6 +40,18 @@ class AcceptedPaymentForm {
     this.appId,
   });
 
+  static String canonicalTokenTagId(String tokenTagId) {
+    final separator = tokenTagId.indexOf(':');
+    if (separator == -1) return tokenTagId;
+
+    final chainId = tokenTagId.substring(0, separator);
+    final address = tokenTagId.substring(separator + 1);
+    if (address.startsWith('0x') || address.startsWith('0X')) {
+      return '$chainId:${address.toLowerCase()}';
+    }
+    return tokenTagId;
+  }
+
   /// Serialize to a Nostr tag (3 or 4 elements depending on [appId]).
   List<String> toTag() => [
         'a',
@@ -63,11 +75,13 @@ class AcceptedPaymentForm {
       identical(this, other) ||
       other is AcceptedPaymentForm &&
           denomination == other.denomination &&
-          tokenTagId == other.tokenTagId &&
+          canonicalTokenTagId(tokenTagId) ==
+              canonicalTokenTagId(other.tokenTagId) &&
           appId == other.appId;
 
   @override
-  int get hashCode => Object.hash(denomination, tokenTagId, appId);
+  int get hashCode =>
+      Object.hash(denomination, canonicalTokenTagId(tokenTagId), appId);
 
   @override
   String toString() =>
@@ -123,8 +137,13 @@ class EscrowMethod extends Event {
   /// Whether this escrow method declares acceptance of [tokenTagId] for
   /// the given [denomination].
   bool acceptsToken(String denomination, String tokenTagId) {
+    final canonicalTokenTagId =
+        AcceptedPaymentForm.canonicalTokenTagId(tokenTagId);
     return acceptedPaymentForms.any(
-      (f) => f.denomination == denomination && f.tokenTagId == tokenTagId,
+      (f) =>
+          f.denomination == denomination &&
+          AcceptedPaymentForm.canonicalTokenTagId(f.tokenTagId) ==
+              canonicalTokenTagId,
     );
   }
 }

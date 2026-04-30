@@ -28,7 +28,7 @@ x-templates:
       - sh
       - -lc
     command:
-      - exec lnd --alias=Alby --tlsextradomain=lnd --lnddir=/lnd --datadir=/lnd --adminmacaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert --tlskeypath=/lnd/tls.key --noseedbackup --rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT} --restlisten=0.0.0.0:${LIGHTNING_REST_PORT} --tlsextraip=0.0.0.0 --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT} --bitcoind.rpcuser=${BITCOIN_RPC_USER} --bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD} --bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT} --bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT} --maxpendingchannels=10 --allow-circular-route
+      - exec lnd --alias=Alby --tlsextradomain=lnd --lnddir=/lnd --datadir=/lnd --adminmacaroonpath=/lnd/data/chain/bitcoin/regtest/admin.macaroon --tlscertpath=/lnd/tls.cert --tlskeypath=/lnd/tls.key --noseedbackup --rpclisten=0.0.0.0:${LIGHTNING_RPC_PORT} --restlisten=0.0.0.0:${LIGHTNING_REST_PORT} --tlsextraip=0.0.0.0 --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=${BITCOIN_HOST}:${BITCOIN_RPC_PORT} --bitcoind.rpcuser=${BITCOIN_RPC_USER} --bitcoind.rpcpass=${BITCOIN_RPC_PASSWORD} --bitcoind.zmqpubrawtx=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_TX_PORT} --bitcoind.zmqpubrawblock=tcp://${BITCOIN_HOST}:${BITCOIN_ZMQ_BLOCK_PORT} --maxpendingchannels=10 --protocol.wumbo-channels --maxchansize=1000000000 --allow-circular-route
     networks:
       - default
 
@@ -159,7 +159,7 @@ services:
       [
         "sh",
         "-c",
-        "uv run lnbits --port 5000 --host 0.0.0.0 --forwarded-allow-ips='*'",
+        "/app/.venv/bin/lnbits --port 5000 --host 0.0.0.0 --forwarded-allow-ips='*'",
       ]
     environment:
       - VIRTUAL_HOST=lnbits.${DOMAIN}
@@ -170,10 +170,6 @@ services:
       - LND_REST_CERT=/app/lnd/tls.cert
       - LND_REST_MACAROON=/app${LND_ADMIN_MACAROON_PATH}
       - LND_REST_ALLOW_SELF_PAYMENT=true
-      - LNBITS_ADMIN_EXTENSIONS=lnurlp,nostrnip5
-      - LNBITS_USER_DEFAULT_EXTENSIONS=lnurlp,nostrnip5
-      - LNBITS_EXTENSIONS_DEFAULT_INSTALL=lnurlp,nostrnip5
-      - LNBITS_EXTENSIONS_MANIFESTS=["https://raw.githubusercontent.com/lnbits/lnbits-extensions/main/extensions.json"]
     volumes:
       - ./docker/data/lightning_data/1:/app/lnd
       - ./docker/data/lnbits/1:/app/data
@@ -183,8 +179,8 @@ services:
       test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
       interval: 3s
       timeout: 3s
-      retries: 5
-      start_period: 120s
+      retries: 20
+      start_period: 180s
     networks:
       - default
 
@@ -232,6 +228,7 @@ services:
       - DATABASE_URL=file:/app/config/signet.db
       - EXTERNAL_URL=https://bunker-nostr.${DOMAIN}
       - NODE_EXTRA_CA_CERTS=/tls/ca-bundle.crt
+      - SIGNET_DISABLE_RATE_LIMIT=${SIGNET_DISABLE_RATE_LIMIT:-1}
     entrypoint:
       - sh
       - -lc
@@ -242,10 +239,14 @@ services:
         if [ ! -f /app/config/signet.json ]; then
           sed "s/__DOMAIN__/${DOMAIN}/g" /seed/signet.template.json > /app/config/signet.json;
         fi;
+        if [ "$${SIGNET_DISABLE_RATE_LIMIT:-}" = "1" ]; then
+          node /seed/disable-rate-limit.mjs;
+        fi;
         exec ./entrypoint.sh start --config /app/config/signet.json
     volumes:
       - ./docker/data/signet:/app/config
       - ./docker/signet/signet.template.json:/seed/signet.template.json:ro
+      - ./docker/signet/disable-rate-limit.mjs:/seed/disable-rate-limit.mjs:ro
       - ./docker/tls/ca:/tls:ro
     healthcheck:
       test:

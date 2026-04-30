@@ -28,7 +28,12 @@ class WidgetbookApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Widgetbook.material(
       addons: [
-        ViewportAddon([IosViewports.iPhone12, IosViewports.iPhone13]),
+        ViewportAddon([
+          IosViewports.iPhone12,
+          IosViewports.iPhone13,
+          MacosViewports.macbookPro,
+          MacosViewports.desktop,
+        ]),
         BuilderAddon(
           name: 'Use case layout',
           builder: (context, child) {

@@ -33,7 +33,7 @@ class TabShellScreen extends StatelessWidget {
             );
 
             return AutoTabsRouter.builder(
-              key: ValueKey('tabs_$isLoggedIn'),
+              key: ValueKey('tabs_${isLoggedIn}_${modeState.runtimeType}'),
               routes: [
                 for (final destination in destinations) destination.route,
               ],

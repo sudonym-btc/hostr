@@ -69,7 +69,14 @@ void main() {
       );
       await pumpEventQueue();
 
-      expect(states.last, const StartupGateReady(hasMetadata: false));
+      expect(
+        states.last,
+        const StartupGateReady(
+          scope: StartupScope.user,
+          pubkey: 'pubkey',
+          hasMetadata: false,
+        ),
+      );
 
       await sub.cancel();
     });
@@ -87,7 +94,10 @@ void main() {
       );
       await pumpEventQueue();
 
-      expect(states.last, const StartupGateReady(hasMetadata: true));
+      expect(
+        states.last,
+        const StartupGateReady(scope: StartupScope.public, hasMetadata: true),
+      );
 
       await sub.cancel();
     });

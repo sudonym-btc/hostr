@@ -110,6 +110,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   // | B      | Bedrooms      | ['spec','bedrooms','2']   → ['B','2']     |
   // | R      | Bathrooms     | ['spec','bathrooms','2']  → ['R','2']     |
   // | N      | Negotiable    | ['negotiable','true']     → ['N','true']  |
+  // | S      | Feature AND   | ['spec','pool'] + ['spec','gym'] → ['S','gym+pool'] |
 
   static const List<TagPromotion> promotions = [
     TagPromotion.direct(source: 'type', target: 'T'),
@@ -125,7 +126,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   /// Letters emitted by [promotions] — stripped during [rebuild] so they
   /// can be re-generated from the authoritative multi-letter tags.
   static final Set<String> _promotedLetters =
-      TagPromotion.targetLetters(promotions);
+      TagPromotion.targetLetters(promotions)
+        ..add(ListingFilterBuilder.booleanFeatureCombinationTag);
 
   /// Returns a [ListingFilterBuilder] pre-configured with this event's
   /// kind and promotion rules.
@@ -228,6 +230,10 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                 ['negotiable', negotiable.toString()],
                 ...specifications.toTags(),
               ], promotions))
+              ..addAll(TagPromotion.promoteBooleanCombinations(
+                specifications.toTags(),
+                target: ListingFilterBuilder.booleanFeatureCombinationTag,
+              ))
               ..addAll(extraTags))
             .build(),
       ),
@@ -353,6 +359,10 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                 ['negotiable', (negotiable ?? this.negotiable).toString()],
                 ...(specifications ?? this.specifications).toTags(),
               ], promotions))
+              ..addAll(TagPromotion.promoteBooleanCombinations(
+                (specifications ?? this.specifications).toTags(),
+                target: ListingFilterBuilder.booleanFeatureCombinationTag,
+              ))
               ..addAll(extraTags ?? const []))
             .build(),
       ),

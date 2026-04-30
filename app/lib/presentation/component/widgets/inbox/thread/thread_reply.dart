@@ -60,6 +60,7 @@ class ThreadReplyView extends StatelessWidget {
         return KeyEventResult.handled;
       },
       child: TextField(
+        key: const ValueKey('thread_reply_input'),
         enabled: !isLoading,
         onChanged: onChanged,
         controller: controller,
@@ -83,6 +84,7 @@ class ThreadReplyView extends StatelessWidget {
             minHeight: 0,
           ),
           suffixIcon: IconButton.filled(
+            key: const ValueKey('thread_reply_send_button'),
             onPressed: isEnabled ? onSend : null,
             icon: suffixIcon,
           ),

@@ -28,6 +28,10 @@ class LocationController extends FormFieldController {
   LocationSuggestion? get selectedSuggestion => _selectedSuggestion;
   String get lastResolvedText => _lastResolvedText;
 
+  void _log(String message) {
+    debugPrint('[LocationController:${identityHashCode(this)}] $message');
+  }
+
   /// Whether the field is empty (no text entered).
   bool get _isEmpty => textController.text.trim().isEmpty;
 
@@ -78,6 +82,7 @@ class LocationController extends FormFieldController {
   }
 
   void updateTextFromUser(String value) {
+    _log('updateTextFromUser value="$value"');
     _selectedSuggestion = null;
     _clearH3State(notify: false);
     if (textController.text != value) {
@@ -90,6 +95,11 @@ class LocationController extends FormFieldController {
   }
 
   void applySelection(LocationSuggestion suggestion) {
+    _log(
+      'applySelection display="${suggestion.displayName}" '
+      'placeId=${suggestion.placeId} '
+      'lat=${suggestion.latitude} lon=${suggestion.longitude}',
+    );
     _selectedSuggestion = suggestion;
     textController.value = TextEditingValue(
       text: suggestion.displayName,
@@ -99,12 +109,19 @@ class LocationController extends FormFieldController {
   }
 
   void beginH3Resolving() {
+    _log(
+      'beginH3Resolving text="${textController.text.trim()}" '
+      'selected="${_selectedSuggestion?.displayName}"',
+    );
     _isResolvingH3 = true;
     _h3Error = null;
     notifyListeners();
   }
 
   void setH3Result(List<H3Tag> tags, String resolvedText) {
+    _log(
+      'setH3Result resolvedText="$resolvedText" tags=${tags.length}',
+    );
     _h3Tags = tags;
     _h3Error = tags.isEmpty ? 'No H3 cells found' : null;
     _isResolvingH3 = false;
@@ -113,6 +130,7 @@ class LocationController extends FormFieldController {
   }
 
   void setH3Error(String message) {
+    _log('setH3Error $message');
     _h3Tags = const [];
     _h3Error = message;
     debugPrint('H3 resolution error: $message');

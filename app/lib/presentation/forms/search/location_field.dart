@@ -17,6 +17,7 @@ enum LocationFieldH3Mode { none, addressHierarchy, polygonCover }
 
 class LocationField extends StatefulWidget {
   final LocationController controller;
+  final Key? textFieldKey;
   final String hintText;
   final FormFieldValidator<String>? validator;
   final ValueChanged<LocationSuggestion>? onSelected;
@@ -35,6 +36,7 @@ class LocationField extends StatefulWidget {
   const LocationField({
     super.key,
     required this.controller,
+    this.textFieldKey,
     this.hintText = 'Enter a location',
     this.validator,
     this.onSelected,
@@ -65,6 +67,10 @@ class LocationFieldState extends State<LocationField> {
   int _h3RequestId = 0;
   bool _isLoadingSuggestions = false;
   bool _isSelectingSuggestion = false;
+
+  void _log(String message) {
+    debugPrint('[LocationField:${identityHashCode(this)}] $message');
+  }
 
   @override
   void initState() {
@@ -113,9 +119,17 @@ class LocationFieldState extends State<LocationField> {
   }
 
   void _onFocusChanged() {
+    _log(
+      '_onFocusChanged hasFocus=${widget.controller.focusNode.hasFocus} '
+      'isSelecting=$_isSelectingSuggestion text="${widget.controller.text.trim()}"',
+    );
     if (widget.controller.focusNode.hasFocus) {
       return;
     }
+    final hadSuggestions =
+        _placeList.isNotEmpty ||
+        _isLoadingSuggestions ||
+        _debounce?.isActive == true;
     if (mounted) {
       setState(() {
         _placeList = [];
@@ -125,11 +139,19 @@ class LocationFieldState extends State<LocationField> {
     if (_isSelectingSuggestion) {
       return;
     }
+    if (hadSuggestions && widget.controller.selectedSuggestion == null) {
+      _log(
+        '_onFocusChanged skipping resolve because suggestions were active '
+        'without a committed selection',
+      );
+      return;
+    }
     _resolveH3ForInput();
   }
 
   void _fetchSuggestions(String value) {
     final trimmed = value.trim();
+    _log('_fetchSuggestions value="$trimmed"');
     if (trimmed.length < widget.minQueryLength) {
       _debounce?.cancel();
       setState(() {
@@ -145,6 +167,10 @@ class LocationFieldState extends State<LocationField> {
     });
     _debounce = Timer(widget.debounceDuration, () async {
       final requestId = ++_suggestionRequestId;
+      _log(
+        '_fetchSuggestions dispatch requestId=$requestId query="$trimmed" '
+        'session=$_sessionToken',
+      );
       try {
         final googleResults = await getIt<GoogleMaps>().getLocationResults(
           trimmed,
@@ -154,12 +180,17 @@ class LocationFieldState extends State<LocationField> {
         );
         final res = googleResults.map(_toLocationSuggestion).toList();
         if (!mounted || requestId != _suggestionRequestId) return;
+        _log(
+          '_fetchSuggestions success requestId=$requestId count=${res.length} '
+          'top="${res.isEmpty ? '' : res.first.displayName}"',
+        );
         setState(() {
           _isLoadingSuggestions = false;
           _placeList = res;
         });
       } catch (_) {
         if (!mounted || requestId != _suggestionRequestId) return;
+        _log('_fetchSuggestions error requestId=$requestId');
         setState(() {
           _isLoadingSuggestions = false;
           _placeList = [];
@@ -170,6 +201,16 @@ class LocationFieldState extends State<LocationField> {
 
   String _newSessionToken() =>
       '${DateTime.now().microsecondsSinceEpoch}-${hashCode.abs()}';
+
+  static String suggestionKeyForDisplayName(String displayName) {
+    final normalized = displayName
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return normalized.isEmpty ? 'unknown' : normalized;
+  }
 
   LocationSuggestion _toLocationSuggestion(Map<String, dynamic> prediction) {
     final text = prediction['text'];
@@ -212,6 +253,10 @@ class LocationFieldState extends State<LocationField> {
   Future<LocationSuggestion> _resolveCoordinates(
     LocationSuggestion suggestion,
   ) async {
+    _log(
+      '_resolveCoordinates display="${suggestion.displayName}" '
+      'placeId=${suggestion.placeId}',
+    );
     LatLng? coordinates;
 
     final placeId = suggestion.placeId;
@@ -248,6 +293,13 @@ class LocationFieldState extends State<LocationField> {
     }
 
     final input = widget.controller.text.trim();
+    _log(
+      '_resolveH3ForInput start input="$input" '
+      'mode=${widget.h3Mode.name} '
+      'selectedArg="${selectedSuggestion?.displayName}" '
+      'controllerSelected="${widget.controller.selectedSuggestion?.displayName}" '
+      'hasFocus=${widget.controller.focusNode.hasFocus}',
+    );
     if (input.isEmpty) {
       widget.controller.clearH3();
       return;
@@ -300,9 +352,14 @@ class LocationFieldState extends State<LocationField> {
       }
 
       if (!mounted || requestId != _h3RequestId) return;
+      _log(
+        '_resolveH3ForInput success requestId=$requestId tags=${tags.length} '
+        'input="$input"',
+      );
       widget.controller.setH3Result(tags, input);
     } catch (e) {
       if (!mounted || requestId != _h3RequestId) return;
+      _log('_resolveH3ForInput error requestId=$requestId error=$e');
       widget.controller.setH3Error(
         'Could not resolve location ${e.toString()}',
       );
@@ -355,10 +412,18 @@ class LocationFieldState extends State<LocationField> {
           itemCount: _placeList.length,
           itemBuilder: (context, index) {
             final selected = _placeList[index];
+            final suggestionKey = suggestionKeyForDisplayName(
+              selected.displayName,
+            );
             return ListTile(
+              key: ValueKey('location_suggestion_$suggestionKey'),
               dense: true,
               title: Text(selected.displayName),
               onTap: () async {
+                _log(
+                  'suggestion tap display="${selected.displayName}" '
+                  'placeId=${selected.placeId}',
+                );
                 _isSelectingSuggestion = true;
                 // Avoid context ancestor lookup after async gaps.
                 FocusManager.instance.primaryFocus?.unfocus();
@@ -387,6 +452,10 @@ class LocationFieldState extends State<LocationField> {
                     await _resolveH3ForInput(selectedSuggestion: selected);
                   }
                 } finally {
+                  _log(
+                    'suggestion tap finished display="${selected.displayName}" '
+                    'text="${widget.controller.text.trim()}"',
+                  );
                   _isSelectingSuggestion = false;
                   if (mounted) {
                     setState(() {
@@ -411,6 +480,7 @@ class LocationFieldState extends State<LocationField> {
     return Column(
       children: [
         TextFormField(
+          key: widget.textFieldKey,
           autocorrect: false,
           enableSuggestions: false,
           autovalidateMode: AutovalidateMode.onUserInteraction,

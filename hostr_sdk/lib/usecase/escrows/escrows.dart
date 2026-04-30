@@ -39,85 +39,73 @@ class Escrows extends CrudUseCase<EscrowService> {
       buyerMethod: buyerMethod,
     );
 
-    final trustedBuyerPubkeys =
-        buyerMethod?.trustedEscrowPubkeys.toSet() ?? <String>{};
     final trustedSellerPubkeys =
         sellerMethod?.trustedEscrowPubkeys.toSet() ?? <String>{};
+    final trustedBuyerPubkeys =
+        buyerMethod?.trustedEscrowPubkeys.toSet() ?? <String>{};
 
     logger.d(
       'Trusted escrow pubkeys: buyer=$trustedBuyerPubkeys seller=$trustedSellerPubkeys',
     );
 
-    // Find mutually trusted pubkeys
-    final mutuallyTrustedPubkeys = trustedBuyerPubkeys.intersection(
-      trustedSellerPubkeys,
-    );
+    final sellerBytecodeHashes =
+        sellerMethod?.supportedContractBytecodeHashes.toSet() ?? <String>{};
+    final buyerBytecodeHashes =
+        buyerMethod?.supportedContractBytecodeHashes.toSet() ?? <String>{};
+    final buyerHasEscrowPreference =
+        trustedBuyerPubkeys.isNotEmpty || buyerBytecodeHashes.isNotEmpty;
+    final preferredPubkeys = buyerHasEscrowPreference
+        ? trustedBuyerPubkeys.intersection(trustedSellerPubkeys)
+        : trustedSellerPubkeys;
+    final preferredBytecodeHashes = buyerHasEscrowPreference
+        ? buyerBytecodeHashes.intersection(sellerBytecodeHashes)
+        : sellerBytecodeHashes;
 
-    // if (mutuallyTrustedPubkeys.isEmpty) {
-    //   throw Exception(
-    //     'No mutually trusted escrow pubkeys found between $pubkey1 and $pubkey2',
-    //   );
-    // }
+    logger.d('Preferred escrow bytecode hashes: $preferredBytecodeHashes');
 
-    final mutualBytecodeHashes =
-        (buyerMethod?.supportedContractBytecodeHashes.toSet() ?? <String>{})
-            .intersection(
-              sellerMethod?.supportedContractBytecodeHashes.toSet() ??
-                  <String>{},
-            );
-
-    logger.d('Trusted escrow bytecode hashes: $mutualBytecodeHashes');
-
-    if (mutualBytecodeHashes.isEmpty) {
-      result.compatibleServices = [];
-      return result;
-    }
-
-    // Try mutually trusted escrow providers first
-    if (mutuallyTrustedPubkeys.isNotEmpty) {
-      final escrowServices = await list(
-        Filter(
-          kinds: EscrowService.kinds,
-          authors: mutuallyTrustedPubkeys.toList(),
-        ),
+    // Try the buyer/seller overlap first. If the buyer has no escrow method,
+    // or has a stale/incompatible one, a missing buyer match must not make the
+    // host's escrow preference unusable.
+    if (preferredPubkeys.isNotEmpty && preferredBytecodeHashes.isNotEmpty) {
+      final preferredServices = await _findServices(
+        authors: preferredPubkeys,
+        bytecodeHashes: preferredBytecodeHashes,
       );
 
-      final escrowServicesFiltered = escrowServices
-          .where(
-            (escrow) =>
-                mutualBytecodeHashes.contains(escrow.contractBytecodeHash),
-          )
-          .toList();
-
-      if (escrowServicesFiltered.isNotEmpty) {
-        result.compatibleServices = escrowServicesFiltered;
+      if (preferredServices.isNotEmpty) {
+        result.compatibleServices = preferredServices;
         return result;
       }
     }
 
-    // Fall back to the seller's trusted escrows with a compatible method
-    if (trustedSellerPubkeys.isNotEmpty) {
-      final hostEscrowServices = await list(
-        Filter(
-          kinds: EscrowService.kinds,
-          authors: trustedSellerPubkeys.toList(),
-        ),
+    logger.d(
+      'No compatible buyer/seller escrow preference found; falling back to seller preference',
+    );
+
+    if (trustedSellerPubkeys.isNotEmpty && sellerBytecodeHashes.isNotEmpty) {
+      result.compatibleServices = await _findServices(
+        authors: trustedSellerPubkeys,
+        bytecodeHashes: sellerBytecodeHashes,
       );
-
-      final hostEscrowServicesFiltered = hostEscrowServices
-          .where(
-            (escrow) =>
-                mutualBytecodeHashes.contains(escrow.contractBytecodeHash),
-          )
-          .toList();
-
-      result.compatibleServices = hostEscrowServicesFiltered;
       return result;
     }
 
     result.compatibleServices = [];
     return result;
   });
+
+  Future<List<EscrowService>> _findServices({
+    required Set<String> authors,
+    required Set<String> bytecodeHashes,
+  }) async {
+    final escrowServices = await list(
+      Filter(kinds: EscrowService.kinds, authors: authors.toList()),
+    );
+
+    return escrowServices
+        .where((escrow) => bytecodeHashes.contains(escrow.contractBytecodeHash))
+        .toList();
+  }
 }
 
 class MutualEscrowResult {

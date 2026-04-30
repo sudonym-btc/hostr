@@ -10,7 +10,12 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../trade_details_sheet.dart';
 
-typedef _TradeMenuItem = ({String label, IconData icon, VoidCallback onTap});
+typedef _TradeMenuItem = ({
+  Key? key,
+  String label,
+  IconData icon,
+  VoidCallback onTap,
+});
 
 class CommitMenu extends StatelessWidget {
   final TradeReady tradeState;
@@ -21,6 +26,9 @@ class CommitMenu extends StatelessWidget {
     final items = _buildCommitMenuItems(context);
 
     return PopupMenuButton<void>(
+      key: ValueKey(
+        'trade_live_${tradeState.role.name}_actions_menu_button_${tradeState.tradeId}',
+      ),
       padding: EdgeInsets.zero,
       iconSize: 20,
       tooltip: '',
@@ -28,6 +36,7 @@ class CommitMenu extends StatelessWidget {
       itemBuilder: (ctx) => [
         ...items.map(
           (item) => PopupMenuItem<void>(
+            key: item.key,
             onTap: item.onTap,
             child: Row(
               children: [
@@ -55,32 +64,38 @@ class CommitMenu extends StatelessWidget {
 
   List<_TradeMenuItem> _buildCommitMenuItems(BuildContext context) {
     final trade = context.read<Trade>();
+    final l10n = AppLocalizations.of(context)!;
+    final destructiveStyle = AppButtonStyles.destructive(context);
+    final cancelPrefix =
+        'trade_live_${tradeState.role.name}_cancel_${trade.tradeId}';
 
     final List<_TradeMenuItem> items = tradeState.actions
         .map((action) {
           switch (action) {
             case TradeAction.cancel:
               return (
+                key: ValueKey('${cancelPrefix}_menu_item'),
                 label: 'Cancel',
                 icon: Icons.cancel_outlined,
                 onTap: () => showAppModal(
                   context,
                   builder: (modalContext) => ModalBottomSheet(
-                    title: AppLocalizations.of(context)!.cancelReservation,
-                    subtitle: AppLocalizations.of(context)!.areYouSure,
+                    title: l10n.cancelReservation,
+                    subtitle: l10n.areYouSure,
                     content: const SizedBox.shrink(),
                     buttons: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         FutureButton.filled(
-                          style: AppButtonStyles.destructive(context),
+                          key: ValueKey('${cancelPrefix}_confirm_button'),
+                          style: destructiveStyle,
                           onPressed: () async {
                             await trade.execute(TradeAction.cancel);
                             if (modalContext.mounted) {
                               Navigator.of(modalContext).pop();
                             }
                           },
-                          child: Text(AppLocalizations.of(context)!.ok),
+                          child: Text(l10n.ok),
                         ),
                       ],
                     ),
@@ -103,14 +118,14 @@ class CommitMenu extends StatelessWidget {
                 onTap: () {
                   final myPubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
                   final nextThread = getIt<Hostr>().messaging.threads
-                      .ensureConversation(
+                      .ensureTradeConversation(
+                        tradeId: trade.tradeId,
                         participants: {
                           myPubkey,
                           ...currentThread.state.value.participantPubkeys,
                           ...currentThread.addedParticipants,
                           escrowPubkey,
                         },
-                        conversationTag: trade.tradeId,
                       );
                   AutoRouter.of(
                     context,
@@ -131,6 +146,9 @@ class CommitMenu extends StatelessWidget {
                   group.sellerReservation ??
                   group.escrowReservation;
               return (
+                key: ValueKey(
+                  'trade_live_${tradeState.role.name}_review_menu_item_${trade.tradeId}',
+                ),
                 label: 'Review',
                 icon: Icons.star_outline,
                 onTap: () => showAppModal(

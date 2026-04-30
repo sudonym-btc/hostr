@@ -26,6 +26,9 @@ class _FakeAuth extends Fake implements Auth {
   KeyPair? activeKeyPair = MockKeys.hoster;
 
   @override
+  String? get activePubkey => activeKeyPair?.publicKey;
+
+  @override
   KeyPair getActiveKey() => activeKeyPair!;
 }
 
@@ -169,6 +172,23 @@ Reservation _reservation({
   );
 }
 
+Message _message({
+  required String id,
+  required String sender,
+  required List<String> recipients,
+  required int createdAt,
+}) {
+  return Message(
+    id: id,
+    pubKey: sender,
+    content: 'hello',
+    createdAt: createdAt,
+    tags: MessageTags([
+      for (final recipient in recipients) ['p', recipient],
+    ]),
+  );
+}
+
 void main() {
   late BackgroundWorker worker;
   late _FakeAuth auth;
@@ -176,6 +196,7 @@ void main() {
   late _FakeHeartbeats heartbeats;
   late _FakeEvm evm;
   late _FakeFundsMonitorService fundsMonitor;
+  late _FakeNotificationLog notificationLog;
 
   setUp(() {
     auth = _FakeAuth();
@@ -183,6 +204,7 @@ void main() {
     heartbeats = _FakeHeartbeats();
     evm = _FakeEvm();
     fundsMonitor = _FakeFundsMonitorService();
+    notificationLog = _FakeNotificationLog();
 
     worker = BackgroundWorker(
       auth: auth,
@@ -193,7 +215,7 @@ void main() {
       listings: _FakeListings(),
       metadata: _FakeMetadataUseCase(),
       operationStore: _FakeOperationStateStore(),
-      notificationLog: _FakeNotificationLog(),
+      notificationLog: notificationLog,
       logger: CustomLogger(),
     );
   });
@@ -255,4 +277,57 @@ void main() {
       expect(fundsMonitor.stopCount, 0);
     },
   );
+
+  test('run filters self-sent message copies before notifying', () async {
+    userSubscriptions._giftwraps.add(
+      _message(
+        id: 'incoming-message',
+        sender: MockKeys.guest.publicKey,
+        recipients: [MockKeys.hoster.publicKey],
+        createdAt: 100,
+      ),
+    );
+    userSubscriptions._giftwraps.add(
+      _message(
+        id: 'self-copy',
+        sender: MockKeys.hoster.publicKey,
+        recipients: [MockKeys.guest.publicKey],
+        createdAt: 101,
+      ),
+    );
+    userSubscriptions._giftwraps.addStatus(StreamStatusLive());
+    userSubscriptions.myHostings$.addStatus(StreamStatusLive());
+    userSubscriptions.myTrips$.addStatus(StreamStatusLive());
+    heartbeats.source.addStatus(StreamStatusQueryComplete());
+
+    final result = await worker.run();
+
+    expect(result.notifications, hasLength(1));
+    expect(
+      result.notificationDetails.single.operationId,
+      'message:incoming-message',
+    );
+    expect(result.notifications.single, contains('sent you a message'));
+  });
+
+  test('run skips message notifications already recorded in the log', () async {
+    notificationLog.markDisplayed('message:incoming-message');
+    userSubscriptions._giftwraps.add(
+      _message(
+        id: 'incoming-message',
+        sender: MockKeys.guest.publicKey,
+        recipients: [MockKeys.hoster.publicKey],
+        createdAt: 100,
+      ),
+    );
+    userSubscriptions._giftwraps.addStatus(StreamStatusLive());
+    userSubscriptions.myHostings$.addStatus(StreamStatusLive());
+    userSubscriptions.myTrips$.addStatus(StreamStatusLive());
+    heartbeats.source.addStatus(StreamStatusQueryComplete());
+
+    final result = await worker.run();
+
+    expect(result.notifications, isEmpty);
+    expect(result.notificationDetails, isEmpty);
+  });
 }

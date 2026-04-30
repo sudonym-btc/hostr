@@ -1,6 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:http/http.dart' as http;
 import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:logger/logger.dart';
 import 'package:models/bip340.dart';
@@ -16,8 +19,10 @@ import '../hostr.dart';
 import '../injection.dart';
 import '../seed/seed.dart';
 import '../util/deterministic_key_derivation.dart';
+import '../util/http_client_factory.dart';
 import '../util/main.dart';
 import 'in_memory_hydrated_storage.dart';
+import 'platform_environment.dart';
 
 /// Allow self-signed certificates so integration tests can connect to the
 /// local Docker stack's TLS endpoints (relay, blossom, lnbits, etc.) without
@@ -86,6 +91,8 @@ class IntegrationTestHarness {
       .rpcUrl;
 
   static const albyHubUrl = 'https://alby.hostr.development';
+  static const lnbitsDomain = 'lnbits.hostr.development';
+  static const lnbitsUrl = 'https://lnbits.hostr.development';
 
   final List<KeyPair> fundedKeys;
 
@@ -163,7 +170,7 @@ class IntegrationTestHarness {
     ]);
     final albyHub = AlbyHubClient(
       baseUri: Uri.parse(albyHubUrl),
-      unlockPassword: Platform.environment['ALBYHUB_PASSWORD'] ?? 'Testing123!',
+      unlockPassword: platformEnvironment('ALBYHUB_PASSWORD') ?? 'Testing123!',
     );
 
     // Run Boltz chain discovery so swap providers are attached before any
@@ -230,47 +237,273 @@ class IntegrationTestHarness {
     required KeyPair user,
     required String appNamePrefix,
   }) async {
-    final pairingUrl = await albyHub.getConnectionForUser(
-      user,
-      appName: '$appNamePrefix-${DateTime.now().millisecondsSinceEpoch}',
+    Object? lastError;
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      final pairingUrl = await albyHub.getConnectionForUser(
+        user,
+        appName:
+            '$appNamePrefix-${DateTime.now().millisecondsSinceEpoch}-$attempt',
+      );
+      if (pairingUrl == null) {
+        throw StateError(
+          'Failed to obtain NWC pairing URL for ${user.publicKey}',
+        );
+      }
+
+      // Wait for AlbyHub to publish the kind 13194 info event for this app's
+      // wallet pubkey to the relay. Without this, NDK's connect() may query
+      // before the event has propagated → empty permissions → "method not in
+      // permissions" errors.
+      final parsedUri = Uri.parse(pairingUrl);
+      final walletPubkey = parsedUri.host;
+
+      // The `secret` query param is the app's private key. Derive its public
+      // key — that's the appPubkey AlbyHub indexes connections by.
+      final appSecret = parsedUri.queryParameters['secret'];
+      if (appSecret != null) {
+        _createdAppPubkeys.add(Bip340.getPublicKey(appSecret));
+      }
+
+      try {
+        await hostr.requests
+            .subscribe(
+              filter: Filter(
+                kinds: [kNostrKindNWCInfo],
+                authors: [walletPubkey],
+              ),
+              name: 'nwc-info-wait',
+            )
+            .stream
+            .take(1)
+            .timeout(
+              const Duration(seconds: 15),
+              onTimeout: (sink) {
+                print(
+                  '[harness] connectNwc: NWC info event timed out after 15s, '
+                  'continuing anyway',
+                );
+                sink.close();
+              },
+            )
+            .toList();
+        await hostr.nwc
+            .initiateAndAdd(pairingUrl)
+            // This harness pairs a fresh local AlbyHub app for each case. If
+            // the relay drops the wallet's get_info response, production code
+            // now marks the cubit failed; this outer timeout keeps the
+            // integration suite from hanging while that failure is surfaced.
+            .timeout(const Duration(seconds: 30));
+
+        if (hostr.nwc.getActiveConnection() != null) return;
+        lastError = StateError(
+          'NWC connection did not reach a successful get_info state',
+        );
+      } catch (error) {
+        lastError = error;
+      }
+
+      print(
+        '[harness] connectNwc: attempt $attempt failed for '
+        '${user.publicKey}: $lastError',
+      );
+      await hostr.nwc.reset();
+      await Future<void>.delayed(Duration(milliseconds: 250 * attempt));
+    }
+
+    throw StateError(
+      'Failed to connect NWC for ${user.publicKey} after 3 attempts: '
+      '$lastError',
     );
-    if (pairingUrl == null) {
+  }
+
+  Future<String> createLnbitsPayLink({
+    required String username,
+    String domain = lnbitsDomain,
+  }) async {
+    final normalized = _normalizeLnbitsUsername(username);
+    await _ensureLnbitsPayLink(username: normalized, domain: domain);
+    return '$normalized@$domain';
+  }
+
+  Future<String> ensureLnbitsPayLinkForLud16(String lud16) async {
+    final parts = lud16.trim().split('@');
+    if (parts.length != 2 || parts.first.isEmpty || parts.last.isEmpty) {
+      throw ArgumentError.value(lud16, 'lud16', 'Invalid lightning address');
+    }
+    return createLnbitsPayLink(username: parts.first, domain: parts.last);
+  }
+
+  Future<void> _ensureLnbitsPayLink({
+    required String username,
+    required String domain,
+  }) async {
+    final baseUrl = platformEnvironment('LNBITS_BASE_URL') ?? 'https://$domain';
+    final adminEmail =
+        platformEnvironment('LNBITS_ADMIN_EMAIL') ?? 'admin@example.com';
+    final adminPassword =
+        platformEnvironment('LNBITS_ADMIN_PASSWORD') ?? 'adminpassword';
+    final client = createPlatformHttpClient();
+    try {
+      final login = await _lnbitsAdminLogin(
+        client,
+        baseUrl: baseUrl,
+        adminEmail: adminEmail,
+        adminPassword: adminPassword,
+      );
+      final token = login['access_token']?.toString();
+      if (token == null || token.isEmpty) {
+        throw StateError('LNbits login did not return an access token.');
+      }
+
+      final wallets = await _lnbitsJsonRequest(
+        client,
+        'GET',
+        Uri.parse('$baseUrl/api/v1/wallets'),
+        headers: {'Authorization': 'Bearer $token'},
+        expectList: true,
+      );
+      if (wallets is! List || wallets.isEmpty) {
+        throw StateError('LNbits admin user has no wallets.');
+      }
+      final wallet = Map<String, dynamic>.from(wallets.first as Map);
+      final walletId = wallet['id']?.toString();
+      final walletApiKey = wallet['adminkey']?.toString();
+      if (walletId == null ||
+          walletId.isEmpty ||
+          walletApiKey == null ||
+          walletApiKey.isEmpty) {
+        throw StateError('LNbits wallet response is missing id or adminkey.');
+      }
+
+      final existingLinks = await _lnbitsJsonRequest(
+        client,
+        'GET',
+        Uri.parse('$baseUrl/lnurlp/api/v1/links'),
+        headers: {'Authorization': 'Bearer $token', 'X-Api-Key': walletApiKey},
+        expectList: true,
+      );
+      if (existingLinks is List &&
+          existingLinks.whereType<Map>().any(
+            (link) => link['username']?.toString() == username,
+          )) {
+        return;
+      }
+
+      await _lnbitsJsonRequest(
+        client,
+        'POST',
+        Uri.parse('$baseUrl/lnurlp/api/v1/links'),
+        headers: {'Authorization': 'Bearer $token', 'X-Api-Key': walletApiKey},
+        body: {
+          'comment_chars': 0,
+          'description': 'e2e profile $username',
+          'max': 10000000,
+          'min': 1,
+          'username': username,
+          'wallet': walletId,
+          'zaps': true,
+        },
+        tolerateUsernameTaken: true,
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<Map<String, dynamic>> _lnbitsAdminLogin(
+    http.Client client, {
+    required String baseUrl,
+    required String adminEmail,
+    required String adminPassword,
+  }) async {
+    Future<Map<String, dynamic>> login() async {
+      final response = await _lnbitsJsonRequest(
+        client,
+        'POST',
+        Uri.parse('$baseUrl/api/v1/auth'),
+        body: {'username': adminEmail, 'password': adminPassword},
+      );
+      return Map<String, dynamic>.from(response as Map);
+    }
+
+    try {
+      return await login();
+    } on StateError catch (error) {
+      final message = error.message;
+      final needsFirstInstall = message.contains(
+        'LNbits POST /api/v1/auth failed with HTTP 405',
+      );
+      if (!needsFirstInstall) rethrow;
+
+      await _lnbitsJsonRequest(
+        client,
+        'PUT',
+        Uri.parse('$baseUrl/api/v1/auth/first_install'),
+        body: {
+          'username': adminEmail,
+          'password': adminPassword,
+          'password_repeat': adminPassword,
+        },
+      );
+      return await login();
+    }
+  }
+
+  Future<dynamic> _lnbitsJsonRequest(
+    http.Client client,
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    Object? body,
+    bool expectList = false,
+    bool tolerateUsernameTaken = false,
+  }) async {
+    final request = http.Request(method, uri);
+    request.headers.addAll({
+      'Accept': 'application/json',
+      if (body != null) 'Content-Type': 'application/json',
+      ...?headers,
+    });
+    if (body != null) {
+      request.body = jsonEncode(body);
+    }
+
+    final response = await http.Response.fromStream(await client.send(request));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final normalizedBody = response.body.toLowerCase();
+      if (tolerateUsernameTaken &&
+          (normalizedBody.contains('username already taken') ||
+              normalizedBody.contains('already') &&
+                  normalizedBody.contains('taken') ||
+              response.statusCode == 409)) {
+        return <String, dynamic>{};
+      }
       throw StateError(
-        'Failed to obtain NWC pairing URL for ${user.publicKey}',
+        'LNbits ${request.method} ${uri.path} failed with '
+        'HTTP ${response.statusCode}: ${response.body}',
       );
     }
-
-    // Wait for AlbyHub to publish the kind 13194 info event for this app's
-    // wallet pubkey to the relay. Without this, NDK's connect() may query
-    // before the event has propagated → empty permissions → "method not in
-    // permissions" errors.
-    final parsedUri = Uri.parse(pairingUrl);
-    final walletPubkey = parsedUri.host;
-
-    // The `secret` query param is the app's private key. Derive its public
-    // key — that's the appPubkey AlbyHub indexes connections by.
-    final appSecret = parsedUri.queryParameters['secret'];
-    if (appSecret != null) {
-      _createdAppPubkeys.add(Bip340.getPublicKey(appSecret));
+    if (response.body.isEmpty) {
+      return expectList ? <dynamic>[] : <String, dynamic>{};
     }
-    await hostr.requests
-        .subscribe(
-          filter: Filter(kinds: [kNostrKindNWCInfo], authors: [walletPubkey]),
-          name: 'nwc-info-wait',
-        )
-        .stream
-        .take(1)
-        .timeout(
-          const Duration(seconds: 15),
-          onTimeout: (sink) {
-            print(
-              '[harness] connectNwc: NWC info event timed out after 15s, continuing anyway',
-            );
-            sink.close();
-          },
-        )
-        .toList();
-    await hostr.nwc.initiateAndAdd(pairingUrl);
+    final decoded = jsonDecode(response.body);
+    if (expectList) {
+      return decoded is List ? decoded : [decoded];
+    }
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return <String, dynamic>{'value': decoded};
+  }
+
+  String _normalizeLnbitsUsername(String value) {
+    final normalized = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (normalized.isEmpty) {
+      return 'e2e-${DateTime.now().microsecondsSinceEpoch}';
+    }
+    return normalized.length > 64 ? normalized.substring(0, 64) : normalized;
   }
 
   /// Clears stale pending EVM transactions from Boltz's database.

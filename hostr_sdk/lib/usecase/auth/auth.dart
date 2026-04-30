@@ -160,6 +160,36 @@ class Auth {
     _syncAuthState();
   });
 
+  Future<void> signinWithBunkerConnection(
+    BunkerConnection bunkerConnection, {
+    void Function(String challenge)? authCallback,
+  }) => _logger.span('signinWithBunkerConnection', () async {
+    _logger.i('AuthService.signinWithBunkerConnection');
+    await _ndk.accounts.loginWithBunkerConnection(
+      connection: bunkerConnection,
+      bunkers: _ndk.bunkers,
+      authCallback: authCallback,
+    );
+
+    final pubkey = _ndk.accounts.getPublicKey();
+    if (pubkey == null || pubkey.isEmpty) {
+      throw StateError('Bunker login did not yield a public key');
+    }
+
+    final record = AuthRecord(
+      version: kCurrentAuthRecordVersion,
+      credentialType: 'bunker',
+      secret: '',
+      publicKey: pubkey,
+      maxAccountIndex: -1,
+      bunkerConnection: bunkerConnection,
+    );
+    await _authStorage.set([jsonEncode(record.toJson())]);
+    _setAuthenticated(record);
+    await _ensureNdkAccountsMatchAsync();
+    _syncAuthState();
+  });
+
   Future<AuthRecord> previewResolvedIdentity(
     String input, {
     int nostrAccountIndex = 0,
@@ -215,11 +245,9 @@ class Auth {
     final activePubkey = this.activePubkey;
     if (activePubkey == null) {
       _emitBunkerSessionState(const BunkerSessionInactive());
-      final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
-      for (final pubkey in pubkeys) {
-        _ndk.accounts.removeAccount(pubkey: pubkey);
-      }
+      await _disposeAllNdkAccounts();
     } else {
+      await _disposeNdkAccountsExcept(activePubkey);
       final loggedPubkey = _ndk.accounts.getPublicKey();
       if (!forceBunkerRestore && loggedPubkey == activePubkey) {
         if (isBunkerBacked) {
@@ -256,10 +284,7 @@ class Auth {
     _logger.i('Restoring NDK bunker session');
     _emitBunkerSessionState(BunkerSessionRestoring(pubkey: activePubkey));
 
-    final existingAccount = _ndk.accounts.accounts[activePubkey];
-    if (existingAccount != null) {
-      _ndk.accounts.removeAccount(pubkey: activePubkey);
-    }
+    await _disposeAndRemoveNdkAccount(activePubkey);
 
     final signer = _ndk.bunkers.createSigner(_authRecord!.bunkerConnection!);
     try {
@@ -274,15 +299,13 @@ class Auth {
       }
 
       if (_ndk.accounts.accounts.containsKey(activePubkey)) {
-        _ndk.accounts.removeAccount(pubkey: activePubkey);
+        await _disposeAndRemoveNdkAccount(activePubkey);
       }
       _ndk.accounts.loginExternalSigner(signer: signer);
-      await existingAccount?.dispose();
       _emitBunkerSessionState(BunkerSessionReady(pubkey: activePubkey));
       return true;
     } catch (e) {
       await signer.dispose();
-      await existingAccount?.dispose();
       _logger.w('Bunker session restore requires user recovery: $e');
       _emitBunkerSessionState(
         BunkerSessionRecoveryRequired(
@@ -291,6 +314,33 @@ class Auth {
         ),
       );
       return false;
+    }
+  }
+
+  Future<void> _disposeAllNdkAccounts() async {
+    final pubkeys = _ndk.accounts.accounts.keys.toList(growable: false);
+    for (final pubkey in pubkeys) {
+      await _disposeAndRemoveNdkAccount(pubkey);
+    }
+  }
+
+  Future<void> _disposeNdkAccountsExcept(String activePubkey) async {
+    final stalePubkeys = _ndk.accounts.accounts.keys
+        .where((pubkey) => pubkey != activePubkey)
+        .toList(growable: false);
+    for (final pubkey in stalePubkeys) {
+      await _disposeAndRemoveNdkAccount(pubkey);
+    }
+  }
+
+  Future<void> _disposeAndRemoveNdkAccount(String pubkey) async {
+    final account = _ndk.accounts.accounts[pubkey];
+    if (account == null) return;
+    _ndk.accounts.removeAccount(pubkey: pubkey);
+    try {
+      await account.dispose();
+    } catch (error) {
+      _logger.w('Failed to dispose NDK account $pubkey: $error');
     }
   }
 
@@ -314,6 +364,39 @@ class Auth {
     }
     return activeKeyPair!;
   }
+
+  Future<Nip01Event> signEvent(Nip01Event event) => _logger.span(
+    'signEvent',
+    () async {
+      final activePubkey = this.activePubkey;
+      if (activePubkey == null) {
+        throw StateError('No active signer');
+      }
+      if (event.pubKey != activePubkey) {
+        throw StateError(
+          'Cannot sign event for ${event.pubKey} with active key $activePubkey',
+        );
+      }
+
+      final eventToSign = event.id.isEmpty
+          ? event.copyWith(id: Nip01Utils.calculateId(event))
+          : event;
+      if (_ndk.accounts.getPublicKey() == event.pubKey) {
+        return _ndk.accounts.sign(eventToSign);
+      }
+
+      final keyPair = activeKeyPair;
+      final privateKey = keyPair?.privateKey;
+      if (privateKey == null || privateKey.isEmpty) {
+        throw StateError('No active local or bunker signer');
+      }
+
+      return CoinlibEventSigner(
+        privateKey: privateKey,
+        publicKey: keyPair!.publicKey,
+      ).sign(eventToSign);
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // HD wallet – EVM key derivation

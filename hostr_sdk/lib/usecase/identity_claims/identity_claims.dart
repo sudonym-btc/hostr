@@ -70,7 +70,9 @@ class IdentityClaimsUseCase extends CrudUseCase<IdentityClaims> {
                     ))
                 .withEvmAddress(address, eip191Proof: proof);
 
-        final signed = unsigned.signAs(keyPair, IdentityClaims.fromNostrEvent);
+        final signed = IdentityClaims.fromNostrEvent(
+          await _auth.signEvent(unsigned),
+        );
         await requests.broadcast(event: signed, relays: _hostrRelays);
         notifyUpdate(signed);
         return signed;

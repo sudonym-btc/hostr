@@ -157,6 +157,7 @@ ReservationGroup _buildCommittedGroup({
   KeyPair? buyerKey,
   bool includeSeller = false,
   bool includeEscrow = false,
+  bool includeEscrowReservation = false,
 }) {
   final buyer = buyerKey ?? MockKeys.guest;
   final listingAnchor = _f
@@ -200,6 +201,21 @@ ReservationGroup _buildCommittedGroup({
       ],
     ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
     group = group.addReservation(sellerReservation);
+  }
+
+  if (includeEscrowReservation) {
+    final escrowReservation = Reservation.create(
+      pubKey: MockKeys.escrow.publicKey,
+      dTag: tradeId,
+      listingAnchor: listingAnchor,
+      stage: ReservationStage.commit,
+      pTags: [
+        PTag.seller(MockKeys.hoster.publicKey),
+        PTag.buyer(buyer.publicKey),
+        PTag.escrow(MockKeys.escrow.publicKey),
+      ],
+    ).signAs(MockKeys.escrow, Reservation.fromNostrEvent);
+    group = group.addReservation(escrowReservation);
   }
 
   return group;
@@ -377,6 +393,24 @@ void main() {
       );
       expect(published.pubKey, MockKeys.hoster.publicKey);
     });
+
+    test(
+      'replacements use a newer created_at than the existing signer event',
+      () async {
+        final group = _buildCommittedGroup(
+          tradeId: 'trade-cancel-replacement-time',
+          includeSeller: true,
+        );
+        final existing = group.sellerReservation!;
+
+        await reservations.cancel(group, MockKeys.hoster);
+
+        final published = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
+        expect(published.createdAt, greaterThan(existing.createdAt));
+      },
+    );
   });
 
   // ── confirm() ───────────────────────────────────────────────────────────────
@@ -462,6 +496,25 @@ void main() {
       );
       expect(published.pubKey, MockKeys.escrow.publicKey);
     });
+
+    test(
+      'replacements use a newer created_at than the existing signer event',
+      () async {
+        final group = _buildCommittedGroup(
+          tradeId: 'trade-confirm-replacement-time',
+          includeEscrow: true,
+          includeEscrowReservation: true,
+        );
+        final existing = group.escrowReservation!;
+
+        await reservations.confirm(group, MockKeys.escrow);
+
+        final published = Reservation.fromNostrEvent(
+          requests.broadcastedEvents.first,
+        );
+        expect(published.createdAt, greaterThan(existing.createdAt));
+      },
+    );
 
     test('throws if group is already cancelled', () async {
       final group = _buildCommittedGroup(tradeId: 'trade-confirm-cancel');
