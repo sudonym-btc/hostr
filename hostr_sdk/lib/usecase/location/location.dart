@@ -4,15 +4,23 @@ import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 
 import '../../util/custom_logger.dart';
+import '../../util/http_client_factory.dart';
 
 @Singleton()
 class Location {
   final CustomLogger _logger;
+  final http.Client _client;
   CustomLogger get logger => _logger;
-  final http.Client _client = http.Client();
   final Map<String, LocationPolygonResult> _polygonCache = {};
+  static const _retryableFetchDelays = [
+    Duration(milliseconds: 250),
+    Duration(seconds: 1),
+  ];
+  static const _nominatimUserAgent = 'hostr-sdk/1.0 (+https://hostr.network)';
 
-  Location({required CustomLogger logger}) : _logger = logger;
+  Location({required CustomLogger logger, http.Client? client})
+    : _logger = logger,
+      _client = client ?? createPlatformHttpClient();
 
   Future<List<LocationSuggestion>> suggestions(
     String input, {
@@ -226,9 +234,10 @@ class Location {
     }
 
     final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
-    final response = await _client.get(
+    final response = await _getWithRetry(
       uri,
-      headers: const {'User-Agent': 'hostr-sdk/1.0 (+https://hostr.network)'},
+      operation: 'suggestion request',
+      headers: _nominatimHeaders,
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -311,9 +320,10 @@ class Location {
       'addressdetails': '0',
     });
 
-    final response = await _client.get(
+    final response = await _getWithRetry(
       uri,
-      headers: const {'User-Agent': 'hostr-sdk/1.0 (+https://hostr.network)'},
+      operation: 'geocode request',
+      headers: _nominatimHeaders,
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -370,6 +380,94 @@ class Location {
       boundingBox: boundingBox,
       center: center,
       displayName: (result['display_name'] ?? '').toString(),
+    );
+  }
+
+  Future<_LocationHttpResponse> _getWithRetry(
+    Uri uri, {
+    required String operation,
+    required Map<String, String> headers,
+  }) async {
+    Object? lastError;
+    StackTrace? lastStackTrace;
+
+    for (var attempt = 0; attempt <= _retryableFetchDelays.length; attempt++) {
+      try {
+        print(
+          '[Location] $operation attempt=${attempt + 1} '
+          'uri=$uri headers=$headers',
+        );
+        final response = _LocationHttpResponse.fromHttpResponse(
+          await _client.get(uri, headers: headers),
+        );
+        print(
+          '[Location] $operation response attempt=${attempt + 1} '
+          'status=${response.statusCode} uri=$uri',
+        );
+        if (_shouldRetryStatus(response.statusCode) &&
+            attempt < _retryableFetchDelays.length) {
+          final delay = _retryableFetchDelays[attempt];
+          print(
+            '[Location] $operation retrying after status '
+            '${response.statusCode} in ${delay.inMilliseconds}ms',
+          );
+          logger.w(
+            '$operation failed with status ${response.statusCode}; '
+            'retrying in ${delay.inMilliseconds}ms',
+          );
+          await Future.delayed(delay);
+          continue;
+        }
+        return response;
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+        print(
+          '[Location] $operation error attempt=${attempt + 1} '
+          'type=${error.runtimeType} error=$error uri=$uri',
+        );
+        if (attempt >= _retryableFetchDelays.length) rethrow;
+        final delay = _retryableFetchDelays[attempt];
+        logger.w(
+          '$operation failed with transient client error '
+          '(${error.runtimeType}); '
+          'retrying in ${delay.inMilliseconds}ms',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        print(
+          '[Location] $operation retrying after error '
+          'in ${delay.inMilliseconds}ms',
+        );
+        await Future.delayed(delay);
+      }
+    }
+
+    Error.throwWithStackTrace(
+      lastError ?? StateError('$operation failed without a captured error'),
+      lastStackTrace ?? StackTrace.current,
+    );
+  }
+
+  bool _shouldRetryStatus(int statusCode) {
+    return statusCode == 408 || statusCode == 425 || statusCode == 429 ||
+        statusCode >= 500;
+  }
+
+  Map<String, String> get _nominatimHeaders =>
+      const {'User-Agent': _nominatimUserAgent};
+}
+
+class _LocationHttpResponse {
+  final int statusCode;
+  final String body;
+
+  const _LocationHttpResponse({required this.statusCode, required this.body});
+
+  factory _LocationHttpResponse.fromHttpResponse(http.Response response) {
+    return _LocationHttpResponse(
+      statusCode: response.statusCode,
+      body: response.body,
     );
   }
 }

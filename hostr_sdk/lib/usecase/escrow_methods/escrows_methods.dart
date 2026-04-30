@@ -1,9 +1,8 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils, Nip51List;
+import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip51List;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
-import '../../config.dart' show CoinlibEventSigner;
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../evm/evm.dart';
@@ -70,11 +69,6 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       Filter(kinds: EscrowMethod.kinds, authors: [pubkey]),
     );
 
-    final signer = CoinlibEventSigner(
-      privateKey: keyPair.privateKey,
-      publicKey: pubkey,
-    );
-
     if (existing != null) {
       final existingTrusted = existing.getTags('p').toSet();
       final missingTrusted = trustedEscrowPubkeys
@@ -139,9 +133,8 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         tags.add(form.toTag());
       }
 
-      final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: keyPair.privateKey!,
-        event: Nip01Event(
+      final signed = await _auth.signEvent(
+        Nip01Event(
           pubKey: pubkey,
           kind: kNostrKindEscrowMethod,
           tags: tags,
@@ -171,7 +164,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         list.addElement('c', contract, false);
       }
 
-      final listEvent = await list.toEvent(signer);
+      final listEvent = await list.toEvent(null);
 
       // Build the complete tag list before creating the event so the
       // auto-computed id covers every tag.  Mutating tags on an existing
@@ -198,10 +191,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         createdAt: listEvent.createdAt,
       );
 
-      final signed = Nip01Utils.signWithPrivateKey(
-        privateKey: keyPair.privateKey!,
-        event: completeEvent,
-      );
+      final signed = await _auth.signEvent(completeEvent);
       await upsert(EscrowMethod.fromNostrEvent(signed));
     }
     logger.i('Ensured escrow method for $pubkey');

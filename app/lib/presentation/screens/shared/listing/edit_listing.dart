@@ -9,7 +9,11 @@ class EditListingScreen extends StatelessWidget {
 
   // ignore: use_key_in_widget_constructors
   EditListingScreen({@pathParam String? a})
-    : a = a != null && a.startsWith('naddr') ? naddrToAnchor(a) : a;
+    : a = a == null || a == 'new'
+          ? null
+          : a.startsWith('naddr')
+          ? naddrToAnchor(a)
+          : a;
 
   @override
   Widget build(BuildContext context) {

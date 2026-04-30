@@ -42,6 +42,7 @@ class _AppShellScreenState extends State<AppShellScreen>
   );
   late final StreamSubscription<AuthState> _authSub;
   late final StreamSubscription<void> _popSub;
+  String? _visibleThreadAnchor;
 
   @override
   void initState() {
@@ -60,6 +61,17 @@ class _AppShellScreenState extends State<AppShellScreen>
 
   void _showNav() {
     if (mounted) _navController.forward();
+  }
+
+  void _markVisibleThreadAsRead(String? anchor) {
+    if (_visibleThreadAnchor == anchor) return;
+    _visibleThreadAnchor = anchor;
+
+    if (anchor == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _visibleThreadAnchor != anchor) return;
+      getIt<Hostr>().messaging.threads.threads[anchor]?.markAsRead();
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -216,6 +228,7 @@ class _AppShellScreenState extends State<AppShellScreen>
             itemBuilder: (context, index) {
               final destination = destinations[index];
               return _SidebarNavItem(
+                key: ValueKey('app_nav_${destination.route.routeName}'),
                 label: _resolveDestinationLabel(
                   destination,
                   currentUserPubkey: currentUserPubkey,
@@ -359,6 +372,17 @@ class _AppShellScreenState extends State<AppShellScreen>
                             final currentRouteName = segments.isNotEmpty
                                 ? segments.last.name
                                 : topRouteName;
+                            String? visibleThreadAnchor;
+                            if (currentRouteName == ThreadRoute.name) {
+                              for (final segment in segments.reversed) {
+                                if (segment.name == ThreadRoute.name) {
+                                  visibleThreadAnchor = segment.params
+                                      .optString('anchor');
+                                  break;
+                                }
+                              }
+                            }
+                            _markVisibleThreadAsRead(visibleThreadAnchor);
 
                             final selectedIndex = resolveAppNavigationIndex(
                               currentRouteName: currentRouteName,
@@ -510,6 +534,7 @@ class _SidebarNavItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _SidebarNavItem({
+    super.key,
     required this.label,
     required this.icon,
     required this.selected,

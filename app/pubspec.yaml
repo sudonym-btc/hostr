@@ -95,6 +95,7 @@ dev_dependencies:
   flutter_driver:
     sdk: flutter
   mocktail_image_network: ^1.2.0
+  image_picker_platform_interface: ^2.11.1
 
 
 flutter:

@@ -58,11 +58,17 @@ extension on StartupItemProgress {
 }
 
 class StartupGateReady extends StartupGateState {
+  final StartupScope scope;
+  final String? pubkey;
   final bool hasMetadata;
-  const StartupGateReady({required this.hasMetadata});
+  const StartupGateReady({
+    required this.scope,
+    required this.hasMetadata,
+    this.pubkey,
+  });
 
   @override
-  List<Object?> get props => [hasMetadata];
+  List<Object?> get props => [scope, pubkey, hasMetadata];
 }
 
 class StartupGateError extends StartupGateState {
@@ -97,11 +103,23 @@ class StartupGateCubit extends Cubit<StartupGateState> {
 
     switch (result) {
       case PublicStartupReady():
-        emit(const StartupGateReady(hasMetadata: true));
-      case UserStartupReady(:final hasMetadata):
-        emit(StartupGateReady(hasMetadata: hasMetadata));
-      case BackgroundStartupReady():
-        emit(const StartupGateReady(hasMetadata: true));
+        emit(StartupGateReady(scope: snapshot.scope, hasMetadata: true));
+      case UserStartupReady(:final pubkey, :final hasMetadata):
+        emit(
+          StartupGateReady(
+            scope: snapshot.scope,
+            pubkey: pubkey,
+            hasMetadata: hasMetadata,
+          ),
+        );
+      case BackgroundStartupReady(:final pubkey):
+        emit(
+          StartupGateReady(
+            scope: snapshot.scope,
+            pubkey: pubkey,
+            hasMetadata: true,
+          ),
+        );
     }
   }
 

@@ -7,7 +7,6 @@ import '../escrow/escrow_verification.dart';
 import '../evm/evm.dart';
 import '../listings/listings.dart';
 import '../reservation_groups/reservation_groups.dart';
-import '../reservations/reservation_pubkey_proofs.dart';
 import '../reservations/reservations.dart';
 
 /// Dependencies resolved for a single review verification.
@@ -45,6 +44,38 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
            (evm != null ? EscrowVerification(evm: evm, logger: logger) : null),
        super(kind: Review.kinds[0]);
 
+  bool _proofMatchesReservation({
+    required Review review,
+    required Reservation reservation,
+  }) {
+    final tradeId = reservation.getDtag();
+    if (tradeId == null || tradeId.isEmpty) return false;
+
+    final reviewProof = review.proof;
+    final authorization = reviewProof.authorization;
+    if (authorization == null) return false;
+    if (authorization.pubkey != review.pubKey) return false;
+
+    final rawParticipantMatches =
+        reviewProof.participantPubkey == review.pubKey &&
+        reservation.parsedTags.getTagValueByMarker('p', reviewProof.role) ==
+            reviewProof.participantPubkey;
+    final matchingHashExists = reservation.parsedTags.participantProofs.any(
+      (proof) =>
+          proof.role == reviewProof.role &&
+          proof.participantPubkey == reviewProof.participantPubkey &&
+          proof.payloadHash == reviewProof.authorizationPayloadHash,
+    );
+    if (!matchingHashExists && !rawParticipantMatches) return false;
+
+    return authorization.verifiesForReservation(
+      tradeId: tradeId,
+      listingAnchor: reservation.parsedTags.listingAnchor,
+      participantPubkey: reviewProof.participantPubkey,
+      role: reviewProof.role,
+    );
+  }
+
   @override
   Future<ReviewDeps> resolve(Review review) => logger.span('resolve', () async {
     // Both calls drop into their respective batch queues. When multiple
@@ -77,12 +108,12 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
 
     final proofMatches = await Future.wait(
       candidateReservations.map((reservation) async {
-        final proof = await reservation.resolvePubkeyProof(
-          role: review.proof.role,
-          recipientKeyPair: review.proof.revealKeyPair,
-        );
-        if (proof?.pubkey != review.pubKey) return null;
-        return reservation;
+        return _proofMatchesReservation(
+              review: review,
+              reservation: reservation,
+            )
+            ? reservation
+            : null;
       }),
     );
     final proofMatchedReservations = proofMatches

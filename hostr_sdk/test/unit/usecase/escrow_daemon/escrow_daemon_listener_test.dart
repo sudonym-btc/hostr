@@ -57,4 +57,42 @@ void main() {
       isFalse,
     );
   });
+
+  test('reservation trade id is extracted from d tag', () {
+    expect(
+      EscrowDaemon.reservationTradeId(_reservation()),
+      'trade-startup-replay',
+    );
+  });
+
+  test('reservation group involvement is based on escrow participant tags', () {
+    final withEscrow = ReservationGroup.fromReservation(_reservation());
+    final withoutEscrow = ReservationGroup.fromReservation(
+      Reservation.create(
+        pubKey: MockKeys.guest.publicKey,
+        dTag: 'trade-no-escrow',
+        listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+        pTags: [
+          PTag.seller(MockKeys.hoster.publicKey),
+          PTag.buyer(MockKeys.guest.publicKey),
+        ],
+        stage: ReservationStage.commit,
+      ),
+    );
+
+    expect(
+      EscrowDaemon.reservationGroupInvolvesEscrow(
+        withEscrow,
+        MockKeys.escrow.publicKey,
+      ),
+      isTrue,
+    );
+    expect(
+      EscrowDaemon.reservationGroupInvolvesEscrow(
+        withoutEscrow,
+        MockKeys.escrow.publicKey,
+      ),
+      isFalse,
+    );
+  });
 }

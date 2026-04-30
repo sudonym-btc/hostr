@@ -27,7 +27,8 @@ class _FakeBlossomUseCase extends Fake implements BlossomUseCase {}
 
 class _FakeEvm extends Fake implements Evm {}
 
-class _FakeIdentityClaimsUseCase extends Fake implements IdentityClaimsUseCase {}
+class _FakeIdentityClaimsUseCase extends Fake
+    implements IdentityClaimsUseCase {}
 
 class _FakeHostrConfig extends Fake implements HostrConfig {}
 
@@ -63,6 +64,32 @@ class _TestMetadataUseCase extends MetadataUseCase {
 }
 
 void main() {
+  group('metadataDiscoveryRelays', () {
+    test('uses hostr relay when bootstrap relays are empty', () {
+      expect(
+        metadataDiscoveryRelays(
+          hostrRelay: 'wss://relay.hostr.test',
+          bootstrapRelays: const [],
+        ),
+        equals(['wss://relay.hostr.test']),
+      );
+    });
+
+    test('deduplicates hostr and bootstrap relays while preserving order', () {
+      expect(
+        metadataDiscoveryRelays(
+          hostrRelay: ' wss://relay.hostr.test ',
+          bootstrapRelays: const [
+            'wss://relay.hostr.test',
+            ' wss://relay.other.test ',
+            '',
+          ],
+        ),
+        equals(['wss://relay.hostr.test', 'wss://relay.other.test']),
+      );
+    });
+  });
+
   group('MetadataUseCase.loadMetadata', () {
     test(
       'shares concurrent loads for the same pubkey and refresh mode',

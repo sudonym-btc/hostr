@@ -63,6 +63,10 @@ import 'package:widgetbook_workspace/relay/relay_list_item.dart'
     as _widgetbook_workspace_relay_relay_list_item;
 import 'package:widgetbook_workspace/reserve.dart'
     as _widgetbook_workspace_reserve;
+import 'package:widgetbook_workspace/screens/signin.dart'
+    as _widgetbook_workspace_screens_signin;
+import 'package:widgetbook_workspace/screens/startup_popups.dart'
+    as _widgetbook_workspace_screens_startup_popups;
 import 'package:widgetbook_workspace/search/check_in_check_out.dart'
     as _widgetbook_workspace_search_check_in_check_out;
 import 'package:widgetbook_workspace/search/search_box.dart'
@@ -170,6 +174,36 @@ final directories = <_widgetbook.WidgetbookNode>[
   _widgetbook.WidgetbookFolder(
     name: 'presentation',
     children: [
+      _widgetbook.WidgetbookComponent(
+        name: 'SignerRequestPopupPage',
+        useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'Awaiting bunker confirmation - commit',
+            builder: _widgetbook_workspace_screens_startup_popups
+                .awaitingBunkerCommitConfirmation,
+          ),
+          _widgetbook.WidgetbookUseCase(
+            name: 'Awaiting bunker confirmation - reservation',
+            builder: _widgetbook_workspace_screens_startup_popups
+                .awaitingBunkerReservationConfirmation,
+          ),
+          _widgetbook.WidgetbookUseCase(
+            name: 'Awaiting bunker confirmation - trade key',
+            builder: _widgetbook_workspace_screens_startup_popups
+                .awaitingBunkerTradeKeyConfirmation,
+          ),
+        ],
+      ),
+      _widgetbook.WidgetbookComponent(
+        name: 'TripBookedPopupPage',
+        useCases: [
+          _widgetbook.WidgetbookUseCase(
+            name: 'Trip booked',
+            builder:
+                _widgetbook_workspace_screens_startup_popups.tripBookedPopup,
+          ),
+        ],
+      ),
       _widgetbook.WidgetbookFolder(
         name: 'component',
         children: [
@@ -292,6 +326,16 @@ final directories = <_widgetbook.WidgetbookNode>[
                             builder:
                                 _widgetbook_workspace_payment_escrow_fund_flow
                                     .escrowFundError,
+                          ),
+                        ],
+                      ),
+                      _widgetbook.WidgetbookComponent(
+                        name: 'PaymentExternalRequiredWidget',
+                        useCases: [
+                          _widgetbook.WidgetbookUseCase(
+                            name: 'Pay invoice',
+                            builder: _widgetbook_workspace_payment_payment_flow
+                                .paymentExternalRequired,
                           ),
                         ],
                       ),
@@ -852,6 +896,16 @@ final directories = <_widgetbook.WidgetbookNode>[
           _widgetbook.WidgetbookFolder(
             name: 'shared',
             children: [
+              _widgetbook.WidgetbookComponent(
+                name: 'BunkerRecoveryView',
+                useCases: [
+                  _widgetbook.WidgetbookUseCase(
+                    name: 'Bunker connect failure',
+                    builder: _widgetbook_workspace_screens_startup_popups
+                        .bunkerConnectFailure,
+                  ),
+                ],
+              ),
               _widgetbook.WidgetbookFolder(
                 name: 'inbox',
                 children: [
@@ -895,6 +949,21 @@ final directories = <_widgetbook.WidgetbookNode>[
                       _widgetbook.WidgetbookUseCase(
                         name: 'Default',
                         builder: _widgetbook_workspace_reserve.reserve,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              _widgetbook.WidgetbookFolder(
+                name: 'signin',
+                children: [
+                  _widgetbook.WidgetbookComponent(
+                    name: 'SignInScreen',
+                    useCases: [
+                      _widgetbook.WidgetbookUseCase(
+                        name: 'Default',
+                        builder:
+                            _widgetbook_workspace_screens_signin.signInScreen,
                       ),
                     ],
                   ),

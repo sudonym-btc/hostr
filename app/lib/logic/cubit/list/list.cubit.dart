@@ -30,6 +30,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   StreamSubscription<T>? requestSubscription;
   StreamWithStatus<T>? _nostrResponse;
   DateTime? _lastConnectivityRetryAt;
+  int _queryGeneration = 0;
 
   static const Duration _connectivityRetryDebounce = Duration(seconds: 2);
 
@@ -117,7 +118,8 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     );
   }
 
-  Future<void> next() async {
+  Future<void> next({int? generation}) async {
+    final activeGeneration = generation ?? _queryGeneration;
     if (state.fetching || state.hasMore == false) return;
     emit(state.copyWith(fetching: true, clearError: true));
 
@@ -125,14 +127,17 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     Filter finalFilter = getPaginationFilter();
     logger.t('listFilter: $finalFilter');
     var fetchedCount = 0;
+    StreamSubscription<T>? subscription;
     try {
-      requestSubscription = nostrService.requests
+      subscription = nostrService.requests
           .query<T>(filter: finalFilter, name: '$T-List-next')
           .listen((event) {
+            if (activeGeneration != _queryGeneration) return;
             fetchedCount++;
             addItem(event);
           });
-      await requestSubscription?.asFuture();
+      requestSubscription = subscription;
+      await subscription.asFuture<void>();
     } catch (e, st) {
       logger.e('Error fetching next page for $runtimeType: $e\n$st');
       if (!isClosed) {
@@ -143,8 +148,11 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
       logger.d(
         'Finished fetching next page for $T. fetchedCount=$fetchedCount',
       );
-      requestSubscription = null;
-      if (!isClosed) {
+      if (subscription != null &&
+          identical(requestSubscription, subscription)) {
+        requestSubscription = null;
+      }
+      if (!isClosed && activeGeneration == _queryGeneration) {
         emit(
           state.copyWith(
             fetching: false,
@@ -156,22 +164,26 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   }
 
   Future<void> sync() async {
+    final activeGeneration = ++_queryGeneration;
     await nostrSubscription?.cancel();
     nostrSubscription = null;
     await _nostrResponse?.close();
     _nostrResponse = null;
     emit(state.copyWith(synching: true));
     logger.i("sync");
-    await next();
+    await next(generation: activeGeneration);
+    if (isClosed || activeGeneration != _queryGeneration) return;
     emit(state.copyWith(synching: false));
     Filter finalFilter = getSyncFilter();
     logger.t('listFilter: $finalFilter');
     _nostrResponse = nostrService.requests.subscribe<T>(filter: finalFilter);
     nostrSubscription = _nostrResponse!.stream.listen(
       (event) {
+        if (activeGeneration != _queryGeneration) return;
         addItem(event);
       },
       onError: (Object e, StackTrace st) {
+        if (activeGeneration != _queryGeneration) return;
         logger.e('Sync stream error for $runtimeType: $e\n$st');
         if (!isClosed) {
           emit(state.copyWith(error: e));
@@ -228,6 +240,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
   }
 
   Future<void> applyFilter(FilterState filter) async {
+    final activeGeneration = ++_queryGeneration;
     logger.d('Applying filter to $T list: $filter');
     await nostrSubscription?.cancel();
     nostrSubscription = null;
@@ -236,7 +249,7 @@ class ListCubit<T extends Nip01Event> extends Cubit<ListCubitState<T>> {
     await requestSubscription?.cancel();
     requestSubscription = null;
     reset();
-    await next();
+    await next(generation: activeGeneration);
   }
 
   ListCubitState<T> applyPostResultFilter(

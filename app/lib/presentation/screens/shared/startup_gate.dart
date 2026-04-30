@@ -58,7 +58,7 @@ Future<void> _applyStartupReadyEffects(
 
 final _gateLog = CustomLogger().scope('startup-gate');
 
-enum StartupReadyNavigationAction { editProfile, consumePending }
+enum StartupReadyNavigationAction { none, editProfile, consumePending }
 
 class StartupReadyNavigationPlan {
   final StartupReadyNavigationAction action;
@@ -71,9 +71,16 @@ class StartupReadyNavigationPlan {
 }
 
 StartupReadyNavigationPlan planStartupReadyNavigation({
+  required StartupScope scope,
   required bool hasMetadata,
   required bool hasPendingNavigation,
 }) {
+  if (scope != StartupScope.user) {
+    return const StartupReadyNavigationPlan(
+      action: StartupReadyNavigationAction.none,
+    );
+  }
+
   if (!hasMetadata) {
     return StartupReadyNavigationPlan(
       action: StartupReadyNavigationAction.editProfile,
@@ -113,8 +120,16 @@ PageRouteInfo wrapInTabShellIfNeeded(PageRouteInfo route) {
   return route;
 }
 
+bool _isRouteActive(StackRouter router, String routeName) {
+  return router.topRoute.name == routeName ||
+      router.currentSegments.any((segment) => segment.name == routeName) ||
+      router.root.topRoute.name == routeName ||
+      router.root.currentSegments.any((segment) => segment.name == routeName);
+}
+
 /// Consumes the [PendingNavigation] target (if any) and navigates there.
-/// If nothing is pending, falls through to the default tab content.
+/// If the user signed in from the plain sign-in screen, return them to the
+/// default public tab so they do not remain on SignIn after auth succeeds.
 void _consumeAndNavigate(StackRouter router) {
   final target = getIt<PendingNavigation>().consume();
   _gateLog.d(
@@ -122,6 +137,8 @@ void _consumeAndNavigate(StackRouter router) {
   );
   if (target != null) {
     router.root.navigate(wrapInTabShellIfNeeded(target));
+  } else if (_isRouteActive(router, SignInRoute.name)) {
+    router.root.navigate(wrapInTabShellIfNeeded(const ExploreRoute()));
   }
 }
 
@@ -133,9 +150,77 @@ class _StartupShellBody extends StatefulWidget {
 }
 
 class _StartupShellBodyState extends State<_StartupShellBody> {
-  /// Prevents the listener from handling the same [StartupGateReady]
-  /// emission more than once (e.g. if the cubit replays or widget rebuilds).
-  bool _handlingReady = false;
+  /// Prevents the listener from handling the same [StartupGateReady] emission
+  /// more than once while still allowing a new signed-in user to run through
+  /// startup navigation in the same app session.
+  String? _handledReadyKey;
+
+  Future<void> _handleReadyState(StartupGateReady state) async {
+    final pendingNavigation = getIt<PendingNavigation>();
+    final authState = getIt<Hostr>().auth.authState.value;
+    final authKey =
+        state.pubkey ??
+        switch (authState) {
+          LoggedIn(:final pubkey) => pubkey ?? 'logged-in',
+          _ => authState.runtimeType.toString(),
+        };
+    final readyKey =
+        '${state.scope}:$authKey:${state.hasMetadata}:${pendingNavigation.hasPending}';
+
+    _gateLog.d(
+      'StartupGate: Ready '
+      '(auth=$authKey, '
+      'hasMetadata=${state.hasMetadata}, '
+      'hasPending=${pendingNavigation.hasPending})',
+    );
+    final router = context.router;
+
+    await _applyStartupReadyEffects(context, state);
+    if (!mounted) return;
+
+    final navigationPlan = planStartupReadyNavigation(
+      scope: state.scope,
+      hasMetadata: state.hasMetadata,
+      hasPendingNavigation: pendingNavigation.hasPending,
+    );
+
+    final isDuplicateReady = _handledReadyKey == readyKey;
+    if (isDuplicateReady) {
+      final shouldRetryProfileNavigation =
+          navigationPlan.action == StartupReadyNavigationAction.editProfile &&
+          !_isRouteActive(router, EditProfileRoute.name);
+      if (!shouldRetryProfileNavigation) {
+        _gateLog.d('StartupGate: skipping duplicate Ready');
+        return;
+      }
+      _gateLog.d('StartupGate: retrying EditProfileRoute navigation');
+    } else {
+      _handledReadyKey = readyKey;
+    }
+
+    if (navigationPlan.action == StartupReadyNavigationAction.none) {
+      return;
+    }
+
+    if (navigationPlan.action == StartupReadyNavigationAction.editProfile) {
+      // Profile incomplete — navigate to edit-profile.
+      // Using navigate() (not push()) so auto_route properly nests
+      // EditProfileRoute under AppShellRoute in the route tree.
+      // Set ProfileRoute as the pending target so that after save,
+      // EditProfile.onSave consumes it and lands on the profile tab
+      // instead of trying to pop into an empty stack.
+      if (navigationPlan.seedProfilePendingRoute) {
+        pendingNavigation.set(ProfileRoute());
+      }
+      _gateLog.d('StartupGate: navigating to EditProfileRoute (no metadata)');
+      router.navigate(EditProfileRoute());
+      return;
+    }
+
+    // All prerequisites met — consume and navigate to the
+    // pending destination (e.g. the listing from a reserve flow).
+    _consumeAndNavigate(router);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +233,7 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
         builder: (context, bunkerSnapshot) {
           final bunkerState = bunkerSnapshot.data;
           if (shouldBlockStartupForBunker(bunkerState)) {
-            return _BunkerRecoveryView(
+            return BunkerRecoveryView(
               state: bunkerState!,
               onRetry: () async {
                 final gateCubit = context.read<StartupGateCubit>();
@@ -171,54 +256,18 @@ class _StartupShellBodyState extends State<_StartupShellBody> {
               if (state is! StartupGateReady) {
                 // Gate left Ready (reset → Initial/InProgress) — allow the
                 // next Ready to be processed.
-                _handlingReady = false;
+                _handledReadyKey = null;
                 return;
               }
-              if (_handlingReady) {
-                _gateLog.d('StartupGate: skipping duplicate Ready');
-                return;
-              }
-              _handlingReady = true;
-
-              _gateLog.d(
-                'StartupGate: Ready '
-                '(hasMetadata=${state.hasMetadata}, '
-                'hasPending=${getIt<PendingNavigation>().hasPending})',
-              );
-              final router = context.router;
-
-              await _applyStartupReadyEffects(context, state);
-              if (!mounted) return;
-
-              final pendingNavigation = getIt<PendingNavigation>();
-              final navigationPlan = planStartupReadyNavigation(
-                hasMetadata: state.hasMetadata,
-                hasPendingNavigation: pendingNavigation.hasPending,
-              );
-
-              if (navigationPlan.action ==
-                  StartupReadyNavigationAction.editProfile) {
-                // Profile incomplete — navigate to edit-profile.
-                // Using navigate() (not push()) so auto_route properly nests
-                // EditProfileRoute under AppShellRoute in the route tree.
-                // Set ProfileRoute as the pending target so that after save,
-                // EditProfile.onSave consumes it and lands on the profile tab
-                // instead of trying to pop into an empty stack.
-                if (navigationPlan.seedProfilePendingRoute) {
-                  pendingNavigation.set(ProfileRoute());
-                }
-                _gateLog.d(
-                  'StartupGate: navigating to EditProfileRoute (no metadata)',
-                );
-                router.navigate(EditProfileRoute());
-                return;
-              }
-
-              // All prerequisites met — consume and navigate to the
-              // pending destination (e.g. the listing from a reserve flow).
-              _consumeAndNavigate(router);
+              await _handleReadyState(state);
             },
             builder: (context, state) {
+              if (state is StartupGateReady) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  unawaited(_handleReadyState(state));
+                });
+              }
               final child = switch (state) {
                 StartupGateError(:final message) => _ErrorView(
                   key: const ValueKey('error'),
@@ -428,22 +477,23 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _BunkerRecoveryView extends StatefulWidget {
+class BunkerRecoveryView extends StatefulWidget {
   final BunkerSessionState state;
   final Future<void> Function() onRetry;
   final Future<void> Function() onSignOut;
 
-  const _BunkerRecoveryView({
+  const BunkerRecoveryView({
+    super.key,
     required this.state,
     required this.onRetry,
     required this.onSignOut,
   });
 
   @override
-  State<_BunkerRecoveryView> createState() => _BunkerRecoveryViewState();
+  State<BunkerRecoveryView> createState() => _BunkerRecoveryViewState();
 }
 
-class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
+class _BunkerRecoveryViewState extends State<BunkerRecoveryView> {
   bool _busy = false;
 
   bool get _isRestoring => widget.state is BunkerSessionRestoring;
@@ -514,6 +564,7 @@ class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
                 runSpacing: kSpace3,
                 children: [
                   FilledButton.icon(
+                    key: const ValueKey('bunker_restore_retry_button'),
                     onPressed: (_busy || _isRestoring)
                         ? null
                         : () => _run(widget.onRetry),
@@ -527,6 +578,7 @@ class _BunkerRecoveryViewState extends State<_BunkerRecoveryView> {
                     label: const Text('Retry'),
                   ),
                   OutlinedButton.icon(
+                    key: const ValueKey('bunker_restore_sign_out_button'),
                     onPressed: (_busy || _isRestoring)
                         ? null
                         : () => _run(widget.onSignOut),

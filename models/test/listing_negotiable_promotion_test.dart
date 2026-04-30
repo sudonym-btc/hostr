@@ -2,7 +2,11 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 
-Listing _base({bool negotiable = false}) => Listing.create(
+Listing _base({
+  bool negotiable = false,
+  Specifications? specifications,
+}) =>
+    Listing.create(
       pubKey: MockKeys.hoster.publicKey,
       dTag: 'listing-negotiable',
       title: 'Negotiable Listing',
@@ -20,7 +24,7 @@ Listing _base({bool negotiable = false}) => Listing.create(
       ],
       location: 'Test',
       type: ListingType.house,
-      specifications: Specifications(),
+      specifications: specifications ?? Specifications(),
       negotiable: negotiable,
     );
 
@@ -46,6 +50,38 @@ void main() {
       expect(rebuilt.negotiable, isTrue);
       expect(rebuilt.parsedTags.getTags('N'), contains('true'));
       expect(rebuilt.parsedTags.getTags('N'), isNot(contains('false')));
+    });
+
+    test('emits promoted feature-combination tags for relay-side AND', () {
+      final listing = _base(
+        specifications: Specifications({
+          'kitchen': true,
+          'allows_pets': true,
+          'beachfront': true,
+        }),
+      );
+
+      expect(listing.parsedTags.getTags('s'), contains('kitchen'));
+      expect(listing.parsedTags.getTags('s'), contains('allows_pets'));
+      expect(listing.parsedTags.getTags('S'), contains('allows_pets+kitchen'));
+      expect(listing.parsedTags.getTags('S'),
+          contains('allows_pets+beachfront+kitchen'));
+    });
+
+    test('filter builder uses compound tag for multi-feature search', () {
+      final filter =
+          Listing.buildFilter().features(['kitchen', 'allows_pets']).build();
+
+      expect(filter.tags?['s'], isNull);
+      expect(filter.tags?['S'], ['allows_pets+kitchen']);
+    });
+
+    test('filter builder keeps promoted boolean tag for single-feature search',
+        () {
+      final filter = Listing.buildFilter().features(['kitchen']).build();
+
+      expect(filter.tags?['s'], ['kitchen']);
+      expect(filter.tags?['S'], isNull);
     });
   });
 }

@@ -13,7 +13,6 @@ const kNostrKindReservationTransition = 1326;
 /// Escrow service advertisement. Moved from 40021 (ephemeral range, not stored
 /// by relays) to 30303 (parameterized replaceable) so relays persist it.
 const kNostrKindEscrowService = 30303;
-const kNostrKindEscrowTrust = 30300;
 const kNostrKindEscrowMethod = 30301;
 const kNostrKindEscrowServiceSelected = 30302;
 
@@ -76,7 +75,6 @@ const kHostrOnlyKinds = <int>{
   kNostrKindHostrSeed,
   kNostrKindReservationTransition,
   kNostrKindEscrowService,
-  kNostrKindEscrowTrust,
   kNostrKindEscrowMethod,
   kNostrKindEscrowServiceSelected,
   kNostrKindJsonMessage,

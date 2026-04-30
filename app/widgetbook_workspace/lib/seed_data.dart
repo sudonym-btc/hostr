@@ -44,22 +44,24 @@ Future<void> initSeedData() async {
     for (final p in _data.profiles) p.pubKey: p,
   };
 
-  _threadScenarios = _data.threads.map((thread) {
-    final hostProfile = hostProfileByPubkey[thread.host.keyPair.publicKey];
-    Reservation? reservation;
-    if (hostProfile != null) {
-      reservation = _factory.buildMockReservation(
-        thread,
-        hostProfile: hostProfile,
-      );
-    }
+  _threadScenarios = await Future.wait(
+    _data.threads.map((thread) async {
+      final hostProfile = hostProfileByPubkey[thread.host.keyPair.publicKey];
+      Reservation? reservation;
+      if (hostProfile != null) {
+        reservation = await _factory.buildMockReservation(
+          thread,
+          hostProfile: hostProfile,
+        );
+      }
 
-    return ThreadScenario(
-      id: thread.request.getDtag()!,
-      thread: thread,
-      reservation: reservation,
-    );
-  }).toList();
+      return ThreadScenario(
+        id: thread.request.getDtag()!,
+        thread: thread,
+        reservation: reservation,
+      );
+    }),
+  );
 
   _factory.dispose();
 }

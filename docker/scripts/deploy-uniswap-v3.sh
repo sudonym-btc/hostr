@@ -34,6 +34,7 @@
 #   DEPLOYER_PK      – private key of Account #1 (token holder)
 # ─────────────────────────────────────────────────────────────────────────────
 set -eu
+export FOUNDRY_DISABLE_NIGHTLY_WARNING="${FOUNDRY_DISABLE_NIGHTLY_WARNING:-true}"
 
 : "${ARBITRUM_RPC:?ARBITRUM_RPC is required}"
 : "${TBTC_ADDRESS:?TBTC_ADDRESS is required}"
@@ -50,6 +51,7 @@ UNI_DEPLOYER="0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 
 # Pre-extracted creation bytecodes (mounted from host)
 BYTECODES="${BYTECODES_DIR:-/scripts/uniswap-v3-bytecodes}"
+LOCAL_BYTECODES="${LOCAL_BYTECODES_DIR:-/scripts/local-chain-bytecodes}"
 
 # ── Expected deterministic addresses (deployer nonces 0-7) ────────────────
 WETH_ADDR="0x057ef64E23666F000b34aE31332854aCBd1c8544"
@@ -112,174 +114,20 @@ require_clean_uniswap_deployer() {
 
 require_clean_uniswap_deployer
 
-# ── 1a. WETH9 (nonce 0) — forge create from inline Solidity ──────────────
+# ── 1a. WETH9 (nonce 0) ──────────────────────────────────────────────────
 echo "▶ [1/8] Deploying WETH9..."
-mkdir -p /tmp/uniswap/src
-
-cat > /tmp/uniswap/foundry.toml << 'FEOF'
-[profile.default]
-src = "src"
-out = "out"
-FEOF
-
-cat > /tmp/uniswap/src/WETH9.sol << 'SOLEOF'
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
-
-contract WETH9 {
-    string public name     = "Wrapped Ether";
-    string public symbol   = "WETH";
-    uint8  public decimals = 18;
-
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    uint256 public totalSupply;
-
-    event Deposit(address indexed dst, uint256 wad);
-    event Withdrawal(address indexed src, uint256 wad);
-    event Transfer(address indexed src, address indexed dst, uint256 wad);
-    event Approval(address indexed src, address indexed guy, uint256 wad);
-
-    receive() external payable { deposit(); }
-
-    function deposit() public payable {
-        balanceOf[msg.sender] += msg.value;
-        totalSupply += msg.value;
-        emit Deposit(msg.sender, msg.value);
-    }
-
-    function withdraw(uint256 wad) public {
-        require(balanceOf[msg.sender] >= wad);
-        balanceOf[msg.sender] -= wad;
-        totalSupply -= wad;
-        payable(msg.sender).transfer(wad);
-        emit Withdrawal(msg.sender, wad);
-    }
-
-    function transfer(address dst, uint256 wad) public returns (bool) {
-        return transferFrom(msg.sender, dst, wad);
-    }
-
-    function transferFrom(address src, address dst, uint256 wad) public returns (bool) {
-        if (src != msg.sender && allowance[src][msg.sender] != type(uint256).max) {
-            allowance[src][msg.sender] -= wad;
-        }
-        balanceOf[src] -= wad;
-        balanceOf[dst] += wad;
-        emit Transfer(src, dst, wad);
-        return true;
-    }
-
-    function approve(address guy, uint256 wad) public returns (bool) {
-        allowance[msg.sender][guy] = wad;
-        emit Approval(msg.sender, guy, wad);
-        return true;
-    }
-}
-SOLEOF
-
-cd /tmp/uniswap
-WETH_OUT=$(forge create src/WETH9.sol:WETH9 \
-  --rpc-url "$RPC" --private-key "$UNI_PK" --broadcast 2>&1)
-WETH_DEPLOYED=$(echo "$WETH_OUT" | grep -i "Deployed to:" | awk '{print $NF}')
+WETH_BYTECODE=$(cat "$LOCAL_BYTECODES/WETH9.hex")
+WETH_OUT=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "$WETH_BYTECODE" --json 2>&1)
+WETH_DEPLOYED=$(echo "$WETH_OUT" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
 verify_deploy "WETH9" "$WETH_DEPLOYED" "$WETH_ADDR"
 
-# ── 1b. Multicall3 (nonce 1) — forge create from inline Solidity ─────────
+# ── 1b. Multicall3 (nonce 1) ─────────────────────────────────────────────
 echo "▶ [2/8] Deploying Multicall3..."
-
-cat > /tmp/uniswap/src/Multicall3.sol << 'SOLEOF'
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
-
-/// @title Multicall3 — minimal implementation for regtest
-/// @notice Aggregates read calls. Compatible with the canonical Multicall3 ABI.
-contract Multicall3 {
-    struct Call3 {
-        address target;
-        bool allowFailure;
-        bytes callData;
-    }
-
-    struct Result {
-        bool success;
-        bytes returnData;
-    }
-
-    /// @notice Aggregate calls, returning success/data per call
-    function aggregate3(Call3[] calldata calls)
-        external
-        payable
-        returns (Result[] memory returnData)
-    {
-        uint256 length = calls.length;
-        returnData = new Result[](length);
-        Call3 calldata calli;
-        for (uint256 i; i < length; ) {
-            calli = calls[i];
-            (bool success, bytes memory ret) = calli.target.call(calli.callData);
-            if (!success && !calli.allowFailure) {
-                // Bubble up the revert reason
-                assembly { revert(add(ret, 0x20), mload(ret)) }
-            }
-            returnData[i] = Result(success, ret);
-            unchecked { ++i; }
-        }
-    }
-
-    /// @notice Simple aggregate (legacy)
-    function aggregate(Call3[] calldata calls)
-        external
-        payable
-        returns (uint256 blockNumber, bytes[] memory returnData)
-    {
-        blockNumber = block.number;
-        uint256 length = calls.length;
-        returnData = new bytes[](length);
-        for (uint256 i; i < length; ) {
-            (bool success, bytes memory ret) = calls[i].target.call(calls[i].callData);
-            require(success, "Multicall3: call failed");
-            returnData[i] = ret;
-            unchecked { ++i; }
-        }
-    }
-
-    function getBlockNumber() external view returns (uint256 blockNumber) {
-        blockNumber = block.number;
-    }
-
-    function getBlockHash(uint256 blockNumber) external view returns (bytes32 blockHash) {
-        blockHash = blockhash(blockNumber);
-    }
-
-    function getLastBlockHash() external view returns (bytes32 blockHash) {
-        unchecked { blockHash = blockhash(block.number - 1); }
-    }
-
-    function getCurrentBlockTimestamp() external view returns (uint256 timestamp) {
-        timestamp = block.timestamp;
-    }
-
-    function getCurrentBlockGasLimit() external view returns (uint256 gaslimit) {
-        gaslimit = block.gaslimit;
-    }
-
-    function getCurrentBlockCoinbase() external view returns (address coinbase) {
-        coinbase = block.coinbase;
-    }
-
-    function getEthBalance(address addr) external view returns (uint256 balance) {
-        balance = addr.balance;
-    }
-
-    function getChainId() external view returns (uint256 chainid) {
-        chainid = block.chainid;
-    }
-}
-SOLEOF
-
-MC_OUT=$(forge create src/Multicall3.sol:Multicall3 \
-  --rpc-url "$RPC" --private-key "$UNI_PK" --broadcast 2>&1)
-MC_DEPLOYED=$(echo "$MC_OUT" | grep -i "Deployed to:" | awk '{print $NF}')
+MC_BYTECODE=$(cat "$LOCAL_BYTECODES/Multicall3.hex")
+MC_OUT=$(cast send --rpc-url "$RPC" --private-key "$UNI_PK" \
+  --create "$MC_BYTECODE" --json 2>&1)
+MC_DEPLOYED=$(echo "$MC_OUT" | grep -o '"contractAddress":"[^"]*"' | cut -d'"' -f4)
 verify_deploy "Multicall3" "$MC_DEPLOYED" "$MULTICALL3_ADDR"
 
 # ── 1c. UniswapV3Factory (nonce 2) — from pre-extracted bytecode ─────────

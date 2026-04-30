@@ -9,6 +9,7 @@ void main() {
       'navigates to edit profile and seeds profile route when missing data',
       () {
         final plan = planStartupReadyNavigation(
+          scope: StartupScope.user,
           hasMetadata: false,
           hasPendingNavigation: false,
         );
@@ -20,6 +21,7 @@ void main() {
 
     test('preserves existing pending route when metadata is missing', () {
       final plan = planStartupReadyNavigation(
+        scope: StartupScope.user,
         hasMetadata: false,
         hasPendingNavigation: true,
       );
@@ -30,11 +32,23 @@ void main() {
 
     test('consumes pending navigation when metadata exists', () {
       final plan = planStartupReadyNavigation(
+        scope: StartupScope.user,
         hasMetadata: true,
         hasPendingNavigation: false,
       );
 
       expect(plan.action, StartupReadyNavigationAction.consumePending);
+      expect(plan.seedProfilePendingRoute, isFalse);
+    });
+
+    test('does not consume pending navigation for public readiness', () {
+      final plan = planStartupReadyNavigation(
+        scope: StartupScope.public,
+        hasMetadata: true,
+        hasPendingNavigation: true,
+      );
+
+      expect(plan.action, StartupReadyNavigationAction.none);
       expect(plan.seedProfilePendingRoute, isFalse);
     });
   });

@@ -3,10 +3,11 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
+import '../../util/coinlib_gift_wrap.dart';
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../relays/relays.dart';
-import '../reservations/reservation_pubkey_proofs.dart';
+import '../reservations/reservation_participant_tags.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 
 /// Use-case for creating negotiate-stage [Reservation] events (formerly
@@ -42,6 +43,38 @@ class ReservationRequests extends CrudUseCase {
     return reservation.signAs(signerKeyPair, Reservation.fromNostrEvent);
   }
 
+  Future<String> _signParticipantAuthorization({
+    required String listingAnchor,
+    required KeyPair identityKeyPair,
+    required ReservationParticipantAuthorizationDraft draft,
+  }) async {
+    if (draft.identityPubkey != identityKeyPair.publicKey) {
+      throw StateError(
+        'Participant authorization identity must match the signer key',
+      );
+    }
+
+    final authorization = TradeKeyAuthorization.create(
+      identityPubkey: draft.identityPubkey,
+      listingAnchor: listingAnchor,
+      tradeId: draft.tradeId,
+      participantPubkey: draft.participantPubkey,
+      role: draft.role,
+    );
+    final activeNdkPubkey = requests.ndk.accounts.getPublicKey();
+    final signedAuthorization = activeNdkPubkey == identityKeyPair.publicKey
+        ? TradeKeyAuthorization.fromNostrEvent(
+            await requests.ndk.accounts.sign(authorization),
+          )
+        : authorization.signAs(
+            identityKeyPair,
+            TradeKeyAuthorization.fromNostrEvent,
+          );
+    return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+      signedAuthorization,
+    ).encode();
+  }
+
   static String getReservationRequestId({
     required Listing listing,
     required Reservation request,
@@ -74,8 +107,35 @@ class ReservationRequests extends CrudUseCase {
       accountIndex: accountIndex,
     );
 
-    // Sign and publish with the disposable trade key, but attach an encrypted
-    // proof from the real buyer key for authorized recipients.
+    final sellerPubkey = getPubKeyFromAnchor(listing.anchor!);
+    final participantTags = await buildReservationParticipantTagPlan(
+      tradeId: nonce,
+      reservationAuthorKey: recipientKey,
+      participants: [
+        ReservationParticipant.real(role: 'seller', pubkey: sellerPubkey),
+        ReservationParticipant(
+          role: 'buyer',
+          participantPubkey: recipientKey.publicKey,
+          identityPubkey: _auth.getActiveKey().publicKey,
+        ),
+      ],
+      relayHintFor: _relays.relayHintFor,
+      signAuthorization: (draft) => _signParticipantAuthorization(
+        listingAnchor: listing.anchor!,
+        identityKeyPair: _auth.getActiveKey(),
+        draft: draft,
+      ),
+      encryptAuthorization:
+          ({
+            required plaintext,
+            required senderPrivateKey,
+            required recipientPubkey,
+          }) =>
+              coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+    );
+
+    // Sign and publish with the disposable trade key, but attach encrypted
+    // participant proofs from the real buyer key for every participant.
     final reservation = Reservation.create(
       pubKey: recipientKey.publicKey,
       dTag: nonce,
@@ -86,30 +146,10 @@ class ReservationRequests extends CrudUseCase {
       quantity: 1,
       amount: amount ?? listing.cost(start: startDate, end: endDate),
       recipient: recipientKey.publicKey,
-      pTags: [
-        PTag.seller(
-          getPubKeyFromAnchor(listing.anchor!),
-          relayHint: await _relays.relayHintFor(
-            getPubKeyFromAnchor(listing.anchor!),
-          ),
-        ),
-        PTag.buyer(
-          recipientKey.publicKey,
-          relayHint: await _relays.relayHintFor(recipientKey.publicKey),
-        ),
-      ],
-    );
-    final withBuyerProof = await reservation.attachPubkeyProof(
-      role: 'buyer',
-      proofKeyPair: _auth.getActiveKey(),
-      encryptionKeyPair: recipientKey,
-      signAuthorization:
-          requests.ndk.accounts.getPublicKey() == _auth.getActiveKey().publicKey
-          ? (unsignedEvent) => requests.ndk.accounts.sign(unsignedEvent)
-          : null,
+      extraTags: participantTags.tags,
     );
     return _signReservation(
-      reservation: withBuyerProof,
+      reservation: reservation,
       signerKeyPair: recipientKey,
     );
   });
@@ -122,6 +162,38 @@ class ReservationRequests extends CrudUseCase {
   }) => logger.span('createCounterOffer', () async {
     final listingAnchor = previousRequest.parsedTags.listingAnchor;
 
+    final sellerPubkey = getPubKeyFromAnchor(listingAnchor);
+    final buyerPubkey = signerKeyPair.publicKey == sellerPubkey
+        ? previousRequest.pubKey
+        : signerKeyPair.publicKey;
+    final participantTags = await buildReservationParticipantTagPlan(
+      tradeId: previousRequest.getDtag()!,
+      reservationAuthorKey: signerKeyPair,
+      participants: [
+        ReservationParticipant.real(role: 'seller', pubkey: sellerPubkey),
+        signerKeyPair.publicKey == sellerPubkey
+            ? ReservationParticipant.real(role: 'buyer', pubkey: buyerPubkey)
+            : ReservationParticipant(
+                role: 'buyer',
+                participantPubkey: buyerPubkey,
+                identityPubkey: _auth.getActiveKey().publicKey,
+              ),
+      ],
+      relayHintFor: _relays.relayHintFor,
+      signAuthorization: (draft) => _signParticipantAuthorization(
+        listingAnchor: listingAnchor,
+        identityKeyPair: _auth.getActiveKey(),
+        draft: draft,
+      ),
+      encryptAuthorization:
+          ({
+            required plaintext,
+            required senderPrivateKey,
+            required recipientPubkey,
+          }) =>
+              coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+    );
+
     var counterOffer = Reservation.create(
       pubKey: signerKeyPair.publicKey,
       dTag: previousRequest.getDtag()!,
@@ -133,27 +205,10 @@ class ReservationRequests extends CrudUseCase {
       quantity: previousRequest.quantity,
       amount: amount,
       recipient: previousRequest.recipient,
-      pTags: [
-        PTag.seller(
-          getPubKeyFromAnchor(listingAnchor),
-          relayHint: await _relays.relayHintFor(
-            getPubKeyFromAnchor(listingAnchor),
-          ),
-        ),
-        PTag.buyer(
-          signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)
-              ? previousRequest.pubKey
-              : signerKeyPair.publicKey,
-          relayHint: await _relays.relayHintFor(
-            signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)
-                ? previousRequest.pubKey
-                : signerKeyPair.publicKey,
-          ),
-        ),
-      ],
+      extraTags: participantTags.tags,
     );
 
-    if (signerKeyPair.publicKey == getPubKeyFromAnchor(listingAnchor)) {
+    if (signerKeyPair.publicKey == sellerPubkey) {
       final unsignedCommitAuthorization = CommitAuthorization.create(
         pubKey: signerKeyPair.publicKey,
         listingAnchor: listingAnchor,
@@ -174,17 +229,6 @@ class ReservationRequests extends CrudUseCase {
         content: counterOffer.parsedContent.copyWith(
           commitAuthorization: signedCommitAuthorization,
         ),
-      );
-    } else {
-      counterOffer = await counterOffer.attachPubkeyProof(
-        role: 'buyer',
-        proofKeyPair: _auth.getActiveKey(),
-        encryptionKeyPair: signerKeyPair,
-        signAuthorization:
-            requests.ndk.accounts.getPublicKey() ==
-                _auth.getActiveKey().publicKey
-            ? (unsignedEvent) => requests.ndk.accounts.sign(unsignedEvent)
-            : null,
       );
     }
 

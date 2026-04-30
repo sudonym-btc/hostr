@@ -6,7 +6,6 @@ import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
 import '../../datasources/notification_log.dart';
-import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../evm/evm.dart';
@@ -15,7 +14,7 @@ import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
-import '../trades/trade.dart';
+import '../reservation_groups/reservation_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 /// A single notification to show or update in the OS notification tray.
@@ -313,18 +312,18 @@ class BackgroundWorker {
   }
 
   void _bindHostingsProcessor() {
-    final processed = _userSubscriptions.myHostings$
+    final processed = _userSubscriptions.myResolvedHostings$
         .asyncMap(_signalFromHosting)
         .where((signal) => signal != null)
-        .map((signal) => signal!);
+        .map<_BackgroundSignal>((signal) => signal!);
     _myHostingsProcessor$.pipeFrom(processed);
   }
 
   void _bindTripsProcessor() {
-    final processed = _userSubscriptions.myTrips$
+    final processed = _userSubscriptions.myResolvedTrips$
         .asyncMap(_signalFromTrip)
         .where((signal) => signal != null)
-        .map((signal) => signal!);
+        .map<_BackgroundSignal>((signal) => signal!);
     _myTripsProcessor$.pipeFrom(processed);
   }
 
@@ -334,12 +333,12 @@ class BackgroundWorker {
       if (signal != null) _emitSignal(signal);
     }
 
-    for (final group in _userSubscriptions.myHostings$.items) {
+    for (final group in _userSubscriptions.myResolvedHostings$.items) {
       final signal = await _signalFromHosting(group);
       if (signal != null) _emitSignal(signal);
     }
 
-    for (final group in _userSubscriptions.myTrips$.items) {
+    for (final group in _userSubscriptions.myResolvedTrips$.items) {
       final signal = await _signalFromTrip(group);
       if (signal != null) _emitSignal(signal);
     }
@@ -449,32 +448,42 @@ class BackgroundWorker {
   Future<_BackgroundSignal?> _signalFromEvent(Nip01Event raw) async {
     if (raw is! Message) return null;
     final message = raw;
-    final myPubkey = _auth.getActiveKey().publicKey;
-    if (message.pubKey == myPubkey) return null;
+    final myPubkey = _auth.activePubkey ?? _auth.getActiveKey().publicKey;
+    if (_isSelfNotification(message, myPubkey)) return null;
     if (!_isAfterHeartbeatBoundary(message.createdAt)) return null;
+
+    final notificationId = 'message:${message.id}';
+    if (!_notificationLog.tryMarkDisplayed(notificationId)) return null;
 
     final senderName = await _resolveDisplayName(message.pubKey);
     final label = message.child is Reservation
         ? 'reservation proposal'
         : 'message';
     return _BackgroundSignal(
-      id: 'message:${message.id}',
+      id: notificationId,
       body: '$senderName sent you a $label',
       createdAt: message.createdAt,
     );
   }
 
+  bool _isSelfNotification(Message message, String myPubkey) {
+    if (message.pubKey == myPubkey) return true;
+    final participants = <String>{message.pubKey, ...message.pTags}
+      ..removeWhere((pubkey) => pubkey.isEmpty || pubkey == myPubkey);
+    return participants.isEmpty;
+  }
+
   Future<_BackgroundSignal?> _signalFromHosting(
-    Validation<ReservationGroup> validation,
+    ResolvedValidatedReservationGroupParticipants item,
   ) async {
     final myPubkey = _auth.getActiveKey().publicKey;
-    final group = validation.event;
+    final group = item.group;
     final guestReservation = group.buyerReservation;
     if (guestReservation == null) return null;
     if (guestReservation.pubKey == myPubkey) return null;
     if (!_isAfterHeartbeatBoundary(guestReservation.createdAt)) return null;
 
-    final guestPubkey = await _resolveHostingGuestPubkey(group);
+    final guestPubkey = _resolveHostingGuestPubkey(item);
     final guestName = await _resolveDisplayName(guestPubkey);
     final title = await _resolveListingTitle(
       group.listingAnchor,
@@ -498,30 +507,28 @@ class BackgroundWorker {
     );
   }
 
-  Future<String> _resolveHostingGuestPubkey(ReservationGroup group) async {
-    final fallback = group.buyerReservation?.pubKey;
-    if (fallback == null) {
+  String _resolveHostingGuestPubkey(
+    ResolvedValidatedReservationGroupParticipants item,
+  ) {
+    final resolved = item.participants.resolvedParticipantPubkeyForRole('buyer');
+    if (resolved != null && resolved.isNotEmpty) {
+      return resolved;
+    }
+
+    final fallback = item.group.buyerReservation?.pubKey;
+    if (fallback == null || fallback.isEmpty) {
       throw StateError(
         'Cannot resolve guest pubkey without a buyer reservation',
       );
     }
-
-    try {
-      final trade = getIt<Trade>(
-        param1: group.tradeId,
-        param2: group.listingAnchor,
-      );
-      return await trade.resolveGuestPubkey() ?? fallback;
-    } catch (_) {
-      return fallback;
-    }
+    return fallback;
   }
 
   Future<_BackgroundSignal?> _signalFromTrip(
-    Validation<ReservationGroup> validation,
+    ResolvedValidatedReservationGroupParticipants item,
   ) async {
     final myPubkey = _auth.getActiveKey().publicKey;
-    final group = validation.event;
+    final group = item.group;
     final sellerReservation = group.sellerReservation;
     if (sellerReservation == null) return null;
     if (sellerReservation.pubKey == myPubkey) return null;
@@ -531,7 +538,10 @@ class BackgroundWorker {
       return null;
     }
 
-    final hostName = await _resolveDisplayName(sellerReservation.pubKey);
+    final hostPubkey =
+        item.participants.resolvedParticipantPubkeyForRole('seller') ??
+        sellerReservation.pubKey;
+    final hostName = await _resolveDisplayName(hostPubkey);
     final title = await _resolveListingTitle(
       group.listingAnchor,
       fallback: 'your stay',

@@ -1,12 +1,15 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
+import 'package:web3dart/web3dart.dart' show bytesToHex, keccak256;
 
 class AnvilClient {
   final Uri rpcUri;
-  final HttpClient _httpClient;
+  final http.Client _httpClient;
 
-  AnvilClient({required this.rpcUri, HttpClient? httpClient})
-    : _httpClient = httpClient ?? HttpClient();
+  AnvilClient({required this.rpcUri, http.Client? httpClient})
+    : _httpClient = httpClient ?? http.Client();
 
   Future<bool> setBalance({
     required String address,
@@ -75,7 +78,58 @@ class AnvilClient {
     required String address,
     required String slot,
     required String value,
-  }) => rpcCall(method: 'anvil_setStorageAt', params: [address, slot, value]);
+    List<String> methods = const ['anvil_setStorageAt', 'hardhat_setStorageAt'],
+  }) async {
+    for (final method in methods) {
+      final ok = await rpcCall(method: method, params: [address, slot, value]);
+      if (ok) return true;
+    }
+    return false;
+  }
+
+  /// Give [account] an ERC-20 [amount] by writing the balance mapping directly.
+  ///
+  /// This is a local-chain test helper. It assumes the token uses the standard
+  /// OpenZeppelin ERC-20 layout where `_balances` is mapping slot 0; writing the
+  /// slot avoids spending from a shared deployer/funding account, which can make
+  /// tests race on nonces when several setup flows run against the same Anvil.
+  Future<void> setErc20Balance({
+    required String token,
+    required String account,
+    required BigInt amount,
+    int balanceMappingSlot = 0,
+  }) async {
+    final slot = erc20BalanceStorageSlot(
+      account: account,
+      balanceMappingSlot: balanceMappingSlot,
+    );
+    final value = '0x${amount.toRadixString(16).padLeft(64, '0')}';
+
+    final ok = await setStorageAt(address: token, slot: slot, value: value);
+    if (!ok) {
+      throw Exception(
+        'Failed to set ERC-20 balance for $account on $token via $rpcUri',
+      );
+    }
+  }
+
+  /// Compute `keccak256(abi.encode(account, balanceMappingSlot))`.
+  String erc20BalanceStorageSlot({
+    required String account,
+    int balanceMappingSlot = 0,
+  }) {
+    final paddedAccount = account
+        .replaceFirst('0x', '')
+        .toLowerCase()
+        .padLeft(64, '0');
+    final paddedSlot = balanceMappingSlot.toRadixString(16).padLeft(64, '0');
+    final preimage = '$paddedAccount$paddedSlot';
+    final preimageBytes = Uint8List.fromList([
+      for (var i = 0; i < preimage.length; i += 2)
+        int.parse(preimage.substring(i, i + 2), radix: 16),
+    ]);
+    return '0x${bytesToHex(keccak256(preimageBytes))}';
+  }
 
   /// Impersonate [address] so unsigned transactions from it are accepted.
   Future<bool> impersonateAccount(String address) =>
@@ -94,30 +148,24 @@ class AnvilClient {
   }) async {
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
-        final request = await _httpClient.postUrl(rpcUri);
-        request.headers.contentType = ContentType.json;
-        request.write(
-          jsonEncode({
+        final response = await _httpClient.post(
+          rpcUri,
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({
             'jsonrpc': '2.0',
             'id': 1,
             'method': method,
             'params': params,
           }),
         );
-
-        final response = await request.close();
-        final body = await utf8.decodeStream(response);
-
         if (response.statusCode < 200 || response.statusCode >= 300) {
           return null;
         }
 
-        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         if (decoded['error'] != null) return null;
         return decoded['result'];
-      } on HttpException {
-        if (attempt > 0) rethrow;
-      } on SocketException {
+      } catch (_) {
         if (attempt > 0) rethrow;
       }
     }
@@ -150,29 +198,23 @@ class AnvilClient {
     // Retry once on connection errors (stale keep-alive after idle).
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
-        final request = await _httpClient.postUrl(rpcUri);
-        request.headers.contentType = ContentType.json;
-        request.write(
-          jsonEncode({
+        final response = await _httpClient.post(
+          rpcUri,
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({
             'jsonrpc': '2.0',
             'id': 1,
             'method': method,
             'params': params,
           }),
         );
-
-        final response = await request.close();
-        final body = await utf8.decodeStream(response);
-
         if (response.statusCode < 200 || response.statusCode >= 300) {
           return false;
         }
 
-        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return decoded['error'] == null;
-      } on HttpException {
-        if (attempt > 0) rethrow;
-      } on SocketException {
+      } catch (_) {
         if (attempt > 0) rethrow;
       }
     }
@@ -191,6 +233,6 @@ class AnvilClient {
   }
 
   void close() {
-    _httpClient.close(force: true);
+    _httpClient.close();
   }
 }

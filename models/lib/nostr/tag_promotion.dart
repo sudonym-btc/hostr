@@ -86,6 +86,56 @@ class TagPromotion {
     }
     return results;
   }
+
+  /// Canonical value for a boolean-feature conjunction tag.
+  ///
+  /// Nostr filters OR values within one tag key, so a query like
+  /// `#s=[kitchen,allows_pets]` cannot mean "kitchen AND pets". Listings also
+  /// emit compound `S` tags for every boolean-feature combination, allowing a
+  /// multi-feature query to target one exact value instead.
+  static String booleanCombinationValue(Iterable<String> featureNames) {
+    final normalized = featureNames
+        .map((feature) => feature.trim())
+        .where((feature) => feature.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return normalized.join('+');
+  }
+
+  /// Emit compound boolean-feature tags for all combinations of size >= 2.
+  static List<List<String>> promoteBooleanCombinations(
+    List<List<String>> tags, {
+    required String target,
+    String source = 'spec',
+  }) {
+    final features = tags
+        .where((tag) => tag.length == 2 && tag.first == source)
+        .map((tag) => tag[1].trim())
+        .where((feature) => feature.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    if (features.length < 2) return const [];
+
+    final results = <List<String>>[];
+    void collect(int index, List<String> selected) {
+      if (index == features.length) {
+        if (selected.length >= 2) {
+          results.add([target, booleanCombinationValue(selected)]);
+        }
+        return;
+      }
+      collect(index + 1, selected);
+      selected.add(features[index]);
+      collect(index + 1, selected);
+      selected.removeLast();
+    }
+
+    collect(0, <String>[]);
+    results.sort((a, b) => a[1].compareTo(b[1]));
+    return results;
+  }
 }
 
 /// Builds an NDK [Filter] from user-facing search criteria, using
@@ -101,6 +151,8 @@ class TagPromotion {
 ///   .build();
 /// ```
 class ListingFilterBuilder {
+  static const String booleanFeatureCombinationTag = 'S';
+
   final List<TagPromotion> _promotions;
   final Map<String, List<String>> _tags = {};
   final int _kind;
@@ -169,9 +221,21 @@ class ListingFilterBuilder {
   /// These map to the boolean spec promotion target.
   ListingFilterBuilder features(List<String> featureNames) {
     final target = _targetFor(source: 'spec');
-    if (target != null) {
-      _tags.update(target, (v) => [...v, ...featureNames],
-          ifAbsent: () => featureNames);
+    final normalized = featureNames
+        .map((feature) => feature.trim())
+        .where((feature) => feature.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    if (normalized.isEmpty) return this;
+
+    if (normalized.length == 1 && target != null) {
+      _tags.update(target, (v) => [...v, ...normalized],
+          ifAbsent: () => normalized);
+    } else {
+      _tags[ListingFilterBuilder.booleanFeatureCombinationTag] = [
+        TagPromotion.booleanCombinationValue(normalized),
+      ];
     }
     return this;
   }

@@ -16,6 +16,20 @@ import '../evm/evm.dart';
 import '../identity_claims/identity_claims.dart';
 import '../relays/relays.dart';
 
+@visibleForTesting
+List<String> metadataDiscoveryRelays({
+  required String hostrRelay,
+  required List<String> bootstrapRelays,
+}) {
+  return [
+    ...{
+      if (hostrRelay.trim().isNotEmpty) hostrRelay.trim(),
+      for (final relay in bootstrapRelays)
+        if (relay.trim().isNotEmpty) relay.trim(),
+    },
+  ];
+}
+
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   static const Duration metadataLoadTimeout = Duration(seconds: 40);
@@ -134,7 +148,10 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   Future<ProfileMetadata?> _loadMetadataFromDiscoveryRelays(
     String pubkey,
   ) async {
-    final relays = _config.bootstrapRelays;
+    final relays = metadataDiscoveryRelays(
+      hostrRelay: _config.hostrRelay,
+      bootstrapRelays: _config.bootstrapRelays,
+    );
     if (relays.isEmpty) return null;
 
     ProfileMetadata? latest;

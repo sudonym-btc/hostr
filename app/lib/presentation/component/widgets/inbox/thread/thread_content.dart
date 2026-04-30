@@ -1,9 +1,11 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/reservation_request/reservation_request.dart';
+import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:provider/provider.dart';
@@ -43,7 +45,7 @@ class _ThreadContentState extends State<ThreadContent> {
     _scrollToBottom(animated: false);
     // The SDK suppresses network receipts until historical hydration is live.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<Thread>().markAsRead();
+      _markAsReadIfVisible();
     });
   }
 
@@ -72,6 +74,28 @@ class _ThreadContentState extends State<ThreadContent> {
   bool _isVisibleEvent(Event event) {
     return event is TextMessage ||
         (event is Message && event.child is Reservation);
+  }
+
+  bool _isCurrentThreadVisible(BuildContext context, Thread thread) {
+    final segments = context.router.root.currentSegments;
+    if (segments.isEmpty || segments.last.name != ThreadRoute.name) {
+      return false;
+    }
+
+    for (final segment in segments.reversed) {
+      if (segment.name == ThreadRoute.name) {
+        return segment.params.optString('anchor') == thread.anchor;
+      }
+    }
+    return false;
+  }
+
+  void _markAsReadIfVisible() {
+    if (!mounted) return;
+    final thread = context.read<Thread>();
+    if (_isCurrentThreadVisible(context, thread)) {
+      thread.markAsRead();
+    }
   }
 
   /// Whether [message] should show a profile header (avatar + timestamp).
@@ -126,7 +150,7 @@ class _ThreadContentState extends State<ThreadContent> {
                 final currentLength = state.events.length;
                 if (currentLength > prevLength) {
                   _scrollToBottom();
-                  thread.markAsRead();
+                  _markAsReadIfVisible();
                 }
                 _prevEventCount = currentLength;
 

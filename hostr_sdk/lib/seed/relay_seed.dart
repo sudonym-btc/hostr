@@ -11,6 +11,7 @@ import 'pipeline/seed_pipeline_config.dart';
 import 'pipeline/seed_pipeline_models.dart';
 import 'pipeline/seeder.dart';
 import 'pipeline/sink/infrastructure_sink.dart';
+import 'signet_bunker_client.dart';
 
 class RelaySeeder {
   /// Run the seed pipeline with the given [SeedPipelineConfig].
@@ -126,6 +127,7 @@ class RelaySeeder {
       await _printPipelineUsersByRole(data);
 
       print('Seeded $broadcastCount events.');
+      await _insertUsersIntoSignetBunker(config: resolvedConfig, data: data);
 
       return data;
     } finally {
@@ -149,6 +151,61 @@ class RelaySeeder {
 
   static const int _maxConcurrentBroadcasts = 5;
   static const int _broadcastMaxAttempts = 6;
+
+  Future<void> _insertUsersIntoSignetBunker({
+    required SeedPipelineConfig config,
+    required SeedPipelineData data,
+  }) async {
+    final rawUrl = config.signetBunkerUrl?.trim();
+    if (rawUrl == null || rawUrl.isEmpty) return;
+
+    final baseUri = Uri.tryParse(rawUrl);
+    if (baseUri == null || !baseUri.hasScheme || baseUri.host.isEmpty) {
+      throw StateError('Invalid signetBunkerUrl: $rawUrl');
+    }
+
+    print('Inserting seeded nsecs into Signet bunker: $baseUri');
+    final client = SignetBunkerClient(baseUri: baseUri);
+    try {
+      await client.deleteKeysWithPrefix(_signetKeyPrefix(config));
+      final imported = <Map<String, dynamic>>[];
+      for (final user in data.users) {
+        final nsec = user.keyPair.privateKeyBech32;
+        if (nsec == null || nsec.isEmpty) continue;
+
+        final keyName = _signetKeyName(config: config, user: user);
+        final key = await client.importNsec(
+          keyName: keyName,
+          nsec: nsec,
+          replaceExisting: false,
+        );
+        imported.add({
+          'keyName': key.keyName,
+          'role': user.isHost ? 'host' : 'guest',
+          'npub': user.keyPair.publicKeyBech32,
+          'bunkerUri': key.bunkerUri,
+        });
+      }
+
+      print('Inserted ${imported.length} seeded nsecs into Signet bunker.');
+      if (imported.isNotEmpty) {
+        print(const JsonEncoder.withIndent('  ').convert(imported));
+      }
+    } finally {
+      await client.close();
+    }
+  }
+
+  String _signetKeyName({
+    required SeedPipelineConfig config,
+    required SeedUser user,
+  }) {
+    final role = user.isHost ? 'host' : 'guest';
+    return '${_signetKeyPrefix(config)}$role-${user.index}';
+  }
+
+  String _signetKeyPrefix(SeedPipelineConfig config) =>
+      'hostr-seed-${config.seed}-';
 
   Future<void> _ensureContractIsDeployed({
     required String rpcUrl,

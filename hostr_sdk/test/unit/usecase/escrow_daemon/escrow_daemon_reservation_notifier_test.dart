@@ -2,11 +2,13 @@
 library;
 
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon.dart';
-import 'package:hostr_sdk/usecase/reservations/reservation_pubkey_proofs.dart';
+import 'package:hostr_sdk/usecase/reservations/reservation_participant_tags.dart';
+import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Metadata;
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 class _SentNotice {
@@ -64,9 +66,73 @@ ProfileMetadata _profile(String pubkey, {required String displayName}) {
   );
 }
 
+Future<String> _signAuthorization({
+  required String listingAnchor,
+  required KeyPair identityKeyPair,
+  required ReservationParticipantAuthorizationDraft draft,
+}) async {
+  final authorization = TradeKeyAuthorization.create(
+    identityPubkey: draft.identityPubkey,
+    listingAnchor: listingAnchor,
+    tradeId: draft.tradeId,
+    participantPubkey: draft.participantPubkey,
+    role: draft.role,
+  ).signAs(identityKeyPair, TradeKeyAuthorization.fromNostrEvent);
+  return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+    authorization,
+  ).encode();
+}
+
+Future<ReservationParticipantTagPlan> _participantTags({
+  required String tradeId,
+  required String listingAnchor,
+  required KeyPair reservationAuthorKey,
+  required KeyPair disposableBuyer,
+  required bool buyerProof,
+  required bool sellerProof,
+  bool includeEscrowParticipant = true,
+}) {
+  final sellerIdentity = sellerProof ? MockKeys.reviewer : MockKeys.hoster;
+  final buyerIdentity = buyerProof ? MockKeys.guest : disposableBuyer;
+
+  return buildReservationParticipantTagPlan(
+    tradeId: tradeId,
+    reservationAuthorKey: reservationAuthorKey,
+    participants: [
+      ReservationParticipant(
+        role: 'seller',
+        participantPubkey: MockKeys.hoster.publicKey,
+        identityPubkey: sellerIdentity.publicKey,
+      ),
+      ReservationParticipant(
+        role: 'buyer',
+        participantPubkey: disposableBuyer.publicKey,
+        identityPubkey: buyerIdentity.publicKey,
+      ),
+      if (includeEscrowParticipant)
+        ReservationParticipant.real(
+          role: 'escrow',
+          pubkey: MockKeys.escrow.publicKey,
+        ),
+    ],
+    signAuthorization: (draft) => _signAuthorization(
+      listingAnchor: listingAnchor,
+      identityKeyPair: draft.role == 'seller' ? sellerIdentity : buyerIdentity,
+      draft: draft,
+    ),
+    encryptAuthorization:
+        ({
+          required plaintext,
+          required senderPrivateKey,
+          required recipientPubkey,
+        }) => coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+  );
+}
+
 Future<ReservationGroup> _group({
   required bool buyerProof,
   bool sellerProof = false,
+  bool includeEscrowParticipant = true,
   String tradeId = 'trade-123',
   DateTime? start,
   DateTime? end,
@@ -75,49 +141,44 @@ Future<ReservationGroup> _group({
   final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing-1';
   final reservationStart = start ?? DateTime.utc(2026, 5, 1);
   final reservationEnd = end ?? DateTime.utc(2026, 5, 3);
+  final buyerTags = await _participantTags(
+    tradeId: tradeId,
+    listingAnchor: listingAnchor,
+    reservationAuthorKey: disposableBuyer,
+    disposableBuyer: disposableBuyer,
+    buyerProof: buyerProof,
+    sellerProof: sellerProof,
+    includeEscrowParticipant: includeEscrowParticipant,
+  );
 
-  var buyer = Reservation.create(
+  final buyer = Reservation.create(
     pubKey: disposableBuyer.publicKey,
     dTag: tradeId,
     listingAnchor: listingAnchor,
-    pTags: [
-      PTag.seller(MockKeys.hoster.publicKey),
-      PTag.buyer(disposableBuyer.publicKey),
-      PTag.escrow(MockKeys.escrow.publicKey),
-    ],
+    extraTags: buyerTags.tags,
     stage: ReservationStage.commit,
     start: reservationStart,
     end: reservationEnd,
   );
-  if (buyerProof) {
-    buyer = await buyer.attachPubkeyProof(
-      role: 'buyer',
-      proofKeyPair: MockKeys.guest,
-      encryptionKeyPair: disposableBuyer,
-    );
-  }
+  final sellerTags = await _participantTags(
+    tradeId: tradeId,
+    listingAnchor: listingAnchor,
+    reservationAuthorKey: MockKeys.hoster,
+    disposableBuyer: disposableBuyer,
+    buyerProof: buyerProof,
+    sellerProof: sellerProof,
+    includeEscrowParticipant: includeEscrowParticipant,
+  );
 
-  var seller = Reservation.create(
+  final seller = Reservation.create(
     pubKey: MockKeys.hoster.publicKey,
     dTag: tradeId,
     listingAnchor: listingAnchor,
-    pTags: [
-      PTag.seller(MockKeys.hoster.publicKey),
-      PTag.buyer(disposableBuyer.publicKey),
-      PTag.escrow(MockKeys.escrow.publicKey),
-    ],
+    extraTags: sellerTags.tags,
     stage: ReservationStage.commit,
     start: reservationStart,
     end: reservationEnd,
   );
-  if (sellerProof) {
-    seller = await seller.attachPubkeyProof(
-      role: 'seller',
-      proofKeyPair: MockKeys.reviewer,
-      encryptionKeyPair: MockKeys.hoster,
-      recipientPubkeys: [MockKeys.escrow.publicKey],
-    );
-  }
 
   return ReservationGroup(reservations: [buyer, seller]);
 }
@@ -126,6 +187,7 @@ TextMessage _existingNotice({
   required String tradeId,
   required String role,
   required String recipientPubkey,
+  String noticeType = 'reservation_placed',
   String? authorPubkey,
 }) {
   return TextMessage(
@@ -133,7 +195,7 @@ TextMessage _existingNotice({
     tags: MessageTags([
       ['tradeId', tradeId],
       ['p', recipientPubkey],
-      ['hostr_notice', 'reservation_placed', role, recipientPubkey],
+      ['hostr_notice', noticeType, role, recipientPubkey],
     ]),
     content: 'already sent',
     createdAt: 123,
@@ -399,7 +461,10 @@ void main() {
     });
 
     test('does not notify anyone without a decryptable buyer proof', () async {
-      final group = await _group(buyerProof: false);
+      final group = await _group(
+        buyerProof: true,
+        includeEscrowParticipant: false,
+      );
 
       await notifier.notifyReservation(group);
 
@@ -415,6 +480,47 @@ void main() {
       );
 
       await notifier.notifyReservation(group);
+
+      expect(sent, isEmpty);
+      expect(sentLegacy, isEmpty);
+    });
+
+    test('sends cancellation notice only to buyer', () async {
+      final group = await _group(buyerProof: true, sellerProof: true);
+
+      await notifier.notifyCancellation(group);
+
+      expect(sent, hasLength(1));
+      expect(sentLegacy, hasLength(1));
+      expect(sent.single.recipientPubkeys, [MockKeys.guest.publicKey]);
+      expect(sentLegacy.single.recipientPubkey, MockKeys.guest.publicKey);
+      expect(
+        sent.single.content,
+        'Your reservation for Lake House 2026-05-01 - 2026-05-03 could not '
+        'be confirmed by escrow. No booking was created, and any escrowed '
+        'payment should be refunded according to the payment method used.',
+      );
+      expect(
+        sent.single.tags.map((tag) => tag.join('|')),
+        contains(
+          'hostr_notice|reservation_cancelled|buyer|'
+          '${MockKeys.guest.publicKey}',
+        ),
+      );
+    });
+
+    test('skips cancellation notice when buyer was already notified', () async {
+      existing = [
+        _existingNotice(
+          tradeId: 'trade-123',
+          noticeType: 'reservation_cancelled',
+          role: 'buyer',
+          recipientPubkey: MockKeys.guest.publicKey,
+        ),
+      ];
+      final group = await _group(buyerProof: true, sellerProof: true);
+
+      await notifier.notifyCancellation(group);
 
       expect(sent, isEmpty);
       expect(sentLegacy, isEmpty);

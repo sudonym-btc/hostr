@@ -202,6 +202,10 @@ EscrowFundedEvent _fundedEvent({
     blockNum: 1,
     block: BlockInformation(baseFeePerGas: null, timestamp: DateTime.utc(2026)),
     transactionHash: txHash,
+    chainId: 412346,
+    contractAddress: '0x0000000000000000000000000000000000000001',
+    transactionIndex: 0,
+    logIndex: 0,
     amount: rbtcFromSats(BigInt.from(amountSats)),
     bondAmount: bondAmountSats != null
         ? rbtcFromSats(BigInt.from(bondAmountSats))

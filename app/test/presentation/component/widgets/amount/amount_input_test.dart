@@ -72,6 +72,55 @@ void main() {
 
       expect(fieldKey.currentState?.value?.value, BigInt.from(7));
     });
+
+    testWidgets('preserves decimal point while entering fiat amounts', (
+      tester,
+    ) async {
+      final fieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AmountInputWidget(
+              key: fieldKey,
+              initialValue: DenominatedAmount.zero('USD', 6),
+            ),
+          ),
+        ),
+      );
+
+      for (final label in ['2', '7', '.', '5']) {
+        await tester.tap(find.text(label));
+        await tester.pump();
+      }
+
+      expect(fieldKey.currentState?.value?.denomination, 'USD');
+      expect(fieldKey.currentState?.value?.value, BigInt.from(27500000));
+    });
+
+    testWidgets('preserves trailing zero after decimal while entering fiat', (
+      tester,
+    ) async {
+      final fieldKey = GlobalKey<FormFieldState<DenominatedAmount>>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AmountInputWidget(
+              key: fieldKey,
+              initialValue: DenominatedAmount.zero('USD', 6),
+            ),
+          ),
+        ),
+      );
+
+      for (final label in ['2', '7', '.', '0', '5']) {
+        await tester.tap(find.text(label));
+        await tester.pump();
+      }
+
+      expect(fieldKey.currentState?.value?.value, BigInt.from(27050000));
+    });
   });
 
   group('AmountEditorBottomSheet', () {

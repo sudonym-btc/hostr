@@ -497,6 +497,27 @@ class FundsMonitorService {
     },
   );
 
+  /// Re-fetch escrow balances for a known escrow service without first
+  /// discovering services from relays.
+  Future<void> refetchEscrowService(EscrowService service, int accountIndex) =>
+      _logger.span(
+        'refetchEscrowService(${service.chainId}, $accountIndex)',
+        () async {
+          final chain = _evm.getChainByChainId(service.chainId);
+          if (chain == null) return;
+          final contract = chain.escrow.getSupportedEscrowContract(service);
+          final keypair = await _auth.hd.getActiveEvmKey(
+            accountIndex: accountIndex,
+          );
+          await _refreshEscrowBalances(
+            contract: contract,
+            chain: chain,
+            keypair: keypair,
+            accountIndex: accountIndex,
+          );
+        },
+      );
+
   // ══════════════════════════════════════════════════════════════════════════
   // Explicit live wallet balance tracking
   // ══════════════════════════════════════════════════════════════════════════

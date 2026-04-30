@@ -174,11 +174,7 @@ class _NotificationDeepLinkTarget {
     try {
       final threads = getIt<Hostr>().messaging.threads;
       if (threads.threads.containsKey(ref)) return ref;
-
-      // Older notification payloads used the trade id in hostr://thread/<id>.
-      // ThreadRoute needs the conversation anchor, so map trade ids before
-      // routing.
-      return threads.findPreferredConversationIdByTradeId(ref);
+      return null;
     } catch (error, stackTrace) {
       // Startup can still be warming when a launch notification is handled.
       _targetLogger.d(

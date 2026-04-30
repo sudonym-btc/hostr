@@ -22,6 +22,17 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
       );
 
       if (escrows.compatibleServices.isEmpty) {
+        debugPrint(
+          'EscrowSelectorCubit.load: no compatible escrows. '
+          'buyer=${getIt<Hostr>().auth.activeKeyPair!.publicKey} '
+          'seller=${counterparty.pubKey} '
+          'buyerMethod=${escrows.buyerMethod?.id} '
+          'buyerTrusted=${escrows.buyerMethod?.trustedEscrowPubkeys} '
+          'buyerHashes=${escrows.buyerMethod?.supportedContractBytecodeHashes} '
+          'sellerMethod=${escrows.sellerMethod?.id} '
+          'sellerTrusted=${escrows.sellerMethod?.trustedEscrowPubkeys} '
+          'sellerHashes=${escrows.sellerMethod?.supportedContractBytecodeHashes}',
+        );
         emit(EscrowSelectorError('No mutual escrows found'));
         return;
       }
@@ -46,30 +57,66 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
     }
   }
 
-  Future<void> select() async {
+  Future<EscrowServiceSelected?> select() async {
     if (state is EscrowSelectorLoaded &&
         (state as EscrowSelectorLoaded).selectedEscrow != null) {
       final loadedState = state as EscrowSelectorLoaded;
       final tradeId = negotiateReservation.getDtag()!;
-      final thread = getIt<Hostr>().messaging.threads
-          .findPreferredThreadByTradeId(tradeId);
-      if (thread == null) {
-        debugPrint(
-          'EscrowSelectorCubit.select: no thread found for tradeId=$tradeId',
-        );
-        return;
-      }
-      await thread.replyEventAndWait(
-        EscrowServiceSelected(
-          pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-          tags: EscrowServiceSelectedTags([]),
-          content: EscrowServiceSelectedContent(
-            service: loadedState.selectedEscrow!,
-            sellerMethods: loadedState.result.sellerMethod!,
-          ),
+      final selected = EscrowServiceSelected(
+        pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
+        tags: EscrowServiceSelectedTags([]),
+        content: EscrowServiceSelectedContent(
+          service: loadedState.selectedEscrow!,
+          sellerMethods: loadedState.result.sellerMethod!,
         ),
       );
+      final participants = {
+        negotiateReservation.pubKey,
+        ...negotiateReservation.parsedTags.getTags('p'),
+      };
+      final threads = getIt<Hostr>().messaging.threads;
+      final thread =
+          threads.findTradeThread(
+            tradeId: tradeId,
+            participants: participants,
+          ) ??
+          _findThreadByTradeIdAndReservation(threads, tradeId);
+      if (thread == null) {
+        final matches = threads.findByConversationTag(tradeId);
+        debugPrint(
+          'EscrowSelectorCubit.select: no thread found for '
+          'tradeId=$tradeId participants=$participants '
+          'candidateCount=${matches.length}',
+        );
+        return selected;
+      }
+      await thread.replyEventAndWait(selected);
+      return selected;
     }
+    return null;
+  }
+
+  Thread? _findThreadByTradeIdAndReservation(Threads threads, String tradeId) {
+    final matches = threads.findByConversationTag(tradeId);
+    if (matches.isEmpty) return null;
+
+    for (final thread in matches) {
+      final requests = thread.state.value.reservationRequests;
+      if (requests.any((request) => request.id == negotiateReservation.id)) {
+        return thread;
+      }
+    }
+
+    final reservationMatches = matches
+        .where(
+          (thread) => thread.state.value.reservationRequests.any(
+            (request) => request.getDtag() == tradeId,
+          ),
+        )
+        .toList(growable: false);
+    if (reservationMatches.length == 1) return reservationMatches.single;
+    if (matches.length == 1) return matches.single;
+    return null;
   }
 }
 

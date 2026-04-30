@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 
+import '../../datasources/nostr/mock.relay.dart' show matchEvent;
 import '../../util/main.dart';
 import 'requests.dart';
 
@@ -62,11 +63,13 @@ class ExpandableSubscription<T extends Nip01Event> {
   /// Subscriptions to the filter source.
   StreamSubscription<Filter>? _filterDataSub;
   StreamSubscription? _filterStatusSub;
+  StreamSubscription<T>? _localUpdatesSub;
 
   /// Debounce machinery for filter emissions.
   final Duration _debounceDuration;
   Timer? _debounceTimer;
   Filter? _pendingFilter;
+  final Stream<T>? _localUpdates;
 
   /// True after at least one relay query + live subscription cycle has
   /// completed (i.e. we've fetched historical data for the current filter).
@@ -83,10 +86,12 @@ class ExpandableSubscription<T extends Nip01Event> {
     required CustomLogger logger,
     required String name,
     required StreamWithStatus<Filter> filterSource,
+    Stream<T>? localUpdates,
     Duration debounceDuration = const Duration(milliseconds: 500),
   }) : _requests = requests,
        _logger = logger,
        _name = name,
+       _localUpdates = localUpdates,
        _debounceDuration = debounceDuration {
     _subscribeToFilterSource(filterSource);
   }
@@ -97,10 +102,12 @@ class ExpandableSubscription<T extends Nip01Event> {
     required Requests requests,
     required CustomLogger logger,
     required String name,
+    Stream<T>? localUpdates,
     Duration debounceDuration = const Duration(milliseconds: 500),
   }) : _requests = requests,
        _logger = logger,
        _name = name,
+       _localUpdates = localUpdates,
        _debounceDuration = debounceDuration;
 
   // ── Public API ──────────────────────────────────────────────────────
@@ -112,6 +119,7 @@ class ExpandableSubscription<T extends Nip01Event> {
     _debounceTimer?.cancel();
     await _filterDataSub?.cancel();
     await _filterStatusSub?.cancel();
+    await _localUpdatesSub?.cancel();
     await _deltaQuerySub?.cancel();
     await _liveHandle?.cancel();
     await stream.close();
@@ -129,6 +137,8 @@ class ExpandableSubscription<T extends Nip01Event> {
     _filterDataSub = null;
     await _filterStatusSub?.cancel();
     _filterStatusSub = null;
+    await _localUpdatesSub?.cancel();
+    _localUpdatesSub = null;
     await _deltaQuerySub?.cancel();
     _deltaQuerySub = null;
     await _liveHandle?.cancel();
@@ -156,6 +166,7 @@ class ExpandableSubscription<T extends Nip01Event> {
 
   void _subscribeToFilterSource(StreamWithStatus<Filter> filterSource) {
     stream.addStatus(StreamStatusQuerying());
+    _subscribeToLocalUpdates();
 
     // Listen to filter data: each emission is the full accumulated filter.
     _filterDataSub = filterSource.replayStream.listen(
@@ -184,6 +195,25 @@ class ExpandableSubscription<T extends Nip01Event> {
             _maybeEmitLive();
           }
         });
+  }
+
+  void _subscribeToLocalUpdates() {
+    final updates = _localUpdates;
+    if (updates == null || _localUpdatesSub != null) return;
+
+    _localUpdatesSub = updates.listen(_onLocalUpdate, onError: stream.addError);
+  }
+
+  void _onLocalUpdate(T event) {
+    if (_closed) return;
+
+    // Local writes should appear in the expandable stream as soon as they
+    // match the latest known filter. Relay echo is still useful, but it should
+    // not be required for UI state after this client publishes a replacement.
+    final filter = _currentFilter ?? _pendingFilter;
+    if (filter == null || !matchEvent(event, filter)) return;
+
+    _dedupAdd(event);
   }
 
   void _onFilterEmission(Filter incomingFilter) {
@@ -284,11 +314,13 @@ class ExpandableSubscription<T extends Nip01Event> {
 
     final liveFilter = filter.clone();
 
-    // Set `since` to just after the newest event we've seen to avoid
-    // re-fetching events already in the accumulator.
+    // Use the newest timestamp we have seen, not +1. Nostr timestamps are
+    // second-resolution, and follow-up events can legitimately be published in
+    // the same second as the latest replayed event. The event-id dedupe below
+    // already protects us from re-emitting historical events.
     if (_items.isNotEmpty) {
       final maxCreatedAt = _items.map((e) => e.createdAt).reduce(max);
-      final nextSince = maxCreatedAt + 1;
+      final nextSince = maxCreatedAt;
       liveFilter.since = liveFilter.since == null
           ? nextSince
           : (nextSince > liveFilter.since! ? nextSince : liveFilter.since);
@@ -308,6 +340,7 @@ class ExpandableSubscription<T extends Nip01Event> {
   }
 
   void _dedupAdd(T event) {
+    if (_closed) return;
     if (_seenIds.add(event.id)) {
       _items.add(event);
       stream.add(event);

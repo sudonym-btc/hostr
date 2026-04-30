@@ -255,6 +255,7 @@ class TradeHeaderView extends StatelessWidget {
 
 class TradeHeader extends StatefulWidget {
   final String tradeId;
+  final Iterable<String> participants;
   final bool showActions;
   final bool showImages;
   final bool compact;
@@ -262,6 +263,7 @@ class TradeHeader extends StatefulWidget {
   const TradeHeader({
     super.key,
     required this.tradeId,
+    required this.participants,
     this.showActions = true,
     this.showImages = true,
     this.compact = false,
@@ -272,36 +274,55 @@ class TradeHeader extends StatefulWidget {
 }
 
 class _TradeHeaderState extends State<TradeHeader> {
-  late Trade _trade;
+  Trade? _trade;
 
   @override
   void initState() {
     super.initState();
-    _trade = _createTrade();
+    _ensureTrade();
   }
 
   @override
   void didUpdateWidget(covariant TradeHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.tradeId != widget.tradeId) {
+    if (oldWidget.tradeId != widget.tradeId ||
+        !_sameParticipants(oldWidget.participants, widget.participants)) {
       final previousTrade = _trade;
-      _trade = _createTrade();
-      previousTrade.close();
+      _trade = null;
+      previousTrade?.close();
+      _ensureTrade();
     }
   }
 
   @override
   void dispose() {
-    _trade.close();
+    _trade?.close();
     super.dispose();
   }
 
-  Trade _createTrade() => getIt<Hostr>().trade(widget.tradeId)..start();
+  void _ensureTrade() {
+    if (_trade != null) return;
+    if (widget.participants.isEmpty) return;
+    _trade = getIt<Hostr>().trade(widget.tradeId, widget.participants)..start();
+  }
+
+  bool _sameParticipants(Iterable<String> a, Iterable<String> b) =>
+      Threads.normalizeParticipants(a).join('\u0000') ==
+      Threads.normalizeParticipants(b).join('\u0000');
 
   @override
   Widget build(BuildContext context) {
+    _ensureTrade();
+    final trade = _trade;
+    if (trade == null) {
+      return const SizedBox(
+        height: 100,
+        child: Center(child: AppLoadingIndicator.medium()),
+      );
+    }
+
     return BlocProvider<Trade>.value(
-      value: _trade,
+      value: trade,
       child: BlocBuilder<Trade, TradeState>(
         builder: (context, tradeState) {
           switch (tradeState) {

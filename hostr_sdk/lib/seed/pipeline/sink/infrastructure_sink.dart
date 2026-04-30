@@ -159,8 +159,7 @@ class InfrastructureSink implements SeedSink {
           final largeBalance = BigInt.two.pow(128);
 
           // 1. Set the token source's ERC-20 balance via storage override.
-          await _setErc20Balance(
-            anvil: anvil,
+          await anvil.setErc20Balance(
             token: tokenAddress.eip55With0x,
             account: sourceCredentials.address.eip55With0x,
             amount: largeBalance,
@@ -584,47 +583,6 @@ class InfrastructureSink implements SeedSink {
     } finally {
       _nonceLocks.remove(key);
       completer.complete();
-    }
-  }
-
-  /// Set an ERC-20 balance for [account] by writing directly to storage.
-  ///
-  /// Assumes a standard OpenZeppelin `balanceOf` mapping at slot 0.
-  /// Uses `anvil_setStorageAt` — works on Anvil and Hardhat.
-  Future<void> _setErc20Balance({
-    required AnvilClient anvil,
-    required String token,
-    required String account,
-    required BigInt amount,
-  }) async {
-    // balanceOf mapping slot: keccak256(abi.encode(address, slot))
-    // For OpenZeppelin ERC-20, the mapping is at slot 0.
-    final paddedAccount = account
-        .replaceFirst('0x', '')
-        .toLowerCase()
-        .padLeft(64, '0');
-    const paddedSlot =
-        '0000000000000000000000000000000000000000000000000000000000000000';
-    final preimage = '$paddedAccount$paddedSlot';
-
-    // Compute keccak256.
-    final preimageBytes = Uint8List.fromList([
-      for (var i = 0; i < preimage.length; i += 2)
-        int.parse(preimage.substring(i, i + 2), radix: 16),
-    ]);
-    final hash = keccak256(preimageBytes);
-    final slot = '0x${bytesToHex(hash)}';
-    final value = '0x${amount.toRadixString(16).padLeft(64, '0')}';
-
-    final ok = await anvil.setStorageAt(
-      address: token,
-      slot: slot,
-      value: value,
-    );
-    if (!ok) {
-      throw Exception(
-        '[infra-sink] Failed to set ERC-20 balance for $account on $token',
-      );
     }
   }
 

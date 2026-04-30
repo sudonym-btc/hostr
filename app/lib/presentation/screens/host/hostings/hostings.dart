@@ -9,7 +9,6 @@ import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart'
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
 
 @RoutePage()
 class HostingsScreen extends StatefulWidget {
@@ -33,10 +32,10 @@ class HostingsScreenState extends State<HostingsScreen> {
   @override
   Widget build(BuildContext context) {
     final content = StatusStreamListWidget(
-      stream: getIt<Hostr>().userSubscriptions.myHostingsList$,
-      itemKeyBuilder: (item) => ValueKey(item.event.tradeId),
-      sort: ReservationStatusSections.compare,
-      sectionHeaderBuilder: ReservationStatusSections.buildHeader,
+      stream: getIt<Hostr>().userSubscriptions.myResolvedHostingsList$,
+      itemKeyBuilder: (item) => ValueKey(item.group.tradeId),
+      sort: ReservationStatusSections.compareResolved,
+      sectionHeaderBuilder: ReservationStatusSections.buildResolvedHeader,
       emptyBuilder: () => StatusStreamListWidget.empty(
         context,
         leading: Icon(
@@ -81,7 +80,7 @@ class HostingsScreenState extends State<HostingsScreen> {
 /// Stable StatefulWidget so that [_guestFuture] is only created once
 /// per item, not on every parent rebuild.
 class _HostingListItem extends StatefulWidget {
-  final Validation<ReservationGroup> group;
+  final ResolvedValidatedReservationGroupParticipants group;
 
   const _HostingListItem({required this.group});
 
@@ -95,20 +94,41 @@ class _HostingListItemState extends State<_HostingListItem> {
   @override
   void initState() {
     super.initState();
-    _guestFuture = getIt<Hostr>()
-        .trade(widget.group.event.tradeId)
-        .resolveGuestPubkey();
+    _guestFuture = _resolveGuestPubkey();
+  }
+
+  Future<String?> _resolveGuestPubkey() async {
+    final pair = widget.group.group;
+    final resolvedParticipants = widget.group.participants;
+    final buyerReservation = pair.buyerReservation;
+    final rawBuyerPubkey = pair.buyerPubkey ?? buyerReservation?.pubKey;
+    final resolvedBuyerPubkey = rawBuyerPubkey == null
+        ? null
+        : resolvedParticipants.identityByParticipantPubkey[rawBuyerPubkey];
+    if (resolvedBuyerPubkey != null && resolvedBuyerPubkey.isNotEmpty) {
+      return resolvedBuyerPubkey;
+    }
+    if (buyerReservation == null) return rawBuyerPubkey;
+
+    return resolvedBuyerPubkey ??
+        pair.buyerPubkey ??
+        buyerReservation.parsedTags.getTagValueByMarker('p', 'buyer') ??
+        buyerReservation.recipient;
   }
 
   @override
   Widget build(BuildContext context) {
-    final pair = widget.group.event;
+    final pair = widget.group.group;
+    final participants = widget.group.participants;
+    final conversationParticipants =
+        participants.resolvedParticipantSetWithoutEscrow;
+
     void openThread() {
-      final anchor = getIt<Hostr>().messaging.threads
-          .findPreferredConversationIdByTradeId(pair.tradeId);
-      if (anchor != null) {
-        AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
-      }
+      final thread = getIt<Hostr>().messaging.threads.ensureTradeConversation(
+        tradeId: pair.tradeId,
+        participants: conversationParticipants,
+      );
+      AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
     }
 
     return Material(
@@ -170,6 +190,7 @@ class _HostingListItemState extends State<_HostingListItem> {
                       width: double.infinity,
                       child: TradeHeader(
                         tradeId: pair.tradeId,
+                        participants: conversationParticipants,
                         showActions: false,
                         showImages: true,
                         compact: true,

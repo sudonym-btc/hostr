@@ -111,6 +111,7 @@ class EditListingViewState extends State<EditListingView> {
             ],
           ),
           LocationInput(
+            textFieldKey: const ValueKey('edit_listing_location_input'),
             controller: controller.locationController,
             hintText: '123 City Road, London',
             validator: (value) => controller.locationController.validateText(
@@ -155,6 +156,7 @@ class EditListingViewState extends State<EditListingView> {
     }
 
     final bottomBar = SaveBottomBar(
+      saveButtonKey: const ValueKey('edit_listing_save_button'),
       controller: controller,
       onSave: () async {
         final saved = await controller.save();

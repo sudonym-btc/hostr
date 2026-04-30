@@ -1,0 +1,3 @@
+# Signet's CSRF cookie must be usable by Flutter web integration tests served
+# from localhost.
+proxy_cookie_flags ~ secure samesite=none;

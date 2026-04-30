@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
@@ -116,18 +114,18 @@ class Threads {
   );
 
   static List<String> normalizeParticipants(Iterable<String> participants) =>
-      (participants.where((p) => p.isNotEmpty).toSet().toList()..sort());
+      ReservationGroup.normalizeParticipants(participants);
 
   static String conversationIdentifier(
     Iterable<String> participants, {
     String conversationTag = '',
-  }) {
-    final preimage = jsonEncode([
-      normalizeParticipants(participants),
-      conversationTag.trim(),
-    ]);
-    return crypto.sha256.convert(utf8.encode(preimage)).toString();
-  }
+  }) => ReservationGroup.groupIdForParticipants(
+    tradeId: conversationTag,
+    participants: participants,
+  );
+
+  static String conversationId(String tradeId, Iterable<String> participants) =>
+      conversationIdentifier(participants, conversationTag: tradeId);
 
   /// Compute thread anchor from any event carrying DM routing tags.
   /// Works uniformly for [Message] and [SeenStatus].
@@ -164,25 +162,19 @@ class Threads {
     return thread;
   }
 
+  Thread? findTradeThread({
+    required String tradeId,
+    required Iterable<String> participants,
+  }) => threads[conversationId(tradeId, participants)];
+
+  Thread ensureTradeConversation({
+    required String tradeId,
+    required Iterable<String> participants,
+  }) =>
+      ensureConversation(participants: participants, conversationTag: tradeId);
+
   List<Thread> findByConversationTag(String tag) =>
       threads.values.where((t) => t.conversationTag == tag.trim()).toList();
-
-  String? findPreferredConversationIdByTradeId(String tradeId) {
-    final matches = findByConversationTag(tradeId);
-    if (matches.isEmpty) return null;
-    matches.sort((a, b) {
-      final c = a.participantCount.compareTo(b.participantCount);
-      return c != 0
-          ? c
-          : b.lastActivityTimestamp.compareTo(a.lastActivityTimestamp);
-    });
-    return matches.first.anchor;
-  }
-
-  Thread? findPreferredThreadByTradeId(String tradeId) {
-    final anchor = findPreferredConversationIdByTradeId(tradeId);
-    return anchor != null ? threads[anchor] : null;
-  }
 
   /// Route a raw event from [UserSubscriptions.parsedGiftwraps$] to the
   /// appropriate thread.

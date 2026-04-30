@@ -214,11 +214,31 @@ class BoltzClient {
     );
     logger.i("Request: $r");
 
-    Response<ReverseResponse> res = await gBoltzCli.swapReversePost(body: r);
-    logger.i("Response: ${res.body}");
-    if (res.isSuccessful) return res.body!;
-    throw res.error!;
+    for (var attempt = 1; attempt <= 4; attempt++) {
+      Response<ReverseResponse> res = await gBoltzCli.swapReversePost(body: r);
+      logger.i("Response: ${res.body}");
+      if (res.isSuccessful) return res.body!;
+
+      final error = res.error!;
+      if (!_isTransientSerializationError(error) || attempt == 4) {
+        throw error;
+      }
+
+      logger.w(
+        'Boltz reverse swap creation hit transient serialization conflict; '
+        'retrying attempt ${attempt + 1}/4: $error',
+      );
+      await Future<void>.delayed(Duration(milliseconds: 250 * attempt));
+    }
+
+    throw StateError('Boltz reverse swap retry loop exhausted unexpectedly');
   });
+
+  bool _isTransientSerializationError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('could not serialize access') ||
+        message.contains('serialization failure');
+  }
 
   Future<Contracts> rbtcContracts() => logger.span('rbtcContracts', () async {
     logger.i('Listing contracts');

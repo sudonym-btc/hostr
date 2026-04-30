@@ -32,6 +32,9 @@ class _ReservationPublishedPopupListenerState
   @override
   void initState() {
     super.initState();
+    // CrudUseCase only emits updates after relay broadcast succeeds. Listening
+    // here keeps the popup tied to a real reservation publish instead of relay
+    // replays or pre-broadcast optimistic state.
     _subscription = getIt<Hostr>().reservations.updates
         .where((reservation) => reservation.isCommit)
         .where((reservation) => reservation.proof != null)
@@ -61,7 +64,13 @@ class _ReservationPublishedPopupListenerState
       await navigator.push<void>(
         MaterialPageRoute<void>(
           fullscreenDialog: true,
-          builder: (_) => TripBookedPopupPage(tradeId: tradeId),
+          builder: (_) => TripBookedPopupPage(
+            tradeId: tradeId,
+            participants: {
+              reservation.pubKey,
+              ...reservation.parsedTags.getTags('p'),
+            },
+          ),
         ),
       );
       _popupVisible = false;
@@ -80,8 +89,43 @@ class _ReservationPublishedPopupListenerState
 
 class TripBookedPopupPage extends StatelessWidget {
   final String tradeId;
+  final Iterable<String> participants;
 
-  const TripBookedPopupPage({super.key, required this.tradeId});
+  const TripBookedPopupPage({
+    super.key,
+    required this.tradeId,
+    required this.participants,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // The trade-scoped key lets drive tests assert that the popup belongs to
+    // the reservation being paid, rather than accidentally dismissing a stale
+    // popup from another trade.
+    return TripBookedPopupView(
+      key: ValueKey('trip_booked_popup_$tradeId'),
+      tradeSummary: TradeHeader(
+        tradeId: tradeId,
+        participants: participants,
+        showActions: false,
+      ),
+      doneButtonKey: ValueKey('trip_booked_done_button_$tradeId'),
+      onDone: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+class TripBookedPopupView extends StatelessWidget {
+  final Widget tradeSummary;
+  final Key? doneButtonKey;
+  final VoidCallback onDone;
+
+  const TripBookedPopupView({
+    super.key,
+    required this.tradeSummary,
+    this.doneButtonKey,
+    required this.onDone,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -121,12 +165,15 @@ class TripBookedPopupPage extends StatelessWidget {
                       ),
                     ),
                     Gap.vertical.lg(),
-                    TradeHeader(tradeId: tradeId, showActions: false),
+                    tradeSummary,
                     Gap.vertical.lg(),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        key:
+                            doneButtonKey ??
+                            const ValueKey('trip_booked_done_button'),
+                        onPressed: onDone,
                         child: const Text('Done'),
                       ),
                     ),

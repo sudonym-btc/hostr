@@ -8,9 +8,11 @@ import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/usecase/reservations/reservation_pubkey_proofs.dart';
+import 'package:hostr_sdk/usecase/reservations/reservation_participant_authorization.dart';
+import 'package:hostr_sdk/usecase/reservations/reservation_participant_tags.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/reviews/reviews.dart';
+import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
@@ -132,27 +134,135 @@ Future<Reservation> _withBuyerProof({
   required Reservation reservation,
   required KeyPair identityKeyPair,
   required KeyPair reservationAuthorKeyPair,
+}) async {
+  final tradeId = reservation.getDtag();
+  if (tradeId == null || tradeId.isEmpty) {
+    throw StateError('Reservation trade id is required');
+  }
+  final sellerPubkey = getPubKeyFromAnchor(
+    reservation.parsedTags.listingAnchor,
+  );
+  final buyerPubkey = reservation.participantPubkeyForRole('buyer');
+  final escrowPubkey = reservation.parsedTags.getTagValueByMarker(
+    'p',
+    'escrow',
+  );
+  final plan = await buildReservationParticipantTagPlan(
+    tradeId: tradeId,
+    reservationAuthorKey: reservationAuthorKeyPair,
+    participants: [
+      ReservationParticipant.real(role: 'seller', pubkey: sellerPubkey),
+      ReservationParticipant(
+        role: 'buyer',
+        participantPubkey: buyerPubkey,
+        identityPubkey: identityKeyPair.publicKey,
+      ),
+      if (escrowPubkey != null)
+        ReservationParticipant.real(role: 'escrow', pubkey: escrowPubkey),
+    ],
+    signAuthorization: (draft) async {
+      final authorization = TradeKeyAuthorization.create(
+        identityPubkey: draft.identityPubkey,
+        listingAnchor: reservation.parsedTags.listingAnchor,
+        tradeId: draft.tradeId,
+        participantPubkey: draft.participantPubkey,
+        role: draft.role,
+      ).signAs(identityKeyPair, TradeKeyAuthorization.fromNostrEvent);
+      return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+        authorization,
+      ).encode();
+    },
+    encryptAuthorization:
+        ({
+          required plaintext,
+          required senderPrivateKey,
+          required recipientPubkey,
+        }) => coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+  );
+
+  final retainedTags = reservation.parsedTags.tags.where((tag) {
+    if (tag.isEmpty) return true;
+    return tag.first != 'p' && tag.first != kReservationParticipantProofTag;
+  });
+  return reservation
+      .copy(
+        id: null,
+        sig: null,
+        tags: ReservationTags([...retainedTags, ...plan.tags]),
+      )
+      .signAs(reservationAuthorKeyPair, Reservation.fromNostrEvent);
+}
+
+String _signedAuthorizationPayload({
+  required KeyPair signer,
+  required Reservation reservation,
+  required String role,
 }) {
-  return reservation.attachPubkeyProof(
-    role: 'buyer',
-    proofKeyPair: identityKeyPair,
-    encryptionKeyPair: reservationAuthorKeyPair,
+  final tradeId = reservation.getDtag();
+  if (tradeId == null || tradeId.isEmpty) {
+    throw StateError('Reservation trade id is required');
+  }
+  final authorization = TradeKeyAuthorization.create(
+    identityPubkey: signer.publicKey,
+    listingAnchor: reservation.parsedTags.listingAnchor,
+    tradeId: tradeId,
+    participantPubkey: reservation.participantPubkeyForRole(role),
+    role: role,
+  ).signAs(signer, TradeKeyAuthorization.fromNostrEvent);
+  return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+    authorization,
+  ).encode();
+}
+
+Future<ParticipationProof> _proofForReview({
+  required KeyPair signer,
+  required Reservation reservation,
+  required KeyPair proofRecipientKeyPair,
+  String role = 'buyer',
+}) async {
+  final privateKey = proofRecipientKeyPair.privateKey;
+  final participantPubkey = reservation.participantPubkeyForRole(role);
+  if (privateKey != null && privateKey.isNotEmpty) {
+    for (final proof in reservation.parsedTags.participantProofs) {
+      if (proof.role != role) continue;
+      if (proof.participantPubkey != participantPubkey) continue;
+      if (proof.recipientPubkey != proofRecipientKeyPair.publicKey) continue;
+      final plaintext = await coinlibDecryptNip44(
+        proof.payload,
+        privateKey,
+        reservation.pubKey,
+      );
+      if (!proof.matchesPayload(plaintext)) continue;
+      final payload = ReservationParticipantAuthorizationPayload.tryDecode(
+        plaintext,
+      );
+      if (payload?.pubkey != signer.publicKey) continue;
+      return ParticipationProof(
+        role: role,
+        participantPubkey: participantPubkey,
+        authorizationPayload: plaintext,
+      );
+    }
+  }
+
+  return ParticipationProof(
+    role: role,
+    participantPubkey: participantPubkey,
+    authorizationPayload: _signedAuthorizationPayload(
+      signer: signer,
+      reservation: reservation,
+      role: role,
+    ),
   );
 }
 
-Review _review({
+Future<Review> _review({
   required KeyPair signer,
   required Listing listing,
   required Reservation proofReservation,
   required KeyPair proofReservationAuthorKeyPair,
   String? reservationAnchor,
-}) {
-  final revealKeyPair = deriveReviewRevealKeyPair(
-    reservation: proofReservation,
-    reservationAuthorKeyPair: proofReservationAuthorKeyPair,
-    role: 'buyer',
-  );
-
+}) async {
   return Review(
     pubKey: signer.publicKey,
     createdAt: DateTime(2026, 6, 1).millisecondsSinceEpoch ~/ 1000,
@@ -163,7 +273,11 @@ Review _review({
     content: ReviewContent(
       rating: 5,
       content: 'Great stay!',
-      proof: ParticipationProof(revealPrivateKey: revealKeyPair.privateKey!),
+      proof: await _proofForReview(
+        signer: signer,
+        reservation: proofReservation,
+        proofRecipientKeyPair: proofReservationAuthorKeyPair,
+      ),
     ),
   ).signAs(signer, Review.fromNostrEvent);
 }
@@ -291,7 +405,7 @@ void main() {
             PTag.buyer(buyerAlias.publicKey),
           ],
         );
-        final review = _review(
+        final review = await _review(
           signer: MockKeys.guest,
           listing: listing,
           proofReservation: negotiate,
@@ -327,7 +441,7 @@ void main() {
         start: DateTime(2026, 2, 1),
         end: DateTime(2026, 2, 3),
       );
-      final review = _review(
+      final review = await _review(
         signer: MockKeys.guest,
         listing: listing,
         proofReservation: proofReservation,
@@ -358,7 +472,7 @@ void main() {
     });
 
     test(
-      'invalid review when reveal key does not match any proof capsule',
+      'invalid review when authorization payload does not match a reservation proof',
       () async {
         final buyerAlias = MockKeys.reviewer;
         final seededReservation = await _withBuyerProof(
@@ -385,7 +499,7 @@ void main() {
           start: DateTime(2026, 2, 1),
           end: DateTime(2026, 2, 3),
         );
-        final review = _review(
+        final review = await _review(
           signer: MockKeys.guest,
           listing: listing,
           proofReservation: wrongReservation,
@@ -452,7 +566,7 @@ void main() {
         );
         fakeRequests.events.add(commit);
         fakeRequests.events.add(
-          _review(
+          await _review(
             signer: MockKeys.guest,
             listing: listing,
             proofReservation: commit,
@@ -513,7 +627,7 @@ void main() {
 
         fakeRequests.events.add(commit);
         fakeRequests.events.add(
-          _review(
+          await _review(
             signer: MockKeys.guest,
             listing: listing,
             proofReservation: commit,
@@ -585,7 +699,7 @@ void main() {
         fakeRequests.events.addAll([
           commit,
           cancel,
-          _review(
+          await _review(
             signer: MockKeys.guest,
             listing: listing,
             proofReservation: commit,

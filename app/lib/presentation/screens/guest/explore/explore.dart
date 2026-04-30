@@ -22,18 +22,11 @@ class ExploreScreen extends StatelessWidget {
 
         BlocProvider(create: (context) => FilterCubit()),
         BlocProvider(
-          create: (context) =>
-              PostResultFilterCubit<Listing>()
-                ..updateFilter((listing) => listing.active),
-        ),
-        BlocProvider(
           create: (context) => ListCubit<Listing>(
             kinds: Listing.kinds,
             limit: 20,
             nostrService: getIt(),
             sortCubit: context.read<SortCubit<Listing>>(),
-            postResultFilterCubit: context
-                .read<PostResultFilterCubit<Listing>>(),
             filterCubit: context.read<FilterCubit>(),
           ),
         ),

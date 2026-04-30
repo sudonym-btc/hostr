@@ -546,7 +546,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i733.Calendar(
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         listings: gh<_i906.Listings>(),
-        auth: gh<_i1000.Auth>(),
         metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i331.CustomLogger>(),
         port: gh<_i733.CalendarPort>(),
@@ -627,10 +626,9 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.factoryParam<_i981.Trade, String, String>(
-      (tradeId, listingAnchor) => _i981.Trade(
-        tradeId: tradeId,
-        listingAnchor: listingAnchor,
+    gh.factoryParam<_i981.Trade, _i981.TradeContext, dynamic>(
+      (context, _) => _i981.Trade(
+        context: context,
         logger: gh<_i331.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
         listings: gh<_i906.Listings>(),

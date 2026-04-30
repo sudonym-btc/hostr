@@ -7,8 +7,8 @@ import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 const _publishedAtTag = 'published_at';
-const kReservationPubkeyProofTag = 'pubkey_proof';
-const kReservationPubkeyProofSchemeNip44V1 = 'nip44-v1';
+const kReservationParticipantProofTag = 'participant_proof';
+const kReservationParticipantProofSchemeNip44 = 'nip44';
 
 List<List<String>> _withPublishedAt(
   List<List<String>> tags,
@@ -69,81 +69,84 @@ class ReservationTags extends EventTags
     with ReferencesListing<ReservationTags> {
   ReservationTags(super.tags);
 
-  List<ReservationPubkeyProofTag> get pubkeyProofs => tags
-      .map(ReservationPubkeyProofTag.tryFromTag)
-      .whereType<ReservationPubkeyProofTag>()
+  List<ReservationParticipantProofTag> get participantProofs => tags
+      .map(ReservationParticipantProofTag.tryFromTag)
+      .whereType<ReservationParticipantProofTag>()
       .toList(growable: false);
-
-  List<ReservationPubkeyProofTag> pubkeyProofsFor({
-    required String role,
-    required String recipientPubkey,
-  }) {
-    return pubkeyProofs
-        .where(
-          (proof) =>
-              proof.role == role && proof.recipientPubkey == recipientPubkey,
-        )
-        .toList(growable: false);
-  }
 }
 
-/// Encrypted reservation tag that can prove a hidden participant pubkey.
+/// Encrypted participant identity capsule for one role-marked `p` tag.
 ///
 /// Shape:
-/// `["pubkey_proof", role, recipientPubkey, scheme, ciphertext]`
+/// `["participant_proof", role, participantPubkey, recipientPubkey, scheme, payloadHash, payload]`
 ///
-/// The current scheme is [kReservationPubkeyProofSchemeNip44V1], where
-/// [ciphertext] decrypts to a [ReservationPubkeyProofPayload].
-class ReservationPubkeyProofTag {
+/// [payloadHash] is the sha256 hex digest of the plaintext signed participant
+/// authorization. [payload] is that authorization encrypted for
+/// [recipientPubkey] when [scheme] is [kReservationParticipantProofSchemeNip44].
+class ReservationParticipantProofTag {
   final String role;
+  final String participantPubkey;
   final String recipientPubkey;
   final String scheme;
-  final String ciphertext;
+  final String payloadHash;
+  final String payload;
 
-  const ReservationPubkeyProofTag({
+  const ReservationParticipantProofTag({
     required this.role,
+    required this.participantPubkey,
     required this.recipientPubkey,
     required this.scheme,
-    required this.ciphertext,
+    required this.payloadHash,
+    required this.payload,
   });
 
+  static String hashPayload(String payload) =>
+      sha256.convert(utf8.encode(payload)).toString();
+
+  bool matchesPayload(String plaintext) =>
+      payloadHash == hashPayload(plaintext);
+
   List<String> toTag() => [
-        kReservationPubkeyProofTag,
+        kReservationParticipantProofTag,
         role,
+        participantPubkey,
         recipientPubkey,
         scheme,
-        ciphertext,
+        payloadHash,
+        payload,
       ];
 
-  static ReservationPubkeyProofTag? tryFromTag(List<String> tag) {
-    if (tag.length < 5 || tag.first != kReservationPubkeyProofTag) {
+  static ReservationParticipantProofTag? tryFromTag(List<String> tag) {
+    if (tag.length < 7 || tag.first != kReservationParticipantProofTag) {
       return null;
     }
-    return ReservationPubkeyProofTag(
+    return ReservationParticipantProofTag(
       role: tag[1],
-      recipientPubkey: tag[2],
-      scheme: tag[3],
-      ciphertext: tag[4],
+      participantPubkey: tag[2],
+      recipientPubkey: tag[3],
+      scheme: tag[4],
+      payloadHash: tag[5],
+      payload: tag[6],
     );
   }
 }
 
-/// Compact plaintext encrypted into a [ReservationPubkeyProofTag].
+/// Compact plaintext encrypted into a [ReservationParticipantProofTag].
 ///
 /// Plaintext is the JSON-encoded signed [TradeKeyAuthorization] event.
-class ReservationPubkeyProofPayload {
+class ReservationParticipantAuthorizationPayload {
   final String pubkey;
   final TradeKeyAuthorization authorizationEvent;
 
-  const ReservationPubkeyProofPayload({
+  const ReservationParticipantAuthorizationPayload({
     required this.pubkey,
     required this.authorizationEvent,
   });
 
-  factory ReservationPubkeyProofPayload.fromAuthorizationEvent(
+  factory ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
     TradeKeyAuthorization authorizationEvent,
   ) {
-    return ReservationPubkeyProofPayload(
+    return ReservationParticipantAuthorizationPayload(
       pubkey: authorizationEvent.pubKey,
       authorizationEvent: authorizationEvent,
     );
@@ -151,14 +154,16 @@ class ReservationPubkeyProofPayload {
 
   String encode() => authorizationEvent.model.toJsonString();
 
-  static ReservationPubkeyProofPayload? tryDecode(String plaintext) {
+  static ReservationParticipantAuthorizationPayload? tryDecode(
+    String plaintext,
+  ) {
     try {
       final event = Nip01EventModel.fromJson(jsonDecode(plaintext));
       if (event.kind != kNostrKindTradeKeyAuthorization) {
         return null;
       }
       final authorization = TradeKeyAuthorization.fromNostrEvent(event);
-      return ReservationPubkeyProofPayload.fromAuthorizationEvent(
+      return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
         authorization,
       );
     } catch (_) {
@@ -182,10 +187,6 @@ class ReservationPubkeyProofPayload {
   }
 }
 
-// Public reservations can reveal a durable participant pubkey to authorized
-// recipients with encrypted `pubkey_proof` tags while keeping role-marked `p`
-// tags disposable. The decrypted signed authorization event remains the
-// authority.
 class ReservationExpectedAmount {
   final DenominatedAmount listingPrice;
   final DenominatedAmount? negotiatedAmount;
@@ -328,7 +329,6 @@ class Reservation
     // Tag fields
     String? threadAnchor,
     List<PTag> pTags = const [],
-    List<ReservationPubkeyProofTag> pubkeyProofs = const [],
     List<List<String>> extraTags = const [],
     // Event-level
     String? id,
@@ -348,7 +348,6 @@ class Reservation
             ['d', dTag],
             if (threadAnchor != null) [kThreadRefTag, threadAnchor],
             for (final p in pTags) p.toTag(),
-            for (final proof in pubkeyProofs) proof.toTag(),
             ...extraTags,
           ],
           eventCreatedAt,

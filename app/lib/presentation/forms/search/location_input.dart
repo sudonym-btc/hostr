@@ -10,6 +10,7 @@ import 'location_field.dart';
 /// Wraps [LocationField] with `h3Mode: LocationFieldH3Mode.addressHierarchy`.
 class LocationInput extends StatelessWidget {
   final LocationController controller;
+  final Key? textFieldKey;
   final String hintText;
   final FormFieldValidator<String>? validator;
   final ValueChanged<LocationSuggestion>? onSelected;
@@ -21,6 +22,7 @@ class LocationInput extends StatelessWidget {
   const LocationInput({
     super.key,
     required this.controller,
+    this.textFieldKey,
     this.hintText = 'Enter an address',
     this.validator,
     this.onSelected,
@@ -34,6 +36,7 @@ class LocationInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return LocationField(
       controller: controller,
+      textFieldKey: textFieldKey,
       hintText: hintText,
       validator: validator,
       onSelected: onSelected,
@@ -53,6 +56,7 @@ class LocationInput extends StatelessWidget {
 /// Wraps [LocationField] with `h3Mode: LocationFieldH3Mode.polygonCover`.
 class AreaLocationInput extends StatelessWidget {
   final LocationController controller;
+  final Key? textFieldKey;
   final String hintText;
   final FormFieldValidator<String>? validator;
   final Set<String>? featureTypes;
@@ -65,6 +69,7 @@ class AreaLocationInput extends StatelessWidget {
   const AreaLocationInput({
     super.key,
     required this.controller,
+    this.textFieldKey,
     this.hintText = 'Enter a location',
     this.validator,
     this.featureTypes = const {'country', 'state', 'region', 'city', 'town'},
@@ -79,6 +84,7 @@ class AreaLocationInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return LocationField(
       controller: controller,
+      textFieldKey: textFieldKey,
       hintText: hintText,
       validator: validator,
       featureTypes: featureTypes,

@@ -34,10 +34,10 @@ class _TripsScreenState extends State<TripsScreen> {
   @override
   Widget build(BuildContext context) {
     final content = StatusStreamListWidget(
-      stream: getIt<Hostr>().userSubscriptions.myTripsList$,
-      itemKeyBuilder: (item) => ValueKey(item.event.tradeId),
-      sort: ReservationStatusSections.compare,
-      sectionHeaderBuilder: ReservationStatusSections.buildHeader,
+      stream: getIt<Hostr>().userSubscriptions.myResolvedTripsList$,
+      itemKeyBuilder: (item) => ValueKey(item.group.tradeId),
+      sort: ReservationStatusSections.compareResolved,
+      sectionHeaderBuilder: ReservationStatusSections.buildResolvedHeader,
       emptyBuilder: () => StatusStreamListWidget.empty(
         context,
         leading: Icon(
@@ -56,12 +56,16 @@ class _TripsScreenState extends State<TripsScreen> {
         ),
       ),
       builder: (item) {
+        final conversationParticipants =
+            item.participants.resolvedParticipantSetWithoutEscrow;
+
         void openThread() {
-          final anchor = getIt<Hostr>().messaging.threads
-              .findPreferredConversationIdByTradeId(item.event.tradeId);
-          if (anchor != null) {
-            AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
-          }
+          final thread = getIt<Hostr>().messaging.threads
+              .ensureTradeConversation(
+                tradeId: item.group.tradeId,
+                participants: conversationParticipants,
+              );
+          AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
         }
 
         return Material(
@@ -70,7 +74,8 @@ class _TripsScreenState extends State<TripsScreen> {
             onTap: openThread,
             child: CustomPadding(
               child: TradeHeader(
-                tradeId: item.event.tradeId,
+                tradeId: item.group.tradeId,
+                participants: conversationParticipants,
                 showActions: false,
               ),
             ),

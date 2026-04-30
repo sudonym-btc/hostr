@@ -146,7 +146,7 @@ class SeedFactory {
     factory: _entities,
   );
 
-  List<Review> buildReviews(List<SeedThread> threads) => stage_reviews
+  Future<List<Review>> buildReviews(List<SeedThread> threads) => stage_reviews
       .buildReviews(ctx: _ctx, threads: threads, factory: _entities);
 
   stage_badges.BadgeSeedData buildBadges({
@@ -202,7 +202,7 @@ class SeedFactory {
 
     final messages = await buildMessages(threads);
     final escrowSelectedMessages = await buildEscrowSelectedMessages(threads);
-    final reviews = buildReviews(threads);
+    final reviews = await buildReviews(threads);
     final badges = buildBadges(hosts: hosts, listings: listings);
 
     return SeedPipelineData(
@@ -234,7 +234,7 @@ class SeedFactory {
   /// Set [withEscrowProof] to `true` and provide [escrowService],
   /// [escrowMethod] for an escrow-styled proof.
   /// Otherwise a zap-receipt-based proof (with null zap receipt) is used.
-  Reservation buildMockReservation(
+  Future<Reservation> buildMockReservation(
     SeedThread thread, {
     required ProfileMetadata hostProfile,
     bool withEscrowProof = false,
@@ -263,14 +263,13 @@ class SeedFactory {
       );
     }
 
-    return Reservation.create(
-      pubKey: thread.guest.keyPair.publicKey,
+    return _entities.reservation(
+      guestKeyPair: thread.guest.keyPair,
       dTag: 'mock-reservation-${thread.id}',
-      listingAnchor: thread.listing.anchor!,
-      threadAnchor: thread.request.getDtag()!,
+      listing: thread.listing,
       pTags: [
         PTag.seller(thread.listing.pubKey),
-        PTag.buyer(thread.guest.keyPair.publicKey),
+        PTag.buyer(thread.requestAuthorKeyPair.publicKey),
         if (withEscrowProof && escrowService != null)
           PTag.escrow(escrowService.escrowPubkey),
       ],
@@ -281,8 +280,9 @@ class SeedFactory {
       amount: thread.request.amount,
       recipient: thread.request.recipient,
       proof: proof,
+      signerOverride: thread.requestAuthorKeyPair,
       createdAt: _ctx.timestampDaysAfter(80),
-    ).signAs(thread.guest.keyPair, Reservation.fromNostrEvent);
+    );
   }
 
   void dispose() => _ctx.dispose();

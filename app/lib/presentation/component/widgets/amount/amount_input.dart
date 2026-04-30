@@ -26,6 +26,20 @@ export 'amount_formatting.dart';
 
 const buttons = [1, 2, 3, 4, 5, 6, 7, 8, 9, '.', 0, 'backspace'];
 
+final _amountEditorTextByField = Expando<_AmountEditorText>();
+
+class _AmountEditorText {
+  final String denomination;
+  final int decimals;
+  String text;
+
+  _AmountEditorText({
+    required this.denomination,
+    required this.decimals,
+    required this.text,
+  });
+}
+
 class AmountTapInput extends StatefulWidget {
   final AmountFieldController controller;
   final String? labelText;
@@ -385,6 +399,9 @@ class AmountInputWidget extends FormField<DenominatedAmount> {
                                }
 
                                return GestureDetector(
+                                 key: ValueKey(
+                                   'amount_input_keypad_${buttons[index]}',
+                                 ),
                                  behavior: HitTestBehavior.opaque,
                                  onTap: () {
                                    _applyAmountEditorInput(
@@ -476,23 +493,18 @@ bool _applyAmountEditorInput(
 
   // For BTC-family, we edit in sats (the display unit), so use the raw
   // integer value directly.
-  String currentValue;
-  if (isBtc) {
-    currentValue = currentAmount.value.toString();
-  } else {
-    currentValue = currentAmount.toDecimalString(maxDecimals: maxDecimals);
-    // Only trim trailing zeros after the decimal point.
-    if (currentValue.contains('.')) {
-      currentValue = currentValue.replaceAll(RegExp(r'0*$'), '');
-      currentValue = currentValue.replaceAll(RegExp(r'\.$'), '');
-    }
-  }
+  final currentValue = _currentAmountEditorText(
+    field,
+    currentAmount,
+    maxDecimals,
+  );
 
   if (input is int) {
-    if (currentValue == '0') {
-      currentValue = '';
+    var nextValue = currentValue;
+    if (nextValue == '0') {
+      nextValue = '';
     }
-    final newValue = currentValue + input.toString();
+    final newValue = nextValue + input.toString();
     final DenominatedAmount newAmount;
     if (isBtc) {
       final parsed = BigInt.tryParse(newValue);
@@ -509,6 +521,7 @@ bool _applyAmountEditorInput(
         currentAmount.decimals,
       );
     }
+    _setAmountEditorText(field, newAmount, newValue);
     field.didChange(newAmount);
     return true;
   }
@@ -516,13 +529,13 @@ bool _applyAmountEditorInput(
   if (input == '.') {
     if (isBtc || currentValue.contains('.')) return false;
     final newValue = currentValue.isEmpty ? '0.' : '$currentValue.';
-    field.didChange(
-      DenominatedAmount.fromDecimal(
-        newValue,
-        currentAmount.denomination,
-        currentAmount.decimals,
-      ),
+    final newAmount = DenominatedAmount.fromDecimal(
+      newValue,
+      currentAmount.denomination,
+      currentAmount.decimals,
     );
+    _setAmountEditorText(field, newAmount, newValue);
+    field.didChange(newAmount);
     return true;
   }
 
@@ -534,26 +547,64 @@ bool _applyAmountEditorInput(
       final parsed = newValue.isEmpty
           ? BigInt.zero
           : (BigInt.tryParse(newValue) ?? BigInt.zero);
-      field.didChange(
-        DenominatedAmount(
-          value: parsed,
-          denomination: currentAmount.denomination,
-          decimals: currentAmount.decimals,
-        ),
+      final newAmount = DenominatedAmount(
+        value: parsed,
+        denomination: currentAmount.denomination,
+        decimals: currentAmount.decimals,
       );
+      _setAmountEditorText(field, newAmount, newValue);
+      field.didChange(newAmount);
     } else {
-      field.didChange(
-        DenominatedAmount.fromDecimal(
-          newValue.isEmpty ? '0' : newValue,
-          currentAmount.denomination,
-          currentAmount.decimals,
-        ),
+      final newAmount = DenominatedAmount.fromDecimal(
+        newValue.isEmpty ? '0' : newValue,
+        currentAmount.denomination,
+        currentAmount.decimals,
       );
+      _setAmountEditorText(field, newAmount, newValue);
+      field.didChange(newAmount);
     }
     return true;
   }
 
   return false;
+}
+
+String _currentAmountEditorText(
+  FormFieldState<DenominatedAmount> field,
+  DenominatedAmount amount,
+  int maxDecimals,
+) {
+  final existing = _amountEditorTextByField[field];
+  if (existing != null &&
+      existing.denomination == amount.denomination &&
+      existing.decimals == amount.decimals) {
+    return existing.text;
+  }
+  return _formatAmountEditorText(amount, maxDecimals);
+}
+
+void _setAmountEditorText(
+  FormFieldState<DenominatedAmount> field,
+  DenominatedAmount amount,
+  String text,
+) {
+  _amountEditorTextByField[field] = _AmountEditorText(
+    denomination: amount.denomination,
+    decimals: amount.decimals,
+    text: text,
+  );
+}
+
+String _formatAmountEditorText(DenominatedAmount amount, int maxDecimals) {
+  if (amount.isBtc) {
+    return amount.value.toString();
+  }
+  var text = amount.toDecimalString(maxDecimals: maxDecimals);
+  if (text.contains('.')) {
+    text = text.replaceAll(RegExp(r'0*$'), '');
+    text = text.replaceAll(RegExp(r'\.$'), '');
+  }
+  return text;
 }
 
 /// A bottom sheet that allows the user to edit an amount within an optional range.
@@ -656,6 +707,7 @@ class _AmountEditorBottomSheetState extends State<AmountEditorBottomSheet> {
               valueListenable: _isAmountValid,
               builder: (context, isValid, child) {
                 return ModalBottomSheetPrimaryButton(
+                  key: const ValueKey('amount_editor_done_button'),
                   onPressed: isValid ? _submitAmount : null,
                   child: child!,
                 );

@@ -53,6 +53,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   /// state, this holds the live swap operation.
   SwapInOperation? _swapOperation;
   StreamSubscription? _swapReadySub;
+  StreamSubscription? _swapDebugSub;
 
   @override
   void initState() {
@@ -84,10 +85,27 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     await _selectorCubit.select();
 
     // Build the SwapInParams (resolves signer, estimates gas, etc.).
+    debugPrint(
+      'EscrowFundWidget._onConfirm: preparing swap for trade '
+      '${widget.negotiateReservation.getDtag()}',
+    );
     final swapParams = await preparer.prepare();
+    debugPrint(
+      'EscrowFundWidget._onConfirm: prepared swap amount='
+      '${swapParams.amount.getInSats} token=${swapParams.amount.token.tagId}',
+    );
 
     // Create the swap operation (self-registers in SwapInTracker).
     final swapOp = preparer.configuredChain.swapIn(params: swapParams);
+    _swapDebugSub = swapOp.stream.listen((state) {
+      debugPrint(
+        'EscrowFundWidget._onConfirm: swap state ${state.runtimeType}',
+      );
+      // Temporarily rely only on PaymentProofOrchestrator's escrow-event
+      // scanner path. The direct completed-swap publish path is useful, but it
+      // bypasses the scanner by carrying EscrowServiceSelected through the UI,
+      // so disabling it lets the e2e run isolate scanner/orchestrator behavior.
+    });
 
     // Transition to swap flow and auto-execute — the user already confirmed
     // in EscrowFundConfirmWidget so there is no need to show the
@@ -109,6 +127,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   @override
   void dispose() {
     unawaited(_swapReadySub?.cancel());
+    unawaited(_swapDebugSub?.cancel());
     unawaited(_selectorCubit.close());
     // If there's a live swap, let it continue (the registry holds it).
     // detachOrClose is handled by SwapInFlowWidget.
@@ -276,6 +295,7 @@ class _EscrowFundConfirmWidgetState extends State<EscrowFundConfirmWidget> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               FilledButton(
+                key: const ValueKey('escrow_fund_confirm_button'),
                 onPressed: _loading ? null : _handleConfirm,
                 child: _loading
                     ? AppLoadingIndicator.small(

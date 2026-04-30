@@ -5,7 +5,6 @@ export 'commit_authorization.dart';
 export 'escrow_method.dart';
 export 'escrow_service.dart';
 export 'escrow_service_selected.dart';
-export 'escrow_trust.dart';
 export 'event.dart';
 // export 'gift_wrap.dart';
 export 'guest_participation_proof.dart';

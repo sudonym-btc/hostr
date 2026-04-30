@@ -61,12 +61,14 @@ class _FiltersScreenState extends State<FiltersScreen> {
           children: [
             if (_controller.isDirty) ...[
               TextButton(
+                key: const ValueKey('explore_filters_clear_button'),
                 onPressed: _clear,
                 child: Text(AppLocalizations.of(context)!.clear),
               ),
               const SizedBox(height: kSpace2),
             ],
             ModalBottomSheetPrimaryButton(
+              key: const ValueKey('explore_filters_search_button'),
               onPressed: _controller.canSubmit ? _submit : null,
               child: Text(AppLocalizations.of(context)!.search),
             ),

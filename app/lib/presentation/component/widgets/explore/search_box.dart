@@ -57,6 +57,7 @@ class SearchBoxWidget extends StatelessWidget {
         shadowColor: embedded ? Colors.transparent : color,
         borderRadius: borderRadius,
         child: InkWell(
+          key: const ValueKey('explore_search_box_button'),
           onTap: onTap,
           borderRadius: borderRadius,
           child: ConstrainedBox(
@@ -95,6 +96,7 @@ class SearchBoxWidget extends StatelessWidget {
                   const SizedBox(width: 8),
                   if (hasActiveFilter || hasDateRange)
                     IconButton(
+                      key: const ValueKey('explore_clear_filters_button'),
                       icon: const Icon(Icons.close),
                       onPressed: () {
                         context.read<DateRangeCubit>().updateDateRange(null);

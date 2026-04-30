@@ -21,8 +21,9 @@ import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
 import '../requests/requests.dart';
+import '../reservation_groups/reservation_group_participant_resolver.dart';
 import '../reservation_groups/reservation_groups.dart';
-import '../reservations/reservation_pubkey_proofs.dart';
+import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservations.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'escrow_daemon_models.dart';
@@ -77,9 +78,15 @@ class EscrowReservationNotifier {
       return;
     }
 
-    final buyerPubkey = await _resolveProvenPubkey(group, role: 'buyer');
+    final resolvedParticipants = await _resolveParticipantSet(group);
+    final buyerPubkey = _resolvedRolePubkey(
+      resolvedParticipants,
+      role: 'buyer',
+      requireProofWhenPresent: true,
+    );
     final sellerPubkey =
-        await _resolveProvenPubkey(group, role: 'seller') ?? group.sellerPubkey;
+        _resolvedRolePubkey(resolvedParticipants, role: 'seller') ??
+        group.sellerPubkey;
 
     if (buyerPubkey == null) {
       _logger.i(
@@ -109,15 +116,47 @@ class EscrowReservationNotifier {
 
     await _maybeSend(
       tradeId: tradeId,
+      noticeType: 'reservation_placed',
       role: 'buyer',
       recipientPubkey: buyerPubkey,
       content: buyerContent,
     );
     await _maybeSend(
       tradeId: tradeId,
+      noticeType: 'reservation_placed',
       role: 'seller',
       recipientPubkey: sellerPubkey,
       content: sellerContent,
+    );
+  }
+
+  Future<void> notifyCancellation(ReservationGroup group) async {
+    final tradeId = group.tradeId;
+    final resolvedParticipants = await _resolveParticipantSet(group);
+    final buyerPubkey = _resolvedRolePubkey(
+      resolvedParticipants,
+      role: 'buyer',
+      requireProofWhenPresent: true,
+    );
+    if (buyerPubkey == null) {
+      _logger.i(
+        'Skipping reservation cancellation notice: '
+        'trade=$tradeId reason=no_buyer_proof',
+      );
+      return;
+    }
+
+    final listing = await loadListing(group.listingAnchor);
+    await _maybeSend(
+      tradeId: tradeId,
+      noticeType: 'reservation_cancelled',
+      role: 'buyer',
+      recipientPubkey: buyerPubkey,
+      content: _buyerCancellationNoticeContent(
+        listingTitle: listing?.title,
+        start: group.start,
+        end: group.end,
+      ),
     );
   }
 
@@ -127,29 +166,42 @@ class EscrowReservationNotifier {
     return !end.toUtc().isAfter(clock().toUtc());
   }
 
-  Future<String?> _resolveProvenPubkey(
-    ReservationGroup group, {
+  Future<ResolvedReservationGroupParticipants> _resolveParticipantSet(
+    ReservationGroup group,
+  ) {
+    return ReservationGroupParticipantResolver(
+      keyring: KeyPairReservationParticipantKeyring(
+        keyPairs: [escrowKeyPair()],
+        logger: _logger,
+      ),
+    ).resolve(group);
+  }
+
+  String? _resolvedRolePubkey(
+    ResolvedReservationGroupParticipants participants, {
     required String role,
-  }) async {
-    final keyPair = escrowKeyPair();
-    for (final reservation in group.reservations) {
-      final proof = await reservation.resolvePubkeyProof(
-        role: role,
-        recipientKeyPair: keyPair,
-      );
-      if (proof != null) return proof.pubkey;
+    bool requireProofWhenPresent = false,
+  }) {
+    final rawPubkey = participants.rawParticipantPubkeyForRole(role);
+    if (rawPubkey == null || rawPubkey.isEmpty) return null;
+    if (requireProofWhenPresent &&
+        participants.hasParticipantProofFor(rawPubkey) &&
+        !participants.hasResolvedProofFor(rawPubkey)) {
+      return null;
     }
-    return null;
+    return participants.identityByParticipantPubkey[rawPubkey] ?? rawPubkey;
   }
 
   Future<void> _maybeSend({
     required String tradeId,
+    required String noticeType,
     required String role,
     required String recipientPubkey,
     required String content,
   }) async {
     if (_hasExistingNotice(
       tradeId: tradeId,
+      noticeType: noticeType,
       role: role,
       recipientPubkey: recipientPubkey,
     )) {
@@ -162,7 +214,7 @@ class EscrowReservationNotifier {
 
     final tags = [
       [_hostrTradeIdTag, tradeId],
-      ['hostr_notice', 'reservation_placed', role, recipientPubkey],
+      ['hostr_notice', noticeType, role, recipientPubkey],
     ];
 
     _logger.i(
@@ -183,6 +235,7 @@ class EscrowReservationNotifier {
 
   bool _hasExistingNotice({
     required String tradeId,
+    required String noticeType,
     required String role,
     required String recipientPubkey,
   }) {
@@ -199,7 +252,7 @@ class EscrowReservationNotifier {
         (tag) =>
             tag.length >= 4 &&
             tag[0] == 'hostr_notice' &&
-            tag[1] == 'reservation_placed' &&
+            tag[1] == noticeType &&
             tag[2] == role &&
             tag[3] == recipientPubkey,
       );
@@ -242,6 +295,21 @@ class EscrowReservationNotifier {
     return 'A reservation was placed for $reservation. '
         'Payment has been paid and is sitting in escrow. '
         'Please login to https://hostr.network to confirm the booking with the guest.';
+  }
+
+  static String _buyerCancellationNoticeContent({
+    required String? listingTitle,
+    required DateTime? start,
+    required DateTime? end,
+  }) {
+    final reservation = _reservationDescription(
+      listingTitle: listingTitle,
+      start: start,
+      end: end,
+    );
+    return 'Your reservation for $reservation could not be confirmed by escrow. '
+        'No booking was created, and any escrowed payment should be refunded '
+        'according to the payment method used.';
   }
 
   static String _reservationDescription({
@@ -313,15 +381,14 @@ class EscrowDaemon {
   late final EscrowReservationNotifier _reservationNotifier;
   final Map<String, ReservationGroup> _reservationGroups = {};
   final Map<String, Timer> _reservationRetryTimers = {};
+  PublishSubject<String>? _reservationRetryTradeIds;
 
   // ── Subscriptions ───────────────────────────────────────────────────────
   StreamSubscription? _eventSub;
   StreamSubscription<int>? _blockSub;
   final Map<String, StreamSubscription> _tradeEventSubs = {};
   StreamSubscription? _threadSub;
-  StreamSubscription? _reservationPTagSub;
-  StreamSubscription? _reservationAuthorSub;
-  Timer? _reservationDebounce;
+  StreamSubscription? _reservationSub;
   int? _latestBlockNum;
   static const _reservationRetryDelay = Duration(seconds: 5);
 
@@ -523,9 +590,9 @@ class EscrowDaemon {
     }
     _tradeEventSubs.clear();
     await _threadSub?.cancel();
-    await _reservationPTagSub?.cancel();
-    await _reservationAuthorSub?.cancel();
-    _reservationDebounce?.cancel();
+    await _reservationSub?.cancel();
+    await _reservationRetryTradeIds?.close();
+    _reservationRetryTradeIds = null;
     for (final timer in _reservationRetryTimers.values) {
       timer.cancel();
     }
@@ -731,76 +798,89 @@ class EscrowDaemon {
   void _startReservationListener() {
     final escrowPubkey = _auth.activeKeyPair!.publicKey;
 
-    // 1. Reservations that p-tag the escrow (buyer's self-signed commits).
-    final pTagStream = _reservations.subscribe(Filter(pTags: [escrowPubkey]));
-    _reservationPTagSub = reservationListenerEvents(pTagStream).listen(
-      _onReservation,
-      onError: (e) => _logger.e('Reservation p-tag stream error: $e'),
+    final escrowTaggedReservations = _reservations.subscribe(
+      Filter(pTags: [escrowPubkey]),
+      name: 'escrow-reservation-triggers',
     );
 
-    // 2. Reservations authored by the escrow (our own past confirmations/
-    //    cancellations). Needed so group.escrowReservation is populated and
-    //    we skip groups we've already handled.
-    final authorStream = _reservations.subscribe(
-      Filter(authors: [escrowPubkey]),
-    );
-    _reservationAuthorSub = reservationListenerEvents(authorStream).listen(
-      _onReservation,
-      onError: (e) => _logger.e('Reservation author stream error: $e'),
-    );
+    final retryTradeIds = PublishSubject<String>();
+    _reservationRetryTradeIds = retryTradeIds;
+    final triggeredTradeIds = reservationListenerEvents(
+      escrowTaggedReservations,
+    ).map(reservationTradeId).whereType<String>();
+
+    _reservationSub =
+        Rx.merge<String>([triggeredTradeIds, retryTradeIds.stream])
+            .where((tradeId) => tradeId.isNotEmpty)
+            .doOnData(
+              (tradeId) =>
+                  _logger.d('Reservation trigger received: trade=$tradeId'),
+            )
+            .flatMap(
+              (tradeId) =>
+                  Stream.fromFuture(_processReservationTradeId(tradeId)),
+              maxConcurrent: 1,
+            )
+            .listen(
+              (_) {},
+              onError: (e, st) =>
+                  _logger.e('Reservation processing stream error: $e'),
+            );
 
     _logger.i('Reservation listener started for $escrowPubkey');
   }
 
-  void _onReservation(Reservation reservation) {
-    final groupId = ReservationGroup.groupIdFromEvent(reservation);
-    final existing = _reservationGroups[groupId] ?? const ReservationGroup();
-    _reservationGroups[groupId] = existing.addReservation(reservation);
-
-    _logger.d(
-      'Reservation received: '
-      'trade=${reservation.getDtag()} '
-      'pubkey=${reservation.pubKey.substring(0, 8)}… '
-      'stage=${reservation.stage.name}',
-    );
-
-    // Debounce so rapid bursts (e.g. historical catch-up) are batched.
-    _reservationDebounce?.cancel();
-    _reservationDebounce = Timer(
-      const Duration(milliseconds: 500),
-      _processAllGroups,
-    );
-  }
-
-  void _processAllGroups() {
-    for (final entry in _reservationGroups.entries) {
-      _processGroup(entry.value);
+  Future<void> _processReservationTradeId(String tradeId) async {
+    try {
+      final groups = await _queryReservationGroupsForTrade(tradeId);
+      for (final group in groups) {
+        await _processGroup(group);
+      }
+    } catch (e, st) {
+      _logger.e('Error processing reservation trade=$tradeId: $e');
+      _logger.e('$st');
     }
   }
 
-  void _scheduleReservationRetry(String groupId) {
-    _reservationRetryTimers[groupId]?.cancel();
-    _reservationRetryTimers[groupId] = Timer(_reservationRetryDelay, () {
-      _reservationRetryTimers.remove(groupId);
-      final latestGroup = _reservationGroups[groupId];
-      if (latestGroup == null) return;
-      unawaited(_processGroup(latestGroup));
+  Future<List<ReservationGroup>> _queryReservationGroupsForTrade(
+    String tradeId,
+  ) async {
+    final escrowPubkey = _auth.activeKeyPair!.publicKey;
+    final reservations = await _reservations.getByTradeId(tradeId);
+    final groups =
+        Reservations.toReservationGroups(reservations: reservations).values
+            .where(
+              (group) => reservationGroupInvolvesEscrow(group, escrowPubkey),
+            )
+            .toList()
+          ..sort((a, b) => a.groupId.compareTo(b.groupId));
+
+    for (final group in groups) {
+      _reservationGroups[group.groupId] = group;
+    }
+    return groups;
+  }
+
+  void _scheduleReservationRetry(String tradeId) {
+    _reservationRetryTimers[tradeId]?.cancel();
+    _reservationRetryTimers[tradeId] = Timer(_reservationRetryDelay, () {
+      _reservationRetryTimers.remove(tradeId);
+      _reservationRetryTradeIds?.add(tradeId);
     });
   }
 
   Future<void> _processGroup(ReservationGroup group) async {
-    final groupId = group.reservations.isEmpty
-        ? null
-        : ReservationGroup.groupIdFromEvent(group.reservations.last);
-
     // Already confirmed/cancelled by us — do not publish another reservation,
     // but still run the idempotent notifier in case the daemon restarted after
     // confirming and before sending participant DMs.
-    if (group.escrowReservation != null) {
-      if (groupId != null) {
-        _reservationRetryTimers.remove(groupId)?.cancel();
+    final escrowReservation = group.escrowReservation;
+    if (escrowReservation != null) {
+      _reservationRetryTimers.remove(group.tradeId)?.cancel();
+      if (escrowReservation.stage == ReservationStage.commit) {
+        await _reservationNotifier.notifyReservation(group);
+      } else if (escrowReservation.stage == ReservationStage.cancel) {
+        await _reservationNotifier.notifyCancellation(group);
       }
-      await _reservationNotifier.notifyReservation(group);
       return;
     }
 
@@ -820,9 +900,7 @@ class EscrowDaemon {
       );
 
       if (result is Valid<ReservationGroup>) {
-        if (groupId != null) {
-          _reservationRetryTimers.remove(groupId)?.cancel();
-        }
+        _reservationRetryTimers.remove(group.tradeId)?.cancel();
         await _publishEscrowConfirmation(group, buyer);
         await _reservationNotifier.notifyReservation(group);
       } else if (result is Invalid<ReservationGroup>) {
@@ -832,13 +910,12 @@ class EscrowDaemon {
             'Escrow proof pending verification for trade=$tradeId: $reason. '
             'Retrying in ${_reservationRetryDelay.inSeconds}s.',
           );
-          if (groupId != null) {
-            _scheduleReservationRetry(groupId);
-          }
+          _scheduleReservationRetry(group.tradeId);
           return;
         }
         _logger.w('Escrow proof INVALID for trade=$tradeId: $reason');
         await _publishEscrowCancellation(group, buyer);
+        await _reservationNotifier.notifyCancellation(group);
       }
     } catch (e, st) {
       _logger.e('Error processing group trade=$tradeId: $e');
@@ -876,6 +953,23 @@ class EscrowDaemon {
         .addReservation(reservation);
 
     _logger.i('✗ Published escrow CANCEL for trade=${group.tradeId}');
+  }
+
+  @visibleForTesting
+  static String? reservationTradeId(Reservation reservation) =>
+      reservation.getDtag();
+
+  @visibleForTesting
+  static bool reservationGroupInvolvesEscrow(
+    ReservationGroup group,
+    String escrowPubkey,
+  ) {
+    if (group.escrowPubkey == escrowPubkey) return true;
+    return group.reservations.any(
+      (reservation) =>
+          reservation.pubKey == escrowPubkey ||
+          reservation.parsedTags.getTags('p').contains(escrowPubkey),
+    );
   }
 
   @visibleForTesting

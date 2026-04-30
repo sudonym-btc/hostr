@@ -138,7 +138,7 @@ packages:
     source: hosted
     version: "1.2.1"
   bolt11_decoder:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: bolt11_decoder
       sha256: ce3c4e4311e84c7b6ceb06ffbf84329bf6bdac1244ecfa1fc157c46038021bbc
@@ -1141,11 +1141,11 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/ndk"
-      ref: "fix/websocket-tostring"
-      resolved-ref: "7e3265996bcd69810bd28f84c005e80cafe7dff8"
+      ref: "codex/hostr-ndk-fixes"
+      resolved-ref: a146d5375a152f54a4b7dfa6b3125061a899520f
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
-    version: "0.8.2-dev.1"
+    version: "0.8.2-dev.5"
   ndk_bip32_keys:
     dependency: transitive
     description:

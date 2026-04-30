@@ -114,10 +114,10 @@ SeedPipelineConfig _withEnvOverrides(SeedPipelineConfig base) {
   final appBaseUrl = _resolveAppBaseUrl(env: env, relayUrl: base.relayUrl);
   final resolvedEscrowPicture =
       (base.escrowProfilePicture?.trim().isNotEmpty ?? false)
-          ? base.escrowProfilePicture!.trim()
-          : (env['SEED_ESCROW_PROFILE_PICTURE']?.trim().isNotEmpty ?? false)
-              ? env['SEED_ESCROW_PROFILE_PICTURE']!.trim()
-              : '$appBaseUrl/assets/assets/images/logo/generated/logo_base_1024.png';
+      ? base.escrowProfilePicture!.trim()
+      : (env['SEED_ESCROW_PROFILE_PICTURE']?.trim().isNotEmpty ?? false)
+      ? env['SEED_ESCROW_PROFILE_PICTURE']!.trim()
+      : '$appBaseUrl/assets/assets/images/logo/generated/logo_base_1024.png';
 
   // Fallback: read the token manifest produced by arbitrum-init.
   if (tbtcAddr == null || usdtAddr == null) {
@@ -155,6 +155,7 @@ SeedPipelineConfig _withEnvOverrides(SeedPipelineConfig base) {
     tradeSponsorPrivateKey:
         base.tradeSponsorPrivateKey ?? env['SEED_TRADE_SPONSOR_PRIVATE_KEY'],
     escrowProfilePicture: resolvedEscrowPicture,
+    signetBunkerUrl: base.signetBunkerUrl ?? env['SEED_SIGNET_BUNKER_URL'],
   );
 }
 
@@ -164,7 +165,9 @@ String _resolveAppBaseUrl({
 }) {
   final explicit = env['SEED_APP_BASE_URL']?.trim();
   if (explicit != null && explicit.isNotEmpty) {
-    return explicit.endsWith('/') ? explicit.substring(0, explicit.length - 1) : explicit;
+    return explicit.endsWith('/')
+        ? explicit.substring(0, explicit.length - 1)
+        : explicit;
   }
 
   final domain = env['DOMAIN']?.trim();
