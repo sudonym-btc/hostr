@@ -23,7 +23,13 @@ RUN apt-get update \
       '  toolchain="$2"' \
       '  shift 2' \
       '  if [ "$1" = "cargo" ]; then' \
-      '    toolchain_bin="$(dirname "$(/usr/local/cargo/bin/rustup which cargo --toolchain "${RUSTUP_TOOLCHAIN:-${toolchain}}")")"' \
+      '    export RUSTUP_HOME="${RUSTUP_HOME:-/usr/local/rustup}"' \
+      '    toolchain_dir="$(find "$RUSTUP_HOME/toolchains" -maxdepth 1 -type d -name "${RUSTUP_TOOLCHAIN:-${toolchain}}-*" -print -quit 2>/dev/null || true)"' \
+      '    if [ -n "$toolchain_dir" ]; then' \
+      '      toolchain_bin="$toolchain_dir/bin"' \
+      '    else' \
+      '      toolchain_bin="$(dirname "$(/usr/local/cargo/bin/rustup which cargo --toolchain "${RUSTUP_TOOLCHAIN:-${toolchain}}")")"' \
+      '    fi' \
       '    export PATH="${toolchain_bin}:$PATH"' \
       '    shift 1' \
       '    exec "${toolchain_bin}/cargo" "$@"' \
