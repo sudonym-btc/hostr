@@ -349,7 +349,7 @@ class Trade extends Cubit<TradeState> {
         : Stream<ThreadState?>.value(null);
 
     _combineSubscription =
-        Rx.combineLatest6(
+        Rx.combineLatest7(
           (_ownReservationsList$ = reservationGroup$.accumulateByKey(
             (g) => g.event.groupId,
           )).replayStream,
@@ -358,6 +358,7 @@ class Trade extends Cubit<TradeState> {
           (_allListingReservationsList$ = allListingReservations$!
                   .accumulateByKey((g) => g.event.groupId))
               .replayStream,
+          allListingReservations$!.status,
           threadState$,
           myReviews$.itemsStream,
           (
@@ -365,6 +366,7 @@ class Trade extends Cubit<TradeState> {
             List<PaymentEvent> payments,
             List<ReservationTransition> transitions,
             List<Validation<ReservationGroup>> allListingReservations,
+            StreamStatus allListingReservationsStatus,
             ThreadState? threadState,
             List<Review> myReviews,
           ) {
@@ -383,6 +385,7 @@ class Trade extends Cubit<TradeState> {
               paymentsStatus: payments$.status.value,
               transitions: transitions,
               allListingReservations: allListingReservations,
+              allListingReservationsStatus: allListingReservationsStatus,
               threadState: threadState,
               myReviews: listingReviews,
             );
@@ -409,6 +412,7 @@ class Trade extends Cubit<TradeState> {
     required StreamStatus paymentsStatus,
     required List<ReservationTransition> transitions,
     required List<Validation<ReservationGroup>> allListingReservations,
+    required StreamStatus allListingReservationsStatus,
     required ThreadState? threadState,
     List<Review> myReviews = const [],
   }) => _logger.spanSync('_resolve', () {
@@ -454,12 +458,17 @@ class Trade extends Cubit<TradeState> {
         .map((v) => v.event)
         .where((p) => !p.cancelled)
         .toList();
-    final overlapLock = resolveOverlapLock(
-      ourReservationDTag: tradeId,
-      allListingReservationGroups: validAllListingPairs,
-      startDate: start,
-      endDate: end,
-    );
+    final allListingReservationsLoaded =
+        allListingReservationsStatus is StreamStatusQueryComplete ||
+        allListingReservationsStatus is StreamStatusLive;
+    final overlapLock = allListingReservationsLoaded
+        ? resolveOverlapLock(
+            ourReservationDTag: tradeId,
+            allListingReservationGroups: validAllListingPairs,
+            startDate: start,
+            endDate: end,
+          )
+        : (isLoading: true, isBlocked: false, reason: null);
     final hasPayment = payments.isNotEmpty;
 
     // Determine stage + resolve actions.
@@ -601,7 +610,7 @@ class Trade extends Cubit<TradeState> {
 
   static TradeAvailability _resolveAvailability({
     required List<Validation<ReservationGroup>> ownReservations,
-    required ({bool isBlocked, String? reason}) overlapLock,
+    required OverlapLock overlapLock,
     bool negotiationCancelled = false,
   }) {
     if (negotiationCancelled) {
@@ -615,6 +624,7 @@ class Trade extends Cubit<TradeState> {
     )) {
       return TradeAvailability.cancelled;
     }
+    if (overlapLock.isLoading) return TradeAvailability.loading;
     if (overlapLock.isBlocked) return TradeAvailability.unavailable;
     return TradeAvailability.available;
   }

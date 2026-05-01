@@ -161,6 +161,14 @@ class AACapability {
       if (txHash == null || txHash.isEmpty) {
         throw StateError('UserOperation confirmed without a transaction hash');
       }
+      if (!receipt!.success) {
+        final reason = receipt.reason;
+        throw StateError(
+          reason == null || reason.isEmpty
+              ? 'UserOperation failed in tx $txHash'
+              : 'UserOperation failed in tx $txHash: $reason',
+        );
+      }
 
       _logger.i('UserOp confirmed in tx: $txHash');
       return txHash;

@@ -74,6 +74,8 @@ class EvmChain {
 
   late Web3Client _client;
   late http.Client _httpClient;
+  final List<({Web3Client client, http.Client httpClient})> _retiredClients =
+      [];
 
   /// The current [Web3Client] instance.
   Web3Client get client => _client;
@@ -144,8 +146,11 @@ class EvmChain {
     _httpClient = newHttp;
     _clientGeneration++;
     _codeCache.clear();
-    oldClient.dispose();
-    oldHttp.close();
+    // Generated contract bindings capture the Web3Client they were created
+    // with. Keep retired transports alive until the chain is disposed so a
+    // transient RPC timeout does not poison long-lived contract wrappers with
+    // "Client is already closed" errors.
+    _retiredClients.add((client: oldClient, httpClient: oldHttp));
   });
 
   void _resetClientIfGeneration(int generation) {
@@ -198,6 +203,11 @@ class EvmChain {
     await _sharedBlocksController?.close();
     client.dispose();
     _httpClient.close();
+    for (final retired in _retiredClients) {
+      retired.client.dispose();
+      retired.httpClient.close();
+    }
+    _retiredClients.clear();
   }
 
   Future<List<FilterEvent>> getLogs(

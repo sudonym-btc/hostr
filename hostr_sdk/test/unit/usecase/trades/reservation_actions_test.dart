@@ -135,6 +135,7 @@ void main() {
           amount: null,
           ourPubkey: MockKeys.guest.publicKey,
           allReservations: const [],
+          allReservationsStatus: StreamStatusLive(),
           ownReservations: [invalidGroup],
           ownReservationsStatus: StreamStatusLive(),
           payments: const [],
@@ -177,6 +178,7 @@ void main() {
         amount: null,
         ourPubkey: MockKeys.guest.publicKey,
         allReservations: const [],
+        allReservationsStatus: StreamStatusLive(),
         ownReservations: const [],
         ownReservationsStatus: StreamStatusLive(),
         payments: const [],
@@ -185,6 +187,32 @@ void main() {
 
       expect(result.availability, TradeAvailability.cancelled);
       expect(result.actions, isEmpty);
+    });
+
+    test('reports availability loading while overlap reservations load', () {
+      final listing = _listing();
+
+      final result = TradeActionResolver.resolve(
+        threadState: ThreadState.initial(
+          ourPubkey: MockKeys.guest.publicKey,
+          anchor: 'thread-anchor',
+        ),
+        listing: listing,
+        role: TradeRole.guest,
+        tradeId: 'trade-loading-overlap',
+        start: DateTime(2026, 3, 1),
+        end: DateTime(2026, 3, 2),
+        amount: null,
+        ourPubkey: MockKeys.guest.publicKey,
+        allReservations: const [],
+        allReservationsStatus: StreamStatusQuerying(),
+        ownReservations: const [],
+        ownReservationsStatus: StreamStatusQuerying(),
+        payments: const [],
+        paymentsStatus: StreamStatusLive(),
+      );
+
+      expect(result.availability, TradeAvailability.loading);
     });
   });
 }

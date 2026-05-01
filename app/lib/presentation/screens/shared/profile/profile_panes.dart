@@ -641,17 +641,6 @@ class _SwapOutTile extends StatelessWidget {
             ? '${boltzId.substring(0, 8)}…'
             : boltzId;
 
-        String? amountDisplay;
-        if (data != null) {
-          try {
-            final weiHex = data.lockedAmountWeiHex;
-            final wei = BigInt.parse(weiHex, radix: 16);
-            if (wei > BigInt.zero) {
-              amountDisplay = '${wei.toString()} wei';
-            }
-          } catch (_) {}
-        }
-
         return ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
@@ -662,11 +651,20 @@ class _SwapOutTile extends StatelessWidget {
                 : Theme.of(context).colorScheme.tertiary,
             size: 20,
           ),
-          title: Text(
-            '↑ $short${amountDisplay != null ? '  $amountDisplay' : ''}',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          title: Wrap(
+            spacing: 8,
+            runSpacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '↑ $short',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (data != null)
+                _SwapOutAmountLabel(chain: operation.chain, data: data),
+            ],
           ),
           subtitle: Text(
             [
@@ -696,6 +694,51 @@ class _SwapOutTile extends StatelessWidget {
                 uri: _txExplorerUri(operation.chain.config, data?.refundTxHash),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SwapOutAmountLabel extends StatelessWidget {
+  final EvmChain chain;
+  final SwapOutData data;
+
+  const _SwapOutAmountLabel({required this.chain, required this.data});
+
+  Future<String?> _formatAmount() async {
+    final rawAmount = data.lockedAmountWei;
+    if (rawAmount <= BigInt.zero) return null;
+
+    final token = data.tokenAddress == null
+        ? Token.native(data.chainId)
+        : await chain.resolveToken(data.tokenAddress!);
+    final info = TokenDisplayResolver([chain.config]).resolve(token);
+    final amount = TokenAmount(value: rawAmount, token: token).toDenominated(
+      denomination: info.denomination.isEmpty ? null : info.denomination,
+    );
+    final tokenName = info.denomination.isNotEmpty
+        ? info.denomination
+        : token.tagId;
+    return '${formatAmount(amount)} $tokenName';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _formatAmount(),
+      builder: (context, snapshot) {
+        final display = snapshot.data;
+        if (display == null || display.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Text(
+          display,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
           ),
         );
       },

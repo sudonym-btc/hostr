@@ -2,10 +2,16 @@
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon.dart';
+import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon_models.dart';
+import 'package:hostr_sdk/usecase/evm/capabilities/escrow_capability.dart';
+import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
+import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/escrows/escrows.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
@@ -17,6 +23,7 @@ import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
+import 'package:http/http.dart' as http;
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
@@ -24,6 +31,9 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
+import 'package:wallet/wallet.dart' as bip;
+import 'package:web3dart/web3dart.dart'
+    show BlockNum, EthPrivateKey, Web3Client;
 
 final _listingAnchor =
     '32121:${MockKeys.hoster.publicKey}:daemon-processing-listing';
@@ -41,13 +51,78 @@ class _SentText {
 }
 
 class _FakeAuth extends Fake implements Auth {
+  final _FakeDeterministicKeys _hd = _FakeDeterministicKeys();
+
   @override
   KeyPair? activeKeyPair = MockKeys.escrow;
+
+  @override
+  DeterministicKeys get hd => _hd;
 }
 
-class _FakeEvm extends Fake implements Evm {}
+class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
+  final _evmKey = EthPrivateKey.fromHex('1'.padLeft(64, '0'));
 
-class _FakeEscrows extends Fake implements Escrows {}
+  @override
+  Future<EthPrivateKey> getActiveEvmKey({int accountIndex = 0}) async =>
+      _evmKey;
+
+  @override
+  Future<bip.EthereumAddress> getEvmAddress({int accountIndex = 0}) async =>
+      _evmKey.address;
+}
+
+class _FakeEvm extends Fake implements Evm {
+  final _chain = _FakeEvmChain();
+
+  @override
+  List<EvmChain> get configuredChains => [_chain];
+
+  @override
+  EvmChain getChainForEscrowService(EscrowService service) => _chain;
+}
+
+class _FakeEvmChain extends Fake implements EvmChain {
+  final _client = Web3Client('http://127.0.0.1:8545', http.Client());
+
+  @override
+  EvmChainConfig get config => const EvmChainConfig(
+    id: 'regtest',
+    chainId: 30,
+    rpcUrl: 'http://127.0.0.1:8545',
+    nativeDenomination: 'ETH',
+    escrowContractAddress: '0x0000000000000000000000000000000000000001',
+  );
+
+  @override
+  Web3Client get client => _client;
+
+  @override
+  int get clientGeneration => 0;
+
+  @override
+  EscrowCapability get escrow =>
+      EscrowCapability(chain: this, logger: CustomLogger());
+
+  @override
+  Future<Uint8List> getCode(
+    bip.EthereumAddress address, {
+    BlockNum? atBlock,
+  }) async => Uint8List.fromList([1, 2, 3]);
+}
+
+class _FakeEscrows extends Fake implements Escrows {
+  final upserts = <EscrowService>[];
+
+  @override
+  Future<List<EscrowService>> list(Filter f, {String? name}) async => [];
+
+  @override
+  Future<List<RelayBroadcastResponse>> upsert(EscrowService event) async {
+    upserts.add(event);
+    return [_successfulBroadcastResponse()];
+  }
+}
 
 class _FakeUserSubscriptions extends Fake implements UserSubscriptions {}
 
@@ -221,6 +296,7 @@ class _Harness {
   final _FakeThreads threads;
   final _FakeMessaging messaging;
   final _FakeRequests requests;
+  final _FakeEscrows escrows;
   final _FakeReservations reservations;
   final EscrowDaemon daemon;
   FutureOr<Validation<ReservationGroup>> Function(ReservationGroup group)
@@ -231,6 +307,7 @@ class _Harness {
     required this.threads,
     required this.messaging,
     required this.requests,
+    required this.escrows,
     required this.reservations,
     required this.daemon,
     required this.verifier,
@@ -240,16 +317,19 @@ class _Harness {
     _FakeReservations? reservations,
     FutureOr<Validation<ReservationGroup>> Function(ReservationGroup group)?
     verifier,
+    DateTime Function()? clock,
   }) {
     final threads = _FakeThreads();
     final messaging = _FakeMessaging(threads);
     final requests = _FakeRequests();
+    final escrows = _FakeEscrows();
     late _Harness harness;
     final fakeReservations = reservations ?? _FakeReservations();
     harness = _Harness._(
       threads: threads,
       messaging: messaging,
       requests: requests,
+      escrows: escrows,
       reservations: fakeReservations,
       verifier: verifier ?? ((group) => Valid(group)),
       daemon: EscrowDaemon(
@@ -259,11 +339,12 @@ class _Harness {
         metadata: _FakeMetadata(),
         messaging: messaging,
         requests: requests,
-        escrows: _FakeEscrows(),
+        escrows: escrows,
         reservations: fakeReservations,
         userSubscriptions: _FakeUserSubscriptions(),
         escrowVerification: _FakeEscrowVerification(),
         logger: CustomLogger(),
+        clock: clock ?? (() => DateTime.utc(2026, 5, 1)),
         verifyReservationGroup:
             (
               group, {
@@ -357,24 +438,30 @@ List<PTag> _participants() => [
   PTag.escrow(MockKeys.escrow.publicKey),
 ];
 
-Reservation _buyerReservation({required String tradeId, int createdAt = 100}) =>
-    Reservation.create(
-      id: '$tradeId-buyer',
-      pubKey: MockKeys.guest.publicKey,
-      dTag: tradeId,
-      listingAnchor: _listingAnchor,
-      pTags: _participants(),
-      stage: ReservationStage.commit,
-      start: DateTime.utc(2026, 6, 1),
-      end: DateTime.utc(2026, 6, 3),
-      proof: _paymentProof(),
-      createdAt: createdAt,
-    );
+Reservation _buyerReservation({
+  required String tradeId,
+  int createdAt = 100,
+  DateTime? start,
+  DateTime? end,
+}) => Reservation.create(
+  id: '$tradeId-buyer',
+  pubKey: MockKeys.guest.publicKey,
+  dTag: tradeId,
+  listingAnchor: _listingAnchor,
+  pTags: _participants(),
+  stage: ReservationStage.commit,
+  start: start ?? DateTime.utc(2026, 6, 1),
+  end: end ?? DateTime.utc(2026, 6, 3),
+  proof: _paymentProof(),
+  createdAt: createdAt,
+);
 
 Reservation _escrowReservation({
   required String tradeId,
   required ReservationStage stage,
   int createdAt = 200,
+  DateTime? start,
+  DateTime? end,
 }) => Reservation.create(
   id: '$tradeId-escrow-${stage.name}-$createdAt',
   pubKey: MockKeys.escrow.publicKey,
@@ -382,8 +469,8 @@ Reservation _escrowReservation({
   listingAnchor: _listingAnchor,
   pTags: _participants(),
   stage: stage,
-  start: DateTime.utc(2026, 6, 1),
-  end: DateTime.utc(2026, 6, 3),
+  start: start ?? DateTime.utc(2026, 6, 1),
+  end: end ?? DateTime.utc(2026, 6, 3),
   createdAt: createdAt,
 );
 
@@ -412,6 +499,26 @@ void main() {
       await harness.close();
     });
 
+    test('bootstrap does not publish an escrow service', () async {
+      harness = _Harness();
+
+      final context = await harness.daemon.bootstrap(
+        const EscrowDaemonConfig(),
+      );
+
+      expect(
+        context.escrowService.contractAddress,
+        _escrowService().contractAddress,
+      );
+      expect(harness.escrows.upserts, isEmpty);
+      expect(
+        harness.requests.broadcasts.where(
+          (event) => EscrowService.kinds.contains(event.kind),
+        ),
+        isEmpty,
+      );
+    });
+
     test(
       'confirms a valid buyer reservation and notifies buyer and seller',
       () async {
@@ -433,18 +540,52 @@ void main() {
 
         expect(harness.reservations.cancelled, isEmpty);
         expect(harness.verifiedTradeIds, ['trade-valid']);
+        final placedNotices = _noticesOf(
+          harness,
+          'reservation_placed',
+        ).toList();
         expect(
-          _noticesOf(
-            harness,
-            'reservation_placed',
-          ).map((notice) => notice.recipientPubkeys.single).toSet(),
+          placedNotices.map((notice) => notice.recipientPubkeys.single).toSet(),
           {MockKeys.guest.publicKey, MockKeys.hoster.publicKey},
+        );
+        expect(
+          placedNotices.map((notice) => notice.content),
+          everyElement(contains('Lake House 1 Jun - 3 Jun')),
         );
         expect(
           harness.requests.broadcasts.where(
             (e) => e.kind == kNostrKindLegacyDM,
           ),
           hasLength(2),
+        );
+      },
+    );
+
+    test(
+      'includes years in reservation notices outside the current year',
+      () async {
+        harness = _Harness(clock: () => DateTime.utc(2026, 5, 1));
+        final buyer = _buyerReservation(
+          tradeId: 'trade-next-year',
+          start: DateTime.utc(2027, 4, 30),
+          end: DateTime.utc(2027, 5, 2),
+        );
+        harness.reservations.seed([buyer]);
+
+        harness.daemon.startReservationListenerForTesting();
+        harness.reservations.source.add(buyer);
+
+        await _waitUntil(
+          () => _noticesOf(harness, 'reservation_placed').length == 2,
+          reason: 'daemon did not send reservation placed notices',
+        );
+
+        expect(
+          _noticesOf(
+            harness,
+            'reservation_placed',
+          ).map((notice) => notice.content),
+          everyElement(contains('Lake House 30 Apr 2027 - 2 May 2027')),
         );
       },
     );

@@ -33,6 +33,7 @@ const evmConfig = EvmConfig(
       id: 'arbitrum-regtest',
       chainId: 412346,
       rpcUrl: 'https://arbitrum.hostr.development',
+      blockExplorerUrl: 'https://otterscan.hostr.development',
       nativeDenomination: 'ETH',
       boltzCurrency: 'ARB',
       accountAbstraction: AAConfig(
