@@ -50,6 +50,10 @@ class TradeHeaderView extends StatelessWidget {
   ValueStream<bool>? get subscriptionsLive =>
       tradeState.streams.subscriptionsLive;
 
+  bool get _hasNegotiationRequest =>
+      tradeState.stage is NegotiationStage &&
+      (tradeState.stage as NegotiationStage).reservationRequests.isNotEmpty;
+
   void _openListing(BuildContext context) {
     final anchor = listing.naddr();
     if (anchor == null) return;
@@ -240,10 +244,22 @@ class TradeHeaderView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSummary(context, showImages: showImages),
-                if (showActions &&
-                    tradeState.stage is NegotiationStage &&
-                    availability != TradeAvailability.cancelled)
-                  NegotiationWidget(tradeState: tradeState),
+                StreamBuilder<List<PaymentEvent>>(
+                  stream: paymentEventsStream.itemsStream,
+                  initialData: paymentEventsStream.items,
+                  builder: (context, paymentSnapshot) {
+                    final hasPaymentEvent =
+                        (paymentSnapshot.data ?? const <PaymentEvent>[])
+                            .isNotEmpty;
+                    if (!showActions ||
+                        hasPaymentEvent ||
+                        !_hasNegotiationRequest ||
+                        availability == TradeAvailability.cancelled) {
+                      return const SizedBox.shrink();
+                    }
+                    return NegotiationWidget(tradeState: tradeState);
+                  },
+                ),
               ],
             ),
           ),
