@@ -14,15 +14,16 @@ class ZapInputWidgetState extends State<ZapInputWidget> {
   @override
   Widget build(BuildContext context) {
     return CustomPadding(
-        child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(AppLocalizations.of(context)!.zapUs),
-        FilledButton(
-          child: Text(AppLocalizations.of(context)!.zap),
-          onPressed: () {},
-        )
-      ],
-    ));
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(AppLocalizations.of(context)!.zapUs),
+          FilledButton(
+            child: Text(AppLocalizations.of(context)!.zap),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -186,8 +186,7 @@ void main() {
 
       final errorCompleter = Completer<StreamStatusError>();
       final statusSub = verified.status.listen((status) {
-        if (status is StreamStatusError &&
-            !errorCompleter.isCompleted) {
+        if (status is StreamStatusError && !errorCompleter.isCompleted) {
           errorCompleter.complete(status);
         }
       });

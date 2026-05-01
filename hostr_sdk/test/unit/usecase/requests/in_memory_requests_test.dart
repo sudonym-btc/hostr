@@ -51,6 +51,43 @@ void main() {
       );
     });
 
+    test('ignores d tags on regular replaceable events', () {
+      expect(
+        inMemoryReplacementKeyFor(
+          _event(
+            pubKey: 'alice',
+            kind: 10017,
+            tags: [
+              ['d', 'one'],
+            ],
+          ),
+        ),
+        inMemoryReplacementKeyFor(
+          _event(
+            pubKey: 'alice',
+            kind: 10017,
+            tags: [
+              ['d', 'two'],
+            ],
+          ),
+        ),
+      );
+    });
+
+    test('does not treat d tags on regular events as replacement keys', () {
+      expect(
+        inMemoryReplacementKeyFor(
+          _event(
+            kind: 1000,
+            tags: [
+              ['d', 'not-addressable'],
+            ],
+          ),
+        ),
+        isNull,
+      );
+    });
+
     test('does not replace ordinary non-addressed events', () {
       expect(inMemoryReplacementKeyFor(_event(kind: 1)), isNull);
     });

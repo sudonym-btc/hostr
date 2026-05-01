@@ -29,8 +29,8 @@ class _Subscription<T extends Nip01Event> {
 /// add a `d` tag identifier, which is what keeps different authors' events for
 /// the same trade from clobbering each other.
 String? inMemoryReplacementKeyFor(Nip01Event event) {
-  final dTag = event.getFirstTag('d');
-  if (dTag != null) {
+  if (_isAddressableKind(event.kind)) {
+    final dTag = event.getFirstTag('d') ?? '';
     return '${event.kind}:${event.pubKey}:$dTag';
   }
 
@@ -43,6 +43,10 @@ String? inMemoryReplacementKeyFor(Nip01Event event) {
 
 bool _isRegularReplaceableKind(int kind) {
   return kind == 0 || kind == 3 || (kind >= 10000 && kind < 20000);
+}
+
+bool _isAddressableKind(int kind) {
+  return kind >= 30000 && kind < 40000;
 }
 
 /// Pure in-memory implementation of [Requests].

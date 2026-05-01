@@ -1,9 +1,9 @@
 class LNURLErrorResponse {
   LNURLErrorResponse.fromJson(Map<String, dynamic> json)
-      : status = json['status'],
-        reason = json['reason'],
-        domain = json['domain'],
-        url = json['url'];
+    : status = json['status'],
+      reason = json['reason'],
+      domain = json['domain'],
+      url = json['url'];
   final String status;
   final String reason;
   final String domain;
@@ -12,11 +12,11 @@ class LNURLErrorResponse {
 
 class LNURLChannelParams {
   LNURLChannelParams.fromJson(Map<String, dynamic> json)
-      : tag = json['tag'],
-        callback = json['callback'],
-        domain = json['domain'],
-        k1 = json['k1'],
-        url = json['url'];
+    : tag = json['tag'],
+      callback = json['callback'],
+      domain = json['domain'],
+      k1 = json['k1'],
+      url = json['url'];
   final String tag;
   final String callback;
   final String domain;
@@ -26,13 +26,13 @@ class LNURLChannelParams {
 
 class LNURLWithdrawParams {
   LNURLWithdrawParams.fromJson(Map<String, dynamic> json)
-      : tag = json['tag'],
-        k1 = json['k1'],
-        callback = json['callback'],
-        domain = json['domain'],
-        minWithdrawable = json['minWithdrawable'],
-        maxWithdrawable = json['maxWithdrawable'],
-        defaultDescription = json['defaultDescription'];
+    : tag = json['tag'],
+      k1 = json['k1'],
+      callback = json['callback'],
+      domain = json['domain'],
+      minWithdrawable = json['minWithdrawable'],
+      maxWithdrawable = json['maxWithdrawable'],
+      defaultDescription = json['defaultDescription'];
   final String tag;
   final String k1;
   final String callback;
@@ -44,10 +44,10 @@ class LNURLWithdrawParams {
 
 class LNURLAuthParams {
   LNURLAuthParams.fromJson(Map<String, dynamic> json)
-      : tag = json['tag'],
-        k1 = json['k1'],
-        callback = json['callback'],
-        domain = json['domain'];
+    : tag = json['tag'],
+      k1 = json['k1'],
+      callback = json['callback'],
+      domain = json['domain'];
   final String tag;
   final String k1;
   final String callback;
@@ -56,11 +56,11 @@ class LNURLAuthParams {
 
 class LNURLPayParams {
   LNURLPayParams.fromJson(Map<String, dynamic> json)
-      : tag = json['tag'],
-        callback = json['callback'],
-        minSendable = json['minSendable'],
-        maxSendable = json['maxSendable'],
-        metadata = json['metadata'];
+    : tag = json['tag'],
+      callback = json['callback'],
+      minSendable = json['minSendable'],
+      maxSendable = json['maxSendable'],
+      metadata = json['metadata'];
   final String tag;
   final String callback;
   final int minSendable;
@@ -71,12 +71,12 @@ class LNURLPayParams {
 /// A success action will be returned when making a call to the lnUrl callback url.
 class LNURLPaySuccessAction {
   LNURLPaySuccessAction.fromJson(Map<String, dynamic> json)
-      : tag = json['tag'] ?? '',
-        description = json['description'] ?? '',
-        url = json['url'] ?? '',
-        message = json['message'] ?? '',
-        cipherText = json['cipherText'] ?? '',
-        iv = json['iv'] ?? '';
+    : tag = json['tag'] ?? '',
+      description = json['description'] ?? '',
+      url = json['url'] ?? '',
+      message = json['message'] ?? '',
+      cipherText = json['cipherText'] ?? '',
+      iv = json['iv'] ?? '';
   final String tag;
   final String description;
   final String url;
@@ -87,10 +87,10 @@ class LNURLPaySuccessAction {
 
 class LNURLPayResult {
   LNURLPayResult.fromJson(Map<String, dynamic> json)
-      : pr = json['pr'],
-        successAction = json['successAction'],
-        disposable = json['disposable'],
-        routes = json['routes'];
+    : pr = json['pr'],
+      successAction = json['successAction'],
+      disposable = json['disposable'],
+      routes = json['routes'];
   final String pr;
   final LNURLPaySuccessAction successAction;
   final bool disposable;

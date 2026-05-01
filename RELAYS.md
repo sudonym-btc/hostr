@@ -178,7 +178,7 @@ bootstrapRelays: [
 | **NIP-65 relay list**       | 10002        | All connected relays                        | Must be broadly available for others to find you                            |
 | **Accommodation listings**  | 32121        | All write relays + **hostr relay (always)** | Listings need maximum discoverability; hostr relay is the marketplace index |
 | **Escrow service ads**      | 30303        | All write relays + **hostr relay**          | Must be discoverable by all hostr users                                     |
-| **Escrow methods**          | 30301        | All write relays + **hostr relay**          | Paired with escrow service                                                  |
+| **Escrow methods**          | 17388        | All write relays + **hostr relay**          | Paired with escrow service                                                  |
 | **Escrow trust**            | 30300        | All write relays + **hostr relay**          | Paired with escrow service                                                  |
 | **Reservation (commit)**    | 32122        | All write relays + **hostr relay**          | Public record of committed reservation                                      |
 | **Reservation transitions** | 32126        | All write relays + **hostr relay**          | State machine progression                                                   |
@@ -258,7 +258,7 @@ When user adds a new relay:
    - Publish current NIP-65 relay list (kind:10002)
    - Publish current profile (kind:0)
    - Publish all active listings (kind:32121)
-   - Publish active escrow methods (kind:30301) and services (kind:30303)
+   - Publish active escrow methods (kind:17388) and services (kind:30303)
 
 3. Deferred backfill (background, non-blocking):
    - Publish committed reservations (kind:32122) from the last 90 days
@@ -283,7 +283,7 @@ Future<void> backfillRelay(String relayUrl) async {
     0,      // Profile
     10002,  // NIP-65
     32121,  // Listings
-    30301,  // Escrow methods
+    17388,  // Escrow methods
     30303,  // Escrow services
     30300,  // Escrow trust
   ];

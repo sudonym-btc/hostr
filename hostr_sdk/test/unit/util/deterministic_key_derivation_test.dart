@@ -95,8 +95,10 @@ void main() {
       );
       expect(
         (await derivation.deriveTradeKeyPair(accountIndex: 2)).publicKey,
-        (await deriveTradeKeyPair(nostrPrivateKeyHex, accountIndex: 2))
-            .publicKey,
+        (await deriveTradeKeyPair(
+          nostrPrivateKeyHex,
+          accountIndex: 2,
+        )).publicKey,
       );
 
       final asyncKey = await derivation.deriveEvmKey(accountIndex: 2);

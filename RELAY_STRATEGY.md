@@ -201,7 +201,7 @@ String relayHintFor(String pubkey) {
 
 This helps other clients find the host's profile metadata without a separate NIP-65 lookup.
 
-#### Escrow Events (kind:30300, 30301, 30302, 30303)
+#### Escrow Events (kind:17388, 30302, 30303)
 
 Same pattern — include relay hints on `p` tags referencing other participants.
 

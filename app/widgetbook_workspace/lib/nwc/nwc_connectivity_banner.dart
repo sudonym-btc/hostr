@@ -9,10 +9,7 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 Widget allFailed(BuildContext context) {
   return const Align(
     alignment: Alignment.bottomCenter,
-    child: NwcConnectivityBannerView(
-      connectedCount: 0,
-      totalConnections: 1,
-    ),
+    child: NwcConnectivityBannerView(connectedCount: 0, totalConnections: 1),
   );
 }
 
@@ -23,9 +20,6 @@ Widget allFailed(BuildContext context) {
 Widget multipleFailed(BuildContext context) {
   return const Align(
     alignment: Alignment.bottomCenter,
-    child: NwcConnectivityBannerView(
-      connectedCount: 0,
-      totalConnections: 3,
-    ),
+    child: NwcConnectivityBannerView(connectedCount: 0, totalConnections: 3),
   );
 }

@@ -71,10 +71,6 @@ void main() {
         'heartbeat',
       );
       expect(
-        signerRequestEventKindDescription(kNostrKindTypingIndicator),
-        'typing indicator',
-      );
-      expect(
         signerRequestEventKindDescription(kNostrKindReservation),
         'reservation update',
       );

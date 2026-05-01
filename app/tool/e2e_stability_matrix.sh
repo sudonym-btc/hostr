@@ -93,6 +93,7 @@ targets=(
   integration_test/review_flow_bunker_test.dart
   integration_test/auto_withdraw_nsec_test.dart
   integration_test/auto_withdraw_bunker_test.dart
+  integration_test/subscription_lifecycle_test.dart
 )
 
 if [[ -n "$only_target" ]]; then

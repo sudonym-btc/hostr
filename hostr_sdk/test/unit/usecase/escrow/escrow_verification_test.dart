@@ -104,7 +104,6 @@ EscrowMethod _escrowMethod({
       .last
       .toLowerCase();
   final tags = <List<String>>[
-    ['d', 'escrow-method'],
     ['t', chosenEscrowType],
     ['c', escrowService.contractBytecodeHash],
     ['p', escrowService.pubKey],

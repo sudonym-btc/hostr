@@ -7,7 +7,7 @@ import '../nostr_kinds.dart';
 import '../stubs/keypairs.dart';
 
 /// A denomination → concrete token mapping declared via an `"a"` tag on an
-/// [EscrowMethod] event (kind 30301).
+/// [EscrowMethod] event.
 ///
 /// Tag wire format: `["a", "<denomination>", "<tokenTagId>"]`
 ///

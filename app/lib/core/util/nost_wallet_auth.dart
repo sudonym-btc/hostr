@@ -8,23 +8,25 @@ class BudgetPeriod {
 }
 
 class NostrWalletAuth {
-  Uri generateUri(
-      {required KeyPair keyPair,
-      required int budget,
-      required String budgetPeriod,
-      required String relay,
-      required String secret,
-      String? appPubKey}) {
+  Uri generateUri({
+    required KeyPair keyPair,
+    required int budget,
+    required String budgetPeriod,
+    required String relay,
+    required String secret,
+    String? appPubKey,
+  }) {
     return Uri(
-        scheme: 'nostr+walletauth',
-        host: keyPair.publicKey,
-        queryParameters: {
-          'relay': relay,
-          'secret': secret,
-          'required_commands': 'pay_invoice make_invoice lookup_invoice',
-          'optional_commands': 'list_transactions',
-          'budget': '$budget/$budgetPeriod',
-          // 'identifier': appPubKey
-        });
+      scheme: 'nostr+walletauth',
+      host: keyPair.publicKey,
+      queryParameters: {
+        'relay': relay,
+        'secret': secret,
+        'required_commands': 'pay_invoice make_invoice lookup_invoice',
+        'optional_commands': 'list_transactions',
+        'budget': '$budget/$budgetPeriod',
+        // 'identifier': appPubKey
+      },
+    );
   }
 }

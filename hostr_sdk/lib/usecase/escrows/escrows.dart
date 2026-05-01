@@ -21,7 +21,7 @@ class Escrows extends CrudUseCase<EscrowService> {
     String sellerPubkey,
   ) => logger.span('determineMutualEscrow', () async {
     // Query both users' escrow-method events. Trust, contract literacy, and
-    // token acceptance all live on the same kind:30301 event now.
+    // token acceptance all live on the same escrow method event now.
     final results = await Future.wait([
       _escrowMethods.getOne(
         Filter(kinds: EscrowMethod.kinds, authors: [buyerPubkey]),

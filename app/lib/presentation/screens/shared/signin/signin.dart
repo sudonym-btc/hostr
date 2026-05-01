@@ -11,8 +11,8 @@ import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dar
 import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
 import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
 import 'package:ndk/ndk.dart'
     show BunkerConnection, Bunkers, Filter, NdkResponse, NostrConnect;
@@ -26,6 +26,8 @@ class SignInScreen extends StatefulWidget {
   @override
   State<StatefulWidget> createState() => SignInScreenState();
 }
+
+enum _SignInPane { connect, manual }
 
 class SignInScreenState extends State<SignInScreen> {
   final _controller = TextEditingController();
@@ -42,6 +44,7 @@ class SignInScreenState extends State<SignInScreen> {
   // actual relay instead of leaving stale Signet subscriptions behind.
   NdkResponse? _nostrConnectSubscription;
   List<String>? _nostrConnectSubscriptionRelays;
+  _SignInPane _stackedPane = _SignInPane.connect;
   // Each QR refresh increments this token. Async callbacks compare against it
   // so an old timed-out subscription cannot update the current login screen.
   var _nostrConnectDisposed = false;
@@ -406,9 +409,9 @@ class SignInScreenState extends State<SignInScreen> {
   }
 
   TextStyle? _sectionLabelStyle(BuildContext context) {
-    return Theme.of(context).textTheme.titleMedium?.copyWith(
+    return Theme.of(context).textTheme.headlineMedium?.copyWith(
       fontWeight: FontWeight.w700,
-      letterSpacing: 2.4,
+      // letterSpacing: 2.4,
     );
   }
 
@@ -432,7 +435,7 @@ class SignInScreenState extends State<SignInScreen> {
               ),
               Gap.vertical.md(),
               Text(
-                'SCAN OR COPY TO CONNECT',
+                'Connect with Nostr',
                 style: _sectionLabelStyle(context),
                 textAlign: TextAlign.center,
               ),
@@ -473,7 +476,7 @@ class SignInScreenState extends State<SignInScreen> {
                           nostrConnectUrl,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          style: theme.textTheme.bodyMedium?.copyWith(
                             fontFamily: 'monospace',
                             color: theme.colorScheme.outline,
                           ),
@@ -485,7 +488,7 @@ class SignInScreenState extends State<SignInScreen> {
                         child: CopyFeedbackButton(
                           value: () => nostrConnectUrl,
                           label: 'Copy',
-                          variant: CopyFeedbackButtonVariant.outlined,
+                          variant: CopyFeedbackButtonVariant.material,
                           showCopyIcon: true,
                           style: AppButtonStyles.outlined(context).copyWith(
                             minimumSize: WidgetStateProperty.all(
@@ -537,16 +540,18 @@ class SignInScreenState extends State<SignInScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Image.asset(
-              'assets/images/logo/generated/logo_base_1024.png',
-              width: 120,
-              height: 120,
-            ),
-          ),
-          Gap.vertical.lg(),
+          // Center(
+          //   child: Image.asset(
+          //     'assets/images/logo/generated/logo_base_1024.png',
+          //     width: 120,
+          //     height: 120,
+          //   ),
+          // ),
+          // Gap.vertical.lg(),
+          Icon(Icons.key_rounded, size: 34, color: theme.colorScheme.primary),
+          Gap.vertical.md(),
           Text(
-            'SIGN IN MANUALLY',
+            'Sign in manually',
             style: _sectionLabelStyle(context),
             textAlign: TextAlign.center,
           ),
@@ -609,8 +614,145 @@ class SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStackedTabSelector(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const ValueKey('signin_stacked_tabs'),
+      height: 58,
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outline.withAlpha(90)),
+        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surface.withAlpha(120),
+      ),
+      child: Row(
+        children: [
+          _buildStackedTab(
+            context,
+            key: const ValueKey('signin_tab_connect'),
+            pane: _SignInPane.connect,
+            icon: Icons.qr_code_scanner_rounded,
+            label: 'Connect',
+          ),
+          _buildStackedTab(
+            context,
+            key: const ValueKey('signin_tab_manual'),
+            pane: _SignInPane.manual,
+            icon: Icons.key_rounded,
+            label: 'Manual',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStackedTab(
+    BuildContext context, {
+    required Key key,
+    required _SignInPane pane,
+    required IconData icon,
+    required String label,
+  }) {
+    final theme = Theme.of(context);
+    final selected = _stackedPane == pane;
+    final foreground = selected
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              if (_stackedPane == pane) return;
+              setState(() => _stackedPane = pane);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: selected
+                    ? theme.colorScheme.primaryContainer.withAlpha(190)
+                    : Colors.transparent,
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 22, color: foreground),
+                    Gap.horizontal.sm(),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: foreground,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStackedSignIn(BuildContext context) {
+    return SafeArea(
+      child: AppPageGutter(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: kAppFormMaxWidth,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildStackedTabSelector(context),
+                        Gap.vertical.xl(),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child: KeyedSubtree(
+                            key: ValueKey(_stackedPane),
+                            child: _stackedPane == _SignInPane.connect
+                                ? _buildQrPane(context)
+                                : _buildManualPane(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedSignIn(BuildContext context) {
     return SafeArea(
       child: AppPageGutter(
         child: AppPaneLayout(
@@ -650,6 +792,14 @@ class SignInScreenState extends State<SignInScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppAdaptiveView(
+      expanded: _buildExpandedSignIn,
+      compact: _buildStackedSignIn,
     );
   }
 }

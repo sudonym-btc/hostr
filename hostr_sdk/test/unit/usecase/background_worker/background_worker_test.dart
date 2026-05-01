@@ -12,6 +12,7 @@ import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
+import 'package:hostr_sdk/usecase/reservation_groups/reservation_group_participant_resolver.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -40,13 +41,58 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   final StreamWithStatus<Nip01Event> _giftwraps =
       StreamWithStatus<Nip01Event>();
 
-  @override
-  final StreamWithStatus<Validation<ReservationGroup>> myHostings$ =
+  final StreamWithStatus<Validation<ReservationGroup>> _hostings =
       StreamWithStatus<Validation<ReservationGroup>>();
+  final StreamWithStatus<Validation<ReservationGroup>> _trips =
+      StreamWithStatus<Validation<ReservationGroup>>();
+  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  _resolvedHostings =
+      StreamWithStatus<ResolvedValidatedReservationGroupParticipants>();
+  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  _resolvedTrips =
+      StreamWithStatus<ResolvedValidatedReservationGroupParticipants>();
 
   @override
-  final StreamWithStatus<Validation<ReservationGroup>> myTrips$ =
-      StreamWithStatus<Validation<ReservationGroup>>();
+  StreamWithStatus<Validation<ReservationGroup>> get myHostings$ => _hostings;
+
+  @override
+  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  get myResolvedHostings$ => _resolvedHostings;
+
+  @override
+  StreamWithStatus<Validation<ReservationGroup>> get myTrips$ => _trips;
+
+  @override
+  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  get myResolvedTrips$ => _resolvedTrips;
+
+  void addHosting(Validation<ReservationGroup> validation) {
+    _hostings.add(validation);
+    _resolvedHostings.add(_resolve(validation));
+  }
+
+  void addTrip(Validation<ReservationGroup> validation) {
+    _trips.add(validation);
+    _resolvedTrips.add(_resolve(validation));
+  }
+
+  ResolvedValidatedReservationGroupParticipants _resolve(
+    Validation<ReservationGroup> validation,
+  ) {
+    final group = validation.event;
+    final participants = group.participantSet;
+    return ResolvedValidatedReservationGroupParticipants(
+      validation: validation,
+      participants: ResolvedReservationGroupParticipants(
+        group: group,
+        rawGroupId: group.groupId,
+        resolvedGroupId: group.groupId,
+        rawParticipantSet: Set.unmodifiable(participants),
+        resolvedParticipantSet: Set.unmodifiable(participants),
+        resolvedProofs: const [],
+      ),
+    );
+  }
 
   @override
   Future<void> start({bool validateReservationGroups = true}) async {
@@ -225,7 +271,9 @@ void main() {
     await heartbeats.source.close();
     await userSubscriptions._giftwraps.close();
     await userSubscriptions.myHostings$.close();
+    await userSubscriptions.myResolvedHostings$.close();
     await userSubscriptions.myTrips$.close();
+    await userSubscriptions.myResolvedTrips$.close();
   });
 
   test(
@@ -239,12 +287,12 @@ void main() {
         createdAt: 100,
       );
 
-      userSubscriptions.myHostings$.add(
+      userSubscriptions.addHosting(
         Valid(ReservationGroup(reservations: [guestReservation])),
       );
       userSubscriptions._giftwraps.addStatus(StreamStatusLive());
-      userSubscriptions.myHostings$.addStatus(StreamStatusLive());
-      userSubscriptions.myTrips$.addStatus(StreamStatusLive());
+      userSubscriptions.myResolvedHostings$.addStatus(StreamStatusLive());
+      userSubscriptions.myResolvedTrips$.addStatus(StreamStatusLive());
       heartbeats.source.addStatus(StreamStatusQueryComplete());
 
       final result = await worker.run();
@@ -263,8 +311,8 @@ void main() {
     'watch starts long-running maintenance and stop tears it down',
     () async {
       userSubscriptions._giftwraps.addStatus(StreamStatusLive());
-      userSubscriptions.myHostings$.addStatus(StreamStatusLive());
-      userSubscriptions.myTrips$.addStatus(StreamStatusLive());
+      userSubscriptions.myResolvedHostings$.addStatus(StreamStatusLive());
+      userSubscriptions.myResolvedTrips$.addStatus(StreamStatusLive());
       heartbeats.source.addStatus(StreamStatusQueryComplete());
 
       await worker.watch();
@@ -296,8 +344,8 @@ void main() {
       ),
     );
     userSubscriptions._giftwraps.addStatus(StreamStatusLive());
-    userSubscriptions.myHostings$.addStatus(StreamStatusLive());
-    userSubscriptions.myTrips$.addStatus(StreamStatusLive());
+    userSubscriptions.myResolvedHostings$.addStatus(StreamStatusLive());
+    userSubscriptions.myResolvedTrips$.addStatus(StreamStatusLive());
     heartbeats.source.addStatus(StreamStatusQueryComplete());
 
     final result = await worker.run();
@@ -321,8 +369,8 @@ void main() {
       ),
     );
     userSubscriptions._giftwraps.addStatus(StreamStatusLive());
-    userSubscriptions.myHostings$.addStatus(StreamStatusLive());
-    userSubscriptions.myTrips$.addStatus(StreamStatusLive());
+    userSubscriptions.myResolvedHostings$.addStatus(StreamStatusLive());
+    userSubscriptions.myResolvedTrips$.addStatus(StreamStatusLive());
     heartbeats.source.addStatus(StreamStatusQueryComplete());
 
     final result = await worker.run();

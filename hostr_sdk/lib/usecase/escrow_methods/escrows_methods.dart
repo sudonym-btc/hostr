@@ -115,10 +115,6 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         if (tag.isNotEmpty && tag[0] == 'a') continue; // strip all "a" tags
         tags.add([...tag]);
       }
-      // Ensure the d tag is present for parameterized replaceable events.
-      if (!tags.any((t) => t.isNotEmpty && t[0] == 'd')) {
-        tags.insert(0, ['d', '']);
-      }
       for (final pubkey in missingTrusted) {
         tags.add(['p', pubkey]);
       }
@@ -171,7 +167,6 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       // Nip01Event leaves the id stale because it is `late final` and
       // Nip01Utils.signWithPrivateKey does not recalculate it.
       final completeTags = [
-        ['d', ''],
         ...listEvent.tags,
         for (final form in resolvedForms) form.toTag(),
       ];

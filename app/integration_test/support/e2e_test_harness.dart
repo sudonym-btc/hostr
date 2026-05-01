@@ -59,6 +59,7 @@ enum E2eSuite {
   hostings,
   reviews,
   autoWithdraw,
+  subscriptionLifecycle,
 }
 
 enum E2eReservationCase { usd, btc, negotiatedUsd, negotiatedBtc }
@@ -72,7 +73,7 @@ void runE2eTests({
   Set<E2eCancellationCase>? cancellationCases,
   bool singleBrowser = false,
 }) {
-  final activeSuites = suites ?? E2eSuite.values.toSet();
+  final activeSuites = suites ?? _defaultE2eSuites;
   final activeLoginModes = loginModes ?? E2eLoginMode.values.toSet();
   final activeReservationCases =
       reservationCases ?? E2eReservationCase.values.toSet();
@@ -362,6 +363,17 @@ void runE2eTests({
         );
       }
     }
+
+    if (has(E2eSuite.subscriptionLifecycle)) {
+      await _withSignedInUser(
+        tester: tester,
+        harness: harness,
+        signet: signet!,
+        loginMode: E2eLoginMode.nsec,
+        profileName: 'God Subscription Lifecycle',
+        body: _runSubscriptionLifecycleCase,
+      );
+    }
   }
 
   if (singleBrowser) {
@@ -609,7 +621,26 @@ void runE2eTests({
       }, timeout: _timeout);
     }
   }
+
+  if (has(E2eSuite.subscriptionLifecycle)) {
+    testWidgets('nostr subscriptions are disposed after navigation', (
+      tester,
+    ) async {
+      await _withSignedInUser(
+        tester: tester,
+        harness: harness,
+        signet: signet!,
+        loginMode: E2eLoginMode.nsec,
+        profileName: 'God Subscription Lifecycle',
+        body: _runSubscriptionLifecycleCase,
+      );
+    }, timeout: _timeout);
+  }
 }
+
+final Set<E2eSuite> _defaultE2eSuites = E2eSuite.values
+    .where((suite) => suite != E2eSuite.subscriptionLifecycle)
+    .toSet();
 
 class _GodFixtures {
   final KeyPair hostKeyPair;
@@ -1632,6 +1663,89 @@ Future<void> _runReservationCase(
   _godStep('${session.label} reservation:${reservationCase.name}:done');
 }
 
+Future<void> _runSubscriptionLifecycleCase(_E2eSession session) async {
+  final tester = session.tester;
+  _godStep('${session.label} subscriptions:lifecycle:start');
+  await _navigateToTabRoute(
+    tester,
+    session.router,
+    const ExploreRoute(),
+    routeName: ExploreRoute.name,
+  );
+  await _waitForExploreListToSettle(tester);
+
+  final baseline = await _waitForStableNostrSubscriptionSnapshot(
+    tester: tester,
+    hostr: session.hostr,
+    label: '${session.label} subscriptions:lifecycle:baseline',
+  );
+  expect(
+    baseline.liveCount,
+    greaterThan(0),
+    reason:
+        'Logged-in app should have intentional baseline live '
+        'subscriptions.\n${baseline.dump()}',
+  );
+  _godStep(
+    '${session.label} subscriptions:lifecycle:baseline '
+    'live=${baseline.liveCount} queries=${baseline.queryCount}',
+  );
+
+  await _runReservationCase(session, E2eReservationCase.usd);
+  final expectedAfterReservation =
+      _expectedSubscriptionCountsAfterUsdReservation(baseline.liveCounts);
+
+  await _navigateToTabRoute(
+    tester,
+    session.router,
+    const ExploreRoute(),
+    routeName: ExploreRoute.name,
+  );
+  await _waitForExploreListToSettle(tester);
+
+  var after = _nostrSubscriptionSnapshot(session.hostr);
+  await _waitFor(
+    tester,
+    () {
+      after = _nostrSubscriptionSnapshot(session.hostr);
+      return after.queryCounts.isEmpty &&
+          _sameStringIntMap(after.liveCounts, expectedAfterReservation);
+    },
+    timeout: const Duration(seconds: 90),
+    reasonBuilder: () => _subscriptionSnapshotMismatchReason(
+      baseline: baseline,
+      expectedLiveCounts: expectedAfterReservation,
+      actual: after,
+      label: '${session.label} subscriptions:lifecycle:after',
+    ),
+  );
+  _godStep(
+    '${session.label} subscriptions:lifecycle:done '
+    'live=${after.liveCount} queries=${after.queryCount}',
+  );
+}
+
+Map<String, int> _expectedSubscriptionCountsAfterUsdReservation(
+  Map<String, int> baseline,
+) {
+  final expected = Map<String, int>.of(baseline);
+
+  // Creating the first reservation gives UserSubscriptions real trade IDs and
+  // participants to track. These are intentional long-lived account streams,
+  // not page-owned route subscriptions, so the lifecycle assertion allows
+  // exactly one expansion for this single USD reservation journey.
+  for (final name in const [
+    'Reservation-user-reservations-live',
+    'ReservationTransition-user-transitions-live',
+    'ReceivedHeartbeat-user-heartbeats-live',
+    'ZapReceipts-sub',
+  ]) {
+    expected[name] = (expected[name] ?? 0) + 1;
+  }
+
+  return expected;
+}
+
 Future<void> _runCancellationCase(
   _E2eSession session,
   E2eCancellationCase cancellationCase,
@@ -1859,6 +1973,10 @@ Future<void> _signInWithPrivateKeyUi(
 ) async {
   await _navigateToSignIn(tester, router, label: 'signInPrivate');
   debugPrint('GOD_STEP signInPrivate:screen-visible');
+  final manualTab = find.byKey(const ValueKey('signin_tab_manual'));
+  if (manualTab.evaluate().isNotEmpty) {
+    await _tapKey(tester, manualTab);
+  }
   final keyField = find
       .byKey(const ValueKey('signin_private_key_input'))
       .hitTestable();
@@ -4953,6 +5071,175 @@ Future<void> _exerciseExploreFilters(
 
 bool _sameStringSet(Set<String> a, Set<String> b) {
   return a.length == b.length && a.containsAll(b);
+}
+
+bool _sameStringIntMap(Map<String, int> a, Map<String, int> b) {
+  if (a.length != b.length) return false;
+  for (final entry in a.entries) {
+    if (b[entry.key] != entry.value) return false;
+  }
+  return true;
+}
+
+final _liveSubscriptionSuffixPattern = RegExp(r'-[A-Za-z0-9]{5}$');
+
+class _NostrSubscriptionSnapshot {
+  final Map<String, int> liveCounts;
+  final Map<String, int> queryCounts;
+  final List<String> liveRawNames;
+  final List<String> queryRawNames;
+
+  const _NostrSubscriptionSnapshot({
+    required this.liveCounts,
+    required this.queryCounts,
+    required this.liveRawNames,
+    required this.queryRawNames,
+  });
+
+  int get liveCount => _totalCount(liveCounts);
+  int get queryCount => _totalCount(queryCounts);
+
+  String dump() {
+    return [
+      'live=$liveCount ${_formatCountMap(liveCounts)}',
+      'queries=$queryCount ${_formatCountMap(queryCounts)}',
+      if (liveRawNames.isNotEmpty) 'liveRaw=${liveRawNames.join(', ')}',
+      if (queryRawNames.isNotEmpty) 'queryRaw=${queryRawNames.join(', ')}',
+    ].join('\n');
+  }
+}
+
+int _totalCount(Map<String, int> counts) =>
+    counts.values.fold<int>(0, (sum, count) => sum + count);
+
+Map<String, int> _countByCanonicalSubscriptionName(Iterable<String> names) {
+  final counts = <String, int>{};
+  for (final name in names) {
+    final canonical = name.replaceFirst(_liveSubscriptionSuffixPattern, '');
+    counts[canonical] = (counts[canonical] ?? 0) + 1;
+  }
+  return counts;
+}
+
+String _formatCountMap(Map<String, int> counts) {
+  if (counts.isEmpty) return '{}';
+  final entries = counts.entries.toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  return entries.map((entry) => '${entry.key}:${entry.value}').join(', ');
+}
+
+_NostrSubscriptionSnapshot _nostrSubscriptionSnapshot(Hostr hostr) {
+  final liveRawNames = <String>[];
+  final queryRawNames = <String>[];
+  for (final state in hostr.ndk.relays.globalState.inFlightRequests.values) {
+    final name = _nostrRequestName(state);
+    final isQuery = _nostrRequestClosesOnEose(state);
+    if (isQuery) {
+      queryRawNames.add(name);
+    } else {
+      liveRawNames.add(name);
+    }
+  }
+  liveRawNames.sort();
+  queryRawNames.sort();
+  return _NostrSubscriptionSnapshot(
+    liveCounts: _countByCanonicalSubscriptionName(liveRawNames),
+    queryCounts: _countByCanonicalSubscriptionName(queryRawNames),
+    liveRawNames: liveRawNames,
+    queryRawNames: queryRawNames,
+  );
+}
+
+String _nostrRequestName(dynamic state) {
+  final request = state.request;
+  final name = request.name?.toString();
+  if (name != null && name.trim().isNotEmpty) return name;
+  return state.id?.toString() ?? 'unnamed';
+}
+
+bool _nostrRequestClosesOnEose(dynamic state) =>
+    state.request.closeOnEOSE == true;
+
+Future<_NostrSubscriptionSnapshot> _waitForStableNostrSubscriptionSnapshot({
+  required WidgetTester tester,
+  required Hostr hostr,
+  required String label,
+  Duration timeout = const Duration(seconds: 90),
+}) async {
+  var snapshot = _nostrSubscriptionSnapshot(hostr);
+  _NostrSubscriptionSnapshot? previous;
+  var stableSamples = 0;
+  await _waitFor(
+    tester,
+    () {
+      snapshot = _nostrSubscriptionSnapshot(hostr);
+      final matchesPrevious =
+          previous != null &&
+          _sameStringIntMap(snapshot.liveCounts, previous!.liveCounts);
+      if (snapshot.queryCounts.isEmpty && matchesPrevious) {
+        stableSamples += 1;
+      } else {
+        stableSamples = 0;
+      }
+      previous = snapshot;
+      return snapshot.queryCounts.isEmpty && stableSamples >= 3;
+    },
+    timeout: timeout,
+    reasonBuilder: () =>
+        '$label did not reach a stable subscription baseline.\n'
+        '${snapshot.dump()}',
+  );
+  return snapshot;
+}
+
+String _subscriptionSnapshotMismatchReason({
+  required _NostrSubscriptionSnapshot baseline,
+  required Map<String, int> expectedLiveCounts,
+  required _NostrSubscriptionSnapshot actual,
+  required String label,
+}) {
+  return '$label did not reach the expected live subscription set.\n'
+      'diff=${_subscriptionCountDiff(expectedLiveCounts, actual.liveCounts)}\n'
+      'expected=${_formatCountMap(expectedLiveCounts)}\n'
+      'baseline:\n${baseline.dump()}\n'
+      'actual:\n${actual.dump()}';
+}
+
+String _subscriptionCountDiff(
+  Map<String, int> expected,
+  Map<String, int> actual,
+) {
+  final keys = {...expected.keys, ...actual.keys}.toList()..sort();
+  final deltas = <String>[];
+  for (final key in keys) {
+    final expectedCount = expected[key] ?? 0;
+    final actualCount = actual[key] ?? 0;
+    if (expectedCount == actualCount) continue;
+    final sign = actualCount > expectedCount ? '+' : '';
+    deltas.add(
+      '$key:$expectedCount->$actualCount($sign${actualCount - expectedCount})',
+    );
+  }
+  return deltas.isEmpty ? 'none' : deltas.join(', ');
+}
+
+Future<void> _waitForExploreListToSettle(
+  WidgetTester tester, {
+  Duration timeout = const Duration(seconds: 60),
+}) async {
+  await _waitFor(
+    tester,
+    () {
+      final views = find.byType(ExploreView).evaluate();
+      if (views.isEmpty) return false;
+      final context = views.first;
+      final state = context.read<ListCubit<Listing>>().state;
+      return !state.fetching && !state.synching;
+    },
+    timeout: timeout,
+    reasonBuilder: () =>
+        _visibleTextSnapshot(tester, 'Explore list should settle'),
+  );
 }
 
 Future<void> _exerciseExploreLocationInput({

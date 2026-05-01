@@ -61,7 +61,6 @@ String signerRequestEventKindDescription(int? kind) {
     kNostrKindGiftWrap => 'encrypted message wrapper',
     kNostrKindDmRelays => 'direct message relay list',
     kNostrKindReceivedHeartbeat => 'heartbeat',
-    kNostrKindTypingIndicator => 'typing indicator',
     kNostrKindSeenMessages => 'seen message marker',
     kNostrKindNWCInfo => 'Nostr Wallet Connect info',
     kNostrKindNWCRequest => 'Nostr Wallet Connect request',

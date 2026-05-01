@@ -8,13 +8,15 @@ void main() {
       setSecp256k1LoaderOverride(null);
     });
 
-    test('verifySchnorrSignature falls back to pure Dart when fast load fails', () async {
+    test('verifySchnorrSignature falls back to pure Dart when fast load fails',
+        () async {
       setSecp256k1LoaderOverride(() async {
         throw StateError('native backend unavailable');
       });
 
       final keyPair = Bip340.generatePrivateKey();
-      const message = '0000000000000000000000000000000000000000000000000000000000000001';
+      const message =
+          '0000000000000000000000000000000000000000000000000000000000000001';
       final signature = Bip340.sign(message, keyPair.privateKey!);
 
       expect(
