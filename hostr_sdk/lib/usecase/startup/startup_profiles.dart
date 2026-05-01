@@ -8,6 +8,8 @@ import '../background_worker/background_worker.dart';
 import '../calendar/calendar.dart';
 import '../deterministic_keys/account_seed_store.dart';
 import '../evm/operations/funds_monitor/funds_monitor_service.dart';
+import '../identity_claims/identity_claims.dart';
+import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
 import '../nwc/nwc.dart';
@@ -138,6 +140,8 @@ class UserStartupProfile implements StartupProfile {
   final Relays _relays;
   final AccountSeedStore _accountSeedStore;
   final MetadataUseCase _metadata;
+  final Listings _listings;
+  final IdentityClaimsUseCase _identityClaims;
   final UserSubscriptions _userSubscriptions;
   final PaymentProofOrchestrator _paymentProofOrchestrator;
   final FundsMonitorService _fundsMonitor;
@@ -155,6 +159,8 @@ class UserStartupProfile implements StartupProfile {
     required Relays relays,
     required AccountSeedStore accountSeedStore,
     required MetadataUseCase metadata,
+    required Listings listings,
+    required IdentityClaimsUseCase identityClaims,
     required UserSubscriptions userSubscriptions,
     required PaymentProofOrchestrator paymentProofOrchestrator,
     required FundsMonitorService fundsMonitor,
@@ -169,6 +175,8 @@ class UserStartupProfile implements StartupProfile {
        _relays = relays,
        _accountSeedStore = accountSeedStore,
        _metadata = metadata,
+       _listings = listings,
+       _identityClaims = identityClaims,
        _userSubscriptions = userSubscriptions,
        _paymentProofOrchestrator = paymentProofOrchestrator,
        _fundsMonitor = fundsMonitor,
@@ -177,7 +185,11 @@ class UserStartupProfile implements StartupProfile {
        _calendar = calendar,
        _messaging = messaging,
        _reservations = reservations {
-    _profileBootstrapper = UserStartupProfileBootstrapper(metadata: _metadata);
+    _profileBootstrapper = UserStartupProfileBootstrapper(
+      metadata: _metadata,
+      listings: _listings,
+      identityClaims: _identityClaims,
+    );
   }
 
   @override

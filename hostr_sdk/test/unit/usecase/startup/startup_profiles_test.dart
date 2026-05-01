@@ -11,6 +11,8 @@ import 'package:hostr_sdk/usecase/calendar/calendar.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/account_seed_store.dart';
 import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart';
+import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
+import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
@@ -104,6 +106,8 @@ void main() {
         final calendar = _FakeCalendar();
         final messaging = usecase_mocks.MockMessaging();
         final reservations = usecase_mocks.MockReservations();
+        final listings = _FakeListings();
+        final identityClaims = _FakeIdentityClaims();
 
         when(
           auth.activeKeyPair,
@@ -129,6 +133,8 @@ void main() {
           relays: relays,
           accountSeedStore: seedStore,
           metadata: metadata,
+          listings: listings,
+          identityClaims: identityClaims,
           userSubscriptions: userSubscriptions,
           paymentProofOrchestrator: paymentProof,
           fundsMonitor: fundsMonitor,
@@ -163,6 +169,8 @@ void main() {
         ).called(1);
         verifyNever(metadata.loadMetadata('user-pubkey', forceRefresh: true));
         verifyNever(metadata.ensureUserConfig('user-pubkey'));
+        expect(listings.queriedAuthors, ['user-pubkey']);
+        expect(identityClaims.ensureCalls, 0);
       },
     );
 
@@ -180,6 +188,8 @@ void main() {
       final calendar = _FakeCalendar();
       final messaging = usecase_mocks.MockMessaging();
       final reservations = usecase_mocks.MockReservations();
+      final listings = _FakeListings();
+      final identityClaims = _FakeIdentityClaims();
       final snapshots = <StartupSnapshot>[];
 
       when(
@@ -200,6 +210,8 @@ void main() {
         relays: relays,
         accountSeedStore: seedStore,
         metadata: metadata,
+        listings: listings,
+        identityClaims: identityClaims,
         userSubscriptions: userSubscriptions,
         paymentProofOrchestrator: paymentProof,
         fundsMonitor: fundsMonitor,
@@ -229,6 +241,8 @@ void main() {
       expect(fundsMonitor.starts, 0);
       expect(backgroundWorker.watchCalls, 0);
       expect(calendar.starts, 0);
+      expect(listings.queriedAuthors, isEmpty);
+      expect(identityClaims.ensureCalls, 0);
       verifyNever(
         metadata.loadMetadata(any, forceRefresh: anyNamed('forceRefresh')),
       );
@@ -247,6 +261,8 @@ void main() {
       final calendar = _FakeCalendar();
       final messaging = usecase_mocks.MockMessaging();
       final reservations = usecase_mocks.MockReservations();
+      final listings = _FakeListings()..events = [_listing('user-pubkey')];
+      final identityClaims = _FakeIdentityClaims();
       final refreshed = _profile('user-pubkey');
 
       when(
@@ -274,6 +290,8 @@ void main() {
         relays: relays,
         accountSeedStore: seedStore,
         metadata: metadata,
+        listings: listings,
+        identityClaims: identityClaims,
         userSubscriptions: userSubscriptions,
         paymentProofOrchestrator: paymentProof,
         fundsMonitor: fundsMonitor,
@@ -304,6 +322,8 @@ void main() {
         metadata.loadMetadata('user-pubkey', forceRefresh: true),
       ).called(1);
       verifyNever(metadata.ensureUserConfig('user-pubkey'));
+      expect(listings.queriedAuthors, ['user-pubkey']);
+      expect(identityClaims.ensureCalls, 1);
     });
   });
 }
@@ -370,6 +390,27 @@ class _FakeRelays extends Fake implements Relays {
   }
 }
 
+class _FakeListings extends Fake implements Listings {
+  List<Listing> events = const [];
+  final List<String> queriedAuthors = [];
+
+  @override
+  Future<List<Listing>> list(Filter f, {String? name}) async {
+    queriedAuthors.addAll(f.authors ?? const []);
+    return events;
+  }
+}
+
+class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
+  int ensureCalls = 0;
+
+  @override
+  Future<IdentityClaims?> ensureEvmAddress() async {
+    ensureCalls++;
+    return null;
+  }
+}
+
 class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
   int starts = 0;
@@ -433,6 +474,20 @@ ProfileMetadata _profile(String pubkey) {
       sig: 'sig',
       id: 'id-$pubkey',
     ),
+  );
+}
+
+Listing _listing(String pubkey) {
+  return Listing(
+    pubKey: pubkey,
+    createdAt: 1,
+    tags: ListingTags(const [
+      ['d', 'listing'],
+      ['title', 'Test listing'],
+    ]),
+    content: 'Listing',
+    sig: 'sig',
+    id: 'listing-$pubkey',
   );
 }
 

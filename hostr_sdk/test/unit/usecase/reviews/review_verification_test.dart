@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:hostr_sdk/datasources/nostr/mock.relay.dart' show matchEvent;
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
+import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/usecase/reservations/reservation_participant_authorization.dart';
@@ -85,6 +86,11 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
       await sub.close();
     }
   }
+}
+
+class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
+  @override
+  Future<IdentityClaims?> ensureEvmAddress() async => null;
 }
 
 RelayBroadcastResponse _successfulBroadcastResponse() {
@@ -353,7 +359,11 @@ void main() {
       escrowVerification = _StubEscrowVerification();
       final logger = CustomLogger();
 
-      listings = Listings(requests: fakeRequests, logger: logger);
+      listings = Listings(
+        requests: fakeRequests,
+        logger: logger,
+        identityClaims: _FakeIdentityClaims(),
+      );
       reservations = Reservations(
         requests: fakeRequests,
         logger: logger,

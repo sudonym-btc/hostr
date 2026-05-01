@@ -2,9 +2,11 @@
 library;
 
 import 'package:hostr_sdk/seed/seed.dart';
+import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
+import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -13,6 +15,11 @@ import 'package:test/test.dart';
 import '../../../support/fakes.dart';
 
 final _f = EntityFactory();
+
+class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
+  @override
+  Future<IdentityClaims?> ensureEvmAddress() async => null;
+}
 
 Future<Reservation> _reservation({
   required Listing listing,
@@ -64,7 +71,11 @@ void main() {
         messaging: FakeMessaging(),
         auth: FakeAuth(),
         transitions: FakeTransitions(),
-        listings: Listings(requests: relay, logger: CustomLogger()),
+        listings: Listings(
+          requests: relay,
+          logger: CustomLogger(),
+          identityClaims: _FakeIdentityClaims(),
+        ),
         relays: FakeRelays(),
       );
       listing = _fixtureListing();

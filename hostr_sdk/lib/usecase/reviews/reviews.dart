@@ -4,7 +4,6 @@ import 'package:models/main.dart';
 import '../can_verify.dart';
 import '../crud.usecase.dart';
 import '../escrow/escrow_verification.dart';
-import '../evm/evm.dart';
 import '../listings/listings.dart';
 import '../reservation_groups/reservation_groups.dart';
 import '../reservations/reservations.dart';
@@ -28,20 +27,17 @@ class ReviewDeps {
 class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
   final Reservations _reservations;
   final Listings _listings;
-  final EscrowVerification? _escrowVerification;
+  final EscrowVerification _escrowVerification;
 
   Reviews({
     required super.requests,
     required super.logger,
     required Reservations reservations,
     required Listings listings,
-    Evm? evm,
-    EscrowVerification? escrowVerification,
+    required EscrowVerification escrowVerification,
   }) : _reservations = reservations,
        _listings = listings,
-       _escrowVerification =
-           escrowVerification ??
-           (evm != null ? EscrowVerification(evm: evm, logger: logger) : null),
+       _escrowVerification = escrowVerification,
        super(kind: Review.kinds[0]);
 
   bool _proofMatchesReservation({
