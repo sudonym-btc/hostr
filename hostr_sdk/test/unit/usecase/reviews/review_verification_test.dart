@@ -77,7 +77,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     List<String>? relays,
   }) async {
     events.add(event);
-    return [];
+    return [_successfulBroadcastResponse()];
   }
 
   Future<void> closeAll() async {
@@ -85,6 +85,14 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
       await sub.close();
     }
   }
+}
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.test',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
 }
 
 class _StubEscrowVerification extends Fake implements EscrowVerification {

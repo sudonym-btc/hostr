@@ -144,10 +144,11 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
   }) => logger.span('upsertWrapped', () async {
     final wrapped = await wrap(rumor: rumor, recipientPubkey: recipientPubkey);
     final hostrRelay = _hostrRelay();
-    return requests.broadcast(
+    final responses = await requests.broadcast(
       event: wrapped,
       relays: hostrRelay.isEmpty ? null : [hostrRelay],
     );
+    return responses;
   });
 
   /// Subscribes to kind `1059` events and returns parsed inner events.

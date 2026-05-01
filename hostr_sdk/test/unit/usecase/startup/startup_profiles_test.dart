@@ -166,6 +166,74 @@ void main() {
       },
     );
 
+    test('user startup surfaces seed backup publish failures', () async {
+      final auth = usecase_mocks.MockAuth();
+      final relays = usecase_mocks.MockRelays();
+      final metadata = usecase_mocks.MockMetadataUseCase();
+      final seedFailure = StateError('Unable to publish seed backup');
+      final seedStore = _FakeAccountSeedStore()..failure = seedFailure;
+      final userSubscriptions = _FakeUserSubscriptions()..markLive();
+      final paymentProof = _FakePaymentProofOrchestrator();
+      final fundsMonitor = _FakeFundsMonitorService();
+      final nwc = usecase_mocks.MockNwc();
+      final backgroundWorker = _FakeBackgroundWorker();
+      final calendar = _FakeCalendar();
+      final messaging = usecase_mocks.MockMessaging();
+      final reservations = usecase_mocks.MockReservations();
+      final snapshots = <StartupSnapshot>[];
+
+      when(
+        auth.activeKeyPair,
+      ).thenReturn(KeyPair('privkey', 'user-pubkey', null, null));
+      when(auth.activePubkey).thenReturn('user-pubkey');
+      when(relays.loadNip65Hints('user-pubkey')).thenAnswer((_) async => true);
+
+      final profile = UserStartupProfile(
+        core: _FakeStartupCore(),
+        auth: auth,
+        config: HostrConfig(
+          bootstrapRelays: const [],
+          bootstrapBlossom: const [],
+          hostrRelay: '',
+          evmConfig: const EvmConfig(),
+        ),
+        relays: relays,
+        accountSeedStore: seedStore,
+        metadata: metadata,
+        userSubscriptions: userSubscriptions,
+        paymentProofOrchestrator: paymentProof,
+        fundsMonitor: fundsMonitor,
+        nwc: nwc,
+        backgroundWorker: backgroundWorker,
+        calendar: calendar,
+        messaging: messaging,
+        reservations: reservations,
+      );
+
+      await expectLater(
+        profile.launch(
+          StartupLaunchContext(token: StartupRunToken(), emit: snapshots.add),
+        ),
+        throwsA(same(seedFailure)),
+      );
+
+      expect(snapshots.last.hasFailed, isTrue);
+      expect(snapshots.last.error, same(seedFailure));
+      expect(
+        _states(snapshots.last)[StartupItemId.seed],
+        StartupItemState.failed,
+      );
+      expect(seedStore.ensureCalls, ['user-pubkey']);
+      expect(userSubscriptions.starts, 0);
+      expect(paymentProof.starts, 0);
+      expect(fundsMonitor.starts, 0);
+      expect(backgroundWorker.watchCalls, 0);
+      expect(calendar.starts, 0);
+      verifyNever(
+        metadata.loadMetadata(any, forceRefresh: anyNamed('forceRefresh')),
+      );
+    });
+
     test('user startup force refreshes metadata when NIP-65 exists', () async {
       final auth = usecase_mocks.MockAuth();
       final relays = usecase_mocks.MockRelays();
@@ -278,11 +346,16 @@ class _FakeAuth extends Fake implements Auth {
 
 class _FakeAccountSeedStore extends Fake implements AccountSeedStore {
   final List<String> ensureCalls = [];
+  Object? failure;
 
   @override
   Future<void> ensureReady({String? pubkey}) async {
     if (pubkey != null) {
       ensureCalls.add(pubkey);
+    }
+    final error = failure;
+    if (error != null) {
+      throw error;
     }
   }
 }

@@ -121,7 +121,9 @@ class _FakeMessaging extends Fake implements Messaging {
         recipientPubkeys: recipientPubkeys,
       ),
     );
-    return const [];
+    return [
+      Future.value([_successfulBroadcastResponse()]),
+    ];
   }
 }
 
@@ -134,8 +136,16 @@ class _FakeRequests extends Fake implements Requests {
     List<String>? relays,
   }) async {
     broadcasts.add(event);
-    return const [];
+    return [_successfulBroadcastResponse()];
   }
+}
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.test',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
 }
 
 class _FakeReservations extends Fake implements Reservations {

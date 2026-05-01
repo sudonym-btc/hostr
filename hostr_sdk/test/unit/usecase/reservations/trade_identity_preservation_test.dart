@@ -44,7 +44,7 @@ class _FakeRequests extends Fake implements Requests {
     List<String>? relays,
   }) async {
     broadcastedEvents.add(event);
-    return const <RelayBroadcastResponse>[];
+    return [_successfulBroadcastResponse()];
   }
 
   @override
@@ -64,6 +64,14 @@ class _FakeRequests extends Fake implements Requests {
     String? name,
     bool setSinceOnLiveFilter = true,
   }) => StreamWithStatus<T>();
+}
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.test',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
 }
 
 class _FakeAccounts extends Fake implements Accounts {

@@ -106,7 +106,18 @@ class AccountSeedStore {
     await _storage.setSeed(seedHex);
     _remember(pubkey, seedHex);
 
-    final publishResult = await _publishSeed(pubkey, seedHex);
+    late final bool publishResult;
+    try {
+      publishResult = await _publishSeed(pubkey, seedHex);
+    } catch (e) {
+      if (privateKey == null) {
+        throw StateError(
+          'Unable to publish a newly generated account seed for bunker login: '
+          '$e',
+        );
+      }
+      rethrow;
+    }
     if (!publishResult && privateKey == null) {
       throw StateError(
         'Unable to publish a newly generated account seed for bunker login',
@@ -182,10 +193,46 @@ class AccountSeedStore {
       createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       tags: const [],
     );
-    await _requests.broadcast(event: event);
 
-    final remoteSeed = await _fetchRemoteSeed(pubkey, timeoutSeconds: 12);
-    return remoteSeed == seedHex;
+    final responses = await _requests.broadcast(event: event);
+    final remoteSeed = await _fetchPublishedSeed(pubkey, seedHex);
+    final verified = remoteSeed == seedHex;
+    if (verified) {
+      _logger.d(
+        'Hostr seed publish verified for $pubkey: '
+        '${formatBroadcastResponses(responses)}',
+      );
+    } else {
+      _logger.w(
+        'Hostr seed publish accepted but readback failed for $pubkey: '
+        'remote=${remoteSeed == null ? 'missing' : 'different'} '
+        'responses=${formatBroadcastResponses(responses)}',
+      );
+    }
+    return verified;
+  }
+
+  Future<String?> _fetchPublishedSeed(
+    String pubkey,
+    String expectedSeed,
+  ) async {
+    const delays = [
+      Duration.zero,
+      Duration(milliseconds: 300),
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+    ];
+
+    String? latestSeed;
+    for (final delay in delays) {
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
+
+      latestSeed = await _fetchRemoteSeed(pubkey, timeoutSeconds: 4);
+      if (latestSeed == expectedSeed) return latestSeed;
+    }
+    return latestSeed;
   }
 
   Future<String> _encryptPayload({

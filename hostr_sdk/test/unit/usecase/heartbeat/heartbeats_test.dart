@@ -66,7 +66,7 @@ class _FakeRequests extends Fake implements Requests {
     List<String>? relays,
   }) async {
     lastBroadcastEvent = event;
-    return const <RelayBroadcastResponse>[];
+    return [_successfulBroadcastResponse()];
   }
 
   Future<void> dispose() async {
@@ -75,6 +75,14 @@ class _FakeRequests extends Fake implements Requests {
       await queryController.close();
     }
   }
+}
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.test',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
 }
 
 class _FakeAccounts extends Fake implements Accounts {

@@ -7,7 +7,6 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:models/main.dart';
-import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
 import 'package:web3dart/web3dart.dart' show BlockNum;
 
@@ -606,8 +605,7 @@ class DaemonHandler {
       hostr.auth.activeKeyPair!,
       EscrowService.fromNostrEvent,
     );
-    final responses = await hostr.escrows.upsert(signed);
-    _throwIfBroadcastFailed(responses);
+    await hostr.escrows.upsert(signed);
     return {'ok': true, 'serviceId': signed.id};
   }
 
@@ -641,24 +639,6 @@ class DaemonHandler {
     );
     await hostr.escrows.delete(EscrowService.fromNostrEvent(deletion));
     return {'ok': true};
-  }
-
-  void _throwIfBroadcastFailed(List<RelayBroadcastResponse> responses) {
-    if (responses.any((response) => response.broadcastSuccessful)) return;
-
-    if (responses.isEmpty) {
-      throw json_rpc.RpcException(
-        -32003,
-        'No relay responded to the broadcast.',
-      );
-    }
-
-    final details = responses.map((response) {
-      final message = response.msg.trim();
-      if (message.isEmpty) return response.relayUrl;
-      return '${response.relayUrl}: $message';
-    }).join('\n');
-    throw json_rpc.RpcException(-32003, 'Broadcast failed.\n$details');
   }
 
   // ── Profile ─────────────────────────────────────────────────────────────

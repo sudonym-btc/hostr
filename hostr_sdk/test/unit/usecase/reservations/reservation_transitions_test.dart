@@ -73,12 +73,20 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     List<String>? relays,
   }) async {
     broadcasted.add(event);
-    return [];
+    return [_successfulBroadcastResponse()];
   }
 
   void emit(ReservationTransition t) => _source.add(t);
   void emitStatus(StreamStatus s) => _source.addStatus(s);
   Future<void> close() => _source.close();
+}
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.test',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────

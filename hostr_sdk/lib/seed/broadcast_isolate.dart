@@ -9,6 +9,8 @@ import 'dart:isolate';
 
 import 'package:hostr_sdk/config.dart'
     show CoinlibEventSigner, CoinlibNip44Cryptography;
+import 'package:hostr_sdk/usecase/requests/requests.dart'
+    show hasSuccessfulBroadcast;
 import 'package:ndk/ndk.dart';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -278,8 +280,7 @@ Future<void> _isolateEntry(_IsolateArgs args) async {
             continue;
           }
 
-          final successful = broadcastResult.any((r) => r.broadcastSuccessful);
-          if (successful) {
+          if (hasSuccessfulBroadcast(broadcastResult)) {
             successCount++;
             mainPort.send(BroadcastSuccess(index));
             return;

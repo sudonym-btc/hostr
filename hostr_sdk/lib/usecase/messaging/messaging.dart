@@ -39,26 +39,6 @@ List<String> resolveHostrOnlyGiftWrapBroadcastRelays({
   return [hostrRelay];
 }
 
-@visibleForTesting
-void ensureSuccessfulGiftWrapBroadcast({
-  required String recipientPubkey,
-  required List<RelayBroadcastResponse> responses,
-}) {
-  final accepted = responses
-      .where((response) => response.broadcastSuccessful)
-      .map((response) => response.relayUrl)
-      .toList(growable: false);
-  if (accepted.isNotEmpty) return;
-
-  final rejected = responses
-      .map((response) => '${response.relayUrl}: ${response.msg}')
-      .toList(growable: false);
-  throw StateError(
-    'Failed to send message to $recipientPubkey. '
-    'No relay accepted the gift wrap. Rejections: $rejected',
-  );
-}
-
 @Singleton()
 class Messaging {
   final Ndk _ndk;
@@ -167,10 +147,6 @@ class Messaging {
         _logger.i(
           'Giftwrap broadcast complete for $pubkey: '
           'accepted=$accepted rejected=$rejected',
-        );
-        ensureSuccessfulGiftWrapBroadcast(
-          recipientPubkey: pubkey,
-          responses: responses,
         );
         return responses;
       }),

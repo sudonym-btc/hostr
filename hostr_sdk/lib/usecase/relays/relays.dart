@@ -347,11 +347,24 @@ class Relays {
         logger.d('NIP-65 before publish: no existing list');
       }
 
-      await ndk.userRelayLists.broadcastAddNip65Relay(
-        relayUrl: hostrRelay,
-        marker: ReadWriteMarker.readWrite,
-        broadcastRelays: [hostrRelay],
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final updated =
+          before ??
+          UserRelayList(
+            pubKey: pubkey,
+            relays: {hostrRelay: ReadWriteMarker.readWrite},
+            createdAt: now,
+            refreshedTimestamp: now,
+          );
+      updated.relays[hostrRelay] = ReadWriteMarker.readWrite;
+      updated.createdAt = now;
+      updated.refreshedTimestamp = now;
+
+      await getIt<Requests>().broadcast(
+        event: updated.toNip65().toEvent(),
+        relays: [hostrRelay],
       );
+      await ndk.config.cache.saveUserRelayList(updated);
 
       final after = await ndk.userRelayLists.getSingleUserRelayList(pubkey);
       if (after != null) {
@@ -361,6 +374,7 @@ class Relays {
       }
     } catch (e) {
       logger.e('Error publishing NIP-65 relay list: $e');
+      rethrow;
     }
   });
 }
