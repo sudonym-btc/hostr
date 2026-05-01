@@ -138,6 +138,7 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final hostrSdkModule = _$HostrSdkModule();
+    gh.factory<_i603.SwapQuoteService>(() => _i603.SwapQuoteService());
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
     gh.singleton<_i995.AppDatabase>(() => hostrSdkModule.appDatabase);
@@ -158,9 +159,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i301.Verification>(
       () => _i301.Verification(ndk: gh<_i857.Ndk>()),
       registerFor: {_dev, _staging, _prod},
-    );
-    gh.factory<_i603.SwapQuoteService>(
-      () => _i603.SwapQuoteService(logger: gh<_i331.CustomLogger>()),
     );
     gh.singleton<_i259.AuthIdentityResolver>(
       () => _i259.AuthIdentityResolver(logger: gh<_i331.CustomLogger>()),
@@ -228,12 +226,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.singleton<_i906.Listings>(
-      () => _i906.Listings(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i218.NwcStorage>(
       () => _i218.NwcStorage(gh<_i910.HostrConfig>(), gh<_i1000.Auth>()),
     );
@@ -260,6 +252,13 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
       ),
     );
+    gh.singleton<_i308.GiftWraps>(
+      () => _i308.GiftWraps(
+        ndk: gh<_i857.Ndk>(),
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+      ),
+    );
     gh.singleton<_i305.Evm>(
       () => _i305.Evm(
         gh<_i910.HostrConfig>(),
@@ -270,7 +269,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i445.EscrowMethods>(
       () => _i445.EscrowMethods(
         requests: gh<_i1014.Requests>(),
-        logger: gh<_i331.CustomLogger>(),
+        logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
         evm: gh<_i305.Evm>(),
       ),
@@ -326,14 +325,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i216.CommonDatabase>(),
         gh<_i331.CustomLogger>(),
         gh<_i1000.Auth>(),
-      ),
-    );
-    gh.singleton<_i308.GiftWraps>(
-      () => _i308.GiftWraps(
-        ndk: gh<_i857.Ndk>(),
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        config: gh<_i910.HostrConfig>(),
       ),
     );
     gh.singleton<_i883.Relays>(
@@ -446,6 +437,13 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
     );
+    gh.singleton<_i906.Listings>(
+      () => _i906.Listings(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
+      ),
+    );
     gh.singleton<_i149.MetadataUseCase>(
       () => _i149.MetadataUseCase(
         ndk: gh<_i857.Ndk>(),
@@ -491,6 +489,15 @@ extension GetItInjectableX on _i174.GetIt {
         relays: gh<_i883.Relays>(),
       ),
     );
+    gh.singleton<_i660.Reviews>(
+      () => _i660.Reviews(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        reservations: gh<_i326.Reservations>(),
+        listings: gh<_i906.Listings>(),
+        escrowVerification: gh<_i647.EscrowVerification>(),
+      ),
+    );
     gh.singleton<_i179.TradeAudit>(
       () => _i179.TradeAudit(
         reservations: gh<_i326.Reservations>(),
@@ -516,16 +523,6 @@ extension GetItInjectableX on _i174.GetIt {
         nwc: gh<_i588.Nwc>(),
         payments: gh<_i226.Payments>(),
         aa: aa,
-      ),
-    );
-    gh.singleton<_i660.Reviews>(
-      () => _i660.Reviews(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        reservations: gh<_i326.Reservations>(),
-        listings: gh<_i906.Listings>(),
-        evm: gh<_i305.Evm>(),
-        escrowVerification: gh<_i647.EscrowVerification>(),
       ),
     );
     gh.singleton<_i576.UserSubscriptions>(
@@ -626,19 +623,6 @@ extension GetItInjectableX on _i174.GetIt {
         logger: gh<_i372.CustomLogger>(),
       ),
     );
-    gh.factoryParam<_i981.Trade, _i981.TradeContext, dynamic>(
-      (context, _) => _i981.Trade(
-        context: context,
-        logger: gh<_i331.CustomLogger>(),
-        auth: gh<_i1000.Auth>(),
-        listings: gh<_i906.Listings>(),
-        metadata: gh<_i149.MetadataUseCase>(),
-        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
-        userSubscriptions: gh<_i576.UserSubscriptions>(),
-        reservationGroups: gh<_i533.ReservationGroups>(),
-        threads: gh<_i768.Threads>(),
-      ),
-    );
     gh.singleton<_i49.ReservationRequests>(
       () => _i49.ReservationRequests(
         requests: gh<_i1014.Requests>(),
@@ -657,6 +641,19 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i842.OperationStateStore>(),
         gh<_i794.UserConfigStore>(),
         gh<_i331.CustomLogger>(),
+      ),
+    );
+    gh.factoryParam<_i981.Trade, _i981.TradeContext, dynamic>(
+      (context, _) => _i981.Trade(
+        context: context,
+        logger: gh<_i331.CustomLogger>(),
+        auth: gh<_i1000.Auth>(),
+        listings: gh<_i906.Listings>(),
+        metadata: gh<_i149.MetadataUseCase>(),
+        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
+        userSubscriptions: gh<_i576.UserSubscriptions>(),
+        reservationGroups: gh<_i533.ReservationGroups>(),
+        threads: gh<_i768.Threads>(),
       ),
     );
     gh.factoryParam<
@@ -706,6 +703,8 @@ extension GetItInjectableX on _i174.GetIt {
         relays: gh<_i883.Relays>(),
         accountSeedStore: gh<_i756.AccountSeedStore>(),
         metadata: gh<_i149.MetadataUseCase>(),
+        listings: gh<_i906.Listings>(),
+        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         paymentProofOrchestrator: gh<_i850.PaymentProofOrchestrator>(),
         fundsMonitor: gh<_i1016.FundsMonitorService>(),

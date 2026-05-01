@@ -52,6 +52,8 @@ typedef EscrowReservationGroupVerifier =
       required EscrowVerification escrowVerification,
     });
 
+typedef EscrowDaemonClock = DateTime Function();
+
 const _hostrTradeIdTag = 'tradeId';
 const _monthAbbreviations = [
   'Jan',
@@ -70,7 +72,7 @@ const _monthAbbreviations = [
 
 class EscrowReservationNotifier {
   final KeyPair Function() escrowKeyPair;
-  final DateTime Function() clock;
+  final EscrowDaemonClock clock;
   final Future<Listing?> Function(String listingAnchor) loadListing;
   final Future<ProfileMetadata?> Function(String pubkey) loadMetadata;
   final EscrowReservationNoticeSender sendText;
@@ -81,7 +83,7 @@ class EscrowReservationNotifier {
 
   EscrowReservationNotifier({
     required this.escrowKeyPair,
-    DateTime Function()? clock,
+    EscrowDaemonClock? clock,
     required this.loadListing,
     required this.loadMetadata,
     required this.sendText,
@@ -368,7 +370,7 @@ class EscrowReservationNotifier {
     required int currentYear,
   }) {
     if (start == null && end == null) return '';
-    final dates = [if (start != null) start, if (end != null) end];
+    final dates = [?start, ?end];
     final includeYear = dates.any((date) => date.toUtc().year != currentYear);
     if (start == null) return _date(end!, includeYear: includeYear);
     if (end == null) return _date(start, includeYear: includeYear);
@@ -452,8 +454,8 @@ class EscrowDaemon {
     required Reservations reservations,
     required UserSubscriptions userSubscriptions,
     required EscrowVerification escrowVerification,
-    EscrowReservationGroupVerifier? verifyReservationGroup,
-    DateTime Function()? clock,
+    @ignoreParam EscrowReservationGroupVerifier? verifyReservationGroup,
+    @ignoreParam EscrowDaemonClock? clock,
     required CustomLogger logger,
   }) : _auth = auth,
        _evm = evm,

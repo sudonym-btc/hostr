@@ -86,7 +86,7 @@ class _SwapInQuoteContext {
 class SwapQuoteService {
   final CustomLogger logger;
 
-  SwapQuoteService({CustomLogger? logger})
+  SwapQuoteService({@ignoreParam CustomLogger? logger})
     : logger = (logger ?? getIt<CustomLogger>()).scope('swap-quote');
 
   // ═══════════════════════════════════════════════════════════════════════

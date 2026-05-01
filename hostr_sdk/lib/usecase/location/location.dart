@@ -18,7 +18,7 @@ class Location {
   ];
   static const _nominatimUserAgent = 'hostr-sdk/1.0 (+https://hostr.network)';
 
-  Location({required CustomLogger logger, http.Client? client})
+  Location({required CustomLogger logger, @ignoreParam http.Client? client})
     : _logger = logger,
       _client = client ?? createPlatformHttpClient();
 

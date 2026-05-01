@@ -1,5 +1,8 @@
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart';
 
+import '../identity_claims/identity_claims.dart';
+import '../listings/listings.dart';
 import '../metadata/metadata.dart';
 
 class UserStartupProfileBootstrapResult {
@@ -22,9 +25,16 @@ class UserStartupProfileBootstrapResult {
 /// - once metadata exists, ensure user config is mirrored/patched
 class UserStartupProfileBootstrapper {
   final MetadataUseCase _metadata;
+  final Listings _listings;
+  final IdentityClaimsUseCase _identityClaims;
 
-  UserStartupProfileBootstrapper({required MetadataUseCase metadata})
-    : _metadata = metadata;
+  UserStartupProfileBootstrapper({
+    required MetadataUseCase metadata,
+    required Listings listings,
+    required IdentityClaimsUseCase identityClaims,
+  }) : _metadata = metadata,
+       _listings = listings,
+       _identityClaims = identityClaims;
 
   Future<UserStartupProfileBootstrapResult> run({
     required String pubkey,
@@ -37,19 +47,21 @@ class UserStartupProfileBootstrapper {
       metadata = await _metadata.loadMetadata(pubkey, forceRefresh: true);
     }
 
-    if (metadata != null) {
-      // Temporarily do not write user config during startup. In particular,
-      // Hostr should not auto-publish Blossom server lists or NIP-65 relay lists
-      // while the app is scoped to Hostr-owned infrastructure. Keep the hook
-      // here so we can re-enable config reconciliation once relay/list semantics
-      // are part of the product again.
-      //
-      // unawaited(_metadata.ensureUserConfig(pubkey).catchError((_) {}));
-    }
+    await _ensureHostIdentity(pubkey);
 
     return UserStartupProfileBootstrapResult(
       metadata: metadata,
       hasNip65: hasNip65,
     );
+  }
+
+  Future<void> _ensureHostIdentity(String pubkey) async {
+    final listings = await _listings.list(
+      Filter(authors: [pubkey], limit: 1),
+      name: 'startup-host-listings',
+    );
+    if (listings.isEmpty) return;
+
+    await _identityClaims.ensureEvmAddress();
   }
 }

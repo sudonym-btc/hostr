@@ -106,7 +106,7 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
     required Ndk ndk,
     required super.requests,
     required super.logger,
-    HostrConfig? config,
+    @ignoreParam HostrConfig? config,
   }) : _ndk = ndk,
        _config = config,
        super(kind: kNostrKindGiftWrap);
