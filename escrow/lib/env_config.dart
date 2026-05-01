@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:hostr_sdk/config/generated/development_env.g.dart'
     as development_env;
 import 'package:hostr_sdk/config/generated/production_env.g.dart'
@@ -46,7 +48,7 @@ class EnvConfig {
   ///
   /// Falls back to the test/dev config for unrecognised values.
   factory EnvConfig.forEnvironment(String environment) {
-    return switch (sdkEnvironment(environment)) {
+    final config = switch (sdkEnvironment(environment)) {
       'staging' => const EnvConfig(
           relayUrl: staging_env.relayUrl,
           blossomUrl: staging_env.blossomUrl,
@@ -68,5 +70,40 @@ class EnvConfig {
           evmConfig: test_env.evmConfig,
         ),
     };
+    return config._withRuntimeOverrides();
+  }
+
+  EnvConfig _withRuntimeOverrides() {
+    return EnvConfig(
+      relayUrl: Platform.environment['HOSTR_RELAY_URL'] ?? relayUrl,
+      blossomUrl: Platform.environment['HOSTR_BLOSSOM_URL'] ?? blossomUrl,
+      evmConfig: _evmConfigWithRuntimeOverrides(evmConfig),
+    );
+  }
+
+  static EvmConfig _evmConfigWithRuntimeOverrides(EvmConfig config) {
+    return EvmConfig(
+      boltz: config.boltz,
+      chains: [
+        for (final chain in config.chains)
+          EvmChainConfig(
+            id: chain.id,
+            chainId: chain.chainId,
+            rpcUrl: Platform.environment[_chainEnvKey(chain.id, 'RPC_URL')] ??
+                chain.rpcUrl,
+            blockExplorerUrl: chain.blockExplorerUrl,
+            nativeDenomination: chain.nativeDenomination,
+            boltzCurrency: chain.boltzCurrency,
+            accountAbstraction: chain.accountAbstraction,
+            escrowContractAddress: chain.escrowContractAddress,
+            tokens: chain.tokens,
+          ),
+      ],
+    );
+  }
+
+  static String _chainEnvKey(String chainId, String suffix) {
+    final normalized = chainId.toUpperCase().replaceAll('-', '_');
+    return 'EVM_CHAIN_${normalized}_$suffix';
   }
 }

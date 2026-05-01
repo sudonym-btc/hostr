@@ -90,6 +90,8 @@ services:
       - ./escrow/bin:/workspace/escrow/bin
       - ./hostr_sdk/lib:/workspace/hostr_sdk/lib
       - ./models/lib:/workspace/models/lib
+    environment:
+      - EVM_CHAIN_ARBITRUM_REGTEST_RPC_URL=http://anvil-arbitrum:8545
     entrypoint:
       - sh
       - -c
