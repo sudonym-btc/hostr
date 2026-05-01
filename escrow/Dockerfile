@@ -1,21 +1,21 @@
 # ── Toolchain base ────────────────────────────────────────────────────
-FROM dart:stable AS toolchain
+FROM dart:stable AS dart-sdk
 
-ENV PATH="/usr/local/bin:/root/.cargo/bin:${PATH}" \
-    RUSTUP_TOOLCHAIN="1.90.0-aarch64-unknown-linux-gnu"
+FROM rust:1.90.0-bookworm AS toolchain
+
+ENV PATH="/usr/local/bin:/usr/lib/dart/bin:/usr/local/cargo/bin:${PATH}" \
+    RUSTUP_TOOLCHAIN="1.90.0"
+
+COPY --from=dart-sdk /usr/lib/dart /usr/lib/dart
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl build-essential pkg-config libssl-dev libsecp256k1-2 \
-    && curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain none \
-    && rustup toolchain install 1.90.0-aarch64-unknown-linux-gnu \
-    && rustup default 1.90.0-aarch64-unknown-linux-gnu \
-    && mv /root/.cargo/bin/rustup /root/.cargo/bin/rustup-real \
+    && apt-get install -y --no-install-recommends ca-certificates pkg-config libssl-dev libsecp256k1-dev \
     && printf '%s\n' \
       '#!/bin/sh' \
       'set -e' \
       '' \
       'if [ "$1" = "show" ] && [ "$2" = "active-toolchain" ]; then' \
-      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.90.0-aarch64-unknown-linux-gnu}"' \
+      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.90.0}"' \
       '  exit 0' \
       'fi' \
       '' \
@@ -23,18 +23,16 @@ RUN apt-get update \
       '  toolchain="$2"' \
       '  shift 2' \
       '  if [ "$1" = "cargo" ]; then' \
-      '    toolchain_bin="/root/.rustup/toolchains/${RUSTUP_TOOLCHAIN:-${toolchain}-aarch64-unknown-linux-gnu}/bin"' \
-      '    export PATH="${toolchain_bin}:$PATH"' \
       '    shift 1' \
-      '    exec "${toolchain_bin}/cargo" "$@"' \
+      '    exec "$(/usr/local/cargo/bin/rustup which cargo --toolchain "${RUSTUP_TOOLCHAIN:-${toolchain}}")" "$@"' \
       '  fi' \
       '  exec "$@"' \
       'fi' \
       '' \
-      'exec /root/.cargo/bin/rustup-real "$@"' \
+      'exec /usr/local/cargo/bin/rustup "$@"' \
       >/usr/local/bin/rustup \
     && chmod +x /usr/local/bin/rustup \
-    && ln -sf "$(find /usr/lib -name 'libsecp256k1.so.2' -print -quit)" /usr/lib/libsecp256k1.so \
+    && ln -sf "$(find /usr/lib -name 'libsecp256k1.so.*' -print -quit)" /usr/lib/libsecp256k1.so \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Build ─────────────────────────────────────────────────────────────
