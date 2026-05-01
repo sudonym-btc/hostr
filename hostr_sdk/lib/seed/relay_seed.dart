@@ -119,6 +119,9 @@ class RelaySeeder {
         'Broadcast complete: $broadcastCount succeeded, $failCount failed. '
         '[pipeline+broadcast ${sw.elapsedMilliseconds} ms]',
       );
+      if (failCount > 0) {
+        throw StateError('Relay seed broadcast failed for $failCount event(s)');
+      }
 
       // ── Summary ──────────────────────────────────────────────────────
       print(

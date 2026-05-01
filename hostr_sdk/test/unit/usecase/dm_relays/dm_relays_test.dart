@@ -44,8 +44,16 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
   }) async {
     broadcastedEvent = event;
     broadcastRelays = relays;
-    return const [];
+    return [_successfulBroadcastResponse()];
   }
+}
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.test',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
 }
 
 class _TestDmRelays extends DmRelays {

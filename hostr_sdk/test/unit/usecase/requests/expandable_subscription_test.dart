@@ -39,7 +39,13 @@ class _FakeRequests extends Fake implements Requests {
   Future<List<RelayBroadcastResponse>> broadcast({
     required Nip01Event event,
     List<String>? relays,
-  }) => broadcastCompleter?.future ?? Future.value(const []);
+  }) async {
+    final responses =
+        await (broadcastCompleter?.future ??
+            Future.value([_broadcastResponse(success: true)]));
+    throwIfBroadcastFailed(responses, context: 'fake broadcast ${event.id}');
+    return responses;
+  }
 }
 
 RelayBroadcastResponse _broadcastResponse({required bool success}) {

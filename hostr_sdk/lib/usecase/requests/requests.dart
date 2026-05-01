@@ -122,6 +122,31 @@ Stream<T> parseNostrEventsForSdk<T extends Nip01Event>({
   });
 }
 
+bool hasSuccessfulBroadcast(List<RelayBroadcastResponse> responses) {
+  return responses.any((response) => response.broadcastSuccessful);
+}
+
+String formatBroadcastResponses(List<RelayBroadcastResponse> responses) {
+  if (responses.isEmpty) return 'no relay responses';
+  return responses
+      .map(
+        (response) =>
+            '${response.relayUrl}{ok=${response.okReceived}, '
+            'success=${response.broadcastSuccessful}, msg=${response.msg}}',
+      )
+      .join(', ');
+}
+
+void throwIfBroadcastFailed(
+  List<RelayBroadcastResponse> responses, {
+  required String context,
+}) {
+  if (hasSuccessfulBroadcast(responses)) return;
+  throw StateError(
+    'Broadcast failed for $context: ${formatBroadcastResponses(responses)}',
+  );
+}
+
 abstract class RequestsModel {
   Stream<T> query<T extends Nip01Event>({
     required Filter filter,
@@ -505,9 +530,14 @@ class Requests extends RequestsModel {
       }
     }
 
-    return ndk.broadcast
+    final responses = await ndk.broadcast
         .broadcast(nostrEvent: eventToBroadcast, specificRelays: relays)
         .broadcastDoneFuture;
+    throwIfBroadcastFailed(
+      responses,
+      context: 'kind ${event.kind} ${event.id}',
+    );
+    return responses;
   }
 
   /// Opens a live-only NDK subscription (no query phase) and forwards

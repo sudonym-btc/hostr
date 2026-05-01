@@ -133,7 +133,6 @@ class CrudUseCase<T extends Nip01Event> {
         // Emit only after relay broadcast completes so failed writes cannot
         // appear locally as successful reservations/listings/etc.
         final responses = await requests.broadcast(event: event);
-        _ensureBroadcastSucceeded(event, responses);
         _updates.add(event);
         return responses;
       });
@@ -143,32 +142,9 @@ class CrudUseCase<T extends Nip01Event> {
         // Keep delete semantics aligned with upsert: local observers should
         // only react once the relay accepted the mutation.
         final responses = await requests.broadcast(event: event);
-        _ensureBroadcastSucceeded(event, responses);
         _updates.add(event);
         return responses;
       });
-
-  void _ensureBroadcastSucceeded(
-    T event,
-    List<RelayBroadcastResponse> responses,
-  ) {
-    // Tests and in-memory request implementations sometimes return an empty
-    // response list, so preserve that existing success convention. Real relay
-    // responses, when present, must contain at least one successful broadcast.
-    if (responses.isEmpty ||
-        responses.any((response) => response.broadcastSuccessful)) {
-      return;
-    }
-
-    final details = responses
-        .map(
-          (response) =>
-              '${response.relayUrl}{ok=${response.okReceived}, '
-              'success=${response.broadcastSuccessful}, msg=${response.msg}}',
-        )
-        .join(', ');
-    throw StateError('Broadcast failed for $T ${event.id}: $details');
-  }
 
   Future<List<T>> list(Filter f, {String? name}) =>
       logger.span('list', () async {

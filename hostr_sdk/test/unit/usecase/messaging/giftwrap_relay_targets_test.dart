@@ -3,9 +3,10 @@ library;
 
 import 'package:hostr_sdk/usecase/messaging/messaging.dart'
     show
-        ensureSuccessfulGiftWrapBroadcast,
         resolveGiftWrapBroadcastRelays,
         resolveHostrOnlyGiftWrapBroadcastRelays;
+import 'package:hostr_sdk/usecase/requests/requests.dart'
+    show throwIfBroadcastFailed;
 import 'package:ndk/entities.dart'
     show ReadWriteMarker, RelayBroadcastResponse, UserRelayList;
 import 'package:test/test.dart';
@@ -75,42 +76,36 @@ void main() {
     });
   });
 
-  group('ensureSuccessfulGiftWrapBroadcast', () {
-    test('allows a send when at least one relay accepted the gift wrap', () {
+  group('throwIfBroadcastFailed', () {
+    test('allows a send when at least one relay accepted the broadcast', () {
       expect(
-        () => ensureSuccessfulGiftWrapBroadcast(
-          recipientPubkey: 'recipient',
-          responses: [
-            RelayBroadcastResponse(
-              relayUrl: 'wss://blocked.example',
-              okReceived: true,
-              broadcastSuccessful: false,
-              msg: 'blocked',
-            ),
-            RelayBroadcastResponse(
-              relayUrl: 'wss://accepted.example',
-              okReceived: true,
-              broadcastSuccessful: true,
-            ),
-          ],
-        ),
+        () => throwIfBroadcastFailed([
+          RelayBroadcastResponse(
+            relayUrl: 'wss://blocked.example',
+            okReceived: true,
+            broadcastSuccessful: false,
+            msg: 'blocked',
+          ),
+          RelayBroadcastResponse(
+            relayUrl: 'wss://accepted.example',
+            okReceived: true,
+            broadcastSuccessful: true,
+          ),
+        ], context: 'gift wrap to recipient'),
         returnsNormally,
       );
     });
 
-    test('throws when no relay accepted the gift wrap', () {
+    test('throws when no relay accepted the broadcast', () {
       expect(
-        () => ensureSuccessfulGiftWrapBroadcast(
-          recipientPubkey: 'recipient',
-          responses: [
-            RelayBroadcastResponse(
-              relayUrl: 'wss://blocked.example',
-              okReceived: true,
-              broadcastSuccessful: false,
-              msg: 'kind 1059 is not allowed',
-            ),
-          ],
-        ),
+        () => throwIfBroadcastFailed([
+          RelayBroadcastResponse(
+            relayUrl: 'wss://blocked.example',
+            okReceived: true,
+            broadcastSuccessful: false,
+            msg: 'kind 1059 is not allowed',
+          ),
+        ], context: 'gift wrap to recipient'),
         throwsA(isA<StateError>()),
       );
     });

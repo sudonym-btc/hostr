@@ -80,6 +80,35 @@ void main() {
     );
 
     test(
+      'launch with bunker and rejected seed backup fails startup gate',
+      () async {
+        final publicOnly = KeyPair.justPublicKey(MockKeys.guest.publicKey);
+        final fixture = _buildFixture(activeKeyPair: publicOnly);
+        fixture.requests.broadcastResponses = [
+          RelayBroadcastResponse(
+            relayUrl: 'wss://relay.hostr.network',
+            okReceived: true,
+            broadcastSuccessful: false,
+            msg: 'blocked: kind 17389 not accepted',
+          ),
+        ];
+
+        await expectLater(
+          fixture.store.getActiveSeedHex(),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('Unable to publish'),
+            ),
+          ),
+        );
+        expect(fixture.requests.broadcasts, hasLength(1));
+        expect(fixture.requests.seedEventsFor(publicOnly.publicKey), isEmpty);
+      },
+    );
+
+    test(
       'launch with nsec and existing seed backup uses backup seed',
       () async {
         final keyPair = MockKeys.guest;
@@ -191,6 +220,7 @@ class _SeedRequests extends Fake implements Requests {
   final Ndk _ndk;
   final List<Nip01Event> _events = [];
   final List<Nip01Event> broadcasts = [];
+  List<RelayBroadcastResponse>? broadcastResponses;
 
   _SeedRequests(this._ndk);
 
@@ -235,8 +265,12 @@ class _SeedRequests extends Fake implements Requests {
     List<String>? relays,
   }) async {
     broadcasts.add(event);
-    _events.add(event);
-    return const [];
+    final responses = broadcastResponses ?? [_successfulBroadcastResponse()];
+    throwIfBroadcastFailed(responses, context: 'fake seed publish ${event.id}');
+    if (hasSuccessfulBroadcast(responses)) {
+      _events.add(event);
+    }
+    return responses;
   }
 
   bool _matches(Nip01Event event, Filter filter) {
@@ -340,3 +374,11 @@ class _SeedEventSigner extends Fake implements EventSigner {
 }
 
 String _seedHex(String byteHex) => List.filled(32, byteHex).join();
+
+RelayBroadcastResponse _successfulBroadcastResponse() {
+  return RelayBroadcastResponse(
+    relayUrl: 'wss://relay.hostr.network',
+    okReceived: true,
+    broadcastSuccessful: true,
+  );
+}

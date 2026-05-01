@@ -6,6 +6,7 @@ import 'package:ndk/ndk.dart';
 
 import '../../config.dart';
 import '../../util/main.dart';
+import '../requests/requests.dart';
 
 /// Wraps NDK's [Blossom] use case with hostr-specific conveniences such as
 /// [ensureBlossomServer] which merges the user's existing server list with the
@@ -66,6 +67,10 @@ class BlossomUseCase {
 
     final broadcastResponse = await _ndk.blossomUserServerList
         .publishUserServerList(serverUrlsOrdered: mergedUrls);
+    throwIfBroadcastFailed(
+      broadcastResponse,
+      context: 'Blossom server list for $pubkey',
+    );
     final successfulRelays = broadcastResponse
         .where((response) => response.broadcastSuccessful)
         .length;
@@ -73,15 +78,8 @@ class BlossomUseCase {
       'Blossom server list publish finished for pubkey=$pubkey: '
       'servers=$mergedUrls, '
       'successfulRelays=$successfulRelays/${broadcastResponse.length}, '
-      'responses=${_formatBroadcastResponses(broadcastResponse)}',
+      'responses=${formatBroadcastResponses(broadcastResponse)}',
     );
-
-    if (successfulRelays == 0) {
-      _logger.w(
-        'Blossom server list publish had no successful relay acknowledgements '
-        'for pubkey=$pubkey.',
-      );
-    }
 
     // Force refresh the server list cache in NDK after publishing and verify
     // that the configured bootstrap servers are discoverable.
@@ -113,17 +111,6 @@ class BlossomUseCase {
         .where((url) => url.isNotEmpty)
         .toSet()
         .toList();
-  }
-
-  String _formatBroadcastResponses(List<RelayBroadcastResponse> responses) {
-    if (responses.isEmpty) return '[]';
-    return responses
-        .map(
-          (response) =>
-              '${response.relayUrl}{okReceived=${response.okReceived}, '
-              'success=${response.broadcastSuccessful}, msg="${response.msg}"}',
-        )
-        .join(', ');
   }
 
   // ---------------------------------------------------------------------------
@@ -275,9 +262,11 @@ class BlossomUseCase {
   /// Publishes a new blossom user server list (kind 10063).
   Future<List<RelayBroadcastResponse>> publishUserServerList({
     required List<String> serverUrlsOrdered,
-  }) {
-    return _ndk.blossomUserServerList.publishUserServerList(
+  }) async {
+    final responses = await _ndk.blossomUserServerList.publishUserServerList(
       serverUrlsOrdered: serverUrlsOrdered,
     );
+    throwIfBroadcastFailed(responses, context: 'Blossom server list');
+    return responses;
   }
 }
