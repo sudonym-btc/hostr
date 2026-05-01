@@ -26,7 +26,6 @@ class IdentityClaimsUseCase extends CrudUseCase<IdentityClaims> {
 
   Future<IdentityClaims?> loadClaims(String pubkey) async {
     final relays = _hostrRelays;
-    IdentityClaims? latest;
     await for (final claim in requests.query<IdentityClaims>(
       filter: Filter(
         kinds: const [kNostrKindIdentityClaims],
@@ -36,11 +35,9 @@ class IdentityClaimsUseCase extends CrudUseCase<IdentityClaims> {
       relays: relays,
       name: 'IdentityClaims-load',
     )) {
-      if (latest == null || latest.createdAt < claim.createdAt) {
-        latest = claim;
-      }
+      return claim;
     }
-    return latest;
+    return null;
   }
 
   Future<String?> loadEvmAddress(String pubkey) async {

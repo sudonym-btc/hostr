@@ -84,6 +84,7 @@ class TradeHeaderView extends StatelessWidget {
 
   Widget? _buildAvailabilityBanner(BuildContext context) {
     return switch (availability) {
+      TradeAvailability.loading => null,
       TradeAvailability.available => null,
       TradeAvailability.cancelled => AppChip.error.xs(label: Text('Cancelled')),
       TradeAvailability.unavailable => AppChip.error.xs(

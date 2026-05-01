@@ -113,7 +113,7 @@ class NegotiationPolicy {
 
 class NegotiationStage extends TradeStage {
   final List<Reservation> reservationRequests;
-  final ({bool isBlocked, String? reason}) overlapLock;
+  final OverlapLock overlapLock;
   final NegotiationPolicy policy;
 
   const NegotiationStage({

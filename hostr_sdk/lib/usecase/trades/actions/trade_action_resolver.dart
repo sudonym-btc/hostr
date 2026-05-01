@@ -20,12 +20,15 @@ enum TradeAction {
 }
 
 enum TradeAvailability {
+  loading,
   available,
   unavailable,
   cancelled,
   invalidReservation,
   invalidTransitions,
 }
+
+typedef OverlapLock = ({bool isLoading, bool isBlocked, String? reason});
 
 class TradeResolution {
   final TradeRole? role;
@@ -54,6 +57,7 @@ class TradeActionResolver {
     required TokenAmount? amount,
     required String ourPubkey,
     required List<Validation<ReservationGroup>> allReservations,
+    required StreamStatus allReservationsStatus,
     required List<Validation<ReservationGroup>> ownReservations,
     required StreamStatus ownReservationsStatus,
     required List<PaymentEvent> payments,
@@ -76,12 +80,17 @@ class TradeActionResolver {
         .expand((v) => v.event.reservations)
         .toList();
 
-    final overlapLock = resolveOverlapLock(
-      ourReservationDTag: tradeId,
-      allListingReservationGroups: validAllListingPairs,
-      startDate: start,
-      endDate: end,
-    );
+    final allReservationsLoaded =
+        allReservationsStatus is StreamStatusQueryComplete ||
+        allReservationsStatus is StreamStatusLive;
+    final overlapLock = allReservationsLoaded
+        ? resolveOverlapLock(
+            ourReservationDTag: tradeId,
+            allListingReservationGroups: validAllListingPairs,
+            startDate: start,
+            endDate: end,
+          )
+        : (isLoading: true, isBlocked: false, reason: null);
     final hasPayment = payments.isNotEmpty;
     final latestRequest = threadState.reservationRequests.isNotEmpty
         ? threadState.reservationRequests.last
@@ -138,7 +147,7 @@ class TradeActionResolver {
 
 TradeAvailability _resolveAvailability({
   required List<Validation<ReservationGroup>> ownReservations,
-  required ({bool isBlocked, String? reason}) overlapLock,
+  required OverlapLock overlapLock,
   bool negotiationCancelled = false,
 }) {
   if (negotiationCancelled) {
@@ -152,11 +161,12 @@ TradeAvailability _resolveAvailability({
   )) {
     return TradeAvailability.cancelled;
   }
+  if (overlapLock.isLoading) return TradeAvailability.loading;
   if (overlapLock.isBlocked) return TradeAvailability.unavailable;
   return TradeAvailability.available;
 }
 
-({bool isBlocked, String? reason}) resolveOverlapLock({
+OverlapLock resolveOverlapLock({
   required List<ReservationGroup> allListingReservationGroups,
   required DateTime? startDate,
   required DateTime? endDate,
@@ -164,7 +174,7 @@ TradeAvailability _resolveAvailability({
 }) {
   // No date range – overlap check is not applicable.
   if (startDate == null || endDate == null) {
-    return (isBlocked: false, reason: null);
+    return (isLoading: false, isBlocked: false, reason: null);
   }
 
   final overlapsOtherCommitment = allListingReservationGroups.any((group) {
@@ -197,10 +207,10 @@ TradeAvailability _resolveAvailability({
   });
 
   if (!overlapsOtherCommitment) {
-    return (isBlocked: false, reason: null);
+    return (isLoading: false, isBlocked: false, reason: null);
   }
 
-  return (isBlocked: true, reason: 'Unavailable');
+  return (isLoading: false, isBlocked: true, reason: 'Unavailable');
 }
 
 bool _overlapsRange({

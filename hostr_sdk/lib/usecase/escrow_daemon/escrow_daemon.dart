@@ -53,6 +53,20 @@ typedef EscrowReservationGroupVerifier =
     });
 
 const _hostrTradeIdTag = 'tradeId';
+const _monthAbbreviations = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 class EscrowReservationNotifier {
   final KeyPair Function() escrowKeyPair;
@@ -110,16 +124,19 @@ class EscrowReservationNotifier {
 
     final listing = await loadListing(group.listingAnchor);
     final hostName = await _displayNameFor(sellerPubkey);
+    final currentYear = clock().toUtc().year;
     final buyerContent = _buyerNoticeContent(
       hostName: hostName,
       listingTitle: listing?.title,
       start: group.start,
       end: group.end,
+      currentYear: currentYear,
     );
     final sellerContent = _sellerNoticeContent(
       listingTitle: listing?.title,
       start: group.start,
       end: group.end,
+      currentYear: currentYear,
     );
 
     await _maybeSend(
@@ -155,6 +172,7 @@ class EscrowReservationNotifier {
     }
 
     final listing = await loadListing(group.listingAnchor);
+    final currentYear = clock().toUtc().year;
     await _maybeSend(
       tradeId: tradeId,
       noticeType: 'reservation_cancelled',
@@ -164,6 +182,7 @@ class EscrowReservationNotifier {
         listingTitle: listing?.title,
         start: group.start,
         end: group.end,
+        currentYear: currentYear,
       ),
     );
   }
@@ -282,11 +301,13 @@ class EscrowReservationNotifier {
     required String? listingTitle,
     required DateTime? start,
     required DateTime? end,
+    required int currentYear,
   }) {
     final reservation = _reservationDescription(
       listingTitle: listingTitle,
       start: start,
       end: end,
+      currentYear: currentYear,
     );
     return 'You successfully reserved $reservation, hosted by $hostName. '
         "Your payment is safely in escrow. We've reached out to the host to confirm, and they should be in touch soon. "
@@ -297,11 +318,13 @@ class EscrowReservationNotifier {
     required String? listingTitle,
     required DateTime? start,
     required DateTime? end,
+    required int currentYear,
   }) {
     final reservation = _reservationDescription(
       listingTitle: listingTitle,
       start: start,
       end: end,
+      currentYear: currentYear,
     );
     return 'A reservation was placed for $reservation. '
         'Payment has been paid and is sitting in escrow. '
@@ -312,11 +335,13 @@ class EscrowReservationNotifier {
     required String? listingTitle,
     required DateTime? start,
     required DateTime? end,
+    required int currentYear,
   }) {
     final reservation = _reservationDescription(
       listingTitle: listingTitle,
       start: start,
       end: end,
+      currentYear: currentYear,
     );
     return 'Your reservation for $reservation could not be confirmed by escrow. '
         'No booking was created, and any escrowed payment should be refunded '
@@ -327,24 +352,36 @@ class EscrowReservationNotifier {
     required String? listingTitle,
     required DateTime? start,
     required DateTime? end,
+    required int currentYear,
   }) {
     final title = listingTitle?.trim().isNotEmpty == true
         ? listingTitle!.trim()
         : 'a listing';
-    final range = _dateRange(start, end);
+    final range = _dateRange(start, end, currentYear: currentYear);
     final suffix = range.isEmpty ? '' : ' $range';
     return '$title$suffix';
   }
 
-  static String _dateRange(DateTime? start, DateTime? end) {
+  static String _dateRange(
+    DateTime? start,
+    DateTime? end, {
+    required int currentYear,
+  }) {
     if (start == null && end == null) return '';
-    if (start == null) return _date(end!);
-    if (end == null) return _date(start);
-    return '${_date(start)} - ${_date(end)}';
+    final dates = [if (start != null) start, if (end != null) end];
+    final includeYear = dates.any((date) => date.toUtc().year != currentYear);
+    if (start == null) return _date(end!, includeYear: includeYear);
+    if (end == null) return _date(start, includeYear: includeYear);
+    return '${_date(start, includeYear: includeYear)} - '
+        '${_date(end, includeYear: includeYear)}';
   }
 
-  static String _date(DateTime date) =>
-      date.toUtc().toIso8601String().split('T').first;
+  static String _date(DateTime date, {required bool includeYear}) {
+    final utc = date.toUtc();
+    final month = _monthAbbreviations[utc.month - 1];
+    final formatted = '${utc.day} $month';
+    return includeYear ? '$formatted ${utc.year}' : formatted;
+  }
 
   static String _shortPubkey(String pubkey) =>
       pubkey.length <= 8 ? pubkey : pubkey.substring(0, 8);
@@ -352,8 +389,8 @@ class EscrowReservationNotifier {
 
 /// Use case that encapsulates all escrow-daemon business logic:
 ///
-///   1. **Bootstrap** — build the [EscrowService] descriptor, verify the
-///      contract is deployed, and publish to the relay.
+///   1. **Bootstrap** — build the [EscrowService] descriptor and verify the
+///      contract is deployed.
 ///   2. **Monitor** — subscribe to on-chain contract events, Nostr thread
 ///      messages, and reservation events; auto-confirm or cancel buyer
 ///      self-signed reservations.
@@ -416,6 +453,7 @@ class EscrowDaemon {
     required UserSubscriptions userSubscriptions,
     required EscrowVerification escrowVerification,
     EscrowReservationGroupVerifier? verifyReservationGroup,
+    DateTime Function()? clock,
     required CustomLogger logger,
   }) : _auth = auth,
        _evm = evm,
@@ -432,6 +470,7 @@ class EscrowDaemon {
        _logger = logger.scope('escrow-daemon') {
     _reservationNotifier = EscrowReservationNotifier(
       escrowKeyPair: () => _auth.activeKeyPair!,
+      clock: clock,
       loadListing: (anchor) => _listings.getOneByAnchor(anchor),
       loadMetadata: (pubkey) => _metadata.loadMetadata(pubkey),
       existingMessagesForTrade: (_) => _messaging.threads.threads.values.expand(
@@ -504,8 +543,7 @@ class EscrowDaemon {
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
 
-  /// Builds the [EscrowService], verifies the contract is deployed, and
-  /// publishes the service to the relay.
+  /// Builds the [EscrowService] and verifies the contract is deployed.
   ///
   /// Auth must already be initialized before calling this.
   Future<EscrowDaemonContext> bootstrap(EscrowDaemonConfig config) async {
@@ -548,9 +586,8 @@ class EscrowDaemon {
     );
 
     await contract.ensureDeployed();
-    await _escrows.upsert(escrowService);
 
-    _logger.i('Escrow service published: ${escrowService.content}');
+    _logger.i('Escrow service loaded: ${escrowService.content}');
 
     _context = EscrowDaemonContext(
       escrowService: escrowService,

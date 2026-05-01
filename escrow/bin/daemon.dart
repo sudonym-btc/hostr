@@ -8,6 +8,7 @@ import 'package:escrow/shared/socket_config.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
 import 'package:models/stubs/main.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
 /// Allow self-signed certificates so the daemon can connect to local
 /// relay/blossom/etc. over TLS without a trusted CA chain.
@@ -56,14 +57,33 @@ void main(List<String> arguments) async {
 
   // ── 1. Bootstrap + Monitor via SDK ────────────────────────────────────────
   final env = EnvConfig.forEnvironment(environment);
-  final chain = env.evmConfig.chains.first;
+  final chainConfig = env.evmConfig.chains.first;
+  final chainIndex = hostr.evm.configuredChains.indexWhere(
+    (c) => c.config.escrowContractAddress == chainConfig.escrowContractAddress,
+  );
+  if (chainIndex < 0) {
+    throw StateError(
+      'No configured EVM chain found for escrow contract '
+      '${chainConfig.escrowContractAddress}',
+    );
+  }
+  final configuredChain = hostr.evm.configuredChains[chainIndex];
+  final escrowContractAddress = configuredChain.config.escrowContractAddress;
+  if (escrowContractAddress == null || escrowContractAddress.isEmpty) {
+    throw StateError(
+        'Missing escrowContractAddress for ${configuredChain.config.id}');
+  }
+  await _waitForEscrowContractCode(
+    chain: configuredChain,
+    contractAddress: escrowContractAddress,
+    logger: logger,
+  );
+
   final daemon = hostr.escrowDaemon;
   await daemon.bootstrap(EscrowDaemonConfig(
     feePercent: 1,
     maxDuration: const Duration(days: 365),
-    chainIndex: hostr.evm.configuredChains.indexWhere(
-      (c) => c.config.escrowContractAddress == chain.escrowContractAddress,
-    ),
+    chainIndex: chainIndex,
   ));
   logger.i('Bootstrap complete');
 
@@ -98,4 +118,37 @@ void main(List<String> arguments) async {
   } catch (_) {
     // Ignore — SIGTERM not supported on this platform.
   }
+}
+
+Future<void> _waitForEscrowContractCode({
+  required EvmChain chain,
+  required String contractAddress,
+  required CustomLogger logger,
+  Duration timeout = const Duration(seconds: 90),
+  Duration interval = const Duration(seconds: 1),
+}) async {
+  final address = EthereumAddress.fromHex(contractAddress);
+  final deadline = DateTime.now().add(timeout);
+  Object? lastError;
+
+  while (DateTime.now().isBefore(deadline)) {
+    try {
+      final code = await chain.client.getCode(address);
+      if (code.isNotEmpty) {
+        logger.i('Escrow contract code found at $contractAddress');
+        return;
+      }
+      lastError = StateError('no code at $contractAddress');
+    } catch (error) {
+      lastError = error;
+    }
+
+    logger.w('Waiting for escrow contract code at $contractAddress');
+    await Future<void>.delayed(interval);
+  }
+
+  throw StateError(
+    'Timed out waiting for escrow contract code at $contractAddress'
+    '${lastError == null ? '' : ': $lastError'}',
+  );
 }
