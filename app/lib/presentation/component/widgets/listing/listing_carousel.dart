@@ -66,7 +66,9 @@ class _ListingCarouselState extends State<ListingCarousel> {
                 );
               }).toList(),
             ),
-            if (widget.showArrows && widget.listing.images.length > 1 && canGoLeft)
+            if (widget.showArrows &&
+                widget.listing.images.length > 1 &&
+                canGoLeft)
               Positioned(
                 left: kSpace2,
                 top: 0,

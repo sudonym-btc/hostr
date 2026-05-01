@@ -17,7 +17,12 @@ import 'package:mockito/mockito.dart';
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 
 /// No-op fake for [Messaging].
-class FakeMessaging extends Fake implements Messaging {}
+class FakeMessaging extends Fake implements Messaging {
+  final Threads _threads = FakeThreads();
+
+  @override
+  Threads get threads => _threads;
+}
 
 /// No-op fake for [Auth].
 class FakeAuth extends Fake implements Auth {}

@@ -54,6 +54,7 @@ void main() {
       kNostrKindGiftWrap: 'gift wrap (kind 1059)',
       kNostrKindZapRequest: 'zap request (kind 9734)',
       kNostrKindZapReceipt: 'zap receipt (kind 9735)',
+      kNostrKindProfileBadges: 'profile badges (kind 10008)',
     };
 
     for (final entry in standardKinds.entries) {
@@ -93,11 +94,9 @@ void main() {
       kNostrKindSeal,
       kNostrKindSeenStatus,
       kNostrKindReceivedHeartbeat,
-      kNostrKindTypingIndicator,
       kNostrKindSeenMessages,
       kNostrKindBadgeAward,
       kNostrKindBadgeDefinition,
-      kNostrKindProfileBadges,
     };
 
     test('kHostrOnlyKinds contains every hostr-specific kind', () {
@@ -118,6 +117,7 @@ void main() {
         kNostrKindDM, // 14 — inner rumor, never broadcast directly
         kNostrKindZapRequest, // 9734
         kNostrKindZapReceipt, // 9735
+        kNostrKindProfileBadges, // 10008
         kNostrKindConnect, // 24133
       };
 

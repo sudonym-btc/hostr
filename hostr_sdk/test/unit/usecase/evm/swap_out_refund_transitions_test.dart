@@ -94,31 +94,28 @@ void main() {
     },
   );
 
-  test(
-    'broadcasts timelock refund once no cooperative signature is available '
-    'and the timelock has expired',
-    () async {
-      final fixture = _buildOperation(
-        logger: logger,
-        status: 'invoice.failedToPay',
-        currentLocktimeBlock: 100,
-        timeoutBlockHeight: 100,
-        refundTxHash: _txHash('bb'),
-      );
-      operations.add(fixture.operation);
+  test('broadcasts timelock refund once no cooperative signature is available '
+      'and the timelock has expired', () async {
+    final fixture = _buildOperation(
+      logger: logger,
+      status: 'invoice.failedToPay',
+      currentLocktimeBlock: 100,
+      timeoutBlockHeight: 100,
+      refundTxHash: _txHash('bb'),
+    );
+    operations.add(fixture.operation);
 
-      final next = await fixture.operation.executeStep(
-        SwapOutStep.awaitResolution,
-      );
+    final next = await fixture.operation.executeStep(
+      SwapOutStep.awaitResolution,
+    );
 
-      expect(next, isA<SwapOutRefunding>());
-      expect((next as SwapOutRefunding).data.resolutionTxHash, _txHash('bb'));
-      expect(fixture.chain.sentCallNames, [
-        ['refund'],
-      ]);
-      expect(fixture.chain.locktimeBlockReads, 1);
-    },
-  );
+    expect(next, isA<SwapOutRefunding>());
+    expect((next as SwapOutRefunding).data.resolutionTxHash, _txHash('bb'));
+    expect(fixture.chain.sentCallNames, [
+      ['refund'],
+    ]);
+    expect(fixture.chain.locktimeBlockReads, 1);
+  });
 }
 
 _SwapOutRefundFixture _buildOperation({
@@ -186,10 +183,8 @@ _SwapOutRefundFixture _buildOperation({
   return _SwapOutRefundFixture(operation: operation, chain: chain);
 }
 
-String _repeatByte(String byteHex, int count) => List.filled(
-  count,
-  byteHex,
-).join();
+String _repeatByte(String byteHex, int count) =>
+    List.filled(count, byteHex).join();
 
 String _signatureHex() =>
     '0x${_repeatByte('11', 32)}${_repeatByte('22', 32)}1b';
@@ -200,10 +195,7 @@ class _SwapOutRefundFixture {
   final EvmSwapOutOperation operation;
   final _FakeEvmChain chain;
 
-  const _SwapOutRefundFixture({
-    required this.operation,
-    required this.chain,
-  });
+  const _SwapOutRefundFixture({required this.operation, required this.chain});
 }
 
 class _FakeOperationStateStore extends Fake implements OperationStateStore {}
@@ -253,7 +245,10 @@ class _FakeEvmChain extends Fake implements EvmChain {
   }
 
   @override
-  Future<String> sendCalls(EthPrivateKey signer, Map<String, Call> calls) async {
+  Future<String> sendCalls(
+    EthPrivateKey signer,
+    Map<String, Call> calls,
+  ) async {
     sentCalls.add(calls);
     return nextTxHash;
   }

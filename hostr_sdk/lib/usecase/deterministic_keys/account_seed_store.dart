@@ -54,7 +54,9 @@ class AccountSeedStore {
     }
 
     final cached = _activeSeedHex;
-    if (_activePubkey == resolvedPubkey && cached != null && cached.isNotEmpty) {
+    if (_activePubkey == resolvedPubkey &&
+        cached != null &&
+        cached.isNotEmpty) {
       return Future.value(cached);
     }
 
@@ -153,7 +155,8 @@ class AccountSeedStore {
 
     if (events.isEmpty) return null;
 
-    final sorted = [...events]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final sorted = [...events]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     for (final event in sorted) {
       try {
         return await _decryptPayload(
@@ -168,7 +171,10 @@ class AccountSeedStore {
   }
 
   Future<bool> _publishSeed(String pubkey, String seedHex) async {
-    final ciphertext = await _encryptPayload(seedHex: seedHex, ownerPubkey: pubkey);
+    final ciphertext = await _encryptPayload(
+      seedHex: seedHex,
+      ownerPubkey: pubkey,
+    );
     final event = Nip01Event(
       pubKey: pubkey,
       kind: kNostrKindHostrSeed,

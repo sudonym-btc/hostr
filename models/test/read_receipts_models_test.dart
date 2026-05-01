@@ -34,23 +34,6 @@ void main() {
       expect(parsed.content, isEmpty);
     });
 
-    test('TypingIndicator exposes room and expiration', () {
-      final typing = TypingIndicator.create(
-        pubKey: MockKeys.hoster.publicKey,
-        room: 'room-filter',
-        expiration: 1710000900,
-        createdAt: 1710000800,
-      ).signAs(MockKeys.hoster, TypingIndicator.fromNostrEvent);
-
-      final parsed = parser<TypingIndicator>(typing);
-
-      expect(parsed.kind, kNostrKindTypingIndicator);
-      expect(parsed.room, 'room-filter');
-      expect(parsed.expiration, 1710000900);
-      expect(parsed.isExpiredAt(DateTime.utc(2024, 3, 9, 16, 15)), isTrue);
-      expect(parsed.isExpiredAt(DateTime.utc(2024, 3, 9, 16, 14, 59)), isFalse);
-    });
-
     test('SeenMessages stores addressable bloom filter content', () {
       final seenMessages = SeenMessages.create(
         pubKey: MockKeys.hoster.publicKey,

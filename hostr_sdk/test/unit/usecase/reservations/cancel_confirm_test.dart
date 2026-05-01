@@ -24,7 +24,8 @@ import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils;
+import 'package:ndk/ndk.dart'
+    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -36,6 +37,10 @@ final _f = EntityFactory();
 
 class _FakeRequests extends Fake implements Requests {
   final List<Nip01Event> broadcastedEvents = [];
+  final Ndk _ndk = _FakeNdk();
+
+  @override
+  Ndk get ndk => _ndk;
 
   @override
   Future<List<RelayBroadcastResponse>> broadcast({
@@ -79,6 +84,21 @@ class _FakeRequests extends Fake implements Requests {
     required String name,
     List<String>? relays,
   }) => throw UnimplementedError();
+}
+
+class _FakeAccounts extends Fake implements Accounts {
+  @override
+  String? getPublicKey() => null;
+
+  @override
+  Future<Nip01Event> sign(Nip01Event event) async => event;
+}
+
+class _FakeNdk extends Fake implements Ndk {
+  final Accounts _accounts = _FakeAccounts();
+
+  @override
+  Accounts get accounts => _accounts;
 }
 
 // ─── Fake Auth ───────────────────────────────────────────────────────────────

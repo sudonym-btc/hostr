@@ -450,12 +450,15 @@ class Location {
   }
 
   bool _shouldRetryStatus(int statusCode) {
-    return statusCode == 408 || statusCode == 425 || statusCode == 429 ||
+    return statusCode == 408 ||
+        statusCode == 425 ||
+        statusCode == 429 ||
         statusCode >= 500;
   }
 
-  Map<String, String> get _nominatimHeaders =>
-      const {'User-Agent': _nominatimUserAgent};
+  Map<String, String> get _nominatimHeaders => const {
+    'User-Agent': _nominatimUserAgent,
+  };
 }
 
 class _LocationHttpResponse {

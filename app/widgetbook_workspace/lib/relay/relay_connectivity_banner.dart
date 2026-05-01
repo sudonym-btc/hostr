@@ -9,10 +9,7 @@ import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 Widget majorityDisconnected(BuildContext context) {
   return const Align(
     alignment: Alignment.bottomCenter,
-    child: RelayConnectivityBannerView(
-      connectedRelays: 1,
-      totalRelays: 4,
-    ),
+    child: RelayConnectivityBannerView(connectedRelays: 1, totalRelays: 4),
   );
 }
 
@@ -23,10 +20,7 @@ Widget majorityDisconnected(BuildContext context) {
 Widget allDisconnected(BuildContext context) {
   return const Align(
     alignment: Alignment.bottomCenter,
-    child: RelayConnectivityBannerView(
-      connectedRelays: 0,
-      totalRelays: 3,
-    ),
+    child: RelayConnectivityBannerView(connectedRelays: 0, totalRelays: 3),
   );
 }
 
@@ -37,9 +31,6 @@ Widget allDisconnected(BuildContext context) {
 Widget oneRemaining(BuildContext context) {
   return const Align(
     alignment: Alignment.bottomCenter,
-    child: RelayConnectivityBannerView(
-      connectedRelays: 1,
-      totalRelays: 5,
-    ),
+    child: RelayConnectivityBannerView(connectedRelays: 1, totalRelays: 5),
   );
 }

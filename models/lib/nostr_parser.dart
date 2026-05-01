@@ -16,8 +16,6 @@ T parser<T extends Nip01Event>(Nip01Event event) {
     return ReceivedHeartbeat.fromNostrEvent(event) as T;
   } else if (SeenStatus.kinds.contains(eventKind)) {
     return SeenStatus.fromNostrEvent(event) as T;
-  } else if (TypingIndicator.kinds.contains(eventKind)) {
-    return TypingIndicator.fromNostrEvent(event) as T;
   } else if (SeenMessages.kinds.contains(eventKind)) {
     return SeenMessages.fromNostrEvent(event) as T;
   } else if (EscrowServiceSelected.kinds.contains(eventKind)) {

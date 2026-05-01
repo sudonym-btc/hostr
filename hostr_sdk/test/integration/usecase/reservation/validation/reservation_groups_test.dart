@@ -215,15 +215,14 @@ Future<EscrowService> _buildEscrowService() async {
   ).first;
 }
 
-/// Builds an [EscrowMethod] NIP-51 list event published by [host],
-/// containing the escrow type and accepted payment forms.
+/// Builds an [EscrowMethod] event published by [host], containing the escrow
+/// type and accepted payment forms.
 EscrowMethod _buildEscrowMethod({required KeyPair host}) {
   return EscrowMethod.fromNostrEvent(
     Nip01Event(
       pubKey: host.publicKey,
       kind: kNostrKindEscrowMethod,
       tags: [
-        ['d', 'escrow-method'],
         ['t', 'evm'],
         ['c', 'MultiEscrow'],
         ['a', 'BTC', Token.native(30).tagId],

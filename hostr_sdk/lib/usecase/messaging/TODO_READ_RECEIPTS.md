@@ -152,19 +152,22 @@ False positives (message falsely shown as seen) are possible but benign.
 
 ---
 
-## 3. "Typing" / liveness indicator — kind `10018` (ephemeral)
+## 3. "Typing" / liveness indicator — disabled
+
+> Disabled for now. Do not publish typing events until we intentionally revive
+> this feature and pick a final ephemeral kind.
 
 ### What it does
 
-A public, short-lived replaceable event indicating the user is currently typing
+A public, short-lived ephemeral event indicating the user is currently typing
 in a specific chat room. The `room` is identified by a bloom filter of recent
 message IDs (so it doesn't leak which conversation).
 
-### Event shape (per vitorpamplona's proposal)
+### Event shape (disabled draft)
 
 ```json
 {
-  "kind": 10018,
+  "kind": 20018,
   "pubkey": "<my-pubkey>",
   "created_at": "<now>",
   "tags": [
@@ -182,7 +185,7 @@ the current thread are inside the bloom filter. If yes → show "typing…".
 
 1. **Create `TypingIndicator` service** in `usecase/messaging/typing_indicator.dart`.
    - Expose `void startTyping(Thread thread)` / `void stopTyping()`.
-   - On `startTyping`, publish a `kind 10018` with a 15-second expiration.
+   - On `startTyping`, publish a `kind 20018` with a 15-second expiration.
    - Re-publish every ~10 seconds while the user continues typing.
    - On `stopTyping` (or after 15s idle), stop publishing.
 
@@ -192,7 +195,7 @@ the current thread are inside the bloom filter. If yes → show "typing…".
    - Encode as `size:rounds:base64(bits):base64(salt)` in the `room` tag.
 
 3. **Subscribe to counterparty typing events:**
-   - In `Thread`, subscribe to `kind 10018` from the counterparty pubkey.
+   - In `Thread`, subscribe to `kind 20018` from the counterparty pubkey.
    - On receive, check if your last 3 thread message IDs appear in the bloom
      filter → if yes, set `isCounterpartyTyping = true`.
    - Auto-expire after 15 seconds with no new event.
@@ -215,7 +218,9 @@ In `models` or `datasources`, define:
 
 ```dart
 const kNostrKindReceivedHeartbeat = 10017;
-const kNostrKindTypingIndicator = 10018;
+// Typing indicators are disabled. If revived, use an ephemeral kind from
+// NIP-01's 20000-29999 range instead of the old 10018 draft.
+// const kNostrKindTypingIndicator = 10018;
 const kNostrKindSeenMessages = 30010;
 const kNostrKindSeenStatus = 16; // rumor kind inside gift-wrap
 ```

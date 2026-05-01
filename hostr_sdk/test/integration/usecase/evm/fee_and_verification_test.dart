@@ -60,7 +60,6 @@ EscrowMethod _buildSignedEscrowMethod({
       pubKey: host.publicKey,
       kind: kNostrKindEscrowMethod,
       tags: [
-        ['d', 'escrow-method'],
         ['t', 'evm'],
         ['c', bytecodeHash],
         for (final pubkey in trustedPubkeys) ['p', pubkey],

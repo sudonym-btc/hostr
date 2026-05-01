@@ -45,6 +45,13 @@ typedef EscrowReservationLegacyNoticeSender =
 typedef EscrowReservationExistingMessages =
     Iterable<TextMessage> Function(String tradeId);
 
+typedef EscrowReservationGroupVerifier =
+    Future<Validation<ReservationGroup>> Function(
+      ReservationGroup group, {
+      required bool forceValidateSelfSigned,
+      required EscrowVerification escrowVerification,
+    });
+
 const _hostrTradeIdTag = 'tradeId';
 
 class EscrowReservationNotifier {
@@ -56,6 +63,7 @@ class EscrowReservationNotifier {
   final EscrowReservationLegacyNoticeSender sendLegacyText;
   final EscrowReservationExistingMessages existingMessagesForTrade;
   final CustomLogger _logger;
+  final Set<String> _sentNoticeKeys = {};
 
   EscrowReservationNotifier({
     required this.escrowKeyPair,
@@ -199,12 +207,14 @@ class EscrowReservationNotifier {
     required String recipientPubkey,
     required String content,
   }) async {
-    if (_hasExistingNotice(
-      tradeId: tradeId,
-      noticeType: noticeType,
-      role: role,
-      recipientPubkey: recipientPubkey,
-    )) {
+    final noticeKey = '$tradeId|$noticeType|$role|$recipientPubkey';
+    if (_sentNoticeKeys.contains(noticeKey) ||
+        _hasExistingNotice(
+          tradeId: tradeId,
+          noticeType: noticeType,
+          role: role,
+          recipientPubkey: recipientPubkey,
+        )) {
       _logger.i(
         'Skipping duplicate reservation notice: '
         'trade=$tradeId role=$role recipient=$recipientPubkey',
@@ -231,6 +241,7 @@ class EscrowReservationNotifier {
       tags: tags,
       recipientPubkey: recipientPubkey,
     );
+    _sentNoticeKeys.add(noticeKey);
   }
 
   bool _hasExistingNotice({
@@ -369,6 +380,7 @@ class EscrowDaemon {
   final Reservations _reservations;
   final UserSubscriptions _userSubscriptions;
   final EscrowVerification _escrowVerification;
+  final EscrowReservationGroupVerifier _verifyReservationGroup;
   final CustomLogger _logger;
 
   EscrowDaemonContext? _context;
@@ -403,6 +415,7 @@ class EscrowDaemon {
     required Reservations reservations,
     required UserSubscriptions userSubscriptions,
     required EscrowVerification escrowVerification,
+    EscrowReservationGroupVerifier? verifyReservationGroup,
     required CustomLogger logger,
   }) : _auth = auth,
        _evm = evm,
@@ -414,6 +427,8 @@ class EscrowDaemon {
        _reservations = reservations,
        _userSubscriptions = userSubscriptions,
        _escrowVerification = escrowVerification,
+       _verifyReservationGroup =
+           verifyReservationGroup ?? _defaultVerifyReservationGroup,
        _logger = logger.scope('escrow-daemon') {
     _reservationNotifier = EscrowReservationNotifier(
       escrowKeyPair: () => _auth.activeKeyPair!,
@@ -633,6 +648,21 @@ class EscrowDaemon {
   static Stream<Reservation> reservationListenerEvents(
     StreamWithStatus<Reservation> source,
   ) => source.replayStream;
+
+  @visibleForTesting
+  void startReservationListenerForTesting() => _startReservationListener();
+
+  static Future<Validation<ReservationGroup>> _defaultVerifyReservationGroup(
+    ReservationGroup group, {
+    required bool forceValidateSelfSigned,
+    required EscrowVerification escrowVerification,
+  }) {
+    return ReservationGroups.verifyGroupOnChain(
+      group,
+      forceValidateSelfSigned: forceValidateSelfSigned,
+      escrowVerification: escrowVerification,
+    );
+  }
 
   // ── Contract events ───────────────────────────────────────────────────────
 
@@ -893,7 +923,7 @@ class EscrowDaemon {
     _logger.i('Processing reservation group: trade=$tradeId');
 
     try {
-      final result = await ReservationGroups.verifyGroupOnChain(
+      final result = await _verifyReservationGroup(
         group,
         forceValidateSelfSigned: true,
         escrowVerification: _escrowVerification,
@@ -901,6 +931,21 @@ class EscrowDaemon {
 
       if (result is Valid<ReservationGroup>) {
         _reservationRetryTimers.remove(group.tradeId)?.cancel();
+        final latest = await _latestReservationGroup(group);
+        if (latest != null) {
+          final latestEscrowReservation = latest.escrowReservation;
+          if (latestEscrowReservation != null) {
+            _reservationGroups[latest.groupId] = latest;
+            if (latestEscrowReservation.stage == ReservationStage.cancel) {
+              await _reservationNotifier.notifyCancellation(latest);
+            } else if (latestEscrowReservation.stage ==
+                ReservationStage.commit) {
+              await _reservationNotifier.notifyReservation(latest);
+            }
+            return;
+          }
+        }
+
         await _publishEscrowConfirmation(group, buyer);
         await _reservationNotifier.notifyReservation(group);
       } else if (result is Invalid<ReservationGroup>) {
@@ -937,6 +982,23 @@ class EscrowDaemon {
         .addReservation(reservation);
 
     _logger.i('✓ Published escrow CONFIRM for trade=${group.tradeId}');
+  }
+
+  Future<ReservationGroup?> _latestReservationGroup(
+    ReservationGroup group,
+  ) async {
+    final reservations = await _reservations.getByTradeId(group.tradeId);
+    final groups = Reservations.toReservationGroups(reservations: reservations);
+    final escrowPubkey = _auth.activeKeyPair!.publicKey;
+    final latest =
+        groups[group.groupId] ??
+        groups.values.where((candidate) {
+          return reservationGroupInvolvesEscrow(candidate, escrowPubkey);
+        }).firstOrNull;
+    if (latest != null) {
+      _reservationGroups[latest.groupId] = latest;
+    }
+    return latest;
   }
 
   Future<void> _publishEscrowCancellation(

@@ -510,7 +510,9 @@ class BackgroundWorker {
   String _resolveHostingGuestPubkey(
     ResolvedValidatedReservationGroupParticipants item,
   ) {
-    final resolved = item.participants.resolvedParticipantPubkeyForRole('buyer');
+    final resolved = item.participants.resolvedParticipantPubkeyForRole(
+      'buyer',
+    );
     if (resolved != null && resolved.isNotEmpty) {
       return resolved;
     }

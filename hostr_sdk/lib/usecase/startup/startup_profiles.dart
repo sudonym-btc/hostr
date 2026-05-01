@@ -203,10 +203,7 @@ class UserStartupProfile implements StartupProfile {
           id: StartupItemId.relayHints,
           label: 'Loading relay list',
         ),
-        StartupItemProgress(
-          id: StartupItemId.seed,
-          label: 'Unlocking account',
-        ),
+        StartupItemProgress(id: StartupItemId.seed, label: 'Unlocking account'),
         StartupItemProgress(
           id: StartupItemId.profile,
           label: 'Loading profile',

@@ -26,5 +26,4 @@ export 'tag_promotion.dart';
 export 'trade_key_authorization.dart';
 export 'type_json_content.dart';
 export 'type_parent.dart';
-export 'typing_indicator.dart';
 export 'validate_state_transition.dart';

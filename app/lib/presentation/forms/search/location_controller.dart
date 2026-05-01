@@ -119,9 +119,7 @@ class LocationController extends FormFieldController {
   }
 
   void setH3Result(List<H3Tag> tags, String resolvedText) {
-    _log(
-      'setH3Result resolvedText="$resolvedText" tags=${tags.length}',
-    );
+    _log('setH3Result resolvedText="$resolvedText" tags=${tags.length}');
     _h3Tags = tags;
     _h3Error = tags.isEmpty ? 'No H3 cells found' : null;
     _isResolvingH3 = false;
