@@ -23,8 +23,10 @@ RUN apt-get update \
       '  toolchain="$2"' \
       '  shift 2' \
       '  if [ "$1" = "cargo" ]; then' \
+      '    toolchain_bin="$(dirname "$(/usr/local/cargo/bin/rustup which cargo --toolchain "${RUSTUP_TOOLCHAIN:-${toolchain}}")")"' \
+      '    export PATH="${toolchain_bin}:$PATH"' \
       '    shift 1' \
-      '    exec "$(/usr/local/cargo/bin/rustup which cargo --toolchain "${RUSTUP_TOOLCHAIN:-${toolchain}}")" "$@"' \
+      '    exec "${toolchain_bin}/cargo" "$@"' \
       '  fi' \
       '  exec "$@"' \
       'fi' \
