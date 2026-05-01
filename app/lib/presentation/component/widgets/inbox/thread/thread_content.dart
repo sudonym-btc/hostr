@@ -72,8 +72,13 @@ class _ThreadContentState extends State<ThreadContent> {
   /// Whether [event] is a visible event (i.e. would be rendered
   /// by [_buildEvent]).
   bool _isVisibleEvent(Event event) {
-    return event is TextMessage ||
-        (event is Message && event.child is Reservation);
+    return event is TextMessage || _isVisibleReservationRequest(event);
+  }
+
+  bool _isVisibleReservationRequest(Event event) {
+    if (event is! Message || event.child is! Reservation) return false;
+    final reservation = event.child as Reservation;
+    return reservation.stage != ReservationStage.cancel;
   }
 
   bool _isCurrentThreadVisible(BuildContext context, Thread thread) {
@@ -257,9 +262,9 @@ class _ThreadContentState extends State<ThreadContent> {
     final activePubKey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final isSentByMe = event.pubKey == activePubKey;
 
-    if (event is Message && event.child is Reservation) {
+    if (_isVisibleReservationRequest(event)) {
       return ThreadReservationRequestWidget(
-        item: event,
+        item: event as Message,
         isSentByMe: isSentByMe,
       );
     }

@@ -30,6 +30,10 @@ class NegotiationWidget extends StatelessWidget {
     final hasAccept = tradeState.actions.contains(TradeAction.accept);
     final registry = getIt<Hostr>().swapInTracker;
     final spacing = AppSpacing.of(context);
+    final displayAmount =
+        tradeState.amount ?? policy.latestOffer?.amount ?? policy.listingPrice;
+    final counterInitialAmount =
+        policy.counterMin ?? displayAmount ?? policy.counterMax;
     return Padding(
       padding: EdgeInsets.only(top: spacing.md),
       child: Column(
@@ -39,7 +43,9 @@ class NegotiationWidget extends StatelessWidget {
             amount: Row(
               children: [
                 Text(
-                  formatAmount(tradeState.amount!, exact: false),
+                  displayAmount != null
+                      ? formatAmount(displayAmount, exact: false)
+                      : 'Amount pending',
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold),
@@ -61,10 +67,12 @@ class NegotiationWidget extends StatelessWidget {
                         key: const ValueKey('trade_request_cancel_button'),
                         child: _cancelButton(context),
                       ),
-                    if (hasCounter && activeSwap == null)
+                    if (hasCounter &&
+                        activeSwap == null &&
+                        counterInitialAmount != null)
                       KeyedSubtree(
                         key: const ValueKey('trade_action_counter'),
-                        child: _counterButton(context),
+                        child: _counterButton(context, counterInitialAmount),
                       ),
                     if (hasPay)
                       KeyedSubtree(
@@ -221,20 +229,26 @@ class NegotiationWidget extends StatelessWidget {
     child: const Text('Accept'),
   );
 
-  Widget _counterButton(BuildContext context) => OutlinedButton(
+  Widget _counterButton(
+    BuildContext context,
+    DenominatedAmount initialAmount,
+  ) => OutlinedButton(
     key: ValueKey('trade_action_counter_${context.read<Trade>().tradeId}'),
-    onPressed: () => _showCounterOfferSheet(context),
+    onPressed: () => _showCounterOfferSheet(context, initialAmount),
     child: const Text('Counter'),
   );
 
-  void _showCounterOfferSheet(BuildContext context) {
+  void _showCounterOfferSheet(
+    BuildContext context,
+    DenominatedAmount initialAmount,
+  ) {
     final trade = context.read<Trade>();
     final submitCounter = trade.counter;
     showAppModal(
       context,
       builder: (_) => _CounterOfferSheet(
         tradeId: trade.tradeId,
-        initialAmount: policy.counterMin ?? tradeState.amount!,
+        initialAmount: initialAmount,
         minAmount: policy.counterMin,
         maxAmount: policy.counterMax,
         onSubmit: submitCounter,
