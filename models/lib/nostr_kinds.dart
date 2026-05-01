@@ -154,6 +154,7 @@ const kHostrOnlyKinds = <int>{
   kNostrKindEscrowService,
   kNostrKindEscrowMethod,
   kNostrKindEscrowServiceSelected,
+  kNostrKindIdentityClaims,
   kNostrKindJsonMessage,
   kNostrKindSeal,
   kNostrKindReceivedHeartbeat,
