@@ -1,7 +1,6 @@
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-import '../identity_claims/identity_claims.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
 
@@ -26,15 +25,12 @@ class UserStartupProfileBootstrapResult {
 class UserStartupProfileBootstrapper {
   final MetadataUseCase _metadata;
   final Listings _listings;
-  final IdentityClaimsUseCase _identityClaims;
 
   UserStartupProfileBootstrapper({
     required MetadataUseCase metadata,
     required Listings listings,
-    required IdentityClaimsUseCase identityClaims,
   }) : _metadata = metadata,
-       _listings = listings,
-       _identityClaims = identityClaims;
+       _listings = listings;
 
   Future<UserStartupProfileBootstrapResult> run({
     required String pubkey,
@@ -47,7 +43,7 @@ class UserStartupProfileBootstrapper {
       metadata = await _metadata.loadMetadata(pubkey, forceRefresh: true);
     }
 
-    await _ensureHostIdentity(pubkey);
+    await _ensureSellerConfig(pubkey);
 
     return UserStartupProfileBootstrapResult(
       metadata: metadata,
@@ -55,13 +51,13 @@ class UserStartupProfileBootstrapper {
     );
   }
 
-  Future<void> _ensureHostIdentity(String pubkey) async {
+  Future<void> _ensureSellerConfig(String pubkey) async {
     final listings = await _listings.list(
       Filter(authors: [pubkey], limit: 1),
       name: 'startup-host-listings',
     );
     if (listings.isEmpty) return;
 
-    await _identityClaims.ensureEvmAddress();
+    await _metadata.ensureSellerConfig(pubkey);
   }
 }

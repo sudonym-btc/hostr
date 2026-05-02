@@ -141,7 +141,6 @@ class UserStartupProfile implements StartupProfile {
   final AccountSeedStore _accountSeedStore;
   final MetadataUseCase _metadata;
   final Listings _listings;
-  final IdentityClaimsUseCase _identityClaims;
   final UserSubscriptions _userSubscriptions;
   final PaymentProofOrchestrator _paymentProofOrchestrator;
   final FundsMonitorService _fundsMonitor;
@@ -176,7 +175,6 @@ class UserStartupProfile implements StartupProfile {
        _accountSeedStore = accountSeedStore,
        _metadata = metadata,
        _listings = listings,
-       _identityClaims = identityClaims,
        _userSubscriptions = userSubscriptions,
        _paymentProofOrchestrator = paymentProofOrchestrator,
        _fundsMonitor = fundsMonitor,
@@ -188,7 +186,6 @@ class UserStartupProfile implements StartupProfile {
     _profileBootstrapper = UserStartupProfileBootstrapper(
       metadata: _metadata,
       listings: _listings,
-      identityClaims: _identityClaims,
     );
   }
 

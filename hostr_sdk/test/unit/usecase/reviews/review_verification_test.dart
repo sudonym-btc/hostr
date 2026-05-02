@@ -6,8 +6,8 @@ import 'dart:async';
 import 'package:hostr_sdk/datasources/nostr/mock.relay.dart' show matchEvent;
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
+import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/usecase/reservations/reservation_participant_authorization.dart';
 import 'package:hostr_sdk/usecase/reservations/reservation_participant_tags.dart';
@@ -88,9 +88,9 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
   }
 }
 
-class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
+class _FakeMetadata extends Fake implements MetadataUseCase {
   @override
-  Future<IdentityClaims?> ensureEvmAddress() async => null;
+  Future<void> ensureSellerConfig(String pubkey) async {}
 }
 
 RelayBroadcastResponse _successfulBroadcastResponse() {
@@ -362,7 +362,7 @@ void main() {
       listings = Listings(
         requests: fakeRequests,
         logger: logger,
-        identityClaims: _FakeIdentityClaims(),
+        metadata: _FakeMetadata(),
       );
       reservations = Reservations(
         requests: fakeRequests,

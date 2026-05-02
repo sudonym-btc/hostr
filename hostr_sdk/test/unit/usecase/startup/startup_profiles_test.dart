@@ -168,7 +168,7 @@ void main() {
           metadata.loadMetadata('user-pubkey', forceRefresh: false),
         ).called(1);
         verifyNever(metadata.loadMetadata('user-pubkey', forceRefresh: true));
-        verifyNever(metadata.ensureUserConfig('user-pubkey'));
+        verifyNever(metadata.ensureSellerConfig('user-pubkey'));
         expect(listings.queriedAuthors, ['user-pubkey']);
         expect(identityClaims.ensureCalls, 0);
       },
@@ -276,6 +276,7 @@ void main() {
       when(
         metadata.loadMetadata('user-pubkey', forceRefresh: true),
       ).thenAnswer((_) async => refreshed);
+      when(metadata.ensureSellerConfig('user-pubkey')).thenAnswer((_) async {});
       when(nwc.start()).thenAnswer((_) async {});
 
       final profile = UserStartupProfile(
@@ -321,9 +322,9 @@ void main() {
       verify(
         metadata.loadMetadata('user-pubkey', forceRefresh: true),
       ).called(1);
-      verifyNever(metadata.ensureUserConfig('user-pubkey'));
+      verify(metadata.ensureSellerConfig('user-pubkey')).called(1);
       expect(listings.queriedAuthors, ['user-pubkey']);
-      expect(identityClaims.ensureCalls, 1);
+      expect(identityClaims.ensureCalls, 0);
     });
   });
 }

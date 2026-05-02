@@ -74,8 +74,8 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         // the profile has been saved and relays are connected.
         final pubkey = event.pubKey;
         if (pubkey.isNotEmpty) {
-          ensureUserConfig(pubkey).catchError((e) {
-            logger.e('ensureUserConfig failed: $e');
+          ensureSellerConfig(pubkey).catchError((e) {
+            logger.e('ensureSellerConfig failed: $e');
           });
         }
         return result;
@@ -196,8 +196,8 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   /// startup/profile sync. Hostr may read NIP-65 for discovery, but should
   /// not silently append its own relay while the product is still treating the
   /// wider relay graph as read-mostly.
-  Future<void> ensureUserConfig(String pubkey) =>
-      logger.span('ensureUserConfig', () async {
+  Future<void> ensureSellerConfig(String pubkey) =>
+      logger.span('ensureSellerConfig', () async {
         if (_config.hostrRelay.isNotEmpty) {
           logger.i(
             'Skipping automatic NIP-65 publish for $pubkey '
@@ -247,4 +247,6 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         }
         */
       });
+
+  Future<void> ensureUserConfig(String pubkey) => ensureSellerConfig(pubkey);
 }

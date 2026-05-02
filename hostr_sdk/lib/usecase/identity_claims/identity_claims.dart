@@ -44,36 +44,63 @@ class IdentityClaimsUseCase extends CrudUseCase<IdentityClaims> {
     return (await loadClaims(pubkey))?.evmAddress;
   }
 
-  Future<IdentityClaims?> ensureEvmAddress() =>
-      logger.span('ensureEvmAddress', () async {
-        final keyPair = _auth.activeKeyPair;
-        if (keyPair == null) return null;
+  Future<IdentityClaims?>
+  ensureEvmAddress() => logger.span('ensureEvmAddress', () async {
+    final keyPair = _auth.activeKeyPair;
+    if (keyPair == null) return null;
 
-        final evmKey = await _auth.hd.getActiveEvmKey();
-        final address = evmKey.address.eip55With0x;
-        final existing = await loadClaims(keyPair.publicKey);
-        if (_sameAddress(existing?.evmAddress, address)) return existing;
+    final evmKey = await _auth.hd.getActiveEvmKey();
+    final address = evmKey.address.eip55With0x;
+    final existing = await loadClaims(keyPair.publicKey);
+    logger.d(
+      'ensureEvmAddress state: '
+      'pubkey=${_shortHex(keyPair.publicKey)} '
+      'evmAddress=$address '
+      'existing=${_identityClaimSummary(existing)}',
+    );
+    if (_sameAddress(existing?.evmAddress, address)) return existing;
 
-        final proof = _signEvmIdentityClaim(
-          evmKey: evmKey,
-          nostrPubkey: keyPair.publicKey,
-          evmAddress: address,
-        );
-        final unsigned =
-            (existing ??
-                    IdentityClaims.build(
-                      pubKey: keyPair.publicKey,
-                      evmAddress: address,
-                    ))
-                .withEvmAddress(address, eip191Proof: proof);
+    final proof = _signEvmIdentityClaim(
+      evmKey: evmKey,
+      nostrPubkey: keyPair.publicKey,
+      evmAddress: address,
+    );
+    logger.d(
+      'ensureEvmAddress proof generated: '
+      'address=$address proof=${_shortHex(proof)}',
+    );
+    final unsigned =
+        (existing ??
+                IdentityClaims.build(
+                  pubKey: keyPair.publicKey,
+                  evmAddress: address,
+                ))
+            .withEvmAddress(address, eip191Proof: proof);
+    logger.d(
+      'ensureEvmAddress unsigned claim: ${_identityClaimSummary(unsigned)}',
+    );
+    logger.d(
+      'ensureEvmAddress unsigned claim JSON: ${_nostrEventDebugJson(unsigned)}',
+    );
 
-        final signed = IdentityClaims.fromNostrEvent(
-          await _auth.signEvent(unsigned),
-        );
-        await requests.broadcast(event: signed, relays: _hostrRelays);
-        notifyUpdate(signed);
-        return signed;
-      });
+    final signed = IdentityClaims.fromNostrEvent(
+      await _auth.signEvent(unsigned),
+    );
+    logger.d('ensureEvmAddress signed claim: ${_identityClaimSummary(signed)}');
+    logger.d(
+      'ensureEvmAddress signed claim JSON: ${_nostrEventDebugJson(signed)}',
+    );
+    final calculatedId = Nip01Utils.calculateId(signed);
+    if (signed.id != calculatedId) {
+      logger.w(
+        'ensureEvmAddress signed claim has invalid id before broadcast: '
+        'id=${_shortHex(signed.id)} calculated=${_shortHex(calculatedId)}',
+      );
+    }
+    await requests.broadcast(event: signed, relays: _hostrRelays);
+    notifyUpdate(signed);
+    return signed;
+  });
 
   List<String>? get _hostrRelays =>
       _config.hostrRelay.isEmpty ? null : [_config.hostrRelay];
@@ -102,4 +129,32 @@ String _signEvmIdentityClaim({
     evmAddress: evmAddress,
   );
   return '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(message)))}';
+}
+
+String _shortHex(String? value) {
+  if (value == null) return 'null';
+  if (value.length <= 16) return value;
+  return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
+}
+
+String _nostrEventDebugJson(Nip01Event event) {
+  return jsonEncode(Nip01EventModel.fromEntity(event).toJson());
+}
+
+String _identityClaimSummary(IdentityClaims? claim) {
+  if (claim == null) return 'none';
+  final calculatedId = Nip01Utils.calculateId(claim);
+  return [
+    'kind=${claim.kind}',
+    'pubkey=${_shortHex(claim.pubKey)}',
+    'createdAt=${claim.createdAt}',
+    'tags=${claim.tags.length}',
+    'evmAddress=${claim.evmAddress}',
+    'proof=${_shortHex(claim.evmAddressProof)}',
+    'id=${_shortHex(claim.id)}',
+    'calculated=${_shortHex(calculatedId)}',
+    'idValid=${claim.id == calculatedId}',
+    'sigPresent=${claim.sig != null}',
+    if (claim.sig != null) 'sig=${_shortHex(claim.sig)}',
+  ].join(' ');
 }

@@ -437,13 +437,6 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i331.CustomLogger>(),
       ),
     );
-    gh.singleton<_i906.Listings>(
-      () => _i906.Listings(
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i372.CustomLogger>(),
-        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
-      ),
-    );
     gh.singleton<_i149.MetadataUseCase>(
       () => _i149.MetadataUseCase(
         ndk: gh<_i857.Ndk>(),
@@ -455,6 +448,13 @@ extension GetItInjectableX on _i174.GetIt {
         config: gh<_i910.HostrConfig>(),
         requests: gh<_i1014.Requests>(),
         logger: gh<_i331.CustomLogger>(),
+      ),
+    );
+    gh.singleton<_i906.Listings>(
+      () => _i906.Listings(
+        requests: gh<_i1014.Requests>(),
+        logger: gh<_i372.CustomLogger>(),
+        metadata: gh<_i149.MetadataUseCase>(),
       ),
     );
     gh.singleton<_i327.PublicStartupProfile>(
