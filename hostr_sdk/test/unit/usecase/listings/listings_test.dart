@@ -1,8 +1,8 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
+import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -13,37 +13,37 @@ import 'package:test/test.dart';
 
 void main() {
   group('Listings', () {
-    test('ensures EVM identity before publishing a listing', () async {
+    test('ensures seller config before publishing a listing', () async {
       final calls = <String>[];
-      final identityClaims = _FakeIdentityClaims(calls);
+      final metadata = _FakeMetadata(calls);
       final requests = _FakeRequests(calls);
       final listings = Listings(
         requests: requests,
         logger: CustomLogger(),
-        identityClaims: identityClaims,
+        metadata: metadata,
       );
       final listing = _listing('host-pubkey');
 
       final result = await listings.upsert(listing);
 
       expect(result, hasLength(1));
-      expect(identityClaims.ensureCalls, 1);
+      expect(metadata.ensureCalls, ['host-pubkey']);
       expect(requests.broadcastedEvents, hasLength(1));
       expect(requests.broadcastedEvents.single, same(listing));
-      expect(calls, ['ensureEvmAddress', 'broadcast']);
+      expect(calls, ['ensureSellerConfig:host-pubkey', 'broadcast']);
     });
 
     test(
-      'does not publish the listing when EVM identity setup fails',
+      'does not publish the listing when seller config setup fails',
       () async {
         final calls = <String>[];
-        final failure = StateError('identity unavailable');
-        final identityClaims = _FakeIdentityClaims(calls)..failure = failure;
+        final failure = StateError('seller config unavailable');
+        final metadata = _FakeMetadata(calls)..failure = failure;
         final requests = _FakeRequests(calls);
         final listings = Listings(
           requests: requests,
           logger: CustomLogger(),
-          identityClaims: identityClaims,
+          metadata: metadata,
         );
 
         await expectLater(
@@ -51,28 +51,27 @@ void main() {
           throwsA(same(failure)),
         );
 
-        expect(identityClaims.ensureCalls, 1);
+        expect(metadata.ensureCalls, ['host-pubkey']);
         expect(requests.broadcastedEvents, isEmpty);
-        expect(calls, ['ensureEvmAddress']);
+        expect(calls, ['ensureSellerConfig:host-pubkey']);
       },
     );
   });
 }
 
-class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
+class _FakeMetadata extends Fake implements MetadataUseCase {
   final List<String> calls;
-  int ensureCalls = 0;
+  final List<String> ensureCalls = [];
   Object? failure;
 
-  _FakeIdentityClaims(this.calls);
+  _FakeMetadata(this.calls);
 
   @override
-  Future<IdentityClaims?> ensureEvmAddress() async {
-    calls.add('ensureEvmAddress');
-    ensureCalls++;
+  Future<void> ensureSellerConfig(String pubkey) async {
+    calls.add('ensureSellerConfig:$pubkey');
+    ensureCalls.add(pubkey);
     final error = failure;
     if (error != null) throw error;
-    return null;
   }
 }
 

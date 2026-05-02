@@ -787,6 +787,15 @@ class MockMetadataUseCase extends _i1.Mock implements _i29.MetadataUseCase {
           as _i27.Future<_i28.UserRelayList?>);
 
   @override
+  _i27.Future<void> ensureSellerConfig(String? pubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#ensureSellerConfig, [pubkey]),
+            returnValue: _i27.Future<void>.value(),
+            returnValueForMissingStub: _i27.Future<void>.value(),
+          )
+          as _i27.Future<void>);
+
+  @override
   _i27.Future<void> ensureUserConfig(String? pubkey) =>
       (super.noSuchMethod(
             Invocation.method(#ensureUserConfig, [pubkey]),

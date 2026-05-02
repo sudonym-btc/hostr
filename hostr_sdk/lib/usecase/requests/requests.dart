@@ -4,10 +4,19 @@ import 'dart:math';
 
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/nostr_kinds.dart' show kHostrOnlyKinds;
+import 'package:models/nostr_kinds.dart'
+    show kHostrOnlyKinds, kNostrKindIdentityClaims;
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart' show Filter, LogOutput, Logger, Ndk, Nip01Event;
+import 'package:ndk/ndk.dart'
+    show
+        Filter,
+        LogOutput,
+        Logger,
+        Ndk,
+        Nip01Event,
+        Nip01EventModel,
+        Nip01Utils;
 import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
@@ -135,6 +144,32 @@ String formatBroadcastResponses(List<RelayBroadcastResponse> responses) {
             'success=${response.broadcastSuccessful}, msg=${response.msg}}',
       )
       .join(', ');
+}
+
+String _shortHex(String? value) {
+  if (value == null) return 'null';
+  if (value.length <= 16) return value;
+  return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
+}
+
+String _nostrEventDebugJson(Nip01Event event) {
+  return jsonEncode(Nip01EventModel.fromEntity(event).toJson());
+}
+
+String _broadcastEventDebugSummary(Nip01Event event) {
+  final calculatedId = Nip01Utils.calculateId(event);
+  return [
+    'kind=${event.kind}',
+    'pubkey=${_shortHex(event.pubKey)}',
+    'createdAt=${event.createdAt}',
+    'tags=${event.tags.length}',
+    'contentLength=${event.content.length}',
+    'id=${_shortHex(event.id)}',
+    'calculated=${_shortHex(calculatedId)}',
+    'idValid=${event.id == calculatedId}',
+    'sigPresent=${event.sig != null}',
+    if (event.sig != null) 'sig=${_shortHex(event.sig)}',
+  ].join(' ');
 }
 
 void throwIfBroadcastFailed(
@@ -528,6 +563,15 @@ class Requests extends RequestsModel {
         );
         eventToBroadcast = await signer.sign(event);
       }
+    }
+
+    _logger.d(
+      'broadcast event: ${_broadcastEventDebugSummary(eventToBroadcast)}',
+    );
+    if (eventToBroadcast.kind == kNostrKindIdentityClaims) {
+      _logger.d(
+        'broadcast identity claim JSON: ${_nostrEventDebugJson(eventToBroadcast)}',
+      );
     }
 
     final responses = await ndk.broadcast

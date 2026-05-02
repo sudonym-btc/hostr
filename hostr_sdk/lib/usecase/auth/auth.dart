@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
+import 'package:models/main.dart' show kNostrKindIdentityClaims;
 import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
@@ -22,6 +23,32 @@ import 'auth_identity_resolver.dart';
 import 'auth_models.dart';
 
 export 'auth_models.dart';
+
+String _shortHex(String? value) {
+  if (value == null) return 'null';
+  if (value.length <= 16) return value;
+  return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
+}
+
+String _nostrEventDebugJson(Nip01Event event) {
+  return jsonEncode(Nip01EventModel.fromEntity(event).toJson());
+}
+
+String _signEventDebugSummary(Nip01Event event) {
+  final calculatedId = Nip01Utils.calculateId(event);
+  return [
+    'kind=${event.kind}',
+    'pubkey=${_shortHex(event.pubKey)}',
+    'createdAt=${event.createdAt}',
+    'tags=${event.tags.length}',
+    'contentLength=${event.content.length}',
+    'id=${_shortHex(event.id)}',
+    'calculated=${_shortHex(calculatedId)}',
+    'idValid=${event.id == calculatedId}',
+    'sigPresent=${event.sig != null}',
+    if (event.sig != null) 'sig=${_shortHex(event.sig)}',
+  ].join(' ');
+}
 
 @Singleton()
 class Auth {
@@ -365,38 +392,78 @@ class Auth {
     return activeKeyPair!;
   }
 
-  Future<Nip01Event> signEvent(Nip01Event event) => _logger.span(
-    'signEvent',
-    () async {
-      final activePubkey = this.activePubkey;
-      if (activePubkey == null) {
-        throw StateError('No active signer');
-      }
-      if (event.pubKey != activePubkey) {
-        throw StateError(
-          'Cannot sign event for ${event.pubKey} with active key $activePubkey',
-        );
-      }
+  Future<Nip01Event> signEvent(
+    Nip01Event event,
+  ) => _logger.span('signEvent', () async {
+    final activePubkey = this.activePubkey;
+    if (activePubkey == null) {
+      throw StateError('No active signer');
+    }
+    if (event.pubKey != activePubkey) {
+      throw StateError(
+        'Cannot sign event for ${event.pubKey} with active key $activePubkey',
+      );
+    }
 
-      final eventToSign = event.id.isEmpty
-          ? event.copyWith(id: Nip01Utils.calculateId(event))
-          : event;
-      if (_ndk.accounts.getPublicKey() == event.pubKey) {
-        return _ndk.accounts.sign(eventToSign);
-      }
+    _logger.d('signEvent input: ${_signEventDebugSummary(event)}');
+    _logIdentityClaimEventJson('signEvent input event', event);
 
+    final eventToSign = event.id.isEmpty
+        ? event.copyWith(id: Nip01Utils.calculateId(event))
+        : event;
+    if (!identical(eventToSign, event)) {
+      _logger.d(
+        'signEvent normalized input id: ${_signEventDebugSummary(eventToSign)}',
+      );
+      _logIdentityClaimEventJson(
+        'signEvent normalized input event',
+        eventToSign,
+      );
+    }
+
+    late final Nip01Event signed;
+    if (_ndk.accounts.getPublicKey() == event.pubKey) {
+      _logger.d(
+        'signEvent using NDK account signer for ${_shortHex(event.pubKey)} '
+        'credentialType=${_authRecord?.credentialType ?? 'unknown'} '
+        'bunkerBacked=$isBunkerBacked localPrivateKey=$hasLocalPrivateKey',
+      );
+      signed = await _ndk.accounts.sign(eventToSign);
+    } else {
       final keyPair = activeKeyPair;
       final privateKey = keyPair?.privateKey;
       if (privateKey == null || privateKey.isEmpty) {
         throw StateError('No active local or bunker signer');
       }
 
-      return CoinlibEventSigner(
+      _logger.d(
+        'signEvent using local Coinlib signer for ${_shortHex(keyPair!.publicKey)}',
+      );
+      signed = await CoinlibEventSigner(
         privateKey: privateKey,
-        publicKey: keyPair!.publicKey,
+        publicKey: keyPair.publicKey,
       ).sign(eventToSign);
-    },
-  );
+    }
+
+    _logger.d('signEvent output: ${_signEventDebugSummary(signed)}');
+    _logIdentityClaimEventJson('signEvent output event', signed);
+
+    final recalculatedId = Nip01Utils.calculateId(signed);
+    if (signed.id != recalculatedId) {
+      _logger.w(
+        'signEvent output has invalid id: '
+        'kind=${signed.kind} id=${_shortHex(signed.id)} '
+        'calculated=${_shortHex(recalculatedId)} '
+        'sigPresent=${signed.sig != null}',
+      );
+    }
+    return signed;
+  });
+
+  void _logIdentityClaimEventJson(String label, Nip01Event event) {
+    if (event.kind != kNostrKindIdentityClaims) return;
+    _logger.d('$label JSON: ${_nostrEventDebugJson(event)}');
+  }
 
   // ---------------------------------------------------------------------------
   // HD wallet – EVM key derivation

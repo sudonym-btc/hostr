@@ -2,7 +2,6 @@
 library;
 
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/startup/main.dart';
 import 'package:mockito/mockito.dart';
@@ -14,17 +13,14 @@ void main() {
   group('UserStartupProfileBootstrapper', () {
     late MockMetadataUseCase metadata;
     late _FakeListings listings;
-    late _FakeIdentityClaims identityClaims;
     late UserStartupProfileBootstrapper bootstrapper;
 
     setUp(() {
       metadata = MockMetadataUseCase();
       listings = _FakeListings();
-      identityClaims = _FakeIdentityClaims();
       bootstrapper = UserStartupProfileBootstrapper(
         metadata: metadata,
         listings: listings,
-        identityClaims: identityClaims,
       );
     });
 
@@ -43,9 +39,8 @@ void main() {
       expect(result.hasNip65, isFalse);
       verify(metadata.loadMetadata('pubkey-a', forceRefresh: false)).called(1);
       verifyNever(metadata.loadMetadata('pubkey-a', forceRefresh: true));
-      verifyNever(metadata.ensureUserConfig('pubkey-a'));
+      verifyNever(metadata.ensureSellerConfig('pubkey-a'));
       expect(listings.queriedAuthors, ['pubkey-a']);
-      expect(identityClaims.ensureCalls, 0);
     });
 
     test('uses initial metadata load when found with NIP-65', () async {
@@ -63,9 +58,8 @@ void main() {
       expect(result.hasNip65, isTrue);
       verify(metadata.loadMetadata('pubkey-aa', forceRefresh: false)).called(1);
       verifyNever(metadata.loadMetadata('pubkey-aa', forceRefresh: true));
-      verifyNever(metadata.ensureUserConfig('pubkey-aa'));
+      verifyNever(metadata.ensureSellerConfig('pubkey-aa'));
       expect(listings.queriedAuthors, ['pubkey-aa']);
-      expect(identityClaims.ensureCalls, 0);
     });
 
     test('force refreshes when metadata missing but NIP-65 exists', () async {
@@ -86,9 +80,8 @@ void main() {
       expect(result.hasNip65, isTrue);
       verify(metadata.loadMetadata('pubkey-b', forceRefresh: false)).called(1);
       verify(metadata.loadMetadata('pubkey-b', forceRefresh: true)).called(1);
-      verifyNever(metadata.ensureUserConfig('pubkey-b'));
+      verifyNever(metadata.ensureSellerConfig('pubkey-b'));
       expect(listings.queriedAuthors, ['pubkey-b']);
-      expect(identityClaims.ensureCalls, 0);
     });
 
     test(
@@ -109,9 +102,8 @@ void main() {
           metadata.loadMetadata('pubkey-c', forceRefresh: false),
         ).called(1);
         verifyNever(metadata.loadMetadata('pubkey-c', forceRefresh: true));
-        verifyNever(metadata.ensureUserConfig('pubkey-c'));
+        verifyNever(metadata.ensureSellerConfig('pubkey-c'));
         expect(listings.queriedAuthors, ['pubkey-c']);
-        expect(identityClaims.ensureCalls, 0);
       },
     );
 
@@ -136,17 +128,17 @@ void main() {
           metadata.loadMetadata('pubkey-d', forceRefresh: false),
         ).called(1);
         verify(metadata.loadMetadata('pubkey-d', forceRefresh: true)).called(1);
-        verifyNever(metadata.ensureUserConfig('pubkey-d'));
+        verifyNever(metadata.ensureSellerConfig('pubkey-d'));
         expect(listings.queriedAuthors, ['pubkey-d']);
-        expect(identityClaims.ensureCalls, 0);
       },
     );
 
-    test('ensures EVM identity when the user has listings', () async {
+    test('ensures seller config when the user has listings', () async {
       listings.events = [_listing('pubkey-host')];
       when(
         metadata.loadMetadata('pubkey-host', forceRefresh: false),
       ).thenAnswer((_) async => _profile('pubkey-host'));
+      when(metadata.ensureSellerConfig('pubkey-host')).thenAnswer((_) async {});
 
       final result = await bootstrapper.run(
         pubkey: 'pubkey-host',
@@ -155,7 +147,7 @@ void main() {
 
       expect(result.hasMetadata, isTrue);
       expect(listings.queriedAuthors, ['pubkey-host']);
-      expect(identityClaims.ensureCalls, 1);
+      verify(metadata.ensureSellerConfig('pubkey-host')).called(1);
     });
   });
 }
@@ -168,16 +160,6 @@ class _FakeListings extends Fake implements Listings {
   Future<List<Listing>> list(Filter f, {String? name}) async {
     queriedAuthors.addAll(f.authors ?? const []);
     return events;
-  }
-}
-
-class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
-  int ensureCalls = 0;
-
-  @override
-  Future<IdentityClaims?> ensureEvmAddress() async {
-    ensureCalls++;
-    return null;
   }
 }
 

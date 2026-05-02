@@ -2,8 +2,8 @@
 library;
 
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
+import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -16,9 +16,9 @@ import '../../../support/fakes.dart';
 
 final _f = EntityFactory();
 
-class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
+class _FakeMetadata extends Fake implements MetadataUseCase {
   @override
-  Future<IdentityClaims?> ensureEvmAddress() async => null;
+  Future<void> ensureSellerConfig(String pubkey) async {}
 }
 
 Future<Reservation> _reservation({
@@ -74,7 +74,7 @@ void main() {
         listings: Listings(
           requests: relay,
           logger: CustomLogger(),
-          identityClaims: _FakeIdentityClaims(),
+          metadata: _FakeMetadata(),
         ),
         relays: FakeRelays(),
       );
