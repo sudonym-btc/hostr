@@ -41,7 +41,7 @@ Widget tradeHeaderKnobs(BuildContext context) {
           amount: listing.prices.first.amount,
           stage: const NegotiationStage(
             reservationRequests: [],
-            overlapLock: (isBlocked: false, reason: null),
+            overlapLock: (isLoading: false, isBlocked: false, reason: null),
             policy: NegotiationPolicy(
               latestOffer: null,
               lastOfferByUs: null,

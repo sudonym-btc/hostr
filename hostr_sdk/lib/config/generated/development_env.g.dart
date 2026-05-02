@@ -12,10 +12,10 @@ const googleMapsApiKey = 'AIzaSyA3LDTiLipUYz1LHIfS_QY0AhcJIUBfuvg';
 const googleMapsWebMapId = 'ebc1f6bade270e33c10ed21b';
 const googleMapsAndroidMapId = '';
 const googleMapsIosMapId = '';
-const hostrSocialNpub =
-    'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
+const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
-const bootstrapRelays = <String>[];
+const bootstrapRelays = <String>[
+];
 
 const bootstrapEscrowPubkeys = <String>[
   'c51b0c80ab4ec70cee8746fa0175ea439152bb8cf2d37ef84d13eaa095112f0c',
@@ -45,11 +45,11 @@ const evmConfig = EvmConfig(
       escrowContractAddress: '0x663F3ad617193148711d28f5334eE4Ed07016602',
       tokens: {
         'tBTC': TokenConfig(
-          address: '0x948B3c65b89DF0B4894ABE91E6D02FE579834F8F',
+          address: '0x948b3c65b89df0b4894abe91e6d02fe579834f8f',
           denomination: 'BTC',
         ),
         'USDT': TokenConfig(
-          address: '0x712516e61C8B383dF4A63CFe83d7701Bce54B03e',
+          address: '0x712516e61c8b383df4a63cfe83d7701bce54b03e',
           denomination: 'USD',
         ),
       },

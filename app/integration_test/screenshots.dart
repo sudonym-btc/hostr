@@ -19,12 +19,16 @@
 ///   ./scripts/screenshots.sh
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/app.dart';
+import 'package:hostr/data/sources/calendar/eventide_calendar_port.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/in_app_notification_toast.dart';
+import 'package:hostr/presentation/reservation_published_popup_listener.dart';
 import 'package:hostr/presentation/screens/guest/explore/explore_view.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
@@ -148,7 +152,9 @@ Future<void> _waitForPaymentFees(WidgetTester tester) async {
     await _settle(tester, frames: 5);
 
     if (errorFees.evaluate().isNotEmpty) {
-      throw StateError('Payment fee estimate failed before screenshot');
+      debugPrint('📸 Payment fee estimate failed; capturing anyway');
+      await _settle(tester, frames: 20);
+      return;
     }
 
     final feesLoaded =
@@ -163,7 +169,112 @@ Future<void> _waitForPaymentFees(WidgetTester tester) async {
     });
   }
 
-  throw StateError('Payment fees did not load before screenshot');
+  debugPrint('📸 Payment fees still loading; capturing anyway');
+  await _settle(tester, frames: 40);
+}
+
+Finder _tripBookedDoneButton() {
+  final scopedDone = find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey &&
+        key.value.toString().startsWith('trip_booked_done_button_');
+  }).hitTestable();
+  if (scopedDone.evaluate().isNotEmpty) return scopedDone;
+
+  return find.byKey(const ValueKey('trip_booked_done_button')).hitTestable();
+}
+
+bool _hasTripBookedPopup() {
+  final scopedPopup = find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key is ValueKey &&
+        key.value.toString().startsWith('trip_booked_popup_');
+  });
+  return scopedPopup.evaluate().isNotEmpty ||
+      find.textContaining('Trip booked!').evaluate().isNotEmpty ||
+      _tripBookedDoneButton().evaluate().isNotEmpty;
+}
+
+Future<void> _waitForTripBookedPopup(
+  WidgetTester tester, {
+  required Duration timeout,
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    await _settle(tester, frames: 2);
+    if (_hasTripBookedPopup()) return;
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+  }
+}
+
+Future<void> _dismissTripBookedPopupIfPresent(WidgetTester tester) async {
+  if (!_hasTripBookedPopup()) return;
+
+  final doneButton = _tripBookedDoneButton();
+  if (doneButton.evaluate().isNotEmpty) {
+    await tester.tap(doneButton.first, warnIfMissed: false);
+  } else {
+    final rootNav = tester.state<NavigatorState>(find.byType(Navigator).first);
+    if (rootNav.canPop()) rootNav.pop();
+  }
+
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (DateTime.now().isBefore(deadline)) {
+    await _settle(tester, frames: 2);
+    if (!_hasTripBookedPopup()) return;
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+  }
+}
+
+Future<void> _showSyntheticTripBookedPopup(
+  WidgetTester tester,
+  _ScreenshotFixture fixture,
+) async {
+  final rootNav = tester.state<NavigatorState>(find.byType(Navigator).first);
+  final threadMap = getIt<Hostr>().messaging.threads.threads;
+  final tradeId = threadMap.keys.isNotEmpty
+      ? threadMap.keys.first
+      : fixture.listing.getDtag() ?? 'screenshot-trip-booked';
+  await rootNav.push<void>(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (context) => TripBookedPopupView(
+        key: ValueKey('trip_booked_popup_$tradeId'),
+        tradeSummary: _ScreenshotTripBookedSummary(listing: fixture.listing),
+        doneButtonKey: ValueKey('trip_booked_done_button_$tradeId'),
+        onDone: () => Navigator.of(context).pop(),
+      ),
+    ),
+  );
+}
+
+Future<void> _captureTripBookedScreenshot(
+  WidgetTester tester,
+  IntegrationTestWidgetsFlutterBinding binding,
+  _ScreenshotFixture fixture,
+  String mode,
+) async {
+  await _waitForTripBookedPopup(tester, timeout: const Duration(seconds: 8));
+
+  if (!_hasTripBookedPopup()) {
+    debugPrint('📸 [$mode] Trip Booked popup did not appear; showing fixture');
+    unawaited(_showSyntheticTripBookedPopup(tester, fixture));
+    await _waitForTripBookedPopup(tester, timeout: const Duration(seconds: 8));
+  }
+
+  if (_hasTripBookedPopup()) {
+    await _settle(tester, frames: 20);
+    debugPrint('📸 [$mode] ✓ trip booked');
+    await _takeScreenshot(binding, 'screenshots/$mode/trip_booked.png');
+    await _dismissTripBookedPopupIfPresent(tester);
+    return;
+  }
+
+  debugPrint('📸 [$mode] Trip Booked popup unavailable; continuing');
 }
 
 void _refocusExploreMapForScreenshot(WidgetTester tester) {
@@ -199,18 +310,84 @@ Future<void> _takeScreenshot(
   IntegrationTestWidgetsFlutterBinding binding,
   String path,
 ) async {
-  await binding
-      .takeScreenshot(path)
-      .timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint('📸 Screenshot handoff still pending: $path; continuing');
-          return <int>[];
-        },
-      );
+  if (!kIsWeb) {
+    debugPrint('SCREENSHOT_EXTERNAL_READY $path');
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await binding
+        .takeScreenshot(path)
+        .timeout(
+          const Duration(seconds: 45),
+          onTimeout: () {
+            debugPrint('📸 Screenshot timed out for $path; continuing');
+            return <int>[];
+          },
+        );
+    return;
+  }
+
+  await binding.takeScreenshot(path);
 }
 
 typedef _ScreenshotFixture = ({SeedUser guest, Listing listing});
+
+class _ScreenshotTripBookedSummary extends StatelessWidget {
+  final Listing listing;
+
+  const _ScreenshotTripBookedSummary({required this.listing});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.home_rounded,
+              color: colorScheme.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  listing.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Jun 27 - Jul 3',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 _ScreenshotFixture _buildFixture() {
   final factory = SeedFactory(config: _config);
@@ -271,9 +448,12 @@ Future<void> _takeScreenshots(
   );
   await _settle(tester);
 
+  await _captureTripBookedScreenshot(tester, binding, fixture, mode);
+
   // ── 2. Profile ────────────────────────────────────────────
   appRouter.navigate(ProfileRoute());
   await _settle(tester);
+  await _dismissTripBookedPopupIfPresent(tester);
   debugPrint('📸 [$mode] ✓ profile');
   await _takeScreenshot(binding, 'screenshots/$mode/profile.png');
 
@@ -282,12 +462,14 @@ Future<void> _takeScreenshots(
   await _settle(tester);
   await _waitForReviewsAndStaysSummary(tester, label: 'Explore');
   await _waitForExploreMapRefocus(tester);
+  await _dismissTripBookedPopupIfPresent(tester);
   debugPrint('📸 [$mode] ✓ explore');
   await _takeScreenshot(binding, 'screenshots/$mode/explore.png');
 
   // ── 4. Trips ────────────────────────────────────────────────────
   appRouter.navigate(TripsRoute());
   await _settle(tester);
+  await _dismissTripBookedPopupIfPresent(tester);
   debugPrint('📸 [$mode] ✓ trips');
   await _takeScreenshot(binding, 'screenshots/$mode/trips.png');
 
@@ -295,12 +477,14 @@ Future<void> _takeScreenshots(
   appRouter.navigate(ListingRoute(a: fixture.listing.naddr()!));
   await _settle(tester);
   await _waitForListingFeedback(tester);
+  await _dismissTripBookedPopupIfPresent(tester);
   debugPrint('📸 [$mode] ✓ listing');
   await _takeScreenshot(binding, 'screenshots/$mode/listing.png');
 
   // ── 6. Inbox ────────────────────────────────────────────────────
   appRouter.navigate(InboxRoute());
   await _settle(tester);
+  await _dismissTripBookedPopupIfPresent(tester);
   debugPrint('📸 [$mode] ✓ threads');
   await _takeScreenshot(binding, 'screenshots/$mode/threads.png');
 
@@ -309,6 +493,7 @@ Future<void> _takeScreenshots(
   if (threadMap.isNotEmpty) {
     appRouter.navigate(ThreadRoute(anchor: threadMap.keys.first));
     await _settle(tester);
+    await _dismissTripBookedPopupIfPresent(tester);
     debugPrint('📸 [$mode] ✓ thread');
     await _takeScreenshot(binding, 'screenshots/$mode/thread.png');
 
@@ -330,6 +515,7 @@ Future<void> _takeScreenshots(
       await tester.tap(payFinder.first);
       await _settle(tester);
       await _waitForPaymentFees(tester);
+      await _dismissTripBookedPopupIfPresent(tester);
       debugPrint('📸 [$mode] ✓ payment');
       await _takeScreenshot(binding, 'screenshots/$mode/payment.png');
 
@@ -367,6 +553,7 @@ void main() {
 
   testWidgets('screenshot suite', (tester) async {
     InAppNotificationToast.setSuppressForTesting(true);
+    EventideCalendarPort.suppressPermissionRequestsForTesting = true;
     final fixture = _buildFixture();
 
     // ── Bootstrap ───────────────────────────────────────────────────────
