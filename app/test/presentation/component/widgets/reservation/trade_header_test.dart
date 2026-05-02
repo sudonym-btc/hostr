@@ -52,7 +52,7 @@ void main() {
               amount: null,
               stage: const NegotiationStage(
                 reservationRequests: [],
-                overlapLock: (isBlocked: false, reason: null),
+                overlapLock: (isLoading: false, isBlocked: false, reason: null),
                 policy: NegotiationPolicy(
                   latestOffer: null,
                   lastOfferByUs: null,
@@ -142,7 +142,7 @@ void main() {
                 amount: null,
                 stage: NegotiationStage(
                   reservationRequests: [reservation],
-                  overlapLock: (isBlocked: false, reason: null),
+                  overlapLock: (isLoading: false, isBlocked: false, reason: null),
                   policy: const NegotiationPolicy(
                     latestOffer: null,
                     lastOfferByUs: null,

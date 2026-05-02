@@ -18,6 +18,7 @@ import 'package:ndk/ndk.dart'
     show BunkerConnection, Bunkers, Filter, NdkResponse, NostrConnect;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 @RoutePage()
 class SignInScreen extends StatefulWidget {
@@ -415,6 +416,25 @@ class SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  Future<void> _openNostrConnectUrl(String url) async {
+    if (_isSigningIn) return;
+
+    setState(() => _nostrConnectError = null);
+
+    try {
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        setState(() => _nostrConnectError = 'Could not open Nostr app.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _nostrConnectError = 'Could not open Nostr app.');
+    }
+  }
+
   Widget _buildQrPane(BuildContext context) {
     final nostrConnectUrl = _nostrConnect?.nostrConnectURL;
     final theme = Theme.of(context);
@@ -441,19 +461,28 @@ class SignInScreenState extends State<SignInScreen> {
               ),
               Gap.vertical.lg(),
               if (nostrConnectUrl != null)
-                Container(
-                  width: panelWidth,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
+                Semantics(
+                  button: true,
+                  link: true,
+                  label: 'Open Nostr Connect',
+                  child: Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: QrImageView(
-                      data: nostrConnectUrl,
-                      version: QrVersions.auto,
-                      size: qrSize,
-                      backgroundColor: Colors.white,
+                    child: InkWell(
+                      onTap: () => _openNostrConnectUrl(nostrConnectUrl),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: panelWidth,
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                          child: QrImageView(
+                            data: nostrConnectUrl,
+                            version: QrVersions.auto,
+                            size: qrSize,
+                            backgroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 )
@@ -471,14 +500,21 @@ class SignInScreenState extends State<SignInScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Text(
-                          key: const ValueKey('signin_nostrconnect_uri'),
-                          nostrConnectUrl,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontFamily: 'monospace',
-                            color: theme.colorScheme.outline,
+                        child: InkWell(
+                          onTap: () => _openNostrConnectUrl(nostrConnectUrl),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              key: const ValueKey('signin_nostrconnect_uri'),
+                              nostrConnectUrl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontFamily: 'monospace',
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -616,31 +652,36 @@ class SignInScreenState extends State<SignInScreen> {
 
   Widget _buildStackedTabSelector(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      key: const ValueKey('signin_stacked_tabs'),
-      height: 58,
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outline.withAlpha(90)),
-        borderRadius: BorderRadius.circular(16),
-        color: theme.colorScheme.surface.withAlpha(120),
-      ),
-      child: Row(
-        children: [
-          _buildStackedTab(
-            context,
-            key: const ValueKey('signin_tab_connect'),
-            pane: _SignInPane.connect,
-            icon: Icons.qr_code_scanner_rounded,
-            label: 'Connect',
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Container(
+          key: const ValueKey('signin_stacked_tabs'),
+          height: 48,
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.colorScheme.outline.withAlpha(90)),
+            borderRadius: BorderRadius.circular(14),
+            color: theme.colorScheme.surface.withAlpha(120),
           ),
-          _buildStackedTab(
-            context,
-            key: const ValueKey('signin_tab_manual'),
-            pane: _SignInPane.manual,
-            icon: Icons.key_rounded,
-            label: 'Manual',
+          child: Row(
+            children: [
+              _buildStackedTab(
+                context,
+                key: const ValueKey('signin_tab_connect'),
+                pane: _SignInPane.connect,
+                icon: Icons.qr_code_scanner_rounded,
+                label: 'Connect',
+              ),
+              _buildStackedTab(
+                context,
+                key: const ValueKey('signin_tab_manual'),
+                pane: _SignInPane.manual,
+                icon: Icons.key_rounded,
+                label: 'Manual',
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -676,7 +717,7 @@ class SignInScreenState extends State<SignInScreen> {
               curve: Curves.easeOut,
               margin: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 color: selected
                     ? theme.colorScheme.primaryContainer.withAlpha(190)
                     : Colors.transparent,
@@ -685,14 +726,14 @@ class SignInScreenState extends State<SignInScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 22, color: foreground),
-                    Gap.horizontal.sm(),
+                    Icon(icon, size: 19, color: foreground),
+                    Gap.horizontal.xs(),
                     Flexible(
                       child: Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
+                        style: theme.textTheme.labelLarge?.copyWith(
                           color: foreground,
                           fontWeight: selected
                               ? FontWeight.w700
@@ -713,6 +754,7 @@ class SignInScreenState extends State<SignInScreen> {
   Widget _buildStackedSignIn(BuildContext context) {
     return SafeArea(
       child: AppPageGutter(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(

@@ -6,6 +6,9 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class EventideCalendarPort implements CalendarPort {
+  @visibleForTesting
+  static bool suppressPermissionRequestsForTesting = false;
+
   final Eventide _eventide;
   final CustomLogger _logger;
 
@@ -100,6 +103,13 @@ class EventideCalendarPort implements CalendarPort {
   }
 
   Future<bool> _ensureCalendarPermission() async {
+    if (suppressPermissionRequestsForTesting) {
+      _logger.d(
+        'EventideCalendarPort: calendar permission suppressed for testing',
+      );
+      return false;
+    }
+
     try {
       var status = await Permission.calendarFullAccess.status;
       if (status.isGranted || status.isLimited) {

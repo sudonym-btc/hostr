@@ -11,7 +11,7 @@ set -euo pipefail
 #   ./scripts/screenshots.sh                   # all configured devices
 #   DEVICES="iPhone 17 Pro Max" ./scripts/screenshots.sh  # override
 #   CHROME_SCREENSHOTS=0 ./scripts/screenshots.sh          # skip Chrome
-#   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # target captured viewport
+#   CHROME_WINDOW_SIZE=1600,1200 ./scripts/screenshots.sh  # target logical viewport
 #   CHROME_DEVICE_SCALE_FACTOR=2 ./scripts/screenshots.sh   # Retina DPR
 #   CHROMEDRIVER_PORT=4445 ./scripts/screenshots.sh        # fixed WebDriver port
 #   CHROMEDRIVER_AUTO_DOWNLOAD=0 ./scripts/screenshots.sh   # disable local driver cache
@@ -35,7 +35,7 @@ CHROMEDRIVER_AUTOSTART="${CHROMEDRIVER_AUTOSTART:-1}"
 CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-}"
 CHROMEDRIVER_LOG="${CHROMEDRIVER_LOG:-}"
 CHROME_FLUTTER_DRIVE_TIMEOUT="${CHROME_FLUTTER_DRIVE_TIMEOUT:-360}"
-CHROME_EXPECTED_SCREENSHOTS="${CHROME_EXPECTED_SCREENSHOTS:-16}"
+CHROME_EXPECTED_SCREENSHOTS="${CHROME_EXPECTED_SCREENSHOTS:-18}"
 CHROMEDRIVER_ALLOW_VERSION_MISMATCH="${CHROMEDRIVER_ALLOW_VERSION_MISMATCH:-0}"
 CHROMEDRIVER_AUTO_DOWNLOAD="${CHROMEDRIVER_AUTO_DOWNLOAD:-1}"
 CHROMEDRIVER_CACHE_DIR="${CHROMEDRIVER_CACHE_DIR:-$REPO_ROOT/.cache/chromedriver}"
@@ -76,6 +76,28 @@ sanitize() {
 
 detect_chrome_window_size() {
   if [[ "$(uname -s)" == "Darwin" ]]; then
+    local built_in_size
+    built_in_size="$(system_profiler SPDisplaysDataType 2>/dev/null | awk '
+      /^[[:space:]]{8}Color LCD:/ { in_builtin = 1; next }
+      in_builtin && /^[[:space:]]{10}Resolution:/ {
+        width = $2
+        height = $4
+        if ($0 ~ /Retina/) {
+          width = int(width / 2)
+          height = int(height / 2)
+        }
+        if (width > 0 && height > 0) {
+          printf "%d,%d\n", width, height
+          exit
+        }
+      }
+      in_builtin && /^[[:space:]]{8}[^[:space:]].*:/ { in_builtin = 0 }
+    ')"
+    if [[ -n "$built_in_size" ]]; then
+      echo "$built_in_size"
+      return 0
+    fi
+
     osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null \
       | awk -F', ' '{ width=$3-$1; height=$4-$2; if (width > 0 && height > 0) printf "%d,%d\n", width, height }'
   fi
@@ -161,6 +183,17 @@ for runtime, devs in data.get('devices', {}).items():
   fi
 }
 
+reset_simulator_ui() {
+  local udid="$1"
+
+  echo "   🧹 Resetting simulator UI…"
+  xcrun simctl terminate "$udid" com.sudonym.hostr 2>/dev/null || true
+  xcrun simctl shutdown "$udid" 2>/dev/null || true
+  sleep 2
+  xcrun simctl boot "$udid" 2>/dev/null || true
+  sleep 8
+}
+
 # Pre-grant every permission the app may trigger so no dialogs appear.
 # Safe to call repeatedly — already-granted permissions are a no-op.
 grant_permissions() {
@@ -168,9 +201,38 @@ grant_permissions() {
   local bundle_id="com.sudonym.hostr"
 
   echo "   🔓 Pre-granting permissions…"
-  for service in notifications camera photos photos-add location location-always microphone; do
+  for service in notifications camera photos photos-add location location-always microphone calendar; do
     xcrun simctl privacy "$udid" grant "$service" "$bundle_id" 2>/dev/null || true
   done
+}
+
+capture_simulator_screenshot_marker() {
+  local slug="$1"
+  local udid="$2"
+  local line="$3"
+  local marker="SCREENSHOT_EXTERNAL_READY "
+  local relative_path=""
+  local mode=""
+  local file=""
+  local output_path=""
+
+  if [[ "$line" != *"$marker"* ]]; then
+    return 0
+  fi
+
+  relative_path="${line#*${marker}}"
+  if [[ ! "$relative_path" =~ ^screenshots/([^/]+)/([^[:space:]]+\.png)$ ]]; then
+    return 0
+  fi
+
+  mode="${BASH_REMATCH[1]}"
+  file="${BASH_REMATCH[2]}"
+  output_path="$APP_DIR/screenshots/$slug/$mode/$file"
+
+  mkdir -p "$(dirname "$output_path")"
+  if ! xcrun simctl io "$udid" screenshot "$output_path" >/dev/null 2>&1; then
+    echo "   ⚠️  Could not capture simulator screenshot: $output_path"
+  fi
 }
 
 # Start recording the simulator screen (background process).
@@ -537,7 +599,7 @@ cleanup() {
 trap cleanup EXIT
 
 seed_screenshot_relay() {
-  local config_file="$REPO_ROOT/logs/screenshot_seed_config.json"
+  local config_file="$REPO_ROOT/.cache/screenshots/screenshot_seed_config.json"
   local trade_sponsor_private_key="${SCREENSHOT_TRADE_SPONSOR_PRIVATE_KEY:-${SEED_TRADE_SPONSOR_PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}}"
 
   mkdir -p "$(dirname "$config_file")"
@@ -713,6 +775,7 @@ for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
 
   # Boot if needed
   ensure_booted "$udid"
+  reset_simulator_ui "$udid"
 
   # Grant permissions so no system dialogs block the test
   grant_permissions "$udid"
@@ -726,11 +789,19 @@ for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
   # The test_driver reads SCREENSHOT_DEVICE to route output into the right
   # subdirectory (screenshots/<slug>/*.png).
   echo "   🏃 Running screenshot suite…"
-    if SCREENSHOT_DEVICE="$slug" flutter drive \
+  set +e
+  SCREENSHOT_DEVICE="$slug" SCREENSHOT_SIMULATOR_UDID="$udid" flutter drive \
       --driver=test_driver/screenshot_test.dart \
       --target=integration_test/screenshots.dart \
       -d "$udid" \
-      --no-pub 2>&1 | sed -l 's/^/   /'; then
+      --no-pub 2>&1 | while IFS= read -r line; do
+        echo "   $line"
+        capture_simulator_screenshot_marker "$slug" "$udid" "$line"
+      done
+  drive_status=${PIPESTATUS[0]}
+  set -e
+
+  if [[ "$drive_status" -eq 0 ]]; then
     echo "   ✅ Done"
     if [[ "$device_name" == iPhone* ]]; then
       if ! sync_landing_page_screenshots "$slug"; then
@@ -739,7 +810,7 @@ for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
       fi
     fi
   else
-    echo "   ❌ Flutter drive failed for $device_name"
+    echo "   ❌ Flutter drive failed for $device_name (exit $drive_status)"
     FAILED+=("$device_name")
   fi
 
