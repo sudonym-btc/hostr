@@ -78,6 +78,18 @@ variable "compose_source_ranges" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "vpc_flow_logs_enabled" {
+  description = "Whether to enable VPC flow logs on the compose subnet for reachability forensics."
+  type        = bool
+  default     = true
+}
+
+variable "uptime_alert_email_channels" {
+  description = "Email addresses that receive uptime alert notifications."
+  type        = list(string)
+  default     = ["admin@hostr.network"]
+}
+
 variable "compose_runtime_secret_values" {
   description = "Optional map to seed Secret Manager values (for example ESCROW_PRIVATE_KEY, BLOSSOM_DASHBOARD_PASSWORD, AA_PAYMASTER_SIGNER_PRIVATE_KEY). The AA paymaster signer key is stored for bootstrap/admin use and is not fetched onto the runtime compose VM by default."
   type        = map(string)

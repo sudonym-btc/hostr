@@ -22,6 +22,7 @@ services:
 
   nginx-proxy:
     image: jwilder/nginx-proxy
+    restart: unless-stopped
     ports:
       - 80:80
       - 443:443
@@ -59,6 +60,7 @@ services:
   relay:
     image: scsibug/nostr-rs-relay:latest
     platform: linux/amd64
+    restart: unless-stopped
     healthcheck:
       test:
         [
@@ -102,6 +104,7 @@ services:
       - default
 
   escrow:
+    restart: unless-stopped
     depends_on:
       nginx-proxy:
         condition: service_healthy
@@ -132,6 +135,7 @@ services:
   #     - prod
 
   app:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: app/Dockerfile.web
