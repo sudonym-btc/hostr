@@ -169,27 +169,81 @@ class MyObserver extends AutoRouterObserver {
       StreamController<void>.broadcast();
   static Stream<void> get onPop => _onPop.stream;
 
-  CustomLogger logger = CustomLogger();
+  final CustomLogger logger = CustomLogger(tag: 'hostr.route');
+
+  void _recordRouteEvent({
+    required String event,
+    required String kind,
+    required String routeName,
+    String? previousRouteName,
+    required String message,
+  }) {
+    final attributes = <String, Object>{
+      'route.event': event,
+      'route.kind': kind,
+      'route.name': routeName,
+      if (previousRouteName != null && previousRouteName.isNotEmpty)
+        'route.previous_name': previousRouteName,
+    };
+
+    logger.spanSync('navigation', attributes: attributes, () {
+      CustomLogger.telemetry.addEvent(
+        'route.navigation',
+        attributes: attributes,
+      );
+      logger.d(message);
+    });
+  }
 
   @override
   void didPush(Route route, Route? previousRoute) {
-    logger.d('New route pushed: ${route.settings.name}');
+    final routeName = route.settings.name ?? route.runtimeType.toString();
+    final previousRouteName =
+        previousRoute?.settings.name ?? previousRoute?.runtimeType.toString();
+    _recordRouteEvent(
+      event: 'push',
+      kind: 'page',
+      routeName: routeName,
+      previousRouteName: previousRouteName,
+      message: 'New route pushed: $routeName',
+    );
   }
 
   @override
   void didPop(Route route, Route? previousRoute) {
-    logger.d('Route popped: ${route.settings.name}');
+    final routeName = route.settings.name ?? route.runtimeType.toString();
+    final previousRouteName =
+        previousRoute?.settings.name ?? previousRoute?.runtimeType.toString();
+    _recordRouteEvent(
+      event: 'pop',
+      kind: 'page',
+      routeName: routeName,
+      previousRouteName: previousRouteName,
+      message: 'Route popped: $routeName',
+    );
     _onPop.add(null);
   }
 
   // only override to observer tab routes
   @override
   void didInitTabRoute(TabPageRoute route, TabPageRoute? previousRoute) {
-    logger.d('Tab route visited: ${route.name}');
+    _recordRouteEvent(
+      event: 'tab_visit',
+      kind: 'tab',
+      routeName: route.name,
+      previousRouteName: previousRoute?.name,
+      message: 'Tab route visited: ${route.name}',
+    );
   }
 
   @override
   void didChangeTabRoute(TabPageRoute route, TabPageRoute previousRoute) {
-    logger.d('Tab route re-visited: ${route.name}');
+    _recordRouteEvent(
+      event: 'tab_revisit',
+      kind: 'tab',
+      routeName: route.name,
+      previousRouteName: previousRoute.name,
+      message: 'Tab route re-visited: ${route.name}',
+    );
   }
 }
