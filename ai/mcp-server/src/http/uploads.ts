@@ -33,12 +33,6 @@ export type HostrImageUploadResult = {
     image: {
       url?: string;
     };
-    listingImage: {
-      url?: string;
-    };
-    profileImage: {
-      url?: string;
-    };
   };
 };
 
@@ -272,12 +266,6 @@ export const uploadImageToBlossom = async (
       image: {
         url: descriptor.url,
       },
-      listingImage: {
-        url: descriptor.url,
-      },
-      profileImage: {
-        url: descriptor.url,
-      },
     },
   };
 };
@@ -327,8 +315,6 @@ const uploadImageThroughDaemonSession = async (
       },
       usage: {
         image: { url },
-        listingImage: { url },
-        profileImage: { url },
       },
     };
   } catch {

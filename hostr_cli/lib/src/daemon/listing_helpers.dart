@@ -13,6 +13,7 @@ import '../output/result.dart';
 Map<String, Object?> listingSummary(Listing listing) => {
   'id': listing.id,
   'anchor': listing.anchor,
+  'dTag': listing.getFirstTag('d'),
   'pubkey': listing.pubKey,
   'title': listing.title,
   'description': listing.description,

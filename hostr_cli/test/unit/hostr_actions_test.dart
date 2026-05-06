@@ -100,8 +100,11 @@ void main() {
         },
       ],
       'dryRun': false,
+      'dTag': 'draft-listing-1',
     });
     expect(liveCreate.dryRun, isFalse);
+    expect(liveCreate.dTag, 'draft-listing-1');
+    expect(liveCreate.toListingJson(), containsPair('dTag', 'draft-listing-1'));
 
     final reservation = HostrReservationsOfferInput.fromJson({
       'listingAnchor': 'naddr1...',
@@ -164,6 +167,9 @@ void main() {
       'hostr.listings.create',
     ).inputSchema;
     final createProperties = createSchema['properties'] as Map<String, Object?>;
+    expect(createProperties, contains('dTag'));
+    final dTag = createProperties['dTag'] as Map<String, Object?>;
+    expect(dTag['description'], contains('reuse the dTag'));
     final images = createProperties['images'] as Map<String, Object?>;
     final items = images['items'] as Map<String, Object?>;
     final imageProperties = items['properties'] as Map<String, Object?>;

@@ -8,6 +8,7 @@ import {
   saveRegisteredClientsAtomic,
 } from "../dist/auth/client-store.js";
 import { hostrActionCatalog } from "../dist/generated/hostr-actions.js";
+import { __testing } from "../dist/mcp/server.js";
 
 test("registered OAuth clients survive an atomic save/load round trip", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "hostr-mcp-clients-"));
@@ -46,4 +47,24 @@ test("read-only Hostr MCP tools do not expose dryRun inputs", () => {
     .map((action) => action.id);
 
   assert.deepEqual(offenders, []);
+});
+
+test("listing links use the Flutter hash route with encoded naddrs", () => {
+  const naddr =
+    "naddr1qq9xs6tpvyunjaesdfnsyg8mt0ed4ge0ull6wffplfr4leqf7ytzeas9ht67u54avegma27h7upsgqqq04usgezq5w";
+
+  assert.equal(
+    __testing.listingRouteUrl("https://staging.hostr.network/", naddr),
+    `https://staging.hostr.network/#/listing/${naddr}`,
+  );
+
+  const naddrFromAnchor = __testing.anchorToNaddr(
+    "30402:0000000000000000000000000000000000000000000000000000000000000000:listing:with:colons",
+  );
+
+  assert.match(naddrFromAnchor, /^naddr1/);
+  assert.equal(
+    __testing.listingRouteUrl("https://staging.hostr.network", naddrFromAnchor),
+    `https://staging.hostr.network/#/listing/${naddrFromAnchor}`,
+  );
 });
