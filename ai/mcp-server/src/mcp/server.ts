@@ -39,9 +39,6 @@ import {
 
 const text = (value: unknown) => JSON.stringify(value, null, 2);
 
-const maxListingImageContentBlocks = 5;
-const maxListingImageBytes = 2_500_000;
-
 const listingActionIds = new Set([
   "hostr.listings.search",
   "hostr.listings.list",
@@ -575,6 +572,122 @@ const reservationCard = (card: ReservationCardData): string => {
 const absoluteUrl = (config: AppConfig, path: string): string =>
   `${config.publicAssetBaseUrl.replace(/\/+$/, "")}${path}`;
 
+const bech32Charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+const bech32Generator = [
+  0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3,
+];
+
+const bech32Polymod = (values: number[]): number => {
+  let chk = 1;
+  for (const value of values) {
+    const top = chk >>> 25;
+    chk = ((((chk & 0x1ffffff) << 5) ^ value) >>> 0);
+    for (let index = 0; index < 5; index += 1) {
+      if (((top >> index) & 1) === 1) {
+        chk = (chk ^ bech32Generator[index]) >>> 0;
+      }
+    }
+  }
+  return chk;
+};
+
+const bech32HrpExpand = (hrp: string): number[] => [
+  ...Array.from(hrp, (char) => char.charCodeAt(0) >> 5),
+  0,
+  ...Array.from(hrp, (char) => char.charCodeAt(0) & 31),
+];
+
+const bech32Checksum = (hrp: string, data: number[]): number[] => {
+  const values = [...bech32HrpExpand(hrp), ...data, 0, 0, 0, 0, 0, 0];
+  const polymod = bech32Polymod(values) ^ 1;
+  return Array.from(
+    { length: 6 },
+    (_, index) => (polymod >>> (5 * (5 - index))) & 31,
+  );
+};
+
+const bech32Encode = (hrp: string, data: number[]): string =>
+  `${hrp}1${[...data, ...bech32Checksum(hrp, data)]
+    .map((value) => bech32Charset[value])
+    .join("")}`;
+
+const convertBits = (
+  bytes: number[],
+  fromBits: number,
+  toBits: number,
+  pad: boolean,
+): number[] => {
+  let accumulator = 0;
+  let bits = 0;
+  const maxValue = (1 << toBits) - 1;
+  const result: number[] = [];
+  for (const byte of bytes) {
+    if (byte < 0 || byte >> fromBits !== 0) {
+      throw new Error("Invalid bech32 source byte");
+    }
+    accumulator = (accumulator << fromBits) | byte;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      result.push((accumulator >> bits) & maxValue);
+    }
+  }
+  if (pad) {
+    if (bits > 0) {
+      result.push((accumulator << (toBits - bits)) & maxValue);
+    }
+  } else if (bits >= fromBits || ((accumulator << (toBits - bits)) & maxValue)) {
+    throw new Error("Invalid bech32 padding");
+  }
+  return result;
+};
+
+const hexBytes = (hexValue: string): number[] | null => {
+  if (!/^[0-9a-f]{64}$/i.test(hexValue)) {
+    return null;
+  }
+  return Array.from(
+    { length: 32 },
+    (_, index) => Number.parseInt(hexValue.slice(index * 2, index * 2 + 2), 16),
+  );
+};
+
+const anchorToNaddr = (anchor: string): string | null => {
+  if (/^naddr1/i.test(anchor)) {
+    return anchor;
+  }
+  const parts = anchor.split(":");
+  if (parts.length < 3) {
+    return null;
+  }
+  const kind = Number.parseInt(parts[0], 10);
+  const pubkeyBytes = hexBytes(parts[1]);
+  const identifierBytes = Array.from(
+    new TextEncoder().encode(parts.slice(2).join(":")),
+  );
+  if (!Number.isInteger(kind) || kind < 0 || !pubkeyBytes) {
+    return null;
+  }
+  if (identifierBytes.length > 255) {
+    return null;
+  }
+  const tlvBytes = [
+    0,
+    identifierBytes.length,
+    ...identifierBytes,
+    2,
+    32,
+    ...pubkeyBytes,
+    3,
+    4,
+    (kind >> 24) & 0xff,
+    (kind >> 16) & 0xff,
+    (kind >> 8) & 0xff,
+    kind & 0xff,
+  ];
+  return bech32Encode("naddr", convertBits(tlvBytes, 8, 5, true));
+};
+
 const qrImageUrl = (config: AppConfig, data: string): string | null => {
   const template = config.qrImageUrlTemplate;
   if (!template) {
@@ -681,19 +794,17 @@ const listingUrl = (
   config: AppConfig,
   listing: Record<string, unknown>,
 ): string | null => {
+  const anchor = stringValue(listing.naddr) ?? stringValue(listing.anchor);
+  const naddr = anchor ? anchorToNaddr(anchor) : null;
+  if (naddr) {
+    return `${config.publicAppBaseUrl}/listing/${encodeURIComponent(naddr)}`;
+  }
+
   const explicit = stringValue(listing.url);
   if (explicit) {
     return explicit;
   }
-  const anchor = stringValue(listing.naddr) ?? stringValue(listing.anchor);
-  if (!anchor) {
-    return null;
-  }
-  const base =
-    config.environmentLabel === "production"
-      ? "https://hostr.network"
-      : "https://hostr.development";
-  return `${base}/listing/${anchor}`;
+  return null;
 };
 
 type ListingImage = {
@@ -1751,69 +1862,6 @@ const escrowTradeResponseText = (
     displayMarkdown,
   ].join("\n\n");
 
-const fetchListingImageBlock = async (
-  card: ListingCardData,
-): Promise<ContentBlock | null> => {
-  const imageUrl = card.primaryImageUrl;
-  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
-    return null;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5_000);
-  try {
-    const response = await fetch(imageUrl, { signal: controller.signal });
-    if (!response.ok) {
-      return null;
-    }
-    const mimeType = response.headers.get("content-type") ?? "image/jpeg";
-    if (!mimeType.toLowerCase().startsWith("image/")) {
-      return null;
-    }
-    const contentLength = Number(response.headers.get("content-length"));
-    if (
-      Number.isFinite(contentLength) &&
-      contentLength > maxListingImageBytes
-    ) {
-      return null;
-    }
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.byteLength > maxListingImageBytes) {
-      return null;
-    }
-    return {
-      type: "image",
-      data: bytes.toString("base64"),
-      mimeType,
-      annotations: {
-        audience: ["user", "assistant"],
-        priority: 1,
-      },
-      _meta: {
-        "hostr.contentType": "listing-card-image",
-        "hostr.listingCard": card,
-        "hostr.imageUrl": imageUrl,
-        "hostr.alt": `${card.title} photo`,
-      },
-    };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
-const listingImageBlocks = async (
-  listingCards: ListingCardData[],
-): Promise<ContentBlock[]> => {
-  const blocks = await Promise.all(
-    listingCards
-      .slice(0, maxListingImageContentBlocks)
-      .map((card) => fetchListingImageBlock(card)),
-  );
-  return blocks.filter((block): block is ContentBlock => block !== null);
-};
-
 const criticalNoticesMarkdown = (
   config: AppConfig,
   notices: HostrCriticalNotice[],
@@ -1942,6 +1990,34 @@ const formatError = (result: Record<string, unknown>): string => {
   ]
     .filter(Boolean)
     .join("\n\n");
+};
+
+const errorAssistantInstructions = (
+  result: Record<string, unknown>,
+): string[] | undefined => {
+  const errors = arrayValue(result.errors).map(record).filter(isRecord);
+  const instructions: string[] = [];
+  for (const error of errors) {
+    const details = record(error.details);
+    const detailInstructions = arrayValue(details?.assistantInstructions)
+      .map(stringValue)
+      .filter((instruction): instruction is string => instruction !== null);
+    instructions.push(...detailInstructions);
+
+    const code = stringValue(error.code);
+    if (code === "auth_required") {
+      instructions.push(
+        "Call hostr_session_connect to reconnect the Hostr/Nostr session, complete the sign-in flow, then retry the original Hostr action with the same user-approved intent.",
+      );
+    }
+    if (code === "profile_required") {
+      instructions.push(
+        "Ask for any missing profile fields needed to continue, call hostr_profile_edit with dryRun=true, publish with dryRun=false after explicit approval, then retry the original Hostr action.",
+      );
+    }
+  }
+
+  return instructions.length > 0 ? Array.from(new Set(instructions)) : undefined;
 };
 
 const formatToolContent = (
@@ -2279,9 +2355,8 @@ const toolResponse = async (
           cards: paymentDisplays,
         }
       : undefined;
-  const imageBlocks = listingCardDisplay
-    ? await listingImageBlocks(listingCards)
-    : [];
+  const errorInstructions =
+    safeResult.ok === false ? errorAssistantInstructions(safeResult) : undefined;
   const safeNotices = notices.map(sanitizeNotice);
   const contentText = listingCardDisplay
     ? listingCardResponseText(displayMarkdown, listingCards)
@@ -2410,6 +2485,7 @@ const toolResponse = async (
       ...(paymentAssistantInstructions
         ? { assistantInstructions: paymentAssistantInstructions }
         : {}),
+      ...(errorInstructions ? { assistantInstructions: errorInstructions } : {}),
       ...(sessionConnectAssistantInstructions
         ? { assistantInstructions: sessionConnectAssistantInstructions }
         : {}),
@@ -2482,7 +2558,8 @@ const toolResponse = async (
     escrowBadgeDisplay ||
     paymentDisplay ||
     sessionConnectDisplay ||
-    notices.length > 0
+    notices.length > 0 ||
+    errorInstructions
       ? {
           _meta: {
             ...(listingCardDisplay
@@ -2490,7 +2567,6 @@ const toolResponse = async (
                   "hostr.contentType": listingCardDisplay.type,
                   "hostr.display": listingCardDisplay,
                   "hostr.listingCards": listingCards,
-                  "hostr.imageBlocks": imageBlocks.length,
                   "hostr.preferredRenderer": "listing-card",
                   "hostr.assistantInstructions":
                     listingCardAssistantInstructions,
@@ -2580,14 +2656,16 @@ const toolResponse = async (
             sessionConnectAssistantInstructions ||
             escrowServiceAssistantInstructions ||
             escrowTradeAssistantInstructions ||
-            threadViewAssistantInstructions
+            threadViewAssistantInstructions ||
+            errorInstructions
               ? {
                   "hostr.assistantInstructions":
                     paymentAssistantInstructions ??
                     sessionConnectAssistantInstructions ??
                     escrowServiceAssistantInstructions ??
                     escrowTradeAssistantInstructions ??
-                    threadViewAssistantInstructions,
+                    threadViewAssistantInstructions ??
+                    errorInstructions,
                 }
               : {}),
           },
@@ -2624,7 +2702,6 @@ const toolResponse = async (
       },
       ...(sessionConnectImageBlock ? [sessionConnectImageBlock] : []),
       ...noticeImageBlocks,
-      ...imageBlocks,
     ],
   } satisfies CallToolResult;
 };

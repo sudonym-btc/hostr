@@ -25,6 +25,22 @@ const readPublicAssetBaseUrl = (baseUrl: string): string => {
   return baseUrl;
 };
 
+const readPublicAppBaseUrl = (): string => {
+  const explicit = process.env.HOSTR_PUBLIC_APP_BASE_URL;
+  if (explicit && explicit.trim() !== "") {
+    return trimTrailingSlash(explicit);
+  }
+
+  const domain = process.env.DOMAIN || "hostr.development";
+  if (domain === "hostr.network") {
+    return "https://hostr.network";
+  }
+  if (domain.includes("staging.")) {
+    return `https://${domain}`;
+  }
+  return `https://${domain}`;
+};
+
 const readQrImageUrlTemplate = (): string | undefined => {
   const explicit = process.env.HOSTR_QR_IMAGE_URL_TEMPLATE;
   if (explicit !== undefined) {
@@ -126,6 +142,7 @@ export type AppConfig = {
   issuer: string;
   mcpResource: string;
   publicAssetBaseUrl: string;
+  publicAppBaseUrl: string;
   qrImageUrlTemplate?: string;
   devProxyTarget?: string;
   environmentLabel: "production" | "staging" | "development";
@@ -157,6 +174,7 @@ export const config: AppConfig = {
   issuer: baseUrl,
   mcpResource: `${baseUrl}/mcp`,
   publicAssetBaseUrl: readPublicAssetBaseUrl(baseUrl),
+  publicAppBaseUrl: readPublicAppBaseUrl(),
   qrImageUrlTemplate: readQrImageUrlTemplate(),
   devProxyTarget:
     process.env.HOSTR_MCP_DEV_PROXY_TARGET &&
