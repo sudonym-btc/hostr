@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -305,6 +306,7 @@ Future<MaterializedImages> materializeListingImages({
   required List<dynamic> rawImages,
   required bool dryRun,
 }) async {
+  const maxDownloadBytes = 20 * 1024 * 1024;
   if (rawImages.isEmpty) {
     throw HostrCliException(
       'images_required',
@@ -322,44 +324,96 @@ Future<MaterializedImages> materializeListingImages({
         ? Map<String, dynamic>.from(raw)
         : {'url': raw.toString()};
     final url = image['url']?.toString();
+    final dataUrl =
+        image['dataUrl']?.toString() ?? image['dataUri']?.toString();
+    final base64Data = image['base64']?.toString() ?? image['data']?.toString();
     final filePath = image['path']?.toString();
+    final filename = image['filename']?.toString() ?? image['name']?.toString();
     final alt = image['alt']?.toString();
-    if (url != null &&
-        (url.startsWith('http://') || url.startsWith('https://'))) {
-      urls.add(url);
-      metas.add(IMeta(url: url, alt: alt, mime: image['mime']?.toString()));
-      continue;
+    final sourceUrl =
+        url != null && (url.startsWith('http://') || url.startsWith('https://'))
+        ? url
+        : null;
+
+    final dataUrlSource =
+        dataUrl ?? (url?.startsWith('data:') == true ? url : null);
+    final imageData = sourceUrl != null
+        ? await _imageDataFromHttpUrl(
+            sourceUrl,
+            index,
+            maxBytes: maxDownloadBytes,
+          )
+        : dataUrlSource != null
+        ? _imageDataFromDataUrl(dataUrlSource, index)
+        : base64Data != null
+        ? _imageDataFromBase64(
+            base64Data,
+            index,
+            mime: image['mime']?.toString(),
+            filename: filename,
+          )
+        : null;
+    Uint8List bytes;
+    String? mime;
+    String source;
+    String? path;
+    String? originalUrl;
+    if (imageData != null) {
+      bytes = imageData.bytes;
+      mime = image['mime']?.toString() ?? imageData.mime;
+      source = sourceUrl != null
+          ? 'url'
+          : dataUrlSource != null
+          ? 'dataUrl'
+          : 'base64';
+      originalUrl = sourceUrl;
+    } else {
+      final effectivePath = filePath ?? url;
+      if (effectivePath == null || effectivePath.trim().isEmpty) {
+        throw HostrCliException(
+          'invalid_image',
+          'Image ${index + 1} must include url, path, dataUrl, or base64.',
+          path: 'images[$index]',
+          exitCode: 64,
+        );
+      }
+      final file = File(effectivePath);
+      if (!await file.exists()) {
+        throw HostrCliException(
+          'image_not_found',
+          'Image file does not exist: $effectivePath. For web or remote MCP clients, pass a public HTTP(S) image URL, dataUrl, or base64 image bytes instead of a client-local path.',
+          path: 'images[$index]',
+          exitCode: 64,
+        );
+      }
+      bytes = await file.readAsBytes();
+      mime =
+          image['mime']?.toString() ??
+          lookupMimeType(file.path, headerBytes: bytes);
+      source = 'path';
+      path = file.path;
     }
-    final effectivePath = filePath ?? url;
-    if (effectivePath == null || effectivePath.trim().isEmpty) {
+
+    if (bytes.isEmpty) {
       throw HostrCliException(
         'invalid_image',
-        'Image ${index + 1} must include url or path.',
+        'Image ${index + 1} is empty.',
         path: 'images[$index]',
         exitCode: 64,
       );
     }
-    final file = File(effectivePath);
-    if (!await file.exists()) {
-      throw HostrCliException(
-        'image_not_found',
-        'Image file does not exist: $effectivePath',
-        path: 'images[$index]',
-        exitCode: 64,
-      );
-    }
-    final bytes = await file.readAsBytes();
     final hash = crypto.sha256.convert(bytes).toString();
-    final mime =
-        image['mime']?.toString() ??
-        lookupMimeType(file.path, headerBytes: bytes);
-    planned.add({
-      'path': file.path,
+    final uploadPlan = <String, Object?>{
+      'source': source,
       'sha256': hash,
       'size': bytes.length,
       'mime': mime,
       'dryRunOnly': dryRun,
-    });
+    };
+    if (path != null) uploadPlan['path'] = path;
+    if (originalUrl != null) uploadPlan['url'] = originalUrl;
+    if (filename != null) uploadPlan['filename'] = filename;
+    planned.add(uploadPlan);
     if (dryRun) {
       final plannedUrl = 'blossom://dry-run/$hash';
       urls.add(plannedUrl);
@@ -375,7 +429,7 @@ Future<MaterializedImages> materializeListingImages({
       continue;
     }
     final uploadResults = await hostr.blossom.uploadBlob(
-      data: Uint8List.fromList(bytes),
+      data: bytes,
       contentType: mime,
     );
     final success = uploadResults
@@ -385,7 +439,7 @@ Future<MaterializedImages> materializeListingImages({
     if (success == null) {
       throw HostrCliException(
         'image_upload_failed',
-        'Blossom upload failed for $effectivePath.',
+        'Blossom upload failed for image ${index + 1}.',
         details: uploadResults
             .map(
               (result) => {
@@ -409,6 +463,140 @@ Future<MaterializedImages> materializeListingImages({
     );
   }
   return MaterializedImages(urls: urls, metas: metas, plannedUploads: planned);
+}
+
+class _ImageData {
+  const _ImageData({required this.bytes, this.mime});
+
+  final Uint8List bytes;
+  final String? mime;
+}
+
+Future<_ImageData> _imageDataFromHttpUrl(
+  String url,
+  int index, {
+  required int maxBytes,
+}) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+    throw HostrCliException(
+      'invalid_image_url',
+      'Image ${index + 1} URL must be HTTP(S).',
+      path: 'images[$index].url',
+      exitCode: 64,
+    );
+  }
+  final client = HttpClient();
+  try {
+    final request = await client.getUrl(uri);
+    request.followRedirects = true;
+    final response = await request.close();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HostrCliException(
+        'image_download_failed',
+        'Image ${index + 1} URL returned HTTP ${response.statusCode}.',
+        path: 'images[$index].url',
+        exitCode: 64,
+      );
+    }
+    if (response.contentLength > maxBytes) {
+      throw HostrCliException(
+        'image_too_large',
+        'Image ${index + 1} exceeds the ${maxBytes ~/ (1024 * 1024)} MB limit.',
+        path: 'images[$index].url',
+        exitCode: 64,
+      );
+    }
+    final chunks = <List<int>>[];
+    var total = 0;
+    await for (final chunk in response) {
+      total += chunk.length;
+      if (total > maxBytes) {
+        throw HostrCliException(
+          'image_too_large',
+          'Image ${index + 1} exceeds the ${maxBytes ~/ (1024 * 1024)} MB limit.',
+          path: 'images[$index].url',
+          exitCode: 64,
+        );
+      }
+      chunks.add(chunk);
+    }
+    final bytes = Uint8List(total);
+    var offset = 0;
+    for (final chunk in chunks) {
+      bytes.setRange(offset, offset + chunk.length, chunk);
+      offset += chunk.length;
+    }
+    return _ImageData(
+      bytes: bytes,
+      mime:
+          response.headers.contentType?.mimeType ??
+          lookupMimeType(uri.path, headerBytes: bytes),
+    );
+  } on HostrCliException {
+    rethrow;
+  } on Object catch (error) {
+    throw HostrCliException(
+      'image_download_failed',
+      'Image ${index + 1} URL could not be downloaded: $error',
+      path: 'images[$index].url',
+      exitCode: 64,
+    );
+  } finally {
+    client.close(force: true);
+  }
+}
+
+_ImageData _imageDataFromDataUrl(String dataUrl, int index) {
+  final commaIndex = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:') || commaIndex < 0) {
+    throw HostrCliException(
+      'invalid_image_data_url',
+      'Image ${index + 1} dataUrl must use the data:<mime>;base64,<bytes> format.',
+      path: 'images[$index].dataUrl',
+      exitCode: 64,
+    );
+  }
+  final header = dataUrl.substring(5, commaIndex);
+  final payload = dataUrl.substring(commaIndex + 1);
+  final headerParts = header.split(';');
+  final mime = headerParts.first.isEmpty ? null : headerParts.first;
+  final isBase64 = headerParts.any((part) => part.toLowerCase() == 'base64');
+  if (!isBase64) {
+    throw HostrCliException(
+      'invalid_image_data_url',
+      'Image ${index + 1} dataUrl must be base64 encoded.',
+      path: 'images[$index].dataUrl',
+      exitCode: 64,
+    );
+  }
+  return _ImageData(bytes: _decodeImageBase64(payload, index), mime: mime);
+}
+
+_ImageData _imageDataFromBase64(
+  String data,
+  int index, {
+  String? mime,
+  String? filename,
+}) {
+  final bytes = _decodeImageBase64(data, index);
+  return _ImageData(
+    bytes: bytes,
+    mime: mime ?? lookupMimeType(filename ?? '', headerBytes: bytes),
+  );
+}
+
+Uint8List _decodeImageBase64(String data, int index) {
+  try {
+    return base64Decode(data.replaceAll(RegExp(r'\s+'), ''));
+  } on FormatException catch (error) {
+    throw HostrCliException(
+      'invalid_image_base64',
+      'Image ${index + 1} base64 data is invalid: ${error.message}',
+      path: 'images[$index]',
+      exitCode: 64,
+    );
+  }
 }
 
 ListingType listingType(String input) {

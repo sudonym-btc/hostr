@@ -5,10 +5,22 @@
   },
   "plugins": [
     {
-      "name": "hostr",
+      "name": "hostr-development",
       "source": {
         "source": "local",
-        "path": "./ai/plugins/hostr"
+        "path": "./ai/plugins/hostr-development"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "hostr-production",
+      "source": {
+        "source": "local",
+        "path": "./ai/plugins/hostr-production"
       },
       "policy": {
         "installation": "AVAILABLE",

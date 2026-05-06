@@ -37,6 +37,10 @@ void main() {
         );
 
         expect(listing.images, hasLength(2));
+        expect(listing.tags.where((tag) => tag.first == 'image').toList(), [
+          ['image', 'https://hostr.network/a.jpg'],
+          ['image', 'https://hostr.network/b.jpg'],
+        ]);
         expect(listing.location, isEmpty);
         expect(listing.tags.where((tag) => tag.first == 'g'), hasLength(2));
         expect(listing.prices.single.amount.denomination, 'BTC');

@@ -6,6 +6,7 @@ import type { AppConfig } from "../config.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import { createOAuthRouter } from "../auth/oauth.js";
 import { handleMcpRequest } from "../mcp/server.js";
+import { handleImageUpload } from "./uploads.js";
 import { getPaymentAsset, listPaymentAssets } from "../payment/assets.js";
 
 const sensitiveKeyPattern =
@@ -143,14 +144,38 @@ const logRequest = (
   next();
 };
 
+const requestBodyErrorHandler = (
+  error: unknown,
+  _request: Request,
+  response: Response,
+  next: NextFunction,
+) => {
+  if (
+    error &&
+    typeof error === "object" &&
+    "type" in error &&
+    error.type === "entity.too.large"
+  ) {
+    response.status(413).json({
+      error: "request_body_too_large",
+      error_description:
+        "The MCP request body is too large. Use a public image URL or reduce the number of original images in this request.",
+    });
+    return;
+  }
+
+  next(error);
+};
+
 export const createApp = (config: AppConfig, daemon: HostrDaemonClient) => {
   const app = express();
 
   app.disable("x-powered-by");
   app.use(devProxy(config));
   app.use(logRequest);
-  app.use(express.urlencoded({ extended: false }));
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ extended: false, limit: config.requestBodyLimit }));
+  app.use(express.json({ limit: config.requestBodyLimit }));
+  app.use(requestBodyErrorHandler);
 
   app.get("/health", (_request, response) => {
     response.json({
@@ -217,6 +242,9 @@ export const createApp = (config: AppConfig, daemon: HostrDaemonClient) => {
   }
 
   app.use(createOAuthRouter(config, daemon));
+
+  app.post("/mcp/uploads/images", handleImageUpload(config));
+  app.post("/upload/images", handleImageUpload(config));
 
   app.all("/mcp", handleMcpRequest(config, daemon));
 

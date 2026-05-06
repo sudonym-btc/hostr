@@ -122,8 +122,8 @@ upload:
   enabled: true
 
   # Require a valid BUD-11 Nostr auth event for uploads.
-  # When false, anonymous uploads are accepted (not recommended in production).
-  requireAuth: true
+  # Hostr MCP uploads proxy original image bytes here without Nostr auth.
+  requireAuth: false
 
   # Maximum blob size in bytes, enforced from Content-Length before reading the body.
   # Requests without Content-Length receive 411 Length Required.

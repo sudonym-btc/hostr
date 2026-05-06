@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
@@ -579,6 +582,130 @@ class HostrDaemon {
       'visibleActionIds': actions.map((spec) => spec.id).toList(),
       'actions': actions.map((spec) => spec.toJson()).toList(),
     };
+  }
+
+  Future<HostrCliResult> uploadImage({
+    String? pubkey,
+    required String base64,
+    String? mime,
+    String? filename,
+  }) async {
+    return _guardAction('hostr.upload.image', () async {
+      late final Uint8List bytes;
+      try {
+        bytes = base64Decode(base64.replaceAll(RegExp(r'\s+'), ''));
+      } on FormatException catch (error) {
+        throw HostrCliException(
+          'invalid_upload_base64',
+          'Uploaded image base64 data is invalid: ${error.message}',
+          path: 'base64',
+          exitCode: 64,
+        );
+      }
+      if (bytes.isEmpty) {
+        throw HostrCliException(
+          'invalid_upload',
+          'Uploaded image is empty.',
+          path: 'file',
+          exitCode: 64,
+        );
+      }
+
+      final upload = await _uploadImageWithoutAuth(
+        bytes: bytes,
+        mime: mime,
+        filename: filename,
+      );
+      if (upload == null) {
+        throw HostrCliException(
+          'image_upload_failed',
+          'Blossom upload failed on every configured bootstrap server.',
+        );
+      }
+
+      return HostrCliResult(
+        ok: true,
+        command: 'hostr.upload.image',
+        environment: context.options.environment.name,
+        dryRun: false,
+        data: {
+          ...upload,
+          'sha256': upload['sha256'] ?? crypto.sha256.convert(bytes).toString(),
+          'size': upload['size'] ?? bytes.length,
+          'type': upload['type'] ?? mime,
+          if (filename != null && filename.trim().isNotEmpty)
+            'filename': filename,
+        },
+      );
+    });
+  }
+
+  Future<Map<String, Object?>?> _uploadImageWithoutAuth({
+    required Uint8List bytes,
+    String? mime,
+    String? filename,
+  }) async {
+    final servers = context.options.environment.bootstrapBlossom
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+    if (servers.isEmpty) {
+      throw HostrCliException(
+        'image_upload_failed',
+        'No Blossom bootstrap server is configured.',
+      );
+    }
+    final hash = crypto.sha256.convert(bytes).toString();
+    final failures = <Map<String, Object?>>[];
+    for (final server in servers) {
+      final uri = _blossomUploadUri(server);
+      final client = HttpClient();
+      try {
+        final request = await client.putUrl(uri);
+        request.headers.contentType = ContentType.parse(
+          mime ?? 'application/octet-stream',
+        );
+        request.headers.contentLength = bytes.length;
+        request.headers.set('x-sha-256', hash);
+        if (filename != null && filename.trim().isNotEmpty) {
+          request.headers.set('x-filename', filename);
+        }
+        request.add(bytes);
+        final response = await request.close();
+        final body = await utf8.decodeStream(response);
+        Object? decoded;
+        if (body.trim().isNotEmpty) {
+          try {
+            decoded = jsonDecode(body);
+          } on FormatException {
+            decoded = body;
+          }
+        }
+        if (response.statusCode >= 200 &&
+            response.statusCode < 300 &&
+            decoded is Map) {
+          return {
+            for (final entry in decoded.entries)
+              entry.key.toString(): entry.value,
+            'serverUrl': uri.toString(),
+          };
+        }
+        failures.add({
+          'serverUrl': uri.toString(),
+          'statusCode': response.statusCode,
+          'body': decoded,
+        });
+      } catch (error) {
+        failures.add({'serverUrl': uri.toString(), 'error': error.toString()});
+      } finally {
+        client.close(force: true);
+      }
+    }
+    throw HostrCliException(
+      'image_upload_failed',
+      'Blossom upload failed on every configured bootstrap server.',
+      details: failures,
+    );
   }
 
   List<String> _configuredEscrowPubkeys() =>
@@ -3835,6 +3962,13 @@ Future<String> _requireAuthenticatedPubkey(
     );
   }
   return activePubkey;
+}
+
+Uri _blossomUploadUri(String serverUrl) {
+  final uri = Uri.parse(serverUrl);
+  if (uri.path.endsWith('/upload')) return uri;
+  final basePath = uri.path.replaceFirst(RegExp(r'/+$'), '');
+  return uri.replace(path: '$basePath/upload', query: '', fragment: '');
 }
 
 NostrConnect? _buildMcpNostrConnect(HostrSession session) {

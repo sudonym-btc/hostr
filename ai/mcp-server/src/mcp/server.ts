@@ -13,8 +13,13 @@ import type {
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { AppConfig } from "../config.js";
+import {
+  bearerChallenge,
+  bearerToken,
+  hasScope,
+} from "../auth/bearer.js";
+import type { AccessTokenClaims } from "../auth/bearer.js";
 import { verifyAccessToken } from "../auth/jwt.js";
-import type { HostrAccessTokenClaims } from "../auth/jwt.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import type { HostrDaemonNotification } from "../daemon/client.js";
 import { storePaymentAsset, storeQrTextAsset } from "../payment/assets.js";
@@ -1633,9 +1638,74 @@ const paymentResponseText = (
     .join("\n\n");
 };
 
+const paymentQrImageBlock = (
+  config: AppConfig,
+  notice: HostrCriticalNotice,
+): ContentBlock | null => {
+  if (notice.type !== "external-payment") {
+    return null;
+  }
+  const display = paymentExternalRequiredDisplay(config, notice);
+  if (!display?.qrImageUrl) {
+    return null;
+  }
+
+  const qrImage = stringValue(notice.qrImage);
+  const match = /^data:image\/png;base64,(.+)$/i.exec(qrImage ?? "");
+  if (!match) {
+    return null;
+  }
+
+  return {
+    type: "image",
+    data: match[1],
+    mimeType: "image/png",
+    annotations: {
+      audience: ["user", "assistant"],
+      priority: 1,
+    },
+    _meta: {
+      "hostr.contentType": "payment-qr",
+      "hostr.display": display,
+      "hostr.alt": "Lightning invoice QR",
+    },
+  };
+};
+
 const criticalNoticeImageBlocks = (
-  _notices: HostrCriticalNotice[],
-): ContentBlock[] => [];
+  config: AppConfig,
+  notices: HostrCriticalNotice[],
+): ContentBlock[] =>
+  notices
+    .map((notice) => paymentQrImageBlock(config, notice))
+    .filter((block): block is ContentBlock => block !== null);
+
+const sessionConnectQrImageBlock = (
+  result: Record<string, unknown>,
+  display: Record<string, unknown> | undefined,
+): ContentBlock | null => {
+  const data = record(result.data);
+  const qrImage = stringValue(data?.qrImage);
+  const match = /^data:image\/png;base64,(.+)$/i.exec(qrImage ?? "");
+  if (!match) {
+    return null;
+  }
+
+  return {
+    type: "image",
+    data: match[1],
+    mimeType: "image/png",
+    annotations: {
+      audience: ["user", "assistant"],
+      priority: 1,
+    },
+    _meta: {
+      "hostr.contentType": "nostr-connect-qr",
+      ...(display ? { "hostr.display": display } : {}),
+      "hostr.alt": "Nostr Connect QR",
+    },
+  };
+};
 
 const formatError = (result: Record<string, unknown>): string => {
   const first = record(arrayValue(result.errors)[0]);
@@ -1895,6 +1965,8 @@ const toolResponse = async (
     string,
     unknown
   >;
+  const resultData = record(result.data) ?? {};
+  const safeResultData = record(safeResult.data) ?? {};
   const listingCards = listingCardsFromResult(config, actionId, result);
   const listingCardDisplay =
     listingCards.length > 0
@@ -2011,7 +2083,7 @@ const toolResponse = async (
                       ]
                         .filter(Boolean)
                         .join("\n\n");
-  const noticeImageBlocks = criticalNoticeImageBlocks(notices);
+  const noticeImageBlocks = criticalNoticeImageBlocks(config, notices);
   const listingCardAssistantInstructions = listingCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
@@ -2038,8 +2110,8 @@ const toolResponse = async (
     : undefined;
   const sessionConnectPending =
     actionId === "hostr.session.connect" &&
-    safeResult.authenticated !== true &&
-    safeResult.pending === true;
+    resultData.authenticated !== true &&
+    resultData.pending === true;
   const sessionConnectAssistantInstructions = sessionConnectPending
     ? [
         "Render structuredContent.displayMarkdown as Markdown so the user sees the Nostr Connect QR.",
@@ -2052,18 +2124,21 @@ const toolResponse = async (
     ? {
         type: "nostr-connect" as const,
         title:
-          stringValue(safeResult.displayTitle) ??
+          stringValue(safeResultData.displayTitle) ??
           "Log in to Hostr",
         message:
-          stringValue(safeResult.displayMessage) ??
+          stringValue(safeResultData.displayMessage) ??
           "Scan this with your Nostr app to log in to your Hostr account.",
         nextTool: "hostr_session_connect",
-        nextInput: record(safeResult.nextInput) ?? {
+        nextInput: record(safeResultData.nextInput) ?? {
           wait: true,
           regenerate: false,
         },
       }
     : undefined;
+  const sessionConnectImageBlock = sessionConnectPending
+    ? sessionConnectQrImageBlock(result, sessionConnectDisplay)
+    : null;
   const threadCardAssistantInstructions = threadCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
@@ -2323,6 +2398,7 @@ const toolResponse = async (
             }
           : {}),
       },
+      ...(sessionConnectImageBlock ? [sessionConnectImageBlock] : []),
       ...noticeImageBlocks,
       ...imageBlocks,
     ],
@@ -2614,12 +2690,7 @@ const sendHostrProgress = async (
   });
 };
 
-type AccessTokenClaims = HostrAccessTokenClaims & { sub: string };
-
 const publicActionIds = new Set<string>(["hostr.listings.search"]);
-
-const hasScope = (claims: AccessTokenClaims, scope: string): boolean =>
-  claims.scope.split(/\s+/).includes(scope);
 
 const mcpTransports = new Map<string, StreamableHTTPServerTransport>();
 
@@ -2903,19 +2974,6 @@ const createServer = (
   return server;
 };
 
-const bearerToken = (request: Request): string | null => {
-  const header = request.header("authorization");
-  if (!header) {
-    return null;
-  }
-
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  return match?.[1] ?? null;
-};
-
-const challenge = (config: AppConfig): string =>
-  `Bearer resource_metadata="${config.issuer}/.well-known/oauth-protected-resource/mcp", scope="hostr:read hostr:write"`;
-
 const actionDocumentationFor = (visibleActionIds: Set<string> | null): string => {
   if (!visibleActionIds) {
     return hostrActionDocumentation;
@@ -2986,7 +3044,7 @@ export const handleMcpRequest =
       try {
         claims = await verifyAccessToken(config, token);
       } catch {
-        response.setHeader("WWW-Authenticate", challenge(config));
+        response.setHeader("WWW-Authenticate", bearerChallenge(config));
         return response.status(401).json({ error: "invalid_token" });
       }
     }

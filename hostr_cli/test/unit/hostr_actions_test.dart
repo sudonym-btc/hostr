@@ -149,6 +149,40 @@ void main() {
     expect(payProperties, isNot(contains('publish')));
   });
 
+  test('listing image inputs require upload URLs in MCP schema', () {
+    final image = HostrListingImageInput.fromJson({
+      'url': 'https://blossom.example/abc.jpg',
+      'filename': 'room.png',
+      'alt': 'Bedroom view',
+      'mime': 'image/png',
+    });
+    expect(image.url, startsWith('https://blossom.example/'));
+    expect(image.filename, 'room.png');
+    expect(image.toJson(), containsPair('url', image.url));
+
+    final createSchema = HostrActionCatalog.byId(
+      'hostr.listings.create',
+    ).inputSchema;
+    final createProperties = createSchema['properties'] as Map<String, Object?>;
+    final images = createProperties['images'] as Map<String, Object?>;
+    final items = images['items'] as Map<String, Object?>;
+    final imageProperties = items['properties'] as Map<String, Object?>;
+    expect(items['required'], contains('url'));
+    expect(imageProperties, contains('url'));
+    expect(imageProperties, isNot(contains('dataUrl')));
+    expect(imageProperties, isNot(contains('base64')));
+    expect(imageProperties, isNot(contains('data')));
+    expect(imageProperties, contains('filename'));
+    expect(imageProperties, isNot(contains('path')));
+    expect(images['description'], contains('accepts image URLs only'));
+    expect(images['description'], contains('/mcp/uploads/images'));
+    expect(images['description'], contains('original file bytes'));
+    expect(images['description'], contains('Do not resize'));
+    expect(images['description'], contains('Do not base64-encode'));
+    expect(images['description'], contains('Do not start or serve'));
+    expect(images['description'], contains('Never pass'));
+  });
+
   test(
     'single-item aliases are accepted without schema forcing plural fields',
     () {
