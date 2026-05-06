@@ -10,7 +10,6 @@ import 'package:web3dart/web3dart.dart' show keccak256;
 import '../../../datasources/boltz/boltz_fee_estimate.dart';
 import '../../../datasources/contracts/boltz/IERC20.g.dart';
 import '../../../datasources/swagger_generated/boltz.swagger.dart' hide Call;
-import '../../../injection.dart';
 import '../../../util/custom_logger.dart';
 import '../../../util/token_amount_ext.dart';
 import '../capabilities/boltz_call_builder.dart';
@@ -86,8 +85,8 @@ class _SwapInQuoteContext {
 class SwapQuoteService {
   final CustomLogger logger;
 
-  SwapQuoteService({@ignoreParam CustomLogger? logger})
-    : logger = (logger ?? getIt<CustomLogger>()).scope('swap-quote');
+  SwapQuoteService({required CustomLogger logger})
+    : logger = logger.scope('swap-quote');
 
   // ═══════════════════════════════════════════════════════════════════════
   //  Swap-In (Reverse Swap: Lightning → on-chain)

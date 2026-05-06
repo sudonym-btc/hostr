@@ -73,12 +73,19 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<hostr_requests.BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    hostr_requests.NostrEventSigner? signer,
   }) async {
-    events.add(event);
-    return [_successfulBroadcastResponse()];
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    events.add(eventToBroadcast);
+    return hostr_requests.BroadcastResult(
+      event: eventToBroadcast,
+      responses: [_successfulBroadcastResponse()],
+    );
   }
 
   Future<void> closeAll() async {

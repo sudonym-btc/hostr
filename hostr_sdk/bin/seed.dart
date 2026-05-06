@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/relay_seed.dart';
+import 'package:models/secp256k1.dart'
+    show describeSecp256k1Backend, loadSecp256k1Backend;
 
 /// Allow self-signed certificates so the seeder can connect to local
 /// relay/blossom/etc. over TLS without a trusted CA chain.
@@ -46,6 +48,9 @@ Future<void> main(List<String> arguments) async {
 }
 
 Future<void> _run(List<String> arguments) async {
+  await loadSecp256k1Backend();
+  print('runtime backend secp256k1: ${describeSecp256k1Backend()}');
+
   SeedPipelineConfig? config;
 
   final positionalArgs = arguments

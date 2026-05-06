@@ -142,7 +142,7 @@ def _ensure_extensions_ready(base_url, token, admin_key):
                     "source_repo": EXTENSIONS_MANIFEST,
                     "version": release["version"],
                 },
-                timeout=60,
+                timeout=240,
             )
             if status not in (200, 201):
                 raise RuntimeError(

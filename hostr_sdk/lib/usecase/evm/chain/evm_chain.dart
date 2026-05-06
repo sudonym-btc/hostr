@@ -1523,9 +1523,9 @@ class EvmChain {
   ///
   /// Looks up [EscrowMethod.acceptedTokensFor] for the listing's denomination
   /// (e.g. `"USD"`) and resolves the first EVM `tokenTagId` (format
-  /// `"chainId:address"`) with live on-chain decimals.  Falls back to
-  /// [resolveBridgeToken] when no on-chain token is declared for that
-  /// denomination.
+  /// `"chainId:address"`) with live on-chain decimals.  If the seller has an
+  /// escrow method but does not accept a token for the reservation denomination
+  /// on this chain, funding must fail before any swap is created.
   ///
   /// This is the correct source of truth — the seller declares which ERC-20
   /// they accept, not the app config.
@@ -1533,20 +1533,41 @@ class EvmChain {
     DenominatedAmount denominated,
     EscrowMethod sellerMethod,
   ) async {
+    final tagId = acceptedEscrowTokenTagId(
+      sellerMethod: sellerMethod,
+      denominated: denominated,
+      chainId: config.chainId,
+    );
+    return resolveToken(tagId.substring(tagId.indexOf(':') + 1));
+  }
+
+  static String acceptedEscrowTokenTagId({
+    required EscrowMethod sellerMethod,
+    required DenominatedAmount denominated,
+    required int chainId,
+  }) {
     final accepted = sellerMethod.acceptedTokensFor(denominated.denomination);
+    final chainPrefix = '$chainId:';
     for (final tagId in accepted) {
-      if (!tagId.contains(':')) continue; // skip Lightning 'BTC' sentinel
-      return resolveToken(tagId.substring(tagId.indexOf(':') + 1));
+      if (tagId.toLowerCase().startsWith(chainPrefix)) {
+        return tagId;
+      }
     }
-    return resolveBridgeToken();
+    throw UnsupportedEscrowPaymentTokenException(
+      denomination: denominated.denomination,
+      chainId: chainId,
+      acceptedTokenTagIds: accepted,
+    );
   }
 
   /// Convert [denominated] into a [TokenAmount] scaled to [token]'s decimals.
   TokenAmount scaleToToken(DenominatedAmount denominated, Token token) {
     final scale = token.decimals - denominated.decimals;
-    final value = scale <= 0
+    final value = scale == 0
         ? denominated.value
-        : denominated.value * BigInt.from(10).pow(scale);
+        : scale > 0
+        ? denominated.value * BigInt.from(10).pow(scale)
+        : denominated.value ~/ BigInt.from(10).pow(-scale);
     return TokenAmount(value: value, token: token);
   }
 
@@ -1559,6 +1580,35 @@ class EvmChain {
     final token = await resolveBridgeToken();
     return scaleToToken(denominated, token);
   }
+}
+
+class UnsupportedEscrowPaymentTokenException implements Exception {
+  final String denomination;
+  final int chainId;
+  final List<String> acceptedTokenTagIds;
+
+  const UnsupportedEscrowPaymentTokenException({
+    required this.denomination,
+    required this.chainId,
+    required this.acceptedTokenTagIds,
+  });
+
+  String get message {
+    final accepted = acceptedTokenTagIds.isEmpty
+        ? 'none'
+        : acceptedTokenTagIds.join(', ');
+    return 'Host does not accept $denomination-denominated escrow payments '
+        'on chain $chainId. Accepted tokens for $denomination: $accepted';
+  }
+
+  Map<String, Object?> toJson() => {
+    'denomination': denomination,
+    'chainId': chainId,
+    'acceptedTokenTagIds': acceptedTokenTagIds,
+  };
+
+  @override
+  String toString() => message;
 }
 
 class EvmLogsBatchHint {

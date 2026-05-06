@@ -5,7 +5,6 @@ import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart';
 import 'package:models/main.dart';
 
-import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
 import '../../chain/evm_chain.dart';
@@ -33,12 +32,14 @@ abstract class SwapOutOperation
     required CustomLogger logger,
     @factoryParam required this.params,
     SwapOutState? initialState,
+    OperationStateStore? store,
+    SwapOutTracker? tracker,
   }) : super(
-         store: getIt<OperationStateStore>(),
+         store: store ?? auth.service<OperationStateStore>(),
          logger: logger.scope('swap-out'),
          initialState: initialState ?? const SwapOutInitialised(),
        ) {
-    getIt<SwapOutTracker>().registerSwapOut(this);
+    (tracker ?? auth.service<SwapOutTracker>()).registerSwapOut(this);
   }
 
   // ── OperationMachine contract ──────────────────────────────────────

@@ -6,7 +6,6 @@ import 'package:ndk/ndk.dart'
     show Filter, Ndk, Nip01Event, Nip01EventModel, ZapReceipt;
 import 'package:rxdart/rxdart.dart';
 
-import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../escrow/escrow.dart';
@@ -317,8 +316,8 @@ class UserSubscriptions {
     return ReservationGroupParticipantResolver(
       keyring: DefaultReservationParticipantKeyring(
         auth: _auth,
-        tradeAccountAllocator: getIt<TradeAccountAllocator>(),
-        ndk: getIt<Ndk>(),
+        tradeAccountAllocator: _auth.service<TradeAccountAllocator>(),
+        ndk: _auth.service<Ndk>(),
         logger: _logger,
       ),
     );

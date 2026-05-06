@@ -64,17 +64,14 @@ ARG BUILD_DATE=
 ENV COMMIT_SHA=$COMMIT_SHA \
     BUILD_DATE=$BUILD_DATE
 
-RUN chmod +x docker/entrypoint.sh docker/escrow-cli.sh \
-    && install -m 0755 docker/escrow-cli.sh /usr/local/bin/escrow-cli \
-    && printf '%s\n' "alias escrow-cli='dart run /workspace/escrow/bin/cli.dart'" > /etc/profile.d/escrow-cli.sh
+RUN chmod +x docker/entrypoint.sh
 
 ENTRYPOINT ["docker/entrypoint.sh"]
 
 # ── AOT compile ──────────────────────────────────────────────────────
 FROM build AS compile
 
-RUN dart build cli --target bin/daemon.dart -o /out/daemon \
-    && dart build cli --target bin/cli.dart -o /out/cli
+RUN dart build cli --target bin/daemon.dart -o /out/daemon
 
 # ── Production runtime ───────────────────────────────────────────────
 FROM debian:12-slim AS production
@@ -91,27 +88,5 @@ RUN apt-get update \
 
 COPY --from=compile /out/daemon/bundle/bin/ /usr/local/bin/
 COPY --from=compile /out/daemon/bundle/lib/ /usr/local/lib/
-COPY --from=compile /out/cli/bundle/bin/cli /usr/local/bin/escrow-cli
-COPY --from=compile /out/cli/bundle/lib/ /usr/local/lib/
 
 ENTRYPOINT ["daemon"]
-
-# ── VHS terminal recording ───────────────────────────────────────────
-# Combines the AOT-compiled CLI with Charm's VHS image for generating
-# terminal GIFs and screenshots.
-#
-#   docker build --target vhs -f escrow/Dockerfile -t escrow-vhs .
-#   docker run --rm \
-#     -v $PWD/escrow:/vhs \
-#     -v $TMPDIR/escrow_daemon.sock:/tmp/escrow_daemon.sock \
-#     -e ESCROW_SOCKET=/tmp/escrow_daemon.sock \
-#     escrow-vhs demo.tape
-#
-FROM ghcr.io/charmbracelet/vhs AS vhs
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libsecp256k1-2 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=compile /out/cli/bundle/bin/cli /usr/local/bin/escrow-cli
-COPY --from=compile /out/cli/bundle/lib/ /usr/local/lib/

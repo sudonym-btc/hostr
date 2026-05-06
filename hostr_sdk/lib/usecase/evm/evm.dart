@@ -5,7 +5,7 @@ import 'package:models/main.dart';
 
 import '../../config.dart';
 import '../../datasources/boltz/boltz.dart';
-import '../../injection.dart';
+import '../../injection.dart' show HostrScope, getIt;
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../background_worker/background_worker.dart';
@@ -22,6 +22,7 @@ class Evm {
   final CustomLogger _logger;
   final HostrConfig _config;
   final Auth _auth;
+  final HostrScope _scope;
   CustomLogger get logger => _logger;
 
   /// All configured EVM chains, assembled with their capabilities.
@@ -31,9 +32,10 @@ class Evm {
   BoltzClient? _boltzClient;
   BoltzClient? get boltzClient => _boltzClient;
 
-  Evm(HostrConfig config, Auth auth, CustomLogger logger)
+  Evm(HostrConfig config, Auth auth, CustomLogger logger, [HostrScope? scope])
     : _config = config,
       _auth = auth,
+      _scope = scope ?? HostrScope(getIt),
       _logger = logger.scope('evm');
 
   List<EvmChain> _buildChains() {
@@ -57,7 +59,7 @@ class Evm {
 
       // Chain owns transport + capabilities (escrow is auto-created).
       // Swaps are attached later in [init] after Boltz discovery.
-      return getIt<EvmChain>(param1: chainConfig, param2: aa);
+      return _scope<EvmChain>(param1: chainConfig, param2: aa);
     }).toList();
   }
 
@@ -72,8 +74,8 @@ class Evm {
       return;
     }
 
-    if (!getIt.isRegistered<BoltzClient>()) {
-      getIt.registerSingleton<BoltzClient>(_boltzClient!);
+    if (!_scope.isRegistered<BoltzClient>()) {
+      _scope.registerSingleton<BoltzClient>(_boltzClient!);
     }
 
     try {
@@ -235,7 +237,7 @@ class Evm {
     }
     _isRecovering = true;
     try {
-      final swapRecoverer = getIt<SwapRecoverer>();
+      final swapRecoverer = _scope<SwapRecoverer>();
       // SwapRecoverer handles both plain swaps AND escrow fund swaps
       // (via postClaimCalls on SwapInData).
       return await swapRecoverer.recoverAll(

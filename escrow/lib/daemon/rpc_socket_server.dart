@@ -9,8 +9,7 @@ import 'package:stream_channel/stream_channel.dart';
 /// A JSON-RPC 2.0 server that listens on a Unix domain socket.
 ///
 /// Each connecting client gets its own [json_rpc.Server] instance, so multiple
-/// SSH sessions (each running `escrow_cli`) can talk to the daemon
-/// simultaneously.
+/// JSON-RPC clients can talk to the daemon simultaneously.
 class RpcSocketServer {
   final String socketPath;
   final void Function(json_rpc.Server server) registerMethods;

@@ -9,7 +9,6 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart'
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 
 import '../../config.dart' show CoinlibEventSigner, HostrConfig;
-import '../../injection.dart';
 import '../../util/coinlib_gift_wrap.dart';
 import '../../util/main.dart';
 import '../crud.usecase.dart';
@@ -106,7 +105,7 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
     required Ndk ndk,
     required super.requests,
     required super.logger,
-    @ignoreParam HostrConfig? config,
+    HostrConfig? config,
   }) : _ndk = ndk,
        _config = config,
        super(kind: kNostrKindGiftWrap);
@@ -144,11 +143,11 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
   }) => logger.span('upsertWrapped', () async {
     final wrapped = await wrap(rumor: rumor, recipientPubkey: recipientPubkey);
     final hostrRelay = _hostrRelay();
-    final responses = await requests.broadcast(
+    final result = await requests.broadcastEvent(
       event: wrapped,
       relays: hostrRelay.isEmpty ? null : [hostrRelay],
     );
-    return responses;
+    return result.responses;
   });
 
   /// Subscribes to kind `1059` events and returns parsed inner events.
@@ -183,9 +182,6 @@ class GiftWraps extends CrudUseCase<Nip01Event> {
   }
 
   String _hostrRelay() {
-    final config = _config;
-    if (config != null) return config.hostrRelay;
-    if (!getIt.isRegistered<HostrConfig>()) return '';
-    return getIt<HostrConfig>().hostrRelay;
+    return _config?.hostrRelay ?? '';
   }
 }

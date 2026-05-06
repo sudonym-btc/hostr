@@ -776,7 +776,7 @@ class EntityFactory {
       seedDescription = _buildListingDescription(r, theme);
 
       final ctxSeed = ctx?.seed ?? 0;
-      final imageCount = 1 + r.nextInt(6);
+      final imageCount = 2 + r.nextInt(5);
       seedImages = List<String>.generate(imageCount, (imageIndex) {
         final lock = ctxSeed * 100000 + seed * 10 + imageIndex;
         final options = _kThemeImageUrls[theme] ?? const <String>[];

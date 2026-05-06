@@ -589,7 +589,7 @@ class Reservations extends CrudUseCase<Reservation>
       commitTermsHash: commitTermsHash,
       reason: reason,
     );
-    return result;
+    return result.responses;
   }
 
   Future<Reservation> createBlocked({

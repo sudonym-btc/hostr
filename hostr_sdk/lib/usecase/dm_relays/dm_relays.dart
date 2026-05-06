@@ -147,10 +147,10 @@ class DmRelays {
         ];
 
         _logger.i('Publishing NIP-17 DM relay list to $broadcastRelays');
-        final responses = await _requests.broadcast(
+        final broadcast = await _requests.broadcastEvent(
           event: event,
           relays: broadcastRelays,
         );
-        return responses;
+        return broadcast.responses;
       });
 }

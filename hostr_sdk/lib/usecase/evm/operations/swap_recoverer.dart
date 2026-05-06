@@ -1,7 +1,6 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
-import '../../../injection.dart';
 import '../../../util/main.dart';
 import '../../auth/auth.dart';
 import '../../background_worker/background_worker.dart';
@@ -19,9 +18,10 @@ import '../main.dart';
 class SwapRecoverer {
   final OperationStateStore _store;
   final Auth _auth;
+  final Evm _evm;
   final CustomLogger _logger;
 
-  SwapRecoverer(this._store, this._auth, CustomLogger logger)
+  SwapRecoverer(this._store, this._auth, this._evm, CustomLogger logger)
     : _logger = logger.scope('swap-recoverer');
 
   /// Recover all pending swaps (both swap-in and swap-out).
@@ -97,7 +97,7 @@ class SwapRecoverer {
   }) => _logger.span('_recoverSwapIn', () async {
     final data = state.data!;
 
-    final configuredChain = getIt<Evm>().getChainByChainId(data.chainId);
+    final configuredChain = _evm.getChainByChainId(data.chainId);
     if (configuredChain == null) {
       throw StateError('No configured EVM chain for chainId ${data.chainId}');
     }
@@ -146,7 +146,7 @@ class SwapRecoverer {
     bool isBackground = false,
   }) => _logger.span('_recoverSwapOut', () async {
     final data = state.data!;
-    final configuredChain = getIt<Evm>().getChainByChainId(data.chainId);
+    final configuredChain = _evm.getChainByChainId(data.chainId);
     if (configuredChain == null) {
       throw StateError('No configured EVM chain for chainId ${data.chainId}');
     }

@@ -47,6 +47,40 @@ class AccountSeedStore {
     await getActiveSeedHex(pubkey: pubkey);
   }
 
+  Future<void> ensureRemoteSeedPublished({String? pubkey}) async {
+    final resolvedPubkey = pubkey ?? _auth.activePubkey;
+    if (resolvedPubkey == null || resolvedPubkey.isEmpty) {
+      throw StateError('Cannot publish account seed without an active pubkey');
+    }
+
+    final storedSeed = await _storage.getSeed();
+    final localSeed =
+        storedSeed ?? await getActiveSeedHex(pubkey: resolvedPubkey);
+    if (storedSeed != null) {
+      _remember(resolvedPubkey, storedSeed);
+    }
+    final remoteSeed = await _fetchRemoteSeed(
+      resolvedPubkey,
+      timeoutSeconds: 5,
+    );
+
+    if (remoteSeed == localSeed) return;
+
+    if (remoteSeed != null) {
+      throw StateError(
+        'Remote account seed mismatch for $resolvedPubkey; refusing to '
+        'overwrite remote seed',
+      );
+    }
+
+    final published = await _publishSeed(resolvedPubkey, localSeed);
+    if (!published) {
+      throw StateError(
+        'Unable to verify published account seed for $resolvedPubkey',
+      );
+    }
+  }
+
   Future<String> getActiveSeedHex({String? pubkey}) {
     final resolvedPubkey = pubkey ?? _auth.activePubkey;
     if (resolvedPubkey == null || resolvedPubkey.isEmpty) {
@@ -194,7 +228,8 @@ class AccountSeedStore {
       tags: const [],
     );
 
-    final responses = await _requests.broadcast(event: event);
+    final broadcast = await _requests.broadcastEvent(event: event);
+    final responses = broadcast.responses;
     final remoteSeed = await _fetchPublishedSeed(pubkey, seedHex);
     final verified = remoteSeed == seedHex;
     if (verified) {

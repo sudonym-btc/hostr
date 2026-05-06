@@ -13,9 +13,11 @@ import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator_impl.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:hostr_sdk/util/stream_status.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
+import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' as bip;
@@ -137,9 +139,19 @@ class _FakeReservation extends Fake implements Reservation {}
 final _dummyReservation = _FakeReservation();
 
 class _FakeThreads extends Fake implements Threads {
+  final Set<String> existingTradeIds;
   @override
-  List<Thread> findByConversationTag(String tag) => [];
+  final StreamWithStatus<Nip01Event> events$ = StreamWithStatus<Nip01Event>()
+    ..addStatus(StreamStatusLive());
+
+  _FakeThreads({this.existingTradeIds = const {}});
+
+  @override
+  List<Thread> findByConversationTag(String tag) =>
+      existingTradeIds.contains(tag) ? [_FakeThread()] : [];
 }
+
+class _FakeThread extends Fake implements Thread {}
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
@@ -216,6 +228,24 @@ void main() {
 
       final index = await allocator.reserveNextTradeIndex();
       expect(index, 2); // skipped trade index 1
+    });
+
+    test('skips indices with existing trade thread', () async {
+      hd = _FakeDeterministicKeys(tradeIds: {1: 'taken-trade'});
+      final threads = _FakeThreads(existingTradeIds: {'taken-trade'});
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
+      allocator = TradeAccountAllocatorImpl(
+        auth: auth,
+        hd: hd,
+        evm: evm,
+        reservations: reservations,
+        threads: threads,
+        cache: cache,
+        logger: logger,
+      );
+
+      final index = await allocator.reserveNextTradeIndex();
+      expect(index, 2);
     });
 
     test('skips indices with used EVM addresses (nonce > 0)', () async {

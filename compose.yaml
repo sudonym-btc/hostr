@@ -46,6 +46,7 @@ services:
           - blossom.${DOMAIN}
           - bunker-nostr.${DOMAIN}
           - app.${DOMAIN}
+          - ai.${DOMAIN}
           # - landing.${DOMAIN}
           - telemetry.${DOMAIN}
           - ${DOMAIN}
@@ -87,12 +88,13 @@ services:
       - default
 
   blossom:
-    image: ghcr.io/hzrd149/blossom-server:6.1.1
+    image: ghcr.io/hzrd149/blossom-server:6.1.5
     platform: linux/amd64
     restart: unless-stopped
     environment:
       - VIRTUAL_HOST=blossom.${DOMAIN}
       - VIRTUAL_PORT=3000
+      - BLOSSOM_PUBLIC_DOMAIN=blossom.${DOMAIN}
       - BLOSSOM_DASHBOARD_PASSWORD=${BLOSSOM_DASHBOARD_PASSWORD}
       - TMPDIR=/app/data
     ports:
@@ -145,6 +147,25 @@ services:
     environment:
       - VIRTUAL_HOST=app.${DOMAIN},${DOMAIN}
       - VIRTUAL_PORT=80
+    networks:
+      - default
+    profiles:
+      - local
+      - staging
+      - prod
+
+  mcp:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ai/mcp-server/Dockerfile
+    environment:
+      - VIRTUAL_HOST=ai.${DOMAIN}
+      - VIRTUAL_PORT=8787
+      - DOMAIN=${DOMAIN}
+      - MCP_PUBLIC_BASE_URL=https://ai.${DOMAIN}
+      - MCP_JWT_SECRET=${MCP_JWT_SECRET:-hostr-development-mcp-secret-change-me}
+      - MCP_DEV_AUTH_ENABLED=${MCP_DEV_AUTH_ENABLED:-0}
     networks:
       - default
     profiles:

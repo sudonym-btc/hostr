@@ -21,12 +21,21 @@ import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../config.dart' show CoinlibEventSigner, HostrConfig;
+import '../../config.dart' show HostrConfig;
 import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 
 export 'expandable_subscription.dart';
+
+typedef NostrEventSigner = Future<Nip01Event> Function(Nip01Event event);
+
+class BroadcastResult {
+  final Nip01Event event;
+  final List<RelayBroadcastResponse> responses;
+
+  const BroadcastResult({required this.event, required this.responses});
+}
 
 /// Pure relay-guard logic: returns the relay list that should actually be used
 /// for broadcasting [eventKind]. Hostr-only kinds are forced onto
@@ -208,9 +217,10 @@ abstract class RequestsModel {
     List<String>? relays,
   });
 
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   });
 
   /// Opens a live-only NDK subscription (no historical query phase).
@@ -247,6 +257,7 @@ class LiveSubscriptionHandle {
 class Requests extends RequestsModel {
   final Ndk _ndk;
   final Auth _auth;
+  final HostrConfig _config;
   final bool useCache = false;
   final CustomLogger _logger;
   Ndk get ndk => _ndk;
@@ -257,10 +268,15 @@ class Requests extends RequestsModel {
   /// share its broadcast stream instead of opening another relay subscription.
   final Map<String, Stream<Nip01Event>> _inFlightQueries = {};
 
-  Requests({required Ndk ndk, required CustomLogger logger, required Auth auth})
-    : _ndk = ndk,
-      _auth = auth,
-      _logger = logger.scope('requests') {
+  Requests({
+    required Ndk ndk,
+    required CustomLogger logger,
+    required Auth auth,
+    required HostrConfig config,
+  }) : _ndk = ndk,
+       _auth = auth,
+       _config = config,
+       _logger = logger.scope('requests') {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
 
@@ -382,7 +398,7 @@ class Requests extends RequestsModel {
     // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
     final guardedRelays = applyQueryRelayGuardForFilter(
       filter: filter,
-      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      hostrRelay: _config.hostrRelay,
       relays: relays,
     );
     if (guardedRelays != relays) {
@@ -455,7 +471,7 @@ class Requests extends RequestsModel {
     // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
     final guardedRelays = applyQueryRelayGuardForFilter(
       filter: filter,
-      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      hostrRelay: _config.hostrRelay,
       relays: relays,
     );
     if (guardedRelays != relays) {
@@ -531,14 +547,15 @@ class Requests extends RequestsModel {
   });
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
     // ── Relay guard: app-specific events must never leak to external relays ──
     final guardedRelays = applyBroadcastRelayGuard(
       eventKind: event.kind,
-      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      hostrRelay: _config.hostrRelay,
       relays: relays,
     );
     if (guardedRelays != relays) {
@@ -551,18 +568,12 @@ class Requests extends RequestsModel {
     var eventToBroadcast = event;
 
     if (event.sig == null) {
-      final keyPair = _auth.activeKeyPair;
-      if (_ndk.accounts.getPublicKey() == event.pubKey) {
-        eventToBroadcast = await _ndk.accounts.sign(event);
-      } else if (keyPair != null &&
-          keyPair.privateKey != null &&
-          event.pubKey == keyPair.publicKey) {
-        final signer = CoinlibEventSigner(
-          privateKey: keyPair.privateKey,
-          publicKey: keyPair.publicKey,
-        );
-        eventToBroadcast = await signer.sign(event);
-      }
+      eventToBroadcast = await (signer ?? _auth.signEvent)(event);
+    }
+    if (eventToBroadcast.sig != null && eventToBroadcast.id.isEmpty) {
+      eventToBroadcast = eventToBroadcast.copyWith(
+        id: Nip01Utils.calculateId(eventToBroadcast),
+      );
     }
 
     _logger.d(
@@ -581,7 +592,7 @@ class Requests extends RequestsModel {
       responses,
       context: 'kind ${event.kind} ${event.id}',
     );
-    return responses;
+    return BroadcastResult(event: eventToBroadcast, responses: responses);
   }
 
   /// Opens a live-only NDK subscription (no query phase) and forwards
@@ -603,7 +614,7 @@ class Requests extends RequestsModel {
     // ── Relay guard: hostr-specific kinds should only query the hostr relay ──
     final guardedRelays = applyQueryRelayGuardForFilter(
       filter: filter,
-      hostrRelay: getIt<HostrConfig>().hostrRelay,
+      hostrRelay: _config.hostrRelay,
       relays: relays,
     );
     if (guardedRelays != relays) {

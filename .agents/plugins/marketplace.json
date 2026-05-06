@@ -1,0 +1,20 @@
+{
+  "name": "hostr",
+  "interface": {
+    "displayName": "Hostr"
+  },
+  "plugins": [
+    {
+      "name": "hostr",
+      "source": {
+        "source": "local",
+        "path": "./ai/plugins/hostr"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

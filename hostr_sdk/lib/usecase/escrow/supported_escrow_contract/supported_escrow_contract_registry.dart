@@ -1,7 +1,5 @@
 import 'package:crypto/crypto.dart';
 import 'package:wallet/wallet.dart';
-import '../../../injection.dart';
-import '../../../util/custom_logger.dart';
 import '../../evm/chain/evm_chain.dart';
 import 'multi_escrow.dart';
 import 'supported_escrow_contract.dart';
@@ -15,7 +13,7 @@ class SupportedEscrowContractRegistry {
     'MultiEscrow': (chain, address) => MultiEscrowWrapper(
       chain: chain,
       address: address,
-      logger: getIt<CustomLogger>(),
+      logger: chain.logger,
     ),
   };
 

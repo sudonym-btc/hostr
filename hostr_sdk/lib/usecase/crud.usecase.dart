@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:meta/meta.dart';
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
@@ -8,7 +9,15 @@ import 'package:ndk/ndk.dart' show Nip01Event, Filter;
 
 import '../datasources/nostr/mock.relay.dart' show matchEvent;
 import '../util/main.dart';
+import 'event_write_policy.dart';
 import 'requests/requests.dart';
+
+class UpsertResult<T extends Nip01Event> {
+  final T event;
+  final List<RelayBroadcastResponse> responses;
+
+  const UpsertResult({required this.event, required this.responses});
+}
 
 class CrudUseCase<T extends Nip01Event> {
   final CustomLogger _logger;
@@ -40,6 +49,12 @@ class CrudUseCase<T extends Nip01Event> {
   /// code (e.g. controllers that bypass [create]/[upsert]/[delete]) to
   /// trigger refresh in consuming widgets.
   void notifyUpdate(T event) => _updates.add(event);
+
+  @protected
+  Future<void> beforeUpsert(T event) async {}
+
+  @protected
+  Future<void> afterUpsert(UpsertResult<T> result) async {}
 
   StreamWithStatus<T> subscribe(Filter f, {String? name}) =>
       logger.spanSync('subscribe', () {
@@ -127,21 +142,40 @@ class CrudUseCase<T extends Nip01Event> {
     return getCombinedFilter(filter, Filter(kinds: [kind]));
   }
 
-  Future<List<RelayBroadcastResponse>> upsert(T event) =>
+  T _prepareUnsignedUpsert(T event) {
+    if (event.sig != null) return event;
+    return parser<T>(
+      event.copyWith(id: '', createdAt: nextUpsertCreatedAt(event.createdAt)),
+    );
+  }
+
+  Future<UpsertResult<T>> upsert(T event, {NostrEventSigner? signer}) =>
       logger.span('upsert', () async {
+        final draft = _prepareUnsignedUpsert(event);
+        await beforeUpsert(draft);
         // `updates` is consumed by UI flows that treat an event as published.
         // Emit only after relay broadcast completes so failed writes cannot
         // appear locally as successful reservations/listings/etc.
-        final responses = await requests.broadcast(event: event);
-        _updates.add(event);
-        return responses;
+        final result = await requests.broadcastEvent(
+          event: draft,
+          signer: signer,
+        );
+        final published = parser<T>(result.event);
+        final upsertResult = UpsertResult<T>(
+          event: published,
+          responses: result.responses,
+        );
+        _updates.add(published);
+        await afterUpsert(upsertResult);
+        return upsertResult;
       });
 
   Future<List<RelayBroadcastResponse>> delete(T event) =>
       logger.span('delete', () async {
         // Keep delete semantics aligned with upsert: local observers should
         // only react once the relay accepted the mutation.
-        final responses = await requests.broadcast(event: event);
+        final result = await requests.broadcastEvent(event: event);
+        final responses = result.responses;
         _updates.add(event);
         return responses;
       });

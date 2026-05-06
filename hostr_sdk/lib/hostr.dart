@@ -1,4 +1,5 @@
 import 'package:ndk/ndk.dart' show Ndk;
+import 'package:get_it/get_it.dart';
 
 import 'config.dart';
 import 'injection.dart';
@@ -8,63 +9,62 @@ import 'util/custom_logger.dart' show CustomLogger;
 class Hostr {
   final HostrConfig config;
   final CustomLogger logger;
+  final GetIt scope;
 
   Hostr({required this.config, String environment = Env.prod})
-    : logger = config.logger {
-    configureInjection(environment, config: config);
-    if (!getIt.isRegistered<HostrConfig>()) {
-      getIt.registerSingleton<HostrConfig>(config);
-    }
+    : logger = config.logger,
+      scope = createHostrScope(environment: environment, config: config) {
+    getIt = scope;
   }
-  Ndk get ndk => getIt<Ndk>();
-  Auth get auth => getIt<Auth>();
-  Requests get requests => getIt<Requests>();
-  MetadataUseCase get metadata => getIt<MetadataUseCase>();
-  Nwc get nwc => getIt<Nwc>();
-  Zaps get zaps => getIt<Zaps>();
-  Listings get listings => getIt<Listings>();
-  LnurlUseCase get lnurl => getIt<LnurlUseCase>();
-  Location get location => getIt<Location>();
-  Reservations get reservations => getIt<Reservations>();
-  ReservationGroups get reservationGroups => getIt<ReservationGroups>();
+  Ndk get ndk => scope<Ndk>();
+  Auth get auth => scope<Auth>();
+  Requests get requests => scope<Requests>();
+  MetadataUseCase get metadata => scope<MetadataUseCase>();
+  Nwc get nwc => scope<Nwc>();
+  Zaps get zaps => scope<Zaps>();
+  Listings get listings => scope<Listings>();
+  LnurlUseCase get lnurl => scope<LnurlUseCase>();
+  Location get location => scope<Location>();
+  Reservations get reservations => scope<Reservations>();
+  ReservationGroups get reservationGroups => scope<ReservationGroups>();
   ReservationTransitions get reservationTransitions =>
-      getIt<ReservationTransitions>();
-  GiftWraps get giftWraps => getIt<GiftWraps>();
-  DmRelays get dmRelays => getIt<DmRelays>();
-  EscrowUseCase get escrow => getIt<EscrowUseCase>();
-  Escrows get escrows => getIt<Escrows>();
-  EscrowMethods get escrowMethods => getIt<EscrowMethods>();
-  BadgeDefinitions get badgeDefinitions => getIt<BadgeDefinitions>();
-  BadgeAwards get badgeAwards => getIt<BadgeAwards>();
-  Messaging get messaging => getIt<Messaging>();
-  ReservationRequests get reservationRequests => getIt<ReservationRequests>();
-  Payments get payments => getIt<Payments>();
-  Reviews get reviews => getIt<Reviews>();
+      scope<ReservationTransitions>();
+  GiftWraps get giftWraps => scope<GiftWraps>();
+  DmRelays get dmRelays => scope<DmRelays>();
+  EscrowUseCase get escrow => scope<EscrowUseCase>();
+  Escrows get escrows => scope<Escrows>();
+  EscrowMethods get escrowMethods => scope<EscrowMethods>();
+  BadgeDefinitions get badgeDefinitions => scope<BadgeDefinitions>();
+  BadgeAwards get badgeAwards => scope<BadgeAwards>();
+  Messaging get messaging => scope<Messaging>();
+  ReservationRequests get reservationRequests => scope<ReservationRequests>();
+  Payments get payments => scope<Payments>();
+  Reviews get reviews => scope<Reviews>();
   TradeAccountAllocator get tradeAccountAllocator =>
-      getIt<TradeAccountAllocator>();
-  TradeAudit get tradeAudit => getIt<TradeAudit>();
-  Evm get evm => getIt<Evm>();
-  Relays get relays => getIt<Relays>();
-  Verification get verification => getIt<Verification>();
-  BlossomUseCase get blossom => getIt<BlossomUseCase>();
-  UserConfigStore get userConfig => getIt<UserConfigStore>();
-  FundsMonitorService get fundsMonitor => getIt<FundsMonitorService>();
-  OperationStateStore get operationStateStore => getIt<OperationStateStore>();
-  SwapInTracker get swapInTracker => getIt<SwapInTracker>();
-  SwapOutTracker get swapOutTracker => getIt<SwapOutTracker>();
-  BackgroundWorker get backgroundWorker => getIt<BackgroundWorker>();
-  Heartbeats get heartbeats => getIt<Heartbeats>();
-  IdentityClaimsUseCase get identityClaims => getIt<IdentityClaimsUseCase>();
-  UserSubscriptions get userSubscriptions => getIt<UserSubscriptions>();
-  EscrowDaemon get escrowDaemon => getIt<EscrowDaemon>();
-  AccountSeedStore get accountSeedStore => getIt<AccountSeedStore>();
+      scope<TradeAccountAllocator>();
+  TradeAudit get tradeAudit => scope<TradeAudit>();
+  Evm get evm => scope<Evm>();
+  Relays get relays => scope<Relays>();
+  Verification get verification => scope<Verification>();
+  BlossomUseCase get blossom => scope<BlossomUseCase>();
+  UserConfigStore get userConfig => scope<UserConfigStore>();
+  FundsMonitorService get fundsMonitor => scope<FundsMonitorService>();
+  OperationStateStore get operationStateStore => scope<OperationStateStore>();
+  SwapInTracker get swapInTracker => scope<SwapInTracker>();
+  SwapOutTracker get swapOutTracker => scope<SwapOutTracker>();
+  BackgroundWorker get backgroundWorker => scope<BackgroundWorker>();
+  Heartbeats get heartbeats => scope<Heartbeats>();
+  IdentityClaimsUseCase get identityClaims => scope<IdentityClaimsUseCase>();
+  UserSubscriptions get userSubscriptions => scope<UserSubscriptions>();
+  EscrowDaemon get escrowDaemon => scope<EscrowDaemon>();
+  AccountSeedStore get accountSeedStore => scope<AccountSeedStore>();
   PaymentProofOrchestrator get paymentProofOrchestrator =>
-      getIt<PaymentProofOrchestrator>();
-  Calendar get calendar => getIt<Calendar>();
-  StartupCoordinator get startup => getIt<StartupCoordinator>();
+      scope<PaymentProofOrchestrator>();
+  Calendar get calendar => scope<Calendar>();
+  StartupCoordinator get startup => scope<StartupCoordinator>();
 
   Trade trade(String tradeId, Iterable<String> participants) {
-    return getIt<Trade>(
+    return scope<Trade>(
       param1: TradeContext(tradeId: tradeId, participants: participants),
     );
   }

@@ -35,6 +35,10 @@ class _SentLegacyNotice {
   });
 }
 
+final int _futureReservationYear = DateTime.now().toUtc().year + 1;
+final String _defaultReservationRange =
+    '1 May $_futureReservationYear - 3 May $_futureReservationYear';
+
 Listing _listing() => Listing.create(
   pubKey: MockKeys.hoster.publicKey,
   dTag: 'listing-1',
@@ -139,8 +143,8 @@ Future<ReservationGroup> _group({
 }) async {
   final disposableBuyer = mockKeys[30];
   final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing-1';
-  final reservationStart = start ?? DateTime.utc(2026, 5, 1);
-  final reservationEnd = end ?? DateTime.utc(2026, 5, 3);
+  final reservationStart = start ?? DateTime.utc(_futureReservationYear, 5, 1);
+  final reservationEnd = end ?? DateTime.utc(_futureReservationYear, 5, 3);
   final buyerTags = await _participantTags(
     tradeId: tradeId,
     listingAnchor: listingAnchor,
@@ -285,7 +289,7 @@ void main() {
                 (n) => n.recipientPubkeys.single == MockKeys.guest.publicKey,
               )
               .content,
-          'You successfully reserved Lake House 2026-05-01 - 2026-05-03, '
+          'You successfully reserved Lake House $_defaultReservationRange, '
           "hosted by Maya. Your payment is safely in escrow. We've reached "
           'out to the host to confirm, and they should be in touch soon. If '
           'they do not confirm in a timely manner, you can be refunded.',
@@ -296,7 +300,7 @@ void main() {
                 (n) => n.recipientPubkeys.single == MockKeys.reviewer.publicKey,
               )
               .content,
-          'A reservation was placed for Lake House 2026-05-01 - 2026-05-03. '
+          'A reservation was placed for Lake House $_defaultReservationRange. '
           'Payment has been paid and is sitting in escrow. Please login to '
           'https://hostr.network to confirm the booking with the guest.',
         );
@@ -304,7 +308,7 @@ void main() {
           sentLegacy
               .singleWhere((n) => n.recipientPubkey == MockKeys.guest.publicKey)
               .content,
-          'You successfully reserved Lake House 2026-05-01 - 2026-05-03, '
+          'You successfully reserved Lake House $_defaultReservationRange, '
           "hosted by Maya. Your payment is safely in escrow. We've reached "
           'out to the host to confirm, and they should be in touch soon. If '
           'they do not confirm in a timely manner, you can be refunded.',
@@ -315,7 +319,7 @@ void main() {
                 (n) => n.recipientPubkey == MockKeys.reviewer.publicKey,
               )
               .content,
-          'A reservation was placed for Lake House 2026-05-01 - 2026-05-03. '
+          'A reservation was placed for Lake House $_defaultReservationRange. '
           'Payment has been paid and is sitting in escrow. Please login to '
           'https://hostr.network to confirm the booking with the guest.',
         );
@@ -496,7 +500,7 @@ void main() {
       expect(sentLegacy.single.recipientPubkey, MockKeys.guest.publicKey);
       expect(
         sent.single.content,
-        'Your reservation for Lake House 2026-05-01 - 2026-05-03 could not '
+        'Your reservation for Lake House $_defaultReservationRange could not '
         'be confirmed by escrow. No booking was created, and any escrowed '
         'payment should be refunded according to the payment method used.',
       );

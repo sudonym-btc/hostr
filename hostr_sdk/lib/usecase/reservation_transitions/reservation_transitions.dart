@@ -73,19 +73,17 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
         updatedFields: updatedFields,
       ).toString(),
     );
-    final transition = privateKey != null && privateKey.isNotEmpty
-        ? ReservationTransition.fromNostrEvent(
-            Nip01Utils.signWithPrivateKey(
-              event: unsigned,
+    final transition = ReservationTransition.fromNostrEvent(unsigned);
+    final result = await upsert(
+      transition,
+      signer: privateKey != null && privateKey.isNotEmpty
+          ? (event) async => Nip01Utils.signWithPrivateKey(
+              event: event,
               privateKey: privateKey,
-            ),
-          )
-        : ReservationTransition.fromNostrEvent(
-            await _ndk.accounts.sign(unsigned),
-          );
-
-    await upsert(transition);
-    return transition;
+            )
+          : null,
+    );
+    return result.event;
   }
 
   Future<String?> _resolvePreviousTransitionId({

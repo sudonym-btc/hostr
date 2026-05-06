@@ -349,7 +349,20 @@ class SeedPipelineSpec {
   });
 
   void printSpec() {
-    print("\n[seed][plan]\n${JsonEncoder.withIndent('  ').convert(toJson())}");
+    print(
+      "\n[seed][plan]\n${JsonEncoder.withIndent('  ').convert(toSummaryJson())}",
+    );
+  }
+
+  Map<String, dynamic> toSummaryJson() {
+    final hosts = users.where((u) => u.isHost).toList();
+    final guests = users.where((u) => !u.isHost).toList();
+
+    return {
+      'seed': seed,
+      'totals': _totalsJson(hosts: hosts, guests: guests),
+      'planned_escrow_outcomes': _plannedEscrowOutcomesJson(),
+    };
   }
 
   Map<String, dynamic> toJson() {
@@ -359,31 +372,8 @@ class SeedPipelineSpec {
 
     return {
       'seed': seed,
-      'totals': {
-        'users': users.length,
-        'hosts': hosts.length,
-        'guests': guests.length,
-        'listings': listings.length,
-        'threads': threads.length,
-        'threads_with_planned_outcome': outcomePlans.length,
-        'threads_pending': threads.length - outcomePlans.length,
-        'escrow_threads': outcomePlans.where((p) => p.useEscrow).length,
-        'zap_threads': outcomePlans.where((p) => !p.useEscrow).length,
-        'self_signed_by_buyer': outcomePlans.where((p) => p.selfSigned).length,
-      },
-      'planned_escrow_outcomes': {
-        'claimed_by_host': outcomePlans
-            .where((p) => p.escrowOutcome == EscrowOutcome.claimedByHost)
-            .length,
-        'released_to_counterparty': outcomePlans
-            .where(
-              (p) => p.escrowOutcome == EscrowOutcome.releaseToCounterparty,
-            )
-            .length,
-        'arbitrated': outcomePlans
-            .where((p) => p.escrowOutcome == EscrowOutcome.arbitrated)
-            .length,
-      },
+      'totals': _totalsJson(hosts: hosts, guests: guests),
+      'planned_escrow_outcomes': _plannedEscrowOutcomesJson(),
       'hosts': [
         for (final host in hosts)
           <String, dynamic>{
@@ -417,6 +407,38 @@ class SeedPipelineSpec {
             ],
           },
       ],
+    };
+  }
+
+  Map<String, dynamic> _totalsJson({
+    required List<SeedUser> hosts,
+    required List<SeedUser> guests,
+  }) {
+    return {
+      'users': users.length,
+      'hosts': hosts.length,
+      'guests': guests.length,
+      'listings': listings.length,
+      'threads': threads.length,
+      'threads_with_planned_outcome': outcomePlans.length,
+      'threads_pending': threads.length - outcomePlans.length,
+      'escrow_threads': outcomePlans.where((p) => p.useEscrow).length,
+      'zap_threads': outcomePlans.where((p) => !p.useEscrow).length,
+      'self_signed_by_buyer': outcomePlans.where((p) => p.selfSigned).length,
+    };
+  }
+
+  Map<String, dynamic> _plannedEscrowOutcomesJson() {
+    return {
+      'claimed_by_host': outcomePlans
+          .where((p) => p.escrowOutcome == EscrowOutcome.claimedByHost)
+          .length,
+      'released_to_counterparty': outcomePlans
+          .where((p) => p.escrowOutcome == EscrowOutcome.releaseToCounterparty)
+          .length,
+      'arbitrated': outcomePlans
+          .where((p) => p.escrowOutcome == EscrowOutcome.arbitrated)
+          .length,
     };
   }
 
@@ -454,39 +476,37 @@ class SeedPipelineOutcome {
 
   void printOutcome() {
     print(
-      "\n[seed][outcome]\n${JsonEncoder.withIndent('  ').convert(toJson())}",
+      "\n[seed][outcome]\n${JsonEncoder.withIndent('  ').convert(toSummaryJson())}",
     );
   }
 
-  Map<String, dynamic> toJson() {
-    final completedPlans = plans
-        .where((p) => p.thread.reservation != null)
-        .toList();
-    final pendingThreads = threads.where((t) => t.reservation == null).toList();
-
+  Map<String, dynamic> toSummaryJson() {
     return {
-      'totals': {
-        'threads_total': threads.length,
-        'threads_with_reservation': completedPlans.length,
-        'threads_pending': pendingThreads.length,
-        'escrow_trades_newly_created': completedPlans
-            .where((p) => p.createTxHash != null && !p.tradeAlreadyExisted)
+      'totals': _totalsJson(),
+      'settlements': {
+        'claimed_by_host': plans
+            .where((p) => p.escrowOutcome == EscrowOutcome.claimedByHost)
             .length,
-        'escrow_trades_already_existed_on_chain': completedPlans
-            .where((p) => p.tradeAlreadyExisted)
+        'released_to_counterparty': plans
+            .where(
+              (p) => p.escrowOutcome == EscrowOutcome.releaseToCounterparty,
+            )
             .length,
-        'zap_receipts_built': completedPlans
-            .where((p) => !p.useEscrow && p.thread.zapReceipt != null)
-            .length,
-        'invalid_reservations': completedPlans
-            .where((p) => p.thread.invalidReservationReason != null)
+        'arbitrated': plans
+            .where((p) => p.escrowOutcome == EscrowOutcome.arbitrated)
             .length,
       },
-      'hosts': _groupByHost(completedPlans),
-      'guests': _groupByGuest(completedPlans),
-      if (pendingThreads.isNotEmpty)
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'totals': _totalsJson(),
+      'hosts': _groupByHost(_completedPlans()),
+      'guests': _groupByGuest(_completedPlans()),
+      if (_pendingThreads().isNotEmpty)
         'pending_threads': [
-          for (final t in pendingThreads)
+          for (final t in _pendingThreads())
             <String, dynamic>{
               'trade_id': t.request.getDtag() ?? t.id,
               'host_pubkey': t.host.keyPair.publicKey,
@@ -495,6 +515,37 @@ class SeedPipelineOutcome {
               'check_out': t.end.toIso8601String().substring(0, 10),
             },
         ],
+    };
+  }
+
+  List<SeedOutcomePlan> _completedPlans() =>
+      plans.where((p) => p.thread.reservation != null).toList();
+
+  List<SeedThread> _pendingThreads() =>
+      threads.where((t) => t.reservation == null).toList();
+
+  Map<String, dynamic> _totalsJson() {
+    final completedPlans = plans
+        .where((p) => p.thread.reservation != null)
+        .toList();
+    final pendingThreads = threads.where((t) => t.reservation == null).toList();
+
+    return {
+      'threads_total': threads.length,
+      'threads_with_reservation': completedPlans.length,
+      'threads_pending': pendingThreads.length,
+      'escrow_trades_newly_created': completedPlans
+          .where((p) => p.createTxHash != null && !p.tradeAlreadyExisted)
+          .length,
+      'escrow_trades_already_existed_on_chain': completedPlans
+          .where((p) => p.tradeAlreadyExisted)
+          .length,
+      'zap_receipts_built': completedPlans
+          .where((p) => !p.useEscrow && p.thread.zapReceipt != null)
+          .length,
+      'invalid_reservations': completedPlans
+          .where((p) => p.thread.invalidReservationReason != null)
+          .length,
     };
   }
 

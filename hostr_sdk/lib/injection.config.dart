@@ -138,8 +138,11 @@ extension GetItInjectableX on _i174.GetIt {
   }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final hostrSdkModule = _$HostrSdkModule();
-    gh.factory<_i603.SwapQuoteService>(() => _i603.SwapQuoteService());
+    gh.factory<_i603.SwapQuoteService>(
+      () => _i603.SwapQuoteService(logger: gh<_i331.CustomLogger>()),
+    );
     gh.singleton<_i910.HostrConfig>(() => hostrSdkModule.hostrConfig);
+    gh.singleton<_i231.HostrScope>(() => hostrSdkModule.hostrScope);
     gh.singleton<_i111.KeyValueStorage>(() => hostrSdkModule.keyValueStorage);
     gh.singleton<_i995.AppDatabase>(() => hostrSdkModule.appDatabase);
     gh.singleton<_i216.CommonDatabase>(() => hostrSdkModule.operationsDb);
@@ -183,6 +186,7 @@ extension GetItInjectableX on _i174.GetIt {
         authStorage: gh<_i218.AuthStorage>(),
         logger: gh<_i372.CustomLogger>(),
         identityResolver: gh<_i259.AuthIdentityResolver>(),
+        scope: gh<_i231.HostrScope>(),
       ),
     );
     gh.singleton<_i908.LnurlUseCase>(
@@ -197,6 +201,7 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         auth: gh<_i1000.Auth>(),
         logger: gh<_i372.CustomLogger>(),
+        config: gh<_i910.HostrConfig>(),
       ),
       registerFor: {_test, _mock},
     );
@@ -211,6 +216,7 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
+        config: gh<_i910.HostrConfig>(),
       ),
       registerFor: {_dev, _staging, _prod},
     );
@@ -242,7 +248,12 @@ extension GetItInjectableX on _i174.GetIt {
       registerFor: {_test, _mock},
     );
     gh.singleton<_i1045.Zaps>(
-      () => _i1045.MockZaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
+      () => _i1045.MockZaps(
+        nwc: gh<_i588.Nwc>(),
+        ndk: gh<_i857.Ndk>(),
+        config: gh<_i910.HostrConfig>(),
+        requests: gh<_i1014.Requests>(),
+      ),
       registerFor: {_test, _mock},
     );
     gh.singleton<_i826.ReservationTransitions>(
@@ -257,6 +268,7 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
+        config: gh<_i910.HostrConfig>(),
       ),
     );
     gh.singleton<_i305.Evm>(
@@ -264,6 +276,7 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i910.HostrConfig>(),
         gh<_i1000.Auth>(),
         gh<_i372.CustomLogger>(),
+        gh<_i231.HostrScope>(),
       ),
     );
     gh.singleton<_i445.EscrowMethods>(
@@ -332,6 +345,8 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         relayStorage: gh<_i218.RelayStorage>(),
         logger: gh<_i372.CustomLogger>(),
+        config: gh<_i910.HostrConfig>(),
+        requests: gh<_i1014.Requests>(),
       ),
       registerFor: {_test, _mock},
     );
@@ -354,6 +369,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i376.EscrowUseCase(
         logger: gh<_i372.CustomLogger>(),
         evm: gh<_i305.Evm>(),
+        scope: gh<_i231.HostrScope>(),
       ),
     );
     gh.factoryParam<
@@ -386,11 +402,18 @@ extension GetItInjectableX on _i174.GetIt {
         ndk: gh<_i857.Ndk>(),
         relayStorage: gh<_i218.RelayStorage>(),
         logger: gh<_i372.CustomLogger>(),
+        config: gh<_i910.HostrConfig>(),
+        requests: gh<_i1014.Requests>(),
       ),
       registerFor: {_dev, _staging, _prod},
     );
     gh.singleton<_i1045.Zaps>(
-      () => _i1045.Zaps(nwc: gh<_i588.Nwc>(), ndk: gh<_i857.Ndk>()),
+      () => _i1045.Zaps(
+        nwc: gh<_i588.Nwc>(),
+        ndk: gh<_i857.Ndk>(),
+        config: gh<_i910.HostrConfig>(),
+        requests: gh<_i1014.Requests>(),
+      ),
       registerFor: {_dev, _staging, _prod},
     );
     gh.factoryParam<_i363.LnurlPayOperation, _i24.LnurlPayParameters, dynamic>(
@@ -416,6 +439,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i249.SwapRecoverer(
         gh<_i785.OperationStateStore>(),
         gh<_i1000.Auth>(),
+        gh<_i305.Evm>(),
         gh<_i372.CustomLogger>(),
       ),
     );
@@ -435,6 +459,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1014.Requests>(),
         gh<_i452.DmRelays>(),
         gh<_i331.CustomLogger>(),
+        gh<_i910.HostrConfig>(),
+        gh<_i883.Relays>(),
+        gh<_i231.HostrScope>(),
       ),
     );
     gh.singleton<_i149.MetadataUseCase>(
@@ -553,6 +580,7 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         logger: gh<_i372.CustomLogger>(),
+        scope: gh<_i231.HostrScope>(),
       ),
     );
     gh.singleton<_i1068.TradeAccountAllocator>(
@@ -586,6 +614,7 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1000.Auth>(),
         gh<_i1068.TradeAccountAllocator>(),
         gh<_i785.Evm>(),
+        gh<_i603.SwapQuoteService>(),
         gh<_i331.CustomLogger>(),
         params,
       ),
@@ -621,6 +650,8 @@ extension GetItInjectableX on _i174.GetIt {
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i372.CustomLogger>(),
+        config: gh<_i910.HostrConfig>(),
+        tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
       ),
     );
     gh.singleton<_i49.ReservationRequests>(
@@ -641,6 +672,8 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i842.OperationStateStore>(),
         gh<_i794.UserConfigStore>(),
         gh<_i331.CustomLogger>(),
+        gh<_i303.Escrows>(),
+        gh<_i910.HostrConfig>(),
       ),
     );
     gh.factoryParam<_i981.Trade, _i981.TradeContext, dynamic>(
@@ -654,6 +687,9 @@ extension GetItInjectableX on _i174.GetIt {
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         reservationGroups: gh<_i533.ReservationGroups>(),
         threads: gh<_i768.Threads>(),
+        tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
+        reservationRequests: gh<_i49.ReservationRequests>(),
+        reservations: gh<_i326.Reservations>(),
       ),
     );
     gh.factoryParam<

@@ -43,38 +43,46 @@ Future<void> setupInjection({
     await getIt.unregister<Hostr>(
         disposingFunction: (hostr) => hostr.dispose());
   }
+  if (getIt.isRegistered<HostrSession>()) {
+    await getIt.unregister<HostrSession>();
+  }
+  if (getIt.isRegistered<HostrRuntime>()) {
+    await getIt.unregister<HostrRuntime>();
+  }
 
-  getIt.registerSingleton<Hostr>(
-    Hostr(
-      environment: environment,
-      config: HostrConfig(
-        logs: logger ?? CustomLogger(),
+  final runtime = HostrRuntime(
+    environment: environment,
+    config: HostrConfig(
+      logs: logger ?? CustomLogger(),
+      bootstrapRelays: [env.relayUrl],
+      bootstrapBlossom: [env.blossomUrl],
+      hostrRelay: env.relayUrl,
+      evmConfig: env.evmConfig,
+      ndk: NdkConfig(
+        eventVerifier: CoinlibVerifier(),
+        cache: MemCacheManager(),
+        engine: NdkEngine.RELAY_SETS,
         bootstrapRelays: [env.relayUrl],
-        bootstrapBlossom: [env.blossomUrl],
-        hostrRelay: env.relayUrl,
-        evmConfig: env.evmConfig,
-        ndk: NdkConfig(
-          eventVerifier: CoinlibVerifier(),
-          cache: MemCacheManager(),
-          engine: NdkEngine.RELAY_SETS,
-          bootstrapRelays: [env.relayUrl],
-          defaultQueryTimeout: const Duration(seconds: 10),
-        ),
-        syncAccountSeedRemotely: false,
-        telemetry: Telemetry(
-          serviceName: 'hostr-escrow',
-          enableExport:
-              (Platform.environment['OTEL_EXPORTER_OTLP_ENDPOINT'] ?? '')
-                  .trim()
-                  .isNotEmpty,
-          otlpEndpoint: Platform.environment['OTEL_EXPORTER_OTLP_ENDPOINT'],
-          otlpHeaders: _parseOtlpHeaders(
-            Platform.environment['OTEL_EXPORTER_OTLP_HEADERS'],
-          ),
+        defaultQueryTimeout: const Duration(seconds: 10),
+      ),
+      syncAccountSeedRemotely: true,
+      telemetry: Telemetry(
+        serviceName: 'hostr-escrow',
+        enableExport:
+            (Platform.environment['OTEL_EXPORTER_OTLP_ENDPOINT'] ?? '')
+                .trim()
+                .isNotEmpty,
+        otlpEndpoint: Platform.environment['OTEL_EXPORTER_OTLP_ENDPOINT'],
+        otlpHeaders: _parseOtlpHeaders(
+          Platform.environment['OTEL_EXPORTER_OTLP_HEADERS'],
         ),
       ),
     ),
   );
+  getIt.registerSingleton<HostrRuntime>(runtime);
+  final session = await runtime.foregroundSession();
+  getIt.registerSingleton<HostrSession>(session);
+  getIt.registerSingleton<Hostr>(session.hostr);
 }
 
 Future<void> _ensureHydratedStorage() async {

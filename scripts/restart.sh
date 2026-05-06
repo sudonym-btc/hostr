@@ -19,6 +19,7 @@ restart_hostr() {
         "$REPO_ROOT/docker/data/albyhub" \
         "$REPO_ROOT/docker/data/relay" \
         "$REPO_ROOT/docker/data/blossom" \
+        "$REPO_ROOT/docker/data/signet" \
         "$REPO_ROOT/docker/data/escrow" \
         "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-412346" \
         "$REPO_ROOT/escrow/contracts/ignition/deployments/chain-31337" \
@@ -31,6 +32,7 @@ restart_hostr() {
         "$REPO_ROOT/docker/data/albyhub" \
         "$REPO_ROOT/docker/data/relay" \
         "$REPO_ROOT/docker/data/blossom" \
+        "$REPO_ROOT/docker/data/signet" \
         "$REPO_ROOT/docker/data/escrow"
 
     # nostr-rs-relay runs as a non-root user in its container and needs write

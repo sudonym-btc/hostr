@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
-import '../../../injection.dart';
 import '../../../util/stream_status.dart';
 import '../../../util/token_amount_ext.dart';
 import '../../auth/auth.dart';
@@ -106,7 +105,12 @@ class ZapPayOperation
       ],
       content: (params.comment ?? '').trim(),
     );
-    final ndk = getIt.isRegistered<Ndk>() ? getIt<Ndk>() : null;
+    Ndk? ndk;
+    try {
+      ndk = auth.service<Ndk>();
+    } catch (_) {
+      ndk = null;
+    }
     final activeNdkPubkey = ndk?.accounts.getPublicKey();
     final zapRequest = activeNdkPubkey == activeKeyPair.publicKey && ndk != null
         ? await ndk.accounts.sign(unsignedZapRequest)

@@ -14,6 +14,7 @@ jobs:
       sdk: ${{ steps.filter.outputs.sdk }}
       app: ${{ steps.filter.outputs.app }}
       escrow: ${{ steps.filter.outputs.escrow }}
+      mcp: ${{ steps.filter.outputs.mcp }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -22,6 +23,7 @@ jobs:
           filters: |
             docker_root:
               - 'docker-compose*.yml'
+              - 'compose*.yaml'
               - 'docker/**'
               - 'scripts/**'
               - 'Dockerfile'
@@ -42,6 +44,9 @@ jobs:
             escrow:
               - 'escrow/**'
               - 'hostr_sdk/**'
+              - '.github/workflows/ci.yaml'
+            mcp:
+              - 'ai/mcp-server/**'
               - '.github/workflows/ci.yaml'
 
   # ── 2. hostr_sdk tests (unit + Docker integration) ─────────────────────────
@@ -256,11 +261,38 @@ jobs:
         run: dart analyze
         working-directory: escrow
 
-  # ── 5. Quality gate — blocks release if any required test failed ────────────
+  # ── 5. MCP server checks ───────────────────────────────────────────────────
+  test_mcp:
+    name: Test — MCP server
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true' || needs.changes.outputs.docker_root == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ai/mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ai/mcp-server
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: ai/mcp-server
+
+      - name: Build
+        run: npm run build
+        working-directory: ai/mcp-server
+
+  # ── 6. Quality gate — blocks release if any required test failed ────────────
   # Jobs that were skipped (no changes) are treated as passing.
   quality_gate:
     name: Quality Gate
-    needs: [test_sdk, test_app, test_escrow]
+    needs: [test_sdk, test_app, test_escrow, test_mcp]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -269,8 +301,9 @@ jobs:
           sdk="${{ needs.test_sdk.result }}"
           app="${{ needs.test_app.result }}"
           escrow="${{ needs.test_escrow.result }}"
+          mcp="${{ needs.test_mcp.result }}"
           failed=()
-          for entry in "sdk:$sdk" "app:$app" "escrow:$escrow"; do
+          for entry in "sdk:$sdk" "app:$app" "escrow:$escrow" "mcp:$mcp"; do
             name="${entry%%:*}"
             result="${entry##*:}"
             if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
@@ -281,9 +314,9 @@ jobs:
             echo "❌ Failed jobs: ${failed[*]}"
             exit 1
           fi
-            echo "✅ Quality gate passed (sdk=$sdk, app=$app, escrow=$escrow)"
+            echo "✅ Quality gate passed (sdk=$sdk, app=$app, escrow=$escrow, mcp=$mcp)"
 
-          # ── 6. Semantic release (main only, after gate passes) ─────────────────────
+          # ── 7. Semantic release (main only, after gate passes) ─────────────────────
   release:
     name: Release
     needs: quality_gate
@@ -326,7 +359,7 @@ jobs:
             echo "new_release=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # ── 7. Build app artifacts (only when a new release was published) ─────────
+  # ── 8. Build app artifacts (only when a new release was published) ─────────
   build:
     name: Build Apps
     needs: release
@@ -334,7 +367,7 @@ jobs:
     uses: ./.github/workflows/app_build.yaml
     secrets: inherit
 
-  # ── 8. Docker images → Artifact Registry (only when a new release was published)
+  # ── 9. Docker images → Artifact Registry (only when a new release was published)
   docker:
     name: Docker Build & Push
     needs: release

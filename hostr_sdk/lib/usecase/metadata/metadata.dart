@@ -66,20 +66,18 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
        super(kind: Metadata.kKind);
 
   @override
-  Future<List<RelayBroadcastResponse>> upsert(ProfileMetadata event) =>
-      logger.span('upsert', () async {
-        final result = await super.upsert(event);
-        await _ndk.config.cache.saveMetadata(event.metadata);
-        // Fire-and-forget: ensure all user config is up-to-date now that
-        // the profile has been saved and relays are connected.
-        final pubkey = event.pubKey;
-        if (pubkey.isNotEmpty) {
-          ensureSellerConfig(pubkey).catchError((e) {
-            logger.e('ensureSellerConfig failed: $e');
-          });
-        }
-        return result;
+  Future<void> afterUpsert(UpsertResult<ProfileMetadata> result) async {
+    final event = result.event;
+    await _ndk.config.cache.saveMetadata(event.metadata);
+    // Fire-and-forget: ensure all user config is up-to-date now that
+    // the profile has been saved and relays are connected.
+    final pubkey = event.pubKey;
+    if (pubkey.isNotEmpty) {
+      ensureSellerConfig(pubkey).catchError((e) {
+        logger.e('ensureSellerConfig failed: $e');
       });
+    }
+  }
 
   Future<ProfileMetadata?> loadMetadata(
     String pubkey, {

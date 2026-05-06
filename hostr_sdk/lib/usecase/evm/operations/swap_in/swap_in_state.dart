@@ -246,6 +246,7 @@ final class SwapInPaymentProgress extends SwapInState {
     'isTerminal': false,
     'updatedAt': DateTime.now().toIso8601String(),
     ...data.toJson(),
+    if (paymentState != null) 'paymentState': paymentState!.toJson(),
   };
 }
 

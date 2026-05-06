@@ -43,12 +43,19 @@ class _FakeRequests extends Fake implements Requests {
   Ndk get ndk => _ndk;
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
-    broadcastedEvents.add(event);
-    return [_successfulBroadcastResponse()];
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    broadcastedEvents.add(eventToBroadcast);
+    return BroadcastResult(
+      event: eventToBroadcast,
+      responses: [_successfulBroadcastResponse()],
+    );
   }
 
   @override

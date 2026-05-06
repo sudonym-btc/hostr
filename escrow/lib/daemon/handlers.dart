@@ -65,8 +65,6 @@ class DaemonHandler {
   }
 
   Future<Map<String, dynamic>> _listTrades(json_rpc.Parameters params) async {
-    await _reconcileFundedTrades();
-
     final trades = daemon.trades.values.toList()
       ..sort((a, b) {
         // Pending (funded) first, then newest chain event descending.
@@ -80,21 +78,60 @@ class DaemonHandler {
         }
         return b.updatedAt.compareTo(a.updatedAt);
       });
+    final tradeJson = await Future.wait(trades.map(_snapshotListJson));
     return {
-      'trades': trades.map((t) {
-        final json = _snapshotJson(t);
-        json['disputed'] = false;
-        // Enrich with symbol, which requires chain config knowledge.
-        json['tokenSymbol'] = _resolveTokenSymbol(
-          json['tokenAddress'] as String,
-        );
-        return json;
-      }).toList(),
+      'source': 'daemon.trades',
+      'count': tradeJson.length,
+      'trades': tradeJson,
     };
   }
 
   Map<String, dynamic> _snapshotJson(TradeSnapshot snapshot) {
     return snapshot.toJson();
+  }
+
+  Future<Map<String, dynamic>> _snapshotListJson(
+    TradeSnapshot snapshot,
+  ) async {
+    final json = _snapshotJson(snapshot);
+    final tokenAddress = json['tokenAddress'] as String;
+    final tokenSymbol = _resolveTokenSymbol(tokenAddress);
+    json['disputed'] = false;
+    json['tokenSymbol'] = tokenSymbol;
+    json['amountDisplay'] = _tokenAmountDisplay(snapshot.amount);
+    json['participants'] = await _resolveTradeParticipants(
+      snapshot.tradeId,
+      cachedOnly: true,
+    );
+    return json;
+  }
+
+  String _tokenAmountDisplay(TokenAmount amount) {
+    final tokenAddress = amount.token.address;
+    final symbol = _resolveTokenSymbol(tokenAddress);
+    final denomination = _resolveTokenDenomination(tokenAddress);
+    if (denomination == 'USD') {
+      final decimal = amount.toDecimalString(maxDecimals: 2);
+      return '\$${decimal.replaceFirst(RegExp(r'\.00$'), '')}';
+    }
+    final decimal = _trimDecimal(amount.toDecimalString(maxDecimals: 8));
+    return '$decimal $symbol';
+  }
+
+  String _resolveTokenDenomination(String tokenAddress) {
+    const zeroAddr = '0x0000000000000000000000000000000000000000';
+    if (tokenAddress.toLowerCase() == zeroAddr) {
+      return daemon.context.configuredChain.config.nativeDenomination;
+    }
+    return daemon.context.configuredChain.config
+            .tokenByAddress(tokenAddress)
+            ?.denomination ??
+        _resolveTokenSymbol(tokenAddress);
+  }
+
+  String _trimDecimal(String value) {
+    final trimmed = value.replaceFirst(RegExp(r'\.?0+$'), '');
+    return trimmed.isEmpty || trimmed == '-' ? '0' : trimmed;
   }
 
   Future<Map<String, dynamic>> _snapshotDetailJson(
@@ -176,8 +213,13 @@ class DaemonHandler {
   }
 
   Future<Map<String, dynamic>?> _resolveTradeParticipants(
-      String tradeId) async {
-    final resolved = await _resolveTradeParticipantSet(tradeId);
+    String tradeId, {
+    bool cachedOnly = false,
+  }) async {
+    final resolved = await _resolveTradeParticipantSet(
+      tradeId,
+      cachedOnly: cachedOnly,
+    );
     if (resolved == null) return null;
 
     final buyerPubkey = resolved.resolvedParticipantPubkeyForRole('buyer');
@@ -220,9 +262,13 @@ class DaemonHandler {
   }
 
   Future<ResolvedReservationGroupParticipants?> _resolveTradeParticipantSet(
-    String tradeId,
-  ) async {
-    final group = await _loadTradeReservationGroup(tradeId);
+    String tradeId, {
+    bool cachedOnly = false,
+  }) async {
+    final group = await _loadTradeReservationGroup(
+      tradeId,
+      cachedOnly: cachedOnly,
+    );
     if (group == null) return null;
 
     final escrowKeyPair = hostr.auth.activeKeyPair;
@@ -236,7 +282,10 @@ class DaemonHandler {
     ).resolve(group);
   }
 
-  Future<ReservationGroup?> _loadTradeReservationGroup(String tradeId) async {
+  Future<ReservationGroup?> _loadTradeReservationGroup(
+    String tradeId, {
+    bool cachedOnly = false,
+  }) async {
     for (final group in daemon.reservationGroups.values) {
       try {
         if (group.tradeId == tradeId) return group;
@@ -244,6 +293,8 @@ class DaemonHandler {
         // Ignore incomplete groups; we'll fall back to a direct query below.
       }
     }
+
+    if (cachedOnly) return null;
 
     final reservations = await hostr.reservations.getByTradeId(tradeId);
     if (reservations.isEmpty) return null;
@@ -350,16 +401,6 @@ class DaemonHandler {
     }
 
     return {'txHash': '$txHash'};
-  }
-
-  Future<void> _reconcileFundedTrades() async {
-    final funded = daemon.trades.values
-        .where((trade) => trade.status == TradeStatus.funded)
-        .toList(growable: false);
-
-    for (final snapshot in funded) {
-      await _reconcileTradeSnapshot(snapshot);
-    }
   }
 
   Future<TradeSnapshot> _reconcileTradeSnapshot(TradeSnapshot snapshot) async {

@@ -6,7 +6,6 @@ import 'package:ndk/ndk.dart' show Nip01EventModel;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../config.dart';
-import '../../injection.dart';
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
@@ -35,6 +34,8 @@ class PaymentProofOrchestrator {
   final Reservations _reservations;
   final Listings _listings;
   final MetadataUseCase _metadata;
+  final HostrConfig? _config;
+  final TradeAccountAllocator? _tradeAccountAllocator;
   final CustomLogger _logger;
 
   final Set<String> _processedTradeIds = {};
@@ -51,12 +52,16 @@ class PaymentProofOrchestrator {
     required Listings listings,
     required MetadataUseCase metadata,
     required CustomLogger logger,
+    HostrConfig? config,
+    TradeAccountAllocator? tradeAccountAllocator,
   }) : _userSubs = userSubs,
        _threads = threads,
        _auth = auth,
        _reservations = reservations,
        _listings = listings,
        _metadata = metadata,
+       _config = config,
+       _tradeAccountAllocator = tradeAccountAllocator,
        _logger = logger.scope('payment-proof');
 
   Future<void> start() => _logger.span('start', () async {
@@ -115,11 +120,13 @@ class PaymentProofOrchestrator {
 
   Future<void> publishEscrowProofForCompletedSwap({
     required String tradeId,
+    Iterable<String> participants = const [],
     required String transactionHash,
     required EscrowServiceSelected escrowService,
   }) => _logger.span('publishEscrowProofForCompletedSwap', () async {
     await _publishProofForTrade(
       tradeId: tradeId,
+      participants: participants,
       source: 'completed swap $transactionHash',
       buildProof: (listing, profile) => PaymentProof(
         listing: listing,
@@ -161,6 +168,7 @@ class PaymentProofOrchestrator {
 
   Future<void> _publishProofForTrade({
     required String tradeId,
+    Iterable<String> participants = const [],
     required String source,
     required _ProofBuilder buildProof,
   }) => _logger.span('_publishProofForTrade', () async {
@@ -185,7 +193,7 @@ class PaymentProofOrchestrator {
     // A funded payment without a uniquely resolved reservation thread is the
     // failure mode behind missing self-signed proofs, so keep this visible in
     // e2e logs instead of silently abandoning the publish.
-    final thread = _findThreadForTrade(tradeId);
+    final thread = _findThreadForTrade(tradeId, participants: participants);
     if (thread == null) {
       _logger.w(
         'PaymentProofOrchestrator: no unique thread found for trade $tradeId',
@@ -256,7 +264,7 @@ class PaymentProofOrchestrator {
       );
 
       try {
-        final show = getIt<HostrConfig>().showNotification;
+        final show = _config?.showNotification;
         if (show != null) {
           await show(
             id: tradeId.hashCode,
@@ -312,21 +320,48 @@ class PaymentProofOrchestrator {
     });
   }
 
-  Thread? _findThreadForTrade(String tradeId) =>
-      _logger.spanSync('_findThreadForTrade', () {
-        final matches = _threads.threads.values.where((thread) {
-          return thread.state.value.reservationRequests.any(
+  Thread? _findThreadForTrade(
+    String tradeId, {
+    Iterable<String> participants = const [],
+  }) => _logger.spanSync('_findThreadForTrade', () {
+    if (participants.isNotEmpty) {
+      final exact = _threads.findTradeThread(
+        tradeId: tradeId,
+        participants: participants,
+      );
+      if (exact != null &&
+          exact.state.value.reservationRequests.any(
             (request) => request.getDtag() == tradeId,
-          );
-        }).toList();
-        if (matches.length == 1) return matches.single;
-        if (matches.length > 1) {
-          _logger.w(
-            'PaymentProofOrchestrator: ambiguous threads for trade $tradeId',
-          );
-        }
-        return null;
-      });
+          )) {
+        return exact;
+      }
+    }
+
+    final matches = _threads.threads.values.where((thread) {
+      return thread.state.value.reservationRequests.any(
+        (request) => request.getDtag() == tradeId,
+      );
+    }).toList();
+    if (matches.length == 1) return matches.single;
+    final myPubkey = _auth.getActiveKey().publicKey;
+    final participantMatches = matches.where((thread) {
+      final request = thread.state.value.reservationRequests.lastWhere(
+        (request) => request.getDtag() == tradeId,
+      );
+      final sellerPubkey = getPubKeyFromAnchor(
+        request.parsedTags.listingAnchor,
+      );
+      return thread.anchor ==
+          Threads.conversationId(tradeId, [myPubkey, sellerPubkey]);
+    }).toList();
+    if (participantMatches.length == 1) return participantMatches.single;
+    if (matches.length > 1) {
+      _logger.w(
+        'PaymentProofOrchestrator: ambiguous threads for trade $tradeId',
+      );
+    }
+    return null;
+  });
 
   String _threadPayload(String threadId) =>
       Uri(scheme: 'hostr', host: 'thread', pathSegments: [threadId]).toString();
@@ -340,7 +375,8 @@ class PaymentProofOrchestrator {
     if (sellerPubkey == myPubkey) {
       return _auth.getActiveKey();
     }
-    final allocator = getIt<TradeAccountAllocator>();
+    final allocator =
+        _tradeAccountAllocator ?? _auth.service<TradeAccountAllocator>();
     final accountIndex = await allocator.findTradeAccountIndexByTradeId(
       tradeId,
     );

@@ -83,9 +83,8 @@ class IdentityClaimsUseCase extends CrudUseCase<IdentityClaims> {
       'ensureEvmAddress unsigned claim JSON: ${_nostrEventDebugJson(unsigned)}',
     );
 
-    final signed = IdentityClaims.fromNostrEvent(
-      await _auth.signEvent(unsigned),
-    );
+    final result = await upsert(unsigned);
+    final signed = result.event;
     logger.d('ensureEvmAddress signed claim: ${_identityClaimSummary(signed)}');
     logger.d(
       'ensureEvmAddress signed claim JSON: ${_nostrEventDebugJson(signed)}',
@@ -97,8 +96,6 @@ class IdentityClaimsUseCase extends CrudUseCase<IdentityClaims> {
         'id=${_shortHex(signed.id)} calculated=${_shortHex(calculatedId)}',
       );
     }
-    await requests.broadcast(event: signed, relays: _hostrRelays);
-    notifyUpdate(signed);
     return signed;
   });
 

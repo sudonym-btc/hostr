@@ -61,12 +61,18 @@ class _FakeRequests extends Fake implements Requests {
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
-    lastBroadcastEvent = event;
-    return [_successfulBroadcastResponse()];
+    lastBroadcastEvent = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    return BroadcastResult(
+      event: lastBroadcastEvent!,
+      responses: [_successfulBroadcastResponse()],
+    );
   }
 
   Future<void> dispose() async {

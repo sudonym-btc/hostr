@@ -11,6 +11,14 @@ bool shouldUseProcessH3Library() {
 }
 
 String? resolvePlatformDefaultH3LibraryPath() {
+  final explicit = Platform.environment['HOSTR_H3_LIBRARY_PATH'];
+  if (explicit != null && explicit.trim().isNotEmpty) {
+    return explicit.trim();
+  }
+
+  final besideExecutable = _resolveLibraryPathFromExecutableDir();
+  if (besideExecutable != null) return besideExecutable;
+
   if (Platform.isAndroid || Platform.isLinux) {
     return 'libh3.so';
   }
@@ -22,6 +30,52 @@ String? resolvePlatformDefaultH3LibraryPath() {
   }
   if (Platform.isWindows) {
     return 'h3.dll';
+  }
+  return null;
+}
+
+String? _resolveLibraryPathFromExecutableDir() {
+  final arch = currentCpuArch();
+  final exeDir = File(Platform.resolvedExecutable).parent.path;
+  final bundleDir = Directory(exeDir).parent.path;
+  final candidates = <String>[
+    if (Platform.isMacOS) ...[
+      if (arch == CpuArch.arm64) '$exeDir/native/macos/arm64/libh3.dylib',
+      if (arch == CpuArch.x64) '$exeDir/native/macos/x86_64/libh3.dylib',
+      '$exeDir/native/macos/libh3.dylib',
+      '$exeDir/lib/libh3.dylib',
+      '$exeDir/libh3.dylib',
+      if (arch == CpuArch.arm64) '$bundleDir/native/macos/arm64/libh3.dylib',
+      if (arch == CpuArch.x64) '$bundleDir/native/macos/x86_64/libh3.dylib',
+      '$bundleDir/native/macos/libh3.dylib',
+      '$bundleDir/lib/libh3.dylib',
+      '$bundleDir/libh3.dylib',
+    ],
+    if (Platform.isLinux) ...[
+      if (arch == CpuArch.arm64) '$exeDir/native/linux/arm64/libh3.so',
+      if (arch == CpuArch.x64) '$exeDir/native/linux/x86_64/libh3.so',
+      '$exeDir/native/linux/libh3.so',
+      '$exeDir/lib/libh3.so',
+      '$exeDir/libh3.so',
+      if (arch == CpuArch.arm64) '$bundleDir/native/linux/arm64/libh3.so',
+      if (arch == CpuArch.x64) '$bundleDir/native/linux/x86_64/libh3.so',
+      '$bundleDir/native/linux/libh3.so',
+      '$bundleDir/lib/libh3.so',
+      '$bundleDir/libh3.so',
+    ],
+    if (Platform.isWindows) ...[
+      if (arch == CpuArch.x64) '$exeDir/native/windows/x86_64/h3.dll',
+      '$exeDir/native/windows/h3.dll',
+      '$exeDir/h3.dll',
+      if (arch == CpuArch.x64) '$bundleDir/native/windows/x86_64/h3.dll',
+      '$bundleDir/native/windows/h3.dll',
+      '$bundleDir/lib/h3.dll',
+      '$bundleDir/h3.dll',
+    ],
+  ];
+
+  for (final candidate in candidates) {
+    if (File(candidate).existsSync()) return candidate;
   }
   return null;
 }

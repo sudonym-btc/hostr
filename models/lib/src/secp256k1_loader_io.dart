@@ -35,6 +35,15 @@ String? _platformLibraryFileName() {
 }
 
 String? _resolveBundledSecp256k1LibraryPath() {
+  final explicit = Platform.environment['HOSTR_SECP256K1_LIBRARY_PATH'];
+  if (explicit != null && explicit.trim().isNotEmpty) {
+    final file = File(explicit.trim());
+    if (file.existsSync()) return file.path;
+  }
+
+  final besideExecutable = _resolveSecp256k1PathFromExecutableDir();
+  if (besideExecutable != null) return besideExecutable;
+
   Uri? packageUri;
   try {
     packageUri = Isolate.resolvePackageUriSync(
@@ -80,5 +89,55 @@ String? _resolveBundledSecp256k1LibraryPath() {
     }
   }
 
+  return null;
+}
+
+String? _resolveSecp256k1PathFromExecutableDir() {
+  final exeDir = File(Platform.resolvedExecutable).parent.path;
+  final bundleDir = Directory(exeDir).parent.path;
+  final arch = currentCpuArch();
+  final candidates = <String>[
+    if (Platform.isMacOS) ...[
+      if (arch == CpuArch.arm64)
+        '$exeDir/native/macos/arm64/libsecp256k1.dylib',
+      if (arch == CpuArch.x64) '$exeDir/native/macos/x86_64/libsecp256k1.dylib',
+      '$exeDir/native/macos/libsecp256k1.dylib',
+      '$exeDir/lib/libsecp256k1.dylib',
+      '$exeDir/libsecp256k1.dylib',
+      if (arch == CpuArch.arm64)
+        '$bundleDir/native/macos/arm64/libsecp256k1.dylib',
+      if (arch == CpuArch.x64)
+        '$bundleDir/native/macos/x86_64/libsecp256k1.dylib',
+      '$bundleDir/native/macos/libsecp256k1.dylib',
+      '$bundleDir/lib/libsecp256k1.dylib',
+      '$bundleDir/libsecp256k1.dylib',
+    ],
+    if (Platform.isLinux || Platform.isAndroid) ...[
+      if (arch == CpuArch.arm64) '$exeDir/native/linux/arm64/libsecp256k1.so',
+      if (arch == CpuArch.x64) '$exeDir/native/linux/x86_64/libsecp256k1.so',
+      '$exeDir/native/linux/libsecp256k1.so',
+      '$exeDir/lib/libsecp256k1.so',
+      '$exeDir/libsecp256k1.so',
+      if (arch == CpuArch.arm64)
+        '$bundleDir/native/linux/arm64/libsecp256k1.so',
+      if (arch == CpuArch.x64) '$bundleDir/native/linux/x86_64/libsecp256k1.so',
+      '$bundleDir/native/linux/libsecp256k1.so',
+      '$bundleDir/lib/libsecp256k1.so',
+      '$bundleDir/libsecp256k1.so',
+    ],
+    if (Platform.isWindows) ...[
+      if (arch == CpuArch.x64) '$exeDir/native/windows/x86_64/secp256k1.dll',
+      '$exeDir/native/windows/secp256k1.dll',
+      '$exeDir/secp256k1.dll',
+      if (arch == CpuArch.x64) '$bundleDir/native/windows/x86_64/secp256k1.dll',
+      '$bundleDir/native/windows/secp256k1.dll',
+      '$bundleDir/lib/secp256k1.dll',
+      '$bundleDir/secp256k1.dll',
+    ],
+  ];
+
+  for (final candidate in candidates) {
+    if (File(candidate).existsSync()) return candidate;
+  }
   return null;
 }

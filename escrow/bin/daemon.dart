@@ -54,6 +54,7 @@ void main(List<String> arguments) async {
   await setupInjection(environment: environment, logger: logger);
   final hostr = getIt<Hostr>();
   await hostr.auth.signin(privateKey);
+  await hostr.accountSeedStore.ensureRemoteSeedPublished();
 
   // ── 1. Bootstrap + Monitor via SDK ────────────────────────────────────────
   final env = EnvConfig.forEnvironment(environment);

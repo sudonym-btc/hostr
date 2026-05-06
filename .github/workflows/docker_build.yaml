@@ -111,3 +111,11 @@ jobs:
             -t "${{ steps.meta.outputs.registry }}/app:latest" \
             -f app/Dockerfile.web .
           docker push "${{ steps.meta.outputs.registry }}/app" --all-tags
+
+      - name: Build & push MCP
+        run: |
+          docker build \
+            -t "${{ steps.meta.outputs.registry }}/mcp:${{ steps.meta.outputs.sha_tag }}" \
+            -t "${{ steps.meta.outputs.registry }}/mcp:latest" \
+            -f ai/mcp-server/Dockerfile .
+          docker push "${{ steps.meta.outputs.registry }}/mcp" --all-tags

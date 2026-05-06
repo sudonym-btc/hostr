@@ -2,7 +2,6 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 
 import '../../../../config.dart';
-import '../../../../injection.dart';
 import '../../../../util/main.dart';
 import '../../../auth/auth.dart';
 import '../../chain/evm_chain.dart';
@@ -45,19 +44,19 @@ abstract class SwapInOperation
     @factoryParam required this.params,
     SwapInState? initialState,
   }) : super(
-         store: getIt<OperationStateStore>(),
+         store: auth.service<OperationStateStore>(),
          logger: logger.scope('swap-in'),
          initialState: initialState ?? const SwapInInitialised(),
        ) {
     _autoWireNotifications();
-    getIt<SwapInTracker>().registerSwapIn(this);
+    auth.service<SwapInTracker>().registerSwapIn(this);
   }
 
   /// Auto-wires [onProgress] from [HostrConfig.showNotification] so that
   /// every swap — foreground or background — gets OS notifications
   /// without the caller having to set it manually.
   void _autoWireNotifications() {
-    final show = getIt<HostrConfig>().showNotification;
+    final show = auth.service<HostrConfig>().showNotification;
     if (show == null) return;
     onProgress = (id, message) =>
         show(id: id.hashCode, title: 'Hostr', body: message);

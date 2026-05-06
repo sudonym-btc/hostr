@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/crud.usecase.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon.dart';
@@ -118,9 +119,15 @@ class _FakeEscrows extends Fake implements Escrows {
   Future<List<EscrowService>> list(Filter f, {String? name}) async => [];
 
   @override
-  Future<List<RelayBroadcastResponse>> upsert(EscrowService event) async {
+  Future<UpsertResult<EscrowService>> upsert(
+    EscrowService event, {
+    NostrEventSigner? signer,
+  }) async {
     upserts.add(event);
-    return [_successfulBroadcastResponse()];
+    return UpsertResult(
+      event: event,
+      responses: [_successfulBroadcastResponse()],
+    );
   }
 }
 
@@ -206,12 +213,19 @@ class _FakeRequests extends Fake implements Requests {
   final broadcasts = <Nip01Event>[];
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
-    broadcasts.add(event);
-    return [_successfulBroadcastResponse()];
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    broadcasts.add(eventToBroadcast);
+    return BroadcastResult(
+      event: eventToBroadcast,
+      responses: [_successfulBroadcastResponse()],
+    );
   }
 }
 
