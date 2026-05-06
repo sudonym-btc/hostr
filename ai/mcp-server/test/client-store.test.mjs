@@ -148,6 +148,39 @@ test("listing cards turn Blossom hashes into visible absolute image URLs", () =>
   );
 });
 
+test("listing tool responses include result-level widget metadata", async () => {
+  const hash = "7d24fa683979cd913338f1945201382de81a4e5ead47537fde68808aaadf0908";
+  const result = {
+    ok: true,
+    data: {
+      listings: [
+        {
+          title: "Sunny Private Room",
+          type: "room",
+          active: true,
+          images: [hash],
+        },
+      ],
+    },
+  };
+
+  const response = await __testing.toolResponse(
+    {
+      blossomUploadUrl: "https://blossom.staging.hostr.network/upload",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.listings.list",
+    result,
+    false,
+  );
+
+  assert.equal(response._meta["openai/outputTemplate"], "ui://widget/listing-card.html");
+  assert.equal(response._meta["openai/widgetAccessible"], true);
+  assert.deepEqual(response._meta.ui, {
+    resourceUri: "ui://widget/listing-card.html",
+  });
+});
+
 test("profile card markdown stays compact and hides internals", () => {
   const result = {
     ok: true,
