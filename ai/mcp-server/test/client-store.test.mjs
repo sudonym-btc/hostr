@@ -181,6 +181,17 @@ test("listing tool responses include result-level widget metadata", async () => 
   });
 });
 
+test("payment widget stays silent without an external payment payload", () => {
+  assert.doesNotMatch(
+    __testing.paymentRequiredWidgetHtml,
+    /No external payment is required/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /document\.documentElement\.hidden = true/,
+  );
+});
+
 test("profile card markdown stays compact and hides internals", () => {
   const result = {
     ok: true,
