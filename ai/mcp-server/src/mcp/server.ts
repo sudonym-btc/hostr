@@ -1344,6 +1344,9 @@ const reservationCardResponseText = (
   ].join("\n\n");
 };
 
+const reservationCardsMarkdown = (cards: ReservationCardData[]): string =>
+  cards.map(reservationCard).join("\n\n---\n\n");
+
 const reservationCardsFromResult = (
   actionId: string,
   result: Record<string, unknown>,
@@ -2678,10 +2681,13 @@ const toolResponse = async (
   const errorInstructions =
     safeResult.ok === false ? errorAssistantInstructions(safeResult) : undefined;
   const safeNotices = notices.map(sanitizeNotice);
+  const presentationMarkdown = reservationCardDisplay
+    ? reservationCardsMarkdown(reservationCards)
+    : displayMarkdown;
   const contentText = listingCardDisplay
     ? listingCardResponseText(displayMarkdown, listingCards)
     : reservationCardDisplay
-      ? reservationCardResponseText(displayMarkdown, reservationCards)
+      ? reservationCardResponseText(presentationMarkdown, reservationCards)
       : profileCardDisplay
         ? profileCardResponseText(displayMarkdown)
         : threadViewDisplay
@@ -2814,7 +2820,7 @@ const toolResponse = async (
     isError,
     structuredContent: {
       ...safeResult,
-      displayMarkdown,
+      displayMarkdown: presentationMarkdown,
       ...(safeNotices.length > 0 ? { hostrNotices: safeNotices } : {}),
       ...(paymentAssistantInstructions
         ? { assistantInstructions: paymentAssistantInstructions }
@@ -5314,4 +5320,6 @@ export const handleMcpRequest =
 export const __testing = {
   anchorToNaddr,
   listingRouteUrl,
+  reservationCardsFromResult,
+  reservationCardsMarkdown,
 };
