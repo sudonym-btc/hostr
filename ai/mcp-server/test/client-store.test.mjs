@@ -68,3 +68,42 @@ test("listing links use the Flutter hash route with encoded naddrs", () => {
     `https://staging.hostr.network/#/listing/${naddrFromAnchor}`,
   );
 });
+
+test("trip collection lookup items render compact trip cards", () => {
+  const result = {
+    ok: true,
+    data: {
+      mode: "trips",
+      count: 1,
+      results: [
+        {
+          found: true,
+          mode: "trips",
+          tradeId: "trade-secret",
+          group: {
+            tradeId: "trade-secret",
+            listingTitle: "San Salvador Modern Apartment",
+            buyerPubkey: "fb5bf2daa32fe7ffa72521fa475fe409f1162cf605baf5ee52bd6651beabd7f7",
+            stage: "commit",
+            start: "2026-05-07T00:00:00.000Z",
+            end: "2026-05-08T00:00:00.000Z",
+          },
+          participants: {
+            profiles: {
+              buyer: { name: "Staging Guest" },
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  const cards = __testing.reservationCardsFromResult("hostr.trips.list", result);
+  const markdown = __testing.reservationCardsMarkdown(cards);
+
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].type, "trip-card");
+  assert.match(markdown, /^### Trip/);
+  assert.match(markdown, /\*\*Stay:\*\* San Salvador Modern Apartment/);
+  assert.doesNotMatch(markdown, /trade-secret|Guest:|Status: commit/);
+});
