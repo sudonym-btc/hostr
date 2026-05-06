@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:logger/logger.dart';
 
 import 'telemetry.dart';
+import 'trace_context.dart';
 
 /// A [LogOutput] that uses [developer.log] which does NOT truncate messages
 /// (unlike [print] which cuts off at ~1024 chars on some platforms).
@@ -95,13 +96,14 @@ class CustomLogger extends Logger {
   }) async {
     final spanName = '$_resolvedTag.$name';
     final stopwatch = Stopwatch()..start();
-    _logSpanStart(spanName, attributes: attributes);
+    final spanAttributes = _withTraceAttributes(attributes);
+    _logSpanStart(spanName, attributes: spanAttributes);
 
     try {
       final result = await telemetry.runInSpan(
         spanName,
         fn,
-        attributes: attributes,
+        attributes: spanAttributes,
       );
       _logSpanEnd(spanName, elapsed: stopwatch.elapsed);
       return result;
@@ -116,6 +118,12 @@ class CustomLogger extends Logger {
     }
   }
 
+  Map<String, Object>? _withTraceAttributes(Map<String, Object>? attributes) {
+    final traceId = TraceContext.currentTraceId;
+    if (traceId == null) return attributes;
+    return {...?attributes, 'trace.id': traceId};
+  }
+
   /// Synchronous variant of [span].
   T spanSync<T>(
     String name,
@@ -124,13 +132,14 @@ class CustomLogger extends Logger {
   }) {
     final spanName = '$_resolvedTag.$name';
     final stopwatch = Stopwatch()..start();
-    _logSpanStart(spanName, attributes: attributes);
+    final spanAttributes = _withTraceAttributes(attributes);
+    _logSpanStart(spanName, attributes: spanAttributes);
 
     try {
       final result = telemetry.runInSpanSync(
         spanName,
         fn,
-        attributes: attributes,
+        attributes: spanAttributes,
       );
       _logSpanEnd(spanName, elapsed: stopwatch.elapsed);
       return result;

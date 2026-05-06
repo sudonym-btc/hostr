@@ -6,6 +6,7 @@ import 'dart:io';
 import '../actions/hostr_actions.dart';
 import '../context/hostr_cli_context.dart';
 import '../output/result.dart';
+import 'cancellation.dart';
 import 'hostr_daemon.dart';
 
 class HostrDaemonStdioServer {
@@ -32,6 +33,7 @@ class HostrDaemonStdioServer {
   late final _AsyncSemaphore _requestSlots = _AsyncSemaphore(
     maxConcurrentRequests,
   );
+  final _cancellations = <String, HostrCancellationToken>{};
 
   Future<void> serve() async {
     final inFlight = <Future<void>>{};
@@ -51,6 +53,9 @@ class HostrDaemonStdioServer {
   }
 
   Future<void> _handleLineConcurrent(String line) async {
+    if (await _tryHandleCancelLine(line)) {
+      return;
+    }
     final queuedAt = DateTime.now();
     await _requestSlots.acquire();
     try {
@@ -62,6 +67,9 @@ class HostrDaemonStdioServer {
 
   Future<void> _handleLine(String line, {required DateTime queuedAt}) async {
     Object? id;
+    String? traceId;
+    HostrCancellationToken? cancellationToken;
+    String? requestId;
     try {
       final decoded = jsonDecode(line);
       if (decoded is! Map) {
@@ -72,15 +80,24 @@ class HostrDaemonStdioServer {
       }
       final request = Map<String, dynamic>.from(decoded);
       id = request['id'];
+      requestId = id?.toString();
       final method = request['method']?.toString();
       final params = request['params'] is Map
           ? Map<String, dynamic>.from(request['params'])
           : <String, dynamic>{};
+      traceId =
+          _optionalString(request, 'traceId') ??
+          _optionalString(params, 'traceId');
       final stopwatch = Stopwatch()..start();
+      if (requestId != null && requestId.isNotEmpty) {
+        cancellationToken = HostrCancellationToken();
+        _cancellations[requestId] = cancellationToken;
+      }
       final queueMs = DateTime.now().difference(queuedAt).inMilliseconds;
       _log('request', {
         'id': id,
         'method': method,
+        'traceId': ?traceId,
         if (queueMs > 0) 'queueMs': queueMs,
         'params': _redactForLog(params),
       });
@@ -97,6 +114,8 @@ class HostrDaemonStdioServer {
                 base64: _requiredString(params, 'base64'),
                 mime: _optionalString(params, 'mime'),
                 filename: _optionalString(params, 'filename'),
+                traceId: traceId,
+                cancellationToken: cancellationToken,
               )
               .then((result) => result.toJson()),
         'startOAuthNostrConnect' =>
@@ -104,6 +123,8 @@ class HostrDaemonStdioServer {
               .startOAuthNostrConnect(
                 requestId: _requiredString(params, 'requestId'),
                 regenerate: params['regenerate'] == true,
+                traceId: traceId,
+                cancellationToken: cancellationToken,
               )
               .then((result) => result.toJson()),
         'completeOAuthNostrConnect' =>
@@ -111,6 +132,8 @@ class HostrDaemonStdioServer {
               .completeOAuthNostrConnect(
                 requestId: _requiredString(params, 'requestId'),
                 timeoutSeconds: _optionalInt(params, 'timeoutSeconds') ?? 180,
+                traceId: traceId,
+                cancellationToken: cancellationToken,
               )
               .then((result) => result.toJson()),
         'callAction' =>
@@ -119,6 +142,8 @@ class HostrDaemonStdioServer {
                 pubkey: _optionalString(params, 'pubkey'),
                 action: _requiredString(params, 'action'),
                 notificationToken: _optionalString(params, 'notificationToken'),
+                traceId: traceId,
+                cancellationToken: cancellationToken,
                 input: params['input'] is Map
                     ? Map<String, dynamic>.from(params['input'])
                     : <String, dynamic>{},
@@ -129,17 +154,20 @@ class HostrDaemonStdioServer {
           'Unknown Hostr daemon method "$method".',
         ),
       };
+      cancellationToken?.throwIfCancelled();
 
       _log('response', {
         'id': id,
         'method': method,
+        'traceId': ?traceId,
         'elapsedMs': stopwatch.elapsedMilliseconds,
         'result': _redactForLog(result),
       });
-      _write({'id': id, 'result': result});
+      _write({'id': id, 'traceId': ?traceId, 'result': result});
     } on HostrCliException catch (error) {
       _log('error', {
         'id': id,
+        'traceId': ?traceId,
         'code': error.code,
         'message': error.message,
         if (error.path != null) 'path': error.path,
@@ -148,6 +176,7 @@ class HostrDaemonStdioServer {
       });
       _write({
         'id': id,
+        'traceId': ?traceId,
         'error': {
           'code': error.code,
           'message': error.message,
@@ -157,16 +186,74 @@ class HostrDaemonStdioServer {
           if (error.details != null) 'details': error.details,
         },
       });
-    } catch (error) {
-      _log('unexpectedError', {'id': id, 'message': error.toString()});
+    } on HostrCancellationException catch (error) {
+      _log('cancelled', {
+        'id': id,
+        'traceId': ?traceId,
+        'message': error.message,
+      });
       _write({
         'id': id,
+        'traceId': ?traceId,
+        'error': {
+          'code': 'request_cancelled',
+          'message': error.message,
+          'retryable': false,
+        },
+      });
+    } catch (error) {
+      _log('unexpectedError', {
+        'id': id,
+        'traceId': ?traceId,
+        'message': error.toString(),
+      });
+      _write({
+        'id': id,
+        'traceId': ?traceId,
         'error': {
           'code': 'unexpected_error',
           'message': error.toString(),
           'retryable': false,
         },
       });
+    } finally {
+      if (requestId != null) {
+        _cancellations.remove(requestId);
+      }
+    }
+  }
+
+  Future<bool> _tryHandleCancelLine(String line) async {
+    try {
+      final decoded = jsonDecode(line);
+      if (decoded is! Map) return false;
+      final request = Map<String, dynamic>.from(decoded);
+      if (request['method']?.toString() != 'cancel') return false;
+      final id = request['id'];
+      final params = request['params'] is Map
+          ? Map<String, dynamic>.from(request['params'])
+          : <String, dynamic>{};
+      final traceId =
+          _optionalString(request, 'traceId') ??
+          _optionalString(params, 'traceId');
+      final requestId = _requiredString(params, 'requestId');
+      final token = _cancellations[requestId];
+      token?.cancel();
+      _log('cancel', {
+        'id': id,
+        'traceId': ?traceId,
+        'requestId': requestId,
+        'found': token != null,
+      });
+      _write({
+        'id': id,
+        'traceId': ?traceId,
+        'result': {'cancelled': token != null, 'requestId': requestId},
+      });
+      return true;
+    } catch (error) {
+      _log('cancelError', {'message': error.toString()});
+      return false;
     }
   }
 

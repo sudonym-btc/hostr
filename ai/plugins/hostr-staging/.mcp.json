@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "hostr-staging": {
+      "url": "https://ai.staging.hostr.network/mcp"
+    }
+  }
+}

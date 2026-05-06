@@ -3,9 +3,11 @@ import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 import type { AppConfig } from "../config.js";
 import type { HostrActionId } from "../generated/hostr-actions.js";
+import { redactForLog, writeStructuredLog } from "../logging.js";
 
 type PendingRequest = {
   method: string;
+  traceId?: string;
   startedAt: number;
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
@@ -75,12 +77,14 @@ export class HostrDaemonClient {
     input: Record<string, unknown>;
     notificationToken?: string;
     timeoutMs?: number;
+    traceId?: string;
   }): Promise<HostrDaemonCallResult> {
-    const { timeoutMs, ...requestParams } = params;
+    const { timeoutMs, traceId, ...requestParams } = params;
     return (await this.request(
       "callAction",
       requestParams,
       timeoutMs,
+      traceId,
     )) as HostrDaemonCallResult;
   }
 
@@ -91,12 +95,13 @@ export class HostrDaemonClient {
     return () => this.notifications.off("notification", listener);
   }
 
-  async describe(): Promise<unknown> {
-    return this.request("describe", {});
+  async describe(options: { traceId?: string; timeoutMs?: number } = {}): Promise<unknown> {
+    return this.request("describe", {}, options.timeoutMs, options.traceId);
   }
 
-  async visibleActions(params: { pubkey?: string }): Promise<unknown> {
-    return this.request("visibleActions", params);
+  async visibleActions(params: { pubkey?: string; traceId?: string }): Promise<unknown> {
+    const { traceId, ...requestParams } = params;
+    return this.request("visibleActions", requestParams, undefined, traceId);
   }
 
   async uploadImage(params: {
@@ -104,17 +109,28 @@ export class HostrDaemonClient {
     base64: string;
     mime?: string;
     filename?: string;
+    traceId?: string;
   }): Promise<HostrImageUploadResult> {
-    return (await this.request("uploadImage", params)) as HostrImageUploadResult;
+    const { traceId, ...requestParams } = params;
+    return (await this.request(
+      "uploadImage",
+      requestParams,
+      undefined,
+      traceId,
+    )) as HostrImageUploadResult;
   }
 
   async startOAuthNostrConnect(params: {
     requestId: string;
     regenerate?: boolean;
+    traceId?: string;
   }): Promise<OAuthNostrConnectStartResult> {
+    const { traceId, ...requestParams } = params;
     return (await this.request(
       "startOAuthNostrConnect",
-      params,
+      requestParams,
+      undefined,
+      traceId,
     )) as OAuthNostrConnectStartResult;
   }
 
@@ -122,12 +138,14 @@ export class HostrDaemonClient {
     requestId: string;
     timeoutSeconds?: number;
     timeoutMs?: number;
+    traceId?: string;
   }): Promise<OAuthNostrConnectCompleteResult> {
-    const { timeoutMs, ...requestParams } = params;
+    const { timeoutMs, traceId, ...requestParams } = params;
     return (await this.request(
       "completeOAuthNostrConnect",
       requestParams,
       timeoutMs,
+      traceId,
     )) as OAuthNostrConnectCompleteResult;
   }
 
@@ -160,11 +178,12 @@ export class HostrDaemonClient {
     method: string,
     params: unknown,
     timeoutMs = this.config.hostrDaemonTimeoutMs,
+    traceId?: string,
   ): Promise<unknown> {
     const child = this.ensureStarted();
     const id = String(this.nextId++);
-    const payload = JSON.stringify({ id, method, params });
-    this.log("request", { id, method, params: redactForLog(params) });
+    const payload = JSON.stringify({ id, method, traceId, params });
+    this.log("request", { id, method, traceId, params: redactForLog(params) });
 
     const response = new Promise<unknown>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -172,12 +191,15 @@ export class HostrDaemonClient {
         this.log("timeout", {
           id,
           method,
+          traceId,
           timeoutMs,
         });
+        this.cancelDaemonRequest(id, method, traceId);
         reject(new Error(`Hostr daemon request timed out: ${method}`));
       }, timeoutMs);
       this.pending.set(id, {
         method,
+        traceId,
         startedAt: Date.now(),
         resolve,
         reject,
@@ -276,6 +298,13 @@ export class HostrDaemonClient {
       if (typeof message.method === "string") {
         this.log("notification", {
           method: message.method,
+          traceId: stringValue(
+            message.params &&
+              typeof message.params === "object" &&
+              !Array.isArray(message.params)
+              ? (message.params as Record<string, unknown>).traceId
+              : undefined,
+          ),
           params: redactForLog(message.params),
         });
         this.notifications.emit("notification", {
@@ -298,6 +327,7 @@ export class HostrDaemonClient {
       this.log("response-error", {
         id,
         method: pending.method,
+        traceId: pending.traceId,
         elapsedMs,
         error: redactForLog(message.error),
       });
@@ -314,6 +344,7 @@ export class HostrDaemonClient {
     this.log("response", {
       id,
       method: pending.method,
+      traceId: pending.traceId,
       elapsedMs,
       result: redactForLog(message.result),
     });
@@ -321,39 +352,42 @@ export class HostrDaemonClient {
   }
 
   private log(event: string, data: Record<string, unknown>): void {
-    process.stderr.write(
-      `[hostr-daemon-client] ${JSON.stringify({ event, ...data })}\n`,
-    );
+    writeStructuredLog("debug", `daemon.${event}`, data);
+  }
+
+  private cancelDaemonRequest(
+    requestId: string,
+    method: string,
+    traceId?: string,
+  ): void {
+    const child = this.child;
+    if (!child || child.killed) {
+      return;
+    }
+    const cancelId = `cancel-${requestId}`;
+    const payload = JSON.stringify({
+      id: cancelId,
+      method: "cancel",
+      traceId,
+      params: { requestId },
+    });
+    this.log("cancel", { id: cancelId, requestId, method, traceId });
+    child.stdin.write(`${payload}\n`);
   }
 }
 
 export const createHostrDaemonClient = (config: AppConfig) =>
   new HostrDaemonClient(config);
 
-const sensitiveKeyPattern =
-  /(secret|token|authorization|cookie|password|private|nsec|jwt|qrImage|nostrconnect)/i;
-
-const redactForLog = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => redactForLog(item));
-  }
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-        key,
-        sensitiveKeyPattern.test(key) ? "[redacted]" : redactForLog(entry),
-      ]),
-    );
-  }
-  if (typeof value === "string" && value.length > 1_000) {
-    return `${value.slice(0, 1_000)}... [truncated ${value.length} chars]`;
-  }
-  return value;
-};
-
 const writePrefixedLines = (prefix: string, text: string): void => {
   for (const line of text.split(/\r?\n/)) {
     if (line.length === 0) continue;
-    process.stderr.write(`${prefix} ${line}\n`);
+    writeStructuredLog("debug", "daemon.child.stderr", {
+      prefix,
+      line: redactForLog(line),
+    });
   }
 };
+
+const stringValue = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim() !== "" ? value : undefined;

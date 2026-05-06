@@ -15,6 +15,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       escrow: ${{ steps.filter.outputs.escrow }}
       mcp: ${{ steps.filter.outputs.mcp }}
+      plugins: ${{ steps.filter.outputs.plugins }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -47,6 +48,11 @@ jobs:
               - '.github/workflows/ci.yaml'
             mcp:
               - 'ai/mcp-server/**'
+              - '.github/workflows/ci.yaml'
+            plugins:
+              - 'ai/plugins/**'
+              - '.agents/plugins/**'
+              - 'scripts/validate-hostr-plugins.mjs'
               - '.github/workflows/ci.yaml'
 
   # ── 2. hostr_sdk tests (unit + Docker integration) ─────────────────────────
@@ -288,11 +294,133 @@ jobs:
         run: npm run build
         working-directory: ai/mcp-server
 
+  mcp_compile:
+    name: Compile — ai/mcp-server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ai/mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ai/mcp-server
+
+      - name: Typecheck and build
+        run: npm run typecheck && npm run build
+        working-directory: ai/mcp-server
+
+  hostr_plugins:
+    name: Validate — Hostr Codex plugins
+    needs: changes
+    if: needs.changes.outputs.plugins == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Validate plugin parity
+        run: node scripts/validate-hostr-plugins.mjs
+
+  dart_static:
+    name: Analyze — hostr_cli + hostr_sdk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.10.8'
+
+      - name: Install hostr_sdk dependencies
+        run: dart pub get
+        working-directory: hostr_sdk
+
+      - name: Install hostr_cli dependencies
+        run: dart pub get
+        working-directory: hostr_cli
+
+      - name: Analyze focused Dart packages
+        run: dart analyze hostr_cli hostr_sdk
+
+  focused_unit_tests:
+    name: Focused Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ai/mcp-server/package-lock.json
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.10.8'
+
+      - name: MCP unit tests
+        run: |
+          npm ci
+          npm run test:unit
+        working-directory: ai/mcp-server
+
+      - name: hostr_sdk trace unit test
+        run: |
+          dart pub get
+          dart test test/unit/trace_context_test.dart
+        working-directory: hostr_sdk
+
+      - name: hostr_cli MCP contract unit tests
+        run: |
+          dart pub get
+          dart test test/unit/hostr_actions_test.dart
+        working-directory: hostr_cli
+
+  docker_smoke:
+    name: Docker Image Build Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build MCP image
+        run: |
+          docker build \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --build-arg BUILD_DATE="$(date -u +%FT%TZ)" \
+            --build-arg IMAGE_SOURCE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            -t hostr-mcp-smoke:${GITHUB_SHA::7} \
+            -f ai/mcp-server/Dockerfile .
+
   # ── 6. Quality gate — blocks release if any required test failed ────────────
   # Jobs that were skipped (no changes) are treated as passing.
   quality_gate:
     name: Quality Gate
-    needs: [test_sdk, test_app, test_escrow, test_mcp]
+    needs:
+      [
+        test_sdk,
+        test_app,
+        test_escrow,
+        test_mcp,
+        mcp_compile,
+        hostr_plugins,
+        dart_static,
+        focused_unit_tests,
+        docker_smoke,
+      ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -302,8 +430,13 @@ jobs:
           app="${{ needs.test_app.result }}"
           escrow="${{ needs.test_escrow.result }}"
           mcp="${{ needs.test_mcp.result }}"
+          mcp_compile="${{ needs.mcp_compile.result }}"
+          hostr_plugins="${{ needs.hostr_plugins.result }}"
+          dart_static="${{ needs.dart_static.result }}"
+          focused_unit_tests="${{ needs.focused_unit_tests.result }}"
+          docker_smoke="${{ needs.docker_smoke.result }}"
           failed=()
-          for entry in "sdk:$sdk" "app:$app" "escrow:$escrow" "mcp:$mcp"; do
+          for entry in "sdk:$sdk" "app:$app" "escrow:$escrow" "mcp:$mcp" "mcp_compile:$mcp_compile" "hostr_plugins:$hostr_plugins" "dart_static:$dart_static" "focused_unit_tests:$focused_unit_tests" "docker_smoke:$docker_smoke"; do
             name="${entry%%:*}"
             result="${entry##*:}"
             if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
@@ -314,7 +447,7 @@ jobs:
             echo "❌ Failed jobs: ${failed[*]}"
             exit 1
           fi
-            echo "✅ Quality gate passed (sdk=$sdk, app=$app, escrow=$escrow, mcp=$mcp)"
+            echo "✅ Quality gate passed (sdk=$sdk, app=$app, escrow=$escrow, mcp=$mcp, mcp_compile=$mcp_compile, hostr_plugins=$hostr_plugins, dart_static=$dart_static, focused_unit_tests=$focused_unit_tests, docker_smoke=$docker_smoke)"
 
           # ── 7. Semantic release (main only, after gate passes) ─────────────────────
   release:

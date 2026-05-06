@@ -5,6 +5,7 @@ import 'package:injectable/injectable.dart';
 
 import '../../util/custom_logger.dart';
 import '../../util/http_client_factory.dart';
+import '../../util/trace_context.dart';
 
 @Singleton()
 class Location {
@@ -456,9 +457,8 @@ class Location {
         statusCode >= 500;
   }
 
-  Map<String, String> get _nominatimHeaders => const {
-    'User-Agent': _nominatimUserAgent,
-  };
+  Map<String, String> get _nominatimHeaders =>
+      {'User-Agent': _nominatimUserAgent}..addAll(TraceContext.headers());
 }
 
 class _LocationHttpResponse {

@@ -58,6 +58,20 @@ const readBlossomUploadUrl = (): string => {
   return `https://blossom.${domain}/upload`;
 };
 
+const readOAuthClientStorePath = (): string => {
+  const explicit = process.env.MCP_OAUTH_CLIENT_STORE_PATH;
+  if (explicit && explicit.trim() !== "") {
+    return explicit;
+  }
+
+  const stateDir = process.env.HOSTR_DAEMON_STATE_DIR;
+  if (stateDir && stateDir.trim() !== "") {
+    return `${trimTrailingSlash(stateDir)}/oauth-clients.json`;
+  }
+
+  return "/tmp/hostr-mcp/oauth-clients.json";
+};
+
 const environmentDescriptionFor = (
   environmentLabel: "production" | "staging" | "development",
 ): string | undefined => {
@@ -120,8 +134,12 @@ export type AppConfig = {
   port: number;
   requestBodyLimit: string;
   blossomUploadUrl: string;
+  oauthClientStorePath: string;
   jwtSecret: Uint8Array;
   accessTokenTtlSeconds: number;
+  imageRevision?: string;
+  imageCreated?: string;
+  imageSource?: string;
   hostrDaemon: {
     command: string;
     args: string[];
@@ -151,6 +169,7 @@ export const config: AppConfig = {
   port: Number.parseInt(process.env.PORT || "8787", 10),
   requestBodyLimit: process.env.MCP_REQUEST_BODY_LIMIT || "100mb",
   blossomUploadUrl: readBlossomUploadUrl(),
+  oauthClientStorePath: readOAuthClientStorePath(),
   jwtSecret: new TextEncoder().encode(
     process.env.MCP_JWT_SECRET || "hostr-development-mcp-secret-change-me",
   ),
@@ -181,6 +200,18 @@ export const config: AppConfig = {
     process.env.HOSTR_DAEMON_TIMEOUT_MS || "120000",
     10,
   ),
+  imageRevision:
+    process.env.HOSTR_IMAGE_REVISION && process.env.HOSTR_IMAGE_REVISION.trim() !== ""
+      ? process.env.HOSTR_IMAGE_REVISION
+      : undefined,
+  imageCreated:
+    process.env.HOSTR_IMAGE_CREATED && process.env.HOSTR_IMAGE_CREATED.trim() !== ""
+      ? process.env.HOSTR_IMAGE_CREATED
+      : undefined,
+  imageSource:
+    process.env.HOSTR_IMAGE_SOURCE && process.env.HOSTR_IMAGE_SOURCE.trim() !== ""
+      ? process.env.HOSTR_IMAGE_SOURCE
+      : undefined,
 };
 
 export const scopesSupported = ["hostr:read", "hostr:write"];

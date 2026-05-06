@@ -8,33 +8,8 @@ import { createOAuthRouter } from "../auth/oauth.js";
 import { handleMcpRequest } from "../mcp/server.js";
 import { handleImageUpload } from "./uploads.js";
 import { getPaymentAsset, listPaymentAssets } from "../payment/assets.js";
-
-const sensitiveKeyPattern =
-  /(authorization|access[_-]?token|refresh[_-]?token|id[_-]?token|jwt|secret|password|passwd|private[_-]?key|seed|mnemonic|preimage|signature)/i;
-const maxLoggedStringLength = 500;
-
-const redactForLog = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => redactForLog(item));
-  }
-
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nestedValue]) => [
-        key,
-        sensitiveKeyPattern.test(key)
-          ? "[redacted]"
-          : redactForLog(nestedValue),
-      ]),
-    );
-  }
-
-  if (typeof value === "string" && value.length > maxLoggedStringLength) {
-    return `${value.slice(0, maxLoggedStringLength)}...[truncated ${value.length - maxLoggedStringLength} chars]`;
-  }
-
-  return value;
-};
+import { traceHeaders, traceIdFromRequest } from "../trace.js";
+import { redactForLog, writeStructuredLog } from "../logging.js";
 
 const hasLoggableFields = (value: unknown) =>
   Boolean(value && typeof value === "object" && Object.keys(value).length > 0);
@@ -62,12 +37,14 @@ const proxyToDevTarget = (
 ) => {
   const destination = new URL(request.originalUrl, target);
   const client = destination.protocol === "https:" ? https : http;
+  const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
   const headers = {
     ...request.headers,
     host: destination.host,
     "x-forwarded-host": request.headers.host ?? destination.host,
     "x-forwarded-proto": request.protocol,
     "x-hostr-dev-proxy": "1",
+    ...traceHeaders(traceId),
   };
   const proxyRequest = client.request(
     destination,
@@ -88,6 +65,17 @@ const proxyToDevTarget = (
 
   proxyRequest.on("error", () => next());
   request.pipe(proxyRequest);
+};
+
+const attachTrace = (
+  request: Request,
+  response: Response,
+  next: NextFunction,
+) => {
+  const traceId = traceIdFromRequest(request);
+  request.hostrTraceId = traceId;
+  response.setHeader("x-trace-id", traceId);
+  next();
 };
 
 const devProxy = (config: AppConfig) => {
@@ -121,6 +109,7 @@ const logRequest = (
   response.on("finish", () => {
     const durationMs = Date.now() - startedAt;
     const requestDetails = {
+      traceId: request.hostrTraceId,
       ...(hasLoggableFields(request.params)
         ? { params: redactForLog(request.params) }
         : {}),
@@ -131,14 +120,13 @@ const logRequest = (
         ? { body: redactForLog(request.body) }
         : {}),
     };
-    const details =
-      Object.keys(requestDetails).length > 0
-        ? ` ${JSON.stringify(requestDetails)}`
-        : "";
-
-    console.log(
-      `[hostr-mcp] ${request.method} ${request.path} -> ${response.statusCode} ${durationMs}ms${details}`,
-    );
+    writeStructuredLog("info", "http.request", {
+      method: request.method,
+      path: request.path,
+      statusCode: response.statusCode,
+      durationMs,
+      ...requestDetails,
+    });
   });
 
   next();
@@ -171,6 +159,7 @@ export const createApp = (config: AppConfig, daemon: HostrDaemonClient) => {
   const app = express();
 
   app.disable("x-powered-by");
+  app.use(attachTrace);
   app.use(devProxy(config));
   app.use(logRequest);
   app.use(express.urlencoded({ extended: false, limit: config.requestBodyLimit }));
@@ -183,6 +172,48 @@ export const createApp = (config: AppConfig, daemon: HostrDaemonClient) => {
       service: "hostr-mcp",
       name: config.displayName,
       environment: config.environmentLabel,
+      image: {
+        revision: config.imageRevision,
+        created: config.imageCreated,
+        source: config.imageSource,
+      },
+    });
+  });
+
+  app.get("/ready", async (request, response) => {
+    const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
+    const startedAt = Date.now();
+    const checks: Record<string, unknown> = {
+      config: {
+        ok: Boolean(config.mcpResource && config.issuer && config.blossomUploadUrl),
+      },
+    };
+    let ready = true;
+
+    try {
+      await daemon.describe({ traceId, timeoutMs: 2_500 });
+      checks.daemon = { ok: true };
+    } catch (error) {
+      ready = false;
+      checks.daemon = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    response.status(ready ? 200 : 503).json({
+      status: ready ? "ready" : "not_ready",
+      service: "hostr-mcp",
+      name: config.displayName,
+      environment: config.environmentLabel,
+      image: {
+        revision: config.imageRevision,
+        created: config.imageCreated,
+        source: config.imageSource,
+      },
+      traceId,
+      elapsedMs: Date.now() - startedAt,
+      checks,
     });
   });
 

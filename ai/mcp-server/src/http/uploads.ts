@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
+import { traceHeaders, traceIdFromRequest } from "../trace.js";
 
 export type UploadedImage = {
   bytes: Buffer;
@@ -188,18 +189,29 @@ const uploadToBlossom = async (
   config: AppConfig,
   upload: UploadedImage,
   sha256: string,
+  traceId?: string,
 ): Promise<BlossomDescriptor> => {
-  const response = await fetch(config.blossomUploadUrl, {
-    method: "PUT",
-    headers: {
-      "content-type": upload.mime ?? "application/octet-stream",
-      "content-length": String(upload.bytes.length),
-      "x-sha-256": sha256,
-      ...(upload.filename ? { "x-filename": upload.filename } : {}),
-    },
-    body: new Uint8Array(upload.bytes),
-  });
-  const text = await response.text();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  let response: globalThis.Response;
+  let text: string;
+  try {
+    response = await fetch(config.blossomUploadUrl, {
+      method: "PUT",
+      headers: {
+        "content-type": upload.mime ?? "application/octet-stream",
+        "content-length": String(upload.bytes.length),
+        "x-sha-256": sha256,
+        ...(traceId ? traceHeaders(traceId) : {}),
+        ...(upload.filename ? { "x-filename": upload.filename } : {}),
+      },
+      body: new Uint8Array(upload.bytes),
+      signal: controller.signal,
+    });
+    text = await response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
   let data: unknown;
   try {
     data = text.trim() === "" ? undefined : JSON.parse(text);
@@ -222,9 +234,10 @@ const uploadToBlossom = async (
 export const uploadImageToBlossom = async (
   config: AppConfig,
   upload: UploadedImage,
+  traceId?: string,
 ): Promise<HostrImageUploadResult> => {
   const sha256 = crypto.createHash("sha256").update(upload.bytes).digest("hex");
-  const descriptor = await uploadToBlossom(config, upload, sha256);
+  const descriptor = await uploadToBlossom(config, upload, sha256, traceId);
   return {
     ok: true,
     upload: {
@@ -246,6 +259,7 @@ export const uploadImageToBlossom = async (
 export const handleImageUpload =
   (config: AppConfig) =>
   async (request: Request, response: Response) => {
+    const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
     const contentType = contentTypeHeader(request);
     const contentTypeLower = contentType.toLowerCase();
     if (
@@ -279,10 +293,11 @@ export const handleImageUpload =
 
     let result: HostrImageUploadResult;
     try {
-      result = await uploadImageToBlossom(config, upload);
+      result = await uploadImageToBlossom(config, upload, traceId);
     } catch (error) {
       response.status(502).json({
         ok: false,
+        traceId,
         error: "blossom_upload_failed",
         error_description:
           error instanceof Error ? error.message : "Blossom upload failed.",
@@ -290,5 +305,5 @@ export const handleImageUpload =
       return;
     }
 
-    response.json(result);
+    response.json({ ...result, traceId });
   };

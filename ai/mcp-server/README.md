@@ -98,8 +98,14 @@ HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon
 HOSTR_DAEMON_CWD=/opt/hostr-daemon
 ```
 
-Set `HOSTR_DAEMON_STATE_DIR=/data/mcp` (or another mounted directory) when session state must survive container restarts. Keep daemon stdout reserved for newline-delimited JSON; logs must go to stderr.
+Set `HOSTR_DAEMON_STATE_DIR=/data/mcp` (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at `MCP_OAUTH_CLIENT_STORE_PATH`, defaulting to `$HOSTR_DAEMON_STATE_DIR/oauth-clients.json`.
 Cold Dart starts can be slow in development, so MCP waits up to `HOSTR_DAEMON_TIMEOUT_MS` milliseconds per daemon request. The default is `120000`.
+
+## Observability
+
+All MCP HTTP, daemon-client, daemon stderr, and tool audit logs are structured JSON lines. Keep daemon stdout reserved for newline-delimited JSON responses. Every request gets an `x-trace-id`; the same trace id is propagated through HTTP, MCP tool execution, the stdio daemon request, Hostr SDK trace context, and outbound SDK HTTP calls where supported. `/health` and `/ready` include image provenance (`revision`, `created`, and `source`) when the container was built with provenance build args.
+
+If the MCP daemon request timeout fires, the Node bridge sends a cooperative `cancel` message to the daemon. Dart work checks cancellation before and around long waits such as Nostr Connect waits, book-and-pay handoff, and reservation/swap observation. Work already inside a non-cancellable external SDK call may still finish in the background, but the request path stops waiting and logs the cancellation.
 
 ## Auth Model
 
@@ -164,6 +170,23 @@ Write tools default to preview mode. The app or AI client should call the tool o
 
 There are no legacy `publish` or `broadcast` write parameters. Every write-style MCP action uses `dryRun`.
 
+## Money units
+
+When a user or listing says `sats`, it means satoshis, not dollars, cents, or whole bitcoin. One sat is exactly `1/100,000,000 BTC`.
+
+For Hostr MCP monetary inputs in sats, use:
+
+```json
+{
+  "value": "50000",
+  "currency": "BTC",
+  "unit": "sats",
+  "decimals": 0
+}
+```
+
+The `value` is the satoshi count as a string. Do not convert `50000 sats` to `50000 BTC`, `50000 USD`, or `0.0005` unless the receiving field explicitly asks for BTC decimal notation instead of `unit: "sats"`.
+
 ## Image uploads
 
 Remote clients that need to attach user-provided listing photos must upload the original image bytes beside MCP, not inside the JSON-RPC `/mcp` request:
@@ -199,7 +222,7 @@ Agents should use the workflow docs from `hostr://mcp/action-input-types`, but t
 - Edit listing: call `hostr_listings_edit` with `dryRun: true`, review the returned listing/event preview, then repeat with `dryRun: false`.
 - Search and reserve: call `hostr_listings_search`, then `hostr_listings_availability`, then `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.
 - Negotiation: call `hostr_updates` to inspect thread/trade ids. Use `hostr_reservations_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_reservations_negotiateAccept` to accept the latest offer, or `hostr_reservations_cancel` to cancel the private negotiation or committed reservation.
-- Payment: call `hostr_reservations_pay` with `dryRun: true` to preview mutual escrow selection and funding. Repeat with `dryRun: false` to sign the escrow selection into the private thread and create the swap invoice. After the user pays, call `hostr_swaps_watch` until `escrowProofAvailable` is true, then call `hostr_reservations_commit` with `dryRun: true` and `dryRun: false` to publish the public commit-stage reservation.
+- Payment: for normal instant-book payment, call `hostr_reservations_bookAndPay`. After showing the returned QR/invoice, call the read-only `hostr_swaps_watch` with `swapId`, `tradeId`, and `reservationWaitSeconds`; it has no `dryRun` parameter and does not require approval. Use `hostr_swaps_recoverAll` only for explicit manual recovery/debug flows.
 - Messaging: call `hostr_updates`, choose recipient pubkeys from the thread/trade, call `hostr_reply` with `dryRun: true`, then repeat with `dryRun: false`.
 - Listing management/profile/trips/bookings: call `hostr_listings_list` to inspect listing inventory, `hostr_profile_show` to inspect the current profile, `hostr_profile_edit` to preview/publish profile changes, `hostr_trips_list` for guest-side reservations, and `hostr_bookings_list` for reservations on listings authored by the authenticated user.
 - Escrow compatibility: call `hostr_escrow_methods` with a seller pubkey before payment when the agent needs to explain compatible escrow services or ask the user to choose a non-default service.
