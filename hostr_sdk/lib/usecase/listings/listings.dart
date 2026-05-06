@@ -1,7 +1,6 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/domain_layer/entities/broadcast_state.dart'
-    show RelayBroadcastResponse;
+import 'package:ndk/ndk.dart' show Filter;
 
 import '../crud.usecase.dart';
 import '../metadata/metadata.dart';
@@ -18,8 +17,19 @@ class Listings extends CrudUseCase<Listing> {
        super(kind: Listing.kinds[0]);
 
   @override
-  Future<List<RelayBroadcastResponse>> upsert(Listing event) async {
+  Future<List<Listing>> list(Filter f, {String? name}) =>
+      logger.span('list', () async {
+        return requests
+            .query<Listing>(
+              filter: kindFilter(f),
+              name: 'Listing-list${name != null ? '-$name' : ''}',
+              cacheRead: false,
+            )
+            .toList();
+      });
+
+  @override
+  Future<void> beforeUpsert(Listing event) async {
     await _metadata.ensureSellerConfig(event.pubKey);
-    return super.upsert(event);
   }
 }

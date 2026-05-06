@@ -26,10 +26,11 @@ void main() {
 
       final result = await listings.upsert(listing);
 
-      expect(result, hasLength(1));
+      expect(result.responses, hasLength(1));
+      expect(result.event.pubKey, listing.pubKey);
       expect(metadata.ensureCalls, ['host-pubkey']);
       expect(requests.broadcastedEvents, hasLength(1));
-      expect(requests.broadcastedEvents.single, same(listing));
+      expect(requests.broadcastedEvents.single.pubKey, listing.pubKey);
       expect(calls, ['ensureSellerConfig:host-pubkey', 'broadcast']);
     });
 
@@ -56,6 +57,27 @@ void main() {
         expect(calls, ['ensureSellerConfig:host-pubkey']);
       },
     );
+
+    test(
+      'lists marketplace listings from the relay, not stale cache',
+      () async {
+        final calls = <String>[];
+        final metadata = _FakeMetadata(calls);
+        final requests = _FakeRequests(calls);
+        final listings = Listings(
+          requests: requests,
+          logger: CustomLogger(),
+          metadata: metadata,
+        );
+
+        await listings.list(Filter(limit: 5), name: 'test');
+
+        expect(requests.queries, hasLength(1));
+        expect(requests.queries.single.cacheRead, isFalse);
+        expect(requests.queries.single.name, 'Listing-list-test');
+        expect(requests.queries.single.filter.kinds, Listing.kinds);
+      },
+    );
   });
 }
 
@@ -78,23 +100,31 @@ class _FakeMetadata extends Fake implements MetadataUseCase {
 class _FakeRequests extends Fake implements hostr_requests.Requests {
   final List<String> calls;
   final List<Nip01Event> broadcastedEvents = [];
+  final List<_QueryCall> queries = [];
 
   _FakeRequests(this.calls);
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<hostr_requests.BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    hostr_requests.NostrEventSigner? signer,
   }) async {
     calls.add('broadcast');
-    broadcastedEvents.add(event);
-    return [
-      RelayBroadcastResponse(
-        relayUrl: 'wss://relay.hostr.test',
-        okReceived: true,
-        broadcastSuccessful: true,
-      ),
-    ];
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    broadcastedEvents.add(eventToBroadcast);
+    return hostr_requests.BroadcastResult(
+      event: eventToBroadcast,
+      responses: [
+        RelayBroadcastResponse(
+          relayUrl: 'wss://relay.hostr.test',
+          okReceived: true,
+          broadcastSuccessful: true,
+        ),
+      ],
+    );
   }
 
   @override
@@ -105,7 +135,22 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     String? name,
     bool cacheRead = true,
     bool cacheWrite = true,
-  }) => const Stream.empty();
+  }) {
+    queries.add(_QueryCall(filter: filter, name: name, cacheRead: cacheRead));
+    return const Stream.empty();
+  }
+}
+
+class _QueryCall {
+  const _QueryCall({
+    required this.filter,
+    required this.name,
+    required this.cacheRead,
+  });
+
+  final Filter filter;
+  final String? name;
+  final bool cacheRead;
 }
 
 Listing _listing(String pubkey) {

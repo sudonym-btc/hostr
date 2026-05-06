@@ -14,7 +14,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' as bip;
 
 import '../../config.dart' show CoinlibEventSigner;
-import '../../injection.dart';
+import '../../injection.dart' show HostrScope, getIt;
 import '../../util/coinlib_gift_wrap.dart' show clearNip44ConvKeyCache;
 import '../../util/main.dart';
 import '../deterministic_keys/deterministic_keys.dart';
@@ -56,6 +56,7 @@ class Auth {
   final CustomLogger _logger;
   final AuthStorage _authStorage;
   final AuthIdentityResolver _identityResolver;
+  final HostrScope _scope;
   final BehaviorSubject<AuthState> _authStateContoller =
       BehaviorSubject<AuthState>.seeded(AuthInitial());
   final BehaviorSubject<BunkerSessionState> _bunkerSessionController =
@@ -70,10 +71,12 @@ class Auth {
     required AuthStorage authStorage,
     required CustomLogger logger,
     required AuthIdentityResolver identityResolver,
+    HostrScope? scope,
   }) : _ndk = ndk,
        _authStorage = authStorage,
        _logger = logger,
-       _identityResolver = identityResolver;
+       _identityResolver = identityResolver,
+       _scope = scope ?? HostrScope(getIt);
 
   KeyPair? get activeKeyPair {
     final record = _authRecord;
@@ -87,8 +90,10 @@ class Auth {
   bool get isMnemonicBacked => _authRecord?.credentialType == 'mnemonic';
   bool get isBunkerBacked => _authRecord?.credentialType == 'bunker';
   bool get hasLocalPrivateKey => _authRecord?.keyPair?.privateKey != null;
+  BunkerConnection? get activeBunkerConnection => _authRecord?.bunkerConnection;
   bool get needsBunkerRecovery =>
       _bunkerSessionController.value is BunkerSessionRecoveryRequired;
+  T service<T extends Object>() => _scope<T>();
 
   String? get activeMnemonic => isMnemonicBacked ? _authRecord?.secret : null;
 
@@ -126,32 +131,20 @@ class Auth {
     void Function(String challenge)? authCallback,
   }) => _logger.span('signinWithBunkerUrl', () async {
     _logger.i('AuthService.signinWithBunkerUrl');
-    final bunkerConnection = await _ndk.accounts.loginWithBunkerUrl(
-      bunkerUrl: bunkerUrl.trim(),
-      bunkers: _ndk.bunkers,
+    final bunkerConnection = await _ndk.bunkers.connectWithBunkerUrl(
+      bunkerUrl.trim(),
       authCallback: authCallback,
     );
     if (bunkerConnection == null) {
       throw StateError('Bunker login was not completed');
     }
 
-    final pubkey = _ndk.accounts.getPublicKey();
-    if (pubkey == null || pubkey.isEmpty) {
-      throw StateError('Bunker login did not yield a public key');
-    }
-
-    final record = AuthRecord(
-      version: kCurrentAuthRecordVersion,
-      credentialType: 'bunker',
-      secret: '',
-      publicKey: pubkey,
-      maxAccountIndex: -1,
-      bunkerConnection: bunkerConnection,
+    final pubkey = await _upsertBunkerConnection(
+      bunkerConnection,
+      authCallback: authCallback,
+      context: 'Bunker login',
     );
-    await _authStorage.set([jsonEncode(record.toJson())]);
-    _setAuthenticated(record);
-    await _ensureNdkAccountsMatchAsync();
-    _syncAuthState();
+    await _storeBunkerAuthRecord(pubkey, bunkerConnection);
   });
 
   Future<void> signinWithNostrConnect(
@@ -159,32 +152,20 @@ class Auth {
     void Function(String challenge)? authCallback,
   }) => _logger.span('signinWithNostrConnect', () async {
     _logger.i('AuthService.signinWithNostrConnect');
-    final bunkerConnection = await _ndk.accounts.loginWithNostrConnect(
-      nostrConnect: nostrConnect,
-      bunkers: _ndk.bunkers,
+    final bunkerConnection = await _ndk.bunkers.connectWithNostrConnect(
+      nostrConnect,
       authCallback: authCallback,
     );
     if (bunkerConnection == null) {
       throw StateError('Nostr Connect login was not completed');
     }
 
-    final pubkey = _ndk.accounts.getPublicKey();
-    if (pubkey == null || pubkey.isEmpty) {
-      throw StateError('Nostr Connect login did not yield a public key');
-    }
-
-    final record = AuthRecord(
-      version: kCurrentAuthRecordVersion,
-      credentialType: 'bunker',
-      secret: '',
-      publicKey: pubkey,
-      maxAccountIndex: -1,
-      bunkerConnection: bunkerConnection,
+    final pubkey = await _upsertBunkerConnection(
+      bunkerConnection,
+      authCallback: authCallback,
+      context: 'Nostr Connect login',
     );
-    await _authStorage.set([jsonEncode(record.toJson())]);
-    _setAuthenticated(record);
-    await _ensureNdkAccountsMatchAsync();
-    _syncAuthState();
+    await _storeBunkerAuthRecord(pubkey, bunkerConnection);
   });
 
   Future<void> signinWithBunkerConnection(
@@ -192,17 +173,48 @@ class Auth {
     void Function(String challenge)? authCallback,
   }) => _logger.span('signinWithBunkerConnection', () async {
     _logger.i('AuthService.signinWithBunkerConnection');
-    await _ndk.accounts.loginWithBunkerConnection(
-      connection: bunkerConnection,
-      bunkers: _ndk.bunkers,
+    final pubkey = await _upsertBunkerConnection(
+      bunkerConnection,
+      authCallback: authCallback,
+      context: 'Bunker login',
+    );
+    await _storeBunkerAuthRecord(pubkey, bunkerConnection);
+  });
+
+  Future<String> _upsertBunkerConnection(
+    BunkerConnection bunkerConnection, {
+    void Function(String challenge)? authCallback,
+    required String context,
+  }) async {
+    final signer = _ndk.bunkers.createSigner(
+      bunkerConnection,
       authCallback: authCallback,
     );
-
-    final pubkey = _ndk.accounts.getPublicKey();
-    if (pubkey == null || pubkey.isEmpty) {
-      throw StateError('Bunker login did not yield a public key');
+    final pubkey = await signer.getPublicKeyAsync();
+    if (pubkey.isEmpty) {
+      await signer.dispose();
+      throw StateError('$context did not yield a public key');
     }
 
+    final existing = _ndk.accounts.accounts[pubkey];
+    if (existing != null) {
+      _logger.i('$context replacing existing bunker account for $pubkey');
+      await existing.dispose();
+      _ndk.accounts.removeAccount(pubkey: pubkey);
+    }
+    _ndk.accounts.addAccount(
+      pubkey: pubkey,
+      type: AccountType.externalSigner,
+      signer: signer,
+    );
+    _ndk.accounts.switchAccount(pubkey: pubkey);
+    return pubkey;
+  }
+
+  Future<void> _storeBunkerAuthRecord(
+    String pubkey,
+    BunkerConnection bunkerConnection,
+  ) async {
     final record = AuthRecord(
       version: kCurrentAuthRecordVersion,
       credentialType: 'bunker',
@@ -215,7 +227,7 @@ class Auth {
     _setAuthenticated(record);
     await _ensureNdkAccountsMatchAsync();
     _syncAuthState();
-  });
+  }
 
   Future<AuthRecord> previewResolvedIdentity(
     String input, {
@@ -264,6 +276,20 @@ class Auth {
       _syncAuthState(force: true);
     }
     return restored;
+  }
+
+  Future<void> markBunkerSessionRecoveryRequired(Object error) async {
+    final activePubkey = this.activePubkey;
+    if (activePubkey == null || activePubkey.isEmpty || !isBunkerBacked) {
+      return;
+    }
+    await _disposeAndRemoveNdkAccount(activePubkey);
+    _emitBunkerSessionState(
+      BunkerSessionRecoveryRequired(
+        pubkey: activePubkey,
+        message: _bunkerRecoveryMessage(error),
+      ),
+    );
   }
 
   Future<bool> _ensureNdkAccountsMatchAsync({
@@ -469,7 +495,7 @@ class Auth {
   // HD wallet – EVM key derivation
   // ---------------------------------------------------------------------------
 
-  DeterministicKeys get hd => getIt<DeterministicKeys>();
+  DeterministicKeys get hd => _scope<DeterministicKeys>();
 
   // ---------------------------------------------------------------------------
 
@@ -523,6 +549,7 @@ class Auth {
   }
 
   Future<void> dispose() async {
+    await _disposeAllNdkAccounts();
     await _authStateContoller.close();
     await _bunkerSessionController.close();
   }

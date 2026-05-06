@@ -146,6 +146,48 @@ void main() {
         expect(fixture.requests.broadcasts, isEmpty);
       },
     );
+
+    test(
+      'ensureRemoteSeedPublished publishes existing local seed backup',
+      () async {
+        final keyPair = MockKeys.guest;
+        final localSeed = _seedHex('c3');
+        final fixture = _buildFixture(activeKeyPair: keyPair);
+        await fixture.storage.setSeed(localSeed);
+
+        await fixture.store.ensureRemoteSeedPublished();
+
+        expect(fixture.requests.seedEventsFor(keyPair.publicKey), hasLength(1));
+        expect(
+          await fixture.decryptBroadcastSeedFor(keyPair.publicKey),
+          localSeed,
+        );
+      },
+    );
+
+    test(
+      'ensureRemoteSeedPublished rejects mismatched remote seed backup',
+      () async {
+        final keyPair = MockKeys.guest;
+        final localSeed = _seedHex('d4');
+        final remoteSeed = _seedHex('e5');
+        final fixture = _buildFixture(activeKeyPair: keyPair);
+        await fixture.storage.setSeed(localSeed);
+        fixture.seedRemoteSeed(pubkey: keyPair.publicKey, seedHex: remoteSeed);
+
+        await expectLater(
+          fixture.store.ensureRemoteSeedPublished(),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('Remote account seed mismatch'),
+            ),
+          ),
+        );
+        expect(fixture.requests.broadcasts, isEmpty);
+      },
+    );
   });
 }
 
@@ -260,17 +302,24 @@ class _SeedRequests extends Fake implements Requests {
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
-    broadcasts.add(event);
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    broadcasts.add(eventToBroadcast);
     final responses = broadcastResponses ?? [_successfulBroadcastResponse()];
-    throwIfBroadcastFailed(responses, context: 'fake seed publish ${event.id}');
+    throwIfBroadcastFailed(
+      responses,
+      context: 'fake seed publish ${eventToBroadcast.id}',
+    );
     if (hasSuccessfulBroadcast(responses)) {
-      _events.add(event);
+      _events.add(eventToBroadcast);
     }
-    return responses;
+    return BroadcastResult(event: eventToBroadcast, responses: responses);
   }
 
   bool _matches(Nip01Event event, Filter filter) {

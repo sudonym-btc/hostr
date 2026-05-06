@@ -6,7 +6,6 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../injection.dart';
 import '../../util/custom_logger.dart';
 import '../../util/stream_status.dart';
 import '../auth/auth.dart';
@@ -66,6 +65,9 @@ class Trade extends Cubit<TradeState> {
   final UserSubscriptions _userSubscriptions;
   final ReservationGroups _reservationGroups;
   final Threads _threads;
+  final TradeAccountAllocator _tradeAccountAllocator;
+  final ReservationRequests _reservationRequests;
+  final Reservations _reservations;
 
   /// Resolved lazily in [start()] from the [Threads] map.
   /// Available when opened from a thread context (negotiation-stage access).
@@ -133,6 +135,9 @@ class Trade extends Cubit<TradeState> {
     required UserSubscriptions userSubscriptions,
     required ReservationGroups reservationGroups,
     required Threads threads,
+    required TradeAccountAllocator tradeAccountAllocator,
+    required ReservationRequests reservationRequests,
+    required Reservations reservations,
   }) : _logger = logger.scope('trade'),
        _auth = auth,
        _listings = listings,
@@ -141,6 +146,9 @@ class Trade extends Cubit<TradeState> {
        _userSubscriptions = userSubscriptions,
        _reservationGroups = reservationGroups,
        _threads = threads,
+       _tradeAccountAllocator = tradeAccountAllocator,
+       _reservationRequests = reservationRequests,
+       _reservations = reservations,
        thread = threads.findTradeThread(
          tradeId: context.tradeId,
          participants: context.participants,
@@ -640,8 +648,7 @@ class Trade extends Cubit<TradeState> {
       return _auth.getActiveKey();
     }
 
-    final tradeAccountAllocator = getIt<TradeAccountAllocator>();
-    final accountIndex = await tradeAccountAllocator
+    final accountIndex = await _tradeAccountAllocator
         .findTradeAccountIndexByTradeId(tradeId);
     return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
   });
@@ -695,7 +702,7 @@ class Trade extends Cubit<TradeState> {
           throw StateError('Counter amount is above the allowed maximum');
         }
 
-        final event = await getIt<ReservationRequests>().createCounterOffer(
+        final event = await _reservationRequests.createCounterOffer(
           listing: current.listing,
           previousRequest: lastRequest,
           amount: amount,
@@ -730,7 +737,7 @@ class Trade extends Cubit<TradeState> {
         throw StateError('Cannot accept a reservation request without amount');
       }
 
-      final event = await getIt<ReservationRequests>().createCounterOffer(
+      final event = await _reservationRequests.createCounterOffer(
         listing: current.listing,
         previousRequest: lastRequest,
         amount: acceptedAmount,
@@ -763,7 +770,7 @@ class Trade extends Cubit<TradeState> {
           throw StateError('Cannot cancel negotiation without a thread');
         }
 
-        final event = await getIt<ReservationRequests>().createCancellation(
+        final event = await _reservationRequests.createCancellation(
           previousRequest: lastRequest,
           signerKeyPair: await activeKeyPair(),
         );
@@ -796,7 +803,7 @@ class Trade extends Cubit<TradeState> {
         }
         await ReservationActions(
           trade: this,
-          reservations: getIt<Reservations>(),
+          reservations: _reservations,
         ).cancel();
         return;
       case TradeAction.claim:

@@ -287,4 +287,35 @@ class HostrConfig {
     // Wire OTel into the global logger so every log call emits span events.
     CustomLogger.configure(telemetry: this.telemetry);
   }
+
+  HostrConfig copyWith({
+    KeyValueStorage? storage,
+    AppDatabase? appDatabase,
+    NdkConfig? ndk,
+    CustomLogger? logs,
+    Telemetry? telemetry,
+    CalendarPort? calendarPort,
+    ShowNotification? showNotification,
+    bool? syncAccountSeedRemotely,
+  }) {
+    return HostrConfig(
+      bootstrapRelays: bootstrapRelays,
+      bootstrapBlossom: bootstrapBlossom,
+      bootstrapEscrowPubkeys: bootstrapEscrowPubkeys,
+      hostrRelay: hostrRelay,
+      evmConfig: evmConfig,
+      eventVerifier: eventVerifier,
+      eventSignerFactory: eventSignerFactory,
+      nip44Cryptography: nip44Cryptography,
+      storage: storage ?? keyValueStorage,
+      appDatabase: appDatabase ?? this.appDatabase,
+      ndk: ndk ?? ndkConfig,
+      logs: logs ?? logger,
+      telemetry: telemetry ?? this.telemetry,
+      calendarPort: calendarPort ?? this.calendarPort,
+      showNotification: showNotification ?? this.showNotification,
+      syncAccountSeedRemotely:
+          syncAccountSeedRemotely ?? this.syncAccountSeedRemotely,
+    );
+  }
 }

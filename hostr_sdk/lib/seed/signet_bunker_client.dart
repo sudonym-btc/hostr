@@ -187,14 +187,9 @@ class SignetBunkerClient {
 
   Future<void> revokeAppsForKey(String keyName) async {
     for (final app in await apps()) {
-      if (app['keyName'] != keyName) continue;
-      final id = app['id'];
-      if (id is num) {
-        await revokeApp(id.toInt());
-      } else if (id is String) {
-        final parsed = int.tryParse(id);
-        if (parsed != null) await revokeApp(parsed);
-      }
+      if (!_appMatchesKeyName(app, keyName)) continue;
+      final id = _jsonInt(app['id']);
+      if (id != null) await revokeApp(id);
     }
   }
 
@@ -209,10 +204,16 @@ class SignetBunkerClient {
     String keyName,
     String trustLevel,
   ) async {
-    final app = (await apps()).where((app) => app['keyName'] == keyName).first;
+    final app = (await apps())
+        .where((app) => _appMatchesKeyName(app, keyName))
+        .first;
+    final appId = _jsonInt(app['id']);
+    if (appId == null) {
+      throw StateError('Signet app for key $keyName did not include an id.');
+    }
     await _jsonRequest(
       'PATCH',
-      '/apps/${app['id']}',
+      '/apps/$appId',
       body: <String, Object?>{'trustLevel': trustLevel},
       csrf: true,
     );
@@ -495,6 +496,40 @@ class SignetBunkerClient {
     final milliseconds = 250 * (attempt + 1);
     return Duration(milliseconds: milliseconds.clamp(250, 2000));
   }
+}
+
+bool _appMatchesKeyName(Map<String, dynamic> app, String keyName) {
+  for (final candidate in _appKeyNameCandidates(app)) {
+    if (candidate == keyName) return true;
+  }
+  return false;
+}
+
+Iterable<String> _appKeyNameCandidates(Map<String, dynamic> app) sync* {
+  for (final key in const [
+    'keyName',
+    'key_name',
+    'bunkerKeyName',
+    'signerKeyName',
+  ]) {
+    final value = app[key];
+    if (value is String && value.isNotEmpty) yield value;
+  }
+
+  for (final nestedKey in const ['key', 'bunkerKey', 'signer', 'identity']) {
+    final nested = app[nestedKey];
+    if (nested is! Map) continue;
+    for (final key in const ['keyName', 'key_name', 'name']) {
+      final value = nested[key];
+      if (value is String && value.isNotEmpty) yield value;
+    }
+  }
+}
+
+int? _jsonInt(Object? value) {
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
 }
 
 void _enableBrowserCredentials(http.Client client) {

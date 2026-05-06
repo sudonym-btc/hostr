@@ -423,10 +423,12 @@ class EscrowDaemon {
   final CustomLogger _logger;
 
   EscrowDaemonContext? _context;
+  bool _isStarted = false;
 
   // ── Trade state ─────────────────────────────────────────────────────────
   final Map<String, TradeSnapshot> _trades = {};
   final _tradesSubject = BehaviorSubject<Map<String, TradeSnapshot>>.seeded({});
+  final Map<String, EscrowEvent> _latestTerminalEvents = {};
 
   // ── Reservation auto-confirmation state ─────────────────────────────────
   late final EscrowReservationNotifier _reservationNotifier;
@@ -513,7 +515,7 @@ class EscrowDaemon {
       throw StateError('Failed to encrypt legacy DM for $recipientPubkey');
     }
 
-    await _requests.broadcast(
+    await _requests.broadcastEvent(
       event: Nip01Event(
         pubKey: keyPair.publicKey,
         kind: kNostrKindLegacyDM,
@@ -542,6 +544,9 @@ class EscrowDaemon {
 
   /// Whether [bootstrap] has been called successfully.
   bool get isBootstrapped => _context != null;
+
+  /// Whether the long-lived escrow listeners are currently active.
+  bool get isStarted => _isStarted;
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
 
@@ -628,11 +633,18 @@ class EscrowDaemon {
   /// Must be called after [bootstrap]. Awaits the initial thread query so
   /// that conversations are available immediately after this returns.
   Future<void> start() async {
-    _startBlockTipListener();
-    _startContractListener();
-    await _startThreadListener();
-    _startReservationListener();
-    _logger.i('Escrow monitor started');
+    if (_isStarted) return;
+    _isStarted = true;
+    try {
+      _startBlockTipListener();
+      _startContractListener();
+      await _startThreadListener();
+      _startReservationListener();
+      _logger.i('Escrow monitor started');
+    } catch (_) {
+      _isStarted = false;
+      rethrow;
+    }
   }
 
   /// Stop all subscriptions.
@@ -643,6 +655,7 @@ class EscrowDaemon {
       await sub.cancel();
     }
     _tradeEventSubs.clear();
+    _latestTerminalEvents.clear();
     await _threadSub?.cancel();
     await _reservationSub?.cancel();
     await _reservationRetryTradeIds?.close();
@@ -652,6 +665,7 @@ class EscrowDaemon {
     }
     _reservationRetryTimers.clear();
     _tradesSubject.close();
+    _isStarted = false;
   }
 
   /// All tracked trades (unmodifiable).
@@ -773,7 +787,7 @@ class EscrowDaemon {
 
     if (event is EscrowFundedEvent) {
       _logger.i('Trade funded: ${event.tradeId}  ${event.amount}');
-      _trades[event.tradeId] = TradeSnapshot(
+      final funded = TradeSnapshot(
         tradeId: event.tradeId,
         status: TradeStatus.funded,
         amount: event.amount,
@@ -781,47 +795,85 @@ class EscrowDaemon {
         updatedAt: updatedAt,
         updatedBlockNum: event.blockNum,
       );
+      final terminal = _latestTerminalEvents[event.tradeId];
+      final existing = _trades[event.tradeId];
+      _trades[event.tradeId] = terminal != null
+          ? _snapshotWithTerminalEvent(funded, terminal)
+          : existing != null && _isTerminalStatus(existing.status)
+          ? existing.copyWith(amount: event.amount)
+          : funded;
     } else if (event is EscrowArbitratedEvent) {
       _logger.i(
         'Trade arbitrated: ${event.tradeId}  '
         'paymentForwarded=${event.paymentForwarded} '
         'bondForwarded=${event.bondForwarded}',
       );
+      _latestTerminalEvents[event.tradeId] = _latestTerminalFor(
+        _latestTerminalEvents[event.tradeId],
+        event,
+      );
       final existing = _trades[event.tradeId];
       if (existing != null) {
-        _trades[event.tradeId] = existing.copyWith(
-          status: TradeStatus.arbitrated,
-          lastTxHash: event.transactionHash,
-          updatedAt: updatedAt,
-          updatedBlockNum: event.blockNum,
-        );
+        _trades[event.tradeId] = _snapshotWithTerminalEvent(existing, event);
       }
     } else if (event is EscrowReleasedEvent) {
       _logger.i('Trade released: ${event.tradeId}');
+      _latestTerminalEvents[event.tradeId] = _latestTerminalFor(
+        _latestTerminalEvents[event.tradeId],
+        event,
+      );
       final existing = _trades[event.tradeId];
       if (existing != null) {
-        _trades[event.tradeId] = existing.copyWith(
-          status: TradeStatus.released,
-          lastTxHash: event.transactionHash,
-          updatedAt: updatedAt,
-          updatedBlockNum: event.blockNum,
-        );
+        _trades[event.tradeId] = _snapshotWithTerminalEvent(existing, event);
       }
     } else if (event is EscrowClaimedEvent) {
       _logger.i('Trade claimed: ${event.tradeId}');
+      _latestTerminalEvents[event.tradeId] = _latestTerminalFor(
+        _latestTerminalEvents[event.tradeId],
+        event,
+      );
       final existing = _trades[event.tradeId];
       if (existing != null) {
-        _trades[event.tradeId] = existing.copyWith(
-          status: TradeStatus.claimed,
-          lastTxHash: event.transactionHash,
-          updatedAt: updatedAt,
-          updatedBlockNum: event.blockNum,
-        );
+        _trades[event.tradeId] = _snapshotWithTerminalEvent(existing, event);
       }
     }
 
     _tradesSubject.add(_trades);
   }
+
+  EscrowEvent _latestTerminalFor(EscrowEvent? current, EscrowEvent next) {
+    if (current == null) return next;
+    if (next.blockNum != current.blockNum) {
+      return next.blockNum > current.blockNum ? next : current;
+    }
+    if (next.transactionIndex != current.transactionIndex) {
+      return next.transactionIndex > current.transactionIndex ? next : current;
+    }
+    return next.logIndex >= current.logIndex ? next : current;
+  }
+
+  TradeSnapshot _snapshotWithTerminalEvent(
+    TradeSnapshot snapshot,
+    EscrowEvent event,
+  ) {
+    final status = switch (event) {
+      EscrowArbitratedEvent() => TradeStatus.arbitrated,
+      EscrowReleasedEvent() => TradeStatus.released,
+      EscrowClaimedEvent() => TradeStatus.claimed,
+      _ => snapshot.status,
+    };
+    return snapshot.copyWith(
+      status: status,
+      lastTxHash: event.transactionHash,
+      updatedAt: _updatedAtForEscrowEvent(event),
+      updatedBlockNum: event.blockNum,
+    );
+  }
+
+  bool _isTerminalStatus(TradeStatus status) =>
+      status == TradeStatus.arbitrated ||
+      status == TradeStatus.released ||
+      status == TradeStatus.claimed;
 
   DateTime _updatedAtForEscrowEvent(EscrowEvent event) {
     final block = event.block;

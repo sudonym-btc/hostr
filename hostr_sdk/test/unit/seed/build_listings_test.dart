@@ -52,5 +52,28 @@ void main() {
       expect(denominations.any((d) => d.single == 'BTC'), isTrue);
       expect(denominations.any((d) => d.single == 'USD'), isTrue);
     });
+
+    test('gives every seeded listing multiple images', () {
+      final ctx = SeedContext(seed: 19);
+      final host = SeedUser(
+        index: 1,
+        keyPair: ctx.deriveKeyPair(1),
+        isHost: true,
+        hasEvm: true,
+        spec: const SeedUserSpec.host(listingCount: 40),
+      );
+
+      final listings = buildListings(
+        ctx: ctx,
+        config: const SeedPipelineConfig(),
+        hosts: [host],
+      );
+
+      expect(listings, hasLength(40));
+      expect(
+        listings.map((listing) => listing.images.length),
+        everyElement(greaterThan(1)),
+      );
+    });
   });
 }

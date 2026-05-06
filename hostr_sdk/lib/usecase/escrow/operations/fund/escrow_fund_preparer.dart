@@ -4,7 +4,6 @@ import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
 
-import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../auth/auth.dart';
 import '../../../evm/main.dart';
@@ -23,6 +22,7 @@ class EscrowFundPreparer {
   final Auth auth;
   final TradeAccountAllocator tradeAccountAllocator;
   final Evm evm;
+  final SwapQuoteService quoteService;
   final CustomLogger logger;
   final EscrowFundParams? params;
 
@@ -38,6 +38,7 @@ class EscrowFundPreparer {
     this.auth,
     this.tradeAccountAllocator,
     this.evm,
+    this.quoteService,
     CustomLogger logger,
     @factoryParam this.params,
   ) : logger = logger.scope('escrow-fund') {
@@ -186,7 +187,7 @@ class EscrowFundPreparer {
       dexInputBuffer: _requireParams().dexInputBuffer,
       postClaimStateOverrides: resolved.stateOverrides,
     );
-    final quote = await getIt<SwapQuoteService>().buildSwapInQuote(
+    final quote = await quoteService.buildSwapInQuote(
       chain: configuredChain,
       params: swapInParams,
     );

@@ -9,12 +9,10 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import '../../../../../datasources/swagger_generated/boltz.swagger.dart';
-import '../../../../../injection.dart';
 import '../../../../../util/main.dart';
 import '../../../../payments/operations/pay_models.dart';
 import '../../../../payments/operations/pay_operation.dart';
 import '../../../../payments/operations/pay_state.dart';
-import '../../../../payments/payments.dart';
 import '../../../main.dart';
 
 class EvmSwapInOperation extends SwapInOperation {
@@ -630,9 +628,7 @@ class EvmSwapInOperation extends SwapInOperation {
       );
     }
 
-    return getIt<Payments>().pay(
-      Bolt11PayParameters(amount: amount, to: invoice),
-    );
+    return chain.payments.pay(Bolt11PayParameters(amount: amount, to: invoice));
   });
 
   Future<String> _claim({required ClaimArgs claimArgs}) =>

@@ -1,16 +1,12 @@
-/// Runs NDK event broadcasting in a dedicated isolate so that heavy
-/// EVM / anvil work on the main isolate cannot starve the WebSocket
-/// event-loop and cause spurious 4 s timeouts.
+/// Runs raw Nostr EVENT broadcasting in a dedicated isolate so that heavy
+/// EVM / anvil work on the main isolate cannot starve the WebSocket ACK loop.
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:hostr_sdk/config.dart'
-    show CoinlibEventSigner, CoinlibNip44Cryptography;
-import 'package:hostr_sdk/usecase/requests/requests.dart'
-    show hasSuccessfulBroadcast;
 import 'package:ndk/ndk.dart';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -213,21 +209,11 @@ Future<void> _isolateEntry(_IsolateArgs args) async {
     }
   }
 
-  // ── Create a fresh NDK in this isolate ──
-  final ndk = Ndk(
-    NdkConfig(
-      eventVerifier: Bip340EventVerifier(),
-      eventSignerFactory: ({required publicKey, String? privateKey}) =>
-          CoinlibEventSigner(privateKey: privateKey, publicKey: publicKey),
-      nip44Cryptography: CoinlibNip44Cryptography(),
-      cache: MemCacheManager(),
-      bootstrapRelays: [relayUrl],
-    ),
-  );
-
   log('[isolate] Waiting for relay connectivity...');
   final connSw = Stopwatch()..start();
-  await ndk.relays.seedRelaysConnected.timeout(const Duration(seconds: 30));
+  final socket = await WebSocket.connect(
+    relayUrl,
+  ).timeout(const Duration(seconds: 30));
   log('[isolate] Relay connected. [${connSw.elapsedMilliseconds} ms]');
 
   // ── Set up receive port for incoming requests ──
@@ -241,6 +227,7 @@ Future<void> _isolateEntry(_IsolateArgs args) async {
   // Semaphore for maxConcurrent
   int inFlight = 0;
   final slotAvailable = StreamController<void>.broadcast();
+  final ackTracker = _RelayAckTracker(socket, log: log);
 
   Future<void> broadcastOne(int index, Map<String, dynamic> json) async {
     // Wait for a slot
@@ -250,51 +237,23 @@ Future<void> _isolateEntry(_IsolateArgs args) async {
     inFlight++;
 
     try {
-      final event = Nip01Event(
-        id: json['id'] as String,
-        pubKey: json['pubkey'] as String,
-        createdAt: json['created_at'] as int,
-        kind: json['kind'] as int,
-        tags: (json['tags'] as List)
-            .map((t) => (t as List).cast<String>().toList())
-            .toList(),
-        content: json['content'] as String,
-        sig: json['sig'] as String? ?? '',
-      );
-
       String? lastMsg;
 
       for (var attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          log('[isolate] Broadcasting event index=$index attempt #$attempt');
-          final broadcastResult = await ndk.broadcast
-              .broadcast(nostrEvent: event, specificRelays: [relayUrl])
-              .broadcastDoneFuture;
-
-          if (broadcastResult.isEmpty) {
-            await ndk.relays.seedRelaysConnected.timeout(
-              const Duration(seconds: 15),
-              onTimeout: () async {},
-            );
-            await Future.delayed(Duration(milliseconds: 300 * attempt));
-            continue;
+          if (attempt > 1) {
+            log('[isolate] Retrying event index=$index attempt #$attempt');
           }
 
-          if (hasSuccessfulBroadcast(broadcastResult)) {
+          final ack = await ackTracker.publish(json);
+          if (ack.accepted) {
             successCount++;
             mainPort.send(BroadcastSuccess(index));
             return;
           }
-
-          lastMsg = broadcastResult.isNotEmpty
-              ? broadcastResult.first.msg
-              : null;
+          lastMsg = ack.message;
         } catch (e) {
           lastMsg = e.toString();
-          await ndk.relays.seedRelaysConnected.timeout(
-            const Duration(seconds: 15),
-            onTimeout: () async {},
-          );
         }
 
         await Future.delayed(Duration(milliseconds: 300 * attempt));
@@ -328,9 +287,103 @@ Future<void> _isolateEntry(_IsolateArgs args) async {
   log('[isolate] Finished: $successCount succeeded, $failureCount failed.');
   mainPort.send(BroadcastFinished(successCount, failureCount));
 
-  await ndk.destroy();
+  await ackTracker.close();
   receivePort.close();
   slotAvailable.close();
+}
+
+class _RelayAck {
+  const _RelayAck({required this.accepted, this.message});
+
+  final bool accepted;
+  final String? message;
+}
+
+class _RelayAckTracker {
+  _RelayAckTracker(this._socket, {required void Function(String) log})
+    : _log = log {
+    _subscription = _socket.listen(
+      _handleMessage,
+      onError: (Object error, StackTrace stackTrace) {
+        _failAll('relay socket error: $error');
+      },
+      onDone: () {
+        _failAll('relay socket closed');
+      },
+      cancelOnError: false,
+    );
+  }
+
+  final WebSocket _socket;
+  final void Function(String) _log;
+  final Map<String, Completer<_RelayAck>> _pending = {};
+  late final StreamSubscription<dynamic> _subscription;
+
+  Future<_RelayAck> publish(Map<String, dynamic> eventJson) async {
+    final id = eventJson['id'] as String;
+    final completer = Completer<_RelayAck>();
+    _pending[id] = completer;
+    _socket.add(jsonEncode(['EVENT', eventJson]));
+
+    try {
+      return await completer.future.timeout(
+        _ackTimeout,
+        onTimeout: () {
+          _pending.remove(id);
+          return const _RelayAck(
+            accepted: false,
+            message: 'timed out waiting for relay OK',
+          );
+        },
+      );
+    } finally {
+      _pending.remove(id);
+    }
+  }
+
+  static const _ackTimeout = Duration(seconds: 60);
+
+  void _handleMessage(dynamic raw) {
+    try {
+      final decoded = jsonDecode(raw as String);
+      if (decoded is! List || decoded.length < 3 || decoded.first != 'OK') {
+        return;
+      }
+
+      final id = decoded[1] as String?;
+      if (id == null) return;
+
+      final completer = _pending.remove(id);
+      if (completer == null) {
+        _log('[isolate] Ignoring late relay OK for $id');
+        return;
+      }
+
+      final accepted = decoded[2] == true;
+      final message = decoded.length > 3 ? decoded[3]?.toString() : null;
+      if (!completer.isCompleted) {
+        completer.complete(_RelayAck(accepted: accepted, message: message));
+      }
+    } catch (error) {
+      _log('[isolate] Ignoring malformed relay frame: $error');
+    }
+  }
+
+  void _failAll(String message) {
+    final pending = List<Completer<_RelayAck>>.from(_pending.values);
+    _pending.clear();
+    for (final completer in pending) {
+      if (!completer.isCompleted) {
+        completer.complete(_RelayAck(accepted: false, message: message));
+      }
+    }
+  }
+
+  Future<void> close() async {
+    _failAll('broadcast isolate closing');
+    await _subscription.cancel();
+    await _socket.close();
+  }
 }
 
 // ── Self-signed cert support for the isolate ──

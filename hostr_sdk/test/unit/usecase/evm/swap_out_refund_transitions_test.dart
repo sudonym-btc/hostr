@@ -178,6 +178,8 @@ _SwapOutRefundFixture _buildOperation({
     payments: MockPayments(),
     params: SwapOutParams(evmKey: evmKey, accountIndex: 0),
     initialState: SwapOutFunded(data),
+    store: getIt<OperationStateStore>(),
+    tracker: getIt<SwapOutTracker>(),
   );
 
   return _SwapOutRefundFixture(operation: operation, chain: chain);

@@ -22,6 +22,11 @@ output "static_ip" {
   value = google_compute_address.static_ip.address
 }
 
+output "mcp_endpoint_url" {
+  description = "Public MCP endpoint URL for this environment."
+  value       = "https://ai.${var.domain_name}/mcp"
+}
+
 # ── CI / Workload Identity Federation ─────────────────────────────────────────
 
 output "ci_workload_identity_provider" {

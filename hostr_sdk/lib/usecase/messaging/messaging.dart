@@ -6,7 +6,7 @@ import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
 import '../../config.dart' show CoinlibEventSigner, HostrConfig;
-import '../../injection.dart';
+import '../../injection.dart' show HostrScope, getIt;
 import '../../util/coinlib_gift_wrap.dart';
 import '../../util/custom_logger.dart';
 import '../dm_relays/dm_relays.dart';
@@ -45,12 +45,25 @@ class Messaging {
   final Requests _requests;
   final DmRelays _dmRelays;
   final CustomLogger _logger;
-  Threads get threads => getIt<Threads>();
-  Messaging(Ndk ndk, Requests requests, DmRelays dmRelays, CustomLogger logger)
-    : _ndk = ndk,
-      _requests = requests,
-      _dmRelays = dmRelays,
-      _logger = logger.scope('messaging');
+  final HostrConfig? _config;
+  final Relays? _relays;
+  final HostrScope _scope;
+  Threads get threads => _scope<Threads>();
+  Messaging(
+    Ndk ndk,
+    Requests requests,
+    DmRelays dmRelays,
+    CustomLogger logger, [
+    HostrConfig? config,
+    Relays? relays,
+    HostrScope? scope,
+  ]) : _ndk = ndk,
+       _requests = requests,
+       _dmRelays = dmRelays,
+       _config = config,
+       _relays = relays,
+       _scope = scope ?? HostrScope(getIt),
+       _logger = logger.scope('messaging');
 
   Future<Nip01Event> getRumour(
     String content,
@@ -132,10 +145,11 @@ class Messaging {
           pubkey,
           allowExternalRelays: allowExternalRelays,
         );
-        final responses = await _requests.broadcast(
+        final broadcast = await _requests.broadcastEvent(
           event: wrapped,
           relays: relays,
         );
+        final responses = broadcast.responses;
         final accepted = responses
             .where((response) => response.broadcastSuccessful)
             .map((response) => response.relayUrl)
@@ -158,10 +172,9 @@ class Messaging {
     String recipientPubkey, {
     bool allowExternalRelays = false,
   }) async {
-    final config = getIt<HostrConfig>();
     if (!allowExternalRelays) {
       final relays = resolveHostrOnlyGiftWrapBroadcastRelays(
-        hostrRelay: config.hostrRelay,
+        hostrRelay: _config?.hostrRelay ?? '',
       );
       _logger.d('Giftwrap relay targets for $recipientPubkey: $relays');
       return relays;
@@ -169,7 +182,7 @@ class Messaging {
     UserRelayList? recipientRelayList;
 
     try {
-      await getIt<Relays>().loadNip65Hints(recipientPubkey);
+      await _relays?.loadNip65Hints(recipientPubkey);
       recipientRelayList = await _ndk.userRelayLists.getSingleUserRelayList(
         recipientPubkey,
       );
@@ -196,8 +209,8 @@ class Messaging {
     }
 
     final relays = resolveGiftWrapBroadcastRelays(
-      bootstrapRelays: config.bootstrapRelays,
-      hostrRelay: config.hostrRelay,
+      bootstrapRelays: _config?.bootstrapRelays ?? const [],
+      hostrRelay: _config?.hostrRelay ?? '',
       dmRelays: dmRelays,
       recipientRelayList: recipientRelayList,
     );

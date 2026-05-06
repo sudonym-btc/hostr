@@ -120,8 +120,8 @@ class EditListingController extends UpsertFormController {
       checkOut: current.checkOut ?? '11:0',
       extraTags: extraTags,
     );
-    await getIt<Hostr>().listings.upsert(updatedListing);
+    final result = await getIt<Hostr>().listings.upsert(updatedListing);
 
-    l = updatedListing;
+    l = result.event;
   }
 }

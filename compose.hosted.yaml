@@ -49,6 +49,11 @@ services:
     environment:
       - LETSENCRYPT_HOST=app.${DOMAIN},${DOMAIN}
 
+  mcp:
+    image: ${DOCKER_REGISTRY}/mcp:latest
+    environment:
+      - LETSENCRYPT_HOST=ai.${DOMAIN}
+
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.123.0
     command: ["--config=/etc/otelcol/config.yaml"]

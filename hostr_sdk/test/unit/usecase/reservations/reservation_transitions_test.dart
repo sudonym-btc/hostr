@@ -41,9 +41,12 @@ class _FakeNdk extends Fake implements Ndk {
 }
 
 class _FakeRequests extends Fake implements hostr_requests.Requests {
+  final hostr_requests.NostrEventSigner? defaultSigner;
   final _source = StreamWithStatus<ReservationTransition>();
   final List<Nip01Event> broadcasted = [];
   final List<Nip01Event> queryResults = [];
+
+  _FakeRequests({this.defaultSigner});
 
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
@@ -68,12 +71,24 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<hostr_requests.BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    hostr_requests.NostrEventSigner? signer,
   }) async {
-    broadcasted.add(event);
-    return [_successfulBroadcastResponse()];
+    var eventToBroadcast = event.sig == null
+        ? await ((signer ?? defaultSigner)?.call(event) ?? Future.value(event))
+        : event;
+    if (eventToBroadcast.sig != null && eventToBroadcast.id.isEmpty) {
+      eventToBroadcast = eventToBroadcast.copyWith(
+        id: Nip01Utils.calculateId(eventToBroadcast),
+      );
+    }
+    broadcasted.add(eventToBroadcast);
+    return hostr_requests.BroadcastResult(
+      event: eventToBroadcast,
+      responses: [_successfulBroadcastResponse()],
+    );
   }
 
   void emit(ReservationTransition t) => _source.add(t);
@@ -119,8 +134,8 @@ void main() {
   late ReservationTransitions usecase;
 
   setUp(() {
-    relay = _FakeRequests();
     ndk = _FakeNdk();
+    relay = _FakeRequests(defaultSigner: ndk.fakeAccounts.sign);
     usecase = ReservationTransitions(
       requests: relay,
       logger: CustomLogger(),

@@ -12,6 +12,10 @@ locals {
       host = "relay.${var.domain_name}"
       path = "/"
     }
+    mcp = {
+      host = "ai.${var.domain_name}"
+      path = "/health"
+    }
   }
 }
 

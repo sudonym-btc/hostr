@@ -68,6 +68,24 @@ services:
     volumes:
       - ./app/build/web:/usr/share/nginx/html:ro
 
+  mcp:
+    depends_on:
+      tls-init:
+        condition: service_completed_successfully
+      relay:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    volumes:
+      - ./docker/tls/ca:/tls:ro
+      - ./docker/data/mcp:/data/mcp
+    environment:
+      - SSL_CERT_FILE=/tls/ca-bundle.crt
+      - NODE_EXTRA_CA_CERTS=/tls/ca-bundle.crt
+      - HOSTR_DAEMON_STATE_DIR=/data/mcp
+      - HOSTR_MCP_DEV_PROXY_TARGET=${HOSTR_MCP_DEV_PROXY_TARGET:-http://host.docker.internal:8787}
+      - MCP_DEV_AUTH_ENABLED=${MCP_DEV_AUTH_ENABLED:-1}
+
   # landing-page:
   #   volumes:
   #     - ./landing-page/index.html:/usr/share/nginx/html/index.html:ro
@@ -181,8 +199,8 @@ services:
       test: ["CMD-SHELL", "timeout 2 bash -lc '</dev/tcp/127.0.0.1/5000'"]
       interval: 3s
       timeout: 3s
-      retries: 20
-      start_period: 180s
+      retries: 100
+      start_period: 300s
     networks:
       - default
 
@@ -255,8 +273,8 @@ services:
         ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 15s
+      retries: 60
+      start_period: 180s
     restart: unless-stopped
     networks:
       - default

@@ -17,6 +17,14 @@ class PayParameters {
     this.minSendable,
     this.maxSendable,
   });
+
+  Map<String, Object?> toJson() => {
+    'to': to,
+    if (amount != null) 'amount': amount!.toJson(),
+    if (comment != null) 'comment': comment,
+    if (minSendable != null) 'minSendable': minSendable,
+    if (maxSendable != null) 'maxSendable': maxSendable,
+  };
 }
 
 class EvmPayParameters extends PayParameters {
@@ -62,11 +70,22 @@ class ResolvedDetails {
     required this.maxAmount,
     required this.commentAllowed,
   });
+
+  Map<String, Object?> toJson() => {
+    'type': 'resolved',
+    'minAmount': minAmount,
+    'maxAmount': maxAmount,
+    if (commentAllowed != null) 'commentAllowed': commentAllowed,
+  };
 }
 
-class CallbackDetails {}
+class CallbackDetails {
+  Map<String, Object?> toJson() => {'type': 'callback'};
+}
 
-class CompletedDetails {}
+class CompletedDetails {
+  Map<String, Object?> toJson() => {'type': 'completed'};
+}
 
 class Bolt11PayParameters extends PayParameters {
   Bolt11PayParameters({
@@ -97,16 +116,35 @@ class LnUrlResolvedDetails extends ResolvedDetails {
     required super.commentAllowed,
     required this.response,
   });
+
+  @override
+  Map<String, Object?> toJson() => {
+    ...super.toJson(),
+    'type': 'lnurl',
+    'callback': response.callback,
+    'metadata': response.metadata,
+  };
 }
 
 class LightningCallbackDetails extends CallbackDetails {
   final Bolt11PaymentRequest invoice;
   LightningCallbackDetails({required this.invoice});
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'lightning',
+    'paymentRequest': invoice.paymentRequest,
+    'timestamp': invoice.timestamp.toInt(),
+    'expirySeconds': _invoiceExpirySeconds(invoice.tags),
+  };
 }
 
 class LightningCompletedDetails extends CompletedDetails {
   final String preimage;
   LightningCompletedDetails({required this.preimage});
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'lightning', 'preimage': preimage};
 }
 
 class ZapCompletedDetails extends CompletedDetails {
@@ -121,4 +159,22 @@ class ZapCompletedDetails extends CompletedDetails {
     this.zapReceiptId,
     required this.confirmedByZapReceipt,
   });
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'zap',
+    if (preimage != null) 'preimage': preimage,
+    if (zapReceiptEventId != null) 'zapReceiptEventId': zapReceiptEventId,
+    if (zapReceiptId != null) 'zapReceiptId': zapReceiptId,
+    'confirmedByZapReceipt': confirmedByZapReceipt,
+  };
+}
+
+int _invoiceExpirySeconds(List<dynamic> tags) {
+  for (final tag in tags) {
+    if (tag.type != 'expiry') continue;
+    final data = tag.data;
+    if (data is num) return data.toInt();
+  }
+  return 3600;
 }

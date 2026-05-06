@@ -91,33 +91,35 @@ Future<void> initCore(
   log.d('appDatabase + hydratedStorage: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();
-  getIt.registerSingleton<Hostr>(
-    Hostr(
-      config: getIt<Config>().buildHostrConfig(
-        logger: logger,
-        appDatabase: appDatabase,
-        showNotification:
-            ({required int id, String? title, String? body, String? payload}) {
-              if (kIsWeb) {
-                InAppNotificationToast.show(
-                  id: id,
-                  title: title,
-                  body: body,
-                  payload: payload,
-                );
-                return Future.value();
-              }
-              return FlutterLocalNotificationsPlugin().show(
+  final hostrRuntime = HostrRuntime(
+    config: getIt<Config>().buildHostrConfig(
+      logger: logger,
+      appDatabase: appDatabase,
+      showNotification:
+          ({required int id, String? title, String? body, String? payload}) {
+            if (kIsWeb) {
+              InAppNotificationToast.show(
                 id: id,
                 title: title,
                 body: body,
                 payload: payload,
               );
-            },
-      ),
-      environment: env,
+              return Future.value();
+            }
+            return FlutterLocalNotificationsPlugin().show(
+              id: id,
+              title: title,
+              body: body,
+              payload: payload,
+            );
+          },
     ),
+    environment: env,
   );
+  getIt.registerSingleton<HostrRuntime>(hostrRuntime);
+  final hostrSession = await hostrRuntime.foregroundSession();
+  getIt.registerSingleton<HostrSession>(hostrSession);
+  getIt.registerSingleton<Hostr>(hostrSession.hostr);
   log.d('registerHostr: ${sw.elapsedMilliseconds}ms');
 
   sw.reset();

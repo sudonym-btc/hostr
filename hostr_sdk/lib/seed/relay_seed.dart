@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
+import 'package:meta/meta.dart' show visibleForTesting;
+import 'package:models/stubs/main.dart' show MockKeys;
+import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../config/generated/test_env.g.dart' as env;
 import '../datasources/lnbits/lnbits.dart';
@@ -152,7 +154,7 @@ class RelaySeeder {
     }
   }
 
-  static const int _maxConcurrentBroadcasts = 5;
+  static const int _maxConcurrentBroadcasts = 50;
   static const int _broadcastMaxAttempts = 6;
 
   Future<void> _insertUsersIntoSignetBunker({
@@ -167,16 +169,21 @@ class RelaySeeder {
       throw StateError('Invalid signetBunkerUrl: $rawUrl');
     }
 
-    print('Inserting seeded nsecs into Signet bunker: $baseUri');
+    final signetTargets = selectSignetBunkerSeedKeyTargets(data.users);
+
+    print(
+      'Inserting first host/guest/escrow seeded nsecs into Signet bunker: '
+      '$baseUri',
+    );
     final client = SignetBunkerClient(baseUri: baseUri);
     try {
-      await client.deleteKeysWithPrefix(_signetKeyPrefix(config));
+      await client.deleteKeysWithPrefix(_signetGeneratedKeyPrefix);
       final imported = <Map<String, dynamic>>[];
-      for (final user in data.users) {
-        final nsec = user.keyPair.privateKeyBech32;
+      for (final target in signetTargets) {
+        final nsec = target.keyPair.privateKeyBech32;
         if (nsec == null || nsec.isEmpty) continue;
 
-        final keyName = _signetKeyName(config: config, user: user);
+        final keyName = _signetKeyName(config: config, target: target);
         final key = await client.importNsec(
           keyName: keyName,
           nsec: nsec,
@@ -184,13 +191,20 @@ class RelaySeeder {
         );
         imported.add({
           'keyName': key.keyName,
-          'role': user.isHost ? 'host' : 'guest',
-          'npub': user.keyPair.publicKeyBech32,
+          'role': target.role,
+          'npub': target.keyPair.publicKeyBech32,
           'bunkerUri': key.bunkerUri,
         });
       }
 
-      print('Inserted ${imported.length} seeded nsecs into Signet bunker.');
+      final selectedUserCount = signetTargets
+          .where((target) => target.userIndex != null)
+          .length;
+      final skippedCount = data.users.length - selectedUserCount;
+      print(
+        'Inserted ${imported.length} seeded nsecs into Signet bunker '
+        '(${skippedCount < 0 ? 0 : skippedCount} users skipped).',
+      );
       if (imported.isNotEmpty) {
         print(const JsonEncoder.withIndent('  ').convert(imported));
       }
@@ -201,14 +215,17 @@ class RelaySeeder {
 
   String _signetKeyName({
     required SeedPipelineConfig config,
-    required SeedUser user,
+    required SignetBunkerSeedKeyTarget target,
   }) {
-    final role = user.isHost ? 'host' : 'guest';
-    return '${_signetKeyPrefix(config)}$role-${user.index}';
+    final index = target.userIndex;
+    final suffix = index == null ? '' : '-$index';
+    return '${_signetKeyPrefix(config)}${target.role}$suffix';
   }
 
+  static const String _signetGeneratedKeyPrefix = 'hostr-seed-';
+
   String _signetKeyPrefix(SeedPipelineConfig config) =>
-      'hostr-seed-${config.seed}-';
+      '$_signetGeneratedKeyPrefix${config.seed}-';
 
   Future<void> _ensureContractIsDeployed({
     required String rpcUrl,
@@ -296,42 +313,9 @@ class RelaySeeder {
   Future<void> _printPipelineUsersByRole(SeedPipelineData data) async {
     final users = data.users;
     final userByPubkey = {for (final u in users) u.keyPair.publicKey: u};
-
-    Future<Map<String, dynamic>> userSummary(SeedUser user) async {
-      final privateKey = user.keyPair.privateKey;
-      final evmAddress = user.hasEvm && privateKey != null
-          ? (await deriveEvmKey(privateKey)).address.eip55With0x
-          : null;
-
-      return {
-        'nsec': user.keyPair.privateKeyBech32,
-        'npub': user.keyPair.publicKeyBech32,
-        'hasEvm': user.hasEvm,
-        'evmAddress': evmAddress,
-        'reservations': {'escrow': <String>[], 'zap': <String>[]},
-      };
-    }
-
-    final guestEntries = await Future.wait(
-      users
-          .where((u) => !u.isHost)
-          .where((u) => u.keyPair.privateKey != null)
-          .map(
-            (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
-          ),
-    );
-    final hostEntries = await Future.wait(
-      users
-          .where((u) => u.isHost)
-          .where((u) => u.keyPair.privateKey != null)
-          .map(
-            (u) async => MapEntry(u.keyPair.privateKey!, await userSummary(u)),
-          ),
-    );
-
-    final grouped = {
-      'guest': {for (final entry in guestEntries) entry.key: entry.value},
-      'host': {for (final entry in hostEntries) entry.key: entry.value},
+    final usage = {
+      'guest': {'escrow': <String>{}, 'zap': <String>{}},
+      'host': {'escrow': <String>{}, 'zap': <String>{}},
     };
 
     for (final reservation in data.reservations) {
@@ -345,16 +329,13 @@ class RelaySeeder {
       final host = userByPubkey[proof.listing.pubKey];
 
       void addToRole(SeedUser? user, String role) {
-        if (user == null || user.keyPair.privateKey == null) return;
-        final roleMap = grouped[role] as Map<String, dynamic>;
-        final info = roleMap[user.keyPair.privateKey!] as Map<String, dynamic>?;
-        if (info == null) return;
-        final reservations = info['reservations'] as Map<String, dynamic>;
+        if (user == null) return;
+        final reservations = usage[role]!;
         if (usesEscrow) {
-          (reservations['escrow'] as List<String>).add(tradeId);
+          reservations['escrow']!.add(tradeId);
         }
         if (usesZap) {
-          (reservations['zap'] as List<String>).add(tradeId);
+          reservations['zap']!.add(tradeId);
         }
       }
 
@@ -362,22 +343,78 @@ class RelaySeeder {
       addToRole(host, 'host');
     }
 
-    for (final role in ['guest', 'host']) {
-      final roleMap = grouped[role] as Map<String, dynamic>;
-      for (final info in roleMap.values) {
-        final reservations =
-            (info as Map<String, dynamic>)['reservations']
-                as Map<String, dynamic>;
-        reservations['escrow'] =
-            (reservations['escrow'] as List<String>).toSet().toList()..sort();
-        reservations['zap'] =
-            (reservations['zap'] as List<String>).toSet().toList()..sort();
-      }
+    final hosts = users.where((u) => u.isHost).toList();
+    final guests = users.where((u) => !u.isHost).toList();
+
+    print('Seed users by role with reservation proof usage:');
+    print(
+      const JsonEncoder.withIndent('  ').convert({
+        'guest': {
+          'users': guests.length,
+          'with_private_key': guests
+              .where((u) => u.keyPair.privateKey != null)
+              .length,
+          'with_evm': guests.where((u) => u.hasEvm).length,
+          'escrow_reservations': usage['guest']!['escrow']!.length,
+          'zap_reservations': usage['guest']!['zap']!.length,
+        },
+        'host': {
+          'users': hosts.length,
+          'with_private_key': hosts
+              .where((u) => u.keyPair.privateKey != null)
+              .length,
+          'with_evm': hosts.where((u) => u.hasEvm).length,
+          'escrow_reservations': usage['host']!['escrow']!.length,
+          'zap_reservations': usage['host']!['zap']!.length,
+        },
+      }),
+    );
+  }
+}
+
+@visibleForTesting
+class SignetBunkerSeedKeyTarget {
+  final String role;
+  final int? userIndex;
+  final KeyPair keyPair;
+
+  const SignetBunkerSeedKeyTarget({
+    required this.role,
+    required this.keyPair,
+    this.userIndex,
+  });
+}
+
+@visibleForTesting
+List<SignetBunkerSeedKeyTarget> selectSignetBunkerSeedKeyTargets(
+  List<SeedUser> users,
+) {
+  final selectedUsers = selectSignetBunkerSeedUsers(users);
+  return [
+    for (final user in selectedUsers)
+      SignetBunkerSeedKeyTarget(
+        role: user.isHost ? 'host' : 'guest',
+        userIndex: user.index,
+        keyPair: user.keyPair,
+      ),
+    SignetBunkerSeedKeyTarget(role: 'escrow', keyPair: MockKeys.escrow),
+  ];
+}
+
+@visibleForTesting
+List<SeedUser> selectSignetBunkerSeedUsers(List<SeedUser> users) {
+  SeedUser? firstHost;
+  SeedUser? firstGuest;
+
+  for (final user in users) {
+    if (user.isHost && firstHost == null) {
+      firstHost = user;
+    } else if (!user.isHost && firstGuest == null) {
+      firstGuest = user;
     }
 
-    print(
-      'Seed users private keys by role with EVM + reservation proof usage:',
-    );
-    print(const JsonEncoder.withIndent('  ').convert(grouped));
+    if (firstHost != null && firstGuest != null) break;
   }
+
+  return [?firstHost, ?firstGuest];
 }

@@ -10,7 +10,6 @@ import 'package:web3dart/web3dart.dart'
     show BlockNum, EthPrivateKey, FilterOptions;
 
 import '../../../../config.dart';
-import '../../../../injection.dart';
 import '../../../../util/custom_logger.dart';
 import '../../../../util/token_amount_ext.dart';
 import '../../../auth/auth.dart';
@@ -63,6 +62,8 @@ class FundsMonitorService {
   final TradeAccountAllocator _tradeAccountAllocator;
   final OperationStateStore _stateStore;
   final UserConfigStore _userConfigStore;
+  final Escrows? _escrows;
+  final HostrConfig? _config;
   final CustomLogger _logger;
 
   // ── Observable state ────────────────────────────────────────────────────
@@ -113,9 +114,11 @@ class FundsMonitorService {
     this._tradeAccountAllocator,
     this._stateStore,
     this._userConfigStore,
-    CustomLogger logger,
-  ) : _logger = logger.scope('funds-monitor'),
-      _liveErc20TrackingEnabled = false;
+    CustomLogger logger, [
+    this._escrows,
+    this._config,
+  ]) : _logger = logger.scope('funds-monitor'),
+       _liveErc20TrackingEnabled = false;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -349,9 +352,13 @@ class FundsMonitorService {
   /// bootstrap escrow pubkeys, then calls `allBalances` on each contract.
   Future<void> _scanEscrowContracts() =>
       _logger.span('_scanEscrowContracts', () async {
-        final escrows = getIt<Escrows>();
-        final config = getIt<HostrConfig>();
-        if (config.bootstrapEscrowPubkeys.isEmpty) return;
+        final config = _config;
+        final escrows = _escrows;
+        if (config == null ||
+            escrows == null ||
+            config.bootstrapEscrowPubkeys.isEmpty) {
+          return;
+        }
 
         // Fetch known escrow service events.
         final services = await escrows.list(

@@ -5,7 +5,7 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
-import '../../injection.dart';
+import '../../injection.dart' show HostrScope, getIt;
 import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../user_subscriptions/user_subscriptions.dart';
@@ -16,6 +16,7 @@ class Threads {
   final CustomLogger _logger;
   final Auth _auth;
   final UserSubscriptions _userSubscriptions;
+  final HostrScope _scope;
 
   final StreamController<Thread> threadController =
       StreamController<Thread>.broadcast();
@@ -63,8 +64,10 @@ class Threads {
     required Auth auth,
     required UserSubscriptions userSubscriptions,
     required CustomLogger logger,
+    HostrScope? scope,
   }) : _auth = auth,
        _userSubscriptions = userSubscriptions,
+       _scope = scope ?? HostrScope(getIt),
        _logger = logger.scope('threads') {
     _statusSubscription = _userSubscriptions.giftwraps$.status
         .distinct((a, b) => a.runtimeType == b.runtimeType)
@@ -144,7 +147,7 @@ class Threads {
     final created = !threads.containsKey(anchor);
     final thread = threads.putIfAbsent(
       anchor,
-      () => getIt<Thread>(param1: anchor),
+      () => _scope<Thread>(param1: anchor),
     );
     thread.configureConversation(
       conversationTag: tag,

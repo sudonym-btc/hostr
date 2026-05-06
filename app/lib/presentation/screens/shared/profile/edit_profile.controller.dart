@@ -73,12 +73,12 @@ class EditProfileController extends UpsertFormController {
       metadata.toEvent(),
     ).withImageMetas(imageMeta == null ? const [] : [imageMeta]);
 
-    await getIt<Hostr>().metadata.upsert(profile);
+    final result = await getIt<Hostr>().metadata.upsert(profile);
 
     // Use the freshly-built profile directly — no round-trip to the NDK cache
     // which may still hold the old value.
-    setState(profile);
-    getIt<Hostr>().metadata.notifyUpdate(profile);
+    setState(result.event);
+    getIt<Hostr>().metadata.notifyUpdate(result.event);
   }
 
   static String? _validateEmailLike(String? value, {required String label}) {

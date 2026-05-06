@@ -72,6 +72,7 @@ class InMemoryRequests extends Requests implements RequestsModel {
     required super.ndk,
     required super.auth,
     required super.logger,
+    required super.config,
   }) : _ndk = ndk,
        _logger = logger.scope('in-memory-requests'),
        super();
@@ -179,19 +180,26 @@ class InMemoryRequests extends Requests implements RequestsModel {
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
-    addEvent(event);
-    return [
-      RelayBroadcastResponse(
-        relayUrl: 'in-memory://localhost',
-        okReceived: true,
-        broadcastSuccessful: true,
-        msg: '',
-      ),
-    ];
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    addEvent(eventToBroadcast);
+    return BroadcastResult(
+      event: eventToBroadcast,
+      responses: [
+        RelayBroadcastResponse(
+          relayUrl: 'in-memory://localhost',
+          okReceived: true,
+          broadcastSuccessful: true,
+          msg: '',
+        ),
+      ],
+    );
   }
 
   /// Clean up subscriptions.

@@ -12,7 +12,6 @@ import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:test/test.dart';
 
@@ -35,10 +34,11 @@ class _FakeRequests extends Fake implements Requests {
   }
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
-  }) {
+    NostrEventSigner? signer,
+  }) async {
     throw UnimplementedError();
   }
 }

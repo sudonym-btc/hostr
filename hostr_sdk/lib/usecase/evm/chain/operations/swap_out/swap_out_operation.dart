@@ -56,6 +56,8 @@ class EvmSwapOutOperation extends SwapOutOperation {
     required this.payments,
     required super.params,
     super.initialState,
+    super.store,
+    super.tracker,
   });
 
   // ── State machine ─────────────────────────────────────────────────────

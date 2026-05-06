@@ -11,21 +11,66 @@ import 'usecase/calendar/calendar.dart';
 import 'util/custom_logger.dart';
 import 'util/telemetry.dart';
 
-/// SDK-private dependency container, isolated from the host app's GetIt.
-final getIt = GetIt.asNewInstance();
+/// Legacy SDK-private dependency container, isolated from the host app's
+/// GetIt.
+///
+/// New code should prefer the per-[Hostr] scope exposed by HostrRuntime and
+/// HostrSession. This remains mutable for older tests and CLI code that reset
+/// the SDK container directly.
+GetIt getIt = GetIt.asNewInstance();
+
+class HostrScope {
+  final GetIt container;
+
+  HostrScope(this.container);
+
+  T call<T extends Object>({
+    String? instanceName,
+    dynamic param1,
+    dynamic param2,
+  }) {
+    return container<T>(
+      instanceName: instanceName,
+      param1: param1,
+      param2: param2,
+    );
+  }
+
+  bool isRegistered<T extends Object>({String? instanceName}) {
+    return container.isRegistered<T>(instanceName: instanceName);
+  }
+
+  void registerSingleton<T extends Object>(T instance, {String? instanceName}) {
+    container.registerSingleton<T>(instance, instanceName: instanceName);
+  }
+}
 
 late HostrConfig _hostrConfig;
+late HostrScope _hostrScope;
 
 @injectableInit
 void configureInjection(String environment, {required HostrConfig config}) {
+  getIt = createHostrScope(environment: environment, config: config);
+}
+
+GetIt createHostrScope({
+  required String environment,
+  required HostrConfig config,
+}) {
   _hostrConfig = config;
-  getIt.init(environment: environment);
+  final scope = GetIt.asNewInstance();
+  _hostrScope = HostrScope(scope);
+  scope.init(environment: environment);
+  return scope;
 }
 
 @module
 abstract class HostrSdkModule {
   @singleton
   HostrConfig get hostrConfig => _hostrConfig;
+
+  @singleton
+  HostrScope get hostrScope => _hostrScope;
 
   @singleton
   KeyValueStorage get keyValueStorage => _hostrConfig.keyValueStorage;

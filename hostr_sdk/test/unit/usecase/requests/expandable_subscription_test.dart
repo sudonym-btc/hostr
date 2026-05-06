@@ -13,6 +13,7 @@ import 'package:test/test.dart';
 
 class _FakeRequests extends Fake implements Requests {
   final Completer<List<RelayBroadcastResponse>>? broadcastCompleter;
+  final broadcastedEvents = <Nip01Event>[];
 
   _FakeRequests({this.broadcastCompleter});
 
@@ -36,15 +37,20 @@ class _FakeRequests extends Fake implements Requests {
   }) => LiveSubscriptionHandle(() async {}, name);
 
   @override
-  Future<List<RelayBroadcastResponse>> broadcast({
+  Future<BroadcastResult> broadcastEvent({
     required Nip01Event event,
     List<String>? relays,
+    NostrEventSigner? signer,
   }) async {
+    broadcastedEvents.add(event);
     final responses =
         await (broadcastCompleter?.future ??
             Future.value([_broadcastResponse(success: true)]));
     throwIfBroadcastFailed(responses, context: 'fake broadcast ${event.id}');
-    return responses;
+    final eventToBroadcast = event.sig == null && signer != null
+        ? await signer(event)
+        : event;
+    return BroadcastResult(event: eventToBroadcast, responses: responses);
   }
 }
 
@@ -139,6 +145,33 @@ void main() {
 
     expect(emitted, isTrue);
     await sub.cancel();
+  });
+
+  test('upsert prepares unsigned drafts before broadcast', () async {
+    const kind = 123456;
+    final requests = _FakeRequests();
+    final useCase = CrudUseCase<Nip01Event>(
+      requests: requests,
+      kind: kind,
+      logger: CustomLogger(),
+    );
+    final event = Nip01Event(
+      id: 'old-id',
+      pubKey: 'author',
+      kind: kind,
+      tags: const [
+        ['d', 'trade-1'],
+      ],
+      content: '',
+      sig: null,
+      createdAt: 1,
+    );
+
+    await useCase.upsert(event);
+
+    expect(requests.broadcastedEvents, hasLength(1));
+    expect(requests.broadcastedEvents.single.id, isEmpty);
+    expect(requests.broadcastedEvents.single.createdAt, greaterThan(1));
   });
 
   test('upsert does not emit local updates when broadcast fails', () async {

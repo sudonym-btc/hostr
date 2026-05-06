@@ -1,10 +1,12 @@
 @Tags(['unit'])
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/auth/auth_identity_resolver.dart';
-import 'package:hostr_sdk/usecase/auth/auth_models.dart';
+import 'package:hostr_sdk/usecase/storage/storage.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
 import 'package:ndk/ndk.dart';
 import 'package:test/test.dart';
@@ -292,4 +294,114 @@ void main() {
       expect(record.publicKeyHex, 'abcd1234' * 8);
     });
   });
+
+  group('Auth lifecycle', () {
+    test('dispose disposes active NDK account signers', () async {
+      final ndk = Ndk(
+        NdkConfig(
+          eventVerifier: Bip340EventVerifier(useIsolate: false),
+          cache: MemCacheManager(),
+          engine: NdkEngine.RELAY_SETS,
+          bootstrapRelays: const [],
+        ),
+      );
+      final signer = _DisposableSigner('aabb' * 16);
+      ndk.accounts.loginExternalSigner(signer: signer);
+      final auth = Auth(
+        ndk: ndk,
+        authStorage: _MemoryAuthStorage(),
+        logger: CustomLogger(),
+        identityResolver: AuthIdentityResolver(logger: CustomLogger()),
+      );
+
+      await auth.dispose();
+
+      expect(signer.disposed, isTrue);
+      expect(ndk.accounts.accounts, isEmpty);
+      await ndk.requests.closeAllSubscription();
+      await ndk.relays.closeAllTransports();
+      await ndk.accounts.dispose();
+    });
+  });
+}
+
+class _MemoryAuthStorage implements AuthStorage {
+  var _items = <String>[];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  @override
+  Future<List<String>> get() async => List<String>.from(_items);
+
+  @override
+  Future<void> set(List<String> items) async {
+    _items = List<String>.from(items);
+  }
+
+  @override
+  Future<void> add(String item) async {
+    if (!_items.contains(item)) _items.add(item);
+  }
+
+  @override
+  Future<void> remove(String item) async {
+    _items.remove(item);
+  }
+
+  @override
+  Future<void> wipe() async {
+    _items.clear();
+  }
+}
+
+class _DisposableSigner implements EventSigner {
+  _DisposableSigner(this.pubkey);
+
+  final String pubkey;
+  bool disposed = false;
+
+  @override
+  bool canSign() => true;
+
+  @override
+  bool cancelRequest(String requestId) => false;
+
+  @override
+  Future<String?> decrypt(String msg, String destPubKey, {String? id}) async =>
+      msg;
+
+  @override
+  Future<String?> decryptNip44({
+    required String ciphertext,
+    required String senderPubKey,
+  }) async => ciphertext;
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+  }
+
+  @override
+  Future<String?> encrypt(String msg, String destPubKey, {String? id}) async =>
+      msg;
+
+  @override
+  Future<String?> encryptNip44({
+    required String plaintext,
+    required String recipientPubKey,
+  }) async => plaintext;
+
+  @override
+  List<PendingSignerRequest> get pendingRequests => const [];
+
+  @override
+  Stream<List<PendingSignerRequest>> get pendingRequestsStream =>
+      const Stream.empty();
+
+  @override
+  String getPublicKey() => pubkey;
+
+  @override
+  Future<Nip01Event> sign(Nip01Event event) async => event;
 }

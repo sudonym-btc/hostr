@@ -9,12 +9,20 @@ import '../requests/requests.dart';
 
 @Singleton(env: Env.allButTestAndMock)
 class Zaps {
-  Nwc nwc;
-  Ndk ndk;
+  final Nwc nwc;
+  final Ndk ndk;
+  final HostrConfig? _config;
+  final Requests? _requests;
 
-  Zaps({required this.nwc, required this.ndk});
+  Zaps({
+    required this.nwc,
+    required this.ndk,
+    HostrConfig? config,
+    Requests? requests,
+  }) : _config = config,
+       _requests = requests;
 
-  List<String> _zapReceiptRelays() => getIt<HostrConfig>().bootstrapRelays;
+  List<String> _zapReceiptRelays() => _config?.bootstrapRelays ?? const [];
 
   Future<ZapResponse> zap({required String lnurl, required int amountSats}) {
     return ndk.zaps.zap(
@@ -46,7 +54,11 @@ class Zaps {
       throw ArgumentError.value(limit, 'limit', 'must be greater than zero');
     }
 
-    return getIt<Requests>().subscribe<Nip01Event>(
+    final requests = _requests;
+    if (requests == null) {
+      throw StateError('Cannot subscribe to zap receipts without Requests');
+    }
+    return requests.subscribe<Nip01Event>(
       filter: Filter(
         kinds: [ZapReceipt.kKind],
         eTags: eventId != null ? [eventId] : null,
@@ -62,7 +74,12 @@ class Zaps {
 
 @Singleton(as: Zaps, env: [Env.test, Env.mock])
 class MockZaps extends Zaps {
-  MockZaps({required super.nwc, required super.ndk});
+  MockZaps({
+    required super.nwc,
+    required super.ndk,
+    super.config,
+    super.requests,
+  });
 
   @override
   fetchInvoice({

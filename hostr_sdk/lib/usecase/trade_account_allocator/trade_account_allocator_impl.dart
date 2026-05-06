@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:injectable/injectable.dart';
 import 'package:wallet/wallet.dart' as bip;
 
-import '../../util/custom_logger.dart';
+import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../deterministic_keys/deterministic_keys.dart';
 import '../evm/evm.dart';
@@ -40,6 +42,7 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   Future<int> reserveNextTradeIndex() =>
       _logger.span('reserveNextTradeIndex', () async {
         await _cache.ensureTradeIdsLoaded();
+        await _waitForThreadHydration();
 
         // HD account 0 is the stable public/profile EVM address. Trade
         // allocations start at index 1 so the first booking cannot reveal the
@@ -148,6 +151,24 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     if (_threads.findByConversationTag(tradeId).isNotEmpty) return true;
     final reservations = await _reservations.getByTradeId(tradeId);
     return reservations.isNotEmpty;
+  }
+
+  Future<void> _waitForThreadHydration() async {
+    final status = _threads.events$.status.value;
+    if (status is StreamStatusLive) return;
+
+    try {
+      await _threads.events$.status
+          .where((status) => status is StreamStatusLive)
+          .first
+          .timeout(const Duration(seconds: 20));
+      await _yieldToEventLoop();
+    } on TimeoutException {
+      _logger.w(
+        'Thread hydration did not reach live before trade account allocation; '
+        'continuing with ${_threads.threads.length} hydrated thread(s).',
+      );
+    }
   }
 
   Future<bool> _evmAddressIsUsed(bip.EthereumAddress address) async {

@@ -16,6 +16,8 @@ class Relays {
   final CustomLogger _logger;
   final Ndk _ndk;
   final RelayStorage _relayStorage;
+  final HostrConfig? _config;
+  final Requests? _requests;
   Future<void>? _startSeedRelaysFuture;
   Future<void>? _coreRelayReadyFuture;
   Future<void>? _reconnectNowFuture;
@@ -37,8 +39,12 @@ class Relays {
     required Ndk ndk,
     required RelayStorage relayStorage,
     required CustomLogger logger,
+    HostrConfig? config,
+    Requests? requests,
   }) : _ndk = ndk,
        _relayStorage = relayStorage,
+       _config = config,
+       _requests = requests,
        _logger = logger.scope('relays');
 
   /// Returns a relay URL hint for the given [pubkey] by looking up their
@@ -101,7 +107,8 @@ class Relays {
   }
 
   Future<void> _startSeedRelays() async {
-    final config = getIt<HostrConfig>();
+    final config = _config;
+    if (config == null) return;
     _blockDevelopmentRelayOutsideDevelopment(config);
 
     final coreRelays = config.hostrRelay.isNotEmpty
@@ -154,8 +161,8 @@ class Relays {
   }) => _logger.span('_waitForConnection', () async {
     const pollInterval = Duration(seconds: 1);
 
-    final config = getIt<HostrConfig>();
-    final preferredRelay = config.hostrRelay;
+    final config = _config;
+    final preferredRelay = config?.hostrRelay ?? '';
 
     // Poll until the Hostr relay is connected, or at least one relay when
     // no Hostr relay is configured. Hostr-specific requests are guarded onto
@@ -174,7 +181,7 @@ class Relays {
 
       final reconnectTargets = preferredRelay.isNotEmpty
           ? [preferredRelay]
-          : config.bootstrapRelays;
+          : config?.bootstrapRelays ?? const [];
       for (final url in reconnectTargets) {
         if (connectedUrls.contains(url) || _ndk.relays.isRelayConnecting(url)) {
           continue;
@@ -187,7 +194,7 @@ class Relays {
           : 'any relay';
       _logger.d(
         'Checking relay connectivity for $targetDescription… '
-        'connected=${connectedUrls.length}/${config.bootstrapRelays.length}',
+        'connected=${connectedUrls.length}/${config?.bootstrapRelays.length ?? 0}',
       );
       await Future.delayed(pollInterval);
     }
@@ -310,11 +317,13 @@ class Relays {
   };
 
   Future<void> _discoverNip65OnBootstrapRelays(String pubkey) async {
-    final relays = getIt<HostrConfig>().bootstrapRelays;
+    final relays = _config?.bootstrapRelays ?? const [];
     if (relays.isEmpty) return;
 
     Nip01Event? latest;
-    await for (final event in getIt<Requests>().query<Nip01Event>(
+    final requests = _requests;
+    if (requests == null) return;
+    await for (final event in requests.query<Nip01Event>(
       filter: Filter(authors: [pubkey], kinds: [Nip65.kKind], limit: 1),
       relays: relays,
       name: 'Nip65-discovery',
@@ -360,7 +369,10 @@ class Relays {
       updated.createdAt = now;
       updated.refreshedTimestamp = now;
 
-      await getIt<Requests>().broadcast(
+      if (_requests == null) {
+        throw StateError('Cannot publish NIP-65 without Requests');
+      }
+      await _requests.broadcastEvent(
         event: updated.toNip65().toEvent(),
         relays: [hostrRelay],
       );
@@ -385,6 +397,8 @@ class MockRelays extends Relays {
     required super.ndk,
     required super.relayStorage,
     required super.logger,
+    super.config,
+    super.requests,
   });
 
   @override
@@ -405,7 +419,8 @@ class MockRelays extends Relays {
   @override
   Future<bool> loadNip65Hints(String pubkey) async {
     logger.i('MockRelays: syncing NIP-65 from InMemoryRequests for $pubkey');
-    final requests = getIt<Requests>();
+    final requests = _requests;
+    if (requests == null) return false;
     Nip01Event? latest;
     await for (final event in requests.query(
       filter: Filter(authors: [pubkey], kinds: [Nip65.kKind]),
