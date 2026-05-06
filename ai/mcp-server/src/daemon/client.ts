@@ -51,6 +51,16 @@ export type OAuthNostrConnectCompleteResult = HostrDaemonCallResult & {
   };
 };
 
+export type HostrImageUploadResult = HostrDaemonCallResult & {
+  data?: {
+    url?: string;
+    sha256?: string;
+    size?: number;
+    type?: string;
+    serverUrl?: string;
+  };
+};
+
 export class HostrDaemonClient {
   private child: ChildProcessWithoutNullStreams | null = null;
   private nextId = 1;
@@ -89,6 +99,15 @@ export class HostrDaemonClient {
     return this.request("visibleActions", params);
   }
 
+  async uploadImage(params: {
+    pubkey?: string;
+    base64: string;
+    mime?: string;
+    filename?: string;
+  }): Promise<HostrImageUploadResult> {
+    return (await this.request("uploadImage", params)) as HostrImageUploadResult;
+  }
+
   async startOAuthNostrConnect(params: {
     requestId: string;
     regenerate?: boolean;
@@ -102,10 +121,13 @@ export class HostrDaemonClient {
   async completeOAuthNostrConnect(params: {
     requestId: string;
     timeoutSeconds?: number;
+    timeoutMs?: number;
   }): Promise<OAuthNostrConnectCompleteResult> {
+    const { timeoutMs, ...requestParams } = params;
     return (await this.request(
       "completeOAuthNostrConnect",
-      params,
+      requestParams,
+      timeoutMs,
     )) as OAuthNostrConnectCompleteResult;
   }
 

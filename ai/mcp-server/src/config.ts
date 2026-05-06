@@ -48,6 +48,16 @@ const readEnvironmentLabel = (): "production" | "staging" | "development" => {
   return "development";
 };
 
+const readBlossomUploadUrl = (): string => {
+  const explicit = process.env.HOSTR_BLOSSOM_UPLOAD_URL;
+  if (explicit && explicit.trim() !== "") {
+    return trimTrailingSlash(explicit);
+  }
+
+  const domain = process.env.DOMAIN || "hostr.development";
+  return `https://blossom.${domain}/upload`;
+};
+
 const displayNameFor = (
   environmentLabel: "production" | "staging" | "development",
 ): string => {
@@ -107,6 +117,8 @@ export type AppConfig = {
   environmentLabel: "production" | "staging" | "development";
   displayName: string;
   port: number;
+  requestBodyLimit: string;
+  blossomUploadUrl: string;
   jwtSecret: Uint8Array;
   accessTokenTtlSeconds: number;
   hostrDaemon: {
@@ -135,6 +147,8 @@ export const config: AppConfig = {
   environmentLabel,
   displayName: displayNameFor(environmentLabel),
   port: Number.parseInt(process.env.PORT || "8787", 10),
+  requestBodyLimit: process.env.MCP_REQUEST_BODY_LIMIT || "100mb",
+  blossomUploadUrl: readBlossomUploadUrl(),
   jwtSecret: new TextEncoder().encode(
     process.env.MCP_JWT_SECRET || "hostr-development-mcp-secret-change-me",
   ),

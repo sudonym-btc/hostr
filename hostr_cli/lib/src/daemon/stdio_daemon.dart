@@ -90,6 +90,15 @@ class HostrDaemonStdioServer {
         'visibleActions' => daemon.visibleActions(
           pubkey: _optionalString(params, 'pubkey'),
         ),
+        'uploadImage' =>
+          await daemon
+              .uploadImage(
+                pubkey: _optionalString(params, 'pubkey'),
+                base64: _requiredString(params, 'base64'),
+                mime: _optionalString(params, 'mime'),
+                filename: _optionalString(params, 'filename'),
+              )
+              .then((result) => result.toJson()),
         'startOAuthNostrConnect' =>
           await daemon
               .startOAuthNostrConnect(

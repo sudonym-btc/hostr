@@ -40,6 +40,7 @@ type AuthorizationCode = PendingAuthorization & {
 const pendingAuthorizations = new Map<string, PendingAuthorization>();
 const authorizationCodes = new Map<string, AuthorizationCode>();
 const registeredClients = new Map<string, RegisteredClient>();
+const authorizationRequestIds = new Map<string, string>();
 
 const authorizationQuerySchema = z.object({
   response_type: z.literal("code"),
@@ -78,12 +79,34 @@ const nostrConnectCompleteSchema = z.object({
 
 const randomToken = (): string => crypto.randomBytes(32).toString("base64url");
 
+const authorizationRequestKey = (request: {
+  client_id: string;
+  redirect_uri: string;
+  state?: string;
+  scope?: string;
+  resource: string;
+  code_challenge: string;
+  code_challenge_method: string;
+}): string =>
+  JSON.stringify({
+    clientId: request.client_id,
+    redirectUri: request.redirect_uri,
+    state: request.state ?? "",
+    scope: request.scope ?? "",
+    resource: request.resource,
+    codeChallenge: request.code_challenge,
+    codeChallengeMethod: request.code_challenge_method,
+  });
+
 const oauthError = (
   response: Response,
   status: number,
   error: string,
   description: string,
 ) => response.status(status).json({ error, error_description: description });
+
+const messageFromError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 const pkceChallenge = (verifier: string): string =>
   crypto.createHash("sha256").update(verifier).digest("base64url");
@@ -180,7 +203,10 @@ const renderAuthorizePage = (
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ request_id: requestId }),
           });
-          const payload = await response.json();
+          const contentType = response.headers.get("content-type") || "";
+          const payload = contentType.includes("application/json")
+            ? await response.json()
+            : { error_description: await response.text() };
           if (!response.ok || !payload.redirectUrl) {
             throw new Error(payload.error_description || "Nostr Connect approval is not complete yet.");
           }
@@ -240,6 +266,11 @@ const authorizationRedirectUrl = (
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
   pendingAuthorizations.delete(request.id);
+  for (const [key, pendingId] of authorizationRequestIds.entries()) {
+    if (pendingId === request.id) {
+      authorizationRequestIds.delete(key);
+    }
+  }
 
   const redirectUrl = new URL(request.redirectUri);
   redirectUrl.searchParams.set("code", code);
@@ -399,22 +430,33 @@ export const createOAuthRouter = (
         );
       }
 
-      const pending: PendingAuthorization = {
-        id: randomToken(),
-        clientId: parsed.data.client_id,
-        redirectUri: parsed.data.redirect_uri,
-        state: parsed.data.state,
-        scope: parsed.data.scope || scopesSupported.join(" "),
+      const requestKey = authorizationRequestKey({
+        ...parsed.data,
         resource,
-        codeChallenge: parsed.data.code_challenge,
-        codeChallengeMethod: parsed.data.code_challenge_method,
-        createdAt: Date.now(),
-      };
+      });
+      const existingPendingId = authorizationRequestIds.get(requestKey);
+      const existingPending = existingPendingId
+        ? pendingAuthorizations.get(existingPendingId)
+        : undefined;
+      const pending: PendingAuthorization =
+        existingPending ??
+        {
+          id: randomToken(),
+          clientId: parsed.data.client_id,
+          redirectUri: parsed.data.redirect_uri,
+          state: parsed.data.state,
+          scope: parsed.data.scope || scopesSupported.join(" "),
+          resource,
+          codeChallenge: parsed.data.code_challenge,
+          codeChallengeMethod: parsed.data.code_challenge_method,
+          createdAt: Date.now(),
+        };
 
       pendingAuthorizations.set(pending.id, pending);
+      authorizationRequestIds.set(requestKey, pending.id);
       const connect = await daemon.startOAuthNostrConnect({
         requestId: pending.id,
-        regenerate: true,
+        regenerate: !existingPending,
       });
       if (
         !connect.ok ||
@@ -422,6 +464,7 @@ export const createOAuthRouter = (
         !connect.data?.qrImage
       ) {
         pendingAuthorizations.delete(pending.id);
+        authorizationRequestIds.delete(requestKey);
         return oauthError(
           response,
           500,
@@ -473,10 +516,22 @@ export const createOAuthRouter = (
         );
       }
 
-      const completed = await daemon.completeOAuthNostrConnect({
-        requestId: pending.id,
-        timeoutSeconds: 180,
-      });
+      const timeoutSeconds = 180;
+      let completed;
+      try {
+        completed = await daemon.completeOAuthNostrConnect({
+          requestId: pending.id,
+          timeoutSeconds,
+          timeoutMs: timeoutSeconds * 1000 + 15_000,
+        });
+      } catch (error) {
+        return oauthError(
+          response,
+          504,
+          "authorization_pending",
+          messageFromError(error),
+        );
+      }
       const pubkey = completed.data?.pubkey;
       if (!completed.ok || !pubkey) {
         return oauthError(

@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "hostr-production": {
+      "url": "https://ai.hostr.network/mcp"
+    }
+  }
+}

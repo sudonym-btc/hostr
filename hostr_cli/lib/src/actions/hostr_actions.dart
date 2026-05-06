@@ -103,10 +103,21 @@ class HostrListingsListInput {
 }
 
 class HostrListingImageInput {
-  const HostrListingImageInput({this.url, this.path, this.alt, this.mime});
+  const HostrListingImageInput({
+    this.url,
+    this.path,
+    this.dataUrl,
+    this.base64,
+    this.filename,
+    this.alt,
+    this.mime,
+  });
 
   final String? url;
   final String? path;
+  final String? dataUrl;
+  final String? base64;
+  final String? filename;
   final String? alt;
   final String? mime;
 
@@ -114,6 +125,9 @@ class HostrListingImageInput {
     return HostrListingImageInput(
       url: _optionalString(json['url']),
       path: _optionalString(json['path']),
+      dataUrl: _optionalString(json['dataUrl'] ?? json['dataUri']),
+      base64: _optionalString(json['base64'] ?? json['data']),
+      filename: _optionalString(json['filename'] ?? json['name']),
       alt: _optionalString(json['alt']),
       mime: _optionalString(json['mime']),
     );
@@ -122,6 +136,9 @@ class HostrListingImageInput {
   Map<String, Object?> toJson() => {
     if (url != null) 'url': url,
     if (path != null) 'path': path,
+    if (dataUrl != null) 'dataUrl': dataUrl,
+    if (base64 != null) 'base64': base64,
+    if (filename != null) 'filename': filename,
     if (alt != null) 'alt': alt,
     if (mime != null) 'mime': mime,
   };
@@ -1186,7 +1203,7 @@ class HostrActionSpec {
       case 'hostr.listings.list':
         return 'Use for inventory/management views: "my listings", "what am I hosting", "show my stays", or listings by a known author pubkey. Use mine=true for the authenticated user. Use author only when the user provides or selected a specific pubkey.';
       case 'hostr.listings.create':
-        return 'Use when the authenticated user wants to create, publish, list, rent out, or host a room/place/stay. Collect title, description, address, at least one image, and at least one price before calling. The first image is the card/hero image. Use dryRun=true to upload/stage media and return the visual listing preview; publish with dryRun=false only after explicit approval. The live path also ensures seller configuration is published.';
+        return 'Use when the authenticated user wants to create, publish, list, rent out, or host a room/place/stay. Collect title, description, address, at least one image URL, and at least one price before calling. The first image is the card/hero image. This MCP tool accepts image URLs only. For ChatGPT web/mobile, local development clients, or any remote MCP client with uploaded files, you must POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload endpoint does not require or use Authorization; do not send OAuth, Nostr auth, or Hostr session credentials for image upload. Do not base64-encode the uploaded image into this MCP tool call. Do not serve a temporary localhost URL for Hostr to fetch; localhost refers to the wrong machine/container. If the upload POST cannot be made, stop and ask for a public image URL or for the client to expose an upload capability. Do not resize, downscale, crop, recompress, transcode, or make thumbnails unless the user explicitly requests it. Never pass a local or mounted sandbox path such as /mnt/data, /mnt/shared, file://, or a ChatGPT file mount to this remote MCP tool. Use dryRun=true to upload/stage media and return the visual listing preview; publish with dryRun=false only after explicit approval. The live path also ensures seller configuration is published.';
       case 'hostr.listings.edit':
         return 'Use when the authenticated author wants to update an existing listing. If the user has not named a concrete listing anchor, first call hostr_listings_list with mine=true and ask/choose from the returned listings. Patch only fields the user intends to change; preview with dryRun=true and publish with dryRun=false only after approval.';
       case 'hostr.listings.availability':
@@ -1522,7 +1539,7 @@ export interface HostrListingsListInput {
     id: 'hostr.listings.create',
     title: 'Create Hostr Listing',
     description:
-        'Create a Hostr listing for the authenticated token pubkey session. By default this uploads any local images to Blossom and returns the same visual listing-card preview users will see once published; set dryRun false only after explicit user approval to publish the listing event.',
+        'Create a Hostr listing for the authenticated token pubkey session. Listing images must be passed as images[].url. For user-uploaded files, first upload the original image bytes to POST /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload endpoint does not require or use Authorization; do not send OAuth, Nostr auth, or Hostr session credentials for image upload. Do not base64-encode user-uploaded images into this MCP tool call, do not serve temporary localhost URLs, and do not pass /mnt/data or file:// paths. Set dryRun false only after explicit user approval to publish the listing event.',
     inputTypeName: 'HostrListingsCreateInput',
     readOnly: false,
     inputSchema: {
@@ -1549,15 +1566,28 @@ export interface HostrListingsListInput {
           'type': 'array',
           'minItems': 1,
           'description':
-              'HTTP image URLs or local daemon-readable image file paths.',
+              'Listing images. This MCP tool accepts image URLs only. Mandatory flow for user-uploaded files: POST each original file bytes payload to /mcp/uploads/images on this same MCP server origin using multipart/form-data field name file, then pass the returned upload.url here as images[].url. The upload endpoint does not require or use Authorization; do not send OAuth, Nostr auth, or Hostr session credentials for image upload. Do not base64-encode uploaded images into this tool call. Do not start or serve a temporary localhost URL for the MCP server to fetch; localhost refers to the wrong machine/container. Do not resize, downscale, crop, recompress, transcode, or make thumbnails unless the user explicitly requests it. If the upload POST cannot be made, stop and ask for a public image URL or for the client to expose an upload capability. Never pass client-local or mounted file paths like /mnt/data, /mnt/shared, file://, or ChatGPT file mounts to this remote MCP tool.',
           'items': {
             'type': 'object',
             'additionalProperties': false,
+            'required': ['url'],
             'properties': {
-              'url': {'type': 'string'},
-              'path': {'type': 'string'},
-              'alt': {'type': 'string'},
-              'mime': {'type': 'string'},
+              'url': {
+                'type': 'string',
+                'description':
+                    'Required image URL. For user-uploaded files, this must be the upload.url returned by POST /mcp/uploads/images on the same Hostr MCP origin; that upload endpoint does not require or use Authorization. Public HTTP(S) source URLs are also accepted; Hostr downloads non-Blossom URLs and uploads them to Blossom before publishing.',
+              },
+              'filename': {
+                'type': 'string',
+                'description':
+                    'Optional original filename used for MIME detection and upload diagnostics.',
+              },
+              'alt': {'type': 'string', 'description': 'Image alt text.'},
+              'mime': {
+                'type': 'string',
+                'description':
+                    'Optional MIME type, for example image/jpeg or image/png.',
+              },
             },
           },
         },
@@ -1656,10 +1686,10 @@ export interface HostrAmountInput {
 }
 
 export interface HostrListingImageInput {
-  /** Public HTTP(S) image URL. */
-  url?: string;
-  /** Local image path readable by the Hostr daemon. */
-  path?: string;
+  /** Required image URL. For user-uploaded files, use the upload.url returned by POST /mcp/uploads/images on the same Hostr MCP origin. The upload endpoint does not require or use Authorization. */
+  url: string;
+  /** Optional original filename used for MIME detection and upload diagnostics. */
+  filename?: string;
   /** Alt text for the image. */
   alt?: string;
   /** Optional MIME type override. */
