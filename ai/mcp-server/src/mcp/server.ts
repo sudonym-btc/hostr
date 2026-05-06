@@ -1037,10 +1037,43 @@ const sanitizeNotice = (notice: HostrCriticalNotice): HostrCriticalNotice => {
 const isListingImage = (value: ListingImage | null): value is ListingImage =>
   value !== null;
 
-const listingImage = (value: unknown): ListingImage | null => {
+const publicBlossomFileUrl = (
+  config: AppConfig,
+  value: string,
+): string | null => {
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+  if (/^blossom:\/\/dry-run\//i.test(value)) {
+    return null;
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) {
+    return value;
+  }
+
+  const trimmed = value.replace(/^\/+/, "");
+  if (trimmed === "" || /[\s?#]/.test(trimmed)) {
+    return null;
+  }
+
+  const blossomOrigin = originForUrl(config.blossomUploadUrl);
+  if (!blossomOrigin) {
+    return null;
+  }
+  return `${blossomOrigin}/${trimmed
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")}`;
+};
+
+const listingImage = (
+  config: AppConfig,
+  value: unknown,
+): ListingImage | null => {
   const directUrl = stringValue(value);
   if (directUrl) {
-    return { url: directUrl };
+    const url = publicBlossomFileUrl(config, directUrl);
+    return url ? { url } : null;
   }
 
   const image = record(value);
@@ -1052,9 +1085,13 @@ const listingImage = (value: unknown): ListingImage | null => {
   if (!url) {
     return null;
   }
+  const publicUrl = publicBlossomFileUrl(config, url);
+  if (!publicUrl) {
+    return null;
+  }
 
   return {
-    url,
+    url: publicUrl,
     alt:
       stringValue(image?.alt) ?? stringValue(image?.description) ?? undefined,
   };
@@ -1129,7 +1166,7 @@ const listingCardData = (
   const title = stringValue(listing.title) ?? "Untitled listing";
   const description = stringValue(listing.description);
   const images = arrayValue(listing.images)
-    .map(listingImage)
+    .map((image) => listingImage(config, image))
     .filter(isListingImage);
   const status: ListingCardData["status"] =
     mode === "preview"
@@ -1161,19 +1198,13 @@ const listingCardData = (
   };
 };
 
-const listingCard = (
-  config: AppConfig,
-  listing: Record<string, unknown>,
-  index: number | null,
-  mode: "result" | "preview" | "published" = "result",
-): string => {
-  const card = listingCardData(config, listing, index, mode);
+const listingCardMarkdown = (card: ListingCardData): string => {
   const heading =
-    mode === "preview"
+    card.mode === "preview"
       ? `### Preview: ${card.title}`
-      : index === null
+      : card.index === undefined
         ? `### ${card.title}`
-        : `### ${index}. ${card.title}`;
+        : `### ${card.index}. ${card.title}`;
 
   return [
     heading,
@@ -1188,6 +1219,16 @@ const listingCard = (
     .filter(Boolean)
     .join("\n\n");
 };
+
+const listingCardsMarkdown = (cards: ListingCardData[]): string =>
+  cards.map(listingCardMarkdown).join("\n\n---\n\n");
+
+const listingCard = (
+  config: AppConfig,
+  listing: Record<string, unknown>,
+  index: number | null,
+  mode: "result" | "preview" | "published" = "result",
+): string => listingCardMarkdown(listingCardData(config, listing, index, mode));
 
 const listingCardResponseText = (
   displayMarkdown: string,
@@ -1304,30 +1345,30 @@ const profileCardsFromResult = (
 const profileCardMarkdown = (card: ProfileCardData): string => {
   if (!card.exists) {
     return [
-      "### Hostr Profile",
+      "**Hostr Profile**",
       "No Hostr profile metadata was found.",
-      card.pubkey ? `**Pubkey:** \`${card.pubkey}\`` : null,
     ]
       .filter(Boolean)
       .join("\n\n");
   }
   return [
-    `### ${card.name}`,
+    `**${card.name}**`,
     card.picture ? `![Profile picture](${card.picture})` : null,
     card.about,
-    `**Status:** ${card.statusLabel}`,
     card.lud16 ? `**Lightning address:** ${card.lud16}` : null,
     card.nip05 ? `**NIP-05:** ${card.nip05}` : null,
     card.website ? `**Website:** ${card.website}` : null,
-    card.pubkey ? `**Pubkey:** \`${truncate(card.pubkey, 18)}\`` : null,
   ]
     .filter(Boolean)
     .join("\n\n");
 };
 
+const profileCardsMarkdown = (cards: ProfileCardData[]): string =>
+  cards.map(profileCardMarkdown).join("\n\n---\n\n");
+
 const profileCardResponseText = (displayMarkdown: string): string =>
   [
-    "Hostr profile-card response: render structuredContent.displayMarkdown as Markdown, or use structuredContent.profileCards for a compact profile card.",
+    "Hostr profile-card response: render structuredContent.displayMarkdown as Markdown, or use structuredContent.profileCards for a compact profile card. Do not expose pubkeys, EVM addresses, or internal ids unless the user specifically asks for debugging details.",
     displayMarkdown,
   ].join("\n\n");
 
@@ -2681,15 +2722,19 @@ const toolResponse = async (
   const errorInstructions =
     safeResult.ok === false ? errorAssistantInstructions(safeResult) : undefined;
   const safeNotices = notices.map(sanitizeNotice);
-  const presentationMarkdown = reservationCardDisplay
-    ? reservationCardsMarkdown(reservationCards)
-    : displayMarkdown;
+  const presentationMarkdown = listingCardDisplay
+    ? listingCardsMarkdown(listingCards)
+    : reservationCardDisplay
+      ? reservationCardsMarkdown(reservationCards)
+      : profileCardDisplay
+        ? profileCardsMarkdown(profileCards)
+        : displayMarkdown;
   const contentText = listingCardDisplay
-    ? listingCardResponseText(displayMarkdown, listingCards)
+    ? listingCardResponseText(presentationMarkdown, listingCards)
     : reservationCardDisplay
       ? reservationCardResponseText(presentationMarkdown, reservationCards)
       : profileCardDisplay
-        ? profileCardResponseText(displayMarkdown)
+        ? profileCardResponseText(presentationMarkdown)
         : threadViewDisplay
           ? threadViewResponseText(displayMarkdown, threadViews)
           : escrowTradeDisplay
@@ -2746,7 +2791,7 @@ const toolResponse = async (
   const profileCardAssistantInstructions = profileCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
-        "Preserve the profile card exactly; do not replace it with raw JSON.",
+        "Preserve the profile card exactly; do not replace it with raw JSON or expose pubkeys, EVM addresses, or internal ids.",
       ]
     : undefined;
   const paymentAssistantInstructions = notices.some(
@@ -5319,7 +5364,11 @@ export const handleMcpRequest =
 
 export const __testing = {
   anchorToNaddr,
+  listingCardsFromResult,
+  listingCardsMarkdown,
   listingRouteUrl,
+  profileCardsFromResult,
+  profileCardsMarkdown,
   reservationCardsFromResult,
   reservationCardsMarkdown,
 };

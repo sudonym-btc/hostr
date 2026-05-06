@@ -107,3 +107,66 @@ test("trip collection lookup items render compact trip cards", () => {
   assert.match(markdown, /\*\*Stay:\*\* San Salvador Modern Apartment/);
   assert.doesNotMatch(markdown, /trade-secret|Guest:|Status: commit/);
 });
+
+test("listing cards turn Blossom hashes into visible absolute image URLs", () => {
+  const hash = "7d24fa683979cd913338f1945201382de81a4e5ead47537fde68808aaadf0908";
+  const result = {
+    ok: true,
+    data: {
+      listings: [
+        {
+          title: "Sunny Private Room",
+          description: "GPT created this",
+          type: "room",
+          active: true,
+          images: [hash],
+          prices: [{ amount: 50000, currency: "SAT", unit: "night" }],
+          specifications: { max_guests: 1, beds: 1, bathrooms: 1 },
+        },
+      ],
+    },
+  };
+
+  const cards = __testing.listingCardsFromResult(
+    {
+      blossomUploadUrl: "https://blossom.staging.hostr.network/upload",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.listings.list",
+    result,
+  );
+  const markdown = __testing.listingCardsMarkdown(cards);
+
+  assert.equal(cards.length, 1);
+  assert.equal(
+    cards[0].primaryImageUrl,
+    `https://blossom.staging.hostr.network/${hash}`,
+  );
+  assert.match(
+    markdown,
+    /!\[Sunny Private Room photo 1 of 1\]\(https:\/\/blossom\.staging\.hostr\.network\//,
+  );
+});
+
+test("profile card markdown stays compact and hides internals", () => {
+  const result = {
+    ok: true,
+    data: {
+      exists: true,
+      pubkey: "fb5bf2daa32fe7ffa72521fa475fe409f1162cf605baf5ee52bd6651beabd7f7",
+      evmAddress: "0x2BFCDD9a2eC0D06E35eE3ab9ADE0350c0686749a",
+      metadata: {
+        name: "Staging Guest",
+        lud16: "paco@walletofsatoshi.com",
+      },
+    },
+  };
+
+  const cards = __testing.profileCardsFromResult("hostr.profile.show", result);
+  const markdown = __testing.profileCardsMarkdown(cards);
+
+  assert.equal(cards.length, 1);
+  assert.match(markdown, /^\*\*Staging Guest\*\*/);
+  assert.match(markdown, /\*\*Lightning address:\*\* paco@walletofsatoshi\.com/);
+  assert.doesNotMatch(markdown, /Pubkey|EVM|0x2BFCDD|fb5bf2|Status:/);
+});
