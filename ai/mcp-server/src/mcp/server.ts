@@ -53,6 +53,16 @@ const profileCardWidgetUri = "ui://widget/profile-card.html";
 const tripWidgetUri = "ui://widget/trip.html";
 const hostingWidgetUri = "ui://widget/hosting.html";
 
+const widgetTemplateMeta = (
+  resourceUri: string,
+  extras: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  ui: { resourceUri },
+  "openai/outputTemplate": resourceUri,
+  "openai/widgetAccessible": true,
+  ...extras,
+});
+
 const paymentWidgetActionIds = new Set([
   "hostr.reservations.bookAndPay",
   "hostr.swaps.watch",
@@ -2823,6 +2833,33 @@ const toolResponse = async (
   const sessionConnectImageBlock = sessionConnectPending
     ? sessionConnectQrImageBlock(result, sessionConnectDisplay)
     : null;
+  const responseWidgetUri = paymentDisplay
+    ? paymentRequiredWidgetUri
+    : sessionConnectDisplay
+      ? sessionConnectWidgetUri
+      : listingCardDisplay
+        ? listingCardWidgetUri
+        : profileCardDisplay
+          ? profileCardWidgetUri
+          : reservationCardDisplay
+            ? reservationCardDisplay.type.startsWith("hosting")
+              ? hostingWidgetUri
+              : tripWidgetUri
+            : undefined;
+  const responseDisplay =
+    paymentDisplay ??
+    sessionConnectDisplay ??
+    listingCardDisplay ??
+    profileCardDisplay ??
+    reservationCardDisplay;
+  const responseDisplayType = stringValue(record(responseDisplay)?.type);
+  const responseWidgetMeta = responseWidgetUri
+    ? widgetTemplateMeta(responseWidgetUri, {
+        ...(responseDisplayType
+          ? { "hostr.contentType": responseDisplayType }
+          : {}),
+      })
+    : undefined;
   const threadCardAssistantInstructions = threadCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
@@ -2955,9 +2992,11 @@ const toolResponse = async (
     paymentDisplay ||
     sessionConnectDisplay ||
     notices.length > 0 ||
+    responseWidgetMeta ||
     errorInstructions
       ? {
           _meta: {
+            ...(responseWidgetMeta ?? {}),
             ...(listingCardDisplay
               ? {
                   "hostr.contentType": listingCardDisplay.type,
@@ -4674,6 +4713,8 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr listing-card structuredContent as lightweight cards with images, price, type, status, and open links.",
             "openai/widgetPrefersBorder": true,
+            "openai/outputTemplate": listingCardWidgetUri,
+            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -4705,6 +4746,8 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr external-payment structuredContent as a Lightning invoice QR, wallet link, and copy action.",
             "openai/widgetPrefersBorder": true,
+            "openai/outputTemplate": paymentRequiredWidgetUri,
+            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -4736,6 +4779,8 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr session initialization structuredContent as a Nostr Connect QR and exact URI link.",
             "openai/widgetPrefersBorder": true,
+            "openai/outputTemplate": sessionConnectWidgetUri,
+            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -4767,6 +4812,8 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr profile structuredContent as a compact profile card with avatar and identity fields.",
             "openai/widgetPrefersBorder": true,
+            "openai/outputTemplate": profileCardWidgetUri,
+            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -4793,6 +4840,8 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr trip structuredContent, including a bold Cancelled state when present.",
             "openai/widgetPrefersBorder": true,
+            "openai/outputTemplate": tripWidgetUri,
+            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -4819,6 +4868,8 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr hosting structuredContent with the guest and stay location text.",
             "openai/widgetPrefersBorder": true,
+            "openai/outputTemplate": hostingWidgetUri,
+            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -4974,8 +5025,7 @@ const createServer = (
           ? {
               outputSchema: listingCardOutputSchema,
               _meta: {
-                ui: { resourceUri: listingCardWidgetUri },
-                "openai/outputTemplate": listingCardWidgetUri,
+                ...widgetTemplateMeta(listingCardWidgetUri),
                 "hostr.preferredRenderer": "listing-card",
                 "hostr.contentType": "listing-card",
               },
@@ -4986,8 +5036,7 @@ const createServer = (
           ? {
               outputSchema: sessionConnectOutputSchema,
               _meta: {
-                ui: { resourceUri: sessionConnectWidgetUri },
-                "openai/outputTemplate": sessionConnectWidgetUri,
+                ...widgetTemplateMeta(sessionConnectWidgetUri),
                 "hostr.preferredRenderer": "nostr-connect",
                 "hostr.contentType": "nostr-connect",
               },
@@ -4999,8 +5048,7 @@ const createServer = (
           ? {
               outputSchema: profileCardOutputSchema,
               _meta: {
-                ui: { resourceUri: profileCardWidgetUri },
-                "openai/outputTemplate": profileCardWidgetUri,
+                ...widgetTemplateMeta(profileCardWidgetUri),
                 "hostr.preferredRenderer": "profile-card",
                 "hostr.contentType": "profile-card",
               },
@@ -5015,18 +5063,15 @@ const createServer = (
               _meta: {
                 ...(paymentWidgetActionIds.has(action.id)
                   ? {
-                      ui: { resourceUri: paymentRequiredWidgetUri },
-                      "openai/outputTemplate": paymentRequiredWidgetUri,
+                      ...widgetTemplateMeta(paymentRequiredWidgetUri),
                     }
                   : action.id === "hostr.trips.list"
                     ? {
-                        ui: { resourceUri: tripWidgetUri },
-                        "openai/outputTemplate": tripWidgetUri,
+                        ...widgetTemplateMeta(tripWidgetUri),
                       }
                     : action.id === "hostr.bookings.list"
                       ? {
-                          ui: { resourceUri: hostingWidgetUri },
-                          "openai/outputTemplate": hostingWidgetUri,
+                          ...widgetTemplateMeta(hostingWidgetUri),
                         }
                       : {}),
                 "hostr.preferredRenderer":
@@ -5371,4 +5416,6 @@ export const __testing = {
   profileCardsMarkdown,
   reservationCardsFromResult,
   reservationCardsMarkdown,
+  toolResponse,
+  widgetTemplateMeta,
 };
