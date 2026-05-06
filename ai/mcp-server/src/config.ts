@@ -58,16 +58,16 @@ const readBlossomUploadUrl = (): string => {
   return `https://blossom.${domain}/upload`;
 };
 
-const displayNameFor = (
+const environmentDescriptionFor = (
   environmentLabel: "production" | "staging" | "development",
-): string => {
+): string | undefined => {
   switch (environmentLabel) {
     case "production":
-      return "Hostr";
+      return undefined;
     case "staging":
-      return "Hostr (Staging)";
+      return "Staging";
     case "development":
-      return "Hostr (Development)";
+      return "Development";
   }
 };
 
@@ -116,6 +116,7 @@ export type AppConfig = {
   devProxyTarget?: string;
   environmentLabel: "production" | "staging" | "development";
   displayName: string;
+  environmentDescription?: string;
   port: number;
   requestBodyLimit: string;
   blossomUploadUrl: string;
@@ -145,7 +146,8 @@ export const config: AppConfig = {
       ? trimTrailingSlash(process.env.HOSTR_MCP_DEV_PROXY_TARGET)
       : undefined,
   environmentLabel,
-  displayName: displayNameFor(environmentLabel),
+  displayName: "Hostr",
+  environmentDescription: environmentDescriptionFor(environmentLabel),
   port: Number.parseInt(process.env.PORT || "8787", 10),
   requestBodyLimit: process.env.MCP_REQUEST_BODY_LIMIT || "100mb",
   blossomUploadUrl: readBlossomUploadUrl(),

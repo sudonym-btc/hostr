@@ -226,7 +226,6 @@ const imageUploadInputSchema = z
         "Required uploaded image file. This is a file-typed MCP argument named file so MCP clients can perform file upload/rewrite handling. If your client represents an attached upload as a local file reference such as /mnt/data/example.jpg, put that reference here, not in images[].url; the client bridge must rewrite or stream the original bytes before the remote Hostr MCP server receives the call. Do not send base64 text.",
       )
       .meta({
-        type: "file",
         contentMediaType: "image/*",
         "x-hostr-argument-kind": "file",
       }),
@@ -2847,7 +2846,7 @@ const imageUploadToolDocumentation = [
   "",
   "Upload an original user-provided image file to Hostr Blossom and return a public image URL for listing creation.",
   "",
-  "Use this before `hostr_listings_create` whenever the user attached an image file. The required `file` argument is schema type `file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text in `images[].url`. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
+  "Use this before `hostr_listings_create` whenever the user attached an image file. The required `file` argument is marked with `x-hostr-argument-kind: file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text in `images[].url`. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
   "",
   "The tool does not require MCP OAuth, Nostr auth, Hostr session auth, or an Authorization header. After it succeeds, pass `structuredContent.usage.listingImage.url` as `images[].url` to `hostr_listings_create`.",
   "",
@@ -2861,8 +2860,8 @@ const imageUploadToolDocumentation = [
       required: ["file"],
       properties: {
         file: {
-          type: "file",
           contentMediaType: "image/*",
+          "x-hostr-argument-kind": "file",
           description:
             "Required uploaded image file. Send the original image as the file-typed MCP argument so the client bridge can rewrite or stream bytes.",
         },
