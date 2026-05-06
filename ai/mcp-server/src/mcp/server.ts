@@ -1,5 +1,8 @@
 import type { Request, Response } from "express";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -24,7 +27,7 @@ import type { HostrDaemonClient } from "../daemon/client.js";
 import type { HostrDaemonNotification } from "../daemon/client.js";
 import { auditLog } from "../logging.js";
 import {
-  uploadImageToBlossom,
+  uploadImageWithBestAvailableAuth,
   type UploadedImage,
 } from "../http/uploads.js";
 import { traceIdFromRequest } from "../trace.js";
@@ -260,7 +263,13 @@ const imageUploadOutputSchema = z
       })
       .passthrough(),
     usage: z.object({
+      image: z.object({
+        url: z.string().optional(),
+      }),
       listingImage: z.object({
+        url: z.string().optional(),
+      }),
+      profileImage: z.object({
         url: z.string().optional(),
       }),
     }),
@@ -268,6 +277,29 @@ const imageUploadOutputSchema = z
   .passthrough();
 
 const localPathPattern = /^(?:\/|[a-zA-Z]:[\\/]|file:\/\/|~\/|\.{1,2}\/)/;
+const chatUploadPattern = /^chat_upload(?::\/\/|$)/i;
+
+const expandLocalPath = (path: string): string =>
+  path === "~" ? homedir() : path.startsWith("~/") ? `${homedir()}${path.slice(1)}` : path;
+
+const readLocalFile = async (
+  path: string,
+  filename?: string,
+  mime?: string,
+): Promise<UploadedImage> => {
+  const localPath = path.startsWith("file://")
+    ? fileURLToPath(path)
+    : expandLocalPath(path);
+  const bytes = await readFile(localPath);
+  if (bytes.length === 0) {
+    throw new Error("empty_upload");
+  }
+  return {
+    bytes,
+    mime,
+    filename: filename ?? localPath.split(/[\\/]/).pop() ?? undefined,
+  };
+};
 
 const readRemoteFile = async (
   url: string,
@@ -317,7 +349,10 @@ const uploadedImageFromFileArgument = async (
   const direct = stringValue(file);
   if (direct) {
     if (localPathPattern.test(direct)) {
-      throw new Error("file_argument_must_be_file_not_path");
+      return readLocalFile(direct, filename, mime);
+    }
+    if (chatUploadPattern.test(direct)) {
+      throw new Error("file_download_url_missing");
     }
     return readRemoteFile(direct, filename, mime);
   }
@@ -329,23 +364,63 @@ const uploadedImageFromFileArgument = async (
 
   const path = stringValue(object.path) ?? stringValue(object.filePath);
   if (path) {
-    throw new Error("file_argument_must_be_file_not_path");
+    return readLocalFile(
+      path,
+      filename ??
+        stringValue(object.name) ??
+        stringValue(object.filename) ??
+        stringValue(object.file_name) ??
+        undefined,
+      mime ??
+        stringValue(object.mime) ??
+        stringValue(object.type) ??
+        stringValue(object.mime_type) ??
+        undefined,
+    );
   }
 
   const url =
+    stringValue(object.download_url) ??
     stringValue(object.url) ??
     stringValue(object.href) ??
     stringValue(object.uri) ??
     stringValue(object.downloadUrl);
   if (url) {
     if (localPathPattern.test(url)) {
-      throw new Error("file_argument_must_be_file_not_path");
+      return readLocalFile(
+        url,
+        filename ??
+          stringValue(object.name) ??
+          stringValue(object.filename) ??
+          stringValue(object.file_name) ??
+          undefined,
+        mime ??
+          stringValue(object.mime) ??
+          stringValue(object.type) ??
+          stringValue(object.mime_type) ??
+          undefined,
+      );
+    }
+    if (chatUploadPattern.test(url)) {
+      throw new Error("file_download_url_missing");
     }
     return readRemoteFile(
       url,
-      filename ?? stringValue(object.name) ?? stringValue(object.filename) ?? undefined,
-      mime ?? stringValue(object.mime) ?? stringValue(object.type) ?? undefined,
+      filename ??
+        stringValue(object.name) ??
+        stringValue(object.filename) ??
+        stringValue(object.file_name) ??
+        undefined,
+      mime ??
+        stringValue(object.mime) ??
+        stringValue(object.type) ??
+        stringValue(object.mime_type) ??
+        undefined,
     );
+  }
+
+  if (stringValue(object.file_id)) {
+    throw new Error("file_download_url_missing");
   }
 
   const bytes = object.bytes;
@@ -2917,11 +2992,11 @@ const mcpSessionTraceIds = new Map<string, string>();
 const imageUploadToolDocumentation = [
   "## `hostr_images_upload`",
   "",
-  "Upload an original user-provided image file to Hostr Blossom and return a public image URL for listing creation.",
+  "Upload an original user-provided image file to Hostr Blossom and return a public image URL for listing creation, profile pictures, and other Hostr image fields.",
   "",
-  "Use this before `hostr_listings_create` whenever the user attached an image file. The required `file` argument is marked with `x-hostr-argument-kind: file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text in `images[].url`. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
+  "Use this before `hostr_listings_create` or `hostr_profile_edit` whenever the user attached an image file. The required `file` argument is marked with `x-hostr-argument-kind: file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Reachable local filesystem paths and file:// URLs are accepted here and will be read, then re-uploaded to Blossom. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text directly in listing/profile image URL fields. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
   "",
-  "The tool does not require MCP OAuth, Nostr auth, Hostr session auth, or an Authorization header. After it succeeds, pass `structuredContent.usage.listingImage.url` as `images[].url` to `hostr_listings_create`.",
+  "When an authenticated Hostr session is available, the tool first tries that session's Blossom upload path. If it cannot use session auth, it falls back to the server's direct Blossom upload endpoint. After it succeeds, pass `structuredContent.usage.listingImage.url` as `images[].url` to `hostr_listings_create`, or `structuredContent.usage.profileImage.url` as `image`/`picture` to `hostr_profile_edit`.",
   "",
   "JSON schema:",
   "",
@@ -3025,7 +3100,7 @@ const createServer = (
     {
       title: "Upload Hostr Listing Image",
       description:
-        "Upload an original user-provided image file to Hostr Blossom and return a public image URL for Hostr listing creation. Use this before hostr_listings_create whenever the user attached an image file. The required `file` argument is schema type `file` and must be sent as a real uploaded file/blob/reference through the MCP client bridge so the bridge can rewrite or stream the original bytes. Do not pass /mnt/data, /mnt/shared, file://, local filesystem paths, ChatGPT file mount paths, or base64 text to images[].url. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks. This tool does not require MCP OAuth, Nostr auth, Hostr session auth, or an Authorization header. After it succeeds, pass structuredContent.usage.listingImage.url as images[].url to hostr_listings_create.",
+        "Upload an original user-provided image file to Hostr Blossom and return a public image URL for Hostr listing creation, profile pictures, and other Hostr image fields. Use this before hostr_listings_create or hostr_profile_edit whenever the user attached an image file. The required `file` argument is schema type `file` and must be sent as a real uploaded file/blob/reference through the MCP client bridge so the bridge can rewrite or stream the original bytes. Reachable local filesystem paths and file:// URLs are accepted here and will be read, then re-uploaded to Blossom. Do not pass /mnt/data, /mnt/shared, file://, local filesystem paths, ChatGPT file mount paths, or base64 text directly to listing/profile image URL fields. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks. When an authenticated Hostr session is available, this tool first tries that session's Blossom upload path; otherwise it falls back to the server's direct Blossom upload endpoint. After it succeeds, pass structuredContent.usage.listingImage.url as images[].url to hostr_listings_create, or structuredContent.usage.profileImage.url as image/picture to hostr_profile_edit.",
       inputSchema: imageUploadInputSchema,
       outputSchema: imageUploadOutputSchema,
       annotations: {
@@ -3035,6 +3110,7 @@ const createServer = (
         openWorldHint: true,
       },
       _meta: {
+        "openai/fileParams": ["file"],
         "hostr.contentType": "image-upload",
         "hostr.uploadEndpoint": "/mcp/uploads/images",
         "hostr.fileArgument": "file",
@@ -3055,6 +3131,8 @@ const createServer = (
         const message =
           code === "file_argument_must_be_file_not_path"
             ? "The `file` argument must be a file-typed upload/blob, not a local path, /mnt/data path, file:// URL, or ChatGPT file mount string."
+            : code === "file_download_url_missing"
+              ? "The `file` argument is a client upload reference without a downloadable URL. Use a client that can provide download_url/file_id file params, or pass a reachable local path on the MCP server host."
             : "Could not read the file argument. Send the original image as the MCP file-typed `file` argument.";
         return {
           isError: true,
@@ -3076,7 +3154,13 @@ const createServer = (
       }
 
       try {
-        const result = await uploadImageToBlossom(config, upload, traceId);
+        const result = await uploadImageWithBestAvailableAuth(
+          config,
+          daemon,
+          claims?.pubkey,
+          upload,
+          traceId,
+        );
         return {
           structuredContent: { ...result, traceId },
           content: [
@@ -3085,7 +3169,7 @@ const createServer = (
               text: [
                 "Uploaded the original image to Hostr Blossom.",
                 "",
-                `Use this URL as images[].url in hostr_listings_create: ${result.usage.listingImage.url}`,
+                `Use this URL in Hostr image URL fields: ${result.usage.image.url}`,
               ].join("\n"),
             },
           ],

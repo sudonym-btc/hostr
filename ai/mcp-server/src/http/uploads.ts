@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
+import { bearerToken } from "../auth/bearer.js";
+import { verifyAccessToken } from "../auth/jwt.js";
+import type { HostrDaemonClient } from "../daemon/client.js";
 import { traceHeaders, traceIdFromRequest } from "../trace.js";
 
 export type UploadedImage = {
@@ -14,7 +17,7 @@ export type BlossomDescriptor = {
   sha256?: string;
   size?: number;
   type?: string;
-  uploaded?: string;
+  uploaded?: string | number;
 };
 
 export type HostrImageUploadResult = {
@@ -27,11 +30,28 @@ export type HostrImageUploadResult = {
     serverUrl: string;
   };
   usage: {
+    image: {
+      url?: string;
+    };
     listingImage: {
+      url?: string;
+    };
+    profileImage: {
       url?: string;
     };
   };
 };
+
+const record = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+const stringValue = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
+
+const numberValue = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
 const parseByteLimit = (value: string, fallback: number): number => {
   const match = /^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/i.exec(value.trim());
@@ -249,15 +269,85 @@ export const uploadImageToBlossom = async (
       serverUrl: config.blossomUploadUrl,
     },
     usage: {
+      image: {
+        url: descriptor.url,
+      },
       listingImage: {
+        url: descriptor.url,
+      },
+      profileImage: {
         url: descriptor.url,
       },
     },
   };
 };
 
+const uploadImageThroughDaemonSession = async (
+  daemon: HostrDaemonClient | undefined,
+  pubkey: string | undefined,
+  upload: UploadedImage,
+  traceId?: string,
+): Promise<HostrImageUploadResult | null> => {
+  if (!daemon || !pubkey) {
+    return null;
+  }
+
+  try {
+    const result = await daemon.uploadImage({
+      pubkey,
+      base64: upload.bytes.toString("base64"),
+      mime: upload.mime,
+      filename: upload.filename,
+      traceId,
+    });
+    if (!result.ok) {
+      return null;
+    }
+    const data = record(result.data);
+    const url = stringValue(data?.url);
+    if (!data || !url) {
+      return null;
+    }
+    const sha256 =
+      stringValue(data.sha256) ??
+      crypto.createHash("sha256").update(upload.bytes).digest("hex");
+    const size = numberValue(data.size) ?? upload.bytes.length;
+    const type = stringValue(data.type) ?? upload.mime;
+    return {
+      ok: true,
+      upload: {
+        url,
+        sha256,
+        size,
+        mime: upload.mime,
+        filename: upload.filename,
+        type,
+        uploaded: stringValue(data.uploaded) ?? numberValue(data.uploaded),
+        serverUrl: stringValue(data.serverUrl) ?? "hostr-daemon-session",
+      },
+      usage: {
+        image: { url },
+        listingImage: { url },
+        profileImage: { url },
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const uploadImageWithBestAvailableAuth = async (
+  config: AppConfig,
+  daemon: HostrDaemonClient | undefined,
+  pubkey: string | undefined,
+  upload: UploadedImage,
+  traceId?: string,
+): Promise<HostrImageUploadResult> =>
+  (await uploadImageThroughDaemonSession(daemon, pubkey, upload, traceId)) ??
+  uploadImageToBlossom(config, upload, traceId);
+
 export const handleImageUpload =
-  (config: AppConfig) =>
+  (config: AppConfig, daemon?: HostrDaemonClient) =>
   async (request: Request, response: Response) => {
     const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
     const contentType = contentTypeHeader(request);
@@ -291,9 +381,25 @@ export const handleImageUpload =
       return;
     }
 
+    let pubkey: string | undefined;
+    const token = bearerToken(request);
+    if (daemon && token) {
+      try {
+        pubkey = (await verifyAccessToken(config, token)).pubkey;
+      } catch {
+        pubkey = undefined;
+      }
+    }
+
     let result: HostrImageUploadResult;
     try {
-      result = await uploadImageToBlossom(config, upload, traceId);
+      result = await uploadImageWithBestAvailableAuth(
+        config,
+        daemon,
+        pubkey,
+        upload,
+        traceId,
+      );
     } catch (error) {
       response.status(502).json({
         ok: false,

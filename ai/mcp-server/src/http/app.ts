@@ -274,8 +274,8 @@ export const createApp = (config: AppConfig, daemon: HostrDaemonClient) => {
 
   app.use(createOAuthRouter(config, daemon));
 
-  app.post("/mcp/uploads/images", handleImageUpload(config));
-  app.post("/upload/images", handleImageUpload(config));
+  app.post("/mcp/uploads/images", handleImageUpload(config, daemon));
+  app.post("/upload/images", handleImageUpload(config, daemon));
 
   app.all("/mcp", handleMcpRequest(config, daemon));
 

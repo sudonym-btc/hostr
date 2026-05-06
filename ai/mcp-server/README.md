@@ -198,9 +198,11 @@ hostr_images_upload({ file: <file-typed uploaded image> })
   -> structuredContent.usage.listingImage.url
 
 hostr_listings_create({ images: [{ url: structuredContent.usage.listingImage.url }] })
+
+hostr_profile_edit({ image: structuredContent.usage.profileImage.url })
 ```
 
-The `hostr_images_upload` schema marks `file` as `type: "file"` so clients that support file rewrite/upload handling can stream the original attached file. If a client represents uploaded files as local references such as `/mnt/data/photo.jpg`, those references belong only in the file-typed `hostr_images_upload.file` argument so the bridge can rewrite them; never put them in `images[].url`.
+The `hostr_images_upload` schema marks `file` as `type: "file"` and advertises `_meta["openai/fileParams"] = ["file"]` so clients that support file rewrite/upload handling can stream the original attached file. If a client represents uploaded files as local references such as `/mnt/data/photo.jpg`, those references belong only in the file-typed `hostr_images_upload.file` argument so Hostr can read/download the original bytes and re-upload them to Blossom; never put them directly in listing `images[].url` or profile `image`/`picture`.
 
 Fallback raw HTTP flow for clients that can make HTTP requests:
 
@@ -210,9 +212,9 @@ Content-Type: multipart/form-data
 field: file=<original image file>
 ```
 
-The endpoint also accepts raw image bytes with an `image/*` or `application/octet-stream` content type. It does not require or use MCP OAuth, Nostr auth, or a Hostr foreground session. The server uploads the original bytes to Blossom with no Authorization header, so the configured Blossom `PUT /upload` endpoint must also allow unauthenticated uploads. The response includes `upload.url`, `sha256`, `size`, and MIME metadata. Pass the returned `upload.url` as `images[].url` to `hostr_listings_create`; the MCP listing tool advertises image URLs only.
+The endpoint also accepts raw image bytes with an `image/*` or `application/octet-stream` content type. It does not require MCP OAuth, Nostr auth, or a Hostr foreground session, but when a valid MCP bearer token is present it first tries the logged-in Hostr session's Blossom upload path before falling back to the server's direct Blossom upload endpoint. The fallback uploads the original bytes to Blossom with no Authorization header, so the configured Blossom `PUT /upload` endpoint must also allow unauthenticated uploads. The response includes `upload.url`, `sha256`, `size`, and MIME metadata. Pass the returned `upload.url` as `images[].url` to `hostr_listings_create`, or as `image`/`picture` to `hostr_profile_edit`; the MCP listing and profile tools advertise image URLs only.
 
-Do not base64-encode user-uploaded images into `hostr_listings_create`. Do not serve a temporary localhost URL for Hostr to fetch; localhost points at the wrong machine/container for remote MCP. Do not pass client-local paths such as `/mnt/data`, `/mnt/shared`, or `file://` URLs to `images[].url`. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks for that. If neither `hostr_images_upload` nor the upload POST can be used, stop and ask for a public image URL or for the client to expose an upload capability.
+Do not base64-encode user-uploaded images into `hostr_listings_create` or `hostr_profile_edit`. Do not serve a temporary localhost URL for Hostr to fetch; localhost points at the wrong machine/container for remote MCP. Do not pass client-local paths such as `/mnt/data`, `/mnt/shared`, or `file://` URLs to listing `images[].url` or profile `image`/`picture`. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks for that. If neither `hostr_images_upload` nor the upload POST can be used, stop and ask for a public image URL or for the client to expose an upload capability.
 
 ## Workflow driving
 
