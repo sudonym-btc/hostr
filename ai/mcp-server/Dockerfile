@@ -44,6 +44,7 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=daemon-build /out/bundle /opt/hostr-daemon
+COPY --from=daemon-build /workspace/models/native /opt/hostr-daemon/native
 
 EXPOSE 8787
 CMD ["node", "dist/index.js"]
