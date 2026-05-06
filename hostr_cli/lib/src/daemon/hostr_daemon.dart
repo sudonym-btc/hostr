@@ -659,12 +659,18 @@ class HostrDaemon {
         );
       }
 
-      final upload = await _uploadImageWithoutAuth(
-        bytes: bytes,
-        mime: mime,
-        filename: filename,
-        traceId: traceId,
-      );
+      final upload =
+          await _tryUploadImageWithSessionAuth(
+            pubkey: pubkey,
+            bytes: bytes,
+            mime: mime,
+          ) ??
+          await _uploadImageWithoutAuth(
+            bytes: bytes,
+            mime: mime,
+            filename: filename,
+            traceId: traceId,
+          );
       if (upload == null) {
         throw HostrCliException(
           'image_upload_failed',
@@ -688,6 +694,50 @@ class HostrDaemon {
         },
       );
     }, traceId: traceId);
+  }
+
+  Future<Map<String, Object?>?> _tryUploadImageWithSessionAuth({
+    required String? pubkey,
+    required Uint8List bytes,
+    String? mime,
+  }) async {
+    final tokenPubkey = pubkey?.trim();
+    if (tokenPubkey == null || tokenPubkey.isEmpty) {
+      return null;
+    }
+
+    try {
+      final session = context.runtime.session(tokenPubkey);
+      await session.ensureInitialized();
+      final activePubkey = session.auth.activePubkey;
+      if (activePubkey != tokenPubkey ||
+          session.auth.needsBunkerRecovery ||
+          !await session.auth.isAuthenticated()) {
+        return null;
+      }
+
+      final uploadResults = await session.hostr.blossom.uploadBlob(
+        data: bytes,
+        contentType: mime,
+      );
+      final success = uploadResults
+          .where((result) => result.success && result.descriptor != null)
+          .firstOrNull;
+      final descriptor = success?.descriptor;
+      if (descriptor == null) {
+        return null;
+      }
+      return {
+        'url': descriptor.url,
+        'sha256': descriptor.sha256,
+        'size': descriptor.size,
+        'type': descriptor.type ?? mime,
+        if (success?.serverUrl != null) 'serverUrl': success!.serverUrl,
+        'auth': 'session',
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Map<String, Object?>?> _uploadImageWithoutAuth({
