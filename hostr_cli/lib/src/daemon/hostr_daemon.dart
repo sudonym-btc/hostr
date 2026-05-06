@@ -12,9 +12,10 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import '../actions/hostr_actions.dart';
 import '../commands/session_command.dart' show buildNostrConnect;
 import '../context/hostr_cli_context.dart';
-import 'listing_helpers.dart';
 import '../output/qr.dart';
 import '../output/result.dart';
+import 'cancellation.dart';
+import 'listing_helpers.dart';
 
 typedef HostrDaemonNotificationSink =
     void Function(String method, Map<String, Object?> params);
@@ -31,7 +32,10 @@ class HostrDaemon {
   final HostrDaemonNotificationSink? _notifications;
   final SignerRequestNotificationBridge _signerNotifications;
   final Map<String, NostrConnect> _pendingNostrConnect = {};
+  final Map<String, Future<Map<String, Object?>>> _pendingNostrConnectWaits =
+      {};
   final Map<String, NostrConnect> _pendingOAuthNostrConnect = {};
+  final Map<String, Future<HostrCliResult>> _pendingOAuthNostrConnectWaits = {};
   final Map<String, Future<void>> _sessionHydrations = {};
 
   Future<HostrCliResult> call({
@@ -39,8 +43,11 @@ class HostrDaemon {
     required String action,
     required Map<String, dynamic> input,
     String? notificationToken,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
   }) async {
     return _guardAction(action, () async {
+      cancellationToken?.throwIfCancelled();
       if (pubkey == null || pubkey.trim().isEmpty) {
         if (!_publicActions.contains(action)) {
           throw HostrCliException(
@@ -56,25 +63,31 @@ class HostrDaemon {
           action: action,
           input: input,
           notificationToken: notificationToken,
+          traceId: traceId,
+          cancellationToken: cancellationToken,
         );
       }
 
       final session = context.runtime.session(pubkey);
       await session.ensureInitialized();
+      cancellationToken?.throwIfCancelled();
       return _callInitializedSession(
         tokenPubkey: pubkey,
         session: session,
         action: action,
         input: input,
         notificationToken: notificationToken,
+        traceId: traceId,
+        cancellationToken: cancellationToken,
       );
-    });
+    }, traceId: traceId);
   }
 
   Future<HostrCliResult> callForeground({
     required String action,
     required Map<String, dynamic> input,
     String? notificationToken,
+    String? traceId,
   }) async {
     return _guardAction(action, () async {
       final session = await context.runtime.foregroundSession();
@@ -92,8 +105,9 @@ class HostrDaemon {
         action: action,
         input: input,
         notificationToken: notificationToken,
+        traceId: traceId,
       );
-    });
+    }, traceId: traceId);
   }
 
   HostrActionSpec _actionSpecOrThrow(String action) {
@@ -115,17 +129,34 @@ class HostrDaemon {
 
   Future<HostrCliResult> _guardAction(
     String action,
-    Future<HostrCliResult> Function() run,
-  ) async {
+    Future<HostrCliResult> Function() run, {
+    String? traceId,
+  }) async {
     try {
-      return await run();
+      return await TraceContext.run(traceId, run);
     } on HostrCliException catch (error) {
       return HostrCliResult(
         ok: false,
         command: action,
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [error.toIssue()],
+      );
+    } on HostrCancellationException catch (error) {
+      return HostrCliResult(
+        ok: false,
+        command: action,
+        environment: context.options.environment.name,
+        dryRun: false,
+        traceId: traceId,
+        errors: [
+          HostrCliIssue(
+            code: 'request_cancelled',
+            message: error.message,
+            retryable: false,
+          ),
+        ],
       );
     } catch (error) {
       return HostrCliResult(
@@ -133,6 +164,7 @@ class HostrDaemon {
         command: action,
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [
           HostrCliIssue(
             code: 'unexpected_error',
@@ -150,7 +182,10 @@ class HostrDaemon {
     required String action,
     required Map<String, dynamic> input,
     String? notificationToken,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
   }) async {
+    cancellationToken?.throwIfCancelled();
     final activePubkey = session.auth.activePubkey;
     if (activePubkey != null &&
         activePubkey.isNotEmpty &&
@@ -170,6 +205,7 @@ class HostrDaemon {
       _signerNotifications.addOperation(
         activePubkey: activePubkey,
         token: notificationToken,
+        traceId: traceId,
       );
     }
 
@@ -194,6 +230,7 @@ class HostrDaemon {
             tokenPubkey,
             session,
             HostrSessionConnectInput.fromJson(input),
+            cancellationToken: cancellationToken,
           ),
         ),
         'hostr.listings.search' => (
@@ -260,6 +297,8 @@ class HostrDaemon {
             session,
             HostrReservationBookAndPayInput.fromJson(input),
             notificationToken: notificationToken,
+            traceId: traceId,
+            cancellationToken: cancellationToken,
           ),
         ),
         'hostr.reservations.negotiateAccept' => await () async {
@@ -496,8 +535,13 @@ class HostrDaemon {
         'hostr.swaps.watch' => await () async {
           final watchInput = HostrSwapsWatchInput.fromJson(input);
           return (
-            dryRun: watchInput.dryRun,
-            data: await _swapsWatch(tokenPubkey, session, watchInput),
+            dryRun: false,
+            data: await _swapsWatch(
+              tokenPubkey,
+              session,
+              watchInput,
+              cancellationToken: cancellationToken,
+            ),
           );
         }(),
         'hostr.swaps.recoverAll' => await () async {
@@ -536,6 +580,7 @@ class HostrDaemon {
         command: action,
         environment: context.options.environment.name,
         dryRun: result.dryRun,
+        traceId: traceId,
         data: result.data,
       );
     } catch (error, stackTrace) {
@@ -589,8 +634,11 @@ class HostrDaemon {
     required String base64,
     String? mime,
     String? filename,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
   }) async {
     return _guardAction('hostr.upload.image', () async {
+      cancellationToken?.throwIfCancelled();
       late final Uint8List bytes;
       try {
         bytes = base64Decode(base64.replaceAll(RegExp(r'\s+'), ''));
@@ -615,6 +663,7 @@ class HostrDaemon {
         bytes: bytes,
         mime: mime,
         filename: filename,
+        traceId: traceId,
       );
       if (upload == null) {
         throw HostrCliException(
@@ -628,6 +677,7 @@ class HostrDaemon {
         command: 'hostr.upload.image',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         data: {
           ...upload,
           'sha256': upload['sha256'] ?? crypto.sha256.convert(bytes).toString(),
@@ -637,13 +687,14 @@ class HostrDaemon {
             'filename': filename,
         },
       );
-    });
+    }, traceId: traceId);
   }
 
   Future<Map<String, Object?>?> _uploadImageWithoutAuth({
     required Uint8List bytes,
     String? mime,
     String? filename,
+    String? traceId,
   }) async {
     final servers = context.options.environment.bootstrapBlossom
         .map((url) => url.trim())
@@ -667,6 +718,9 @@ class HostrDaemon {
         );
         request.headers.contentLength = bytes.length;
         request.headers.set('x-sha-256', hash);
+        if (traceId != null && traceId.trim().isNotEmpty) {
+          request.headers.set('x-trace-id', traceId);
+        }
         if (filename != null && filename.trim().isNotEmpty) {
           request.headers.set('x-filename', filename);
         }
@@ -748,10 +802,14 @@ class HostrDaemon {
   Future<HostrCliResult> startOAuthNostrConnect({
     required String requestId,
     bool regenerate = false,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
   }) async {
     try {
+      cancellationToken?.throwIfCancelled();
       if (regenerate) {
         _pendingOAuthNostrConnect.remove(requestId);
+        _pendingOAuthNostrConnectWaits.remove(requestId);
       }
 
       var nostrConnect = _pendingOAuthNostrConnect[requestId];
@@ -767,12 +825,21 @@ class HostrDaemon {
         }
         _pendingOAuthNostrConnect[requestId] = nostrConnect;
       }
+      _pendingOAuthNostrConnectWaits.putIfAbsent(
+        requestId,
+        () => _completeOAuthNostrConnectInternal(
+          requestId: requestId,
+          nostrConnect: nostrConnect!,
+          traceId: traceId,
+        ),
+      );
 
       return HostrCliResult(
         ok: true,
         command: 'oauth.nostr_connect.start',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         data: {
           'requestId': requestId,
           'pending': true,
@@ -785,6 +852,7 @@ class HostrDaemon {
         command: 'oauth.nostr_connect.start',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [error.toIssue()],
       );
     } catch (error) {
@@ -793,6 +861,7 @@ class HostrDaemon {
         command: 'oauth.nostr_connect.start',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [
           HostrCliIssue(
             code: 'unexpected_error',
@@ -807,8 +876,11 @@ class HostrDaemon {
   Future<HostrCliResult> completeOAuthNostrConnect({
     required String requestId,
     required int timeoutSeconds,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
   }) async {
     try {
+      cancellationToken?.throwIfCancelled();
       final nostrConnect = _pendingOAuthNostrConnect[requestId];
       if (nostrConnect == null) {
         throw HostrCliException(
@@ -817,38 +889,17 @@ class HostrDaemon {
         );
       }
 
-      final foreground = await context.runtime.foregroundSession();
-      await foreground.ensureInitialized();
-      await foreground.auth
-          .signinWithNostrConnect(nostrConnect)
-          .timeout(Duration(seconds: timeoutSeconds.clamp(1, 600).toInt()));
-
-      final pubkey = foreground.auth.activePubkey;
-      final bunkerConnection = foreground.auth.activeBunkerConnection;
-      if (pubkey == null || pubkey.isEmpty || bunkerConnection == null) {
-        throw HostrCliException(
-          'nostr_connect_incomplete',
-          'Nostr Connect did not return a pubkey and bunker connection.',
-        );
-      }
-
-      final session = context.runtime.session(pubkey);
-      await session.ensureInitialized();
-      await session.auth.signinWithBunkerConnection(bunkerConnection);
-      unawaited(_ensureAuthenticatedSessionHydrated(session));
-      await foreground.auth.logout();
-      _pendingOAuthNostrConnect.remove(requestId);
-
-      return HostrCliResult(
-        ok: true,
-        command: 'oauth.nostr_connect.complete',
-        environment: context.options.environment.name,
-        dryRun: false,
-        data: {
-          'authenticated': true,
-          'pubkey': pubkey,
-          'credentialType': 'bunker',
-        },
+      final future = _pendingOAuthNostrConnectWaits.putIfAbsent(
+        requestId,
+        () => _completeOAuthNostrConnectInternal(
+          requestId: requestId,
+          nostrConnect: nostrConnect,
+          traceId: traceId,
+        ),
+      );
+      return await _cancelable(
+        future.timeout(Duration(seconds: timeoutSeconds.clamp(1, 600).toInt())),
+        cancellationToken,
       );
     } on TimeoutException {
       return HostrCliResult(
@@ -856,6 +907,7 @@ class HostrDaemon {
         command: 'oauth.nostr_connect.complete',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [
           HostrCliIssue(
             code: 'nostr_connect_timeout',
@@ -870,6 +922,7 @@ class HostrDaemon {
         command: 'oauth.nostr_connect.complete',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [error.toIssue()],
       );
     } catch (error) {
@@ -878,6 +931,7 @@ class HostrDaemon {
         command: 'oauth.nostr_connect.complete',
         environment: context.options.environment.name,
         dryRun: false,
+        traceId: traceId,
         errors: [
           HostrCliIssue(
             code: 'unexpected_error',
@@ -887,6 +941,53 @@ class HostrDaemon {
         ],
       );
     }
+  }
+
+  Future<HostrCliResult> _completeOAuthNostrConnectInternal({
+    required String requestId,
+    required NostrConnect nostrConnect,
+    String? traceId,
+  }) async {
+    return TraceContext.run(traceId, () async {
+      try {
+        final foreground = await context.runtime.foregroundSession();
+        await foreground.ensureInitialized();
+        await foreground.auth.signinWithNostrConnect(nostrConnect);
+
+        final pubkey = foreground.auth.activePubkey;
+        final bunkerConnection = foreground.auth.activeBunkerConnection;
+        if (pubkey == null || pubkey.isEmpty || bunkerConnection == null) {
+          throw HostrCliException(
+            'nostr_connect_incomplete',
+            'Nostr Connect did not return a pubkey and bunker connection.',
+          );
+        }
+
+        final session = context.runtime.session(pubkey);
+        await session.ensureInitialized();
+        await session.auth.signinWithBunkerConnection(bunkerConnection);
+        unawaited(_ensureAuthenticatedSessionHydrated(session));
+        await foreground.auth.logout();
+        _pendingOAuthNostrConnect.remove(requestId);
+        _pendingOAuthNostrConnectWaits.remove(requestId);
+
+        return HostrCliResult(
+          ok: true,
+          command: 'oauth.nostr_connect.complete',
+          environment: context.options.environment.name,
+          dryRun: false,
+          traceId: traceId,
+          data: {
+            'authenticated': true,
+            'pubkey': pubkey,
+            'credentialType': 'bunker',
+          },
+        );
+      } catch (_) {
+        _pendingOAuthNostrConnectWaits.remove(requestId);
+        rethrow;
+      }
+    });
   }
 
   Future<Map<String, Object?>> _sessionStatus(
@@ -914,8 +1015,10 @@ class HostrDaemon {
   Future<Map<String, Object?>> _sessionConnect(
     String tokenPubkey,
     HostrSession session,
-    HostrSessionConnectInput input,
-  ) async {
+    HostrSessionConnectInput input, {
+    HostrCancellationToken? cancellationToken,
+  }) async {
+    cancellationToken?.throwIfCancelled();
     if (await session.auth.isAuthenticated() &&
         !session.auth.needsBunkerRecovery &&
         session.auth.activePubkey == tokenPubkey) {
@@ -934,6 +1037,7 @@ class HostrDaemon {
 
     if (input.regenerate) {
       _pendingNostrConnect.remove(tokenPubkey);
+      _pendingNostrConnectWaits.remove(tokenPubkey);
     }
 
     var nostrConnect = _pendingNostrConnect[tokenPubkey];
@@ -947,6 +1051,14 @@ class HostrDaemon {
       }
       _pendingNostrConnect[tokenPubkey] = nostrConnect;
     }
+    final waitFuture = _pendingNostrConnectWaits.putIfAbsent(
+      tokenPubkey,
+      () => _completeSessionNostrConnect(
+        tokenPubkey: tokenPubkey,
+        session: session,
+        nostrConnect: nostrConnect!,
+      ),
+    );
 
     if (!input.wait) {
       return {
@@ -967,12 +1079,27 @@ class HostrDaemon {
       };
     }
 
-    await session.auth
-        .signinWithNostrConnect(nostrConnect)
-        .timeout(Duration(seconds: input.timeoutSeconds));
+    return _cancelable(
+      waitFuture.timeout(Duration(seconds: input.timeoutSeconds)),
+      cancellationToken,
+    );
+  }
+
+  Future<Map<String, Object?>> _completeSessionNostrConnect({
+    required String tokenPubkey,
+    required HostrSession session,
+    required NostrConnect nostrConnect,
+  }) async {
+    try {
+      await session.auth.signinWithNostrConnect(nostrConnect);
+    } catch (_) {
+      _pendingNostrConnectWaits.remove(tokenPubkey);
+      rethrow;
+    }
     final activePubkey = session.auth.activePubkey;
     if (activePubkey != tokenPubkey) {
       _pendingNostrConnect.remove(tokenPubkey);
+      _pendingNostrConnectWaits.remove(tokenPubkey);
       await session.auth.logout();
       throw HostrCliException(
         'session_pubkey_mismatch',
@@ -982,6 +1109,7 @@ class HostrDaemon {
     }
 
     _pendingNostrConnect.remove(tokenPubkey);
+    _pendingNostrConnectWaits.remove(tokenPubkey);
     unawaited(_ensureAuthenticatedSessionHydrated(session));
     return {
       'authenticated': true,
@@ -1430,7 +1558,10 @@ class HostrDaemon {
     HostrSession session,
     HostrReservationBookAndPayInput input, {
     String? notificationToken,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
   }) async {
+    cancellationToken?.throwIfCancelled();
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
@@ -1460,6 +1591,7 @@ class HostrDaemon {
       states.add(json);
       _notifications?.call('hostr.booking.state', {
         'operationToken': notificationToken,
+        'traceId': ?traceId,
         ...json,
       });
       if (!handoff.isCompleted && json['externalPayment'] is Map) {
@@ -1467,7 +1599,10 @@ class HostrDaemon {
       }
     });
 
+    var cleanedUp = false;
     Future<void> cleanup() async {
+      if (cleanedUp) return;
+      cleanedUp = true;
       await sub.cancel();
       await operation.close();
       final activePubkey = session.auth.activePubkey;
@@ -1481,6 +1616,17 @@ class HostrDaemon {
         );
       }
     }
+
+    cancellationToken?.onCancel(() {
+      final error = const HostrCancellationException();
+      if (!handoff.isCompleted) {
+        handoff.completeError(error);
+      }
+      if (!terminal.isCompleted) {
+        terminal.completeError(error);
+      }
+      unawaited(cleanup());
+    });
 
     unawaited(() async {
       try {
@@ -1527,39 +1673,41 @@ class HostrDaemon {
 
     late final Map<String, Object?> result;
     try {
-      result = await Future.any<Map<String, Object?>>([
-        handoff.future.then((state) {
-          final externalPayment = state['externalPayment'];
-          final externalPaymentJson = externalPayment is Map
-              ? Map<String, Object?>.from(externalPayment)
-              : <String, Object?>{};
-          final swapId =
-              externalPaymentJson['swapId']?.toString() ??
-              state['swapId']?.toString();
-          final tradeId =
-              externalPaymentJson['tradeId']?.toString() ??
-              state['tradeId']?.toString();
-          return {
-            'mode': 'book-and-pay',
-            'state': state,
-            'states': List<Map<String, Object?>>.from(states),
-            'externalPayment': externalPaymentJson,
-            'continuesInBackground': true,
-            'nextTool': {
-              'name': 'hostr_swaps_watch',
-              'arguments': {
-                if (swapId != null && swapId.isNotEmpty) 'swapId': swapId,
-                if (tradeId != null && tradeId.isNotEmpty) 'tradeId': tradeId,
-                'reservationWaitSeconds': input.proofTimeoutSeconds,
-                'dryRun': false,
+      result = await _cancelable(
+        Future.any<Map<String, Object?>>([
+          handoff.future.then((state) {
+            final externalPayment = state['externalPayment'];
+            final externalPaymentJson = externalPayment is Map
+                ? Map<String, Object?>.from(externalPayment)
+                : <String, Object?>{};
+            final swapId =
+                externalPaymentJson['swapId']?.toString() ??
+                state['swapId']?.toString();
+            final tradeId =
+                externalPaymentJson['tradeId']?.toString() ??
+                state['tradeId']?.toString();
+            return {
+              'mode': 'book-and-pay',
+              'state': state,
+              'states': List<Map<String, Object?>>.from(states),
+              'externalPayment': externalPaymentJson,
+              'continuesInBackground': true,
+              'nextTool': {
+                'name': 'hostr_swaps_watch',
+                'arguments': {
+                  if (swapId != null && swapId.isNotEmpty) 'swapId': swapId,
+                  if (tradeId != null && tradeId.isNotEmpty) 'tradeId': tradeId,
+                  'reservationWaitSeconds': input.proofTimeoutSeconds,
+                },
               },
-            },
-            'nextStep':
-                'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. After that visible payment prompt is in the output, call hostr_swaps_watch with the returned swapId, tradeId, reservationWaitSeconds, and dryRun=false. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
-          };
-        }),
-        terminal.future,
-      ]);
+              'nextStep':
+                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. After that visible payment prompt is in the output, call the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
+            };
+          }),
+          terminal.future,
+        ]),
+        cancellationToken,
+      );
     } catch (error, stackTrace) {
       final reconnect = await _staleSignerReconnectException(
         tokenPubkey,
@@ -3368,19 +3516,18 @@ class HostrDaemon {
     group ??= _cachedEscrowReservationGroup(session, tradeId);
     if (group == null) return null;
 
-    final escrowKeyPair = session.auth.activeKeyPair;
     ResolvedReservationGroupParticipants? resolved;
-    if (escrowKeyPair != null) {
-      try {
-        resolved = await ReservationGroupParticipantResolver(
-          keyring: KeyPairReservationParticipantKeyring(
-            keyPairs: [escrowKeyPair],
-            logger: session.hostr.logger,
-          ),
-        ).resolve(group);
-      } catch (_) {
-        resolved = null;
-      }
+    try {
+      resolved = await ReservationGroupParticipantResolver(
+        keyring: DefaultReservationParticipantKeyring(
+          auth: session.auth,
+          tradeAccountAllocator: session.auth.service<TradeAccountAllocator>(),
+          ndk: session.auth.service<Ndk>(),
+          logger: session.hostr.logger,
+        ),
+      ).resolve(group);
+    } catch (_) {
+      resolved = null;
     }
 
     final sellerPubkey =
@@ -3657,21 +3804,22 @@ class HostrDaemon {
   Future<Map<String, Object?>> _swapsWatch(
     String tokenPubkey,
     HostrSession session,
-    HostrSwapsWatchInput input,
-  ) async {
+    HostrSwapsWatchInput input, {
+    HostrCancellationToken? cancellationToken,
+  }) async {
+    cancellationToken?.throwIfCancelled();
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
       action: 'Swap watch',
     );
     final requestedTradeId = input.tradeId;
-    if (!input.dryRun &&
-        requestedTradeId != null &&
-        requestedTradeId.isNotEmpty) {
+    if (requestedTradeId != null && requestedTradeId.isNotEmpty) {
       final lookup = await _reservationLookupByTradeId(
         session.hostr,
         requestedTradeId,
         waitSeconds: input.reservationWaitSeconds,
+        cancellationToken: cancellationToken,
       );
       if (lookup['committed'] == true) {
         return {
@@ -3706,44 +3854,21 @@ class HostrDaemon {
           session.hostr,
           tradeId,
           waitSeconds: input.reservationWaitSeconds,
+          cancellationToken: cancellationToken,
         ),
       };
     }
     var before = SwapInState.fromJson(beforeJson);
     final beforeTradeId =
         input.tradeId ?? _tradeIdFromSwapStateJson(beforeJson);
-    if (before is SwapInRequestCreated) {
-      before = SwapInAwaitingOnChain(before.data);
-      await session.hostr.operationStateStore.write(
-        'swap_in',
-        input.swapId,
-        before.toJson(),
-      );
-    }
-    if (input.dryRun || before.isTerminal) {
-      return await _swapWatchJson(
-        hostr: session.hostr,
-        swapId: input.swapId,
-        tradeId: beforeTradeId,
-        reservationWaitSeconds: input.reservationWaitSeconds,
-        resolved: 0,
-        state: before,
-      );
-    }
-    await session.hostr.evm.init();
-    final resolved = await session.hostr.evm.recoverStaleOperations(
-      isBackground: true,
-    );
-    final afterJson =
-        await session.hostr.operationStateStore.read('swap_in', input.swapId) ??
-        before.toJson();
     return await _swapWatchJson(
       hostr: session.hostr,
       swapId: input.swapId,
-      tradeId: input.tradeId ?? _tradeIdFromSwapStateJson(afterJson),
+      tradeId: beforeTradeId,
       reservationWaitSeconds: input.reservationWaitSeconds,
-      resolved: resolved,
-      state: SwapInState.fromJson(afterJson),
+      resolved: 0,
+      state: before,
+      cancellationToken: cancellationToken,
     );
   }
 
@@ -3793,6 +3918,7 @@ class SignerRequestNotificationBridge {
   final Map<String, Object?> _attachedAccounts = {};
   final Map<String, Set<String>> _seenRequestIds = {};
   final Map<String, Set<String>> _operationTokens = {};
+  final Map<String, Map<String, String?>> _operationTraceIds = {};
 
   void attachSession({
     required String tokenPubkey,
@@ -3822,13 +3948,21 @@ class SignerRequestNotificationBridge {
     });
   }
 
-  void addOperation({required String activePubkey, required String token}) {
+  void addOperation({
+    required String activePubkey,
+    required String token,
+    String? traceId,
+  }) {
     if (_notifications == null) return;
     final normalized = token.trim();
     if (normalized.isEmpty) return;
     _operationTokens
         .putIfAbsent(activePubkey, () => <String>{})
         .add(normalized);
+    _operationTraceIds.putIfAbsent(
+      activePubkey,
+      () => <String, String?>{},
+    )[normalized] = traceId;
   }
 
   void removeOperation({required String activePubkey, required String token}) {
@@ -3836,8 +3970,10 @@ class SignerRequestNotificationBridge {
     if (normalized.isEmpty) return;
     final tokens = _operationTokens[activePubkey];
     tokens?.remove(normalized);
+    _operationTraceIds[activePubkey]?.remove(normalized);
     if (tokens != null && tokens.isEmpty) {
       _operationTokens.remove(activePubkey);
+      _operationTraceIds.remove(activePubkey);
     }
   }
 
@@ -3856,10 +3992,13 @@ class SignerRequestNotificationBridge {
 
     final tokens = _operationTokens[activePubkey];
     if (tokens == null || tokens.isEmpty) return;
+    final traceIds = _operationTraceIds[activePubkey] ?? const {};
     for (final request in newRequests) {
       for (final token in tokens) {
+        final traceId = traceIds[token];
         _notifications?.call('hostr.signer.pending', {
           'operationToken': token,
+          'traceId': ?traceId,
           'tokenPubkey': tokenPubkey,
           'activePubkey': activePubkey,
           'requestId': request.id,
@@ -4105,12 +4244,41 @@ Future<Thread?> _hydrateTradeThread(
   return hostr.messaging.threads.findByConversationTag(tradeId).lastOrNull;
 }
 
+Future<T> _cancelable<T>(
+  Future<T> future,
+  HostrCancellationToken? cancellationToken,
+) {
+  if (cancellationToken == null) return future;
+  cancellationToken.throwIfCancelled();
+  final completer = Completer<T>();
+  cancellationToken.onCancel(() {
+    if (!completer.isCompleted) {
+      completer.completeError(const HostrCancellationException());
+    }
+  });
+  future.then(
+    (value) {
+      if (!completer.isCompleted) {
+        completer.complete(value);
+      }
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    },
+  );
+  return completer.future;
+}
+
 Future<List<Reservation>> _waitForPublicReservationsByTradeId(
   Hostr hostr,
   String tradeId, {
   bool Function(List<Reservation> reservations)? until,
   Duration timeout = const Duration(seconds: 15),
+  HostrCancellationToken? cancellationToken,
 }) async {
+  cancellationToken?.throwIfCancelled();
   final stream = hostr.userSubscriptions.allMyReservations$.stream;
   final byParticipant = <String, Reservation>{};
 
@@ -4145,6 +4313,12 @@ Future<List<Reservation>> _waitForPublicReservationsByTradeId(
     }
   }
 
+  cancellationToken?.onCancel(() {
+    if (!completer.isCompleted) {
+      completer.completeError(const HostrCancellationException());
+    }
+  });
+
   subscription = stream.stream.listen(
     (reservation) {
       addIfMatches(reservation);
@@ -4157,7 +4331,7 @@ Future<List<Reservation>> _waitForPublicReservationsByTradeId(
   timer = Timer(timeout, complete);
 
   try {
-    return await completer.future;
+    return await _cancelable(completer.future, cancellationToken);
   } finally {
     timer.cancel();
     await subscription.cancel();
@@ -4214,6 +4388,7 @@ Future<Map<String, Object?>> _reservationLookupByTradeId(
   Hostr hostr,
   String tradeId, {
   int waitSeconds = 15,
+  HostrCancellationToken? cancellationToken,
 }) async {
   final reservations = await _waitForPublicReservationsByTradeId(
     hostr,
@@ -4222,7 +4397,9 @@ Future<Map<String, Object?>> _reservationLookupByTradeId(
       (reservation) => reservation.stage == ReservationStage.commit,
     ),
     timeout: Duration(seconds: waitSeconds),
+    cancellationToken: cancellationToken,
   );
+  cancellationToken?.throwIfCancelled();
   final committed = reservations
       .where((reservation) => reservation.stage == ReservationStage.commit)
       .toList();
@@ -4857,7 +5034,9 @@ Future<Map<String, Object?>> _swapWatchJson({
   required int reservationWaitSeconds,
   required int resolved,
   required SwapInState state,
+  HostrCancellationToken? cancellationToken,
 }) async {
+  cancellationToken?.throwIfCancelled();
   final stateJson = state.toJson();
   final resolvedTradeId = tradeId ?? _tradeIdFromSwapStateJson(stateJson);
   final claimTxHash = state is SwapInCompleted ? state.data.claimTxHash : null;
@@ -4884,6 +5063,7 @@ Future<Map<String, Object?>> _swapWatchJson({
         hostr,
         resolvedTradeId,
         waitSeconds: reservationWaitSeconds,
+        cancellationToken: cancellationToken,
       ),
     ...externalPayment == null
         ? const <String, Object?>{}

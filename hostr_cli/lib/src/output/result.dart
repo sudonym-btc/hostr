@@ -66,6 +66,7 @@ class HostrCliResult {
     required this.command,
     required this.environment,
     required this.dryRun,
+    this.traceId,
     this.data,
     this.warnings = const [],
     this.errors = const [],
@@ -75,6 +76,7 @@ class HostrCliResult {
   final String command;
   final String environment;
   final bool dryRun;
+  final String? traceId;
   final Object? data;
   final List<HostrCliIssue> warnings;
   final List<HostrCliIssue> errors;
@@ -84,6 +86,7 @@ class HostrCliResult {
     'command': command,
     'environment': environment,
     'dryRun': dryRun,
+    if (traceId != null) 'traceId': traceId,
     if (data != null) 'data': data,
     if (warnings.isNotEmpty)
       'warnings': warnings.map((warning) => warning.toJson()).toList(),

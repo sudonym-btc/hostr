@@ -56,8 +56,14 @@ class _TripsScreenState extends State<TripsScreen> {
         ),
       ),
       builder: (item) {
-        final conversationParticipants =
-            item.participants.resolvedParticipantSetWithoutEscrow;
+        final activePubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
+        final sellerPubkey =
+            item.participants.resolvedParticipantPubkeyForRole('seller') ??
+            item.group.sellerPubkey;
+        final conversationParticipants = {
+          activePubkey,
+          if (sellerPubkey.isNotEmpty) sellerPubkey,
+        };
 
         void openThread() {
           final thread = getIt<Hostr>().messaging.threads

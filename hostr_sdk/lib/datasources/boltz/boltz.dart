@@ -19,6 +19,7 @@ class BoltzClient {
         baseUrl: Uri.parse(boltzConfig.apiUrl),
         interceptors: [
           HeadersInterceptor({'referral': 'boltz_webapp_desktop'}),
+          const _TraceHeadersInterceptor(),
         ],
       );
 
@@ -559,5 +560,18 @@ class BoltzClient {
 
   String? _asString(dynamic value) {
     return value is String && value.isNotEmpty ? value : null;
+  }
+}
+
+class _TraceHeadersInterceptor implements Interceptor {
+  const _TraceHeadersInterceptor();
+
+  @override
+  FutureOr<Response<BodyType>> intercept<BodyType>(Chain<BodyType> chain) {
+    final headers = TraceContext.headers();
+    if (headers.isEmpty) {
+      return chain.proceed(chain.request);
+    }
+    return chain.proceed(applyHeaders(chain.request, headers));
   }
 }

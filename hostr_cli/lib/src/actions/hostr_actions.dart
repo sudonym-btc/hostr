@@ -800,13 +800,11 @@ class HostrSwapsWatchInput {
     required this.swapId,
     this.tradeId,
     this.reservationWaitSeconds = 20,
-    this.dryRun = true,
   });
 
   final String swapId;
   final String? tradeId;
   final int reservationWaitSeconds;
-  final bool dryRun;
 
   factory HostrSwapsWatchInput.fromJson(Map<String, dynamic> json) {
     return HostrSwapsWatchInput(
@@ -816,7 +814,6 @@ class HostrSwapsWatchInput {
           (_optionalInt(json['reservationWaitSeconds']) ?? 20)
               .clamp(0, 300)
               .toInt(),
-      dryRun: _optionalBool(json['dryRun']) ?? true,
     );
   }
 }
@@ -1213,7 +1210,7 @@ class HostrActionSpec {
       case 'hostr.listings.reservationGroups':
         return 'Use when the user asks why dates are unavailable, wants booking history/conflicts for a listing, or needs reservation context before changing availability-sensitive plans.';
       case 'hostr.reservations.bookAndPay':
-        return 'Primary booking flow: use this when the user says book, reserve, make a reservation, create a reservation, or otherwise clearly wants an instant-book stay at or above the listed price. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. Immediately after the payment prompt is visible, call hostr_swaps_watch with swapId, tradeId, reservationWaitSeconds, and dryRun=false. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed reservation appears. Do not call hostr_reservations_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
+        return 'Primary booking flow: use this when the user says book, reserve, make a reservation, create a reservation, or otherwise clearly wants an instant-book stay at or above the listed price. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. Immediately after the payment prompt is visible, call hostr_swaps_watch with swapId, tradeId, and reservationWaitSeconds to monitor payment/proof/reservation completion. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed reservation appears. Do not call hostr_reservations_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
       case 'hostr.reservations.negotiateOffer':
         return 'Negotiation-only flow: use for explicit offers, counteroffers, price/date negotiation, or non-instant-book reservation proposals. Do not use this for straightforward "book/reserve" intents on instant-book listings; use hostr_reservations_bookAndPay there. Preview with dryRun=true, then send the private negotiation event with dryRun=false only after approval.';
       case 'hostr.reservations.negotiateAccept':
@@ -1274,7 +1271,7 @@ class HostrActionSpec {
       case 'hostr.escrow.badges.revoke':
         return 'Escrow-operator destructive award workflow: preview revocation/deletion of an issued badge award and publish only after explicit approval. Include a reason when provided.';
       case 'hostr.swaps.watch':
-        return 'Use immediately after hostr_reservations_bookAndPay returns swapId/tradeId, or for manual swap recovery. With dryRun=false it safely resumes/polls the persisted swap until proof, terminal failure, or timeout. After completion or swap-not-found fallback, call hostr_trips_list with tradeId to surface the committed reservation card.';
+        return 'Read-only monitor to use immediately after hostr_reservations_bookAndPay returns swapId/tradeId, or when inspecting a specific swap. It observes persisted swap/payment/proof state and optionally waits for the committed reservation by tradeId. It has no dryRun parameter and does not recover stale swaps; use hostr_swaps_recoverAll for explicit recovery.';
       case 'hostr.swaps.recoverAll':
         return 'Use when the user asks to recover stuck payments/swaps or when diagnostics show persisted swap operations need resumption. Preview first; run with dryRun=false only after approval. Use background=true only when the user wants recovery to continue asynchronously.';
       case 'hostr.swaps.list':
@@ -1323,6 +1320,15 @@ const String _reservationDateOnlyRule =
     'Encode the requested date as YYYY-MM-DDT00:00:00Z; the trailing Z is storage syntax only. '
     'Do not convert from the user timezone, listing timezone, check-in time, or check-out time.';
 
+const String _amountValueDescription =
+    'Payment amount as a decimal string to avoid precision loss. If unit is sats, this value is a satoshi count, where 1 sat = 1/100,000,000 BTC.';
+const String _amountCurrencyDescription =
+    'Currency or denomination, such as USD or BTC. For bitcoin amounts expressed in sats, use currency BTC with unit sats.';
+const String _amountUnitDescription =
+    'Optional display/base unit. When unit is sats, sats means satoshis: 1 sat = 1/100,000,000 BTC. Do not interpret sats as whole BTC, cents, dollars, or any fiat subunit.';
+const String _amountDecimalsDescription =
+    'Optional decimal precision for raw-denomination amounts. For unit sats, use decimals 0 because satoshis are already the smallest bitcoin unit.';
+
 const Map<String, Object?> _tradeInputSchema = {
   'type': 'object',
   'additionalProperties': false,
@@ -1334,10 +1340,17 @@ const Map<String, Object?> _tradeInputSchema = {
       'additionalProperties': false,
       'required': ['value', 'currency'],
       'properties': {
-        'value': {'type': 'string'},
-        'currency': {'type': 'string'},
-        'unit': {'type': 'string'},
-        'decimals': {'type': 'integer', 'minimum': 0},
+        'value': {'type': 'string', 'description': _amountValueDescription},
+        'currency': {
+          'type': 'string',
+          'description': _amountCurrencyDescription,
+        },
+        'unit': {'type': 'string', 'description': _amountUnitDescription},
+        'decimals': {
+          'type': 'integer',
+          'minimum': 0,
+          'description': _amountDecimalsDescription,
+        },
       },
     },
     'reason': {'type': 'string'},
@@ -1595,7 +1608,7 @@ export interface HostrListingsListInput {
           'type': 'array',
           'minItems': 1,
           'description':
-              'Listing prices. All monetary fields must use the same currency.',
+              'Listing prices. All monetary fields must use the same currency. If a user mentions sats, they mean satoshis: 1 sat = 1/100,000,000 BTC. Represent bitcoin satoshi prices as amount.value equal to the satoshi count, amount.currency BTC, amount.unit sats, and amount.decimals 0.',
           'items': {
             'type': 'object',
             'additionalProperties': false,
@@ -1606,10 +1619,23 @@ export interface HostrListingsListInput {
                 'additionalProperties': false,
                 'required': ['value', 'currency'],
                 'properties': {
-                  'value': {'type': 'string'},
-                  'currency': {'type': 'string'},
-                  'unit': {'type': 'string'},
-                  'decimals': {'type': 'integer', 'minimum': 0},
+                  'value': {
+                    'type': 'string',
+                    'description': _amountValueDescription,
+                  },
+                  'currency': {
+                    'type': 'string',
+                    'description': _amountCurrencyDescription,
+                  },
+                  'unit': {
+                    'type': 'string',
+                    'description': _amountUnitDescription,
+                  },
+                  'decimals': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'description': _amountDecimalsDescription,
+                  },
                 },
               },
               'frequency': {
@@ -1640,10 +1666,17 @@ export interface HostrListingsListInput {
           'additionalProperties': false,
           'required': ['value', 'currency'],
           'properties': {
-            'value': {'type': 'string'},
-            'currency': {'type': 'string'},
-            'unit': {'type': 'string'},
-            'decimals': {'type': 'integer', 'minimum': 0},
+            'value': {'type': 'string', 'description': _amountValueDescription},
+            'currency': {
+              'type': 'string',
+              'description': _amountCurrencyDescription,
+            },
+            'unit': {'type': 'string', 'description': _amountUnitDescription},
+            'decimals': {
+              'type': 'integer',
+              'minimum': 0,
+              'description': _amountDecimalsDescription,
+            },
           },
         },
         'minPaymentAmount': {
@@ -1651,10 +1684,17 @@ export interface HostrListingsListInput {
           'additionalProperties': false,
           'required': ['value', 'currency'],
           'properties': {
-            'value': {'type': 'string'},
-            'currency': {'type': 'string'},
-            'unit': {'type': 'string'},
-            'decimals': {'type': 'integer', 'minimum': 0},
+            'value': {'type': 'string', 'description': _amountValueDescription},
+            'currency': {
+              'type': 'string',
+              'description': _amountCurrencyDescription,
+            },
+            'unit': {'type': 'string', 'description': _amountUnitDescription},
+            'decimals': {
+              'type': 'integer',
+              'minimum': 0,
+              'description': _amountDecimalsDescription,
+            },
           },
         },
         'h3Tags': {
@@ -1675,13 +1715,13 @@ export interface HostrListingsListInput {
     },
     typescriptInput: '''
 export interface HostrAmountInput {
-  /** Decimal payment amount, represented as a string to avoid precision loss. */
+  /** Payment amount as a decimal string. If unit is sats, this is a satoshi count: 1 sat = 1/100,000,000 BTC. */
   value: string;
-  /** Currency or denomination, such as USD or BTC. */
+  /** Currency or denomination, such as USD or BTC. For sats, use BTC. */
   currency: string;
-  /** Optional display/base unit such as sats. */
+  /** Optional display/base unit. sats means satoshis: 1 sat = 1/100,000,000 BTC. */
   unit?: string;
-  /** Optional decimal precision for raw-denomination amounts. */
+  /** Optional decimal precision. For sats, use 0. */
   decimals?: number;
 }
 
@@ -1886,15 +1926,21 @@ export interface HostrListingsAvailabilityInput {
           'properties': {
             'value': {
               'type': 'string',
-              'description':
-                  'Decimal payment amount, represented as a string to avoid precision loss.',
+              'description': _amountValueDescription,
             },
             'currency': {
               'type': 'string',
-              'description': 'Currency or denomination, such as USD or BTC.',
+              'description': _amountCurrencyDescription,
             },
-            'unit': {'type': 'string'},
-            'decimals': {'type': 'integer', 'minimum': 0},
+            'unit': {
+              'type': 'string',
+              'description': _amountUnitDescription,
+            },
+            'decimals': {
+              'type': 'integer',
+              'minimum': 0,
+              'description': _amountDecimalsDescription,
+            },
           },
           'description':
               'Optional reservation amount override. Omit to use listing price rules.',
@@ -1915,13 +1961,13 @@ export interface HostrListingsAvailabilityInput {
     },
     typescriptInput: '''
 export interface HostrAmountInput {
-  /** Decimal payment amount, represented as a string to avoid precision loss. */
+  /** Payment amount as a decimal string. If unit is sats, this is a satoshi count: 1 sat = 1/100,000,000 BTC. */
   value: string;
-  /** Currency or denomination, such as USD or BTC. */
+  /** Currency or denomination, such as USD or BTC. For sats, use BTC. */
   currency: string;
-  /** Optional display/base unit such as sats. */
+  /** Optional display/base unit. sats means satoshis: 1 sat = 1/100,000,000 BTC. */
   unit?: string;
-  /** Optional decimal precision for raw-denomination amounts. */
+  /** Optional decimal precision. For sats, use 0. */
   decimals?: number;
 }
 
@@ -1949,7 +1995,7 @@ export interface HostrReservationsOfferInput {
     id: 'hostr.reservations.bookAndPay',
     title: 'Book And Pay Reservation',
     description:
-        'Use this foreground handoff tool whenever the user says to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. It creates the private reservation offer and escrow funding swap. $_reservationDateOnlyRule If external Lightning payment is required, it returns the invoice string, QR image, internal trade id, internal swap id, and continuesInBackground=true while the daemon keeps the book-and-pay operation alive. CRITICAL UI REQUIREMENT: leave only the QR image and invoice text visibly in the answer to the user; do not show internal trade id or swap id in the payment prompt, and do not replace the payment prompt with a summary. Only after that visible payment prompt is in the output, immediately call `hostr_swaps_watch` with the returned `swapId`, `tradeId`, `reservationWaitSeconds`, and `dryRun: false` to monitor payment/proof/reservation completion. When watch completes or cannot find the swap, query `hostr_trips_list` with `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
+        'Use this foreground handoff tool whenever the user says to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. It creates the private reservation offer and escrow funding swap. $_reservationDateOnlyRule If external Lightning payment is required, it returns the invoice string, QR image, internal trade id, internal swap id, and continuesInBackground=true while the daemon keeps the book-and-pay operation alive. CRITICAL UI REQUIREMENT: leave only the QR image and invoice text visibly in the answer to the user; do not show internal trade id or swap id in the payment prompt, and do not replace the payment prompt with a summary. Only after that visible payment prompt is in the output, immediately call the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds` to monitor payment/proof/reservation completion. When watch completes or cannot find the swap, query `hostr_trips_list` with `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
     inputTypeName: 'HostrReservationBookAndPayInput',
     readOnly: false,
     inputSchema: {
@@ -1980,15 +2026,21 @@ export interface HostrReservationsOfferInput {
           'properties': {
             'value': {
               'type': 'string',
-              'description':
-                  'Decimal payment amount, represented as a string to avoid precision loss.',
+              'description': _amountValueDescription,
             },
             'currency': {
               'type': 'string',
-              'description': 'Currency or denomination, such as USD or BTC.',
+              'description': _amountCurrencyDescription,
             },
-            'unit': {'type': 'string'},
-            'decimals': {'type': 'integer', 'minimum': 0},
+            'unit': {
+              'type': 'string',
+              'description': _amountUnitDescription,
+            },
+            'decimals': {
+              'type': 'integer',
+              'minimum': 0,
+              'description': _amountDecimalsDescription,
+            },
           },
           'description':
               'Optional reservation amount override. Must be at or above the listing price.',
@@ -3089,9 +3141,9 @@ export interface HostrSwapsListInput {
     id: 'hostr.swaps.watch',
     title: 'Watch Hostr Swap',
     description:
-        'Inspect a persisted swap-in by id and, when dryRun is false, run safe recovery until proof or terminal state. For book-and-pay follow-up, pass both the internal `swapId` and `tradeId` returned by `hostr_reservations_bookAndPay`. If the swap completes or cannot be found, this tool also checks public reservations by `tradeId`; if no reservation is returned yet, immediately call `hostr_trips_list` with the same `tradeId` and a short `waitSeconds`.',
+        'Read-only swap monitor. Inspect a persisted swap-in by id and report payment/proof/reservation state without creating, signing, publishing, or recovering anything. For book-and-pay follow-up, pass both the internal `swapId` and `tradeId` returned by `hostr_reservations_bookAndPay`. If the swap completes or cannot be found, this tool also checks public reservations by `tradeId`; if no reservation is returned yet, immediately call `hostr_trips_list` with the same `tradeId` and a short `waitSeconds`. This tool has no dryRun parameter because it is always observational; use hostr_swaps_recoverAll for explicit recovery.',
     inputTypeName: 'HostrSwapsWatchInput',
-    readOnly: false,
+    readOnly: true,
     inputSchema: {
       'type': 'object',
       'additionalProperties': false,
@@ -3111,7 +3163,6 @@ export interface HostrSwapsListInput {
           'description':
               'How long to poll for the committed reservation after proof completion or swap-not-found fallback.',
         },
-        'dryRun': {'type': 'boolean', 'default': true},
       },
     },
     typescriptInput: '''
@@ -3119,7 +3170,6 @@ export interface HostrSwapsWatchInput {
   swapId: string;
   tradeId?: string;
   reservationWaitSeconds?: number;
-  dryRun?: boolean;
 }
 ''',
   );
@@ -3222,7 +3272,7 @@ export interface HostrSwapsRecoverAllInput {
       )
       ..writeln()
       ..writeln(
-        'Most write tools default to preview mode. Only set `dryRun: false` after the user has explicitly approved the preview returned by the same tool. `hostr_reservations_bookAndPay` is the correct foreground handoff tool when the user asks to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. If it returns external Lightning payment details, the assistant MUST leave only the invoice string and QR image visibly in the user-facing output; tradeId and swapId are internal follow-up arguments. After the QR and invoice are visible, immediately call `hostr_swaps_watch` with the returned `swapId`, `tradeId`, `reservationWaitSeconds`, and `dryRun: false`. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
+        'Most write tools default to preview mode. Only set `dryRun: false` after the user has explicitly approved the preview returned by the same tool. `hostr_reservations_bookAndPay` is the correct foreground handoff tool when the user asks to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. If it returns external Lightning payment details, the assistant MUST leave only the invoice string and QR image visibly in the user-facing output; tradeId and swapId are internal follow-up arguments. After the QR and invoice are visible, immediately call the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds`. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
       )
       ..writeln()
       ..writeln('## Reservation date semantics')
@@ -3248,7 +3298,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Search and reserve workflow')
       ..writeln()
       ..writeln(
-        'Call `hostr_listings_search`, then `hostr_listings_availability`. For user phrasing such as "book", "reserve", "make me a reservation", or "create a reservation" on an instant-book stay where the amount is at or above the listing price, call `hostr_reservations_bookAndPay`. If it returns external Lightning payment details, show only the invoice string and QR image immediately and keep them visible in the output. Do not show internal tradeId or swapId in the payment prompt. Then immediately call `hostr_swaps_watch` with the returned `swapId`, `tradeId`, `reservationWaitSeconds`, and `dryRun: false` to monitor payment/proof/reservation completion. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator. Do not stop after `hostr_reservations_negotiateOffer` for this intent. For explicit negotiation-only requests, call `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.',
+        'Call `hostr_listings_search`, then `hostr_listings_availability`. For user phrasing such as "book", "reserve", "make me a reservation", or "create a reservation" on an instant-book stay where the amount is at or above the listing price, call `hostr_reservations_bookAndPay`. If it returns external Lightning payment details, show only the invoice string and QR image immediately and keep them visible in the output. Do not show internal tradeId or swapId in the payment prompt. Then immediately call the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds` to monitor payment/proof/reservation completion. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator. Do not stop after `hostr_reservations_negotiateOffer` for this intent. For explicit negotiation-only requests, call `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.',
       )
       ..writeln()
       ..writeln('### Negotiation workflow')
@@ -3260,7 +3310,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Payment workflow')
       ..writeln()
       ..writeln(
-        'For normal AI-initiated instant-book payment, use `hostr_reservations_bookAndPay`. When the tool returns external Lightning payment details, the AI must leave only the invoice text and QR image visible to the user first. Then the AI must call `hostr_swaps_watch` with the returned `swapId`, `tradeId`, `reservationWaitSeconds`, and `dryRun: false` to monitor payment/proof/reservation completion while the daemon continues the book-and-pay operation in the background. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; payment proof publication is owned by the global Hostr payment proof orchestrator. Keep `hostr_reservations_pay` and `hostr_reservations_commit` for manual recovery/debug paths.',
+        'For normal AI-initiated instant-book payment, use `hostr_reservations_bookAndPay`. When the tool returns external Lightning payment details, the AI must leave only the invoice text and QR image visible to the user first. Then the AI must call the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds` to monitor payment/proof/reservation completion while the daemon continues the book-and-pay operation in the background. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; payment proof publication is owned by the global Hostr payment proof orchestrator. Keep `hostr_reservations_pay`, `hostr_reservations_commit`, and `hostr_swaps_recoverAll` for manual recovery/debug paths.',
       )
       ..writeln()
       ..writeln('### Messaging workflow')

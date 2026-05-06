@@ -53,6 +53,9 @@ services:
     image: ${DOCKER_REGISTRY}/mcp:latest
     environment:
       - LETSENCRYPT_HOST=ai.${DOMAIN}
+      - HOSTR_DAEMON_STATE_DIR=/data/mcp
+    volumes:
+      - ./docker/data/mcp:/data/mcp
 
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.123.0

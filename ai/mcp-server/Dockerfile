@@ -30,14 +30,29 @@ RUN dart build cli -t bin/hostr_daemon.dart -o /out
 
 FROM node:22-bookworm-slim AS runtime
 
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+ARG IMAGE_SOURCE=https://github.com/hostr-network/hostr
+
+LABEL org.opencontainers.image.title="Hostr MCP Server" \
+      org.opencontainers.image.description="Hostr Model Context Protocol server" \
+      org.opencontainers.image.source="${IMAGE_SOURCE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates libsqlite3-0 \
+  && mkdir -p /data/mcp \
   && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
     PORT=8787 \
     HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon \
-    HOSTR_DAEMON_CWD=/opt/hostr-daemon
+    HOSTR_DAEMON_CWD=/opt/hostr-daemon \
+    HOSTR_DAEMON_STATE_DIR=/data/mcp \
+    HOSTR_IMAGE_REVISION=${VCS_REF} \
+    HOSTR_IMAGE_CREATED=${BUILD_DATE} \
+    HOSTR_IMAGE_SOURCE=${IMAGE_SOURCE}
 
 WORKDIR /app
 COPY --from=build /app/package.json ./package.json

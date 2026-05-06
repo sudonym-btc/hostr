@@ -5,7 +5,14 @@ import { z } from "zod";
 import type { AppConfig } from "../config.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import { scopesSupported } from "../config.js";
+import { writeStructuredLog } from "../logging.js";
 import { storeQrTextAsset } from "../payment/assets.js";
+import { traceIdFromRequest } from "../trace.js";
+import {
+  loadRegisteredClients,
+  saveRegisteredClientsAtomic,
+  type RegisteredClient,
+} from "./client-store.js";
 import { signAccessToken } from "./jwt.js";
 
 type PendingAuthorization = {
@@ -20,17 +27,6 @@ type PendingAuthorization = {
   createdAt: number;
 };
 
-type RegisteredClient = {
-  clientId: string;
-  clientName?: string;
-  redirectUris: string[];
-  scope: string;
-  grantTypes: string[];
-  responseTypes: string[];
-  tokenEndpointAuthMethod: "none";
-  clientIdIssuedAt: number;
-};
-
 type AuthorizationCode = PendingAuthorization & {
   code: string;
   pubkey: string;
@@ -40,7 +36,9 @@ type AuthorizationCode = PendingAuthorization & {
 const pendingAuthorizations = new Map<string, PendingAuthorization>();
 const authorizationCodes = new Map<string, AuthorizationCode>();
 const registeredClients = new Map<string, RegisteredClient>();
+let loadedRegisteredClientsFrom: string | null = null;
 const authorizationRequestIds = new Map<string, string>();
+const pendingAuthorizationTtlMs = 10 * 60 * 1000;
 
 const authorizationQuerySchema = z.object({
   response_type: z.literal("code"),
@@ -48,7 +46,7 @@ const authorizationQuerySchema = z.object({
   redirect_uri: z.string().url(),
   state: z.string().optional(),
   scope: z.string().optional(),
-  resource: z.string().url().optional(),
+  resource: z.string().url(),
   code_challenge: z.string().min(32),
   code_challenge_method: z.literal("S256"),
 });
@@ -59,7 +57,7 @@ const tokenBodySchema = z.object({
   redirect_uri: z.string().url(),
   client_id: z.string().min(1),
   code_verifier: z.string().min(43),
-  resource: z.string().url().optional(),
+  resource: z.string().url(),
 });
 
 const registrationBodySchema = z
@@ -130,17 +128,74 @@ const qrImageUrl = (config: AppConfig, data: string): string | null => {
   return url.toString();
 };
 
-const requestedResource = (
-  config: AppConfig,
-  resource: string | undefined,
-): string => resource ?? config.mcpResource;
+const clientAllowsRedirect = (clientId: string, redirectUri: string): boolean => {
+  const client = registeredClients.get(clientId);
+  return Boolean(client && client.redirectUris.includes(redirectUri));
+};
 
-const clientAllowsRedirect = (
+const ensureRegisteredClientsLoaded = (config: AppConfig): void => {
+  if (loadedRegisteredClientsFrom === config.oauthClientStorePath) {
+    return;
+  }
+  registeredClients.clear();
+  try {
+    for (const [clientId, client] of loadRegisteredClients(
+      config.oauthClientStorePath,
+    )) {
+      registeredClients.set(clientId, client);
+    }
+    loadedRegisteredClientsFrom = config.oauthClientStorePath;
+    writeStructuredLog("info", "oauth.clients.loaded", {
+      count: registeredClients.size,
+      path: config.oauthClientStorePath,
+    });
+  } catch (error) {
+    loadedRegisteredClientsFrom = config.oauthClientStorePath;
+    writeStructuredLog("error", "oauth.clients.load_failed", {
+      path: config.oauthClientStorePath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+
+const persistRegisteredClients = (config: AppConfig): void => {
+  saveRegisteredClientsAtomic(
+    config.oauthClientStorePath,
+    registeredClients.values(),
+  );
+};
+
+const requestedScopes = (scope: string | undefined): string[] =>
+  (scope ?? scopesSupported.join(" "))
+    .split(/\s+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const validateScopes = (scope: string | undefined): boolean =>
+  requestedScopes(scope).every((entry) => scopesSupported.includes(entry));
+
+const clientAllowsScopes = (
   clientId: string,
-  redirectUri: string,
+  scope: string | undefined,
 ): boolean => {
   const client = registeredClients.get(clientId);
-  return !client || client.redirectUris.includes(redirectUri);
+  if (!client) return false;
+  const allowed = new Set(requestedScopes(client.scope));
+  return requestedScopes(scope).every((entry) => allowed.has(entry));
+};
+
+const sweepExpiredOAuthState = () => {
+  const now = Date.now();
+  for (const [code, authorizationCode] of authorizationCodes) {
+    if (authorizationCode.expiresAt < now) authorizationCodes.delete(code);
+  }
+  for (const [id, authorization] of pendingAuthorizations) {
+    if (now - authorization.createdAt <= pendingAuthorizationTtlMs) continue;
+    pendingAuthorizations.delete(id);
+    for (const [key, mappedId] of authorizationRequestIds) {
+      if (mappedId === id) authorizationRequestIds.delete(key);
+    }
+  }
 };
 
 const escapeHtml = (value: string): string =>
@@ -288,6 +343,7 @@ export const createOAuthRouter = (
   config: AppConfig,
   daemon: HostrDaemonClient,
 ): Router => {
+  ensureRegisteredClientsLoaded(config);
   const router = express.Router();
 
   router.get("/.well-known/oauth-protected-resource", (_request, response) => {
@@ -350,6 +406,7 @@ export const createOAuthRouter = (
   );
 
   router.post("/oauth/register", (request: Request, response: Response) => {
+    sweepExpiredOAuthState();
     const parsed = registrationBodySchema.safeParse(request.body);
     if (!parsed.success) {
       return oauthError(
@@ -363,6 +420,14 @@ export const createOAuthRouter = (
     const grantTypes = parsed.data.grant_types ?? ["authorization_code"];
     const responseTypes = parsed.data.response_types ?? ["code"];
     const authMethod = parsed.data.token_endpoint_auth_method ?? "none";
+    if (!validateScopes(parsed.data.scope)) {
+      return oauthError(
+        response,
+        400,
+        "invalid_client_metadata",
+        "Requested scopes are not supported by this MCP server.",
+      );
+    }
 
     if (
       !grantTypes.includes("authorization_code") ||
@@ -388,6 +453,28 @@ export const createOAuthRouter = (
       clientIdIssuedAt: Math.floor(Date.now() / 1000),
     };
     registeredClients.set(client.clientId, client);
+    try {
+      persistRegisteredClients(config);
+      writeStructuredLog("info", "oauth.client.registered", {
+        traceId: request.hostrTraceId ?? traceIdFromRequest(request),
+        clientId: client.clientId,
+        redirectUriCount: client.redirectUris.length,
+        scope: client.scope,
+      });
+    } catch (error) {
+      registeredClients.delete(client.clientId);
+      writeStructuredLog("error", "oauth.client.persist_failed", {
+        traceId: request.hostrTraceId ?? traceIdFromRequest(request),
+        clientId: client.clientId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return oauthError(
+        response,
+        500,
+        "server_error",
+        "Could not persist dynamic client registration.",
+      );
+    }
 
     response.status(201).json({
       client_id: client.clientId,
@@ -404,6 +491,8 @@ export const createOAuthRouter = (
   router.get(
     "/oauth/authorize",
     async (request: Request, response: Response) => {
+      sweepExpiredOAuthState();
+      const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
       const parsed = authorizationQuerySchema.safeParse(request.query);
       if (!parsed.success) {
         return oauthError(
@@ -413,7 +502,7 @@ export const createOAuthRouter = (
           "Malformed authorization request.",
         );
       }
-      const resource = requestedResource(config, parsed.data.resource);
+      const resource = parsed.data.resource;
       if (!validateResource(config, resource)) {
         return oauthError(
           response,
@@ -430,6 +519,17 @@ export const createOAuthRouter = (
           400,
           "invalid_request",
           "The redirect_uri is not registered for this client.",
+        );
+      }
+      if (
+        !validateScopes(parsed.data.scope) ||
+        !clientAllowsScopes(parsed.data.client_id, parsed.data.scope)
+      ) {
+        return oauthError(
+          response,
+          400,
+          "invalid_scope",
+          "Requested scopes are not registered for this client.",
         );
       }
 
@@ -460,6 +560,7 @@ export const createOAuthRouter = (
       const connect = await daemon.startOAuthNostrConnect({
         requestId: pending.id,
         regenerate: !existingPending,
+        traceId,
       });
       if (
         !connect.ok ||
@@ -499,6 +600,8 @@ export const createOAuthRouter = (
   router.post(
     "/oauth/nostr-connect/complete",
     async (request: Request, response: Response) => {
+      sweepExpiredOAuthState();
+      const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
       const parsed = nostrConnectCompleteSchema.safeParse(request.body);
       if (!parsed.success) {
         return oauthError(
@@ -526,6 +629,7 @@ export const createOAuthRouter = (
           requestId: pending.id,
           timeoutSeconds,
           timeoutMs: timeoutSeconds * 1000 + 15_000,
+          traceId,
         });
       } catch (error) {
         return oauthError(
@@ -554,6 +658,7 @@ export const createOAuthRouter = (
   );
 
   router.post("/oauth/token", async (request: Request, response: Response) => {
+    sweepExpiredOAuthState();
     const parsed = tokenBodySchema.safeParse(request.body);
     if (!parsed.success) {
       return oauthError(
@@ -578,7 +683,8 @@ export const createOAuthRouter = (
     if (
       code.redirectUri !== parsed.data.redirect_uri ||
       code.clientId !== parsed.data.client_id ||
-      !validateResource(config, requestedResource(config, parsed.data.resource))
+      !validateResource(config, parsed.data.resource) ||
+      code.resource !== parsed.data.resource
     ) {
       return oauthError(
         response,

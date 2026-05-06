@@ -120,8 +120,15 @@ class _HostingListItemState extends State<_HostingListItem> {
   Widget build(BuildContext context) {
     final pair = widget.group.group;
     final participants = widget.group.participants;
-    final conversationParticipants =
-        participants.resolvedParticipantSetWithoutEscrow;
+    final activePubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
+    final buyerPubkey =
+        participants.resolvedParticipantPubkeyForRole('buyer') ??
+        pair.buyerPubkey ??
+        pair.buyerReservation?.pubKey;
+    final conversationParticipants = {
+      activePubkey,
+      if (buyerPubkey != null && buyerPubkey.isNotEmpty) buyerPubkey,
+    };
 
     void openThread() {
       final thread = getIt<Hostr>().messaging.threads.ensureTradeConversation(

@@ -227,6 +227,30 @@ void main() {
     expect(docs.toLowerCase(), isNot(contains('counter-offer')));
   });
 
+  test('session connect contract avoids Nostr Connect listener races', () {
+    final sessionConnect = HostrActionCatalog.byId('hostr.session.connect');
+    expect(sessionConnect.description, contains('immediately call'));
+    expect(sessionConnect.description, contains('wait true'));
+
+    final schema = sessionConnect.inputSchema;
+    final properties = schema['properties'] as Map<String, Object?>;
+    expect(properties, contains('wait'));
+    expect(properties, contains('regenerate'));
+  });
+
+  test('read-only action schemas do not expose dryRun', () {
+    final offenders = HostrActionCatalog.all
+        .where((spec) => spec.readOnly)
+        .where((spec) {
+          final properties = spec.inputSchema['properties'];
+          return properties is Map && properties.containsKey('dryRun');
+        })
+        .map((spec) => spec.id)
+        .toList();
+
+    expect(offenders, isEmpty);
+  });
+
   test('generated MCP TypeScript action types are up to date', () {
     final generated = File(
       '../ai/mcp-server/src/generated/hostr-actions.ts',

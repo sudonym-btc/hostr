@@ -200,12 +200,43 @@ class Trade extends Cubit<TradeState> {
     if (context.matchesParticipants(item.participants.resolvedParticipantSet)) {
       return true;
     }
+    if (_matchesLocalParticipantAlias(item)) return true;
 
     final expected = context.participants.toSet();
     final resolved = item.participants.resolvedParticipantSet;
     if (!resolved.containsAll(expected)) return false;
 
     final extraParticipants = resolved.difference(expected);
+    final escrowPubkey = item.group.escrowPubkey;
+    return extraParticipants.isEmpty ||
+        (escrowPubkey != null &&
+            extraParticipants.every((pubkey) => pubkey == escrowPubkey));
+  }
+
+  bool _matchesLocalParticipantAlias(
+    ResolvedValidatedReservationGroupParticipants item,
+  ) {
+    final activePubkey = _auth.activePubkey ?? _auth.getActiveKey().publicKey;
+    if (activePubkey.isEmpty || !context.participants.contains(activePubkey)) {
+      return false;
+    }
+
+    final buyerPubkey = item.participants.rawParticipantPubkeyForRole('buyer');
+    if (buyerPubkey == null ||
+        buyerPubkey.isEmpty ||
+        buyerPubkey == activePubkey ||
+        !item.participants.hasParticipantProofFor(buyerPubkey)) {
+      return false;
+    }
+
+    final adjusted = item.participants.resolvedParticipantSet.toSet();
+    if (!adjusted.remove(buyerPubkey)) return false;
+    adjusted.add(activePubkey);
+
+    final expected = context.participants.toSet();
+    if (!adjusted.containsAll(expected)) return false;
+
+    final extraParticipants = adjusted.difference(expected);
     final escrowPubkey = item.group.escrowPubkey;
     return extraParticipants.isEmpty ||
         (escrowPubkey != null &&

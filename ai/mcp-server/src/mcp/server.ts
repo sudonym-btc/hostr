@@ -22,10 +22,12 @@ import type { AccessTokenClaims } from "../auth/bearer.js";
 import { verifyAccessToken } from "../auth/jwt.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import type { HostrDaemonNotification } from "../daemon/client.js";
+import { auditLog } from "../logging.js";
 import {
   uploadImageToBlossom,
   type UploadedImage,
 } from "../http/uploads.js";
+import { traceIdFromRequest } from "../trace.js";
 import { storePaymentAsset, storeQrTextAsset } from "../payment/assets.js";
 import {
   hostrActionCatalog,
@@ -2251,7 +2253,7 @@ const toolResponse = async (
         "CRITICAL: The Hostr result contains structuredContent.display.type=payment-external-required. Render structuredContent.displayMarkdown exactly so the user sees the QR and exact invoice/copy affordance.",
         "The invoice copy source of truth is structuredContent.paymentDisplays[0].copy.text or the exact invoice text URL. Do not manually retype, display inline, truncate, normalize, wrap, add punctuation to, or otherwise modify the invoice string.",
         "Do not show internal tradeId or swapId in the payment prompt.",
-        "Only after the QR and invoice are visible, call hostr_swaps_watch with the returned swapId, tradeId, reservationWaitSeconds, and dryRun=false to monitor payment, proof, and reservation completion.",
+        "Only after the QR and invoice are visible, call the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds to monitor payment, proof, and reservation completion.",
         "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the reservation card.",
       ]
     : undefined;
@@ -2552,6 +2554,38 @@ const toolResponse = async (
   } satisfies CallToolResult;
 };
 
+const auditToolCall = ({
+  actionId,
+  pubkey,
+  traceId,
+  result,
+}: {
+  actionId: string;
+  pubkey?: string;
+  traceId: string;
+  result: { ok: boolean; dryRun?: boolean; data?: unknown; errors?: unknown[] };
+}) => {
+  const data = record(result.data);
+  const audit = {
+    event: "tool_call",
+    traceId,
+    actionId,
+    pubkey,
+    ok: result.ok,
+    dryRun: result.dryRun,
+    listingAnchor: stringValue(data?.anchor) ?? stringValue(data?.listingAnchor),
+    tradeId: stringValue(data?.tradeId),
+    swapId: stringValue(data?.swapId),
+    errorCodes: Array.isArray(result.errors)
+      ? result.errors
+          .map(record)
+          .map((error) => stringValue(error?.code))
+          .filter((code): code is string => Boolean(code))
+      : undefined,
+  };
+  auditLog("mcp.tool.call", audit);
+};
+
 const signerNotificationMessage = (
   notification: HostrDaemonNotification,
 ): string | null => {
@@ -2715,6 +2749,10 @@ const criticalNoticeKey = (notice: HostrCriticalNotice): string =>
     ? `${notice.type}:${notice.invoice}`
     : `${notice.type}:${notice.requestId ?? notice.message}`;
 
+const hostrElicitationTimeoutMs = 10_000;
+const hostrElicitationsInFlight = new Set<string>();
+const hostrElicitationUnsupportedLogged = new Set<string>();
+
 const bookAndPayTimeoutMs = (args: Record<string, unknown>): number => {
   const proofTimeoutSeconds = Number(args.proofTimeoutSeconds);
   const proofTimeoutMs =
@@ -2729,29 +2767,86 @@ const sendHostrElicitation = async (
   notice: HostrCriticalNotice,
 ) => {
   const key = criticalNoticeKey(notice);
-  if (notice.type === "signer-approval") {
+  const capabilities = server.server.getClientCapabilities();
+  if (!capabilities?.elicitation?.form) {
+    if (!hostrElicitationUnsupportedLogged.has(key)) {
+      hostrElicitationUnsupportedLogged.add(key);
+      console.error(
+        `[hostr-mcp] Skipping Hostr elicitation: client does not advertise form elicitation support (${key})`,
+      );
+    }
+    return;
+  }
+  if (hostrElicitationsInFlight.has(key)) {
+    console.error(
+      `[hostr-mcp] Skipping duplicate Hostr elicitation already in flight: ${key}`,
+    );
+    return;
+  }
+  hostrElicitationsInFlight.add(key);
+  try {
+    if (notice.type === "signer-approval") {
+      const params: ElicitRequestFormParams = {
+        mode: "form",
+        message: [
+          "USER ACTION REQUIRED: approve this Hostr signer request now.",
+          notice.message,
+          notice.signerMethod ? `Signer method: ${notice.signerMethod}` : null,
+          notice.eventLabel ? `Request: ${notice.eventLabel}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        requestedSchema: {
+          type: "object",
+          properties: {
+            approved: {
+              type: "boolean",
+              title: "I approved it",
+              description:
+                "Acknowledge after approving the pending request in your Nostr signer.",
+              default: false,
+            },
+          },
+          required: ["approved"],
+        },
+      };
+      console.error(
+        `[hostr-mcp] Sending Hostr elicitation: ${key} ${JSON.stringify({
+          mode: params.mode,
+          requestedSchema: params.requestedSchema,
+        })}`,
+      );
+      const result = await server.server.elicitInput(params, {
+        timeout: hostrElicitationTimeoutMs,
+      });
+      console.error(
+        `[hostr-mcp] Hostr elicitation completed: ${key} action=${result.action}`,
+      );
+      return;
+    }
+
     const params: ElicitRequestFormParams = {
       mode: "form",
       message: [
-        "USER ACTION REQUIRED: approve this Hostr signer request now.",
+        "USER ACTION REQUIRED: pay the Lightning invoice shown in the Hostr payment display.",
         notice.message,
-        notice.signerMethod ? `Signer method: ${notice.signerMethod}` : null,
-        notice.eventLabel ? `Request: ${notice.eventLabel}` : null,
+        "Use the QR, wallet link, copy affordance, or exact invoice text link from the payment display. Do not copy an invoice from assistant-rendered prose.",
+        "Keep this Hostr request running while Hostr watches for payment, swap settlement, and the committed reservation.",
       ]
         .filter(Boolean)
         .join("\n\n"),
       requestedSchema: {
         type: "object",
         properties: {
-          approved: {
+          paid: {
             type: "boolean",
-            title: "I approved it",
+            title: "I have paid the invoice",
             description:
-              "Acknowledge after approving the pending request in your Nostr signer.",
+              "Confirm after paying the Lightning invoice. Hostr still verifies the payment and reservation automatically.",
             default: false,
           },
         },
-        required: ["approved"],
+        required: ["paid"],
       },
     };
     console.error(
@@ -2760,47 +2855,24 @@ const sendHostrElicitation = async (
         requestedSchema: params.requestedSchema,
       })}`,
     );
-    const result = await server.server.elicitInput(params);
+    const result = await server.server.elicitInput(params, {
+      timeout: hostrElicitationTimeoutMs,
+    });
     console.error(
       `[hostr-mcp] Hostr elicitation completed: ${key} action=${result.action}`,
     );
-    return;
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : undefined;
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[hostr-mcp] Hostr elicitation failed: ${key}${code ? ` code=${code}` : ""} message=${message}`,
+    );
+  } finally {
+    hostrElicitationsInFlight.delete(key);
   }
-
-  const params: ElicitRequestFormParams = {
-    mode: "form",
-    message: [
-      "USER ACTION REQUIRED: pay the Lightning invoice shown in the Hostr payment display.",
-      notice.message,
-      "Use the QR, wallet link, copy affordance, or exact invoice text link from the payment display. Do not copy an invoice from assistant-rendered prose.",
-      "Keep this Hostr request running while Hostr watches for payment, swap settlement, and the committed reservation.",
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-    requestedSchema: {
-      type: "object",
-      properties: {
-        paid: {
-          type: "boolean",
-          title: "I have paid the invoice",
-          description:
-            "Confirm after paying the Lightning invoice. Hostr still verifies the payment and reservation automatically.",
-          default: false,
-        },
-      },
-      required: ["paid"],
-    },
-  };
-  console.error(
-    `[hostr-mcp] Sending Hostr elicitation: ${key} ${JSON.stringify({
-      mode: params.mode,
-      requestedSchema: params.requestedSchema,
-    })}`,
-  );
-  const result = await server.server.elicitInput(params);
-  console.error(
-    `[hostr-mcp] Hostr elicitation completed: ${key} action=${result.action}`,
-  );
 };
 
 const sendHostrProgress = async (
@@ -2840,6 +2912,7 @@ const sendHostrProgress = async (
 const publicActionIds = new Set<string>(["hostr.listings.search"]);
 
 const mcpTransports = new Map<string, StreamableHTTPServerTransport>();
+const mcpSessionTraceIds = new Map<string, string>();
 
 const imageUploadToolDocumentation = [
   "## `hostr_images_upload`",
@@ -2887,6 +2960,7 @@ const createServer = (
   daemon: HostrDaemonClient,
   claims: AccessTokenClaims | null,
   visibleActionIds: Set<string> | null,
+  currentTraceId: () => string,
 ) => {
   const server = new McpServer(
     {
@@ -2967,6 +3041,7 @@ const createServer = (
       },
     },
     async (args: Record<string, unknown>) => {
+      const traceId = currentTraceId();
       let upload: UploadedImage;
       try {
         upload = await uploadedImageFromFileArgument(
@@ -3001,9 +3076,9 @@ const createServer = (
       }
 
       try {
-        const result = await uploadImageToBlossom(config, upload);
+        const result = await uploadImageToBlossom(config, upload, traceId);
         return {
-          structuredContent: result,
+          structuredContent: { ...result, traceId },
           content: [
             {
               type: "text" as const,
@@ -3159,6 +3234,7 @@ const createServer = (
         args: Record<string, unknown>,
         extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
       ) => {
+        const traceId = currentTraceId();
         const publicAction = publicActionIds.has(action.id);
         const requiredScope = action.readOnly ? "hostr:read" : "hostr:write";
         if (!publicAction && !claims) {
@@ -3229,9 +3305,16 @@ const createServer = (
             action: action.id,
             input: args,
             notificationToken,
-            ...(action.id === "hostr.reservations.bookAndPay"
-              ? { timeoutMs: bookAndPayTimeoutMs(args) }
-              : {}),
+          ...(action.id === "hostr.reservations.bookAndPay"
+            ? { timeoutMs: bookAndPayTimeoutMs(args) }
+            : {}),
+            traceId,
+          });
+          auditToolCall({
+            actionId: action.id,
+            pubkey: claims?.pubkey,
+            traceId,
+            result,
           });
           const resultNotices = criticalNoticesFromToolResult({ ...result });
           const notices = dedupeCriticalNotices([
@@ -3300,12 +3383,15 @@ const fallbackVisibleActionIds = (claims: AccessTokenClaims | null) =>
 const visibleActionIdsForClaims = async (
   daemon: HostrDaemonClient,
   claims: AccessTokenClaims | null,
+  traceId?: string,
 ): Promise<Set<string>> => {
   if (!claims) {
     return fallbackVisibleActionIds(claims);
   }
   try {
-    const result = record(await daemon.visibleActions({ pubkey: claims.pubkey }));
+    const result = record(
+      await daemon.visibleActions({ pubkey: claims.pubkey, traceId }),
+    );
     const ids = arrayValue(result?.visibleActionIds)
       .map(stringValue)
       .filter((id): id is string => id !== null);
@@ -3321,6 +3407,7 @@ const visibleActionIdsForClaims = async (
 export const handleMcpRequest =
   (config: AppConfig, daemon: HostrDaemonClient) =>
   async (request: Request, response: Response) => {
+    const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
     const token = bearerToken(request);
     let claims: AccessTokenClaims | null = null;
     if (token) {
@@ -3340,6 +3427,7 @@ export const handleMcpRequest =
       ? mcpTransports.get(sessionId)
       : undefined;
     if (existingTransport) {
+      mcpSessionTraceIds.set(sessionId!, traceId);
       await existingTransport.handleRequest(request, response, request.body);
       return;
     }
@@ -3350,21 +3438,38 @@ export const handleMcpRequest =
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (initializedSessionId) => {
           console.error(
-            `[hostr-mcp] MCP session initialized: ${initializedSessionId}`,
+            `[hostr-mcp] MCP session initialized: ${initializedSessionId} traceId=${traceId}`,
           );
           mcpTransports.set(initializedSessionId, transport);
+          mcpSessionTraceIds.set(initializedSessionId, traceId);
         },
       });
       transport.onclose = () => {
         const closedSessionId = transport.sessionId;
         if (closedSessionId) {
-          console.error(`[hostr-mcp] MCP session closed: ${closedSessionId}`);
+          console.error(
+            `[hostr-mcp] MCP session closed: ${closedSessionId} traceId=${traceId}`,
+          );
           mcpTransports.delete(closedSessionId);
+          mcpSessionTraceIds.delete(closedSessionId);
         }
       };
 
-      const visibleActionIds = await visibleActionIdsForClaims(daemon, claims);
-      const server = createServer(config, daemon, claims, visibleActionIds);
+      const visibleActionIds = await visibleActionIdsForClaims(
+        daemon,
+        claims,
+        traceId,
+      );
+      const server = createServer(
+        config,
+        daemon,
+        claims,
+        visibleActionIds,
+        () =>
+          (transport.sessionId
+            ? mcpSessionTraceIds.get(transport.sessionId)
+            : undefined) ?? traceId,
+      );
       await server.connect(transport);
       await transport.handleRequest(request, response, request.body);
       return;

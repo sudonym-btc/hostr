@@ -6,5 +6,6 @@ export 'ndk_filter.dart';
 export 'stream_status.dart';
 export 'telemetry.dart';
 export 'token_amount_ext.dart';
+export 'trace_context.dart';
 export 'validation_stream.dart';
 export 'verify_stream.dart';

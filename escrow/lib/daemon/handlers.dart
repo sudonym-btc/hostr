@@ -7,7 +7,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
+import 'package:ndk/ndk.dart' show Filter, Metadata, Ndk, Nip01Event;
 import 'package:web3dart/web3dart.dart' show BlockNum;
 
 /// Registers all JSON-RPC method handlers on a per-client [json_rpc.Server].
@@ -271,12 +271,11 @@ class DaemonHandler {
     );
     if (group == null) return null;
 
-    final escrowKeyPair = hostr.auth.activeKeyPair;
-    if (escrowKeyPair == null) return null;
-
     return ReservationGroupParticipantResolver(
-      keyring: KeyPairReservationParticipantKeyring(
-        keyPairs: [escrowKeyPair],
+      keyring: DefaultReservationParticipantKeyring(
+        auth: hostr.auth,
+        tradeAccountAllocator: hostr.auth.service<TradeAccountAllocator>(),
+        ndk: hostr.auth.service<Ndk>(),
         logger: hostr.logger,
       ),
     ).resolve(group);
