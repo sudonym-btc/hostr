@@ -46,7 +46,7 @@ const authorizationQuerySchema = z.object({
   redirect_uri: z.string().url(),
   state: z.string().optional(),
   scope: z.string().optional(),
-  resource: z.string().url(),
+  resource: z.string().url().optional(),
   code_challenge: z.string().min(32),
   code_challenge_method: z.literal("S256"),
 });
@@ -57,7 +57,7 @@ const tokenBodySchema = z.object({
   redirect_uri: z.string().url(),
   client_id: z.string().min(1),
   code_verifier: z.string().min(43),
-  resource: z.string().url(),
+  resource: z.string().url().optional(),
 });
 
 const registrationBodySchema = z
@@ -502,7 +502,7 @@ export const createOAuthRouter = (
           "Malformed authorization request.",
         );
       }
-      const resource = parsed.data.resource;
+      const resource = parsed.data.resource ?? config.mcpResource;
       if (!validateResource(config, resource)) {
         return oauthError(
           response,
@@ -683,8 +683,8 @@ export const createOAuthRouter = (
     if (
       code.redirectUri !== parsed.data.redirect_uri ||
       code.clientId !== parsed.data.client_id ||
-      !validateResource(config, parsed.data.resource) ||
-      code.resource !== parsed.data.resource
+      !validateResource(config, parsed.data.resource ?? config.mcpResource) ||
+      code.resource !== (parsed.data.resource ?? config.mcpResource)
     ) {
       return oauthError(
         response,
