@@ -1,7 +1,7 @@
 {
   "name": "hostr-development",
   "version": "0.1.0",
-  "description": "Use Hostr Development to test Hostr MCP against the development server for finding places to stay, lodging/accommodation/rental search, reservations, listing management, Hostr stays, Nostr Connect/NIP-46 sign-in, relays, pubkeys, events, gift wraps, inbox threads, and confirmed marketplace actions.",
+  "description": "Use Hostr to test Hostr MCP against the development server (Development) for finding places to stay, lodging/accommodation/rental search, reservations, listing management, Hostr stays, Nostr Connect/NIP-46 sign-in, relays, pubkeys, events, gift wraps, inbox threads, and confirmed marketplace actions.",
   "author": {
     "name": "Hostr",
     "url": "https://github.com/sudonym-btc/hostr"
@@ -68,9 +68,9 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Hostr Development",
-    "shortDescription": "Test Hostr MCP against the development server",
-    "longDescription": "Connects Codex to Hostr's development MCP server for finding places to stay, destination-based lodging/accommodation/rental search, listing management, reservations, booking, messaging, profile updates, escrow workflows, swap recovery, and Hostr's Nostr network workflows including Nostr Connect/NIP-46 login, NIP events, relays, pubkeys/npubs, gift-wrapped messages, inbox threads, and signer recovery. Use this development plugin when testing Hostr behavior before using production. Hostr write actions should be previewed first and published only after explicit user approval.",
+    "displayName": "Hostr",
+    "shortDescription": "Test Hostr MCP against the development server (Development)",
+    "longDescription": "Connects Codex to Hostr's MCP server (Development) for finding places to stay, destination-based lodging/accommodation/rental search, listing management, reservations, booking, messaging, profile updates, escrow workflows, swap recovery, and Hostr's Nostr network workflows including Nostr Connect/NIP-46 login, NIP events, relays, pubkeys/npubs, gift-wrapped messages, inbox threads, and signer recovery. Use this development plugin when testing Hostr behavior before using production. Hostr write actions should be previewed first and published only after explicit user approval.",
     "developerName": "Hostr",
     "category": "Productivity",
     "capabilities": [

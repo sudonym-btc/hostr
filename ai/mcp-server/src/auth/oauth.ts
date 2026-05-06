@@ -169,7 +169,10 @@ const renderAuthorizePage = (
   const escapedClientId = escapeHtml(request.clientId);
   const escapedNostrConnect = escapeHtml(connect.nostrconnect);
   const escapedQrImage = escapeHtml(connect.qrImage);
-  const nostrConnectSection = `<p>Please scan this code to login with your existing nostr app and authorize <code>${escapedClientId}</code> for ${escapeHtml(config.displayName)}.</p>
+  const environmentNotice = config.environmentDescription
+    ? ` <span class="muted">Environment: ${escapeHtml(config.environmentDescription)}.</span>`
+    : "";
+  const nostrConnectSection = `<p>Please scan this code to login with your existing nostr app and authorize <code>${escapedClientId}</code> for ${escapeHtml(config.displayName)}.${environmentNotice}</p>
       <div class="qr"><img alt="Nostr Connect QR code" src="${escapedQrImage}" /></div>
       <label>
         Nostrconnect uri
