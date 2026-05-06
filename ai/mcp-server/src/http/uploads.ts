@@ -2,18 +2,34 @@ import crypto from "node:crypto";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
 
-type UploadedImage = {
+export type UploadedImage = {
   bytes: Buffer;
   mime?: string;
   filename?: string;
 };
 
-type BlossomDescriptor = {
+export type BlossomDescriptor = {
   url?: string;
   sha256?: string;
   size?: number;
   type?: string;
   uploaded?: string;
+};
+
+export type HostrImageUploadResult = {
+  ok: true;
+  upload: BlossomDescriptor & {
+    sha256: string;
+    size: number;
+    mime?: string;
+    filename?: string;
+    serverUrl: string;
+  };
+  usage: {
+    listingImage: {
+      url?: string;
+    };
+  };
 };
 
 const parseByteLimit = (value: string, fallback: number): number => {
@@ -203,6 +219,30 @@ const uploadToBlossom = async (
   return data as BlossomDescriptor;
 };
 
+export const uploadImageToBlossom = async (
+  config: AppConfig,
+  upload: UploadedImage,
+): Promise<HostrImageUploadResult> => {
+  const sha256 = crypto.createHash("sha256").update(upload.bytes).digest("hex");
+  const descriptor = await uploadToBlossom(config, upload, sha256);
+  return {
+    ok: true,
+    upload: {
+      ...descriptor,
+      sha256,
+      size: upload.bytes.length,
+      mime: upload.mime,
+      filename: upload.filename,
+      serverUrl: config.blossomUploadUrl,
+    },
+    usage: {
+      listingImage: {
+        url: descriptor.url,
+      },
+    },
+  };
+};
+
 export const handleImageUpload =
   (config: AppConfig) =>
   async (request: Request, response: Response) => {
@@ -237,10 +277,9 @@ export const handleImageUpload =
       return;
     }
 
-    const sha256 = crypto.createHash("sha256").update(upload.bytes).digest("hex");
-    let descriptor: BlossomDescriptor;
+    let result: HostrImageUploadResult;
     try {
-      descriptor = await uploadToBlossom(config, upload, sha256);
+      result = await uploadImageToBlossom(config, upload);
     } catch (error) {
       response.status(502).json({
         ok: false,
@@ -251,20 +290,5 @@ export const handleImageUpload =
       return;
     }
 
-    response.json({
-      ok: true,
-      upload: {
-        ...descriptor,
-        sha256,
-        size: upload.bytes.length,
-        mime: upload.mime,
-        filename: upload.filename,
-        serverUrl: config.blossomUploadUrl,
-      },
-      usage: {
-        listingImage: {
-          url: descriptor.url,
-        },
-      },
-    });
+    response.json(result);
   };

@@ -22,6 +22,10 @@ import type { AccessTokenClaims } from "../auth/bearer.js";
 import { verifyAccessToken } from "../auth/jwt.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import type { HostrDaemonNotification } from "../daemon/client.js";
+import {
+  uploadImageToBlossom,
+  type UploadedImage,
+} from "../http/uploads.js";
 import { storePaymentAsset, storeQrTextAsset } from "../payment/assets.js";
 import {
   hostrActionCatalog,
@@ -212,6 +216,150 @@ const parseJsonRecord = (value: unknown): Record<string, unknown> | null => {
   } catch {
     return null;
   }
+};
+
+const imageUploadInputSchema = z
+  .object({
+    file: z
+      .any()
+      .describe(
+        "Required uploaded image file. This is a file-typed MCP argument named file so MCP clients can perform file upload/rewrite handling. If your client represents an attached upload as a local file reference such as /mnt/data/example.jpg, put that reference here, not in images[].url; the client bridge must rewrite or stream the original bytes before the remote Hostr MCP server receives the call. Do not send base64 text.",
+      )
+      .meta({
+        type: "file",
+        contentMediaType: "image/*",
+        "x-hostr-argument-kind": "file",
+      }),
+    filename: z
+      .string()
+      .describe(
+        "Optional original filename. Use only as metadata; do not put a local path here.",
+      )
+      .optional(),
+    mime: z
+      .string()
+      .describe("Optional image MIME type, for example image/jpeg or image/png.")
+      .optional(),
+  })
+  .strict();
+
+const imageUploadOutputSchema = z
+  .object({
+    ok: z.boolean(),
+    upload: z
+      .object({
+        url: z.string().optional(),
+        sha256: z.string(),
+        size: z.number(),
+        mime: z.string().optional(),
+        filename: z.string().optional(),
+        type: z.string().optional(),
+        uploaded: z.union([z.string(), z.number()]).optional(),
+        serverUrl: z.string(),
+      })
+      .passthrough(),
+    usage: z.object({
+      listingImage: z.object({
+        url: z.string().optional(),
+      }),
+    }),
+  })
+  .passthrough();
+
+const localPathPattern = /^(?:\/|[a-zA-Z]:[\\/]|file:\/\/|~\/|\.{1,2}\/)/;
+
+const readRemoteFile = async (
+  url: string,
+  filename?: string,
+  mime?: string,
+): Promise<UploadedImage> => {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("file_argument_must_be_file_not_path");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("file_argument_must_be_file_not_path");
+  }
+  const response = await fetch(parsed);
+  if (!response.ok) {
+    throw new Error(`file_fetch_failed_${response.status}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const bytes = Buffer.from(arrayBuffer);
+  if (bytes.length === 0) {
+    throw new Error("empty_upload");
+  }
+  return {
+    bytes,
+    mime: mime ?? response.headers.get("content-type") ?? undefined,
+    filename: filename ?? parsed.pathname.split("/").pop() ?? undefined,
+  };
+};
+
+const uploadedImageFromFileArgument = async (
+  file: unknown,
+  filename?: string,
+  mime?: string,
+): Promise<UploadedImage> => {
+  if (file instanceof Uint8Array) {
+    return { bytes: Buffer.from(file), filename, mime };
+  }
+  if (file instanceof ArrayBuffer) {
+    return { bytes: Buffer.from(file), filename, mime };
+  }
+  if (Array.isArray(file) && file.every((value) => Number.isInteger(value))) {
+    return { bytes: Buffer.from(file as number[]), filename, mime };
+  }
+
+  const direct = stringValue(file);
+  if (direct) {
+    if (localPathPattern.test(direct)) {
+      throw new Error("file_argument_must_be_file_not_path");
+    }
+    return readRemoteFile(direct, filename, mime);
+  }
+
+  const object = record(file);
+  if (!object) {
+    throw new Error("unsupported_file_argument");
+  }
+
+  const path = stringValue(object.path) ?? stringValue(object.filePath);
+  if (path) {
+    throw new Error("file_argument_must_be_file_not_path");
+  }
+
+  const url =
+    stringValue(object.url) ??
+    stringValue(object.href) ??
+    stringValue(object.uri) ??
+    stringValue(object.downloadUrl);
+  if (url) {
+    if (localPathPattern.test(url)) {
+      throw new Error("file_argument_must_be_file_not_path");
+    }
+    return readRemoteFile(
+      url,
+      filename ?? stringValue(object.name) ?? stringValue(object.filename) ?? undefined,
+      mime ?? stringValue(object.mime) ?? stringValue(object.type) ?? undefined,
+    );
+  }
+
+  const bytes = object.bytes;
+  if (
+    Array.isArray(bytes) &&
+    bytes.every((value) => Number.isInteger(value))
+  ) {
+    return {
+      bytes: Buffer.from(bytes as number[]),
+      filename: filename ?? stringValue(object.name) ?? stringValue(object.filename) ?? undefined,
+      mime: mime ?? stringValue(object.mime) ?? stringValue(object.type) ?? undefined,
+    };
+  }
+
+  throw new Error("unsupported_file_argument");
 };
 
 const formatDateTime = (value: unknown): string | null => {
@@ -2694,6 +2842,47 @@ const publicActionIds = new Set<string>(["hostr.listings.search"]);
 
 const mcpTransports = new Map<string, StreamableHTTPServerTransport>();
 
+const imageUploadToolDocumentation = [
+  "## `hostr_images_upload`",
+  "",
+  "Upload an original user-provided image file to Hostr Blossom and return a public image URL for listing creation.",
+  "",
+  "Use this before `hostr_listings_create` whenever the user attached an image file. The required `file` argument is schema type `file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text in `images[].url`. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
+  "",
+  "The tool does not require MCP OAuth, Nostr auth, Hostr session auth, or an Authorization header. After it succeeds, pass `structuredContent.usage.listingImage.url` as `images[].url` to `hostr_listings_create`.",
+  "",
+  "JSON schema:",
+  "",
+  "```json",
+  JSON.stringify(
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["file"],
+      properties: {
+        file: {
+          type: "file",
+          contentMediaType: "image/*",
+          description:
+            "Required uploaded image file. Send the original image as the file-typed MCP argument so the client bridge can rewrite or stream bytes.",
+        },
+        filename: {
+          type: "string",
+          description:
+            "Optional original filename metadata. Do not put a local path here.",
+        },
+        mime: {
+          type: "string",
+          description: "Optional MIME type, for example image/jpeg.",
+        },
+      },
+    },
+    null,
+    2,
+  ),
+  "```",
+].join("\n");
+
 const createServer = (
   config: AppConfig,
   daemon: HostrDaemonClient,
@@ -2756,6 +2945,99 @@ const createServer = (
         },
       ],
     }),
+  );
+
+  server.registerTool(
+    "hostr_images_upload",
+    {
+      title: "Upload Hostr Listing Image",
+      description:
+        "Upload an original user-provided image file to Hostr Blossom and return a public image URL for Hostr listing creation. Use this before hostr_listings_create whenever the user attached an image file. The required `file` argument is schema type `file` and must be sent as a real uploaded file/blob/reference through the MCP client bridge so the bridge can rewrite or stream the original bytes. Do not pass /mnt/data, /mnt/shared, file://, local filesystem paths, ChatGPT file mount paths, or base64 text to images[].url. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks. This tool does not require MCP OAuth, Nostr auth, Hostr session auth, or an Authorization header. After it succeeds, pass structuredContent.usage.listingImage.url as images[].url to hostr_listings_create.",
+      inputSchema: imageUploadInputSchema,
+      outputSchema: imageUploadOutputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        "hostr.contentType": "image-upload",
+        "hostr.uploadEndpoint": "/mcp/uploads/images",
+        "hostr.fileArgument": "file",
+      },
+    },
+    async (args: Record<string, unknown>) => {
+      let upload: UploadedImage;
+      try {
+        upload = await uploadedImageFromFileArgument(
+          args.file,
+          stringValue(args.filename) ?? undefined,
+          stringValue(args.mime) ?? undefined,
+        );
+      } catch (error) {
+        const code =
+          error instanceof Error ? error.message : "unsupported_file_argument";
+        const message =
+          code === "file_argument_must_be_file_not_path"
+            ? "The `file` argument must be a file-typed upload/blob, not a local path, /mnt/data path, file:// URL, or ChatGPT file mount string."
+            : "Could not read the file argument. Send the original image as the MCP file-typed `file` argument.";
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  ok: false,
+                  error: code,
+                  error_description: message,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const result = await uploadImageToBlossom(config, upload);
+        return {
+          structuredContent: result,
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                "Uploaded the original image to Hostr Blossom.",
+                "",
+                `Use this URL as images[].url in hostr_listings_create: ${result.usage.listingImage.url}`,
+              ].join("\n"),
+            },
+          ],
+        };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Blossom upload failed.";
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  ok: false,
+                  error: "blossom_upload_failed",
+                  error_description: message,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+    },
   );
 
   for (const action of hostrActionCatalog) {
@@ -2976,7 +3258,7 @@ const createServer = (
 
 const actionDocumentationFor = (visibleActionIds: Set<string> | null): string => {
   if (!visibleActionIds) {
-    return hostrActionDocumentation;
+    return `${hostrActionDocumentation}\n\n${imageUploadToolDocumentation}`;
   }
   const visibleActions = hostrActionCatalog.filter((action) =>
     visibleActionIds.has(action.id),
@@ -2985,6 +3267,8 @@ const actionDocumentationFor = (visibleActionIds: Set<string> | null): string =>
     "# Hostr MCP action inputs",
     "",
     "This session-specific catalog only includes Hostr tools visible to the authenticated MCP pubkey.",
+    "",
+    imageUploadToolDocumentation,
     "",
     ...visibleActions.map((action) =>
       [
