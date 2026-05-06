@@ -1172,7 +1172,7 @@ class HostrActionSpec {
   }
 
   String get _commonDrivingNotes =>
-      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Do not use general web search for these live Hostr/Nostr workflows unless the user explicitly asks for public web documentation. The MCP access token selects the authenticated Hostr pubkey/session; do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. If an authenticated write fails because the signer is missing or offline, call hostr_session_connect and then retry the original workflow.';
+      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Do not use general web search for these live Hostr/Nostr workflows unless the user explicitly asks for public web documentation. The MCP access token selects the authenticated Hostr pubkey/session; do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action. Call the intended Hostr tool first; if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
 
   String get _readOnlyNotes =>
       'Read-only behavior: this tool retrieves or analyzes Hostr state and is safe to call when the user asks to inspect, search, explain, debug, or choose the next action. Prefer read tools before write tools when the user intent is ambiguous or when you need concrete listing, trade, thread, or profile ids.';
@@ -1192,7 +1192,7 @@ class HostrActionSpec {
   String get _toolSpecificDrivingNotes {
     switch (id) {
       case 'hostr.session.status':
-        return 'Use first in authenticated workflows to learn whether the MCP token has an attached Hostr/Nostr session, whether the NIP-46 signer is online, and whether reconnect is needed. If needsReconnect or authenticated=false, call hostr_session_connect before attempting writes.';
+        return 'Use when the user asks whether they are logged in, when debugging auth, or after a Hostr action returns an auth/profile/signature error. Do not call this as a routine preflight before every write; failed tools return structured recovery instructions.';
       case 'hostr.session.connect':
         return 'Two-step login flow: call with wait=false to create or reuse a Nostr Connect request, display the nostrconnect URI or QR image to the user, then immediately call this tool again with wait=true and regenerate=false to listen for approval. After authenticated=true, retry or continue the Hostr action that required sign-in.';
       case 'hostr.listings.search':
@@ -3259,6 +3259,10 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln()
       ..writeln(
         'All Hostr MCP tools are backed by typed Dart daemon actions. The MCP access token selects the user pubkey; do not include pubkeys in tool inputs.',
+      )
+      ..writeln()
+      ..writeln(
+        'Do not run routine preflight session/profile checks before sensitive tools. Call the intended Hostr tool first. If it returns auth_required, call hostr_session_connect, complete sign-in, then retry the original action. If it returns profile_required, collect the missing profile fields, call hostr_profile_edit, publish after approval, then retry the original action.',
       )
       ..writeln()
       ..writeln(
