@@ -3987,10 +3987,8 @@ const paymentRequiredWidgetHtml = `
         line-height: 1.35;
       }
 
-      .empty {
-        padding: 10px;
-        color: color-mix(in srgb, CanvasText 70%, transparent);
-        font-size: 13px;
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
@@ -4072,18 +4070,20 @@ const paymentRequiredWidgetHtml = `
           if (!payment) {
             var cards = cardsFrom(output).filter(Boolean);
             if (cards.length > 0) {
+              document.documentElement.hidden = false;
+              document.body.hidden = false;
               cards.forEach(function (card) {
                 root.appendChild(renderTripCard(card));
               });
               return;
             }
-            var empty = document.createElement("div");
-            empty.className = "empty";
-            empty.textContent = "No external payment is required.";
-            root.appendChild(empty);
+            document.documentElement.hidden = true;
+            document.body.hidden = true;
             return;
           }
 
+          document.documentElement.hidden = false;
+          document.body.hidden = false;
           var wrap = document.createElement("section");
           wrap.className = "wrap";
           var title = document.createElement("h2");
@@ -5414,6 +5414,7 @@ export const __testing = {
   listingRouteUrl,
   profileCardsFromResult,
   profileCardsMarkdown,
+  paymentRequiredWidgetHtml,
   reservationCardsFromResult,
   reservationCardsMarkdown,
   toolResponse,
