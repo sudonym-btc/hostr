@@ -143,35 +143,36 @@ const renderAuthorizePage = (
     qrImage: string;
   },
 ): string => {
-  const escapedRequestId = escapeHtml(request.id);
   const escapedClientId = escapeHtml(request.clientId);
   const escapedNostrConnect = escapeHtml(connect.nostrconnect);
   const escapedQrImage = escapeHtml(connect.qrImage);
-  const nostrConnectSection = `<p>Scan this NIP-46 code with your Nostr signer to authorize <code>${escapedClientId}</code> for ${escapeHtml(config.displayName)}.</p>
+  const nostrConnectSection = `<p>Please scan this code to login with your existing nostr app and authorize <code>${escapedClientId}</code> for ${escapeHtml(config.displayName)}.</p>
       <div class="qr"><img alt="Nostr Connect QR code" src="${escapedQrImage}" /></div>
       <label>
-        nostrconnect URI
-        <textarea readonly id="nostrconnect">${escapedNostrConnect}</textarea>
+        Nostrconnect uri
+        <span class="copy-row">
+          <input readonly id="nostrconnect" value="${escapedNostrConnect}" />
+          <button type="button" id="copy">Copy</button>
+        </span>
       </label>
-      <div class="actions">
-        <button type="button" id="copy">Copy URI</button>
-        <button type="button" id="wait" class="secondary">I approved it</button>
-      </div>
       <p id="status" class="status">Waiting for signer approval...</p>`;
   const nostrConnectScript = `<script>
       const requestId = ${JSON.stringify(request.id)};
       const status = document.getElementById("status");
-      const waitButton = document.getElementById("wait");
       const copyButton = document.getElementById("copy");
       const uriBox = document.getElementById("nostrconnect");
 
       copyButton.addEventListener("click", async () => {
-        await navigator.clipboard.writeText(uriBox.value);
+        try {
+          await navigator.clipboard.writeText(uriBox.value);
+        } catch {
+          uriBox.select();
+          document.execCommand("copy");
+        }
         status.textContent = "Copied nostrconnect URI.";
       });
 
       async function complete() {
-        waitButton.disabled = true;
         status.textContent = "Waiting for get_public_key from your signer...";
         try {
           const response = await fetch("/oauth/nostr-connect/complete", {
@@ -187,11 +188,10 @@ const renderAuthorizePage = (
           window.location.href = payload.redirectUrl;
         } catch (error) {
           status.textContent = error instanceof Error ? error.message : String(error);
-          waitButton.disabled = false;
+          setTimeout(() => void complete(), 1500);
         }
       }
 
-      waitButton.addEventListener("click", () => void complete());
       void complete();
     </script>`;
 
@@ -200,7 +200,7 @@ const renderAuthorizePage = (
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Connect Hostr MCP</title>
+    <title>Connect Hostr</title>
     <style>
       :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f172a; color: #f8fafc; }
@@ -211,19 +211,16 @@ const renderAuthorizePage = (
       .qr img { width: 100%; height: 100%; image-rendering: pixelated; }
       form { display: grid; gap: 12px; }
       label { display: grid; gap: 6px; color: #cbd5e1; }
-      input, textarea { padding: 10px 12px; border: 1px solid #475569; border-radius: 6px; background: #020617; color: #f8fafc; }
-      textarea { width: 100%; min-height: 96px; box-sizing: border-box; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      input { min-width: 0; padding: 10px 12px; border: 1px solid #475569; border-radius: 6px; background: #020617; color: #f8fafc; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
       button { padding: 10px 12px; border: 0; border-radius: 6px; background: #38bdf8; color: #082f49; font-weight: 700; cursor: pointer; }
-      button.secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; }
       .muted { color: #94a3b8; font-size: 14px; }
       .status { min-height: 24px; margin-top: 12px; color: #bae6fd; }
-      .actions { display: flex; gap: 12px; flex-wrap: wrap; }
-      code { color: #bae6fd; }
+      .copy-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
     </style>
   </head>
   <body>
     <main>
-      <h1>Connect Hostr MCP</h1>
+      <h1>Connect Hostr</h1>
       ${nostrConnectSection}
     </main>
     ${nostrConnectScript}

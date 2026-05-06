@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,27 +14,53 @@ class HostrDaemonStdioServer {
     required this.stdin,
     required this.stdout,
     required this.stderr,
-  }) : daemon = HostrDaemon(
-         context,
-         notifications: (method, params) =>
-             stdout.writeln(jsonEncode({'method': method, 'params': params})),
-       );
+    this.maxConcurrentRequests = 16,
+  }) {
+    daemon = HostrDaemon(
+      context,
+      notifications: (method, params) =>
+          _write({'method': method, 'params': params}),
+    );
+  }
 
   final HostrCliRuntimeContext context;
   final Stream<List<int>> stdin;
   final IOSink stdout;
   final IOSink stderr;
-  final HostrDaemon daemon;
+  late final HostrDaemon daemon;
+  final int maxConcurrentRequests;
+  late final _AsyncSemaphore _requestSlots = _AsyncSemaphore(
+    maxConcurrentRequests,
+  );
 
   Future<void> serve() async {
+    final inFlight = <Future<void>>{};
+
     await for (final line
         in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
       if (line.trim().isEmpty) continue;
-      await _handleLine(line);
+
+      final task = _handleLineConcurrent(line);
+      inFlight.add(task);
+      task.whenComplete(() => inFlight.remove(task)).ignore();
+    }
+
+    if (inFlight.isNotEmpty) {
+      await Future.wait(inFlight);
     }
   }
 
-  Future<void> _handleLine(String line) async {
+  Future<void> _handleLineConcurrent(String line) async {
+    final queuedAt = DateTime.now();
+    await _requestSlots.acquire();
+    try {
+      await _handleLine(line, queuedAt: queuedAt);
+    } finally {
+      _requestSlots.release();
+    }
+  }
+
+  Future<void> _handleLine(String line, {required DateTime queuedAt}) async {
     Object? id;
     try {
       final decoded = jsonDecode(line);
@@ -50,9 +77,11 @@ class HostrDaemonStdioServer {
           ? Map<String, dynamic>.from(request['params'])
           : <String, dynamic>{};
       final stopwatch = Stopwatch()..start();
+      final queueMs = DateTime.now().difference(queuedAt).inMilliseconds;
       _log('request', {
         'id': id,
         'method': method,
+        if (queueMs > 0) 'queueMs': queueMs,
         'params': _redactForLog(params),
       });
 
@@ -191,4 +220,34 @@ class HostrDaemonStdioServer {
     r'(secret|token|authorization|cookie|password|private|nsec|jwt|qrImage|nostrconnect)',
     caseSensitive: false,
   );
+}
+
+class _AsyncSemaphore {
+  _AsyncSemaphore(this._available) {
+    if (_available < 1) {
+      throw ArgumentError.value(_available, 'maxConcurrentRequests');
+    }
+  }
+
+  int _available;
+  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+
+  Future<void> acquire() {
+    if (_available > 0) {
+      _available--;
+      return Future.value();
+    }
+
+    final waiter = Completer<void>();
+    _waiters.add(waiter);
+    return waiter.future;
+  }
+
+  void release() {
+    if (_waiters.isNotEmpty) {
+      _waiters.removeFirst().complete();
+      return;
+    }
+    _available++;
+  }
 }
