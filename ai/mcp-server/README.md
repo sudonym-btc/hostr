@@ -126,9 +126,15 @@ Clients should read these resources during setup:
 ```text
 hostr://mcp/action-input-types
 hostr://mcp/action-catalog.json
+ui://widget/listing-card.html
+ui://widget/payment-required.html
+ui://widget/session-connect.html
+ui://widget/profile-card.html
+ui://widget/trip.html
+ui://widget/hosting.html
 ```
 
-The first resource contains TypeScript interfaces, JSON schemas, and multi-step workflow playbooks. The second is machine-readable catalog metadata.
+The first resource contains TypeScript interfaces, JSON schemas, and multi-step workflow playbooks. The second is machine-readable catalog metadata. The `ui://widget/*` resources are optional lightweight MCP Apps HTML renderers for listing cards, Lightning payment QR prompts, Nostr Connect session QR prompts, profile cards, trips, and hosting cards.
 
 Regenerate the TypeScript catalog after editing Dart actions:
 
@@ -189,18 +195,20 @@ The `value` is the satoshi count as a string. Do not convert `50000 sats` to `50
 
 ## Image uploads
 
-Remote clients that need to attach user-provided listing photos must upload the original image bytes beside MCP, not inside the JSON-RPC `/mcp` request:
+Remote clients that need to attach user-provided images must upload the original image bytes beside MCP, not inside the JSON-RPC `/mcp` request:
 
 Preferred MCP tool flow:
 
 ```text
 hostr_images_upload({ file: <file-typed uploaded image> })
-  -> structuredContent.usage.listingImage.url
+  -> structuredContent.usage.image.url
 
-hostr_listings_create({ images: [{ url: structuredContent.usage.listingImage.url }] })
+hostr_listings_create({ images: [{ url: structuredContent.usage.image.url }] })
 
-hostr_profile_edit({ image: structuredContent.usage.profileImage.url })
+hostr_profile_edit({ image: structuredContent.usage.image.url })
 ```
+
+The upload response is intentionally generic. `hostr_images_upload` does not know whether the image will be used for a listing, profile, badge, or another image field; callers should use `structuredContent.usage.image.url` or `structuredContent.upload.url` wherever a durable image URL is required.
 
 The `hostr_images_upload` schema marks `file` as `type: "file"` and advertises `_meta["openai/fileParams"] = ["file"]` so clients that support file rewrite/upload handling can stream the original attached file. If a client represents uploaded files as local references such as `/mnt/data/photo.jpg`, those references belong only in the file-typed `hostr_images_upload.file` argument so Hostr can read/download the original bytes and re-upload them to Blossom; never put them directly in listing `images[].url` or profile `image`/`picture`.
 
@@ -244,7 +252,19 @@ MCP cannot force every AI client to render native UI cards. The server returns b
 ![Listing image 3](https://...)
 ```
 
-Clients that support rich MCP cards can build cards from `structuredContent.listings[*].images`. Clients that only render Markdown will still show listing sections with inline images.
+Clients that support rich MCP cards can build cards from `structuredContent.listingCards[*]`. Clients that only render Markdown will still show listing sections with inline images.
+
+Listing tools also advertise `ui://widget/listing-card.html` through `_meta.ui.resourceUri`, with `_meta["openai/outputTemplate"]` as the ChatGPT compatibility alias. The widget is intentionally just HTML/CSS/vanilla JS; it reads `window.openai.toolOutput.listingCards` or `window.openai.toolOutput.display.cards` and renders cards. Do not put business logic in it. Keep `structuredContent.listingCards` and `displayMarkdown` as the portable source of truth.
+
+The same optional widget pattern is used for:
+
+- `ui://widget/payment-required.html`: reads `structuredContent.paymentDisplays` or `structuredContent.display.cards` for external Lightning payment QR prompts.
+- `ui://widget/session-connect.html`: reads `structuredContent.display` for Nostr Connect login QR prompts.
+- `ui://widget/profile-card.html`: reads `structuredContent.profileCards` or `structuredContent.display.cards` for profile show/edit results.
+- `ui://widget/trip.html`: reads `structuredContent.tripCards`, `structuredContent.reservationCards`, or `structuredContent.display.cards` for guest trips. Cancelled trips render a bold `Cancelled` marker.
+- `ui://widget/hosting.html`: reads `structuredContent.hostingCards`, `structuredContent.reservationCards`, or `structuredContent.display.cards` for host-side reservations, including `Hosting {guest} at: {stay}` text.
+
+All widgets are examples. Generic MCP clients can ignore the UI resources and continue rendering `displayMarkdown` or structured JSON.
 
 ## Verification
 

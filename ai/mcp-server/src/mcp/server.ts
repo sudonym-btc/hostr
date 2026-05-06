@@ -46,6 +46,23 @@ const listingActionIds = new Set([
   "hostr.listings.edit",
 ]);
 
+const listingCardWidgetUri = "ui://widget/listing-card.html";
+const paymentRequiredWidgetUri = "ui://widget/payment-required.html";
+const sessionConnectWidgetUri = "ui://widget/session-connect.html";
+const profileCardWidgetUri = "ui://widget/profile-card.html";
+const tripWidgetUri = "ui://widget/trip.html";
+const hostingWidgetUri = "ui://widget/hosting.html";
+
+const paymentWidgetActionIds = new Set([
+  "hostr.reservations.bookAndPay",
+  "hostr.swaps.watch",
+]);
+
+const profileActionIds = new Set([
+  "hostr.profile.show",
+  "hostr.profile.edit",
+]);
+
 const listingCardOutputSchema = z
   .object({
     assistantInstructions: z.array(z.string()).optional(),
@@ -69,6 +86,10 @@ const reservationCardOutputSchema = z
         type: z.enum([
           "reservation-card",
           "reservation-card-list",
+          "trip-card",
+          "trip-card-list",
+          "hosting-card",
+          "hosting-card-list",
           "payment-external-required",
         ]),
         cards: z.array(z.record(z.string(), z.unknown())),
@@ -76,6 +97,33 @@ const reservationCardOutputSchema = z
       .optional(),
     reservationCards: z.array(z.record(z.string(), z.unknown())).optional(),
     paymentDisplays: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .passthrough();
+
+const sessionConnectOutputSchema = z
+  .object({
+    assistantInstructions: z.array(z.string()).optional(),
+    displayMarkdown: z.string(),
+    display: z
+      .object({
+        type: z.literal("nostr-connect"),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+const profileCardOutputSchema = z
+  .object({
+    assistantInstructions: z.array(z.string()).optional(),
+    displayMarkdown: z.string(),
+    display: z
+      .object({
+        type: z.enum(["profile-card", "profile-preview", "profile-result"]),
+        cards: z.array(z.record(z.string(), z.unknown())),
+      })
+      .optional(),
+    profileCards: z.array(z.record(z.string(), z.unknown())).optional(),
   })
   .passthrough();
 
@@ -263,12 +311,6 @@ const imageUploadOutputSchema = z
       image: z.object({
         url: z.string().optional(),
       }),
-      listingImage: z.object({
-        url: z.string().optional(),
-      }),
-      profileImage: z.object({
-        url: z.string().optional(),
-      }),
     }),
   })
   .passthrough();
@@ -436,6 +478,13 @@ const uploadedImageFromFileArgument = async (
 };
 
 const formatDateTime = (value: unknown): string | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const milliseconds = value > 1_000_000_000_000 ? value : value * 1000;
+    return new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(milliseconds));
+  }
   const raw = stringValue(value);
   if (!raw) {
     return null;
@@ -448,6 +497,22 @@ const formatDateTime = (value: unknown): string | null => {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+};
+
+const timestampMs = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 1_000_000_000_000 ? value : value * 1000;
+  }
+  const raw = stringValue(value);
+  if (!raw) {
+    return null;
+  }
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+  }
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
 };
 
 const formatAmount = (amount: Record<string, unknown> | null): string => {
@@ -505,10 +570,11 @@ const formatPrices = (listing: Record<string, unknown>): string => {
 };
 
 type ReservationCardData = {
-  type: "reservation-card";
+  type: "trip-card" | "hosting-card";
   tradeId?: string;
   reservationId?: string;
   title: string;
+  guestName?: string;
   start?: string;
   end?: string;
   status?: string;
@@ -521,12 +587,25 @@ const isCancelledStage = (stage: string | null): boolean =>
 
 const reservationCardData = (
   lookup: Record<string, unknown> | null,
+  fallbackType: "trip-card" | "hosting-card" = "trip-card",
 ): ReservationCardData | null => {
   if (!lookup || lookup.found !== true) {
     return null;
   }
   const group = record(lookup.group);
   const listing = record(lookup.listing);
+  const participants = record(lookup.participants);
+  const profiles = record(participants?.profiles);
+  const buyerProfile = record(profiles?.buyer);
+  const guestName =
+    stringValue(buyerProfile?.displayName) ??
+    stringValue(buyerProfile?.name) ??
+    stringValue(buyerProfile?.profileName) ??
+    (stringValue(group?.buyerPubkey)
+      ? truncate(stringValue(group?.buyerPubkey)!, 12)
+      : undefined);
+  const cardType =
+    stringValue(lookup.mode) === "bookings" ? "hosting-card" : fallbackType;
   const title =
     stringValue(listing?.title) ??
     stringValue(group?.listingTitle) ??
@@ -534,9 +613,12 @@ const reservationCardData = (
   const start = formatDateTime(group?.start);
   const end = formatDateTime(group?.end);
   const stage = stringValue(group?.stage);
-  const cancelled = isCancelledStage(stage);
+  const cancelled =
+    group?.cancelled === true ||
+    stringValue(group?.status)?.toLowerCase() === "cancelled" ||
+    isCancelledStage(stage);
   return {
-    type: "reservation-card",
+    type: cardType,
     tradeId:
       stringValue(group?.tradeId) ??
       stringValue(lookup.tradeId) ??
@@ -548,6 +630,7 @@ const reservationCardData = (
       stringValue(group?.id) ??
       undefined,
     title,
+    guestName,
     start: start ?? undefined,
     end: end ?? undefined,
     status: cancelled ? (stage ?? "cancelled") : undefined,
@@ -557,13 +640,24 @@ const reservationCardData = (
 };
 
 const reservationCard = (card: ReservationCardData): string => {
+  if (card.type === "hosting-card") {
+    return [
+      card.mode === "cancelled" ? "### Hosting Cancelled" : "### Hosting",
+      card.mode === "cancelled" ? "**Cancelled**" : null,
+      `**Hosting ${card.guestName ?? "guest"} at:** ${card.title}`,
+      card.start && card.end ? `**Dates:** ${card.start} to ${card.end}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
   return [
     card.mode === "cancelled"
-      ? "### Reservation Cancelled"
-      : "### Reservation Confirmed",
+      ? "### Trip Cancelled"
+      : "### Trip",
+    card.mode === "cancelled" ? "**Cancelled**" : null,
     `**Stay:** ${card.title}`,
     card.start && card.end ? `**Dates:** ${card.start} to ${card.end}` : null,
-    card.status ? `**Status:** ${card.statusLabel ?? card.status}` : null,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -790,6 +884,54 @@ const paymentDisplayMarkdown = (
     .join("\n\n");
 };
 
+type SessionConnectDisplayData = {
+  type: "nostr-connect";
+  title: string;
+  message: string;
+  nostrconnect?: string;
+  qrImageUrl?: string;
+  uriTextUrl?: string;
+  nextTool: "hostr_session_connect";
+  nextInput: Record<string, unknown>;
+};
+
+const sessionConnectDisplayData = (
+  config: AppConfig,
+  result: Record<string, unknown>,
+  safeResultData: Record<string, unknown>,
+): SessionConnectDisplayData | undefined => {
+  const data = record(result.data);
+  if (!data || data.authenticated === true || data.pending !== true) {
+    return undefined;
+  }
+  const nostrconnect = stringValue(data.nostrconnect);
+  const remoteQrUrl = nostrconnect ? qrImageUrl(config, nostrconnect) : null;
+  const asset = nostrconnect
+    ? storeQrTextAsset(remoteQrUrl ? null : stringValue(data.qrImage), nostrconnect)
+    : null;
+  const qrUrl =
+    remoteQrUrl ??
+    (asset?.qrUrlPath ? absoluteUrl(config, asset.qrUrlPath) : null);
+  const textUrl = asset?.textUrlPath
+    ? absoluteUrl(config, asset.textUrlPath)
+    : null;
+  return {
+    type: "nostr-connect",
+    title: stringValue(safeResultData.displayTitle) ?? "Log in to Hostr",
+    message:
+      stringValue(safeResultData.displayMessage) ??
+      "Scan this with your Nostr app to log in to your Hostr account.",
+    nostrconnect: nostrconnect ?? undefined,
+    qrImageUrl: qrUrl ?? undefined,
+    uriTextUrl: textUrl ?? undefined,
+    nextTool: "hostr_session_connect",
+    nextInput: record(safeResultData.nextInput) ?? {
+      wait: true,
+      regenerate: false,
+    },
+  };
+};
+
 const listingUrl = (
   config: AppConfig,
   listing: Record<string, unknown>,
@@ -797,7 +939,7 @@ const listingUrl = (
   const anchor = stringValue(listing.naddr) ?? stringValue(listing.anchor);
   const naddr = anchor ? anchorToNaddr(anchor) : null;
   if (naddr) {
-    return `${config.publicAppBaseUrl}/listing/${encodeURIComponent(naddr)}`;
+    return listingRouteUrl(config.publicAppBaseUrl, naddr);
   }
 
   const explicit = stringValue(listing.url);
@@ -806,6 +948,9 @@ const listingUrl = (
   }
   return null;
 };
+
+const listingRouteUrl = (publicAppBaseUrl: string, naddr: string): string =>
+  `${publicAppBaseUrl.replace(/\/+$/, "")}/#/listing/${encodeURIComponent(naddr)}`;
 
 type ListingImage = {
   url: string;
@@ -816,6 +961,7 @@ type ListingCardData = {
   type: "listing-card";
   id?: string;
   anchor?: string;
+  dTag?: string;
   url?: string;
   title: string;
   description?: string;
@@ -830,6 +976,20 @@ type ListingCardData = {
   flags: string[];
   index?: number;
   mode: "result" | "preview" | "published";
+};
+
+type ProfileCardData = {
+  type: "profile-card";
+  exists: boolean;
+  pubkey?: string;
+  name: string;
+  about?: string;
+  picture?: string;
+  nip05?: string;
+  lud16?: string;
+  website?: string;
+  mode: "current" | "preview" | "published";
+  statusLabel: string;
 };
 
 type HostrCriticalNotice =
@@ -983,6 +1143,7 @@ const listingCardData = (
     id: stringValue(listing.id) ?? undefined,
     anchor:
       stringValue(listing.anchor) ?? stringValue(listing.naddr) ?? undefined,
+    dTag: stringValue(listing.dTag) ?? undefined,
     url: url ?? undefined,
     title,
     description: description ? truncate(description) : undefined,
@@ -1083,13 +1244,102 @@ const listingCardsFromResult = (
   return [];
 };
 
+const profileCardData = (
+  actionId: string,
+  result: Record<string, unknown>,
+): ProfileCardData | null => {
+  if (!profileActionIds.has(actionId) || result.ok === false) {
+    return null;
+  }
+  const data = record(result.data);
+  if (!data) {
+    return null;
+  }
+  const metadata = record(data.metadata);
+  const exists = data.exists === true || Boolean(metadata);
+  const mode =
+    result.dryRun === true
+      ? "preview"
+      : actionId === "hostr.profile.edit"
+        ? "published"
+        : "current";
+  const name =
+    stringValue(metadata?.display_name) ??
+    stringValue(metadata?.displayName) ??
+    stringValue(metadata?.name) ??
+    (exists ? "Hostr profile" : "No Hostr profile");
+  return {
+    type: "profile-card",
+    exists,
+    pubkey: stringValue(data.pubkey) ?? undefined,
+    name,
+    about: stringValue(metadata?.about) ?? undefined,
+    picture:
+      stringValue(metadata?.picture) ??
+      stringValue(metadata?.image) ??
+      undefined,
+    nip05: stringValue(metadata?.nip05) ?? undefined,
+    lud16: stringValue(metadata?.lud16) ?? undefined,
+    website: stringValue(metadata?.website) ?? undefined,
+    mode,
+    statusLabel:
+      mode === "preview"
+        ? "preview"
+        : mode === "published"
+          ? "published"
+          : exists
+            ? "current"
+            : "not found",
+  };
+};
+
+const profileCardsFromResult = (
+  actionId: string,
+  result: Record<string, unknown>,
+): ProfileCardData[] => {
+  const card = profileCardData(actionId, result);
+  return card ? [card] : [];
+};
+
+const profileCardMarkdown = (card: ProfileCardData): string => {
+  if (!card.exists) {
+    return [
+      "### Hostr Profile",
+      "No Hostr profile metadata was found.",
+      card.pubkey ? `**Pubkey:** \`${card.pubkey}\`` : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+  return [
+    `### ${card.name}`,
+    card.picture ? `![Profile picture](${card.picture})` : null,
+    card.about,
+    `**Status:** ${card.statusLabel}`,
+    card.lud16 ? `**Lightning address:** ${card.lud16}` : null,
+    card.nip05 ? `**NIP-05:** ${card.nip05}` : null,
+    card.website ? `**Website:** ${card.website}` : null,
+    card.pubkey ? `**Pubkey:** \`${truncate(card.pubkey, 18)}\`` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+};
+
+const profileCardResponseText = (displayMarkdown: string): string =>
+  [
+    "Hostr profile-card response: render structuredContent.displayMarkdown as Markdown, or use structuredContent.profileCards for a compact profile card.",
+    displayMarkdown,
+  ].join("\n\n");
+
 const reservationCardResponseText = (
   displayMarkdown: string,
   reservationCards: ReservationCardData[],
 ): string => {
   const count = reservationCards.length;
+  const hasHosting = reservationCards.some((card) => card.type === "hosting-card");
+  const label = hasHosting ? "hosting" : "trip";
   return [
-    `Hostr reservation-card response: the assistant's final answer must include the Markdown reservation card${count === 1 ? "" : "s"} below exactly as rendered. Do not replace this with raw JSON, do not expose swap state internals, and do not show a Status line unless the reservation is cancelled.`,
+    `Hostr ${label}-card response: the assistant's final answer must include the Markdown ${label} card${count === 1 ? "" : "s"} below exactly as rendered. Do not replace this with raw JSON or expose swap state internals.`,
     displayMarkdown,
   ].join("\n\n");
 };
@@ -1108,8 +1358,11 @@ const reservationCardsFromResult = (
 
   if (actionId === "hostr.swaps.watch") {
     return [
-      reservationCardData(record(data.reservationLookup)),
-      reservationCardData(record(record(data.state)?.reservationLookup)),
+      reservationCardData(record(data.reservationLookup), "trip-card"),
+      reservationCardData(
+        record(record(data.state)?.reservationLookup),
+        "trip-card",
+      ),
     ].filter((card): card is ReservationCardData => card !== null);
   }
 
@@ -1118,21 +1371,29 @@ const reservationCardsFromResult = (
     actionId === "hostr.bookings.list" ||
     actionId === "hostr.reservations.bookAndPay"
   ) {
+    const fallbackType =
+      actionId === "hostr.bookings.list" ? "hosting-card" : "trip-card";
     const collectionCards = Array.isArray(data.results)
       ? data.results
           .map(record)
           .flatMap((item) => [
-            reservationCardData(item),
-            reservationCardData(record(item?.reservationLookup)),
-            reservationCardData(record(record(item?.state)?.reservationLookup)),
+            reservationCardData(item, fallbackType),
+            reservationCardData(record(item?.reservationLookup), fallbackType),
+            reservationCardData(
+              record(record(item?.state)?.reservationLookup),
+              fallbackType,
+            ),
           ])
           .filter((card): card is ReservationCardData => card !== null)
       : [];
     return [
       ...collectionCards,
-      reservationCardData(data),
-      reservationCardData(record(data.reservationLookup)),
-      reservationCardData(record(record(data.state)?.reservationLookup)),
+      reservationCardData(data, fallbackType),
+      reservationCardData(record(data.reservationLookup), fallbackType),
+      reservationCardData(
+        record(record(data.state)?.reservationLookup),
+        fallbackType,
+      ),
     ].filter((card): card is ReservationCardData => card !== null);
   }
 
@@ -1142,6 +1403,7 @@ const reservationCardsFromResult = (
 type ThreadCardData = {
   type: "thread-card";
   title: string;
+  subtitle?: string;
   counterparties: string[];
   conversation?: string;
   tradeId?: string;
@@ -1152,6 +1414,7 @@ type ThreadCardData = {
   unreadCount?: number;
   preview?: string;
   updatedAt?: string;
+  updatedAtMs?: number;
 };
 
 type ThreadMessageData = {
@@ -1211,35 +1474,65 @@ const threadReservationDetails = (
   amount?: string;
   stage?: string;
   updatedAt?: string;
+  updatedAtMs?: number;
+  subtitle?: string;
 } => {
   const requests = arrayValue(thread.reservationRequests)
     .map(record)
     .filter(isRecord);
-  const latest = requests.at(-1);
+  const latest = [...requests]
+    .sort(
+      (a, b) =>
+        (timestampMs(a.created_at) ?? 0) - (timestampMs(b.created_at) ?? 0),
+    )
+    .at(-1);
   if (!latest) {
     return {};
   }
   const content = parseJsonRecord(latest.content);
   const amount = formatAmount(record(content?.amount));
+  const start = formatDateTime(content?.start) ?? undefined;
+  const end = formatDateTime(content?.end) ?? undefined;
+  const stage = stringValue(content?.stage) ?? undefined;
+  const reservationLabel = stage?.toLowerCase().includes("cancel")
+    ? "Reservation cancelled"
+    : "Reservation offer";
+  const subtitleParts = [
+    amount === "price unavailable" ? null : amount,
+    start && end ? `${start} to ${end}` : null,
+  ].filter(Boolean);
   return {
     title: listingTitleFromEvent(latest) ?? undefined,
-    start: formatDateTime(content?.start) ?? undefined,
-    end: formatDateTime(content?.end) ?? undefined,
+    start,
+    end,
     amount: amount === "price unavailable" ? undefined : amount,
-    stage: stringValue(content?.stage) ?? undefined,
+    stage,
     updatedAt: formatDateTime(latest.created_at) ?? undefined,
+    updatedAtMs: timestampMs(latest.created_at) ?? undefined,
+    subtitle: `${reservationLabel}${
+      subtitleParts.length > 0 ? `: ${subtitleParts.join(" · ")}` : ""
+    }`,
   };
 };
 
-const threadMessagePreview = (
+const threadLatestTextDetails = (
   thread: Record<string, unknown>,
-): string | undefined => {
+): { preview?: string; updatedAt?: string; updatedAtMs?: number } => {
   const textMessages = arrayValue(thread.textMessages)
     .map(record)
     .filter(isRecord);
-  const latest = textMessages.at(-1);
+  const latest = [...textMessages]
+    .sort(
+      (a, b) =>
+        (timestampMs(a.created_at) ?? 0) - (timestampMs(b.created_at) ?? 0),
+    )
+    .at(-1);
   const content = stringValue(latest?.content);
-  return content ? truncate(content, 140) : undefined;
+  return {
+    preview: content ? truncate(content, 140) : undefined,
+    updatedAt: formatDateTime(latest?.created_at) ?? undefined,
+    updatedAtMs: timestampMs(latest?.created_at) ?? undefined,
+  };
 };
 
 const threadCardData = (
@@ -1251,18 +1544,26 @@ const threadCardData = (
     .map(profileDisplayName)
     .filter((name): name is string => name !== null);
   const reservation = threadReservationDetails(thread);
-  const preview = threadMessagePreview(thread);
+  const textDetails = threadLatestTextDetails(thread);
+  const latestIsReservation =
+    (reservation.updatedAtMs ?? 0) >= (textDetails.updatedAtMs ?? 0);
+  const subtitle = latestIsReservation
+    ? reservation.subtitle
+    : textDetails.preview;
+  const updatedAt = latestIsReservation
+    ? reservation.updatedAt
+    : textDetails.updatedAt;
+  const updatedAtMs = latestIsReservation
+    ? reservation.updatedAtMs
+    : textDetails.updatedAtMs;
   const conversation = stringValue(thread.conversation);
   const title =
-    reservation.title ??
-    preview ??
-    (counterparties.length > 0
-      ? `Conversation with ${counterparties.join(", ")}`
-      : "Hostr thread");
+    counterparties.length > 0 ? counterparties.join(", ") : "Hostr thread";
   const unreadCount = Number(thread.unreadCount);
   return {
     type: "thread-card",
     title,
+    subtitle,
     counterparties,
     conversation: conversation ?? undefined,
     tradeId: conversation ?? undefined,
@@ -1271,26 +1572,23 @@ const threadCardData = (
     amount: reservation.amount,
     stage: reservation.stage,
     unreadCount: Number.isFinite(unreadCount) ? unreadCount : undefined,
-    preview,
-    updatedAt: reservation.updatedAt,
+    preview: textDetails.preview,
+    updatedAt,
+    updatedAtMs,
   };
 };
 
-const threadCard = (card: ThreadCardData, index: number): string => {
+const threadCard = (card: ThreadCardData): string => {
   return [
-    `### ${index}. ${card.title}`,
-    card.counterparties.length > 0
-      ? `**With:** ${card.counterparties.join(", ")}`
-      : null,
-    card.start && card.end ? `**Dates:** ${card.start} to ${card.end}` : null,
-    card.amount ? `**Offer:** ${card.amount}` : null,
+    `**${card.title}**`,
+    card.subtitle ? truncate(card.subtitle, 180) : null,
     card.stage && card.stage.toLowerCase().includes("cancel")
       ? `**Status:** ${card.stage}`
       : null,
     card.unreadCount && card.unreadCount > 0
       ? `**Unread:** ${card.unreadCount}`
       : null,
-    card.preview ? card.preview : null,
+    card.updatedAt ? `_Updated ${card.updatedAt}_` : null,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -1308,7 +1606,8 @@ const threadCardsFromResult = (
     .map(record)
     .filter(isRecord)
     .map(threadCardData)
-    .filter((card): card is ThreadCardData => card !== null);
+    .filter((card): card is ThreadCardData => card !== null)
+    .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
 };
 
 const threadCardResponseText = (
@@ -1393,6 +1692,10 @@ const threadViewsFromResult = (
 };
 
 const threadViewMarkdown = (view: ThreadViewData): string => {
+  const title =
+    view.counterparties.length > 0
+      ? view.counterparties.join(", ")
+      : view.title;
   const messageLines =
     view.messages.length > 0
       ? view.messages
@@ -1407,17 +1710,14 @@ const threadViewMarkdown = (view: ThreadViewData): string => {
           .join("\n\n")
       : "_No text messages in this thread yet._";
   return [
-    `## ${view.title}`,
-    view.counterparties.length > 0
-      ? `**With:** ${view.counterparties.join(", ")}`
-      : null,
+    `**${title}**`,
     view.unreadCount && view.unreadCount > 0
       ? `**Unread:** ${view.unreadCount}`
       : null,
     view.requiresMessage
       ? "**Next:** Ask the user what they would like to message the escrow."
       : null,
-    "### Messages",
+    "**Messages**",
     messageLines,
   ]
     .filter(Boolean)
@@ -2157,10 +2457,8 @@ const formatToolContent = (
       return "No recent Hostr threads found.";
     }
     return [
-      "## Recent Hostr Threads",
-      threadCards
-        .map((card, index) => threadCard(card, index + 1))
-        .join("\n\n---\n\n"),
+      "**Recent Hostr Threads**",
+      threadCards.map((card) => threadCard(card)).join("\n\n---\n\n"),
     ].join("\n\n");
   }
 
@@ -2174,6 +2472,11 @@ const formatToolContent = (
       return stringValue(data.message) ?? "No Hostr thread found.";
     }
     return threadViews.map(threadViewMarkdown).join("\n\n---\n\n");
+  }
+
+  if (profileActionIds.has(actionId)) {
+    const card = profileCardData(actionId, result);
+    return card ? profileCardMarkdown(card) : "No Hostr profile found.";
   }
 
   if (actionId === "hostr.session.connect") {
@@ -2281,10 +2584,27 @@ const toolResponse = async (
     reservationCards.length > 0
       ? {
           type:
-            reservationCards.length === 1
-              ? "reservation-card"
-              : "reservation-card-list",
+            reservationCards[0]?.type === "hosting-card"
+              ? reservationCards.length === 1
+                ? "hosting-card"
+                : "hosting-card-list"
+              : reservationCards.length === 1
+                ? "trip-card"
+                : "trip-card-list",
           cards: reservationCards,
+        }
+      : undefined;
+  const profileCards = profileCardsFromResult(actionId, result);
+  const profileCardDisplay =
+    profileCards.length > 0
+      ? {
+          type:
+            safeResult.dryRun === true
+              ? ("profile-preview" as const)
+              : actionId === "hostr.profile.edit"
+                ? ("profile-result" as const)
+                : ("profile-card" as const),
+          cards: profileCards,
         }
       : undefined;
   const threadCards = threadCardsFromResult(actionId, result);
@@ -2362,10 +2682,12 @@ const toolResponse = async (
     ? listingCardResponseText(displayMarkdown, listingCards)
     : reservationCardDisplay
       ? reservationCardResponseText(displayMarkdown, reservationCards)
-      : threadViewDisplay
-        ? threadViewResponseText(displayMarkdown, threadViews)
-        : escrowTradeDisplay
-          ? escrowTradeResponseText(displayMarkdown, escrowTradeCards)
+      : profileCardDisplay
+        ? profileCardResponseText(displayMarkdown)
+        : threadViewDisplay
+          ? threadViewResponseText(displayMarkdown, threadViews)
+          : escrowTradeDisplay
+            ? escrowTradeResponseText(displayMarkdown, escrowTradeCards)
             : escrowServiceDisplay
               ? escrowServiceResponseText(displayMarkdown, escrowServiceCards)
               : escrowBadgeDisplay
@@ -2383,17 +2705,42 @@ const toolResponse = async (
                         .filter(Boolean)
                         .join("\n\n");
   const noticeImageBlocks = criticalNoticeImageBlocks(config, notices);
+  const daemonAssistantInstructions = arrayValue(
+    resultData.assistantInstructions,
+  )
+    .map(stringValue)
+    .filter((instruction): instruction is string => Boolean(instruction));
+  const nextInput = record(resultData.nextInput);
+  const listingCreatePreviewDTag =
+    actionId === "hostr.listings.create" && safeResult.dryRun === true
+      ? (stringValue(resultData.dTag) ??
+        stringValue(nextInput?.dTag) ??
+        stringValue(record(resultData.listing)?.dTag) ??
+        listingCards[0]?.dTag)
+      : undefined;
   const listingCardAssistantInstructions = listingCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
         "Preserve every listing image Markdown tag exactly; do not summarize listing results as text-only prose.",
+        ...daemonAssistantInstructions,
+        ...(listingCreatePreviewDTag
+          ? [
+              `When the user explicitly approves this create-listing preview, call hostr_listings_create again with dryRun=false and dTag="${listingCreatePreviewDTag}". Reuse that exact dTag on any retry so the publish updates the same replaceable listing instead of creating a duplicate.`,
+            ]
+          : []),
       ]
     : undefined;
   const reservationCardAssistantInstructions = reservationCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
-        "Preserve the reservation card exactly; do not replace it with raw JSON or internal swap state.",
-        "Do not show a Status line for committed reservations. Only show status when the reservation is cancelled.",
+        "Preserve the trip or hosting card exactly; do not replace it with raw JSON or internal swap state.",
+        "For cancelled trips, preserve the bold **Cancelled** line.",
+      ]
+    : undefined;
+  const profileCardAssistantInstructions = profileCardDisplay
+    ? [
+        "When answering the user, render structuredContent.displayMarkdown as Markdown.",
+        "Preserve the profile card exactly; do not replace it with raw JSON.",
       ]
     : undefined;
   const paymentAssistantInstructions = notices.some(
@@ -2404,7 +2751,7 @@ const toolResponse = async (
         "The invoice copy source of truth is structuredContent.paymentDisplays[0].copy.text or the exact invoice text URL. Do not manually retype, display inline, truncate, normalize, wrap, add punctuation to, or otherwise modify the invoice string.",
         "Do not show internal tradeId or swapId in the payment prompt.",
         "Only after the QR and invoice are visible, call the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds to monitor payment, proof, and reservation completion.",
-        "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the reservation card.",
+        "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the trip card.",
       ]
     : undefined;
   const sessionConnectPending =
@@ -2420,20 +2767,7 @@ const toolResponse = async (
       ]
     : undefined;
   const sessionConnectDisplay = sessionConnectPending
-    ? {
-        type: "nostr-connect" as const,
-        title:
-          stringValue(safeResultData.displayTitle) ??
-          "Log in to Hostr",
-        message:
-          stringValue(safeResultData.displayMessage) ??
-          "Scan this with your Nostr app to log in to your Hostr account.",
-        nextTool: "hostr_session_connect",
-        nextInput: record(safeResultData.nextInput) ?? {
-          wait: true,
-          regenerate: false,
-        },
-      }
+    ? sessionConnectDisplayData(config, result, safeResultData)
     : undefined;
   const sessionConnectImageBlock = sessionConnectPending
     ? sessionConnectQrImageBlock(result, sessionConnectDisplay)
@@ -2504,6 +2838,16 @@ const toolResponse = async (
             assistantInstructions: reservationCardAssistantInstructions,
             display: reservationCardDisplay,
             reservationCards,
+            ...(reservationCardDisplay.type.startsWith("hosting")
+              ? { hostingCards: reservationCards }
+              : { tripCards: reservationCards }),
+          }
+        : {}),
+      ...(profileCardDisplay
+        ? {
+            assistantInstructions: profileCardAssistantInstructions,
+            display: profileCardDisplay,
+            profileCards,
           }
         : {}),
       ...(threadCardDisplay
@@ -2551,6 +2895,7 @@ const toolResponse = async (
     },
     ...(listingCardDisplay ||
     reservationCardDisplay ||
+    profileCardDisplay ||
     threadCardDisplay ||
     threadViewDisplay ||
     escrowTradeDisplay ||
@@ -2577,9 +2922,24 @@ const toolResponse = async (
                   "hostr.contentType": reservationCardDisplay.type,
                   "hostr.display": reservationCardDisplay,
                   "hostr.reservationCards": reservationCards,
-                  "hostr.preferredRenderer": "reservation-card",
+                  ...(reservationCardDisplay.type.startsWith("hosting")
+                    ? { "hostr.hostingCards": reservationCards }
+                    : { "hostr.tripCards": reservationCards }),
+                  "hostr.preferredRenderer":
+                    reservationCardDisplay.type.startsWith("hosting")
+                      ? "hosting-card"
+                      : "trip-card",
                   "hostr.assistantInstructions":
                     reservationCardAssistantInstructions,
+                }
+              : {}),
+            ...(profileCardDisplay
+              ? {
+                  "hostr.contentType": profileCardDisplay.type,
+                  "hostr.display": profileCardDisplay,
+                  "hostr.profileCards": profileCards,
+                  "hostr.preferredRenderer": "profile-card",
+                  "hostr.assistantInstructions": profileCardAssistantInstructions,
                 }
               : {}),
             ...(paymentDisplay
@@ -2653,6 +3013,7 @@ const toolResponse = async (
               : {}),
             ...(safeNotices.length > 0 ? { "hostr.notices": safeNotices } : {}),
             ...(paymentAssistantInstructions ||
+            profileCardAssistantInstructions ||
             sessionConnectAssistantInstructions ||
             escrowServiceAssistantInstructions ||
             escrowTradeAssistantInstructions ||
@@ -2661,6 +3022,7 @@ const toolResponse = async (
               ? {
                   "hostr.assistantInstructions":
                     paymentAssistantInstructions ??
+                    profileCardAssistantInstructions ??
                     sessionConnectAssistantInstructions ??
                     escrowServiceAssistantInstructions ??
                     escrowTradeAssistantInstructions ??
@@ -2681,6 +3043,7 @@ const toolResponse = async (
         },
         ...(listingCardDisplay ||
         reservationCardDisplay ||
+        profileCardDisplay ||
         threadViewDisplay ||
         escrowTradeDisplay ||
         escrowServiceDisplay ||
@@ -2691,6 +3054,7 @@ const toolResponse = async (
                 "hostr.display":
                   listingCardDisplay ??
                   reservationCardDisplay ??
+                  profileCardDisplay ??
                   threadViewDisplay ??
                   escrowTradeDisplay ??
                   escrowServiceDisplay ??
@@ -3069,11 +3433,11 @@ const mcpSessionTraceIds = new Map<string, string>();
 const imageUploadToolDocumentation = [
   "## `hostr_images_upload`",
   "",
-  "Upload an original user-provided image file to Hostr Blossom and return a public image URL for listing creation, profile pictures, and other Hostr image fields.",
+  "Upload an original user-provided image file to Hostr Blossom and return a generic durable public image URL.",
   "",
-  "Use this before `hostr_listings_create` or `hostr_profile_edit` whenever the user attached an image file. The required `file` argument is marked with `x-hostr-argument-kind: file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Reachable local filesystem paths and file:// URLs are accepted here and will be read, then re-uploaded to Blossom. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text directly in listing/profile image URL fields. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
+  "Use this before any Hostr tool that needs an image URL. The required `file` argument is marked with `x-hostr-argument-kind: file`; put the client-provided uploaded file/blob/reference here so the MCP client bridge can rewrite or stream the original bytes. Reachable local filesystem paths and file:// URLs are accepted here and will be read, then re-uploaded to Blossom. Never put `/mnt/data`, `/mnt/shared`, `file://`, ChatGPT file mount paths, local filesystem paths, or base64 text directly in listing/profile image URL fields. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks.",
   "",
-  "When an authenticated Hostr session is available, the tool first tries that session's Blossom upload path. If it cannot use session auth, it falls back to the server's direct Blossom upload endpoint. After it succeeds, pass `structuredContent.usage.listingImage.url` as `images[].url` to `hostr_listings_create`, or `structuredContent.usage.profileImage.url` as `image`/`picture` to `hostr_profile_edit`.",
+  "When an authenticated Hostr session is available, the tool first tries that session's Blossom upload path. If it cannot use session auth, it falls back to the server's direct Blossom upload endpoint. After it succeeds, use the generic `structuredContent.usage.image.url`: pass it as `images[].url` for listing creation or as `image`/`picture` for profile edits.",
   "",
   "JSON schema:",
   "",
@@ -3106,6 +3470,1068 @@ const imageUploadToolDocumentation = [
   ),
   "```",
 ].join("\n");
+
+const originForUrl = (value: string | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+};
+
+const listingCardWidgetResourceDomains = (config: AppConfig): string[] =>
+  Array.from(
+    new Set(
+      [
+        originForUrl(config.blossomUploadUrl),
+        originForUrl(config.publicAppBaseUrl),
+        originForUrl(config.publicAssetBaseUrl),
+      ].filter((origin): origin is string => Boolean(origin)),
+    ),
+  );
+
+const qrWidgetResourceDomains = (config: AppConfig): string[] =>
+  Array.from(
+    new Set(
+      [
+        originForUrl(config.publicAssetBaseUrl),
+        originForUrl(config.qrImageUrlTemplate),
+      ].filter((origin): origin is string => Boolean(origin)),
+    ),
+  );
+
+const profileCardWidgetResourceDomains = (config: AppConfig): string[] =>
+  Array.from(
+    new Set(
+      [
+        originForUrl(config.blossomUploadUrl),
+        originForUrl(config.publicAssetBaseUrl),
+        originForUrl(config.publicAppBaseUrl),
+      ].filter((origin): origin is string => Boolean(origin)),
+    ),
+  );
+
+const listingCardWidgetHtml = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: CanvasText;
+        background: Canvas;
+      }
+
+      #root {
+        display: grid;
+        gap: 10px;
+        padding: 2px;
+      }
+
+      .card {
+        display: grid;
+        grid-template-columns: minmax(132px, 34%) minmax(0, 1fr);
+        gap: 12px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+      }
+
+      .media {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 100%;
+        gap: 6px;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        aspect-ratio: 4 / 3;
+        border-radius: 7px;
+        background: color-mix(in srgb, CanvasText 8%, transparent);
+        scroll-snap-type: x mandatory;
+      }
+
+      .media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        scroll-snap-align: start;
+      }
+
+      .body {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      h2 {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 16px;
+        line-height: 1.25;
+        font-weight: 700;
+      }
+
+      .status {
+        flex: none;
+        padding: 2px 6px;
+        border-radius: 999px;
+        color: color-mix(in srgb, CanvasText 78%, transparent);
+        background: color-mix(in srgb, CanvasText 8%, transparent);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .description {
+        margin: 0;
+        color: color-mix(in srgb, CanvasText 76%, transparent);
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .pill {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: color-mix(in srgb, CanvasText 7%, transparent);
+        font-size: 12px;
+        line-height: 1.3;
+      }
+
+      a {
+        color: LinkText;
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .empty {
+        padding: 10px;
+        color: color-mix(in srgb, CanvasText 70%, transparent);
+        font-size: 13px;
+      }
+
+      @media (max-width: 520px) {
+        .card {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+
+        function text(value, fallback) {
+          return typeof value === "string" && value.trim() ? value : fallback;
+        }
+
+        function cardsFrom(output) {
+          if (!output || typeof output !== "object") return [];
+          if (Array.isArray(output.listingCards)) return output.listingCards;
+          if (
+            output.display &&
+            typeof output.display === "object" &&
+            Array.isArray(output.display.cards)
+          ) {
+            return output.display.cards;
+          }
+          return [];
+        }
+
+        function safeUrl(value) {
+          if (typeof value !== "string") return null;
+          try {
+            var url = new URL(value);
+            return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function appendText(parent, tag, className, value) {
+          if (!value) return null;
+          var el = document.createElement(tag);
+          el.className = className;
+          el.textContent = value;
+          parent.appendChild(el);
+          return el;
+        }
+
+        function renderImages(card, parent) {
+          var images = Array.isArray(card.images) ? card.images : [];
+          var media = document.createElement("div");
+          media.className = "media";
+
+          images.slice(0, 5).forEach(function (image, index) {
+            var url = safeUrl(image && image.url);
+            if (!url) return;
+            var img = document.createElement("img");
+            img.src = url;
+            img.alt = text(image.alt, text(card.title, "Listing image"));
+            img.loading = index === 0 ? "eager" : "lazy";
+            media.appendChild(img);
+          });
+
+          if (media.childNodes.length === 0) {
+            media.setAttribute("aria-label", "No listing image");
+          }
+
+          parent.appendChild(media);
+        }
+
+        function renderCard(card) {
+          var article = document.createElement("article");
+          article.className = "card";
+          renderImages(card, article);
+
+          var body = document.createElement("div");
+          body.className = "body";
+
+          var top = document.createElement("div");
+          top.className = "topline";
+          appendText(top, "h2", "", text(card.title, "Untitled listing"));
+          var status = text(card.statusLabel, "");
+          if (status && status !== "active") appendText(top, "span", "status", status);
+          body.appendChild(top);
+
+          appendText(body, "p", "description", text(card.description, ""));
+
+          var meta = document.createElement("div");
+          meta.className = "meta";
+          appendText(meta, "span", "pill", text(card.price, ""));
+          appendText(meta, "span", "pill", text(card.typeLabel, ""));
+          if (Array.isArray(card.flags)) {
+            card.flags.slice(0, 4).forEach(function (flag) {
+              appendText(meta, "span", "pill", text(flag, ""));
+            });
+          }
+          if (meta.childNodes.length > 0) body.appendChild(meta);
+
+          var url = safeUrl(card.url);
+          if (url) {
+            var link = document.createElement("a");
+            link.href = url;
+            link.target = "_blank";
+            link.rel = "noreferrer";
+            link.textContent = "Open listing";
+            body.appendChild(link);
+          }
+
+          article.appendChild(body);
+          return article;
+        }
+
+        function render(output) {
+          var cards = cardsFrom(output).filter(Boolean);
+          root.replaceChildren();
+          if (cards.length === 0) {
+            appendText(root, "div", "empty", "No listings found.");
+            return;
+          }
+          cards.forEach(function (card) {
+            root.appendChild(renderCard(card));
+          });
+        }
+
+        render(window.openai && window.openai.toolOutput);
+
+        window.addEventListener(
+          "openai:set_globals",
+          function (event) {
+            var globals = event.detail && event.detail.globals;
+            render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+          },
+          { passive: true },
+        );
+      })();
+    </script>
+  </body>
+</html>
+`.trim();
+
+const paymentRequiredWidgetHtml = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: CanvasText;
+        background: Canvas;
+      }
+
+      .wrap {
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+
+      img {
+        width: min(240px, 100%);
+        aspect-ratio: 1;
+        object-fit: contain;
+        border-radius: 6px;
+        background: white;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      a,
+      button {
+        min-height: 32px;
+        padding: 6px 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+        border-radius: 7px;
+        color: LinkText;
+        background: Canvas;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .hint {
+        margin: 0;
+        color: color-mix(in srgb, CanvasText 72%, transparent);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .card {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .line {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .cancelled {
+        font-weight: 800;
+      }
+
+      .pill {
+        flex: none;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, CanvasText 8%, transparent);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .empty {
+        padding: 10px;
+        color: color-mix(in srgb, CanvasText 70%, transparent);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+
+        function paymentFrom(output) {
+          if (!output || typeof output !== "object") return null;
+          if (Array.isArray(output.paymentDisplays) && output.paymentDisplays[0]) {
+            return output.paymentDisplays[0];
+          }
+          if (
+            output.display &&
+            output.display.type === "payment-external-required" &&
+            Array.isArray(output.display.cards)
+          ) {
+            return output.display.cards[0] || null;
+          }
+          return null;
+        }
+
+        function cardsFrom(output) {
+          if (!output || typeof output !== "object") return [];
+          if (Array.isArray(output.tripCards)) return output.tripCards;
+          if (Array.isArray(output.reservationCards)) return output.reservationCards;
+          if (output.display && Array.isArray(output.display.cards)) {
+            return output.display.cards.filter(function (card) {
+              return card && (card.type === "trip-card" || card.type === "reservation-card");
+            });
+          }
+          return [];
+        }
+
+        function appendText(parent, tag, className, value) {
+          if (!value) return null;
+          var el = document.createElement(tag);
+          el.className = className;
+          el.textContent = value;
+          parent.appendChild(el);
+          return el;
+        }
+
+        function renderTripCard(card) {
+          var article = document.createElement("article");
+          article.className = "card";
+          var top = document.createElement("div");
+          top.className = "topline";
+          appendText(top, "h2", "", "Trip");
+          appendText(top, "span", "pill", card.mode === "cancelled" ? "cancelled" : "confirmed");
+          article.appendChild(top);
+
+          if (card.mode === "cancelled") {
+            appendText(article, "p", "line cancelled", "Cancelled");
+          }
+
+          appendText(article, "p", "line", card.title || "Hostr stay");
+          if (card.start && card.end) {
+            appendText(article, "p", "line hint", card.start + " to " + card.end);
+          }
+          return article;
+        }
+
+        function safeUrl(value) {
+          if (typeof value !== "string") return null;
+          try {
+            var url = new URL(value);
+            return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "lightning:" ? url.href : null;
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function render(output) {
+          var payment = paymentFrom(output);
+          root.replaceChildren();
+          if (!payment) {
+            var cards = cardsFrom(output).filter(Boolean);
+            if (cards.length > 0) {
+              cards.forEach(function (card) {
+                root.appendChild(renderTripCard(card));
+              });
+              return;
+            }
+            var empty = document.createElement("div");
+            empty.className = "empty";
+            empty.textContent = "No external payment is required.";
+            root.appendChild(empty);
+            return;
+          }
+
+          var wrap = document.createElement("section");
+          wrap.className = "wrap";
+          var title = document.createElement("h2");
+          title.textContent = payment.title || "Pay this invoice to continue";
+          wrap.appendChild(title);
+
+          var qrUrl = safeUrl(payment.qrImageUrl);
+          if (qrUrl) {
+            var image = document.createElement("img");
+            image.src = qrUrl;
+            image.alt = "Lightning invoice QR";
+            wrap.appendChild(image);
+          }
+
+          var actions = document.createElement("div");
+          actions.className = "actions";
+          var lightningUrl = safeUrl(payment.lightningUrl);
+          if (lightningUrl) {
+            var link = document.createElement("a");
+            link.href = lightningUrl;
+            link.textContent = "Open wallet";
+            actions.appendChild(link);
+          }
+          if (payment.copy && typeof payment.copy.text === "string") {
+            var copy = document.createElement("button");
+            copy.type = "button";
+            copy.textContent = payment.copy.label || "Copy invoice";
+            copy.onclick = function () {
+              navigator.clipboard && navigator.clipboard.writeText(payment.copy.text);
+            };
+            actions.appendChild(copy);
+          }
+          var invoiceTextUrl = safeUrl(payment.invoiceTextUrl);
+          if (invoiceTextUrl) {
+            var invoice = document.createElement("a");
+            invoice.href = invoiceTextUrl;
+            invoice.target = "_blank";
+            invoice.rel = "noreferrer";
+            invoice.textContent = "Invoice text";
+            actions.appendChild(invoice);
+          }
+          if (actions.childNodes.length > 0) wrap.appendChild(actions);
+
+          var hint = document.createElement("p");
+          hint.className = "hint";
+          hint.textContent = "Use the QR, wallet link, or exact invoice text. The invoice is intentionally not rendered as editable prose.";
+          wrap.appendChild(hint);
+          root.appendChild(wrap);
+        }
+
+        render(window.openai && window.openai.toolOutput);
+        window.addEventListener("openai:set_globals", function (event) {
+          var globals = event.detail && event.detail.globals;
+          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+        }, { passive: true });
+      })();
+    </script>
+  </body>
+</html>
+`.trim();
+
+const sessionConnectWidgetHtml = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: CanvasText;
+        background: Canvas;
+      }
+
+      .wrap {
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+
+      p {
+        margin: 0;
+        color: color-mix(in srgb, CanvasText 76%, transparent);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      img {
+        width: min(240px, 100%);
+        aspect-ratio: 1;
+        object-fit: contain;
+        border-radius: 6px;
+        background: white;
+      }
+
+      a {
+        color: LinkText;
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      .empty {
+        padding: 10px;
+        color: color-mix(in srgb, CanvasText 70%, transparent);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+
+        function displayFrom(output) {
+          if (!output || typeof output !== "object") return null;
+          return output.display && output.display.type === "nostr-connect" ? output.display : null;
+        }
+
+        function safeHttpUrl(value) {
+          if (typeof value !== "string") return null;
+          try {
+            var url = new URL(value);
+            return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function render(output) {
+          var display = displayFrom(output);
+          root.replaceChildren();
+          if (!display) {
+            var empty = document.createElement("div");
+            empty.className = "empty";
+            empty.textContent = "No session QR is pending.";
+            root.appendChild(empty);
+            return;
+          }
+
+          var wrap = document.createElement("section");
+          wrap.className = "wrap";
+          var title = document.createElement("h2");
+          title.textContent = display.title || "Log in to Hostr";
+          wrap.appendChild(title);
+          var message = document.createElement("p");
+          message.textContent = display.message || "Scan this with your Nostr app to log in to your Hostr account.";
+          wrap.appendChild(message);
+
+          var qrUrl = safeHttpUrl(display.qrImageUrl);
+          if (qrUrl) {
+            var image = document.createElement("img");
+            image.src = qrUrl;
+            image.alt = "Nostr Connect QR";
+            wrap.appendChild(image);
+          }
+
+          var textUrl = safeHttpUrl(display.uriTextUrl);
+          if (textUrl) {
+            var link = document.createElement("a");
+            link.href = textUrl;
+            link.target = "_blank";
+            link.rel = "noreferrer";
+            link.textContent = "Open exact nostrconnect URI";
+            wrap.appendChild(link);
+          }
+
+          root.appendChild(wrap);
+        }
+
+        render(window.openai && window.openai.toolOutput);
+        window.addEventListener("openai:set_globals", function (event) {
+          var globals = event.detail && event.detail.globals;
+          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+        }, { passive: true });
+      })();
+    </script>
+  </body>
+</html>
+`.trim();
+
+const profileCardWidgetHtml = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: CanvasText;
+        background: Canvas;
+      }
+
+      .card {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+      }
+
+      .avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: color-mix(in srgb, CanvasText 10%, transparent);
+      }
+
+      .body {
+        display: grid;
+        gap: 5px;
+        min-width: 0;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      h2 {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+
+      .status {
+        flex: none;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, CanvasText 8%, transparent);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      p {
+        margin: 0;
+        color: color-mix(in srgb, CanvasText 76%, transparent);
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .pill {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: color-mix(in srgb, CanvasText 7%, transparent);
+        font-size: 12px;
+        line-height: 1.3;
+      }
+
+      .empty {
+        padding: 10px;
+        color: color-mix(in srgb, CanvasText 70%, transparent);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+
+        function cardFrom(output) {
+          if (!output || typeof output !== "object") return null;
+          if (Array.isArray(output.profileCards) && output.profileCards[0]) return output.profileCards[0];
+          if (output.display && Array.isArray(output.display.cards)) return output.display.cards[0] || null;
+          return null;
+        }
+
+        function safeHttpUrl(value) {
+          if (typeof value !== "string") return null;
+          try {
+            var url = new URL(value);
+            return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function appendText(parent, tag, className, value) {
+          if (!value) return null;
+          var el = document.createElement(tag);
+          el.className = className;
+          el.textContent = value;
+          parent.appendChild(el);
+          return el;
+        }
+
+        function render(output) {
+          var card = cardFrom(output);
+          root.replaceChildren();
+          if (!card || card.exists === false) {
+            appendText(root, "div", "empty", "No Hostr profile metadata was found.");
+            return;
+          }
+
+          var article = document.createElement("article");
+          article.className = "card";
+          var picture = safeHttpUrl(card.picture);
+          var avatar = document.createElement(picture ? "img" : "div");
+          avatar.className = "avatar";
+          if (picture) {
+            avatar.src = picture;
+            avatar.alt = "Profile picture";
+          }
+          article.appendChild(avatar);
+
+          var body = document.createElement("div");
+          body.className = "body";
+          var top = document.createElement("div");
+          top.className = "topline";
+          appendText(top, "h2", "", card.name || "Hostr profile");
+          appendText(top, "span", "status", card.statusLabel || "current");
+          body.appendChild(top);
+          appendText(body, "p", "", card.about || "");
+
+          var meta = document.createElement("div");
+          meta.className = "meta";
+          appendText(meta, "span", "pill", card.lud16 || "");
+          appendText(meta, "span", "pill", card.nip05 || "");
+          appendText(meta, "span", "pill", card.website || "");
+          if (meta.childNodes.length > 0) body.appendChild(meta);
+
+          article.appendChild(body);
+          root.appendChild(article);
+        }
+
+        render(window.openai && window.openai.toolOutput);
+        window.addEventListener("openai:set_globals", function (event) {
+          var globals = event.detail && event.detail.globals;
+          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+        }, { passive: true });
+      })();
+    </script>
+  </body>
+</html>
+`.trim();
+
+const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: CanvasText;
+        background: Canvas;
+      }
+
+      #root {
+        display: grid;
+        gap: 10px;
+        padding: 2px;
+      }
+
+      .card {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+        border-radius: 8px;
+        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      h2 {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+
+      .cancelled {
+        font-weight: 800;
+      }
+
+      .line {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .muted {
+        color: color-mix(in srgb, CanvasText 72%, transparent);
+      }
+
+      .pill {
+        flex: none;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, CanvasText 8%, transparent);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .empty {
+        padding: 10px;
+        color: color-mix(in srgb, CanvasText 70%, transparent);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+        var variant = "${variant}";
+
+        function cardsFrom(output) {
+          if (!output || typeof output !== "object") return [];
+          if (variant === "hosting" && Array.isArray(output.hostingCards)) return output.hostingCards;
+          if (variant === "trip" && Array.isArray(output.tripCards)) return output.tripCards;
+          if (Array.isArray(output.reservationCards)) return output.reservationCards;
+          if (output.display && Array.isArray(output.display.cards)) return output.display.cards;
+          return [];
+        }
+
+        function appendText(parent, tag, className, value) {
+          if (!value) return null;
+          var el = document.createElement(tag);
+          el.className = className;
+          el.textContent = value;
+          parent.appendChild(el);
+          return el;
+        }
+
+        function renderCard(card) {
+          var article = document.createElement("article");
+          article.className = "card";
+          var top = document.createElement("div");
+          top.className = "topline";
+          appendText(top, "h2", "", variant === "hosting" ? "Hosting" : "Trip");
+          appendText(top, "span", "pill", card.mode === "cancelled" ? "cancelled" : "confirmed");
+          article.appendChild(top);
+
+          if (card.mode === "cancelled") {
+            appendText(article, "p", "line cancelled", "Cancelled");
+          }
+
+          if (variant === "hosting" || card.type === "hosting-card") {
+            appendText(article, "p", "line", "Hosting " + (card.guestName || "guest") + " at: " + (card.title || "Hostr stay"));
+          } else {
+            appendText(article, "p", "line", card.title || "Hostr stay");
+          }
+
+          if (card.start && card.end) {
+            appendText(article, "p", "line muted", card.start + " to " + card.end);
+          }
+
+          return article;
+        }
+
+        function render(output) {
+          var cards = cardsFrom(output).filter(Boolean);
+          root.replaceChildren();
+          if (cards.length === 0) {
+            appendText(root, "div", "empty", variant === "hosting" ? "No hosting reservations found." : "No trips found.");
+            return;
+          }
+          cards.forEach(function (card) {
+            root.appendChild(renderCard(card));
+          });
+        }
+
+        render(window.openai && window.openai.toolOutput);
+        window.addEventListener("openai:set_globals", function (event) {
+          var globals = event.detail && event.detail.globals;
+          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+        }, { passive: true });
+      })();
+    </script>
+  </body>
+</html>
+`.trim();
 
 const createServer = (
   config: AppConfig,
@@ -3172,12 +4598,188 @@ const createServer = (
     }),
   );
 
+  server.registerResource(
+    "hostr-listing-card-widget",
+    listingCardWidgetUri,
+    {
+      title: "Hostr Listing Card Widget",
+      description:
+        "Example lightweight HTML renderer for structured Hostr listing cards.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: listingCardWidgetUri,
+          mimeType: "text/html;profile=mcp-app",
+          text: listingCardWidgetHtml,
+          _meta: {
+            ui: {
+              prefersBorder: true,
+              csp: {
+                resourceDomains: listingCardWidgetResourceDomains(config),
+              },
+            },
+            "openai/widgetDescription":
+              "Renders Hostr listing-card structuredContent as lightweight cards with images, price, type, status, and open links.",
+            "openai/widgetPrefersBorder": true,
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    "hostr-payment-required-widget",
+    paymentRequiredWidgetUri,
+    {
+      title: "Hostr Payment Required Widget",
+      description:
+        "Example lightweight HTML renderer for external Lightning payment QR prompts.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: paymentRequiredWidgetUri,
+          mimeType: "text/html;profile=mcp-app",
+          text: paymentRequiredWidgetHtml,
+          _meta: {
+            ui: {
+              prefersBorder: true,
+              csp: {
+                resourceDomains: qrWidgetResourceDomains(config),
+              },
+            },
+            "openai/widgetDescription":
+              "Renders Hostr external-payment structuredContent as a Lightning invoice QR, wallet link, and copy action.",
+            "openai/widgetPrefersBorder": true,
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    "hostr-session-connect-widget",
+    sessionConnectWidgetUri,
+    {
+      title: "Hostr Session Connect Widget",
+      description:
+        "Example lightweight HTML renderer for Nostr Connect login QR prompts.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: sessionConnectWidgetUri,
+          mimeType: "text/html;profile=mcp-app",
+          text: sessionConnectWidgetHtml,
+          _meta: {
+            ui: {
+              prefersBorder: true,
+              csp: {
+                resourceDomains: qrWidgetResourceDomains(config),
+              },
+            },
+            "openai/widgetDescription":
+              "Renders Hostr session initialization structuredContent as a Nostr Connect QR and exact URI link.",
+            "openai/widgetPrefersBorder": true,
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    "hostr-profile-card-widget",
+    profileCardWidgetUri,
+    {
+      title: "Hostr Profile Card Widget",
+      description:
+        "Example lightweight HTML renderer for Hostr profile structured output.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: profileCardWidgetUri,
+          mimeType: "text/html;profile=mcp-app",
+          text: profileCardWidgetHtml,
+          _meta: {
+            ui: {
+              prefersBorder: true,
+              csp: {
+                resourceDomains: profileCardWidgetResourceDomains(config),
+              },
+            },
+            "openai/widgetDescription":
+              "Renders Hostr profile structuredContent as a compact profile card with avatar and identity fields.",
+            "openai/widgetPrefersBorder": true,
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    "hostr-trip-widget",
+    tripWidgetUri,
+    {
+      title: "Hostr Trip Widget",
+      description:
+        "Example lightweight HTML renderer for Hostr guest trip structured output.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: tripWidgetUri,
+          mimeType: "text/html;profile=mcp-app",
+          text: tripHostingWidgetHtml("trip"),
+          _meta: {
+            ui: { prefersBorder: true },
+            "openai/widgetDescription":
+              "Renders Hostr trip structuredContent, including a bold Cancelled state when present.",
+            "openai/widgetPrefersBorder": true,
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerResource(
+    "hostr-hosting-widget",
+    hostingWidgetUri,
+    {
+      title: "Hostr Hosting Widget",
+      description:
+        "Example lightweight HTML renderer for Hostr hosting structured output.",
+      mimeType: "text/html;profile=mcp-app",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: hostingWidgetUri,
+          mimeType: "text/html;profile=mcp-app",
+          text: tripHostingWidgetHtml("hosting"),
+          _meta: {
+            ui: { prefersBorder: true },
+            "openai/widgetDescription":
+              "Renders Hostr hosting structuredContent with the guest and stay location text.",
+            "openai/widgetPrefersBorder": true,
+          },
+        },
+      ],
+    }),
+  );
+
   server.registerTool(
     "hostr_images_upload",
     {
       title: "Upload Hostr Listing Image",
       description:
-        "Upload an original user-provided image file to Hostr Blossom and return a public image URL for Hostr listing creation, profile pictures, and other Hostr image fields. Use this before hostr_listings_create or hostr_profile_edit whenever the user attached an image file. The required `file` argument is schema type `file` and must be sent as a real uploaded file/blob/reference through the MCP client bridge so the bridge can rewrite or stream the original bytes. Reachable local filesystem paths and file:// URLs are accepted here and will be read, then re-uploaded to Blossom. Do not pass /mnt/data, /mnt/shared, file://, local filesystem paths, ChatGPT file mount paths, or base64 text directly to listing/profile image URL fields. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks. When an authenticated Hostr session is available, this tool first tries that session's Blossom upload path; otherwise it falls back to the server's direct Blossom upload endpoint. After it succeeds, pass structuredContent.usage.listingImage.url as images[].url to hostr_listings_create, or structuredContent.usage.profileImage.url as image/picture to hostr_profile_edit.",
+        "Upload an original user-provided image file to Hostr Blossom and return a generic durable public image URL. Use this before any Hostr tool that needs an image URL, such as hostr_listings_create or hostr_profile_edit. The required `file` argument is schema type `file` and must be sent as a real uploaded file/blob/reference through the MCP client bridge so the bridge can rewrite or stream the original bytes. Reachable local filesystem paths and file:// URLs are accepted here and will be read, then re-uploaded to Blossom. Do not pass /mnt/data, /mnt/shared, file://, local filesystem paths, ChatGPT file mount paths, or base64 text directly to listing/profile image URL fields. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks. When an authenticated Hostr session is available, this tool first tries that session's Blossom upload path; otherwise it falls back to the server's direct Blossom upload endpoint. After it succeeds, use structuredContent.usage.image.url as the generic image URL: pass it as images[].url to hostr_listings_create, or as image/picture to hostr_profile_edit.",
       inputSchema: imageUploadInputSchema,
       outputSchema: imageUploadOutputSchema,
       annotations: {
@@ -3293,7 +4895,11 @@ const createServer = (
             : ""
         }${
           reservationActionIds.has(action.id)
-            ? "\n\nPresentation contract: this reservation tool may return visual reservation-card output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown; do not rewrite the reservation as raw JSON. A committed reservation card must not show Status: commit. Only show status when the reservation is cancelled."
+            ? "\n\nPresentation contract: this reservation tool may return visual trip-card or hosting-card output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown; do not rewrite the reservation as raw JSON. Trips must preserve the bold **Cancelled** line when the reservation group is cancelled."
+            : ""
+        }${
+          profileActionIds.has(action.id)
+            ? "\n\nPresentation contract: this profile tool returns visual profile-card output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown; do not replace the profile with raw JSON."
             : ""
         }${
           threadActionIds.has(action.id)
@@ -3317,22 +4923,75 @@ const createServer = (
           ? {
               outputSchema: listingCardOutputSchema,
               _meta: {
+                ui: { resourceUri: listingCardWidgetUri },
+                "openai/outputTemplate": listingCardWidgetUri,
                 "hostr.preferredRenderer": "listing-card",
                 "hostr.contentType": "listing-card",
               },
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
-        reservationActionIds.has(action.id)
+        action.id === "hostr.session.connect"
           ? {
-              outputSchema: reservationCardOutputSchema,
+              outputSchema: sessionConnectOutputSchema,
               _meta: {
-                "hostr.preferredRenderer": "reservation-card",
-                "hostr.contentType": "reservation-card",
+                ui: { resourceUri: sessionConnectWidgetUri },
+                "openai/outputTemplate": sessionConnectWidgetUri,
+                "hostr.preferredRenderer": "nostr-connect",
+                "hostr.contentType": "nostr-connect",
               },
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
+        action.id !== "hostr.session.connect" &&
+        profileActionIds.has(action.id)
+          ? {
+              outputSchema: profileCardOutputSchema,
+              _meta: {
+                ui: { resourceUri: profileCardWidgetUri },
+                "openai/outputTemplate": profileCardWidgetUri,
+                "hostr.preferredRenderer": "profile-card",
+                "hostr.contentType": "profile-card",
+              },
+            }
+          : {}),
+        ...(!listingActionIds.has(action.id) &&
+        action.id !== "hostr.session.connect" &&
+        !profileActionIds.has(action.id) &&
+        reservationActionIds.has(action.id)
+          ? {
+              outputSchema: reservationCardOutputSchema,
+              _meta: {
+                ...(paymentWidgetActionIds.has(action.id)
+                  ? {
+                      ui: { resourceUri: paymentRequiredWidgetUri },
+                      "openai/outputTemplate": paymentRequiredWidgetUri,
+                    }
+                  : action.id === "hostr.trips.list"
+                    ? {
+                        ui: { resourceUri: tripWidgetUri },
+                        "openai/outputTemplate": tripWidgetUri,
+                      }
+                    : action.id === "hostr.bookings.list"
+                      ? {
+                          ui: { resourceUri: hostingWidgetUri },
+                          "openai/outputTemplate": hostingWidgetUri,
+                        }
+                      : {}),
+                "hostr.preferredRenderer":
+                  action.id === "hostr.bookings.list"
+                    ? "hosting-card"
+                    : "trip-card",
+                "hostr.contentType":
+                  action.id === "hostr.bookings.list"
+                    ? "hosting-card"
+                    : "trip-card",
+              },
+            }
+          : {}),
+        ...(!listingActionIds.has(action.id) &&
+        action.id !== "hostr.session.connect" &&
+        !profileActionIds.has(action.id) &&
         !reservationActionIds.has(action.id) &&
         threadActionIds.has(action.id)
           ? {
@@ -3348,6 +5007,8 @@ const createServer = (
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
+        action.id !== "hostr.session.connect" &&
+        !profileActionIds.has(action.id) &&
         !reservationActionIds.has(action.id) &&
         !threadActionIds.has(action.id) &&
         escrowTradeActionIds.has(action.id)
@@ -3360,6 +5021,8 @@ const createServer = (
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
+        action.id !== "hostr.session.connect" &&
+        !profileActionIds.has(action.id) &&
         !reservationActionIds.has(action.id) &&
         !threadActionIds.has(action.id) &&
         !escrowTradeActionIds.has(action.id) &&
@@ -3373,6 +5036,8 @@ const createServer = (
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
+        action.id !== "hostr.session.connect" &&
+        !profileActionIds.has(action.id) &&
         !reservationActionIds.has(action.id) &&
         !threadActionIds.has(action.id) &&
         !escrowTradeActionIds.has(action.id) &&
@@ -3645,3 +5310,8 @@ export const handleMcpRequest =
       id: null,
     });
   };
+
+export const __testing = {
+  anchorToNaddr,
+  listingRouteUrl,
+};

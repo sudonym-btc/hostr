@@ -1300,10 +1300,16 @@ class HostrDaemon {
       imageMetas: materialized.metas,
       h3Tags: h3Tags,
     );
+    final dTag = listing.getFirstTag('d');
 
     if (input.dryRun) {
       return {
         'dryRun': true,
+        'dTag': dTag,
+        'nextInput': {'dryRun': false, 'dTag': dTag},
+        'assistantInstructions': [
+          'When the user approves this preview, call hostr_listings_create again with dryRun=false and this exact dTag. Do not omit or change dTag; preview, publish, and retries must target the same replaceable listing.',
+        ],
         'plannedUploads': materialized.plannedUploads,
         'event': eventJson(listing),
         'listing': listingSummary(listing),
@@ -1314,6 +1320,7 @@ class HostrDaemon {
     final published = result.event;
     return {
       'dryRun': false,
+      'dTag': dTag,
       'event': eventJson(published),
       'listing': listingSummary(published),
       'relayResponses': result.responses.map(relayResponseJson).toList(),
@@ -2614,6 +2621,7 @@ class HostrDaemon {
     if (input.dryRun) {
       return {
         'dryRun': true,
+        'pubkey': activePubkey,
         'event': eventJson(profile),
         'metadata': metadata.toJson(),
       };
@@ -2622,6 +2630,7 @@ class HostrDaemon {
     final published = result.event;
     return {
       'dryRun': false,
+      'pubkey': activePubkey,
       'event': eventJson(published),
       'metadata': published.metadata.toJson(),
       'relayResponses': result.responses.map(relayResponseJson).toList(),

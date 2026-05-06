@@ -220,6 +220,7 @@ class HostrListingsCreateInput {
     this.h3FinestResolution,
     this.h3MaxTags,
     this.h3Tags = const [],
+    this.dTag,
     this.dryRun = true,
   });
 
@@ -246,6 +247,7 @@ class HostrListingsCreateInput {
   final int? h3FinestResolution;
   final int? h3MaxTags;
   final List<String> h3Tags;
+  final String? dTag;
   final bool dryRun;
 
   factory HostrListingsCreateInput.fromJson(Map<String, dynamic> json) {
@@ -301,6 +303,7 @@ class HostrListingsCreateInput {
       h3FinestResolution: _optionalInt(json['h3FinestResolution']),
       h3MaxTags: _optionalInt(json['h3MaxTags']),
       h3Tags: _optionalStringList(json['h3Tags']),
+      dTag: _optionalString(json['dTag']),
       dryRun: _optionalBool(json['dryRun']) ?? true,
     );
   }
@@ -330,6 +333,7 @@ class HostrListingsCreateInput {
     if (h3FinestResolution != null) 'h3FinestResolution': h3FinestResolution,
     if (h3MaxTags != null) 'h3MaxTags': h3MaxTags,
     if (h3Tags.isNotEmpty) 'h3Tags': h3Tags,
+    if (dTag != null) 'dTag': dTag,
   };
 }
 
@@ -1200,7 +1204,7 @@ class HostrActionSpec {
       case 'hostr.listings.list':
         return 'Use for inventory/management views: "my listings", "what am I hosting", "show my stays", or listings by a known author pubkey. Use mine=true for the authenticated user. Use author only when the user provides or selected a specific pubkey.';
       case 'hostr.listings.create':
-        return 'Use when the authenticated user wants to create, publish, list, rent out, or host a room/place/stay. Collect title, description, address, at least one image URL, and at least one price before calling. The first image is the card/hero image. This MCP tool accepts image URLs only. For ChatGPT web/mobile, local development clients, or any remote MCP client with uploaded files, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.listingImage.url as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode the uploaded image into this MCP tool call. Do not serve a temporary localhost URL for Hostr to fetch; localhost refers to the wrong machine/container. If neither upload route can be used, stop and ask for a public image URL or for the client to expose an upload capability. Do not resize, downscale, crop, recompress, transcode, or make thumbnails unless the user explicitly requests it. Never pass a local or mounted sandbox path such as /mnt/data, /mnt/shared, file://, or a ChatGPT file mount to images[].url. Use dryRun=true to upload/stage media and return the visual listing preview; publish with dryRun=false only after explicit approval. The live path also ensures seller configuration is published.';
+        return 'Use when the authenticated user wants to create, publish, list, rent out, or host a room/place/stay. Collect title, description, address, at least one image URL, and at least one price before calling. The first image is the card/hero image. This MCP tool accepts image URLs only. For ChatGPT web/mobile, local development clients, or any remote MCP client with uploaded files, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.image.url as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode the uploaded image into this MCP tool call. Do not serve a temporary localhost URL for Hostr to fetch; localhost refers to the wrong machine/container. If neither upload route can be used, stop and ask for a public image URL or for the client to expose an upload capability. Do not resize, downscale, crop, recompress, transcode, or make thumbnails unless the user explicitly requests it. Never pass a local or mounted sandbox path such as /mnt/data, /mnt/shared, file://, or a ChatGPT file mount to images[].url. Use dryRun=true to upload/stage media and return the visual listing preview. When publishing the approved preview, call this tool again with dryRun=false and reuse the exact dTag from structuredContent.nextInput or structuredContent.dTag so preview, publish, and any retry update the same replaceable listing. The live path also ensures seller configuration is published.';
       case 'hostr.listings.edit':
         return 'Use when the authenticated author wants to update an existing listing. If the user has not named a concrete listing anchor, first call hostr_listings_list with mine=true and ask/choose from the returned listings. Patch only fields the user intends to change; preview with dryRun=true and publish with dryRun=false only after approval.';
       case 'hostr.listings.availability':
@@ -1552,7 +1556,7 @@ export interface HostrListingsListInput {
     id: 'hostr.listings.create',
     title: 'Create Hostr Listing',
     description:
-        'Create a Hostr listing for the authenticated token pubkey session. Listing images must be passed as images[].url. For user-uploaded files, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.listingImage.url as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode user-uploaded images into this MCP tool call, do not serve temporary localhost URLs, and do not pass /mnt/data or file:// paths to images[].url. Set dryRun false only after explicit user approval to publish the listing event.',
+        'Create a Hostr listing for the authenticated token pubkey session. Listing images must be passed as images[].url. For user-uploaded files, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.image.url as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode user-uploaded images into this MCP tool call, do not serve temporary localhost URLs, and do not pass /mnt/data or file:// paths to images[].url. Set dryRun false only after explicit user approval to publish the listing event, and reuse the dryRun preview dTag so retries update the same replaceable listing.',
     inputTypeName: 'HostrListingsCreateInput',
     readOnly: false,
     inputSchema: {
@@ -1579,7 +1583,7 @@ export interface HostrListingsListInput {
           'type': 'array',
           'minItems': 1,
           'description':
-              'Listing images. This MCP tool accepts image URLs only. Mandatory flow for user-uploaded files: first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.listingImage.url here as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST each original file bytes payload to /mcp/uploads/images on this same MCP server origin using multipart/form-data field name file, then pass the returned upload.url here as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode uploaded images into this tool call. Do not start or serve a temporary localhost URL for the MCP server to fetch; localhost refers to the wrong machine/container. Do not resize, downscale, crop, recompress, transcode, or make thumbnails unless the user explicitly requests it. If neither upload route can be used, stop and ask for a public image URL or for the client to expose an upload capability. Never pass client-local or mounted file paths like /mnt/data, /mnt/shared, file://, or ChatGPT file mounts to images[].url.',
+              'Listing images. This MCP tool accepts image URLs only. Mandatory flow for user-uploaded files: first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.image.url here as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST each original file bytes payload to /mcp/uploads/images on this same MCP server origin using multipart/form-data field name file, then pass the returned upload.url here as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode uploaded images into this tool call. Do not start or serve a temporary localhost URL for the MCP server to fetch; localhost refers to the wrong machine/container. Do not resize, downscale, crop, recompress, transcode, or make thumbnails unless the user explicitly requests it. If neither upload route can be used, stop and ask for a public image URL or for the client to expose an upload capability. Never pass client-local or mounted file paths like /mnt/data, /mnt/shared, file://, or ChatGPT file mounts to images[].url.',
           'items': {
             'type': 'object',
             'additionalProperties': false,
@@ -1588,7 +1592,7 @@ export interface HostrListingsListInput {
               'url': {
                 'type': 'string',
                 'description':
-                    'Required image URL. For user-uploaded files, this must be structuredContent.usage.listingImage.url returned by hostr_images_upload, or upload.url returned by POST /mcp/uploads/images on the same Hostr MCP origin. Public HTTP(S) source URLs are also accepted; Hostr downloads non-Blossom URLs and uploads them to Blossom before publishing.',
+                    'Required image URL. For user-uploaded files, this must be structuredContent.usage.image.url returned by hostr_images_upload, or upload.url returned by POST /mcp/uploads/images on the same Hostr MCP origin. Public HTTP(S) source URLs are also accepted; Hostr downloads non-Blossom URLs and uploads them to Blossom before publishing.',
               },
               'filename': {
                 'type': 'string',
@@ -1705,11 +1709,16 @@ export interface HostrListingsListInput {
         },
         'h3FinestResolution': {'type': 'integer', 'minimum': 0},
         'h3MaxTags': {'type': 'integer', 'minimum': 1},
+        'dTag': {
+          'type': 'string',
+          'description':
+              'Stable Nostr d tag for this listing draft. When publishing an approved dryRun preview, reuse the dTag returned in structuredContent.nextInput.dTag or structuredContent.dTag so retries update the same replaceable listing instead of creating duplicates.',
+        },
         'dryRun': {
           'type': 'boolean',
           'default': true,
           'description':
-              'True uploads local images to Blossom and previews the listing card only. Set false to publish after explicit approval.',
+              'True uploads local images to Blossom and previews the listing card only. Set false to publish after explicit approval, reusing the preview dTag.',
         },
       },
     },
@@ -1767,7 +1776,9 @@ export interface HostrListingsCreateInput {
   h3Tags?: string[];
   h3FinestResolution?: number;
   h3MaxTags?: number;
-  /** True uploads local images to Blossom and previews only. Set false to publish after explicit user approval. */
+  /** Stable Nostr d tag for this listing draft. Reuse the dryRun preview dTag when publishing so retries update the same replaceable listing. */
+  dTag?: string;
+  /** True uploads local images to Blossom and previews only. Set false to publish after explicit user approval, reusing the preview dTag. */
   dryRun?: boolean;
 }
 ''',
@@ -2391,7 +2402,7 @@ export interface HostrEmptyInput {}
     id: 'hostr.profile.edit',
     title: 'Edit Hostr Profile',
     description:
-        'Preview or publish the authenticated user profile metadata. Profile image and picture accept durable HTTP(S) image URLs only. For user-uploaded profile photos, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file, then pass structuredContent.usage.profileImage.url as image or picture. Publishing also refreshes Hostr seller configuration.',
+        'Preview or publish the authenticated user profile metadata. Profile image and picture accept durable HTTP(S) image URLs only. For user-uploaded profile photos, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file, then pass structuredContent.usage.image.url as image or picture. Publishing also refreshes Hostr seller configuration.',
     inputTypeName: 'HostrProfileEditInput',
     readOnly: false,
     inputSchema: {
@@ -2403,12 +2414,12 @@ export interface HostrEmptyInput {}
         'image': {
           'type': 'string',
           'description':
-              'Profile image URL. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.profileImage.url here. Do not pass local paths, file:// URLs, ChatGPT upload refs, or base64 data directly.',
+              'Profile image URL. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.image.url here. Do not pass local paths, file:// URLs, ChatGPT upload refs, or base64 data directly.',
         },
         'picture': {
           'type': 'string',
           'description':
-              'Alias for image. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.profileImage.url here. Do not pass local paths, file:// URLs, ChatGPT upload refs, or base64 data directly.',
+              'Alias for image. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.image.url here. Do not pass local paths, file:// URLs, ChatGPT upload refs, or base64 data directly.',
         },
         'lud16': {'type': 'string'},
         'nip05': {'type': 'string'},
@@ -2419,9 +2430,9 @@ export interface HostrEmptyInput {}
 export interface HostrProfileEditInput {
   name?: string;
   about?: string;
-  /** Profile image URL. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.profileImage.url here. */
+  /** Profile image URL. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.image.url here. */
   image?: string;
-  /** Alias for image. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.profileImage.url here. */
+  /** Alias for image. For user-uploaded files, first call hostr_images_upload and pass structuredContent.usage.image.url here. */
   picture?: string;
   lud16?: string;
   nip05?: string;
@@ -2434,7 +2445,7 @@ export interface HostrProfileEditInput {
     id: 'hostr.trips.list',
     title: 'List Hostr Trips',
     description:
-        'List reservation groups involving the authenticated user as guest from the live userSubscriptions.myResolvedTripsList replay. Do not perform fresh Nostr reservation-by-author queries for this view. Return the fixed reservation-card display contract with resolved participant profile names. Pass `tradeId` after a book-and-pay swap watch completes or cannot find the swap to wait briefly for the committed public reservation and return it for display.',
+        'List reservation groups involving the authenticated user as guest from the live userSubscriptions.myResolvedTripsList replay. Do not perform fresh Nostr reservation-by-author queries for this view. Return the fixed trip-card display contract with resolved participant profile names. Cancelled trip cards must preserve a bold Cancelled marker. Pass `tradeId` after a book-and-pay swap watch completes or cannot find the swap to wait briefly for the committed public reservation and return it for display.',
     inputTypeName: 'HostrReservationCollectionInput',
     readOnly: true,
     inputSchema: {
@@ -2475,7 +2486,7 @@ export interface HostrReservationCollectionInput {
     id: 'hostr.bookings.list',
     title: 'List Hostr Bookings',
     description:
-        'List reservation groups where the authenticated user is the host from the live userSubscriptions.myResolvedHostingsList replay. Do not perform fresh Nostr listing/reservation-by-author queries for this view. Return the fixed reservation-card display contract with resolved participant profile names.',
+        'List reservation groups where the authenticated user is the host from the live userSubscriptions.myResolvedHostingsList replay. Do not perform fresh Nostr listing/reservation-by-author queries for this view. Return the fixed hosting-card display contract with resolved participant profile names, including "Hosting {guest} at: {stay}" text.',
     inputTypeName: 'HostrReservationCollectionInput',
     readOnly: true,
     inputSchema: {
@@ -3288,7 +3299,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### New listing workflow')
       ..writeln()
       ..writeln(
-        'Call `hostr_profile_edit` if profile details need updating, then call `hostr_listings_create` with `dryRun: true`, show the preview, and only call it again with `dryRun: false` after explicit approval. The live action ensures seller config is published.',
+        'Call `hostr_profile_edit` if profile details need updating, then call `hostr_listings_create` with `dryRun: true`, show the preview, and only call it again with `dryRun: false` after explicit approval. The publish call must reuse the exact `dTag` from the preview result (`structuredContent.nextInput.dTag` or `structuredContent.dTag`) so preview, publish, and retry target the same replaceable listing. The live action ensures seller config is published.',
       )
       ..writeln()
       ..writeln('### Edit listing workflow')
