@@ -217,6 +217,10 @@ const threadActionIds = new Set([
   "hostr.escrow.involve",
 ]);
 
+const nonDestructiveWriteActionIds = new Set([
+  "hostr.reservations.bookAndPay",
+]);
+
 const escrowTradeActionIds = new Set([
   "hostr.escrow.trades.list",
   "hostr.escrow.trades.view",
@@ -5320,7 +5324,9 @@ const createServer = (
           : {}),
         annotations: {
           readOnlyHint: action.readOnly,
-          destructiveHint: !action.readOnly,
+          destructiveHint:
+            !action.readOnly && !nonDestructiveWriteActionIds.has(action.id),
+          openWorldHint: !action.readOnly,
         },
       },
       async (
