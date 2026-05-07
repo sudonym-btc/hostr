@@ -300,14 +300,11 @@ test("payment responses include a result-bound payment widget", async () => {
   assert.equal(response.structuredContent.data.paymentRequired, true);
 });
 
-test("book and pay advertises the payment widget at tool registration time", () => {
+test("book and pay only advertises the payment widget after payment is required", () => {
   const bookAndPayMeta = __testing.reservationToolMeta(
     "hostr.reservations.bookAndPay",
   );
-  assert.equal(
-    bookAndPayMeta["openai/outputTemplate"],
-    "ui://widget/payment-required.html",
-  );
+  assert.equal(bookAndPayMeta["openai/outputTemplate"], undefined);
   assert.equal(
     bookAndPayMeta["hostr.preferredRenderer"],
     "payment-external-required",

@@ -266,7 +266,6 @@ const toolAnnotations = (action: {
 const reservationToolMeta = (actionId: string): Record<string, unknown> => {
   if (actionId === "hostr.reservations.bookAndPay") {
     return {
-      ...widgetTemplateMeta(paymentRequiredWidgetUri),
       "hostr.preferredRenderer": "payment-external-required",
       "hostr.contentType": "payment-external-required",
     };
