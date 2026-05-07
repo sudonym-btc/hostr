@@ -5223,6 +5223,7 @@ const createServer = (
           ? {
               outputSchema: listingCardOutputSchema,
               _meta: {
+                ...widgetTemplateMeta(listingCardWidgetUri),
                 "hostr.preferredRenderer": "listing-card",
                 "hostr.contentType": "listing-card",
               },
@@ -5233,6 +5234,7 @@ const createServer = (
           ? {
               outputSchema: sessionConnectOutputSchema,
               _meta: {
+                ...widgetTemplateMeta(sessionConnectWidgetUri),
                 "hostr.preferredRenderer": "nostr-connect",
                 "hostr.contentType": "nostr-connect",
               },
@@ -5244,6 +5246,7 @@ const createServer = (
           ? {
               outputSchema: profileCardOutputSchema,
               _meta: {
+                ...widgetTemplateMeta(profileCardWidgetUri),
                 "hostr.preferredRenderer": "profile-card",
                 "hostr.contentType": "profile-card",
               },
@@ -5256,6 +5259,15 @@ const createServer = (
           ? {
               outputSchema: reservationCardOutputSchema,
               _meta: {
+                ...(action.id === "hostr.trips.list"
+                  ? {
+                      ...widgetTemplateMeta(tripWidgetUri),
+                    }
+                  : action.id === "hostr.bookings.list"
+                    ? {
+                        ...widgetTemplateMeta(hostingWidgetUri),
+                      }
+                    : {}),
                 "hostr.preferredRenderer":
                   action.id === "hostr.bookings.list"
                     ? "hosting-card"
