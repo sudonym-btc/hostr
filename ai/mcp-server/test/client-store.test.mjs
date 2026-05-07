@@ -190,7 +190,7 @@ test("payment widget stays empty until it can show the QR", () => {
     __testing.paymentRequiredWidgetHtml,
     /document\.documentElement\.hidden = true/,
   );
-  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /\.\.\./);
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, />\.\.\.</);
   assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /\.loading\s*\{/);
   assert.match(
     __testing.paymentRequiredWidgetHtml,
@@ -210,7 +210,7 @@ test("payment widget stays empty until it can show the QR", () => {
   );
   assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /window\.parent\.postMessage/);
   assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /ui\/initialize/);
-  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /\[Hostr payment widget\]/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /\[Hostr payment widget\]/);
   assert.match(
     __testing.paymentRequiredWidgetHtml,
     /var globals = detail\.globals \|\| detail;/,
@@ -218,6 +218,34 @@ test("payment widget stays empty until it can show the QR", () => {
   assert.match(
     __testing.paymentRequiredWidgetHtml,
     /hostr\.paymentDisplays/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /toolResponseMetadata/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /tool_response_metadata/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /function candidatesFromOpenAI/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /function candidatesFromMessage/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /function candidatesFromDocument/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /function candidatesFromLocation/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /window\.__OPENAI__/,
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
@@ -347,6 +375,11 @@ test("payment responses include a result-bound payment widget", async () => {
   assert.equal(response.structuredContent.data.states, undefined);
   assert.equal(response.structuredContent.data.externalPayment, undefined);
   assert.equal(response.structuredContent.hostrNotices, undefined);
+  assert.equal(response._meta["hostr.notices"], undefined);
+  assert.equal(
+    response.content.some((block) => block.type === "image"),
+    false,
+  );
 });
 
 test("book and pay advertises the payment widget at tool registration time", () => {
@@ -373,6 +406,9 @@ test("payment widget can read ChatGPT multimodal payment output", () => {
   assert.match(__testing.paymentRequiredWidgetHtml, /Lightning invoice QR/);
   assert.match(__testing.paymentRequiredWidgetHtml, /"qrImageUrl"/);
   assert.match(__testing.paymentRequiredWidgetHtml, /Array\.isArray\(output\.parts\)/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /output\[key\] !== undefined/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /responseMetadata/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /metadata/);
 });
 
 test("tool descriptions omit repeated boilerplate", () => {

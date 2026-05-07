@@ -3000,7 +3000,9 @@ const toolResponse = async (
                       ]
                         .filter(Boolean)
                         .join("\n\n");
-  const noticeImageBlocks = criticalNoticeImageBlocks(config, notices);
+  const noticeImageBlocks = paymentDisplay
+    ? []
+    : criticalNoticeImageBlocks(config, notices);
   const daemonAssistantInstructions = arrayValue(
     resultData.assistantInstructions,
   )
@@ -3345,7 +3347,9 @@ const toolResponse = async (
                     sessionConnectAssistantInstructions,
                 }
               : {}),
-            ...(safeNotices.length > 0 ? { "hostr.notices": safeNotices } : {}),
+            ...(safeNotices.length > 0 && !paymentDisplay
+              ? { "hostr.notices": safeNotices }
+              : {}),
             ...(paymentAssistantInstructions ||
             profileCardAssistantInstructions ||
             sessionConnectAssistantInstructions ||
@@ -4235,9 +4239,30 @@ const paymentRequiredWidgetHtml = `
 
         function metaValue(output, key) {
           if (!output || typeof output !== "object") return undefined;
+          if (output[key] !== undefined) return output[key];
           var meta = output._meta || output.meta;
-          if (!meta || typeof meta !== "object") return undefined;
-          return meta[key];
+          if (meta && typeof meta === "object" && meta[key] !== undefined) {
+            return meta[key];
+          }
+          var sdk = output.chatgpt_sdk;
+          if (sdk && typeof sdk === "object") {
+            var responseMeta =
+              sdk.tool_response_metadata ||
+              sdk.toolResponseMetadata ||
+              sdk.responseMetadata;
+            if (
+              responseMeta &&
+              typeof responseMeta === "object" &&
+              responseMeta[key] !== undefined
+            ) {
+              return responseMeta[key];
+            }
+          }
+          var metadata = output.metadata;
+          if (metadata && typeof metadata === "object") {
+            return metaValue(metadata, key);
+          }
+          return undefined;
         }
 
         function paymentFrom(output) {
@@ -4268,9 +4293,72 @@ const paymentRequiredWidgetHtml = `
           if (fromStructured) return fromStructured;
 
           if (output.toolOutput !== undefined) return paymentFrom(output.toolOutput);
+          if (output.tool_output !== undefined) return paymentFrom(output.tool_output);
+          if (output.toolResponseMetadata !== undefined) {
+            return paymentFrom(output.toolResponseMetadata);
+          }
+          if (output.tool_response_metadata !== undefined) {
+            return paymentFrom(output.tool_response_metadata);
+          }
+          if (output.responseMetadata !== undefined) {
+            return paymentFrom(output.responseMetadata);
+          }
+          if (output.response_metadata !== undefined) {
+            return paymentFrom(output.response_metadata);
+          }
+          if (output.metadata !== undefined) return paymentFrom(output.metadata);
           if (output.output !== undefined) return paymentFrom(output.output);
           if (output.result !== undefined) return paymentFrom(output.result);
+          if (output.payload !== undefined) return paymentFrom(output.payload);
+          if (output.data !== undefined) return paymentFrom(output.data);
           return null;
+        }
+
+        function redactForLog(value, depth) {
+          if (depth > 3) return "[depth]";
+          if (value === undefined) return "[undefined]";
+          if (value === null || typeof value === "number" || typeof value === "boolean") {
+            return value;
+          }
+          if (typeof value === "string") {
+            if (/^lnbc/i.test(value)) return value.slice(0, 16) + "...(" + value.length + " chars)";
+            if (value.length > 180) return value.slice(0, 180) + "...(" + value.length + " chars)";
+            return value;
+          }
+          if (Array.isArray(value)) {
+            return value.slice(0, 8).map(function (item) {
+              return redactForLog(item, depth + 1);
+            });
+          }
+          if (typeof value !== "object") return String(value);
+          var result = {};
+          var keys = Object.keys(value).slice(0, 24);
+          for (var i = 0; i < keys.length; i += 1) {
+            var key = keys[i];
+            result[key] = redactForLog(value[key], depth + 1);
+          }
+          if (Object.keys(value).length > keys.length) {
+            result.__moreKeys = Object.keys(value).length - keys.length;
+          }
+          return result;
+        }
+
+        function debugLog(label, value) {
+          try {
+            window.__hostrPaymentWidgetDebugCounts =
+              window.__hostrPaymentWidgetDebugCounts || {};
+            var counts = window.__hostrPaymentWidgetDebugCounts;
+            counts[label] = (counts[label] || 0) + 1;
+            if (
+              counts[label] > 8 &&
+              label !== "render: QR displayed" &&
+              label !== "openai:set_globals" &&
+              label !== "message event"
+            ) {
+              return;
+            }
+            console.debug("[Hostr payment widget] " + label, redactForLog(value, 0));
+          } catch (_error) {}
         }
 
         function safeImageUrl(value) {
@@ -4350,8 +4438,16 @@ const paymentRequiredWidgetHtml = `
             qrFromText(output.markdown) ||
             qrFromOutput(output.structuredContent) ||
             qrFromOutput(output.toolOutput) ||
+            qrFromOutput(output.tool_output) ||
+            qrFromOutput(output.toolResponseMetadata) ||
+            qrFromOutput(output.tool_response_metadata) ||
+            qrFromOutput(output.responseMetadata) ||
+            qrFromOutput(output.response_metadata) ||
+            qrFromOutput(output.metadata) ||
             qrFromOutput(output.output) ||
-            qrFromOutput(output.result)
+            qrFromOutput(output.result) ||
+            qrFromOutput(output.payload) ||
+            qrFromOutput(output.data)
           );
         }
 
@@ -4360,6 +4456,7 @@ const paymentRequiredWidgetHtml = `
           if (typeof value !== "object") return value;
           if (value.structuredContent !== undefined) return value.structuredContent;
           if (value.toolOutput !== undefined) return extractToolOutput(value.toolOutput);
+          if (value.tool_output !== undefined) return extractToolOutput(value.tool_output);
           if (value.output !== undefined) return extractToolOutput(value.output);
           if (value.result !== undefined) return extractToolOutput(value.result);
           return value;
@@ -4378,6 +4475,7 @@ const paymentRequiredWidgetHtml = `
           root.replaceChildren();
 
           if (!qrUrl) {
+            debugLog("render: no QR found", output);
             document.documentElement.hidden = true;
             document.body.hidden = true;
             return false;
@@ -4393,11 +4491,114 @@ const paymentRequiredWidgetHtml = `
           root.appendChild(wrap);
           document.documentElement.hidden = false;
           document.body.hidden = false;
+          debugLog("render: QR displayed", { qrUrl: qrUrl, payment: payment });
           return true;
         }
 
+        function appendCandidate(list, value) {
+          if (value === undefined || value === null) return;
+          if (Array.isArray(value)) {
+            for (var i = 0; i < value.length; i += 1) appendCandidate(list, value[i]);
+            return;
+          }
+          list.push(value);
+        }
+
+        function candidatesFromOpenAI(openai) {
+          var list = [];
+          if (!openai || typeof openai !== "object") return list;
+          appendCandidate(list, openai.toolOutput);
+          appendCandidate(list, openai.tool_output);
+          appendCandidate(list, openai.toolResponseMetadata);
+          appendCandidate(list, openai.tool_response_metadata);
+          appendCandidate(list, openai.responseMetadata);
+          appendCandidate(list, openai.response_metadata);
+          appendCandidate(list, openai.metadata);
+          appendCandidate(list, openai.toolResult);
+          appendCandidate(list, openai.tool_result);
+          appendCandidate(list, openai.result);
+          appendCandidate(list, openai.output);
+          appendCandidate(list, openai.payload);
+          appendCandidate(list, openai);
+          return list;
+        }
+
+        function candidatesFromMessage(data) {
+          var list = [];
+          if (!data || typeof data !== "object") return list;
+          appendCandidate(list, data.toolOutput);
+          appendCandidate(list, data.tool_output);
+          appendCandidate(list, data.toolResponseMetadata);
+          appendCandidate(list, data.tool_response_metadata);
+          appendCandidate(list, data.responseMetadata);
+          appendCandidate(list, data.response_metadata);
+          appendCandidate(list, data.metadata);
+          appendCandidate(list, data.output);
+          appendCandidate(list, data.result);
+          appendCandidate(list, data.payload);
+          appendCandidate(list, data.data);
+          appendCandidate(list, candidatesFromOpenAI(data.globals));
+          appendCandidate(list, candidatesFromOpenAI(data.openai));
+          if (data.payload && typeof data.payload === "object") {
+            appendCandidate(list, candidatesFromMessage(data.payload));
+          }
+          return list;
+        }
+
+        function candidatesFromDocument() {
+          var list = [];
+          try {
+            appendCandidate(list, document.body && document.body.dataset);
+            appendCandidate(list, document.documentElement && document.documentElement.dataset);
+            var scripts = document.querySelectorAll('script[type="application/json"], script[type="application/ld+json"]');
+            for (var i = 0; i < scripts.length; i += 1) {
+              var text = scripts[i].textContent || "";
+              if (text.length > 0 && text.length < 200000) {
+                try {
+                  appendCandidate(list, JSON.parse(text));
+                } catch (_error) {
+                  appendCandidate(list, text);
+                }
+              }
+            }
+          } catch (_error) {}
+          return list;
+        }
+
+        function candidatesFromLocation() {
+          var list = [];
+          try {
+            var text = decodeURIComponent(
+              String(window.location.search || "") + String(window.location.hash || ""),
+            );
+            appendCandidate(list, text);
+          } catch (_error) {}
+          return list;
+        }
+
         function currentToolOutput() {
-          return window.openai && window.openai.toolOutput;
+          var output = [
+            candidatesFromOpenAI(window.openai),
+            candidatesFromOpenAI(window.__OPENAI__),
+            candidatesFromOpenAI(window.__openai),
+            candidatesFromOpenAI(window.__oai),
+            candidatesFromOpenAI(window.__hostr),
+            candidatesFromDocument(),
+            candidatesFromLocation(),
+          ];
+          debugLog("current bridge snapshot", {
+            hasOpenAI: Boolean(window.openai),
+            hasUpperOpenAI: Boolean(window.__OPENAI__),
+            hasLowerOpenAI: Boolean(window.__openai),
+            openAIKeys: window.openai && typeof window.openai === "object"
+              ? Object.keys(window.openai)
+              : [],
+            candidateGroups: output.map(function (group) {
+              return Array.isArray(group) ? group.length : 1;
+            }),
+            candidates: output,
+          });
+          return output;
         }
 
         render(currentToolOutput());
@@ -4417,7 +4618,12 @@ const paymentRequiredWidgetHtml = `
           function (event) {
             var detail = event.detail || {};
             var globals = detail.globals || detail;
-            var output = (globals && globals.toolOutput) || currentToolOutput();
+            var output = [
+              candidatesFromOpenAI(globals),
+              candidatesFromMessage(detail),
+              currentToolOutput(),
+            ];
+            debugLog("openai:set_globals", output);
             if (render(output)) {
               window.clearInterval(pollId);
             }
@@ -4429,12 +4635,12 @@ const paymentRequiredWidgetHtml = `
           "message",
           function (event) {
             var data = event.data || {};
-            var output =
-              data.toolOutput ||
-              data.output ||
-              data.result ||
-              (data.payload && (data.payload.toolOutput || data.payload.output || data.payload.result)) ||
-              (data.globals && data.globals.toolOutput);
+            var output = candidatesFromMessage(data);
+            debugLog("message event", {
+              origin: event.origin,
+              type: data && data.type,
+              output: output,
+            });
             if (render(output)) {
               window.clearInterval(pollId);
             }
