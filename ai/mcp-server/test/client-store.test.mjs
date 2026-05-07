@@ -215,6 +215,14 @@ test("payment widget stays empty until it can show the QR", () => {
     __testing.paymentRequiredWidgetHtml,
     /var globals = detail\.globals \|\| detail;/,
   );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /hostr\.paymentDisplays/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /window\.addEventListener\(\s+"message"/,
+  );
 });
 
 test("widgets poll for delayed ChatGPT tool output injection", () => {
@@ -257,6 +265,8 @@ test("payment responses include a result-bound payment widget", async () => {
     {
       publicAssetBaseUrl: "https://ai.staging.hostr.network",
       publicAppBaseUrl: "https://staging.hostr.network",
+      qrImageUrlTemplate:
+        "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={data}",
     },
     "hostr.reservations.bookAndPay",
     { ok: true, data: { message: "payment required" } },
@@ -274,6 +284,14 @@ test("payment responses include a result-bound payment widget", async () => {
   assert.equal(
     response.structuredContent.display.type,
     "payment-external-required",
+  );
+  assert.equal(
+    response.structuredContent.paymentDisplays[0].qrImageUrl,
+    "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=lnbc1test",
+  );
+  assert.deepEqual(
+    response._meta["hostr.paymentDisplays"],
+    response.structuredContent.paymentDisplays,
   );
   assert.equal(response.structuredContent.status, "payment_required");
   assert.equal(response.structuredContent.stateName, "payment_required");

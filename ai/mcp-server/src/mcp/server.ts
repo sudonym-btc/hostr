@@ -4088,18 +4088,61 @@ const paymentRequiredWidgetHtml = `
           return output;
         }
 
+        function firstPaymentCard(value) {
+          if (!Array.isArray(value)) return null;
+          for (var i = 0; i < value.length; i += 1) {
+            var card = value[i];
+            if (card && typeof card === "object" && card.qrImageUrl) {
+              return card;
+            }
+          }
+          return value[0] || null;
+        }
+
+        function paymentDisplayCard(display) {
+          if (!display || typeof display !== "object") return null;
+          if (display.type !== "payment-external-required") return null;
+          if (Array.isArray(display.cards)) return firstPaymentCard(display.cards);
+          return display.qrImageUrl ? display : null;
+        }
+
+        function metaValue(output, key) {
+          if (!output || typeof output !== "object") return undefined;
+          var meta = output._meta || output.meta;
+          if (!meta || typeof meta !== "object") return undefined;
+          return meta[key];
+        }
+
         function paymentFrom(output) {
           if (!output || typeof output !== "object") return null;
-          if (Array.isArray(output.paymentDisplays) && output.paymentDisplays[0]) {
-            return output.paymentDisplays[0];
+          if (Array.isArray(output)) {
+            for (var i = 0; i < output.length; i += 1) {
+              var fromItem = paymentFrom(output[i]);
+              if (fromItem) return fromItem;
+            }
+            return null;
           }
-          if (
-            output.display &&
-            output.display.type === "payment-external-required" &&
-            Array.isArray(output.display.cards)
-          ) {
-            return output.display.cards[0] || null;
-          }
+
+          var fromDisplays = firstPaymentCard(output.paymentDisplays);
+          if (fromDisplays) return fromDisplays;
+
+          var fromDisplay = paymentDisplayCard(output.display);
+          if (fromDisplay) return fromDisplay;
+
+          var fromMetaDisplays = firstPaymentCard(metaValue(output, "hostr.paymentDisplays"));
+          if (fromMetaDisplays) return fromMetaDisplays;
+
+          var fromMetaDisplay = paymentDisplayCard(metaValue(output, "hostr.display"));
+          if (fromMetaDisplay) return fromMetaDisplay;
+
+          var fromStructured = output.structuredContent
+            ? paymentFrom(output.structuredContent)
+            : null;
+          if (fromStructured) return fromStructured;
+
+          if (output.toolOutput !== undefined) return paymentFrom(output.toolOutput);
+          if (output.output !== undefined) return paymentFrom(output.output);
+          if (output.result !== undefined) return paymentFrom(output.result);
           return null;
         }
 
@@ -4127,7 +4170,11 @@ const paymentRequiredWidgetHtml = `
         }
 
         function render(output) {
-          var payment = paymentFrom(toolData(extractToolOutput(output)));
+          var extracted = extractToolOutput(output);
+          var payment =
+            paymentFrom(output) ||
+            paymentFrom(extracted) ||
+            paymentFrom(toolData(extracted));
           var qrUrl = safeImageUrl(payment && payment.qrImageUrl);
           root.replaceChildren();
 
@@ -4172,6 +4219,23 @@ const paymentRequiredWidgetHtml = `
             var detail = event.detail || {};
             var globals = detail.globals || detail;
             var output = (globals && globals.toolOutput) || currentToolOutput();
+            if (render(output)) {
+              window.clearInterval(pollId);
+            }
+          },
+          { passive: true },
+        );
+
+        window.addEventListener(
+          "message",
+          function (event) {
+            var data = event.data || {};
+            var output =
+              data.toolOutput ||
+              data.output ||
+              data.result ||
+              (data.payload && (data.payload.toolOutput || data.payload.output || data.payload.result)) ||
+              (data.globals && data.globals.toolOutput);
             if (render(output)) {
               window.clearInterval(pollId);
             }
