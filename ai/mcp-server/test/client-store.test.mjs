@@ -254,6 +254,49 @@ test("swap watch does not advertise a static payment widget", async () => {
   assert.equal(response._meta?.["openai/outputTemplate"], undefined);
 });
 
+test("updates responses omit raw inbox events and cap visible thread cards", async () => {
+  const threads = Array.from({ length: 20 }, (_, index) => ({
+    conversation: `trade-${index}`,
+    counterparties: [{ name: `Person ${index}` }],
+    unreadCount: index === 19 ? 3 : 0,
+    textMessages: [
+      {
+        content: `Message ${index}`,
+        created_at: `2026-05-${String(index + 1).padStart(2, "0")}T12:00:00Z`,
+      },
+    ],
+  }));
+  const hugeEvent = { content: "x".repeat(10_000), tags: [["p", "abc"]] };
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.updates",
+    {
+      ok: true,
+      command: "hostr.updates",
+      data: {
+        count: 50,
+        events: Array.from({ length: 50 }, () => hugeEvent),
+        threads,
+      },
+    },
+    false,
+  );
+
+  assert.equal(response.structuredContent.data.events, undefined);
+  assert.equal(response.structuredContent.data.threads, undefined);
+  assert.equal(response.structuredContent.data.threadCount, 10);
+  assert.equal(response.structuredContent.data.hasMoreThreads, true);
+  assert.equal(response.structuredContent.threadCards.length, 10);
+  assert.equal(response.structuredContent.threadCards[0].title, "Person 19");
+  assert.equal(response.structuredContent.threadCards[0].unread, true);
+  assert.equal(response.structuredContent.threadCards[0].unreadCount, 3);
+  assert.equal(response.structuredContent.threadCards[1].unread, false);
+  assert.doesNotMatch(JSON.stringify(response.structuredContent), /xxxxx/);
+});
+
 test("profile card markdown stays compact and hides internals", () => {
   const result = {
     ok: true,

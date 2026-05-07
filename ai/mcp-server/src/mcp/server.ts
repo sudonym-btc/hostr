@@ -1465,6 +1465,7 @@ type ThreadCardData = {
   end?: string;
   amount?: string;
   stage?: string;
+  unread: boolean;
   unreadCount?: number;
   preview?: string;
   updatedAt?: string;
@@ -1614,6 +1615,8 @@ const threadCardData = (
   const title =
     counterparties.length > 0 ? counterparties.join(", ") : "Hostr thread";
   const unreadCount = Number(thread.unreadCount);
+  const unread =
+    Number.isFinite(unreadCount) ? unreadCount > 0 : Boolean(thread.unread);
   return {
     type: "thread-card",
     title,
@@ -1625,6 +1628,7 @@ const threadCardData = (
     end: reservation.end,
     amount: reservation.amount,
     stage: reservation.stage,
+    unread,
     unreadCount: Number.isFinite(unreadCount) ? unreadCount : undefined,
     preview: textDetails.preview,
     updatedAt,
@@ -1661,7 +1665,8 @@ const threadCardsFromResult = (
     .filter(isRecord)
     .map(threadCardData)
     .filter((card): card is ThreadCardData => card !== null)
-    .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
+    .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0))
+    .slice(0, 10);
 };
 
 const threadCardResponseText = (
@@ -2731,6 +2736,24 @@ const toolResponse = async (
       : undefined;
   const errorInstructions =
     safeResult.ok === false ? errorAssistantInstructions(safeResult) : undefined;
+  const compactThreadResult =
+    actionId === "hostr.updates"
+      ? {
+          ok: safeResult.ok,
+          command: safeResult.command,
+          environment: safeResult.environment,
+          dryRun: safeResult.dryRun,
+          traceId: safeResult.traceId,
+          data: {
+            count: Number.isFinite(Number(resultData.count))
+              ? Number(resultData.count)
+              : undefined,
+            threadCount: threadCards.length,
+            hasMoreThreads:
+              arrayValue(resultData.threads).length > threadCards.length,
+          },
+        }
+      : safeResult;
   const safeNotices = notices.map(sanitizeNotice);
   const presentationMarkdown = listingCardDisplay
     ? listingCardsMarkdown(listingCards)
@@ -2901,7 +2924,7 @@ const toolResponse = async (
   return {
     isError,
     structuredContent: {
-      ...safeResult,
+      ...compactThreadResult,
       displayMarkdown: presentationMarkdown,
       ...(safeNotices.length > 0 ? { hostrNotices: safeNotices } : {}),
       ...(paymentAssistantInstructions

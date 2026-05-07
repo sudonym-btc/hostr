@@ -593,14 +593,14 @@ class HostrReservationCommitInput {
 }
 
 class HostrUpdatesInput {
-  const HostrUpdatesInput({this.limit = 50, this.timeoutSeconds = 12});
+  const HostrUpdatesInput({this.limit = 10, this.timeoutSeconds = 12});
 
   final int limit;
   final int timeoutSeconds;
 
   factory HostrUpdatesInput.fromJson(Map<String, dynamic> json) {
     return HostrUpdatesInput(
-      limit: (_optionalInt(json['limit']) ?? 50).clamp(1, 200).toInt(),
+      limit: (_optionalInt(json['limit']) ?? 10).clamp(1, 50).toInt(),
       timeoutSeconds: (_optionalInt(json['timeoutSeconds']) ?? 12)
           .clamp(1, 60)
           .toInt(),
@@ -2202,8 +2202,8 @@ export interface HostrReservationCommitInput {
         'limit': {
           'type': 'integer',
           'minimum': 1,
-          'maximum': 200,
-          'default': 50,
+          'maximum': 50,
+          'default': 10,
         },
         'timeoutSeconds': {
           'type': 'integer',
