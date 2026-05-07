@@ -47,7 +47,7 @@ const listingActionIds = new Set([
 ]);
 
 const listingCardWidgetUri = "ui://widget/listing-card.html";
-const paymentRequiredWidgetUri = "ui://widget/payment-required.html";
+const paymentRequiredWidgetUri = "ui://widget/payment-required.v2.html";
 const sessionConnectWidgetUri = "ui://widget/session-connect.html";
 const profileCardWidgetUri = "ui://widget/profile-card.html";
 const tripWidgetUri = "ui://widget/trip.html";
