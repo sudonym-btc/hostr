@@ -217,6 +217,34 @@ const nonDestructiveWriteActionIds = new Set([
   "hostr.reservations.bookAndPay",
 ]);
 
+const reservationToolMeta = (actionId: string): Record<string, unknown> => {
+  if (actionId === "hostr.reservations.bookAndPay") {
+    return {
+      ...widgetTemplateMeta(paymentRequiredWidgetUri),
+      "hostr.preferredRenderer": "payment-external-required",
+      "hostr.contentType": "payment-external-required",
+    };
+  }
+  if (actionId === "hostr.trips.list") {
+    return {
+      ...widgetTemplateMeta(tripWidgetUri),
+      "hostr.preferredRenderer": "trip-card",
+      "hostr.contentType": "trip-card",
+    };
+  }
+  if (actionId === "hostr.bookings.list") {
+    return {
+      ...widgetTemplateMeta(hostingWidgetUri),
+      "hostr.preferredRenderer": "hosting-card",
+      "hostr.contentType": "hosting-card",
+    };
+  }
+  return {
+    "hostr.preferredRenderer": "trip-card",
+    "hostr.contentType": "trip-card",
+  };
+};
+
 const escrowTradeActionIds = new Set([
   "hostr.escrow.trades.list",
   "hostr.escrow.trades.view",
@@ -4231,8 +4259,12 @@ const paymentRequiredWidgetHtml = `
         }, 1000);
 
         window.addEventListener("openai:set_globals", function (event) {
-          var globals = event.detail && event.detail.globals;
-          var output = (globals && globals.toolOutput) || currentToolOutput();
+          var detail = event.detail || {};
+          var globals = detail.globals || detail;
+          var output = globals && globals.toolOutput;
+          if (output === undefined || output === null) {
+            output = currentToolOutput();
+          }
           if (output !== undefined && output !== null) {
             window.clearInterval(pollId);
             render(output);
@@ -5258,25 +5290,7 @@ const createServer = (
         reservationActionIds.has(action.id)
           ? {
               outputSchema: reservationCardOutputSchema,
-              _meta: {
-                ...(action.id === "hostr.trips.list"
-                  ? {
-                      ...widgetTemplateMeta(tripWidgetUri),
-                    }
-                  : action.id === "hostr.bookings.list"
-                    ? {
-                        ...widgetTemplateMeta(hostingWidgetUri),
-                      }
-                    : {}),
-                "hostr.preferredRenderer":
-                  action.id === "hostr.bookings.list"
-                    ? "hosting-card"
-                    : "trip-card",
-                "hostr.contentType":
-                  action.id === "hostr.bookings.list"
-                    ? "hosting-card"
-                    : "trip-card",
-              },
+              _meta: reservationToolMeta(action.id),
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
@@ -5615,6 +5629,7 @@ export const __testing = {
   paymentRequiredWidgetHtml,
   reservationCardsFromResult,
   reservationCardsMarkdown,
+  reservationToolMeta,
   sessionConnectWidgetHtml,
   toolResponse,
   tripHostingWidgetHtml,

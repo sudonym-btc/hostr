@@ -206,6 +206,14 @@ test("payment widget keeps waiting for long-running tool output", () => {
     __testing.paymentRequiredWidgetHtml,
     /currentToolOutput/,
   );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /if \(output === undefined \|\| output === null\) \{\s+return;\s+\}\s+window\.clearInterval\(pollId\);\s+render\(output\);/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /var globals = detail\.globals \|\| detail;/,
+  );
 });
 
 test("widgets poll for delayed ChatGPT tool output injection", () => {
@@ -263,6 +271,24 @@ test("payment responses use the payment widget template", async () => {
     response.structuredContent.display.type,
     "payment-external-required",
   );
+});
+
+test("book and pay advertises the payment widget at tool registration time", () => {
+  const bookAndPayMeta = __testing.reservationToolMeta(
+    "hostr.reservations.bookAndPay",
+  );
+  assert.equal(
+    bookAndPayMeta["openai/outputTemplate"],
+    "ui://widget/payment-required.html",
+  );
+  assert.equal(
+    bookAndPayMeta["hostr.preferredRenderer"],
+    "payment-external-required",
+  );
+
+  const swapWatchMeta = __testing.reservationToolMeta("hostr.swaps.watch");
+  assert.equal(swapWatchMeta["openai/outputTemplate"], undefined);
+  assert.equal(swapWatchMeta["hostr.preferredRenderer"], "trip-card");
 });
 
 test("swap watch does not advertise a static payment widget", async () => {
