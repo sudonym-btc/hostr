@@ -192,6 +192,28 @@ test("payment widget stays silent without an external payment payload", () => {
   );
 });
 
+test("payment responses use the cache-busted payment widget template", async () => {
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.reservations.bookAndPay",
+    { ok: true, data: { message: "payment required" } },
+    false,
+    [{ type: "external-payment", invoice: "lnbc1test" }],
+  );
+
+  assert.equal(
+    response._meta["openai/outputTemplate"],
+    "ui://widget/payment-required.v2.html",
+  );
+  assert.equal(
+    response.structuredContent.display.type,
+    "payment-external-required",
+  );
+});
+
 test("profile card markdown stays compact and hides internals", () => {
   const result = {
     ok: true,
