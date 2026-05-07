@@ -2969,6 +2969,9 @@ const toolResponse = async (
   const responseDisplayType = stringValue(record(responseDisplay)?.type);
   const responseWidgetMeta = responseWidgetUri
     ? widgetResultMeta(responseWidgetUri, {
+        ...(paymentDisplay
+          ? { "openai/outputTemplate": paymentRequiredWidgetUri }
+          : {}),
         ...(responseDisplayType
           ? { "hostr.contentType": responseDisplayType }
           : {}),
@@ -4043,104 +4046,27 @@ const paymentRequiredWidgetHtml = `
         box-sizing: border-box;
       }
 
+      html,
       body {
         margin: 0;
-        color: CanvasText;
-        background: Canvas;
+        background: transparent;
       }
 
       .wrap {
-        display: grid;
-        gap: 10px;
-        padding: 10px;
+        display: inline-grid;
+        padding: 8px;
         border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
         border-radius: 8px;
-        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 16px;
-        line-height: 1.25;
+        background: Canvas;
       }
 
       img {
-        width: min(240px, 100%);
+        display: block;
+        width: min(280px, 100%);
         aspect-ratio: 1;
         object-fit: contain;
         border-radius: 6px;
         background: white;
-      }
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      a,
-      button {
-        min-height: 32px;
-        padding: 6px 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
-        border-radius: 7px;
-        color: LinkText;
-        background: Canvas;
-        font: inherit;
-        font-size: 13px;
-        font-weight: 650;
-        text-decoration: none;
-        cursor: pointer;
-      }
-
-      .hint {
-        margin: 0;
-        color: color-mix(in srgb, CanvasText 72%, transparent);
-        font-size: 12px;
-        line-height: 1.35;
-      }
-
-      .loading {
-        padding: 10px;
-        color: color-mix(in srgb, CanvasText 72%, transparent);
-        font-size: 13px;
-        line-height: 1.35;
-      }
-
-      .card {
-        display: grid;
-        gap: 8px;
-        padding: 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
-        border-radius: 8px;
-        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
-      }
-
-      .topline {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-      }
-
-      .line {
-        margin: 0;
-        overflow-wrap: anywhere;
-        font-size: 13px;
-        line-height: 1.35;
-      }
-
-      .cancelled {
-        font-weight: 800;
-      }
-
-      .pill {
-        flex: none;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: color-mix(in srgb, CanvasText 8%, transparent);
-        font-size: 11px;
-        line-height: 1.35;
       }
 
       [hidden] {
@@ -4148,7 +4074,7 @@ const paymentRequiredWidgetHtml = `
       }
     </style>
   </head>
-  <body>
+  <body hidden>
     <main id="root"></main>
     <script>
       (function () {
@@ -4177,330 +4103,81 @@ const paymentRequiredWidgetHtml = `
           return null;
         }
 
-        function cardsFrom(output) {
-          if (!output || typeof output !== "object") return [];
-          if (Array.isArray(output.tripCards)) return output.tripCards;
-          if (Array.isArray(output.reservationCards)) return output.reservationCards;
-          if (output.display && Array.isArray(output.display.cards)) {
-            return output.display.cards.filter(function (card) {
-              return card && (card.type === "trip-card" || card.type === "reservation-card");
-            });
-          }
-          return [];
-        }
-
-        function appendText(parent, tag, className, value) {
-          if (!value) return null;
-          var el = document.createElement(tag);
-          el.className = className;
-          el.textContent = value;
-          parent.appendChild(el);
-          return el;
-        }
-
-        function renderTripCard(card) {
-          var article = document.createElement("article");
-          article.className = "card";
-          var top = document.createElement("div");
-          top.className = "topline";
-          appendText(top, "h2", "", "Trip");
-          appendText(top, "span", "pill", card.mode === "cancelled" ? "cancelled" : "confirmed");
-          article.appendChild(top);
-
-          if (card.mode === "cancelled") {
-            appendText(article, "p", "line cancelled", "Cancelled");
-          }
-
-          appendText(article, "p", "line", card.title || "Hostr stay");
-          if (card.start && card.end) {
-            appendText(article, "p", "line hint", card.start + " to " + card.end);
-          }
-          return article;
-        }
-
-        function safeUrl(value) {
+        function safeImageUrl(value) {
           if (typeof value !== "string") return null;
+          if (/^data:image\\/(png|jpeg|jpg|webp|gif);base64,/i.test(value)) {
+            return value;
+          }
           try {
             var url = new URL(value);
-            return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "lightning:" ? url.href : null;
+            return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
           } catch (_error) {
             return null;
           }
-        }
-
-        function render(output) {
-          if (output === undefined || output === null) {
-            root.replaceChildren();
-            document.documentElement.hidden = false;
-            document.body.hidden = false;
-            appendText(root, "div", "loading", "...");
-            return;
-          }
-          var data = toolData(output);
-          var payment = paymentFrom(data);
-          root.replaceChildren();
-          if (!payment) {
-            var cards = cardsFrom(data).filter(Boolean);
-            if (cards.length > 0) {
-              document.documentElement.hidden = false;
-              document.body.hidden = false;
-              cards.forEach(function (card) {
-                root.appendChild(renderTripCard(card));
-              });
-              return;
-            }
-            document.documentElement.hidden = true;
-            document.body.hidden = true;
-            return;
-          }
-
-          document.documentElement.hidden = false;
-          document.body.hidden = false;
-          var wrap = document.createElement("section");
-          wrap.className = "wrap";
-          var title = document.createElement("h2");
-          title.textContent = payment.title || "Pay this invoice to continue";
-          wrap.appendChild(title);
-
-          var qrUrl = safeUrl(payment.qrImageUrl);
-          if (qrUrl) {
-            var image = document.createElement("img");
-            image.src = qrUrl;
-            image.alt = "Lightning invoice QR";
-            wrap.appendChild(image);
-          }
-
-          var actions = document.createElement("div");
-          actions.className = "actions";
-          var lightningUrl = safeUrl(payment.lightningUrl);
-          if (lightningUrl) {
-            var link = document.createElement("a");
-            link.href = lightningUrl;
-            link.textContent = "Open wallet";
-            actions.appendChild(link);
-          }
-          if (payment.copy && typeof payment.copy.text === "string") {
-            var copy = document.createElement("button");
-            copy.type = "button";
-            copy.textContent = payment.copy.label || "Copy invoice";
-            copy.onclick = function () {
-              navigator.clipboard && navigator.clipboard.writeText(payment.copy.text);
-            };
-            actions.appendChild(copy);
-          }
-          var invoiceTextUrl = safeUrl(payment.invoiceTextUrl);
-          if (invoiceTextUrl) {
-            var invoice = document.createElement("a");
-            invoice.href = invoiceTextUrl;
-            invoice.target = "_blank";
-            invoice.rel = "noreferrer";
-            invoice.textContent = "Invoice text";
-            actions.appendChild(invoice);
-          }
-          if (actions.childNodes.length > 0) wrap.appendChild(actions);
-
-          var hint = document.createElement("p");
-          hint.className = "hint";
-          hint.textContent = "Use the QR, wallet link, or exact invoice text. The invoice is intentionally not rendered as editable prose.";
-          wrap.appendChild(hint);
-          root.appendChild(wrap);
-        }
-
-        function currentToolOutput() {
-          return window.openai && window.openai.toolOutput;
-        }
-
-        function debugSummary(value) {
-          if (value === undefined) return "undefined";
-          if (value === null) return "null";
-          if (typeof value !== "object") return typeof value;
-          var keys = Object.keys(value).slice(0, 12);
-          var data = value.structuredContent && typeof value.structuredContent === "object"
-            ? value.structuredContent
-            : value;
-          var display = data && data.display && typeof data.display === "object" ? data.display : null;
-          return {
-            keys: keys,
-            hasStructuredContent: !!value.structuredContent,
-            hasToolOutput: value.toolOutput !== undefined,
-            hasOutput: value.output !== undefined,
-            hasResult: value.result !== undefined,
-            displayType: display && display.type,
-            paymentDisplays: Array.isArray(data && data.paymentDisplays) ? data.paymentDisplays.length : 0,
-            displayCards: Array.isArray(display && display.cards) ? display.cards.length : 0
-          };
-        }
-
-        function logPaymentWidget(eventName, detail) {
-          try {
-            console.log("[Hostr payment widget]", eventName, detail);
-          } catch (_error) {}
         }
 
         function extractToolOutput(value) {
           if (value === undefined || value === null) return value;
           if (typeof value !== "object") return value;
           if (value.structuredContent !== undefined) return value.structuredContent;
-          if (value.toolOutput !== undefined) return value.toolOutput;
+          if (value.toolOutput !== undefined) return extractToolOutput(value.toolOutput);
           if (value.output !== undefined) return extractToolOutput(value.output);
           if (value.result !== undefined) return extractToolOutput(value.result);
-          if (value.content && typeof value.content === "object") {
-            return extractToolOutput(value.content);
-          }
           return value;
         }
 
-        function outputFromToolResultList(params) {
-          if (!params || typeof params !== "object") return undefined;
-          var results = params.results || params.toolResults || params.items;
-          if (!Array.isArray(results) || results.length < 1) return undefined;
-          return extractToolOutput(results[results.length - 1]);
-        }
+        function render(output) {
+          var payment = paymentFrom(toolData(extractToolOutput(output)));
+          var qrUrl = safeImageUrl(payment && payment.qrImageUrl);
+          root.replaceChildren();
 
-        var pollId = null;
-
-        function renderOutput(output, source) {
-          logPaymentWidget("renderOutput", {
-            source: source || "unknown",
-            summary: debugSummary(output)
-          });
-          if (output === undefined || output === null) {
+          if (!qrUrl) {
+            document.documentElement.hidden = true;
+            document.body.hidden = true;
             return false;
           }
-          if (pollId !== null) {
-            window.clearInterval(pollId);
-            pollId = null;
-          }
-          render(output);
+
+          var wrap = document.createElement("section");
+          wrap.className = "wrap";
+          var image = document.createElement("img");
+          image.src = qrUrl;
+          image.alt = "Lightning invoice QR";
+          image.loading = "eager";
+          wrap.appendChild(image);
+          root.appendChild(wrap);
+          document.documentElement.hidden = false;
+          document.body.hidden = false;
           return true;
         }
 
-        var initializeRequestId = "hostr-payment-widget-init-" + String(Date.now());
-        var initializedNotified = false;
-        var mcpAppsProtocolVersion = "2026-01-26";
-
-        function postUiRequest(method, params, id) {
-          try {
-            if (!window.parent || window.parent === window) return;
-            logPaymentWidget("postUiRequest", {
-              method: method,
-              id: id,
-              params: debugSummary(params)
-            });
-            window.parent.postMessage({
-              jsonrpc: "2.0",
-              id: id,
-              method: method,
-              params: params || {}
-            }, "*");
-          } catch (_error) {}
+        function currentToolOutput() {
+          return window.openai && window.openai.toolOutput;
         }
 
-        function postUiNotification(method, params) {
-          try {
-            if (!window.parent || window.parent === window) return;
-            logPaymentWidget("postUiNotification", {
-              method: method,
-              params: debugSummary(params)
-            });
-            window.parent.postMessage({
-              jsonrpc: "2.0",
-              method: method,
-              params: params || {}
-            }, "*");
-          } catch (_error) {}
-        }
-
-        function notifyInitialized() {
-          if (initializedNotified) return;
-          initializedNotified = true;
-          postUiNotification("ui/notifications/initialized", {});
-        }
-
-        logPaymentWidget("boot", {
-          hasOpenai: !!window.openai,
-          hasToolOutput: !!(window.openai && window.openai.toolOutput),
-          location: window.location && window.location.href
-        });
         render(currentToolOutput());
-        postUiRequest("ui/initialize", {
-          protocolVersion: mcpAppsProtocolVersion,
-          appInfo: {
-            name: "hostr-payment-required",
-            title: "Hostr Payment Required",
-            version: "0.0.1"
+
+        var remainingChecks = 80;
+        var pollId = window.setInterval(function () {
+          if (render(currentToolOutput())) {
+            window.clearInterval(pollId);
+            return;
+          }
+          remainingChecks -= 1;
+          if (remainingChecks <= 0) window.clearInterval(pollId);
+        }, 250);
+
+        window.addEventListener(
+          "openai:set_globals",
+          function (event) {
+            var detail = event.detail || {};
+            var globals = detail.globals || detail;
+            var output = (globals && globals.toolOutput) || currentToolOutput();
+            if (render(output)) {
+              window.clearInterval(pollId);
+            }
           },
-          appCapabilities: {}
-        }, initializeRequestId);
-        window.setTimeout(notifyInitialized, 250);
-
-        pollId = window.setInterval(function () {
-          renderOutput(currentToolOutput(), "window.openai.poll");
-        }, 1000);
-
-        window.addEventListener("openai:set_globals", function (event) {
-          var detail = event.detail || {};
-          var globals = detail.globals || detail;
-          logPaymentWidget("openai:set_globals", {
-            detail: debugSummary(detail),
-            globals: debugSummary(globals),
-            toolOutput: debugSummary(globals && globals.toolOutput)
-          });
-          var output = globals && globals.toolOutput;
-          if (output === undefined || output === null) {
-            output = currentToolOutput();
-          }
-          renderOutput(output, "openai:set_globals");
-        }, { passive: true });
-
-        window.addEventListener("message", function (event) {
-          var message = event.data;
-          if (typeof message === "string") {
-            try {
-              message = JSON.parse(message);
-            } catch (_error) {
-              return;
-            }
-          }
-          if (!message || typeof message !== "object") return;
-          logPaymentWidget("postMessage", {
-            id: message.id,
-            method: message.method,
-            hasResult: message.result !== undefined,
-            hasError: message.error !== undefined,
-            params: debugSummary(message.params),
-            result: debugSummary(message.result)
-          });
-          if (message.id === initializeRequestId) {
-            notifyInitialized();
-            return;
-          }
-          var method = message.method;
-          var params = message.params || {};
-          if (method === "ui/notifications/tool-input") {
-            logPaymentWidget("tool-input", {
-              params: debugSummary(params),
-              arguments: debugSummary(params.arguments)
-            });
-            return;
-          }
-          if (method === "ui/notifications/tool-result") {
-            renderOutput(extractToolOutput(params), "ui/notifications/tool-result");
-            return;
-          }
-          if (method === "ui/notifications/tool-result-list") {
-            renderOutput(outputFromToolResultList(params), "ui/notifications/tool-result-list");
-            return;
-          }
-          if (method === "ui/notifications/set-globals") {
-            var globals = params.globals || params;
-            var output = globals && globals.toolOutput;
-            if (output === undefined || output === null) {
-              output = extractToolOutput(params);
-            }
-            renderOutput(output, "ui/notifications/set-globals");
-          }
-        }, { passive: true });
+          { passive: true },
+        );
       })();
     </script>
   </body>
