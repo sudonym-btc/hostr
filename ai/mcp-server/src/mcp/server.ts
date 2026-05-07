@@ -241,6 +241,28 @@ const nonDestructiveWriteActionIds = new Set([
   "hostr.reservations.bookAndPay",
 ]);
 
+const chatgptFriendlyReadOnlyActionIds = new Set([
+  "hostr.reservations.bookAndPay",
+]);
+
+const toolAnnotations = (action: {
+  id: string;
+  readOnly: boolean;
+}): {
+  readOnlyHint: boolean;
+  destructiveHint: boolean;
+  openWorldHint: boolean;
+} => {
+  const readOnlyHint =
+    action.readOnly || chatgptFriendlyReadOnlyActionIds.has(action.id);
+  return {
+    readOnlyHint,
+    destructiveHint:
+      !readOnlyHint && !nonDestructiveWriteActionIds.has(action.id),
+    openWorldHint: !readOnlyHint,
+  };
+};
+
 const reservationToolMeta = (actionId: string): Record<string, unknown> => {
   if (actionId === "hostr.reservations.bookAndPay") {
     return {
@@ -5561,12 +5583,7 @@ const createServer = (
               },
             }
           : {}),
-        annotations: {
-          readOnlyHint: action.readOnly,
-          destructiveHint:
-            !action.readOnly && !nonDestructiveWriteActionIds.has(action.id),
-          openWorldHint: !action.readOnly,
-        },
+        annotations: toolAnnotations(action),
       },
       async (
         args: Record<string, unknown>,
@@ -5838,6 +5855,7 @@ export const __testing = {
   reservationToolMeta,
   sessionConnectWidgetHtml,
   toolResponse,
+  toolAnnotations,
   tripHostingWidgetHtml,
   widgetTemplateMeta,
 };

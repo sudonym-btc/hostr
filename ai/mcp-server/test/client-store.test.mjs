@@ -332,6 +332,20 @@ test("book and pay advertises the payment widget at tool registration time", () 
   assert.equal(swapWatchMeta["hostr.preferredRenderer"], "trip-card");
 });
 
+test("book and pay uses friendly ChatGPT annotations", () => {
+  assert.deepEqual(
+    __testing.toolAnnotations({
+      id: "hostr.reservations.bookAndPay",
+      readOnly: false,
+    }),
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  );
+});
+
 test("swap watch does not advertise a static payment widget", async () => {
   const response = await __testing.toolResponse(
     {
