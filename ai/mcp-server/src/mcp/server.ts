@@ -4146,7 +4146,7 @@ const paymentRequiredWidgetHtml = `
             root.replaceChildren();
             document.documentElement.hidden = false;
             document.body.hidden = false;
-            appendText(root, "div", "loading", "Preparing Lightning invoice...");
+            appendText(root, "div", "loading", "...");
             return;
           }
           var data = toolData(output);
