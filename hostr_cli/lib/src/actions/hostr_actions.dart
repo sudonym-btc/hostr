@@ -2010,7 +2010,7 @@ export interface HostrReservationsOfferInput {
 
   static const reservationsBookAndPay = HostrActionSpec(
     id: 'hostr.reservations.bookAndPay',
-    title: 'Book And Pay Reservation',
+    title: 'Start Reservation Payment',
     description:
         'Use this foreground handoff tool whenever the user says to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. It creates the private reservation offer and escrow funding swap. $_reservationDateOnlyRule If external Lightning payment is required, it returns the invoice string, QR image, internal trade id, internal swap id, and continuesInBackground=true while the daemon keeps the book-and-pay operation alive. CRITICAL UI REQUIREMENT: leave only the QR image and invoice text visibly in the answer to the user; do not show internal trade id or swap id in the payment prompt, and do not replace the payment prompt with a summary. Only after that visible payment prompt is in the output, immediately call the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds` to monitor payment/proof/reservation completion. When watch completes or cannot find the swap, query `hostr_trips_list` with `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
     inputTypeName: 'HostrReservationBookAndPayInput',
