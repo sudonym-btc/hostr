@@ -148,7 +148,7 @@ test("listing cards turn Blossom hashes into visible absolute image URLs", () =>
   );
 });
 
-test("listing tool responses include result-level widget metadata", async () => {
+test("listing tool responses include result-level widget context without remount template", async () => {
   const hash = "7d24fa683979cd913338f1945201382de81a4e5ead47537fde68808aaadf0908";
   const result = {
     ok: true,
@@ -174,7 +174,7 @@ test("listing tool responses include result-level widget metadata", async () => 
     false,
   );
 
-  assert.equal(response._meta["openai/outputTemplate"], "ui://widget/listing-card.html");
+  assert.equal(response._meta["openai/outputTemplate"], undefined);
   assert.equal(response._meta["openai/widgetAccessible"], true);
   assert.deepEqual(response._meta.ui, {
     resourceUri: "ui://widget/listing-card.html",
@@ -287,7 +287,7 @@ test("card widgets stay visually empty until tool output is injected", () => {
   }
 });
 
-test("payment responses use the payment widget template", async () => {
+test("payment responses keep payment widget context without remount template", async () => {
   const response = await __testing.toolResponse(
     {
       publicAssetBaseUrl: "https://ai.staging.hostr.network",
@@ -299,10 +299,10 @@ test("payment responses use the payment widget template", async () => {
     [{ type: "external-payment", invoice: "lnbc1test" }],
   );
 
-  assert.equal(
-    response._meta["openai/outputTemplate"],
-    "ui://widget/payment-required.html",
-  );
+  assert.equal(response._meta["openai/outputTemplate"], undefined);
+  assert.deepEqual(response._meta.ui, {
+    resourceUri: "ui://widget/payment-required.html",
+  });
   assert.equal(
     response.structuredContent.display.type,
     "payment-external-required",
@@ -446,10 +446,10 @@ test("public profile lookup renders a compact profile widget response", async ()
   assert.equal(cards[0].statusLabel, "current");
   assert.match(markdown, /^\*\*Alice Host\*\*/);
   assert.match(markdown, /Sunny rooms and quiet mornings\./);
-  assert.equal(
-    response._meta["openai/outputTemplate"],
-    "ui://widget/profile-card.html",
-  );
+  assert.equal(response._meta["openai/outputTemplate"], undefined);
+  assert.deepEqual(response._meta.ui, {
+    resourceUri: "ui://widget/profile-card.html",
+  });
   assert.equal(response.structuredContent.display.type, "profile-card");
   assert.equal(response.structuredContent.profileCards[0].name, "Alice Host");
 });
