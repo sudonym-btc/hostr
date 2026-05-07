@@ -4013,6 +4013,13 @@ const paymentRequiredWidgetHtml = `
         line-height: 1.35;
       }
 
+      .loading {
+        padding: 10px;
+        color: color-mix(in srgb, CanvasText 72%, transparent);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
       .card {
         display: grid;
         gap: 8px;
@@ -4135,6 +4142,13 @@ const paymentRequiredWidgetHtml = `
         }
 
         function render(output) {
+          if (output === undefined || output === null) {
+            root.replaceChildren();
+            document.documentElement.hidden = false;
+            document.body.hidden = false;
+            appendText(root, "div", "loading", "Preparing Lightning invoice...");
+            return;
+          }
           var data = toolData(output);
           var payment = paymentFrom(data);
           root.replaceChildren();
@@ -4211,17 +4225,14 @@ const paymentRequiredWidgetHtml = `
 
         render(currentToolOutput());
 
-        var remainingChecks = 40;
         var pollId = window.setInterval(function () {
           var output = currentToolOutput();
           if (output === undefined || output === null) {
-            remainingChecks -= 1;
-            if (remainingChecks <= 0) window.clearInterval(pollId);
             return;
           }
           window.clearInterval(pollId);
           render(output);
-        }, 250);
+        }, 1000);
 
         window.addEventListener("openai:set_globals", function (event) {
           var globals = event.detail && event.detail.globals;
