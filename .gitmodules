@@ -8,3 +8,12 @@
 [submodule "dependencies/blossom"]
 	path = dependencies/blossom
 	url = git@github.com:hzrd149/blossom-server.git
+[submodule "dependencies/nips/accommodation-nip"]
+	path = dependencies/nips/accommodation-nip
+	url = git@github.com:sudonym-btc/accommodation-nip.git
+[submodule "dependencies/nips/reservation-nip"]
+	path = dependencies/nips/reservation-nip
+	url = git@github.com:sudonym-btc/reservation-nip.git
+[submodule "dependencies/nips/escrow-nip"]
+	path = dependencies/nips/escrow-nip
+	url = git@github.com:sudonym-btc/escrow-nip.git
