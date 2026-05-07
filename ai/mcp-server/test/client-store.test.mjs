@@ -181,7 +181,7 @@ test("listing tool responses include result-level widget context without remount
   });
 });
 
-test("payment widget keeps waiting for long-running tool output", () => {
+test("payment widget stays empty until it can show the QR", () => {
   assert.doesNotMatch(
     __testing.paymentRequiredWidgetHtml,
     /No external payment is required/,
@@ -190,13 +190,11 @@ test("payment widget keeps waiting for long-running tool output", () => {
     __testing.paymentRequiredWidgetHtml,
     /document\.documentElement\.hidden = true/,
   );
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /\.\.\./);
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /\.loading\s*\{/);
   assert.match(
     __testing.paymentRequiredWidgetHtml,
-    /appendText\(root, "div", "loading", "\.\.\."\)/,
-  );
-  assert.doesNotMatch(
-    __testing.paymentRequiredWidgetHtml,
-    /remainingChecks/,
+    /var remainingChecks = 80/,
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
@@ -208,44 +206,11 @@ test("payment widget keeps waiting for long-running tool output", () => {
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
-    /function renderOutput\(output, source\)/,
+    /function render\(output\)/,
   );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /window\.parent\.postMessage/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /ui\/initialize/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /protocolVersion: mcpAppsProtocolVersion/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /appCapabilities: \{\}/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /ui\/notifications\/initialized/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /ui\/notifications\/tool-result/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /ui\/notifications\/tool-input/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /ui\/notifications\/tool-result-list/,
-  );
-  assert.match(
-    __testing.paymentRequiredWidgetHtml,
-    /\[Hostr payment widget\]/,
-  );
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /window\.parent\.postMessage/);
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /ui\/initialize/);
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /\[Hostr payment widget\]/);
   assert.match(
     __testing.paymentRequiredWidgetHtml,
     /var globals = detail\.globals \|\| detail;/,
@@ -287,7 +252,7 @@ test("card widgets stay visually empty until tool output is injected", () => {
   }
 });
 
-test("payment responses keep payment widget context without remount template", async () => {
+test("payment responses include a result-bound payment widget", async () => {
   const response = await __testing.toolResponse(
     {
       publicAssetBaseUrl: "https://ai.staging.hostr.network",
@@ -299,7 +264,10 @@ test("payment responses keep payment widget context without remount template", a
     [{ type: "external-payment", invoice: "lnbc1test" }],
   );
 
-  assert.equal(response._meta["openai/outputTemplate"], undefined);
+  assert.equal(
+    response._meta["openai/outputTemplate"],
+    "ui://widget/payment-required.html",
+  );
   assert.deepEqual(response._meta.ui, {
     resourceUri: "ui://widget/payment-required.html",
   });
