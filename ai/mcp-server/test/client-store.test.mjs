@@ -192,7 +192,7 @@ test("payment widget stays silent without an external payment payload", () => {
   );
 });
 
-test("payment responses use the cache-busted payment widget template", async () => {
+test("payment responses use the payment widget template", async () => {
   const response = await __testing.toolResponse(
     {
       publicAssetBaseUrl: "https://ai.staging.hostr.network",
@@ -206,12 +206,26 @@ test("payment responses use the cache-busted payment widget template", async () 
 
   assert.equal(
     response._meta["openai/outputTemplate"],
-    "ui://widget/payment-required.v2.html",
+    "ui://widget/payment-required.html",
   );
   assert.equal(
     response.structuredContent.display.type,
     "payment-external-required",
   );
+});
+
+test("swap watch does not advertise a static payment widget", async () => {
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.swaps.watch",
+    { ok: true, data: { stateName: "pending" } },
+    false,
+  );
+
+  assert.equal(response._meta?.["openai/outputTemplate"], undefined);
 });
 
 test("profile card markdown stays compact and hides internals", () => {
