@@ -3889,6 +3889,10 @@ const listingCardWidgetHtml = `
         }
 
         function render(output) {
+          if (output === undefined || output === null) {
+            root.replaceChildren();
+            return;
+          }
           var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
@@ -4329,6 +4333,10 @@ const sessionConnectWidgetHtml = `
         }
 
         function render(output) {
+          if (output === undefined || output === null) {
+            root.replaceChildren();
+            return;
+          }
           var display = displayFrom(toolData(output));
           root.replaceChildren();
           if (!display) {
@@ -4543,6 +4551,10 @@ const profileCardWidgetHtml = `
         }
 
         function render(output) {
+          if (output === undefined || output === null) {
+            root.replaceChildren();
+            return;
+          }
           var card = cardFrom(toolData(output));
           root.replaceChildren();
           if (!card || card.exists === false) {
@@ -4755,6 +4767,10 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
         }
 
         function render(output) {
+          if (output === undefined || output === null) {
+            root.replaceChildren();
+            return;
+          }
           var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
