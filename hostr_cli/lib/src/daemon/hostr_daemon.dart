@@ -2478,13 +2478,14 @@ class HostrDaemon {
 
     final futures = await thread.replyText(input.content);
     final nested = await Future.wait(futures);
+    final sentMessage = {
+      'content': input.content,
+      'senderPubkey': activePubkey,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    };
     return {
       'dryRun': false,
-      'sentMessage': {
-        'content': input.content,
-        'senderPubkey': activePubkey,
-        'createdAt': DateTime.now().toUtc().toIso8601String(),
-      },
+      'sentMessage': sentMessage,
       'recipientPubkeys': recipients,
       'relayResponses': nested
           .expand((responses) => responses)
@@ -2494,6 +2495,7 @@ class HostrDaemon {
         hostr,
         thread,
         activePubkey: activePubkey,
+        optimisticMessages: [sentMessage],
       ),
     };
   }
@@ -2569,13 +2571,14 @@ class HostrDaemon {
 
     final futures = await escrowThread.replyText(content);
     final nested = await Future.wait(futures);
+    final sentMessage = {
+      'content': content,
+      'senderPubkey': activePubkey,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    };
     return {
       'dryRun': false,
-      'sentMessage': {
-        'content': content,
-        'senderPubkey': activePubkey,
-        'createdAt': DateTime.now().toUtc().toIso8601String(),
-      },
+      'sentMessage': sentMessage,
       'tradeId': tradeId,
       'participantPubkeys': plan.participantPubkeys,
       'recipientPubkeys': plan.recipientPubkeys,
@@ -2588,6 +2591,7 @@ class HostrDaemon {
         hostr,
         escrowThread,
         activePubkey: activePubkey,
+        optimisticMessages: [sentMessage],
       ),
     };
   }
@@ -5032,6 +5036,7 @@ Future<Map<String, Object?>> _threadViewJson(
   Thread thread, {
   required String activePubkey,
   int limit = 50,
+  List<Map<String, Object?>> optimisticMessages = const [],
 }) async {
   final state = thread.state.value;
   final participantPubkeys = {
@@ -5049,6 +5054,45 @@ Future<Map<String, Object?>> _threadViewJson(
       .whereType<Map<String, Object?>>()
       .toList();
   final title = _threadTitle(thread, counterparties: counterparties);
+  final visibleMessageJson = visibleMessages
+      .map(
+        (message) => _threadMessageJson(
+          message,
+          activePubkey: activePubkey,
+          profiles: profiles,
+        ),
+      )
+      .toList();
+  var optimisticMessageCount = 0;
+  for (final optimistic in optimisticMessages) {
+    final content = optimistic['content']?.toString();
+    final senderPubkey = optimistic['senderPubkey']?.toString();
+    if (content == null ||
+        content.isEmpty ||
+        senderPubkey == null ||
+        senderPubkey.isEmpty) {
+      continue;
+    }
+    final alreadyIncluded = visibleMessageJson.any(
+      (message) =>
+          message['content'] == content &&
+          message['senderPubkey'] == senderPubkey,
+    );
+    if (alreadyIncluded) continue;
+    final profile = profiles[senderPubkey];
+    final profileMap = profile is Map<String, Object?> ? profile : null;
+    visibleMessageJson.add({
+      'senderPubkey': senderPubkey,
+      'senderName':
+          profileMap?['name']?.toString() ?? _shortPubkey(senderPubkey),
+      'sentByUser': senderPubkey == activePubkey,
+      'content': content,
+      if (optimistic['createdAt'] != null)
+        'createdAt': optimistic['createdAt'].toString(),
+      'optimistic': true,
+    });
+    optimisticMessageCount += 1;
+  }
   return {
     'type': 'thread-view',
     'anchor': thread.anchor,
@@ -5058,17 +5102,9 @@ Future<Map<String, Object?>> _threadViewJson(
     'title': title,
     'counterparties': counterparties,
     'unreadCount': state.unreadCount(activePubkey),
-    'messageCount': messages.length,
+    'messageCount': messages.length + optimisticMessageCount,
     'hasMoreMessages': messages.length > visibleMessages.length,
-    'messages': visibleMessages
-        .map(
-          (message) => _threadMessageJson(
-            message,
-            activePubkey: activePubkey,
-            profiles: profiles,
-          ),
-        )
-        .toList(),
+    'messages': visibleMessageJson,
     'reservationRequests': state.reservationRequests.map(eventJson).toList(),
   };
 }
