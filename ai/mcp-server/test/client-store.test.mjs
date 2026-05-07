@@ -208,7 +208,7 @@ test("payment widget keeps waiting for long-running tool output", () => {
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
-    /function renderOutput\(output\)/,
+    /function renderOutput\(output, source\)/,
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
@@ -220,6 +220,14 @@ test("payment widget keeps waiting for long-running tool output", () => {
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
+    /protocolVersion: mcpAppsProtocolVersion/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /appCapabilities: \{\}/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
     /ui\/notifications\/initialized/,
   );
   assert.match(
@@ -228,7 +236,15 @@ test("payment widget keeps waiting for long-running tool output", () => {
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
+    /ui\/notifications\/tool-input/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
     /ui\/notifications\/tool-result-list/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /\[Hostr payment widget\]/,
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
