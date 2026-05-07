@@ -181,7 +181,7 @@ test("listing tool responses include result-level widget metadata", async () => 
   });
 });
 
-test("payment widget stays silent without an external payment payload", () => {
+test("payment widget keeps waiting for long-running tool output", () => {
   assert.doesNotMatch(
     __testing.paymentRequiredWidgetHtml,
     /No external payment is required/,
@@ -189,6 +189,14 @@ test("payment widget stays silent without an external payment payload", () => {
   assert.match(
     __testing.paymentRequiredWidgetHtml,
     /document\.documentElement\.hidden = true/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /Preparing Lightning invoice/,
+  );
+  assert.doesNotMatch(
+    __testing.paymentRequiredWidgetHtml,
+    /remainingChecks/,
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
