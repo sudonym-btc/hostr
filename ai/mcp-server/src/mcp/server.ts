@@ -4247,6 +4247,33 @@ const paymentRequiredWidgetHtml = `
           return window.openai && window.openai.toolOutput;
         }
 
+        function debugSummary(value) {
+          if (value === undefined) return "undefined";
+          if (value === null) return "null";
+          if (typeof value !== "object") return typeof value;
+          var keys = Object.keys(value).slice(0, 12);
+          var data = value.structuredContent && typeof value.structuredContent === "object"
+            ? value.structuredContent
+            : value;
+          var display = data && data.display && typeof data.display === "object" ? data.display : null;
+          return {
+            keys: keys,
+            hasStructuredContent: !!value.structuredContent,
+            hasToolOutput: value.toolOutput !== undefined,
+            hasOutput: value.output !== undefined,
+            hasResult: value.result !== undefined,
+            displayType: display && display.type,
+            paymentDisplays: Array.isArray(data && data.paymentDisplays) ? data.paymentDisplays.length : 0,
+            displayCards: Array.isArray(display && display.cards) ? display.cards.length : 0
+          };
+        }
+
+        function logPaymentWidget(eventName, detail) {
+          try {
+            console.log("[Hostr payment widget]", eventName, detail);
+          } catch (_error) {}
+        }
+
         function extractToolOutput(value) {
           if (value === undefined || value === null) return value;
           if (typeof value !== "object") return value;
@@ -4269,7 +4296,11 @@ const paymentRequiredWidgetHtml = `
 
         var pollId = null;
 
-        function renderOutput(output) {
+        function renderOutput(output, source) {
+          logPaymentWidget("renderOutput", {
+            source: source || "unknown",
+            summary: debugSummary(output)
+          });
           if (output === undefined || output === null) {
             return false;
           }
@@ -4283,10 +4314,16 @@ const paymentRequiredWidgetHtml = `
 
         var initializeRequestId = "hostr-payment-widget-init-" + String(Date.now());
         var initializedNotified = false;
+        var mcpAppsProtocolVersion = "2026-01-26";
 
         function postUiRequest(method, params, id) {
           try {
             if (!window.parent || window.parent === window) return;
+            logPaymentWidget("postUiRequest", {
+              method: method,
+              id: id,
+              params: debugSummary(params)
+            });
             window.parent.postMessage({
               jsonrpc: "2.0",
               id: id,
@@ -4299,6 +4336,10 @@ const paymentRequiredWidgetHtml = `
         function postUiNotification(method, params) {
           try {
             if (!window.parent || window.parent === window) return;
+            logPaymentWidget("postUiNotification", {
+              method: method,
+              params: debugSummary(params)
+            });
             window.parent.postMessage({
               jsonrpc: "2.0",
               method: method,
@@ -4313,22 +4354,40 @@ const paymentRequiredWidgetHtml = `
           postUiNotification("ui/notifications/initialized", {});
         }
 
+        logPaymentWidget("boot", {
+          hasOpenai: !!window.openai,
+          hasToolOutput: !!(window.openai && window.openai.toolOutput),
+          location: window.location && window.location.href
+        });
         render(currentToolOutput());
-        postUiRequest("ui/initialize", { capabilities: {} }, initializeRequestId);
+        postUiRequest("ui/initialize", {
+          protocolVersion: mcpAppsProtocolVersion,
+          appInfo: {
+            name: "hostr-payment-required",
+            title: "Hostr Payment Required",
+            version: "0.0.1"
+          },
+          appCapabilities: {}
+        }, initializeRequestId);
         window.setTimeout(notifyInitialized, 250);
 
         pollId = window.setInterval(function () {
-          renderOutput(currentToolOutput());
+          renderOutput(currentToolOutput(), "window.openai.poll");
         }, 1000);
 
         window.addEventListener("openai:set_globals", function (event) {
           var detail = event.detail || {};
           var globals = detail.globals || detail;
+          logPaymentWidget("openai:set_globals", {
+            detail: debugSummary(detail),
+            globals: debugSummary(globals),
+            toolOutput: debugSummary(globals && globals.toolOutput)
+          });
           var output = globals && globals.toolOutput;
           if (output === undefined || output === null) {
             output = currentToolOutput();
           }
-          renderOutput(output);
+          renderOutput(output, "openai:set_globals");
         }, { passive: true });
 
         window.addEventListener("message", function (event) {
@@ -4341,18 +4400,33 @@ const paymentRequiredWidgetHtml = `
             }
           }
           if (!message || typeof message !== "object") return;
+          logPaymentWidget("postMessage", {
+            id: message.id,
+            method: message.method,
+            hasResult: message.result !== undefined,
+            hasError: message.error !== undefined,
+            params: debugSummary(message.params),
+            result: debugSummary(message.result)
+          });
           if (message.id === initializeRequestId) {
             notifyInitialized();
             return;
           }
           var method = message.method;
           var params = message.params || {};
+          if (method === "ui/notifications/tool-input") {
+            logPaymentWidget("tool-input", {
+              params: debugSummary(params),
+              arguments: debugSummary(params.arguments)
+            });
+            return;
+          }
           if (method === "ui/notifications/tool-result") {
-            renderOutput(extractToolOutput(params));
+            renderOutput(extractToolOutput(params), "ui/notifications/tool-result");
             return;
           }
           if (method === "ui/notifications/tool-result-list") {
-            renderOutput(outputFromToolResultList(params));
+            renderOutput(outputFromToolResultList(params), "ui/notifications/tool-result-list");
             return;
           }
           if (method === "ui/notifications/set-globals") {
@@ -4361,7 +4435,7 @@ const paymentRequiredWidgetHtml = `
             if (output === undefined || output === null) {
               output = extractToolOutput(params);
             }
-            renderOutput(output);
+            renderOutput(output, "ui/notifications/set-globals");
           }
         }, { passive: true });
       })();
