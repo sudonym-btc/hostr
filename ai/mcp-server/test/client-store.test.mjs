@@ -208,7 +208,27 @@ test("payment widget keeps waiting for long-running tool output", () => {
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
-    /if \(output === undefined \|\| output === null\) \{\s+return;\s+\}\s+window\.clearInterval\(pollId\);\s+render\(output\);/,
+    /function renderOutput\(output\)/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /window\.parent\.postMessage/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /ui\/initialize/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /ui\/notifications\/initialized/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /ui\/notifications\/tool-result/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /ui\/notifications\/tool-result-list/,
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,

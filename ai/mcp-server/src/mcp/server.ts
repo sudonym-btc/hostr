@@ -4247,15 +4247,78 @@ const paymentRequiredWidgetHtml = `
           return window.openai && window.openai.toolOutput;
         }
 
-        render(currentToolOutput());
-
-        var pollId = window.setInterval(function () {
-          var output = currentToolOutput();
-          if (output === undefined || output === null) {
-            return;
+        function extractToolOutput(value) {
+          if (value === undefined || value === null) return value;
+          if (typeof value !== "object") return value;
+          if (value.structuredContent !== undefined) return value.structuredContent;
+          if (value.toolOutput !== undefined) return value.toolOutput;
+          if (value.output !== undefined) return extractToolOutput(value.output);
+          if (value.result !== undefined) return extractToolOutput(value.result);
+          if (value.content && typeof value.content === "object") {
+            return extractToolOutput(value.content);
           }
-          window.clearInterval(pollId);
+          return value;
+        }
+
+        function outputFromToolResultList(params) {
+          if (!params || typeof params !== "object") return undefined;
+          var results = params.results || params.toolResults || params.items;
+          if (!Array.isArray(results) || results.length < 1) return undefined;
+          return extractToolOutput(results[results.length - 1]);
+        }
+
+        var pollId = null;
+
+        function renderOutput(output) {
+          if (output === undefined || output === null) {
+            return false;
+          }
+          if (pollId !== null) {
+            window.clearInterval(pollId);
+            pollId = null;
+          }
           render(output);
+          return true;
+        }
+
+        var initializeRequestId = "hostr-payment-widget-init-" + String(Date.now());
+        var initializedNotified = false;
+
+        function postUiRequest(method, params, id) {
+          try {
+            if (!window.parent || window.parent === window) return;
+            window.parent.postMessage({
+              jsonrpc: "2.0",
+              id: id,
+              method: method,
+              params: params || {}
+            }, "*");
+          } catch (_error) {}
+        }
+
+        function postUiNotification(method, params) {
+          try {
+            if (!window.parent || window.parent === window) return;
+            window.parent.postMessage({
+              jsonrpc: "2.0",
+              method: method,
+              params: params || {}
+            }, "*");
+          } catch (_error) {}
+        }
+
+        function notifyInitialized() {
+          if (initializedNotified) return;
+          initializedNotified = true;
+          postUiNotification("ui/notifications/initialized", {});
+        }
+
+        render(currentToolOutput());
+        postUiRequest("ui/initialize", { capabilities: {} }, initializeRequestId);
+        window.setTimeout(notifyInitialized, 250);
+
+        pollId = window.setInterval(function () {
+          renderOutput(currentToolOutput());
         }, 1000);
 
         window.addEventListener("openai:set_globals", function (event) {
@@ -4265,9 +4328,40 @@ const paymentRequiredWidgetHtml = `
           if (output === undefined || output === null) {
             output = currentToolOutput();
           }
-          if (output !== undefined && output !== null) {
-            window.clearInterval(pollId);
-            render(output);
+          renderOutput(output);
+        }, { passive: true });
+
+        window.addEventListener("message", function (event) {
+          var message = event.data;
+          if (typeof message === "string") {
+            try {
+              message = JSON.parse(message);
+            } catch (_error) {
+              return;
+            }
+          }
+          if (!message || typeof message !== "object") return;
+          if (message.id === initializeRequestId) {
+            notifyInitialized();
+            return;
+          }
+          var method = message.method;
+          var params = message.params || {};
+          if (method === "ui/notifications/tool-result") {
+            renderOutput(extractToolOutput(params));
+            return;
+          }
+          if (method === "ui/notifications/tool-result-list") {
+            renderOutput(outputFromToolResultList(params));
+            return;
+          }
+          if (method === "ui/notifications/set-globals") {
+            var globals = params.globals || params;
+            var output = globals && globals.toolOutput;
+            if (output === undefined || output === null) {
+              output = extractToolOutput(params);
+            }
+            renderOutput(output);
           }
         }, { passive: true });
       })();
