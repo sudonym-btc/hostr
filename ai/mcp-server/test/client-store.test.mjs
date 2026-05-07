@@ -269,7 +269,42 @@ test("payment responses include a result-bound payment widget", async () => {
         "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={data}",
     },
     "hostr.reservations.bookAndPay",
-    { ok: true, data: { message: "payment required" } },
+    {
+      ok: true,
+      command: "hostr.reservations.bookAndPay",
+      environment: "staging",
+      dryRun: false,
+      traceId: "trace-payment",
+      data: {
+        message: "payment required",
+        mode: "book-and-pay",
+        continuesInBackground: true,
+        externalPayment: {
+          invoice: "lnbc1test",
+          tradeId: "trade-123",
+          swapId: "swap-123",
+          params: { noisy: true },
+        },
+        state: {
+          state: "swap.paymentProgress",
+          tradeId: "trade-123",
+          swapState: {
+            id: "swap-123",
+            postClaimCalls: [{ data: "0xdeadbeef" }],
+          },
+          reservation: { id: "event-123" },
+        },
+        states: [{ state: "validating" }, { state: "swap.paymentProgress" }],
+        nextTool: {
+          name: "hostr_swaps_watch",
+          arguments: {
+            swapId: "swap-123",
+            tradeId: "trade-123",
+            reservationWaitSeconds: 300,
+          },
+        },
+      },
+    },
     false,
     [{ type: "external-payment", invoice: "lnbc1test" }],
   );
@@ -298,13 +333,30 @@ test("payment responses include a result-bound payment widget", async () => {
   assert.equal(response.structuredContent.paymentRequired, true);
   assert.equal(response.structuredContent.data.status, "payment_required");
   assert.equal(response.structuredContent.data.paymentRequired, true);
+  assert.equal(response.structuredContent.data.tradeId, "trade-123");
+  assert.equal(response.structuredContent.data.swapId, "swap-123");
+  assert.deepEqual(response.structuredContent.data.nextTool, {
+    name: "hostr_swaps_watch",
+    arguments: {
+      swapId: "swap-123",
+      tradeId: "trade-123",
+      reservationWaitSeconds: 300,
+    },
+  });
+  assert.equal(response.structuredContent.data.state, undefined);
+  assert.equal(response.structuredContent.data.states, undefined);
+  assert.equal(response.structuredContent.data.externalPayment, undefined);
+  assert.equal(response.structuredContent.hostrNotices, undefined);
 });
 
-test("book and pay only advertises the payment widget after payment is required", () => {
+test("book and pay advertises the payment widget at tool registration time", () => {
   const bookAndPayMeta = __testing.reservationToolMeta(
     "hostr.reservations.bookAndPay",
   );
-  assert.equal(bookAndPayMeta["openai/outputTemplate"], undefined);
+  assert.equal(
+    bookAndPayMeta["openai/outputTemplate"],
+    "ui://widget/payment-required.html",
+  );
   assert.equal(
     bookAndPayMeta["hostr.preferredRenderer"],
     "payment-external-required",
@@ -313,6 +365,36 @@ test("book and pay only advertises the payment widget after payment is required"
   const swapWatchMeta = __testing.reservationToolMeta("hostr.swaps.watch");
   assert.equal(swapWatchMeta["openai/outputTemplate"], undefined);
   assert.equal(swapWatchMeta["hostr.preferredRenderer"], "trip-card");
+});
+
+test("payment widget can read ChatGPT multimodal payment output", () => {
+  assert.match(__testing.paymentRequiredWidgetHtml, /content_type === "image"/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /function qrFromText/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /Lightning invoice QR/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /"qrImageUrl"/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /Array\.isArray\(output\.parts\)/);
+});
+
+test("tool descriptions omit repeated boilerplate", () => {
+  const description = __testing.toolDescription({
+    id: "hostr.reservations.bookAndPay",
+    description: [
+      "Book and pay for an instant-book reservation.",
+      "MCP driving notes: long common notes.",
+      "Read-only behavior: common read notes.",
+      "Write behavior: common write notes.",
+      "Preview rule: common preview notes.",
+      "Specific workflow note.",
+    ].join("\n\n"),
+    inputTypeName: "HostrReservationsBookAndPayInput",
+  });
+
+  assert.match(description, /Book and pay/);
+  assert.match(description, /Specific workflow note/);
+  assert.match(description, /May return a payment QR widget/);
+  assert.doesNotMatch(description, /MCP driving notes/);
+  assert.doesNotMatch(description, /Write behavior/);
+  assert.doesNotMatch(description, /Full TypeScript/);
 });
 
 test("book and pay uses friendly ChatGPT annotations", () => {
