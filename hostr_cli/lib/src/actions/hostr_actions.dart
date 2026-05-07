@@ -763,6 +763,16 @@ class HostrProfileEditInput {
   }
 }
 
+class HostrProfileLookupInput {
+  const HostrProfileLookupInput({required this.npub});
+
+  final String npub;
+
+  factory HostrProfileLookupInput.fromJson(Map<String, dynamic> json) {
+    return HostrProfileLookupInput(npub: _requiredString(json, 'npub'));
+  }
+}
+
 class HostrReservationCollectionInput {
   const HostrReservationCollectionInput({
     this.limit = 50,
@@ -1237,6 +1247,8 @@ class HostrActionSpec {
         return 'Use when the user explicitly asks to involve/message escrow for a specific reservation trade. Always pass tradeId. This opens the shared buyer/seller/escrow trade thread; never create an escrow-only side conversation. If no message content is provided, show the thread and ask what to send.';
       case 'hostr.profile.show':
         return 'Use when the user asks who they are on Hostr, wants their current profile, or before profile/listing publishing when you need existing metadata. This reads the profile for the MCP token pubkey.';
+      case 'hostr.profile.lookup':
+        return 'Use when the user asks to view a specific public Nostr/Hostr profile by npub, including a host, guest, seller, buyer, or arbitrary profile that is not the authenticated MCP user. This tool is public and does not require sign-in.';
       case 'hostr.profile.edit':
         return 'Use when the user wants to update profile name, about/bio, picture, banner, website, lightning address, or other profile metadata. Preview first; publish only after approval. Publishing also refreshes Hostr seller configuration, which is useful before creating or editing listings.';
       case 'hostr.trips.list':
@@ -2398,6 +2410,31 @@ export interface HostrEmptyInput {}
 ''',
   );
 
+  static const profileLookup = HostrActionSpec(
+    id: 'hostr.profile.lookup',
+    title: 'Show Hostr Profile By Npub',
+    description:
+        'Public read-only lookup for any Hostr/Nostr profile metadata by npub. Use this when the user asks to view a specific user, host, guest, seller, buyer, or arbitrary Nostr profile that is not necessarily their authenticated profile.',
+    inputTypeName: 'HostrProfileLookupInput',
+    readOnly: true,
+    inputSchema: {
+      'type': 'object',
+      'additionalProperties': false,
+      'required': ['npub'],
+      'properties': {
+        'npub': {
+          'type': 'string',
+          'description': 'NIP-19 npub for the profile to display.',
+        },
+      },
+    },
+    typescriptInput: '''
+export interface HostrProfileLookupInput {
+  npub: string;
+}
+''',
+  );
+
   static const profileEdit = HostrActionSpec(
     id: 'hostr.profile.edit',
     title: 'Edit Hostr Profile',
@@ -3228,6 +3265,7 @@ export interface HostrSwapsRecoverAllInput {
     threadMessage,
     escrowInvolve,
     profileShow,
+    profileLookup,
     profileEdit,
     tripsList,
     bookingsList,
