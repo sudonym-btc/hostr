@@ -200,6 +200,24 @@ test("payment widget stays silent without an external payment payload", () => {
   );
 });
 
+test("widgets poll for delayed ChatGPT tool output injection", () => {
+  const widgetHtml = [
+    __testing.listingCardWidgetHtml,
+    __testing.paymentRequiredWidgetHtml,
+    __testing.sessionConnectWidgetHtml,
+    __testing.profileCardWidgetHtml,
+    __testing.tripHostingWidgetHtml("trip"),
+    __testing.tripHostingWidgetHtml("hosting"),
+  ];
+
+  for (const html of widgetHtml) {
+    assert.match(html, /window\.setInterval/);
+    assert.match(html, /currentToolOutput/);
+    assert.match(html, /structuredContent/);
+    assert.match(html, /openai:set_globals/);
+  }
+});
+
 test("payment responses use the payment widget template", async () => {
   const response = await __testing.toolResponse(
     {
@@ -257,4 +275,46 @@ test("profile card markdown stays compact and hides internals", () => {
   assert.match(markdown, /^\*\*Staging Guest\*\*/);
   assert.match(markdown, /\*\*Lightning address:\*\* paco@walletofsatoshi\.com/);
   assert.doesNotMatch(markdown, /Pubkey|EVM|0x2BFCDD|fb5bf2|Status:/);
+});
+
+test("public profile lookup renders a compact profile widget response", async () => {
+  const result = {
+    ok: true,
+    data: {
+      exists: true,
+      pubkey: "fb5bf2daa32fe7ffa72521fa475fe409f1162cf605baf5ee52bd6651beabd7f7",
+      npub: "npub1lddl9k4r9lnllfe9y8aywhlyp8c3vt8kqka0tmjjh4n9r04t6lmse3s57g",
+      metadata: {
+        name: "Alice Host",
+        about: "Sunny rooms and quiet mornings.",
+        picture: "https://blossom.staging.hostr.network/alice.jpg",
+        lud16: "alice@example.com",
+        nip05: "alice@example.com",
+      },
+    },
+  };
+
+  const cards = __testing.profileCardsFromResult("hostr.profile.lookup", result);
+  const markdown = __testing.profileCardsMarkdown(cards);
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.profile.lookup",
+    result,
+    false,
+  );
+
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].name, "Alice Host");
+  assert.equal(cards[0].statusLabel, "current");
+  assert.match(markdown, /^\*\*Alice Host\*\*/);
+  assert.match(markdown, /Sunny rooms and quiet mornings\./);
+  assert.equal(
+    response._meta["openai/outputTemplate"],
+    "ui://widget/profile-card.html",
+  );
+  assert.equal(response.structuredContent.display.type, "profile-card");
+  assert.equal(response.structuredContent.profileCards[0].name, "Alice Host");
 });

@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
+import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../actions/hostr_actions.dart';
@@ -25,7 +26,10 @@ class HostrDaemon {
     : _notifications = notifications,
       _signerNotifications = SignerRequestNotificationBridge(notifications);
 
-  static const _publicActions = {'hostr.listings.search'};
+  static const _publicActions = {
+    'hostr.listings.search',
+    'hostr.profile.lookup',
+  };
   static const _escrowRole = 'escrow';
 
   final HostrCliRuntimeContext context;
@@ -374,6 +378,13 @@ class HostrDaemon {
         'hostr.profile.show' => (
           dryRun: false,
           data: await _profileShow(tokenPubkey, session),
+        ),
+        'hostr.profile.lookup' => (
+          dryRun: false,
+          data: await _profileLookup(
+            session,
+            HostrProfileLookupInput.fromJson(input),
+          ),
         ),
         'hostr.profile.edit' => await () async {
           final profileInput = HostrProfileEditInput.fromJson(input);
@@ -2599,6 +2610,21 @@ class HostrDaemon {
     };
   }
 
+  Future<Map<String, Object?>> _profileLookup(
+    HostrSession session,
+    HostrProfileLookupInput input,
+  ) async {
+    final pubkey = _pubkeyFromNpub(input.npub);
+    final profile = await session.metadata.loadMetadata(pubkey);
+    return {
+      'pubkey': pubkey,
+      'npub': Helpers.encodeBech32(pubkey, 'npub'),
+      'exists': profile != null,
+      if (profile != null) 'event': eventJson(profile),
+      if (profile != null) 'metadata': profile.metadata.toJson(),
+    };
+  }
+
   Future<Map<String, Object?>> _profileEdit(
     String tokenPubkey,
     HostrSession session,
@@ -4160,6 +4186,31 @@ Future<String> _requireAuthenticatedPubkey(
     );
   }
   return activePubkey;
+}
+
+String _pubkeyFromNpub(String npub) {
+  final trimmed = npub.trim();
+  if (!trimmed.startsWith('npub1')) {
+    throw HostrCliException(
+      'invalid_npub',
+      'Profile lookup requires a NIP-19 npub value.',
+      details: {'npub': npub},
+    );
+  }
+  try {
+    final decoded = Helpers.decodeBech32(trimmed);
+    final pubkey = decoded[0];
+    if (pubkey.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(pubkey)) {
+      return pubkey.toLowerCase();
+    }
+  } catch (_) {
+    // Fall through to the consistent HostrCliException below.
+  }
+  throw HostrCliException(
+    'invalid_npub',
+    'Profile lookup requires a valid NIP-19 npub value.',
+    details: {'npub': npub},
+  );
 }
 
 Uri _blossomUploadUri(String serverUrl) {

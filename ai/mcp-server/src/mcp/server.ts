@@ -69,6 +69,7 @@ const paymentWidgetActionIds = new Set([
 
 const profileActionIds = new Set([
   "hostr.profile.show",
+  "hostr.profile.lookup",
   "hostr.profile.edit",
 ]);
 
@@ -3514,7 +3515,10 @@ const sendHostrProgress = async (
   });
 };
 
-const publicActionIds = new Set<string>(["hostr.listings.search"]);
+const publicActionIds = new Set<string>([
+  "hostr.listings.search",
+  "hostr.profile.lookup",
+]);
 
 const mcpTransports = new Map<string, StreamableHTTPServerTransport>();
 const mcpSessionTraceIds = new Map<string, string>();
@@ -3753,6 +3757,14 @@ const listingCardWidgetHtml = `
           return typeof value === "string" && value.trim() ? value : fallback;
         }
 
+        function toolData(output) {
+          if (!output || typeof output !== "object") return output;
+          if (output.structuredContent && typeof output.structuredContent === "object") {
+            return output.structuredContent;
+          }
+          return output;
+        }
+
         function cardsFrom(output) {
           if (!output || typeof output !== "object") return [];
           if (Array.isArray(output.listingCards)) return output.listingCards;
@@ -3850,7 +3862,7 @@ const listingCardWidgetHtml = `
         }
 
         function render(output) {
-          var cards = cardsFrom(output).filter(Boolean);
+          var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
             appendText(root, "div", "empty", "No listings found.");
@@ -3861,13 +3873,33 @@ const listingCardWidgetHtml = `
           });
         }
 
-        render(window.openai && window.openai.toolOutput);
+        function currentToolOutput() {
+          return window.openai && window.openai.toolOutput;
+        }
+
+        render(currentToolOutput());
+
+        var remainingChecks = 40;
+        var pollId = window.setInterval(function () {
+          var output = currentToolOutput();
+          if (output === undefined || output === null) {
+            remainingChecks -= 1;
+            if (remainingChecks <= 0) window.clearInterval(pollId);
+            return;
+          }
+          window.clearInterval(pollId);
+          render(output);
+        }, 250);
 
         window.addEventListener(
           "openai:set_globals",
           function (event) {
             var globals = event.detail && event.detail.globals;
-            render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+            var output = (globals && globals.toolOutput) || currentToolOutput();
+            if (output !== undefined && output !== null) {
+              window.clearInterval(pollId);
+              render(output);
+            }
           },
           { passive: true },
         );
@@ -4246,6 +4278,14 @@ const sessionConnectWidgetHtml = `
       (function () {
         var root = document.getElementById("root");
 
+        function toolData(output) {
+          if (!output || typeof output !== "object") return output;
+          if (output.structuredContent && typeof output.structuredContent === "object") {
+            return output.structuredContent;
+          }
+          return output;
+        }
+
         function displayFrom(output) {
           if (!output || typeof output !== "object") return null;
           return output.display && output.display.type === "nostr-connect" ? output.display : null;
@@ -4262,7 +4302,7 @@ const sessionConnectWidgetHtml = `
         }
 
         function render(output) {
-          var display = displayFrom(output);
+          var display = displayFrom(toolData(output));
           root.replaceChildren();
           if (!display) {
             var empty = document.createElement("div");
@@ -4302,10 +4342,31 @@ const sessionConnectWidgetHtml = `
           root.appendChild(wrap);
         }
 
-        render(window.openai && window.openai.toolOutput);
+        function currentToolOutput() {
+          return window.openai && window.openai.toolOutput;
+        }
+
+        render(currentToolOutput());
+
+        var remainingChecks = 40;
+        var pollId = window.setInterval(function () {
+          var output = currentToolOutput();
+          if (output === undefined || output === null) {
+            remainingChecks -= 1;
+            if (remainingChecks <= 0) window.clearInterval(pollId);
+            return;
+          }
+          window.clearInterval(pollId);
+          render(output);
+        }, 250);
+
         window.addEventListener("openai:set_globals", function (event) {
           var globals = event.detail && event.detail.globals;
-          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+          var output = (globals && globals.toolOutput) || currentToolOutput();
+          if (output !== undefined && output !== null) {
+            window.clearInterval(pollId);
+            render(output);
+          }
         }, { passive: true });
       })();
     </script>
@@ -4420,6 +4481,14 @@ const profileCardWidgetHtml = `
       (function () {
         var root = document.getElementById("root");
 
+        function toolData(output) {
+          if (!output || typeof output !== "object") return output;
+          if (output.structuredContent && typeof output.structuredContent === "object") {
+            return output.structuredContent;
+          }
+          return output;
+        }
+
         function cardFrom(output) {
           if (!output || typeof output !== "object") return null;
           if (Array.isArray(output.profileCards) && output.profileCards[0]) return output.profileCards[0];
@@ -4447,7 +4516,7 @@ const profileCardWidgetHtml = `
         }
 
         function render(output) {
-          var card = cardFrom(output);
+          var card = cardFrom(toolData(output));
           root.replaceChildren();
           if (!card || card.exists === false) {
             appendText(root, "div", "empty", "No Hostr profile metadata was found.");
@@ -4485,10 +4554,31 @@ const profileCardWidgetHtml = `
           root.appendChild(article);
         }
 
-        render(window.openai && window.openai.toolOutput);
+        function currentToolOutput() {
+          return window.openai && window.openai.toolOutput;
+        }
+
+        render(currentToolOutput());
+
+        var remainingChecks = 40;
+        var pollId = window.setInterval(function () {
+          var output = currentToolOutput();
+          if (output === undefined || output === null) {
+            remainingChecks -= 1;
+            if (remainingChecks <= 0) window.clearInterval(pollId);
+            return;
+          }
+          window.clearInterval(pollId);
+          render(output);
+        }, 250);
+
         window.addEventListener("openai:set_globals", function (event) {
           var globals = event.detail && event.detail.globals;
-          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+          var output = (globals && globals.toolOutput) || currentToolOutput();
+          if (output !== undefined && output !== null) {
+            window.clearInterval(pollId);
+            render(output);
+          }
         }, { passive: true });
       })();
     </script>
@@ -4585,6 +4675,14 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
         var root = document.getElementById("root");
         var variant = "${variant}";
 
+        function toolData(output) {
+          if (!output || typeof output !== "object") return output;
+          if (output.structuredContent && typeof output.structuredContent === "object") {
+            return output.structuredContent;
+          }
+          return output;
+        }
+
         function cardsFrom(output) {
           if (!output || typeof output !== "object") return [];
           if (variant === "hosting" && Array.isArray(output.hostingCards)) return output.hostingCards;
@@ -4630,7 +4728,7 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
         }
 
         function render(output) {
-          var cards = cardsFrom(output).filter(Boolean);
+          var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
             appendText(root, "div", "empty", variant === "hosting" ? "No hosting reservations found." : "No trips found.");
@@ -4641,10 +4739,31 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
           });
         }
 
-        render(window.openai && window.openai.toolOutput);
+        function currentToolOutput() {
+          return window.openai && window.openai.toolOutput;
+        }
+
+        render(currentToolOutput());
+
+        var remainingChecks = 40;
+        var pollId = window.setInterval(function () {
+          var output = currentToolOutput();
+          if (output === undefined || output === null) {
+            remainingChecks -= 1;
+            if (remainingChecks <= 0) window.clearInterval(pollId);
+            return;
+          }
+          window.clearInterval(pollId);
+          render(output);
+        }, 250);
+
         window.addEventListener("openai:set_globals", function (event) {
           var globals = event.detail && event.detail.globals;
-          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+          var output = (globals && globals.toolOutput) || currentToolOutput();
+          if (output !== undefined && output !== null) {
+            window.clearInterval(pollId);
+            render(output);
+          }
         }, { passive: true });
       })();
     </script>
@@ -5438,14 +5557,18 @@ export const handleMcpRequest =
 
 export const __testing = {
   anchorToNaddr,
+  listingCardWidgetHtml,
   listingCardsFromResult,
   listingCardsMarkdown,
   listingRouteUrl,
+  profileCardWidgetHtml,
   profileCardsFromResult,
   profileCardsMarkdown,
   paymentRequiredWidgetHtml,
   reservationCardsFromResult,
   reservationCardsMarkdown,
+  sessionConnectWidgetHtml,
   toolResponse,
+  tripHostingWidgetHtml,
   widgetTemplateMeta,
 };
