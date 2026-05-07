@@ -106,6 +106,21 @@ const reservationCardOutputSchema = z
   })
   .passthrough();
 
+const paymentRequiredOutputSchema = z
+  .object({
+    assistantInstructions: z.array(z.string()).optional(),
+    displayMarkdown: z.string(),
+    status: z.literal("payment_required"),
+    stateName: z.literal("payment_required"),
+    paymentRequired: z.literal(true),
+    display: z.object({
+      type: z.literal("payment-external-required"),
+      cards: z.array(z.record(z.string(), z.unknown())),
+    }),
+    paymentDisplays: z.array(z.record(z.string(), z.unknown())),
+  })
+  .passthrough();
+
 const sessionConnectOutputSchema = z
   .object({
     assistantInstructions: z.array(z.string()).optional(),
@@ -2866,6 +2881,23 @@ const toolResponse = async (
         "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the trip card.",
       ]
     : undefined;
+  const bookAndPayPaymentRequired =
+    actionId === "hostr.reservations.bookAndPay" && Boolean(paymentDisplay);
+  const structuredResult = bookAndPayPaymentRequired
+    ? {
+        ...compactThreadResult,
+        status: "payment_required" as const,
+        stateName: "payment_required" as const,
+        paymentRequired: true,
+        data: {
+          ...safeResultData,
+          status: "payment_required" as const,
+          stateName: "payment_required" as const,
+          paymentRequired: true,
+          externalPaymentRequired: true,
+        },
+      }
+    : compactThreadResult;
   const sessionConnectPending =
     actionId === "hostr.session.connect" &&
     resultData.authenticated !== true &&
@@ -2952,7 +2984,7 @@ const toolResponse = async (
   return {
     isError,
     structuredContent: {
-      ...compactThreadResult,
+      ...structuredResult,
       displayMarkdown: presentationMarkdown,
       ...(safeNotices.length > 0 ? { hostrNotices: safeNotices } : {}),
       ...(paymentAssistantInstructions
@@ -5457,7 +5489,10 @@ const createServer = (
         !profileActionIds.has(action.id) &&
         reservationActionIds.has(action.id)
           ? {
-              outputSchema: reservationCardOutputSchema,
+              outputSchema:
+                action.id === "hostr.reservations.bookAndPay"
+                  ? paymentRequiredOutputSchema
+                  : reservationCardOutputSchema,
               _meta: reservationToolMeta(action.id),
             }
           : {}),

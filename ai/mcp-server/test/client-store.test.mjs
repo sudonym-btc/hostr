@@ -307,6 +307,11 @@ test("payment responses use the payment widget template", async () => {
     response.structuredContent.display.type,
     "payment-external-required",
   );
+  assert.equal(response.structuredContent.status, "payment_required");
+  assert.equal(response.structuredContent.stateName, "payment_required");
+  assert.equal(response.structuredContent.paymentRequired, true);
+  assert.equal(response.structuredContent.data.status, "payment_required");
+  assert.equal(response.structuredContent.data.paymentRequired, true);
 });
 
 test("book and pay advertises the payment widget at tool registration time", () => {
