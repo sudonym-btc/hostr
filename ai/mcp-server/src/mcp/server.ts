@@ -63,6 +63,15 @@ const widgetTemplateMeta = (
   ...extras,
 });
 
+const widgetResultMeta = (
+  resourceUri: string,
+  extras: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  ui: { resourceUri },
+  "openai/widgetAccessible": true,
+  ...extras,
+});
+
 const profileActionIds = new Set([
   "hostr.profile.show",
   "hostr.profile.lookup",
@@ -2937,7 +2946,7 @@ const toolResponse = async (
     reservationCardDisplay;
   const responseDisplayType = stringValue(record(responseDisplay)?.type);
   const responseWidgetMeta = responseWidgetUri
-    ? widgetTemplateMeta(responseWidgetUri, {
+    ? widgetResultMeta(responseWidgetUri, {
         ...(responseDisplayType
           ? { "hostr.contentType": responseDisplayType }
           : {}),
@@ -5143,7 +5152,6 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr listing-card structuredContent as lightweight cards with images, price, type, status, and open links.",
             "openai/widgetPrefersBorder": true,
-            "openai/outputTemplate": listingCardWidgetUri,
             "openai/widgetAccessible": true,
           },
         },
@@ -5176,7 +5184,6 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr external-payment structuredContent as a Lightning invoice QR, wallet link, and copy action.",
             "openai/widgetPrefersBorder": true,
-            "openai/outputTemplate": paymentRequiredWidgetUri,
             "openai/widgetAccessible": true,
           },
         },
@@ -5209,7 +5216,6 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr session initialization structuredContent as a Nostr Connect QR and exact URI link.",
             "openai/widgetPrefersBorder": true,
-            "openai/outputTemplate": sessionConnectWidgetUri,
             "openai/widgetAccessible": true,
           },
         },
@@ -5242,7 +5248,6 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr profile structuredContent as a compact profile card with avatar and identity fields.",
             "openai/widgetPrefersBorder": true,
-            "openai/outputTemplate": profileCardWidgetUri,
             "openai/widgetAccessible": true,
           },
         },
@@ -5270,7 +5275,6 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr trip structuredContent, including a bold Cancelled state when present.",
             "openai/widgetPrefersBorder": true,
-            "openai/outputTemplate": tripWidgetUri,
             "openai/widgetAccessible": true,
           },
         },
@@ -5298,7 +5302,6 @@ const createServer = (
             "openai/widgetDescription":
               "Renders Hostr hosting structuredContent with the guest and stay location text.",
             "openai/widgetPrefersBorder": true,
-            "openai/outputTemplate": hostingWidgetUri,
             "openai/widgetAccessible": true,
           },
         },
