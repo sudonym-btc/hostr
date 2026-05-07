@@ -218,6 +218,23 @@ test("widgets poll for delayed ChatGPT tool output injection", () => {
   }
 });
 
+test("card widgets stay visually empty until tool output is injected", () => {
+  const widgetHtml = [
+    __testing.listingCardWidgetHtml,
+    __testing.sessionConnectWidgetHtml,
+    __testing.profileCardWidgetHtml,
+    __testing.tripHostingWidgetHtml("trip"),
+    __testing.tripHostingWidgetHtml("hosting"),
+  ];
+
+  for (const html of widgetHtml) {
+    assert.match(
+      html,
+      /if \(output === undefined \|\| output === null\) \{\s+root\.replaceChildren\(\);\s+return;\s+\}/,
+    );
+  }
+});
+
 test("payment responses use the payment widget template", async () => {
   const response = await __testing.toolResponse(
     {
