@@ -192,7 +192,7 @@ test("payment widget keeps waiting for long-running tool output", () => {
   );
   assert.match(
     __testing.paymentRequiredWidgetHtml,
-    /Preparing Lightning invoice/,
+    /appendText\(root, "div", "loading", "\.\.\."\)/,
   );
   assert.doesNotMatch(
     __testing.paymentRequiredWidgetHtml,
