@@ -2476,26 +2476,17 @@ class HostrDaemon {
       };
     }
 
-    final futures = await thread.replyText(input.content);
-    final nested = await Future.wait(futures);
-    final sentMessage = {
-      'content': input.content,
-      'senderPubkey': activePubkey,
-      'createdAt': DateTime.now().toUtc().toIso8601String(),
-    };
+    final sentEvent = await thread
+        .replyTextAndWait(input.content)
+        .timeout(Duration(seconds: input.timeoutSeconds));
     return {
       'dryRun': false,
-      'sentMessage': sentMessage,
+      'sentMessage': _sentTextEventJson(sentEvent, activePubkey: activePubkey),
       'recipientPubkeys': recipients,
-      'relayResponses': nested
-          .expand((responses) => responses)
-          .map(relayResponseJson)
-          .toList(),
       'threadView': await _threadViewJson(
         hostr,
         thread,
         activePubkey: activePubkey,
-        optimisticMessages: [sentMessage],
       ),
     };
   }
@@ -2569,29 +2560,20 @@ class HostrDaemon {
       };
     }
 
-    final futures = await escrowThread.replyText(content);
-    final nested = await Future.wait(futures);
-    final sentMessage = {
-      'content': content,
-      'senderPubkey': activePubkey,
-      'createdAt': DateTime.now().toUtc().toIso8601String(),
-    };
+    final sentEvent = await escrowThread
+        .replyTextAndWait(content)
+        .timeout(Duration(seconds: input.timeoutSeconds));
     return {
       'dryRun': false,
-      'sentMessage': sentMessage,
+      'sentMessage': _sentTextEventJson(sentEvent, activePubkey: activePubkey),
       'tradeId': tradeId,
       'participantPubkeys': plan.participantPubkeys,
       'recipientPubkeys': plan.recipientPubkeys,
       'roles': plan.rolePubkeys,
-      'relayResponses': nested
-          .expand((responses) => responses)
-          .map(relayResponseJson)
-          .toList(),
       'threadView': await _threadViewJson(
         hostr,
         escrowThread,
         activePubkey: activePubkey,
-        optimisticMessages: [sentMessage],
       ),
     };
   }
@@ -5036,7 +5018,6 @@ Future<Map<String, Object?>> _threadViewJson(
   Thread thread, {
   required String activePubkey,
   int limit = 50,
-  List<Map<String, Object?>> optimisticMessages = const [],
 }) async {
   final state = thread.state.value;
   final participantPubkeys = {
@@ -5054,45 +5035,6 @@ Future<Map<String, Object?>> _threadViewJson(
       .whereType<Map<String, Object?>>()
       .toList();
   final title = _threadTitle(thread, counterparties: counterparties);
-  final visibleMessageJson = visibleMessages
-      .map(
-        (message) => _threadMessageJson(
-          message,
-          activePubkey: activePubkey,
-          profiles: profiles,
-        ),
-      )
-      .toList();
-  var optimisticMessageCount = 0;
-  for (final optimistic in optimisticMessages) {
-    final content = optimistic['content']?.toString();
-    final senderPubkey = optimistic['senderPubkey']?.toString();
-    if (content == null ||
-        content.isEmpty ||
-        senderPubkey == null ||
-        senderPubkey.isEmpty) {
-      continue;
-    }
-    final alreadyIncluded = visibleMessageJson.any(
-      (message) =>
-          message['content'] == content &&
-          message['senderPubkey'] == senderPubkey,
-    );
-    if (alreadyIncluded) continue;
-    final profile = profiles[senderPubkey];
-    final profileMap = profile is Map<String, Object?> ? profile : null;
-    visibleMessageJson.add({
-      'senderPubkey': senderPubkey,
-      'senderName':
-          profileMap?['name']?.toString() ?? _shortPubkey(senderPubkey),
-      'sentByUser': senderPubkey == activePubkey,
-      'content': content,
-      if (optimistic['createdAt'] != null)
-        'createdAt': optimistic['createdAt'].toString(),
-      'optimistic': true,
-    });
-    optimisticMessageCount += 1;
-  }
   return {
     'type': 'thread-view',
     'anchor': thread.anchor,
@@ -5102,10 +5044,34 @@ Future<Map<String, Object?>> _threadViewJson(
     'title': title,
     'counterparties': counterparties,
     'unreadCount': state.unreadCount(activePubkey),
-    'messageCount': messages.length + optimisticMessageCount,
+    'messageCount': messages.length,
     'hasMoreMessages': messages.length > visibleMessages.length,
-    'messages': visibleMessageJson,
+    'messages': visibleMessages
+        .map(
+          (message) => _threadMessageJson(
+            message,
+            activePubkey: activePubkey,
+            profiles: profiles,
+          ),
+        )
+        .toList(),
     'reservationRequests': state.reservationRequests.map(eventJson).toList(),
+  };
+}
+
+Map<String, Object?> _sentTextEventJson(
+  Nip01Event event, {
+  required String activePubkey,
+}) {
+  return {
+    'id': event.id,
+    'senderPubkey': event.pubKey,
+    'sentByUser': event.pubKey == activePubkey,
+    'content': event.content,
+    'createdAt': DateTime.fromMillisecondsSinceEpoch(
+      event.createdAt * 1000,
+      isUtc: true,
+    ).toUtc().toIso8601String(),
   };
 }
 
