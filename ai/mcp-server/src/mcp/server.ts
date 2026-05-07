@@ -266,6 +266,7 @@ const toolAnnotations = (action: {
 const reservationToolMeta = (actionId: string): Record<string, unknown> => {
   if (actionId === "hostr.reservations.bookAndPay") {
     return {
+      ...widgetTemplateMeta(paymentRequiredWidgetUri),
       "hostr.preferredRenderer": "payment-external-required",
       "hostr.contentType": "payment-external-required",
     };
@@ -289,6 +290,65 @@ const reservationToolMeta = (actionId: string): Record<string, unknown> => {
     "hostr.contentType": "trip-card",
   };
 };
+
+const descriptionBoilerplatePrefixes = [
+  "MCP driving notes:",
+  "Read-only behavior:",
+  "Write behavior:",
+  "Preview rule:",
+  "Escrow role notes:",
+];
+
+const conciseActionDescription = (
+  action: (typeof hostrActionCatalog)[number],
+): string =>
+  action.description
+    .split(/\n\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .filter(
+      (paragraph) =>
+        !descriptionBoilerplatePrefixes.some((prefix) =>
+          paragraph.startsWith(prefix),
+        ),
+    )
+    .join("\n\n");
+
+const presentationContract = (actionId: string): string | null => {
+  if (listingActionIds.has(actionId)) {
+    return "Returns listing-card output; render structuredContent.displayMarkdown and preserve image Markdown.";
+  }
+  if (reservationActionIds.has(actionId)) {
+    return actionId === "hostr.reservations.bookAndPay"
+      ? "May return a payment QR widget. If payment is required, show the QR/invoice and then call hostr_swaps_watch with the returned ids."
+      : "May return trip-card or hosting-card output; render structuredContent.displayMarkdown instead of raw JSON.";
+  }
+  if (profileActionIds.has(actionId)) {
+    return "Returns profile-card output; render structuredContent.displayMarkdown.";
+  }
+  if (threadActionIds.has(actionId)) {
+    return "Returns thread-card/thread-view output; use resolved names and avoid raw ids unless debugging.";
+  }
+  if (escrowTradeActionIds.has(actionId)) {
+    return "Escrow-only output; render structuredContent.displayMarkdown and avoid raw event JSON unless debugging.";
+  }
+  if (escrowServiceActionIds.has(actionId)) {
+    return "Escrow-only service output; keep live changes behind explicit approval.";
+  }
+  if (escrowBadgeActionIds.has(actionId)) {
+    return "Escrow-only badge output; publish/delete only after explicit approval.";
+  }
+  return null;
+};
+
+const toolDescription = (action: (typeof hostrActionCatalog)[number]): string =>
+  [
+    conciseActionDescription(action),
+    presentationContract(action.id),
+    `Input type: ${action.inputTypeName}.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
 const escrowTradeActionIds = new Set([
   "hostr.escrow.trades.list",
@@ -334,6 +394,11 @@ const boolValue = (value: unknown): boolean | null =>
 
 const truncate = (value: string, max = 180): string =>
   value.length > max ? `${value.slice(0, max - 1)}...` : value;
+
+const numberValue = (value: unknown): number | null => {
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 
 const parseJsonRecord = (value: unknown): Record<string, unknown> | null => {
   const direct = record(value);
@@ -2342,6 +2407,80 @@ const paymentResponseText = (
     .join("\n\n");
 };
 
+const compactPaymentRequiredResult = (
+  safeResult: Record<string, unknown>,
+  safeResultData: Record<string, unknown>,
+  resultData: Record<string, unknown>,
+): Record<string, unknown> => {
+  const state = record(resultData.state);
+  const safeState = record(safeResultData.state);
+  const swapState = record(state?.swapState) ?? record(safeState?.swapState);
+  const externalPayment =
+    record(resultData.externalPayment) ??
+    record(state?.externalPayment) ??
+    record(safeResultData.externalPayment) ??
+    record(safeState?.externalPayment);
+  const nextTool = record(resultData.nextTool) ?? record(safeResultData.nextTool);
+  const nextToolArguments = record(nextTool?.arguments);
+  const tradeId =
+    stringValue(resultData.tradeId) ??
+    stringValue(safeResultData.tradeId) ??
+    stringValue(externalPayment?.tradeId) ??
+    stringValue(state?.tradeId) ??
+    stringValue(safeState?.tradeId) ??
+    stringValue(nextToolArguments?.tradeId);
+  const swapId =
+    stringValue(resultData.swapId) ??
+    stringValue(safeResultData.swapId) ??
+    stringValue(externalPayment?.swapId) ??
+    stringValue(state?.swapId) ??
+    stringValue(safeState?.swapId) ??
+    stringValue(swapState?.id) ??
+    stringValue(nextToolArguments?.swapId);
+  const reservationWaitSeconds =
+    numberValue(nextToolArguments?.reservationWaitSeconds) ??
+    numberValue(resultData.reservationWaitSeconds) ??
+    numberValue(safeResultData.reservationWaitSeconds) ??
+    300;
+  const watchArguments = {
+    ...(swapId ? { swapId } : {}),
+    ...(tradeId ? { tradeId } : {}),
+    reservationWaitSeconds,
+  };
+
+  return {
+    ok: safeResult.ok,
+    command: safeResult.command,
+    environment: safeResult.environment,
+    dryRun: safeResult.dryRun,
+    traceId: safeResult.traceId,
+    status: "payment_required" as const,
+    stateName: "payment_required" as const,
+    paymentRequired: true,
+    externalPaymentRequired: true,
+    data: {
+      mode: stringValue(resultData.mode) ?? "book-and-pay",
+      status: "payment_required" as const,
+      stateName: "payment_required" as const,
+      paymentRequired: true,
+      externalPaymentRequired: true,
+      ...(tradeId ? { tradeId } : {}),
+      ...(swapId ? { swapId } : {}),
+      ...(boolValue(resultData.continuesInBackground) !== null
+        ? { continuesInBackground: boolValue(resultData.continuesInBackground) }
+        : {}),
+      ...(swapId || tradeId
+        ? {
+            nextTool: {
+              name: "hostr_swaps_watch",
+              arguments: watchArguments,
+            },
+          }
+        : {}),
+    },
+  };
+};
+
 const paymentQrImageBlock = (
   config: AppConfig,
   notice: HostrCriticalNotice,
@@ -2914,19 +3053,7 @@ const toolResponse = async (
   const bookAndPayPaymentRequired =
     actionId === "hostr.reservations.bookAndPay" && Boolean(paymentDisplay);
   const structuredResult = bookAndPayPaymentRequired
-    ? {
-        ...compactThreadResult,
-        status: "payment_required" as const,
-        stateName: "payment_required" as const,
-        paymentRequired: true,
-        data: {
-          ...safeResultData,
-          status: "payment_required" as const,
-          stateName: "payment_required" as const,
-          paymentRequired: true,
-          externalPaymentRequired: true,
-        },
-      }
+    ? compactPaymentRequiredResult(safeResult, safeResultData, resultData)
     : compactThreadResult;
   const sessionConnectPending =
     actionId === "hostr.session.connect" &&
@@ -2976,6 +3103,7 @@ const toolResponse = async (
           : {}),
       })
     : undefined;
+  const responseNotices = bookAndPayPaymentRequired ? [] : safeNotices;
   const threadCardAssistantInstructions = threadCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
@@ -3019,7 +3147,7 @@ const toolResponse = async (
     structuredContent: {
       ...structuredResult,
       displayMarkdown: presentationMarkdown,
-      ...(safeNotices.length > 0 ? { hostrNotices: safeNotices } : {}),
+      ...(responseNotices.length > 0 ? { hostrNotices: responseNotices } : {}),
       ...(paymentAssistantInstructions
         ? { assistantInstructions: paymentAssistantInstructions }
         : {}),
@@ -4158,6 +4286,75 @@ const paymentRequiredWidgetHtml = `
           }
         }
 
+        function qrFromText(value) {
+          if (typeof value !== "string") return null;
+          var markdownMatch = /!\\[[^\\]]*Lightning invoice QR[^\\]]*\\]\\(([^)]+)\\)/i.exec(value);
+          if (markdownMatch) return safeImageUrl(markdownMatch[1]);
+          var fieldMatch = /"qrImageUrl"\\s*:\\s*"([^"]+)"/.exec(value);
+          if (fieldMatch) {
+            try {
+              return safeImageUrl(JSON.parse('"' + fieldMatch[1] + '"'));
+            } catch (_error) {
+              return safeImageUrl(fieldMatch[1]);
+            }
+          }
+          return null;
+        }
+
+        function qrFromPart(part) {
+          if (typeof part === "string") return qrFromText(part);
+          if (!part || typeof part !== "object") return null;
+          if (part.content_type === "image" && part.encoding === "base64" && part.payload) {
+            var format = typeof part.format === "string" ? part.format : "png";
+            return safeImageUrl("data:image/" + format + ";base64," + part.payload);
+          }
+          return (
+            qrFromText(part.text) ||
+            qrFromText(part.content) ||
+            qrFromText(part.payload) ||
+            qrFromOutput(part.structuredContent) ||
+            qrFromOutput(part.data)
+          );
+        }
+
+        function qrFromOutput(output) {
+          if (output === undefined || output === null) return null;
+          if (typeof output === "string") return qrFromText(output);
+          if (Array.isArray(output)) {
+            for (var i = 0; i < output.length; i += 1) {
+              var fromItem = qrFromOutput(output[i]);
+              if (fromItem) return fromItem;
+            }
+            return null;
+          }
+          if (typeof output !== "object") return null;
+
+          var payment = paymentFrom(output);
+          var fromPayment = safeImageUrl(payment && payment.qrImageUrl);
+          if (fromPayment) return fromPayment;
+
+          if (Array.isArray(output.parts)) {
+            for (var j = 0; j < output.parts.length; j += 1) {
+              var fromPart = qrFromPart(output.parts[j]);
+              if (fromPart) return fromPart;
+            }
+          }
+
+          if (Array.isArray(output.content)) {
+            var fromContent = qrFromOutput(output.content);
+            if (fromContent) return fromContent;
+          }
+
+          return (
+            qrFromText(output.text) ||
+            qrFromText(output.markdown) ||
+            qrFromOutput(output.structuredContent) ||
+            qrFromOutput(output.toolOutput) ||
+            qrFromOutput(output.output) ||
+            qrFromOutput(output.result)
+          );
+        }
+
         function extractToolOutput(value) {
           if (value === undefined || value === null) return value;
           if (typeof value !== "object") return value;
@@ -4174,7 +4371,10 @@ const paymentRequiredWidgetHtml = `
             paymentFrom(output) ||
             paymentFrom(extracted) ||
             paymentFrom(toolData(extracted));
-          var qrUrl = safeImageUrl(payment && payment.qrImageUrl);
+          var qrUrl =
+            safeImageUrl(payment && payment.qrImageUrl) ||
+            qrFromOutput(output) ||
+            qrFromOutput(extracted);
           root.replaceChildren();
 
           if (!qrUrl) {
@@ -5186,35 +5386,7 @@ const createServer = (
       action.toolName,
       {
         title: action.title,
-        description: `${action.description}${
-          listingActionIds.has(action.id)
-            ? "\n\nPresentation contract: this listing tool returns visual listing-card output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown and preserve every ![image](url); do not rewrite listing results as text-only prose."
-            : ""
-        }${
-          reservationActionIds.has(action.id)
-            ? "\n\nPresentation contract: this reservation tool may return visual trip-card or hosting-card output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown; do not rewrite the reservation as raw JSON. Trips must preserve the bold **Cancelled** line when the reservation group is cancelled."
-            : ""
-        }${
-          profileActionIds.has(action.id)
-            ? "\n\nPresentation contract: this profile tool returns visual profile-card output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown; do not replace the profile with raw JSON."
-            : ""
-        }${
-          threadActionIds.has(action.id)
-            ? "\n\nPresentation contract: this inbox/thread tool returns visual thread-card or thread-view output. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown. Use resolved profile names and stay titles; do not show raw pubkeys, conversation ids, thread anchors, or event JSON unless the user explicitly asks for debugging details."
-            : ""
-        }${
-          escrowTradeActionIds.has(action.id)
-            ? "\n\nPresentation contract: this escrow-only tool returns escrow-trade-card output. It is hidden unless the authenticated Hostr pubkey is configured as an escrow. After calling it, answer with structuredContent.displayMarkdown rendered as Markdown and do not show raw event JSON unless the user explicitly asks for debugging details."
-            : ""
-        }${
-          escrowServiceActionIds.has(action.id)
-            ? "\n\nPresentation contract: this escrow-only service tool returns escrow-service-card output. It is hidden unless the authenticated Hostr pubkey is configured as an escrow. Keep dryRun=true until the user explicitly approves publishing service settings. Use hostr_profile_edit for profile metadata."
-            : ""
-        }${
-          escrowBadgeActionIds.has(action.id)
-            ? "\n\nPresentation contract: this escrow-only badge tool returns escrow-badge-card output. It is hidden unless the authenticated Hostr pubkey is configured as an escrow. Keep dryRun=true until the user explicitly approves publishing or deleting badge events."
-            : ""
-        }\n\nInput type: ${action.inputTypeName}. Full TypeScript and JSON schema docs are available in hostr://mcp/action-input-types.`,
+        description: toolDescription(action),
         inputSchema: action.inputSchema,
         ...(listingActionIds.has(action.id)
           ? {
@@ -5596,6 +5768,7 @@ export const __testing = {
   sessionConnectWidgetHtml,
   toolResponse,
   toolAnnotations,
+  toolDescription,
   tripHostingWidgetHtml,
   widgetTemplateMeta,
 };
