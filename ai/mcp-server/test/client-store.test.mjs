@@ -190,6 +190,14 @@ test("payment widget stays silent without an external payment payload", () => {
     __testing.paymentRequiredWidgetHtml,
     /document\.documentElement\.hidden = true/,
   );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /window\.setInterval/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /currentToolOutput/,
+  );
 });
 
 test("payment responses use the payment widget template", async () => {

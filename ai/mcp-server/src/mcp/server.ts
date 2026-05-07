@@ -4142,10 +4142,31 @@ const paymentRequiredWidgetHtml = `
           root.appendChild(wrap);
         }
 
-        render(window.openai && window.openai.toolOutput);
+        function currentToolOutput() {
+          return window.openai && window.openai.toolOutput;
+        }
+
+        render(currentToolOutput());
+
+        var remainingChecks = 40;
+        var pollId = window.setInterval(function () {
+          var output = currentToolOutput();
+          if (output === undefined || output === null) {
+            remainingChecks -= 1;
+            if (remainingChecks <= 0) window.clearInterval(pollId);
+            return;
+          }
+          window.clearInterval(pollId);
+          render(output);
+        }, 250);
+
         window.addEventListener("openai:set_globals", function (event) {
           var globals = event.detail && event.detail.globals;
-          render((globals && globals.toolOutput) || (window.openai && window.openai.toolOutput));
+          var output = (globals && globals.toolOutput) || currentToolOutput();
+          if (output !== undefined && output !== null) {
+            window.clearInterval(pollId);
+            render(output);
+          }
         }, { passive: true });
       })();
     </script>
