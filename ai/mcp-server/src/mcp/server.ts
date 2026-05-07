@@ -47,7 +47,7 @@ const listingActionIds = new Set([
 ]);
 
 const listingCardWidgetUri = "ui://widget/listing-card.html";
-const paymentRequiredWidgetUri = "ui://widget/payment-required.v2.html";
+const paymentRequiredWidgetUri = "ui://widget/payment-required.html";
 const sessionConnectWidgetUri = "ui://widget/session-connect.html";
 const profileCardWidgetUri = "ui://widget/profile-card.html";
 const tripWidgetUri = "ui://widget/trip.html";
@@ -65,7 +65,6 @@ const widgetTemplateMeta = (
 
 const paymentWidgetActionIds = new Set([
   "hostr.reservations.bookAndPay",
-  "hostr.swaps.watch",
 ]);
 
 const profileActionIds = new Set([
@@ -3998,6 +3997,14 @@ const paymentRequiredWidgetHtml = `
       (function () {
         var root = document.getElementById("root");
 
+        function toolData(output) {
+          if (!output || typeof output !== "object") return output;
+          if (output.structuredContent && typeof output.structuredContent === "object") {
+            return output.structuredContent;
+          }
+          return output;
+        }
+
         function paymentFrom(output) {
           if (!output || typeof output !== "object") return null;
           if (Array.isArray(output.paymentDisplays) && output.paymentDisplays[0]) {
@@ -4065,10 +4072,11 @@ const paymentRequiredWidgetHtml = `
         }
 
         function render(output) {
-          var payment = paymentFrom(output);
+          var data = toolData(output);
+          var payment = paymentFrom(data);
           root.replaceChildren();
           if (!payment) {
-            var cards = cardsFrom(output).filter(Boolean);
+            var cards = cardsFrom(data).filter(Boolean);
             if (cards.length > 0) {
               document.documentElement.hidden = false;
               document.body.hidden = false;
