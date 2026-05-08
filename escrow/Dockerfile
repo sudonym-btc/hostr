@@ -82,9 +82,9 @@ ENV COMMIT_SHA=$COMMIT_SHA \
     BUILD_DATE=$BUILD_DATE
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libsecp256k1-1 \
+    && apt-get install -y --no-install-recommends ca-certificates libsecp256k1-2 \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -sf "$(find /usr/lib -name 'libsecp256k1.so.1' -print -quit)" /usr/lib/libsecp256k1.so
+    && ln -sf "$(find /usr/lib -name 'libsecp256k1.so.*' -print -quit)" /usr/lib/libsecp256k1.so
 
 COPY --from=compile /out/daemon/bundle/bin/ /usr/local/bin/
 COPY --from=compile /out/daemon/bundle/lib/ /usr/local/lib/
