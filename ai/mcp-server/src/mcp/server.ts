@@ -1029,7 +1029,7 @@ const paymentDisplayMarkdown = (
     display.invoiceTextUrl
       ? `[Copy exact invoice text](${display.invoiceTextUrl})`
       : null,
-    "Use the QR, wallet link, or exact invoice text link above. Do not copy an invoice from assistant-rendered prose.",
+    "Use the QR, wallet link, or exact invoice text link above.",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -3945,7 +3945,7 @@ const sendHostrElicitation = async (
       message: [
         "USER ACTION REQUIRED: pay the Lightning invoice shown in the Hostr payment display.",
         notice.message,
-        "Use the QR, wallet link, copy affordance, or exact invoice text link from the payment display. Do not copy an invoice from assistant-rendered prose.",
+        "Use the QR, wallet link, copy affordance, or exact invoice text link from the payment display.",
         "Keep this Hostr request running while Hostr watches for payment, swap settlement, and the committed reservation.",
       ]
         .filter(Boolean)
