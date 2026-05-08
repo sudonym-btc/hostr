@@ -48,7 +48,7 @@ Future<List<Review>> buildReviews({
       listingAnchor: thread.listing.anchor!,
       reservation: thread.reservation!,
       reservationAuthorKeyPair: _reservationAuthorKeyPair(thread),
-      dTag: 'seed-review-${i + 1}',
+      dTag: thread.request.getDtag(),
       paidViaEscrow: thread.paidViaEscrow,
       createdAt: ctx.timestampDaysAfter(90 + i),
       rng: rr,

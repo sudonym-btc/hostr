@@ -15,6 +15,7 @@ list(APPEND FLUTTER_FFI_PLUGIN_LIST
   coinlib_flutter
   flutter_local_notifications_windows
   h3_flutter
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

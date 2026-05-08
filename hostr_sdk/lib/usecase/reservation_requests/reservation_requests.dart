@@ -198,7 +198,6 @@ class ReservationRequests extends CrudUseCase {
       pubKey: signerKeyPair.publicKey,
       dTag: previousRequest.getDtag()!,
       listingAnchor: listingAnchor,
-      threadAnchor: previousRequest.getFirstTag(kThreadRefTag),
       start: previousRequest.start,
       end: previousRequest.end,
       stage: ReservationStage.negotiate,

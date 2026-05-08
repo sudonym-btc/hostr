@@ -15,7 +15,7 @@ void main() {
           'kind': kNostrKindEscrowMethod,
           'tags': [
             [
-              'a',
+              kAcceptedPaymentFormTag,
               'USD',
               '412346:0x712516e61c8b383df4a63cfe83d7701bce54b03e',
             ],
@@ -43,7 +43,7 @@ void main() {
           'kind': kNostrKindEscrowMethod,
           'tags': [
             [
-              'a',
+              kAcceptedPaymentFormTag,
               'USD',
               '412346:0x712516e61c8b383df4a63cfe83d7701bce54b03e',
             ],

@@ -19,7 +19,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential ca-certificates clang cmake curl git pkg-config \
   && rm -rf /var/lib/apt/lists/* \
   && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --default-toolchain 1.90.0
+    | sh -s -- -y --default-toolchain 1.95.0
 WORKDIR /workspace
 COPY models ./models
 COPY hostr_sdk ./hostr_sdk

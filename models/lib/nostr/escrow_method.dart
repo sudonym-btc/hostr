@@ -6,15 +6,17 @@ import 'package:ndk/ndk.dart';
 import '../nostr_kinds.dart';
 import '../stubs/keypairs.dart';
 
-/// A denomination → concrete token mapping declared via an `"a"` tag on an
+const kAcceptedPaymentFormTag = 'o';
+
+/// A denomination → concrete token mapping declared via an `"o"` tag on an
 /// [EscrowMethod] event.
 ///
-/// Tag wire format: `["a", "<denomination>", "<tokenTagId>"]`
+/// Tag wire format: `["o", "<denomination>", "<tokenTagId>"]`
 ///
 /// Example:
 /// ```
-/// ["a", "BTC", "30:0x0000000000000000000000000000000000000000"]  // native RBTC
-/// ["a", "USD", "30:0xdAC17F958D2ee523a2206206994597C13D831ec7"]  // USDT on RSK
+/// ["o", "BTC", "30:0x0000000000000000000000000000000000000000"]  // native RBTC
+/// ["o", "USD", "30:0xdAC17F958D2ee523a2206206994597C13D831ec7"]  // USDT on RSK
 /// ```
 ///
 /// See `PRICING.md` Layer 2 for the full specification.
@@ -30,8 +32,8 @@ class AcceptedPaymentForm {
   /// [EscrowMethods.ensureEscrowMethod] can replace all forms belonging to
   /// a given app atomically instead of only appending.
   ///
-  /// Wire format: `["a", "<denomination>", "<tokenTagId>", "<appId>"]`
-  /// The 4th element is omitted when `null` for backwards compatibility.
+  /// Wire format: `["o", "<denomination>", "<tokenTagId>", "<appId>"]`
+  /// The 4th element is omitted when no application scope is needed.
   final String? appId;
 
   const AcceptedPaymentForm({
@@ -54,15 +56,15 @@ class AcceptedPaymentForm {
 
   /// Serialize to a Nostr tag (3 or 4 elements depending on [appId]).
   List<String> toTag() => [
-        'a',
+        kAcceptedPaymentFormTag,
         denomination,
         tokenTagId,
         if (appId != null) appId!,
       ];
 
-  /// Parse from a raw Nostr tag (must have ≥ 3 elements with `tag[0] == 'a'`).
+  /// Parse from a raw Nostr tag (must have ≥ 3 elements with payment-form tag).
   static AcceptedPaymentForm? fromTag(List<String> tag) {
-    if (tag.length < 3 || tag[0] != 'a') return null;
+    if (tag.length < 3 || tag[0] != kAcceptedPaymentFormTag) return null;
     return AcceptedPaymentForm(
       denomination: tag[1],
       tokenTagId: tag[2],
@@ -111,10 +113,10 @@ class EscrowMethod extends Event {
   /// All contract bytecode hashes declared via `"c"` tags.
   List<String> get supportedContractBytecodeHashes => getTags('c');
 
-  /// All accepted payment forms declared via `"a"` tags on this event.
+  /// All accepted payment forms declared via `"o"` tags on this event.
   List<AcceptedPaymentForm> get acceptedPaymentForms {
     return tags
-        .where((t) => t.length >= 3 && t[0] == 'a')
+        .where((t) => t.length >= 3 && t[0] == kAcceptedPaymentFormTag)
         .map((t) => AcceptedPaymentForm.fromTag(t)!)
         .toList();
   }

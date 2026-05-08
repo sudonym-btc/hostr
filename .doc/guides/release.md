@@ -171,7 +171,7 @@ Repository/Environment variable required for Terraform remote state:
 | `TF_STATE_BUCKET` | GCS bucket name created by `infrastructure/project` bootstrap. |
 
 Deployment is executed by the **Infrastructure Deploy** workflow
-([.github/workflows/infra_deploy.yaml](../../.github/workflows/infra_deploy.yaml)),
+([.github/workflows/infra_deploy.yaml](../source/github/workflows/infra_deploy.yaml)),
 which applies Terraform and then resets the compose VM to trigger the startup
 deploy script.
 

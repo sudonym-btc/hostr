@@ -315,7 +315,11 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
 
     final selectedEscrow = EscrowServiceSelected(
       pubKey: _auth.getActiveKey().publicKey,
-      tags: EscrowServiceSelectedTags([]),
+      tags: EscrowServiceSelectedTags([
+        ['d', reservation.getDtag()!],
+        [kListingRefTag, reservation.parsedTags.listingAnchor],
+        ['p', sellerProfile.pubKey],
+      ]),
       content: EscrowServiceSelectedContent(
         service: service,
         sellerMethods: mutual.sellerMethod!,

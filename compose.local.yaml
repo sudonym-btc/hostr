@@ -8,7 +8,7 @@
 
 x-templates:
   lnd-base: &lnd-base
-    image: lightninglabs/lnd:v0.20.0-beta
+    image: lightninglabs/lnd:v0.20.1-beta
     user: "0:0"
     depends_on:
       hostrbitcoind:
@@ -49,7 +49,7 @@ services:
   # ── Overrides for shared-base services ──────────────────────────────────
 
   tls-init:
-    image: alpine:3.20
+    image: alpine:3.23
     volumes:
       - ./docker/certs:/certs
       - ./docker/tls/ca:/ca
@@ -85,11 +85,6 @@ services:
       - HOSTR_DAEMON_STATE_DIR=/data/mcp
       - HOSTR_MCP_DEV_PROXY_TARGET=${HOSTR_MCP_DEV_PROXY_TARGET:-http://host.docker.internal:8787}
       - MCP_DEV_AUTH_ENABLED=${MCP_DEV_AUTH_ENABLED:-1}
-
-  # landing-page:
-  #   volumes:
-  #     - ./landing-page/index.html:/usr/share/nginx/html/index.html:ro
-  #     - ./landing-page/assets:/usr/share/nginx/html/assets:ro
 
   escrow:
     build:
@@ -168,7 +163,7 @@ services:
       - ./docker/data/lightning_data/1:/lnd
 
   lnbits:
-    image: lnbits/lnbits:v1.5.1
+    image: lnbits/lnbits:v1.5.4
     depends_on:
       lnd:
         condition: service_healthy
@@ -330,7 +325,7 @@ services:
     restart: "no"
 
   telemetry:
-    image: grafana/otel-lgtm:0.8.1
+    image: grafana/otel-lgtm:0.27.1
     environment:
       - VIRTUAL_HOST=telemetry.${DOMAIN}
       - VIRTUAL_PORT=3000
@@ -344,7 +339,7 @@ services:
       - default
 
   bootstrap:
-    image: docker:27-cli
+    image: docker:29-cli
     depends_on:
       hostrbitcoind:
         condition: service_healthy
@@ -367,7 +362,7 @@ services:
     restart: "no"
 
   lnbits-init:
-    image: python:3.12-alpine
+    image: python:3.14-alpine
     depends_on:
       lnbits:
         condition: service_healthy
@@ -386,7 +381,7 @@ services:
       - default
 
   alby-init:
-    image: python:3.12-alpine
+    image: python:3.14-alpine
     depends_on:
       albyhub:
         condition: service_healthy

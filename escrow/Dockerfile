@@ -1,10 +1,10 @@
 # ── Toolchain base ────────────────────────────────────────────────────
 FROM dart:stable AS dart-sdk
 
-FROM rust:1.90.0-bookworm AS toolchain
+FROM rust:1.95.0-bookworm AS toolchain
 
 ENV PATH="/usr/local/bin:/usr/lib/dart/bin:/usr/local/cargo/bin:${PATH}" \
-    RUSTUP_TOOLCHAIN="1.90.0"
+    RUSTUP_TOOLCHAIN="1.95.0"
 
 COPY --from=dart-sdk /usr/lib/dart /usr/lib/dart
 
@@ -15,7 +15,7 @@ RUN apt-get update \
       'set -e' \
       '' \
       'if [ "$1" = "show" ] && [ "$2" = "active-toolchain" ]; then' \
-      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.90.0}"' \
+      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.95.0}"' \
       '  exit 0' \
       'fi' \
       '' \
@@ -74,7 +74,7 @@ FROM build AS compile
 RUN dart build cli --target bin/daemon.dart -o /out/daemon
 
 # ── Production runtime ───────────────────────────────────────────────
-FROM debian:12-slim AS production
+FROM debian:13-slim AS production
 
 ARG COMMIT_SHA=dev
 ARG BUILD_DATE=

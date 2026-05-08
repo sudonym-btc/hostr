@@ -13,7 +13,7 @@ TextMessage _buildTextMessage({required bool sentByHost}) {
     pubKey: sentByHost ? MockKeys.hoster.publicKey : MockKeys.guest.publicKey,
     tags: MessageTags([
       ['p', sentByHost ? MockKeys.guest.publicKey : MockKeys.hoster.publicKey],
-      [kThreadRefTag, _scenario.threadAnchor],
+      [kConversationTag, _scenario.threadAnchor],
     ]),
     content: sentByHost
         ? 'Thanks for reaching out. Check-in details are in the app.'

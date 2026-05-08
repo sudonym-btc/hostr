@@ -8,7 +8,7 @@ import '../nostr_parser.dart';
 import 'event.dart';
 import 'type_parent.dart';
 
-class MessageTags extends EventTags with ReferencesThread<MessageTags> {
+class MessageTags extends EventTags {
   MessageTags(super.tags);
 }
 

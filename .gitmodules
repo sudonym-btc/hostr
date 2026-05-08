@@ -5,9 +5,6 @@
 [submodule "dependencies/boltz-regtest"]
 	path = dependencies/boltz-regtest
 	url = git@github.com:BoltzExchange/regtest.git
-[submodule "dependencies/blossom"]
-	path = dependencies/blossom
-	url = git@github.com:hzrd149/blossom-server.git
 [submodule "dependencies/nips/accommodation-nip"]
 	path = dependencies/nips/accommodation-nip
 	url = git@github.com:sudonym-btc/accommodation-nip.git

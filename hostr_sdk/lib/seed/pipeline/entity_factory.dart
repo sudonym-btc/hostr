@@ -1302,7 +1302,6 @@ class EntityFactory {
         recipient: recipient,
         proof: proof,
         commitAuthorization: commitAuthorization,
-        threadAnchor: stage != ReservationStage.negotiate ? dTag : null,
         extraTags: [...participantPlan.tags, ...extraTags],
         createdAt: createdAt ?? _defaultCreatedAt(),
       );
@@ -1361,7 +1360,6 @@ class EntityFactory {
       recipient: recipient ?? tradeKey.publicKey,
       proof: proof,
       commitAuthorization: commitAuthorization,
-      threadAnchor: stage != ReservationStage.negotiate ? tradeId : null,
       extraTags: [...participantPlan.tags, ...extraTags],
       createdAt: createdAt ?? _defaultCreatedAt(),
     );
@@ -1451,9 +1449,9 @@ class EntityFactory {
     return Review(
       pubKey: kp.publicKey,
       tags: ReviewTags([
+        ['d', dTag ?? reservation.getDtag() ?? _nextDTag('review')],
         [kReservationRefTag, reservationAnchor],
         [kListingRefTag, listingAnchor],
-        ['d', dTag ?? _nextDTag('review')],
       ]),
       createdAt: createdAt ?? _defaultCreatedAt(),
       content: ReviewContent(
@@ -1491,7 +1489,7 @@ class EntityFactory {
       pubKey: signer.publicKey,
       createdAt: createdAt ?? _defaultCreatedAt(),
       tags: ReservationTransitionTags([
-        ['t', tradeId],
+        ['d', tradeId],
         ['e', eventId],
         if (previousTransitionId != null) ['prev', previousTransitionId],
         [kListingRefTag, listingAnchor],
@@ -1525,9 +1523,8 @@ class EntityFactory {
       pubKey: signer.publicKey,
       tags: EscrowServiceSelectedTags([
         [kListingRefTag, listingAnchor],
-        [kThreadRefTag, threadAnchor],
         ['p', sellerPubkey],
-        ['d', dTag ?? _nextDTag('escrow-selected')],
+        ['d', dTag ?? threadAnchor],
       ]),
       createdAt: createdAt ?? _defaultCreatedAt(),
       content: EscrowServiceSelectedContent(
@@ -1565,7 +1562,7 @@ class EntityFactory {
           ['p', hostSigner.publicKey],
           ['amount', amountMsats.toString()],
           ['e', tradeId],
-          ['l', listing.anchor!],
+          [kListingRefTag, listing.anchor!],
           if (lnurl != null) ['lnurl', lnurl],
         ],
         content: 'Seed zap request',
@@ -1585,7 +1582,7 @@ class EntityFactory {
           ['p', hostSigner.publicKey],
           ['P', guestSigner.publicKey],
           ['e', zapRequest.getEId()!],
-          ['l', listing.anchor!],
+          [kListingRefTag, listing.anchor!],
           if (lnurl != null) ['lnurl', lnurl],
           [
             'description',

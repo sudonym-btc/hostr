@@ -39,11 +39,6 @@ services:
     environment:
       - LETSENCRYPT_HOST=blossom.${DOMAIN}
 
-  # landing-page:
-  #   image: ${DOCKER_REGISTRY}/landing-page:latest
-  #   environment:
-  #     - LETSENCRYPT_HOST=landing.${DOMAIN},${DOMAIN}
-
   app:
     image: ${DOCKER_REGISTRY}/app:latest
     environment:
@@ -58,7 +53,7 @@ services:
       - ./docker/data/mcp:/data/mcp
 
   otelcol:
-    image: otel/opentelemetry-collector-contrib:0.123.0
+    image: otel/opentelemetry-collector-contrib:0.151.0
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./docker/otelcol/config.yaml:/etc/otelcol/config.yaml:ro

@@ -3,15 +3,6 @@
     {
       "name": "root",
       "path": "."
-    },
-    {
-      "path": "../accommodation-nip"
-    },
-    {
-      "path": "../escrow-nip"
-    },
-    {
-      "path": "../reservation-nip"
     }
   ],
   "settings": {
