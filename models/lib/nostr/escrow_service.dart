@@ -45,6 +45,7 @@ class EscrowService
           e,
           tagParser: _tagParser,
           contentParser: _contentParser,
+          requiredTags: requiredTags,
         );
 }
 

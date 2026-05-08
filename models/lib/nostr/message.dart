@@ -95,6 +95,12 @@ abstract class Message<T extends Event>
 
   static Message<Event> safeParse(Nip01Event e) {
     final child = parseChild(e);
+    if (child == null && JsonMessage.kinds.contains(e.kind)) {
+      throw FormatException(
+        'Malformed JSON message kind=${e.kind} id=${e.id}: '
+        'missing or invalid child event',
+      );
+    }
     if (child != null || JsonMessage.kinds.contains(e.kind)) {
       return JsonMessage<Event>.fromNostrEvent(e, child);
     }

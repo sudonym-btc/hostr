@@ -310,6 +310,7 @@ class Reservation
           e,
           tagParser: _tagParser,
           contentParser: _contentParser,
+          requiredTags: requiredTags,
         );
 
   // ── Factory constructor ─────────────────────────────────────────────
