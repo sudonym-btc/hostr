@@ -25,9 +25,11 @@ class Escrows extends CrudUseCase<EscrowService> {
     final results = await Future.wait([
       _escrowMethods.getOne(
         Filter(kinds: EscrowMethod.kinds, authors: [buyerPubkey]),
+        cacheRead: false,
       ),
       _escrowMethods.getOne(
         Filter(kinds: EscrowMethod.kinds, authors: [sellerPubkey]),
+        cacheRead: false,
       ),
     ]);
     final buyerMethod = results[0];

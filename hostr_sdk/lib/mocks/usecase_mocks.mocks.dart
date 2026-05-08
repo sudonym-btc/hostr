@@ -1002,9 +1002,14 @@ class MockMetadataUseCase extends _i1.Mock implements _i30.MetadataUseCase {
   _i29.Future<_i10.ProfileMetadata?> getOne(
     _i6.Filter? f, {
     bool? batch = true,
+    bool? cacheRead = true,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.ProfileMetadata?>.value(),
           )
           as _i29.Future<_i10.ProfileMetadata?>);
@@ -1519,9 +1524,17 @@ class MockListings extends _i1.Mock implements _i16.Listings {
           as _i29.Future<List<_i31.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<_i10.Listing?> getOne(_i6.Filter? f, {bool? batch = true}) =>
+  _i29.Future<_i10.Listing?> getOne(
+    _i6.Filter? f, {
+    bool? batch = true,
+    bool? cacheRead = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.Listing?>.value(),
           )
           as _i29.Future<_i10.Listing?>);
@@ -2118,9 +2131,17 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i29.Future<List<_i10.Reservation>>);
 
   @override
-  _i29.Future<_i10.Reservation?> getOne(_i6.Filter? f, {bool? batch = true}) =>
+  _i29.Future<_i10.Reservation?> getOne(
+    _i6.Filter? f, {
+    bool? batch = true,
+    bool? cacheRead = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.Reservation?>.value(),
           )
           as _i29.Future<_i10.Reservation?>);
@@ -2437,9 +2458,14 @@ class MockEscrows extends _i1.Mock implements _i21.Escrows {
   _i29.Future<_i10.EscrowService?> getOne(
     _i6.Filter? f, {
     bool? batch = true,
+    bool? cacheRead = true,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.EscrowService?>.value(),
           )
           as _i29.Future<_i10.EscrowService?>);
@@ -2699,9 +2725,17 @@ class MockEscrowMethods extends _i1.Mock implements _i38.EscrowMethods {
           as _i29.Future<List<_i10.EscrowMethod>>);
 
   @override
-  _i29.Future<_i10.EscrowMethod?> getOne(_i6.Filter? f, {bool? batch = true}) =>
+  _i29.Future<_i10.EscrowMethod?> getOne(
+    _i6.Filter? f, {
+    bool? batch = true,
+    bool? cacheRead = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.EscrowMethod?>.value(),
           )
           as _i29.Future<_i10.EscrowMethod?>);
@@ -2942,9 +2976,14 @@ class MockBadgeDefinitions extends _i1.Mock implements _i39.BadgeDefinitions {
   _i29.Future<_i10.BadgeDefinition?> getOne(
     _i6.Filter? f, {
     bool? batch = true,
+    bool? cacheRead = true,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.BadgeDefinition?>.value(),
           )
           as _i29.Future<_i10.BadgeDefinition?>);
@@ -3179,9 +3218,17 @@ class MockBadgeAwards extends _i1.Mock implements _i40.BadgeAwards {
           as _i29.Future<List<_i10.BadgeAward>>);
 
   @override
-  _i29.Future<_i10.BadgeAward?> getOne(_i6.Filter? f, {bool? batch = true}) =>
+  _i29.Future<_i10.BadgeAward?> getOne(
+    _i6.Filter? f, {
+    bool? batch = true,
+    bool? cacheRead = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i10.BadgeAward?>.value(),
           )
           as _i29.Future<_i10.BadgeAward?>);
@@ -3683,9 +3730,17 @@ class MockReservationRequests extends _i1.Mock
           as _i29.Future<List<_i6.Nip01Event>>);
 
   @override
-  _i29.Future<_i6.Nip01Event?> getOne(_i6.Filter? f, {bool? batch = true}) =>
+  _i29.Future<_i6.Nip01Event?> getOne(
+    _i6.Filter? f, {
+    bool? batch = true,
+    bool? cacheRead = true,
+  }) =>
       (super.noSuchMethod(
-            Invocation.method(#getOne, [f], {#batch: batch}),
+            Invocation.method(
+              #getOne,
+              [f],
+              {#batch: batch, #cacheRead: cacheRead},
+            ),
             returnValue: _i29.Future<_i6.Nip01Event?>.value(),
           )
           as _i29.Future<_i6.Nip01Event?>);

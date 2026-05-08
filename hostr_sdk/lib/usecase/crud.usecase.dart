@@ -207,16 +207,20 @@ class CrudUseCase<T extends Nip01Event> {
   Future<T?> getOne(
     Filter f, {
     bool batch = true,
+    bool cacheRead = true,
   }) => logger.span('getOne', () async {
     if (!batch) {
       return requests
           .query<T>(
             filter: getCombinedFilter(f, Filter(kinds: [kind], limit: 1)),
             name: '$T-getOne',
+            cacheRead: cacheRead,
           )
           .cast<T?>()
           .firstWhere((_) => true, orElse: () => null);
     }
+
+    if (!cacheRead) return getOne(f, batch: false, cacheRead: false);
 
     final key = _filterKey(getCombinedFilter(f, Filter(kinds: [kind])));
     final existing = _getOneInFlight[key];
