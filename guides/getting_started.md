@@ -1,0 +1,49 @@
+# Getting started
+
+```bash
+sudo nano /etc/hosts
+```
+
+Install dependencies: dnsmasq and route hostr.development to docker.
+
+```bash
+ sh ./scripts/install.sh
+```
+
+Launch all services to fully test app.
+
+```bash
+./scripts/start.sh
+```
+
+Power down.
+
+```bash
+./scripts/stop.sh
+```
+
+Tear down.
+
+```bash
+./scripts/restart.sh
+```
+
+Wipe the local relay.
+
+```bash
+docker-compose rm -v relay
+```
+
+Seed the relay.
+
+```bash
+dart run app/lib/stubs/seed.dart wss://relay.hostr.development
+```
+
+Fund EVM balance:
+
+docker exec into anvil
+
+```bash
+cast rpc anvil_setBalance 0x92c68728fcb57cbe40d9ec9ced82233146af3565 48543953908
+```

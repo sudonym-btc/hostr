@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.5.3">
+
+    <!-- Primary Meta Tags -->
+    <title>Hostr MCP Server</title>
+    <meta name="title" content="Hostr MCP Server">
+    <meta name="description" content="The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart hostr-daemon. The action catalog in hostr_cli/lib/src/actions/hostr_actions.dart is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/source/ai/mcp-server/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/source/ai/mcp-server/">
+    <meta property="og:title" content="Hostr MCP Server">
+    <meta property="og:description" content="The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart hostr-daemon. The action catalog in hostr_cli/lib/src/actions/hostr_actions.dart is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/source/ai/mcp-server/">
+    <meta name="twitter:title" content="Hostr MCP Server">
+    <meta name="twitter:description" content="The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart hostr-daemon. The action catalog in hostr_cli/lib/src/actions/hostr_actions.dart is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/source/ai/mcp-server/readme.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="hostr-mcp-server">Hostr MCP Server</h1>
+<p>The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart <code translate="no" v-pre>hostr-daemon</code>. The action catalog in <code translate="no" v-pre>hostr_cli/lib/src/actions/hostr_actions.dart</code> is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.</p>
+<h2 id="one-click-client-install">One-click client install</h2>
+<p>Use the hosted endpoint for AI clients that support remote HTTP MCP with OAuth:</p>
+<div id="one-click-client-install-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">https://ai.hostr.development/mcp</code></pre>
+</doc-codeblock></div>
+<p>The server advertises OAuth metadata, so clients should use their built-in OAuth/MCP login flow. Do not mint or paste tokens manually. In Codex, for example:</p>
+<div id="one-click-client-install-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">codex mcp add hostr https://ai.hostr.development/mcp
+codex mcp login hostr</code></pre>
+</doc-codeblock></div>
+<p>For local iteration against this checkout without rebuilding Docker:</p>
+<div id="one-click-client-install-code-3" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">codex mcp add hostr_local http://127.0.0.1:8787/mcp
+codex mcp login hostr_local</code></pre>
+</doc-codeblock></div>
+<p>Other clients should be pointed at the same MCP URL and allowed to complete OAuth normally.</p>
+<h2 id="runtime">Runtime</h2>
+<p>Start the HTTP MCP server:</p>
+<div id="runtime-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">npm run build
+npm start</code></pre>
+</doc-codeblock></div>
+<p>Default URL:</p>
+<div id="runtime-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">http://127.0.0.1:8787</code></pre>
+</doc-codeblock></div>
+<p>For fast local iteration against real AI clients, run the source-mode server
+without rebuilding the Docker image:</p>
+<div id="runtime-code-3" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd ai/mcp-server
+npm run dev:local</code></pre>
+</doc-codeblock></div>
+<p>This serves:</p>
+<div id="runtime-code-4" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">http://127.0.0.1:8787/mcp</code></pre>
+</doc-codeblock></div>
+<p>The Docker/proxy endpoint remains available separately at:</p>
+<div id="runtime-code-5" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">https://ai.hostr.development/mcp</code></pre>
+</doc-codeblock></div>
+<p>Use the localhost URL when testing source changes. Use the Docker URL when
+testing the prod-like container path.</p>
+<p>For foreground hot-reload while actively editing, run:</p>
+<div id="runtime-code-6" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd ai/mcp-server
+HOSTR_MCP_WATCH=1 npm run dev:local</code></pre>
+</doc-codeblock></div>
+<p>Health:</p>
+<div id="runtime-code-7" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">GET /health</code></pre>
+</doc-codeblock></div>
+<p>MCP endpoint:</p>
+<div id="runtime-code-8" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">POST /mcp</code></pre>
+</doc-codeblock></div>
+<p>In source/dev mode the server starts the daemon with:</p>
+<div id="runtime-code-9" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">HOSTR_DAEMON_COMMAND=dart
+HOSTR_DAEMON_ARGS=&quot;bin/hostr_daemon.dart --stdio --env development&quot;
+HOSTR_DAEMON_CWD=../hostr_cli</code></pre>
+</doc-codeblock></div>
+<p>The Docker image builds a native-asset CLI bundle with <code translate="no" v-pre>dart build cli</code> and runs:</p>
+<div id="runtime-code-10" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon
+HOSTR_DAEMON_CWD=/opt/hostr-daemon</code></pre>
+</doc-codeblock></div>
+<p>Set <code translate="no" v-pre>HOSTR_DAEMON_STATE_DIR=/data/mcp</code> (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at <code translate="no" v-pre>MCP_OAUTH_CLIENT_STORE_PATH</code>, defaulting to <code translate="no" v-pre>$HOSTR_DAEMON_STATE_DIR/oauth-clients.json</code>.
+Cold Dart starts can be slow in development, so MCP waits up to <code translate="no" v-pre>HOSTR_DAEMON_TIMEOUT_MS</code> milliseconds per daemon request. The default is <code translate="no" v-pre>120000</code>.</p>
+<h2 id="observability">Observability</h2>
+<p>All MCP HTTP, daemon-client, daemon stderr, and tool audit logs are structured JSON lines. Keep daemon stdout reserved for newline-delimited JSON responses. Every request gets an <code translate="no" v-pre>x-trace-id</code>; the same trace id is propagated through HTTP, MCP tool execution, the stdio daemon request, Hostr SDK trace context, and outbound SDK HTTP calls where supported. <code translate="no" v-pre>/health</code> and <code translate="no" v-pre>/ready</code> include image provenance (<code translate="no" v-pre>revision</code>, <code translate="no" v-pre>created</code>, and <code translate="no" v-pre>source</code>) when the container was built with provenance build args.</p>
+<p>If the MCP daemon request timeout fires, the Node bridge sends a cooperative <code translate="no" v-pre>cancel</code> message to the daemon. Dart work checks cancellation before and around long waits such as Nostr Connect waits, book-and-pay handoff, and reservation/swap observation. Work already inside a non-cancellable external SDK call may still finish in the background, but the request path stops waiting and logs the cancellation.</p>
+<h2 id="auth-model">Auth Model</h2>
+<p>MCP calls require a bearer token issued by the OAuth flow. The token <code translate="no" v-pre>pubkey</code> claim selects the daemon session:</p>
+<div id="auth-model-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">runtime.session(pubkey)</code></pre>
+</doc-codeblock></div>
+<p>Tool inputs must not include a pubkey. The daemon rejects authenticated write calls if the active Hostr session pubkey does not match the token pubkey.</p>
+<p>OAuth can remain valid even when the underlying NIP-46 signer has gone offline. <code translate="no" v-pre>hostr_session_status</code> reports <code translate="no" v-pre>authenticated</code>, <code translate="no" v-pre>signerOnline</code>, <code translate="no" v-pre>needsReconnect</code>, and a <code translate="no" v-pre>reconnect</code> hint. If the access token is valid but the Nostr signer session is missing, stale, or needs bunker recovery, write tools return <code translate="no" v-pre>auth_required</code> with <code translate="no" v-pre>sessionAction: &quot;hostr_session_connect&quot;</code>. The client should call <code translate="no" v-pre>hostr_session_connect</code> with <code translate="no" v-pre>wait: false</code>, display the returned <code translate="no" v-pre>nostrconnect</code> URI or <code translate="no" v-pre>qrImage</code>, then call <code translate="no" v-pre>hostr_session_connect</code> with <code translate="no" v-pre>wait: true</code> after the user approves the signer connection.</p>
+<h2 id="mcp-resources">MCP Resources</h2>
+<p>Clients should read these resources during setup:</p>
+<div id="mcp-resources-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">hostr://mcp/action-input-types
+hostr://mcp/action-catalog.json
+ui://widget/listing-card.html
+ui://widget/payment-required.html
+ui://widget/session-connect.html
+ui://widget/profile-card.html
+ui://widget/trip.html
+ui://widget/hosting.html</code></pre>
+</doc-codeblock></div>
+<p>The first resource contains TypeScript interfaces, JSON schemas, and multi-step workflow playbooks. The second is machine-readable catalog metadata. The <code translate="no" v-pre>ui://widget/*</code> resources are optional lightweight MCP Apps HTML renderers for listing cards, Lightning payment QR prompts, Nostr Connect session QR prompts, profile cards, trips, and hosting cards.</p>
+<p>Regenerate the TypeScript catalog after editing Dart actions:</p>
+<div id="mcp-resources-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd hostr_cli
+dart run bin/generate_mcp_types.dart /path/to/hostr</code></pre>
+</doc-codeblock></div>
+<h2 id="tools">Tools</h2>
+<div id="tools-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">hostr_session_status
+hostr_session_connect
+hostr_listings_search
+hostr_listings_list
+hostr_listings_create
+hostr_listings_edit
+hostr_listings_availability
+hostr_listings_reviews
+hostr_listings_reservationGroups
+hostr_reservations_negotiateOffer
+hostr_reservations_negotiateAccept
+hostr_reservations_pay
+hostr_reservations_commit
+hostr_reservations_cancel
+hostr_updates
+hostr_reply
+hostr_profile_show
+hostr_profile_edit
+hostr_trips_list
+hostr_bookings_list
+hostr_escrow_methods
+hostr_swaps_watch
+hostr_swaps_recoverAll
+hostr_swaps_list</code></pre>
+</doc-codeblock></div>
+<p>Write tools default to preview mode. The app or AI client should call the tool once with <code translate="no" v-pre>dryRun: true</code>, show the returned preview to the user, then call again with <code translate="no" v-pre>dryRun: false</code> only after explicit approval.</p>
+<p>There are no legacy <code translate="no" v-pre>publish</code> or <code translate="no" v-pre>broadcast</code> write parameters. Every write-style MCP action uses <code translate="no" v-pre>dryRun</code>.</p>
+<h2 id="money-units">Money units</h2>
+<p>When a user or listing says <code translate="no" v-pre>sats</code>, it means satoshis, not dollars, cents, or whole bitcoin. One sat is exactly <code translate="no" v-pre>1/100,000,000 BTC</code>.</p>
+<p>For Hostr MCP monetary inputs in sats, use:</p>
+<div id="money-units-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">{
+  &quot;value&quot;: &quot;50000&quot;,
+  &quot;currency&quot;: &quot;BTC&quot;,
+  &quot;unit&quot;: &quot;sats&quot;,
+  &quot;decimals&quot;: 0
+}</code></pre>
+</doc-codeblock></div>
+<p>The <code translate="no" v-pre>value</code> is the satoshi count as a string. Do not convert <code translate="no" v-pre>50000 sats</code> to <code translate="no" v-pre>50000 BTC</code>, <code translate="no" v-pre>50000 USD</code>, or <code translate="no" v-pre>0.0005</code> unless the receiving field explicitly asks for BTC decimal notation instead of <code translate="no" v-pre>unit: &quot;sats&quot;</code>.</p>
+<h2 id="image-uploads">Image uploads</h2>
+<p>Remote clients that need to attach user-provided images must upload the original image bytes beside MCP, not inside the JSON-RPC <code translate="no" v-pre>/mcp</code> request:</p>
+<p>Preferred MCP tool flow:</p>
+<div id="image-uploads-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">hostr_images_upload({ file: &lt;file-typed uploaded image&gt; })
+  -&gt; structuredContent.usage.image.url
+
+hostr_listings_create({ images: [{ url: structuredContent.usage.image.url }] })
+
+hostr_profile_edit({ image: structuredContent.usage.image.url })</code></pre>
+</doc-codeblock></div>
+<p>The upload response is intentionally generic. <code translate="no" v-pre>hostr_images_upload</code> does not know whether the image will be used for a listing, profile, badge, or another image field; callers should use <code translate="no" v-pre>structuredContent.usage.image.url</code> or <code translate="no" v-pre>structuredContent.upload.url</code> wherever a durable image URL is required.</p>
+<p>The <code translate="no" v-pre>hostr_images_upload</code> schema marks <code translate="no" v-pre>file</code> as <code translate="no" v-pre>type: &quot;file&quot;</code> and advertises <code translate="no" v-pre>_meta[&quot;openai/fileParams&quot;] = [&quot;file&quot;]</code> so clients that support file rewrite/upload handling can stream the original attached file. If a client represents uploaded files as local references such as <code translate="no" v-pre>/mnt/data/photo.jpg</code>, those references belong only in the file-typed <code translate="no" v-pre>hostr_images_upload.file</code> argument so Hostr can read/download the original bytes and re-upload them to Blossom; never put them directly in listing <code translate="no" v-pre>images[].url</code> or profile <code translate="no" v-pre>image</code>/<code translate="no" v-pre>picture</code>.</p>
+<p>Fallback raw HTTP flow for clients that can make HTTP requests:</p>
+<div id="image-uploads-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">POST /mcp/uploads/images
+Content-Type: multipart/form-data
+field: file=&lt;original image file&gt;</code></pre>
+</doc-codeblock></div>
+<p>The endpoint also accepts raw image bytes with an <code translate="no" v-pre>image/*</code> or <code translate="no" v-pre>application/octet-stream</code> content type. It does not require MCP OAuth, Nostr auth, or a Hostr foreground session, but when a valid MCP bearer token is present it first tries the logged-in Hostr session&#x27;s Blossom upload path before falling back to the server&#x27;s direct Blossom upload endpoint. The fallback uploads the original bytes to Blossom with no Authorization header, so the configured Blossom <code translate="no" v-pre>PUT /upload</code> endpoint must also allow unauthenticated uploads. The response includes <code translate="no" v-pre>upload.url</code>, <code translate="no" v-pre>sha256</code>, <code translate="no" v-pre>size</code>, and MIME metadata. Pass the returned <code translate="no" v-pre>upload.url</code> as <code translate="no" v-pre>images[].url</code> to <code translate="no" v-pre>hostr_listings_create</code>, or as <code translate="no" v-pre>image</code>/<code translate="no" v-pre>picture</code> to <code translate="no" v-pre>hostr_profile_edit</code>; the MCP listing and profile tools advertise image URLs only.</p>
+<p>Do not base64-encode user-uploaded images into <code translate="no" v-pre>hostr_listings_create</code> or <code translate="no" v-pre>hostr_profile_edit</code>. Do not serve a temporary localhost URL for Hostr to fetch; localhost points at the wrong machine/container for remote MCP. Do not pass client-local paths such as <code translate="no" v-pre>/mnt/data</code>, <code translate="no" v-pre>/mnt/shared</code>, or <code translate="no" v-pre>file://</code> URLs to listing <code translate="no" v-pre>images[].url</code> or profile <code translate="no" v-pre>image</code>/<code translate="no" v-pre>picture</code>. Do not resize, downscale, crop, recompress, transcode, or create thumbnails unless the user explicitly asks for that. If neither <code translate="no" v-pre>hostr_images_upload</code> nor the upload POST can be used, stop and ask for a public image URL or for the client to expose an upload capability.</p>
+<h2 id="workflow-driving">Workflow driving</h2>
+<p>Agents should use the workflow docs from <code translate="no" v-pre>hostr://mcp/action-input-types</code>, but these are the intended command sequences:</p>
+<ul>
+<li>New listing: call <code translate="no" v-pre>hostr_profile_edit</code> if profile details need updating, then <code translate="no" v-pre>hostr_listings_create</code> with <code translate="no" v-pre>dryRun: true</code>, show the preview, and repeat with <code translate="no" v-pre>dryRun: false</code> only after approval. The live listing path ensures seller config is published.</li>
+<li>Edit listing: call <code translate="no" v-pre>hostr_listings_edit</code> with <code translate="no" v-pre>dryRun: true</code>, review the returned listing/event preview, then repeat with <code translate="no" v-pre>dryRun: false</code>.</li>
+<li>Search and reserve: call <code translate="no" v-pre>hostr_listings_search</code>, then <code translate="no" v-pre>hostr_listings_availability</code>, then <code translate="no" v-pre>hostr_reservations_negotiateOffer</code> with <code translate="no" v-pre>dryRun: true</code>; repeat with <code translate="no" v-pre>dryRun: false</code> to send the private negotiate-stage reservation DM.</li>
+<li>Negotiation: call <code translate="no" v-pre>hostr_updates</code> to inspect thread/trade ids. Use <code translate="no" v-pre>hostr_reservations_negotiateOffer</code> with <code translate="no" v-pre>tradeId</code> and <code translate="no" v-pre>amount</code> to send a follow-up offer, <code translate="no" v-pre>hostr_reservations_negotiateAccept</code> to accept the latest offer, or <code translate="no" v-pre>hostr_reservations_cancel</code> to cancel the private negotiation or committed reservation.</li>
+<li>Payment: for normal instant-book payment, call <code translate="no" v-pre>hostr_reservations_bookAndPay</code>. After showing the returned QR/invoice, call the read-only <code translate="no" v-pre>hostr_swaps_watch</code> with <code translate="no" v-pre>swapId</code>, <code translate="no" v-pre>tradeId</code>, and <code translate="no" v-pre>reservationWaitSeconds</code>; it has no <code translate="no" v-pre>dryRun</code> parameter and does not require approval. Use <code translate="no" v-pre>hostr_swaps_recoverAll</code> only for explicit manual recovery/debug flows.</li>
+<li>Messaging: call <code translate="no" v-pre>hostr_updates</code>, choose recipient pubkeys from the thread/trade, call <code translate="no" v-pre>hostr_reply</code> with <code translate="no" v-pre>dryRun: true</code>, then repeat with <code translate="no" v-pre>dryRun: false</code>.</li>
+<li>Listing management/profile/trips/bookings: call <code translate="no" v-pre>hostr_listings_list</code> to inspect listing inventory, <code translate="no" v-pre>hostr_profile_show</code> to inspect the current profile, <code translate="no" v-pre>hostr_profile_edit</code> to preview/publish profile changes, <code translate="no" v-pre>hostr_trips_list</code> for guest-side reservations, and <code translate="no" v-pre>hostr_bookings_list</code> for reservations on listings authored by the authenticated user.</li>
+<li>Escrow compatibility: call <code translate="no" v-pre>hostr_escrow_methods</code> with a seller pubkey before payment when the agent needs to explain compatible escrow services or ask the user to choose a non-default service.</li>
+<li>Swaps: call <code translate="no" v-pre>hostr_swaps_list</code>, then <code translate="no" v-pre>hostr_swaps_watch</code> for a specific swap id, and <code translate="no" v-pre>hostr_swaps_recoverAll</code> when stale operations need recovery.</li>
+</ul>
+<h2 id="chat-presentation">Chat presentation</h2>
+<p>MCP cannot force every AI client to render native UI cards. The server returns both structured data and Markdown text content. Listing search responses include image-carousel Markdown for each listing:</p>
+<div id="chat-presentation-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-markdown"><code v-pre class="language-markdown">### Listing Title
+
+**Image carousel:** 3 images
+
+![Listing image 1](https://...)
+![Listing image 2](https://...)
+![Listing image 3](https://...)</code></pre>
+</doc-codeblock></div>
+<p>Clients that support rich MCP cards can build cards from <code translate="no" v-pre>structuredContent.listingCards[*]</code>. Clients that only render Markdown will still show listing sections with inline images.</p>
+<p>Listing tools also advertise <code translate="no" v-pre>ui://widget/listing-card.html</code> through <code translate="no" v-pre>_meta.ui.resourceUri</code>, with <code translate="no" v-pre>_meta[&quot;openai/outputTemplate&quot;]</code> as the ChatGPT compatibility alias. The widget is intentionally just HTML/CSS/vanilla JS; it reads <code translate="no" v-pre>window.openai.toolOutput.listingCards</code> or <code translate="no" v-pre>window.openai.toolOutput.display.cards</code> and renders cards. Do not put business logic in it. Keep <code translate="no" v-pre>structuredContent.listingCards</code> and <code translate="no" v-pre>displayMarkdown</code> as the portable source of truth.</p>
+<p>The same optional widget pattern is used for:</p>
+<ul>
+<li><code translate="no" v-pre>ui://widget/payment-required.html</code>: reads <code translate="no" v-pre>structuredContent.paymentDisplays</code> or <code translate="no" v-pre>structuredContent.display.cards</code> for external Lightning payment QR prompts.</li>
+<li><code translate="no" v-pre>ui://widget/session-connect.html</code>: reads <code translate="no" v-pre>structuredContent.display</code> for Nostr Connect login QR prompts.</li>
+<li><code translate="no" v-pre>ui://widget/profile-card.html</code>: reads <code translate="no" v-pre>structuredContent.profileCards</code> or <code translate="no" v-pre>structuredContent.display.cards</code> for profile show/edit results.</li>
+<li><code translate="no" v-pre>ui://widget/trip.html</code>: reads <code translate="no" v-pre>structuredContent.tripCards</code>, <code translate="no" v-pre>structuredContent.reservationCards</code>, or <code translate="no" v-pre>structuredContent.display.cards</code> for guest trips. Cancelled trips render a bold <code translate="no" v-pre>Cancelled</code> marker.</li>
+<li><code translate="no" v-pre>ui://widget/hosting.html</code>: reads <code translate="no" v-pre>structuredContent.hostingCards</code>, <code translate="no" v-pre>structuredContent.reservationCards</code>, or <code translate="no" v-pre>structuredContent.display.cards</code> for host-side reservations, including <code translate="no" v-pre>Hosting {guest} at: {stay}</code> text.</li>
+</ul>
+<p>All widgets are examples. Generic MCP clients can ignore the UI resources and continue rendering <code translate="no" v-pre>displayMarkdown</code> or structured JSON.</p>
+<h2 id="verification">Verification</h2>
+<p>Run these checks before deploying:</p>
+<div id="verification-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd hostr_cli
+dart test test/unit/hostr_actions_test.dart
+dart analyze lib/src/actions/hostr_actions.dart lib/src/daemon/hostr_daemon.dart
+
+cd ../ai/mcp-server
+npm run build</code></pre>
+</doc-codeblock></div>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../infrastructure/tailscale/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Tailscale</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../app/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">App</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "Hostr MCP Server", level: 3, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/source/ai/mcp-server/readme.md" }</script>
+</body>
+</html>

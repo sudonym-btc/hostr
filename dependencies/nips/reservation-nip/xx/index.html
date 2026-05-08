@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.5.3">
+
+    <!-- Primary Meta Tags -->
+    <title>NIP-XX</title>
+    <meta name="title" content="NIP-XX">
+    <meta name="description" content="Reservations">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/dependencies/nips/reservation-nip/xx/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/dependencies/nips/reservation-nip/xx/">
+    <meta property="og:title" content="NIP-XX">
+    <meta property="og:description" content="Reservations">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/dependencies/nips/reservation-nip/xx/">
+    <meta name="twitter:title" content="NIP-XX">
+    <meta name="twitter:description" content="Reservations">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/dependencies/nips/reservation-nip/xx.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="nip-xx">NIP-XX</h1>
+<p>Reservations</p>
+<hr>
+<p><code translate="no" v-pre>draft</code> <code translate="no" v-pre>optional</code></p>
+<p>This NIP defines a protocol for creating, negotiating, committing, cancelling, and reviewing accommodation reservations on Nostr. It introduces <code translate="no" v-pre>kind:32122</code> reservation events, <code translate="no" v-pre>kind:1326</code> append-only reservation transition events, <code translate="no" v-pre>kind:1327</code> private structured-message rumors, <code translate="no" v-pre>kind:1328</code> commit authorization helper events, <code translate="no" v-pre>kind:1329</code> trade-key authorization helper events, and <code translate="no" v-pre>kind:32124</code> reviews.</p>
+<p>Negotiation is private. Signed reservation and escrow-selection events are sent as child events inside encrypted structured-message rumors and delivered with NIP-59 gift wraps. Public committed/cancelled reservation snapshots and transition records are published to relays chosen by the implementation.</p>
+<h2 id="terms">Terms</h2>
+<ul>
+<li><strong>Guest</strong> — Nostr user requesting a reservation (buyer).</li>
+<li><strong>Host</strong> — Nostr user who owns the listing being reserved (seller).</li>
+<li><strong>Escrow</strong> — Optional service participant that verifies funding and can arbitrate disputes.</li>
+<li><strong>Trade</strong> — A single reservation negotiation and lifecycle, identified by a stable <code translate="no" v-pre>d</code> tag (trade ID).</li>
+<li><strong>Listing Anchor</strong> — A parameterized replaceable event address in the format <code translate="no" v-pre>&lt;kind&gt;:&lt;pubkey&gt;:&lt;d-tag&gt;</code>, for example <code translate="no" v-pre>32121:&lt;host-pubkey&gt;:&lt;listing-d-tag&gt;</code>.</li>
+<li><strong>Trade Key</strong> — A per-trade Nostr key that can publish buyer-side reservation events. The buyer&#x27;s account identity is bound to this key through encrypted <code translate="no" v-pre>participant_proof</code> tags.</li>
+</ul>
+<h2 id="event-kinds">Event Kinds</h2>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>32122</code></td>
+<td>Reservation</td>
+<td>Parameterized replaceable</td>
+<td>A participant&#x27;s reservation proposal, commitment, or cancellation.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>1326</code></td>
+<td>Reservation Transition</td>
+<td>Regular</td>
+<td>Append-only audit record of a reservation stage change.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>1327</code></td>
+<td>Structured Message</td>
+<td>Regular private rumor</td>
+<td>Private structured-message rumor whose content is a signed child event JSON string.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>1328</code></td>
+<td>Commit Authorization</td>
+<td>Regular helper event</td>
+<td>Host/seller authorization over exact negotiated commit terms.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>1329</code></td>
+<td>Trade-Key Authorization</td>
+<td>Regular helper event</td>
+<td>Identity-key authorization binding a real participant pubkey to a trade-key participant pubkey.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>32124</code></td>
+<td>Review</td>
+<td>Parameterized replaceable</td>
+<td>Post-stay review with participation proof.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These kinds are application-specific and SHOULD be routed only to relays that support this protocol when broadcast as public events. Gift-wrapped private messages use standard NIP-59 outer <code translate="no" v-pre>kind:1059</code> events and MAY be routed according to the implementation&#x27;s private-message relay policy.</p>
+<h2 id="reservation-kind32122">Reservation (<code translate="no" v-pre>kind:32122</code>)</h2>
+<p>A reservation event represents one participant&#x27;s current position in a trade. Multiple participants (guest, host, and optionally escrow) may each publish reservation events sharing the same <code translate="no" v-pre>d</code> tag.</p>
+<h3 id="stages">Stages</h3>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Stage</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>negotiate</code></td>
+<td>Mutable private proposal or counteroffer. Clients MUST NOT treat negotiate-stage events as affecting availability.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>commit</code></td>
+<td>Booking commitment. Public commit-stage events affect listing availability unless cancelled.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>cancel</code></td>
+<td>Cancellation of a negotiation or prior commitment.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="tags">Tags</h3>
+<div id="tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[
+  [&quot;d&quot;, &quot;&lt;trade-id&gt;&quot;],
+  [&quot;a&quot;, &quot;&lt;listing-anchor&gt;&quot;],
+  [&quot;p&quot;, &quot;&lt;participant-pubkey&gt;&quot;, &quot;&lt;relay-hint&gt;&quot;, &quot;&lt;role&gt;&quot;],
+  [&quot;participant_proof&quot;, &quot;&lt;role&gt;&quot;, &quot;&lt;participant-pubkey&gt;&quot;, &quot;&lt;recipient-pubkey&gt;&quot;, &quot;nip44&quot;, &quot;&lt;payload-sha256&gt;&quot;, &quot;&lt;encrypted-payload&gt;&quot;],
+  [&quot;published_at&quot;, &quot;&lt;unix-seconds&gt;&quot;]
+]</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Tag</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>d</code></td>
+<td>Yes</td>
+<td>Trade identifier. Stable across all events in the trade. Private trade messages SHOULD repeat this value in a <code translate="no" v-pre>conversation</code> tag on the enclosing rumor.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>a</code></td>
+<td>Yes</td>
+<td>Listing anchor (<code translate="no" v-pre>&lt;kind&gt;:&lt;pubkey&gt;:&lt;d-tag&gt;</code>).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>p</code></td>
+<td>Yes</td>
+<td>Participant pubkey. When a role is known, use <code translate="no" v-pre>[&quot;p&quot;, pubkey, relayHint, role]</code> where role is <code translate="no" v-pre>seller</code>, <code translate="no" v-pre>buyer</code>, or <code translate="no" v-pre>escrow</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>participant_proof</code></td>
+<td>No</td>
+<td>Encrypted proof binding a trade-key participant pubkey to a real identity pubkey. Required when <code translate="no" v-pre>participantPubkey != identityPubkey</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>published_at</code></td>
+<td>No</td>
+<td>First publication timestamp. Publishers SHOULD preserve this across replacements.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="participant-proofs">Participant Proofs</h3>
+<p>Participant proofs bind trade-key participant pubkeys to real participant identity pubkeys.</p>
+<p><code translate="no" v-pre>participant_proof</code> tag format:</p>
+<div id="participant-proofs-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[
+  &quot;participant_proof&quot;,
+  &quot;&lt;role&gt;&quot;,
+  &quot;&lt;participant-pubkey&gt;&quot;,
+  &quot;&lt;recipient-pubkey&gt;&quot;,
+  &quot;nip44&quot;,
+  &quot;&lt;sha256-of-plaintext-authorization&gt;&quot;,
+  &quot;&lt;nip44-encrypted-authorization-payload&gt;&quot;
+]</code></pre>
+</doc-codeblock></div>
+<p>The plaintext authorization payload is a JSON-encoded signed <code translate="no" v-pre>kind:1329</code> Trade-Key Authorization event. It is encrypted with NIP-44 for each trade participant recipient.</p>
+<h4 id="trade-key-authorization-kind1329">Trade-Key Authorization (<code translate="no" v-pre>kind:1329</code>)</h4>
+<p>The <code translate="no" v-pre>kind:1329</code> event is signed by the real identity pubkey and authorizes one participant pubkey for a trade role.</p>
+<p>Tags:</p>
+<div id="trade-key-authorization-kind1329-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[
+  [&quot;a&quot;, &quot;&lt;listing-anchor&gt;&quot;],
+  [&quot;d&quot;, &quot;&lt;trade-id&gt;&quot;]
+]</code></pre>
+</doc-codeblock></div>
+<p>Content:</p>
+<div id="trade-key-authorization-kind1329-code-2" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;version&quot;: 1,
+  &quot;role&quot;: &quot;buyer&quot;,
+  &quot;participantPubkey&quot;: &quot;&lt;trade-key-or-real-participant-pubkey&gt;&quot;
+}</code></pre>
+</doc-codeblock></div>
+<p>A verifier accepts a participant proof only when:</p>
+<ol>
+<li>the <code translate="no" v-pre>participant_proof</code> hash matches the decrypted authorization payload;</li>
+<li>the authorization event is validly signed by the identity pubkey;</li>
+<li>the authorization <code translate="no" v-pre>a</code> tag matches the listing anchor;</li>
+<li>the authorization <code translate="no" v-pre>d</code> tag matches the reservation trade id;</li>
+<li>the authorization content role and participant pubkey match the <code translate="no" v-pre>participant_proof</code> tag.</li>
+</ol>
+<h3 id="content">Content</h3>
+<p>Reservation content is JSON:</p>
+<div id="content-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;start&quot;: &quot;2026-05-01T00:00:00.000Z&quot;,
+  &quot;end&quot;: &quot;2026-05-05T00:00:00.000Z&quot;,
+  &quot;stage&quot;: &quot;negotiate&quot;,
+  &quot;quantity&quot;: 1,
+  &quot;amount&quot;: {
+    &quot;value&quot;: &quot;0.00500000&quot;,
+    &quot;denomination&quot;: &quot;BTC&quot;,
+    &quot;decimals&quot;: 8
+  },
+  &quot;recipient&quot;: &quot;&lt;recipient-or-trade-pubkey&gt;&quot;,
+  &quot;proof&quot;: null,
+  &quot;commitAuthorization&quot;: null
+}</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>stage</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>One of <code translate="no" v-pre>negotiate</code>, <code translate="no" v-pre>commit</code>, <code translate="no" v-pre>cancel</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>start</code></td>
+<td>string</td>
+<td>No</td>
+<td>Check-in date/time in ISO 8601 UTC. Date-only reservation UIs SHOULD encode calendar dates as midnight UTC.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>end</code></td>
+<td>string</td>
+<td>No</td>
+<td>Check-out date/time in ISO 8601 UTC.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>quantity</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Number of units. Default <code translate="no" v-pre>1</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>amount</code></td>
+<td>object</td>
+<td>No</td>
+<td>Agreed or proposed price. <code translate="no" v-pre>value</code> is a decimal string, <code translate="no" v-pre>denomination</code> is the unit of account, and <code translate="no" v-pre>decimals</code> is precision.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>recipient</code></td>
+<td>string</td>
+<td>No</td>
+<td>Intended payment/trade recipient pubkey.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>proof</code></td>
+<td>object</td>
+<td>No</td>
+<td>Payment proof. Present on committed self-signed or escrow-backed reservations.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>commitAuthorization</code></td>
+<td>object</td>
+<td>No</td>
+<td>Full signed <code translate="no" v-pre>kind:1328</code> event JSON authorizing negotiated terms.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="commit-terms">Commit Terms</h3>
+<p>The reservation commitment hash locks exactly these fields:</p>
+<div id="commit-terms-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;start&quot;, &quot;end&quot;, &quot;quantity&quot;, &quot;amount&quot;, &quot;recipient&quot;]</code></pre>
+</doc-codeblock></div>
+<p>Implementations SHOULD canonicalize those fields before hashing. <code translate="no" v-pre>stage</code>, <code translate="no" v-pre>proof</code>, and participant proof tags are not part of the commit terms.</p>
+<h4 id="commit-authorization-kind1328">Commit Authorization (<code translate="no" v-pre>kind:1328</code>)</h4>
+<p>When the host accepts off-list or negotiated terms, the host signs a <code translate="no" v-pre>kind:1328</code> event authorizing the reservation commit hash.</p>
+<p>Tags:</p>
+<div id="commit-authorization-kind1328-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[
+  [&quot;a&quot;, &quot;&lt;listing-anchor&gt;&quot;],
+  [&quot;d&quot;, &quot;&lt;trade-id&gt;&quot;]
+]</code></pre>
+</doc-codeblock></div>
+<p>Content:</p>
+<div id="commit-authorization-kind1328-code-2" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;version&quot;: 1,
+  &quot;commitHash&quot;: &quot;&lt;reservation-commit-hash&gt;&quot;,
+  &quot;role&quot;: &quot;seller&quot;
+}</code></pre>
+</doc-codeblock></div>
+<p>The reservation is authorized only if the commit authorization was signed by the listing owner, references the same listing anchor and trade id, and contains the reservation&#x27;s commit hash.</p>
+<h2 id="private-structured-messages-kind1327">Private Structured Messages (<code translate="no" v-pre>kind:1327</code>)</h2>
+<p>Private structured trade messages use <code translate="no" v-pre>kind:1327</code> as the inner rumor kind. The rumor <code translate="no" v-pre>content</code> is the JSON string of a signed child event, usually a <code translate="no" v-pre>kind:32122</code> reservation or <code translate="no" v-pre>kind:30302</code> escrow-service selection.</p>
+<p>The rumor includes <code translate="no" v-pre>p</code> tags for the recipients and SHOULD include <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code> for trade-related messages. The <code translate="no" v-pre>conversation</code> tag is the private-message grouping mechanism; reservation and escrow-selection child events do not carry their own grouping tag. The rumor MAY include <code translate="no" v-pre>alt</code> tags. It is sealed and wrapped with NIP-59. The sender broadcasts one <code translate="no" v-pre>kind:1059</code> gift wrap for every recipient and one for self.</p>
+<p>Plain text private messages use standard private message rumor kind <code translate="no" v-pre>14</code>.</p>
+<h2 id="reservation-transition-kind1326">Reservation Transition (<code translate="no" v-pre>kind:1326</code>)</h2>
+<p>Every public reservation stage change MUST be accompanied by a transition event. Transitions form an append-only audit trail per participant.</p>
+<h3 id="tags-1">Tags</h3>
+<div id="tags-1-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[
+  [&quot;d&quot;, &quot;&lt;trade-id&gt;&quot;],
+  [&quot;e&quot;, &quot;&lt;reservation-event-id&gt;&quot;],
+  [&quot;prev&quot;, &quot;&lt;previous-transition-event-id&gt;&quot;],
+  [&quot;a&quot;, &quot;&lt;listing-anchor&gt;&quot;]
+]</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Tag</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>d</code></td>
+<td>Yes</td>
+<td>Trade identifier matching the reservation <code translate="no" v-pre>d</code> tag.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>e</code></td>
+<td>Yes</td>
+<td>Reservation event this transition applies to.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>prev</code></td>
+<td>No</td>
+<td>Previous transition event id in this participant&#x27;s transition chain. Omit only for the first transition.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>a</code></td>
+<td>No</td>
+<td>Listing anchor. SHOULD be included when known.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="content-1">Content</h3>
+<div id="content-1-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;transitionType&quot;: &quot;commit&quot;,
+  &quot;fromStage&quot;: &quot;negotiate&quot;,
+  &quot;toStage&quot;: &quot;commit&quot;,
+  &quot;commitTermsHash&quot;: &quot;&lt;sha256-hex&gt;&quot;,
+  &quot;reason&quot;: &quot;Accepted by host&quot;,
+  &quot;updatedFields&quot;: {}
+}</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>transitionType</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>One of <code translate="no" v-pre>counterOffer</code>, <code translate="no" v-pre>commit</code>, <code translate="no" v-pre>cancel</code>, <code translate="no" v-pre>confirm</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>fromStage</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Stage before this transition.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>toStage</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Stage after this transition.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>commitTermsHash</code></td>
+<td>string</td>
+<td>No</td>
+<td>Commit-terms hash at the time of transition.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>reason</code></td>
+<td>string</td>
+<td>No</td>
+<td>Human-readable explanation.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>updatedFields</code></td>
+<td>object</td>
+<td>No</td>
+<td>Snapshot of changed fields, useful for counteroffers.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="state-machine">State Machine</h3>
+<p>Legal transitions per participant:</p>
+<div id="state-machine-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">negotiate -&gt; negotiate   counterOffer
+negotiate -&gt; commit      commit
+negotiate -&gt; cancel      cancel
+commit    -&gt; cancel      cancel
+commit    -&gt; commit      confirm</code></pre>
+</doc-codeblock></div>
+<p>Clients MUST validate:</p>
+<ol>
+<li>each transition&#x27;s <code translate="no" v-pre>(fromStage, toStage)</code> is legal for its <code translate="no" v-pre>transitionType</code>;</li>
+<li>consecutive transitions chain correctly: previous <code translate="no" v-pre>toStage == next fromStage</code>;</li>
+<li>transition order is derived from the <code translate="no" v-pre>prev</code> chain, not from <code translate="no" v-pre>created_at</code>;</li>
+<li>disconnected chains, multiple roots, and forks are invalid unless resolved by application policy.</li>
+</ol>
+<h3 id="escrow-monotonicity">Escrow Monotonicity</h3>
+<p>Escrow MAY publish <code translate="no" v-pre>negotiate -&gt; commit</code> or <code translate="no" v-pre>negotiate -&gt; cancel</code> before accepting a trade. Escrow MUST NOT publish <code translate="no" v-pre>commit -&gt; cancel</code>. Once escrow confirms a funded trade, financial resolution must happen through payment settlement, claim, release, or arbitration rather than by erasing the committed reservation state.</p>
+<h2 id="payment-proof">Payment Proof</h2>
+<p>A <code translate="no" v-pre>commit</code> reservation SHOULD include a <code translate="no" v-pre>proof</code> object unless it is a host-published blocked reservation.</p>
+<h3 id="zap-proof">Zap Proof</h3>
+<div id="zap-proof-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;hoster&quot;: { &quot;...&quot;: &quot;host profile/event JSON&quot; },
+  &quot;listing&quot;: { &quot;...&quot;: &quot;kind:32121 listing event JSON&quot; },
+  &quot;zapProof&quot;: {
+    &quot;receipt&quot;: { &quot;...&quot;: &quot;zap receipt event JSON&quot; }
+  },
+  &quot;escrowProof&quot;: null
+}</code></pre>
+</doc-codeblock></div>
+<h3 id="escrow-proof">Escrow Proof</h3>
+<div id="escrow-proof-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;hoster&quot;: { &quot;...&quot;: &quot;host profile/event JSON&quot; },
+  &quot;listing&quot;: { &quot;...&quot;: &quot;kind:32121 listing event JSON&quot; },
+  &quot;zapProof&quot;: null,
+  &quot;escrowProof&quot;: {
+    &quot;txHash&quot;: &quot;&lt;evm-transaction-hash&gt;&quot;,
+    &quot;escrowService&quot;: &quot;&lt;JSON string of the EscrowService kind:30303 event&gt;&quot;,
+    &quot;hostsEscrowMethods&quot;: &quot;&lt;JSON string of the host's EscrowMethod kind:17388 event&gt;&quot;
+  }
+}</code></pre>
+</doc-codeblock></div>
+<p>See the Escrow Services NIP for escrow verification requirements.</p>
+<h3 id="host-published-reservations">Host-Published Reservations</h3>
+<p>The listing owner MAY publish <code translate="no" v-pre>commit</code> reservations without a payment proof, for example to block dates. Clients MAY accept proofless reservations when <code translate="no" v-pre>reservation.pubkey == listing.pubkey</code>.</p>
+<h2 id="reservation-group">Reservation Group</h2>
+<p>All reservation events with the same trade id form a reservation group. The participant set is the union of event pubkeys, role-marked <code translate="no" v-pre>p</code> tags, and any identity pubkeys revealed through valid participant proofs.</p>
+<p>Roles are determined by:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Role</th>
+<th>Determination</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Host</td>
+<td><code translate="no" v-pre>pubkey == getPubKeyFromAnchor(listingAnchor)</code> or a <code translate="no" v-pre>p</code> tag role of <code translate="no" v-pre>seller</code>.</td>
+</tr>
+<tr>
+<td>Guest</td>
+<td>A participant with role <code translate="no" v-pre>buyer</code>, including a trade-key participant resolved through <code translate="no" v-pre>participant_proof</code>.</td>
+</tr>
+<tr>
+<td>Escrow</td>
+<td>A participant with role <code translate="no" v-pre>escrow</code>, or the pubkey of the escrow service in a valid escrow proof.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The group id SHOULD be derived from the sorted participant set and trade id. Clients MUST reject reservation events from outsiders not in the established participant set.</p>
+<p>The group stage is:</p>
+<ul>
+<li><code translate="no" v-pre>cancel</code> if any participant has cancelled;</li>
+<li><code translate="no" v-pre>commit</code> if any participant has committed and none cancelled;</li>
+<li><code translate="no" v-pre>negotiate</code> otherwise.</li>
+</ul>
+<p>A group is <strong>confirmed committed</strong> if any of the following hold after validation:</p>
+<ul>
+<li>the host has a <code translate="no" v-pre>commit</code> reservation;</li>
+<li>the escrow has a <code translate="no" v-pre>commit</code> reservation;</li>
+<li>the guest&#x27;s escrow-backed payment proof validates on-chain.</li>
+</ul>
+<p>Later buyer or host cancellation MUST NOT by itself erase the fact that a trade reached confirmed commitment.</p>
+<h2 id="review-kind32124">Review (<code translate="no" v-pre>kind:32124</code>)</h2>
+<p>After a completed or confirmed committed stay, a participant MAY publish a review.</p>
+<h3 id="tags-2">Tags</h3>
+<div id="tags-2-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[
+  [&quot;d&quot;, &quot;&lt;trade-id&gt;&quot;],
+  [&quot;a&quot;, &quot;&lt;listing-anchor&gt;&quot;],
+  [&quot;r&quot;, &quot;&lt;reservation-anchor&gt;&quot;]
+]</code></pre>
+</doc-codeblock></div>
+<p>The <code translate="no" v-pre>d</code> tag contains the reservation trade id. Reviews are parameterized replaceable events, so a participant replaces their review for the same trade by publishing a newer review with the same <code translate="no" v-pre>d</code> tag.</p>
+<p>The <code translate="no" v-pre>r</code> tag contains a reservation anchor (<code translate="no" v-pre>&lt;kind&gt;:&lt;pubkey&gt;:&lt;d-tag&gt;</code>) linking the review to a specific trade participant event.</p>
+<h3 id="content-2">Content</h3>
+<div id="content-2-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;rating&quot;: 4,
+  &quot;content&quot;: &quot;Great stay, beautiful views and very clean.&quot;,
+  &quot;proof&quot;: {
+    &quot;role&quot;: &quot;buyer&quot;,
+    &quot;participantPubkey&quot;: &quot;&lt;participant-or-trade-pubkey&gt;&quot;,
+    &quot;authorizationPayload&quot;: &quot;&lt;plaintext signed kind:1329 event JSON&gt;&quot;
+  }
+}</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>rating</code></td>
+<td>integer</td>
+<td>Rating from 1 to 5.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>content</code></td>
+<td>string</td>
+<td>Review text.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>proof</code></td>
+<td>object</td>
+<td>Participation proof revealing the signed authorization payload that matches a reservation <code translate="no" v-pre>participant_proof</code> hash.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="review-validity">Review Validity</h3>
+<p>A review is valid only if:</p>
+<ol>
+<li>the proof&#x27;s <code translate="no" v-pre>authorizationPayload</code> hashes to a <code translate="no" v-pre>participant_proof</code> payload hash in the referenced reservation group;</li>
+<li>the decoded <code translate="no" v-pre>kind:1329</code> authorization event is valid and matches the claimed role, participant pubkey, listing anchor, and trade id;</li>
+<li>the referenced reservation group validates structurally;</li>
+<li>the reservation group is confirmed committed.</li>
+</ol>
+<p>This NIP does not define a canonical on-chain or block-time proof that the review was written after checkout. Clients MAY additionally require checkout to be in the past or a terminal payment event to exist, but those timing rules are application policy unless standardized separately.</p>
+<h2 id="protocol-flow">Protocol Flow</h2>
+<h3 id="1-guest-initiates-negotiation">1. Guest Initiates Negotiation</h3>
+<ol>
+<li>Guest discovers a listing (<code translate="no" v-pre>kind:32121</code>).</li>
+<li>Guest allocates a deterministic trade id and trade key.</li>
+<li>Guest creates a <code translate="no" v-pre>kind:32122</code> reservation with <code translate="no" v-pre>stage=negotiate</code>, signed by the trade key.</li>
+<li>Guest includes role-marked participant <code translate="no" v-pre>p</code> tags and encrypted <code translate="no" v-pre>participant_proof</code> tags as needed.</li>
+<li>Guest sends the reservation as a child event inside a private <code translate="no" v-pre>kind:1327</code> rumor tagged <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code>, delivered with NIP-59 gift wraps to the host and self.</li>
+</ol>
+<h3 id="2-negotiation">2. Negotiation</h3>
+<ol start="6">
+<li>Host reviews the request. If counter-offering, host creates a new <code translate="no" v-pre>stage=negotiate</code> reservation with changed terms.</li>
+<li>If the host accepts negotiated terms, the host signs a <code translate="no" v-pre>kind:1328</code> commit authorization and embeds it in the reservation content.</li>
+<li>Counteroffers continue privately until terms are accepted or cancelled.</li>
+</ol>
+<h3 id="3-escrow-selection-and-payment">3. Escrow Selection and Payment</h3>
+<ol start="9">
+<li>If escrow-backed, buyer sends a private <code translate="no" v-pre>kind:30302</code> Escrow Service Selected child event inside a <code translate="no" v-pre>kind:1327</code> rumor tagged <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code>.</li>
+<li>Buyer funds escrow directly or via a Lightning-to-on-chain swap.</li>
+</ol>
+<h3 id="4-commitment">4. Commitment</h3>
+<ol start="11">
+<li>Once payment proof exists, the buyer/trade key publishes a public <code translate="no" v-pre>stage=commit</code> <code translate="no" v-pre>kind:32122</code> reservation with <code translate="no" v-pre>proof</code>.</li>
+<li>A matching <code translate="no" v-pre>kind:1326</code> transition is published.</li>
+<li>Host or escrow MAY publish their own <code translate="no" v-pre>stage=commit</code> reservation/confirmation.</li>
+</ol>
+<h3 id="5-cancellation">5. Cancellation</h3>
+<p>Either party MAY cancel a private negotiation with a private <code translate="no" v-pre>stage=cancel</code> reservation child event. After public commitment, cancellation publishes a public <code translate="no" v-pre>stage=cancel</code> reservation plus a <code translate="no" v-pre>kind:1326</code> cancel transition. Escrow may only cancel before it has committed.</p>
+<h2 id="availability">Availability</h2>
+<p>Clients MUST only consider public <code translate="no" v-pre>stage=commit</code> reservations from active, non-cancelled groups when computing listing availability. Private <code translate="no" v-pre>stage=negotiate</code> events MUST NOT affect availability.</p>
+<h2 id="related-nips">Related NIPs</h2>
+<ul>
+<li><a href="01.md">NIP-01</a> — Event structure and parameterized replaceable events.</li>
+<li><a href="17.md">NIP-17</a> — Private message rumor kind <code translate="no" v-pre>14</code>.</li>
+<li><a href="19.md">NIP-19</a> — <code translate="no" v-pre>naddr</code> encoding for anchors.</li>
+<li><a href="44.md">NIP-44</a> — Encryption scheme.</li>
+<li><a href="57.md">NIP-57</a> — Zaps.</li>
+<li><a href="59.md">NIP-59</a> — Gift wrap.</li>
+</ul>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../dependencies/nips/escrow-nip/xx/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">NIP-​XX</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../guides/getting_started/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Getting started</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "NIP-XX", level: 4, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/dependencies/nips/reservation-nip/xx.md" }</script>
+</body>
+</html>

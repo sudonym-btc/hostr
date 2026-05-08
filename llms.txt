@@ -1,0 +1,44 @@
+﻿#  Hostr
+
+> semantic-release: angular
+
+- [ Hostr](https://sudonym-btc.github.io/hostr/readme.md):  Hostr
+- [AI](https://sudonym-btc.github.io/hostr/ai/readme.md): Hostr's AI surface is the MCP server that lets an agent search listings, manage a Hostr session, create or edit listings, negotiate reservations, handle payments, upload images, and inspect trips/bookings through the same SDK paths used by the app.
+- [Infrastructure](https://sudonym-btc.github.io/hostr/infrastructure/readme.md): Infrastructure is split into two Terraform stacks:
+- [App](https://sudonym-btc.github.io/hostr/app/readme.md): codecov
+- [Escrow](https://sudonym-btc.github.io/hostr/escrow/readme.md): Hostr escrow is the settlement layer for reservations. It combines Nostr escrow-service events, on-chain EVM trade funding, payment-proof verification, and arbitration workflows exposed through the Hostr MCP server.
+
+## AI
+
+- [Hostr Daemon](https://sudonym-btc.github.io/hostr/ai/daemon/readme.md): The Hostr daemon is the Dart process behind the MCP server. It is not the public HTTP service. It is a local child process that the Node MCP bridge starts and talks to over stdio.
+
+## Dependencies
+
+### Nips
+
+#### Accommodation nip
+
+- [NIP-XX](https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx.md): Accommodation Listings
+
+#### Escrow nip
+
+- [NIP-XX](https://sudonym-btc.github.io/hostr/dependencies/nips/escrow-nip/xx.md): Escrow Services
+
+#### Reservation nip
+
+- [NIP-XX](https://sudonym-btc.github.io/hostr/dependencies/nips/reservation-nip/xx.md): Reservations
+
+## Guides
+
+- [Getting started](https://sudonym-btc.github.io/hostr/guides/getting_started.md): Install dependencies: dnsmasq and route hostr.development to docker.
+- [Release Guide](https://sudonym-btc.github.io/hostr/guides/release.md): This document covers the full release lifecycle: branching, PRs, versioning, CI secrets, and deploying staging and production builds to the App Store and Play Store.
+
+## Infrastructure
+
+- [Tailscale](https://sudonym-btc.github.io/hostr/infrastructure/tailscale.md): The local dev stack uses Tailscale to make services running on your dev Mac (via Docker) accessible from other devices — primarily an iPhone for real-device testing.
+
+## Source
+
+### Ai
+
+- [Hostr MCP Server](https://sudonym-btc.github.io/hostr/source/ai/mcp-server/readme.md): The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart hostr-daemon. The action catalog in hostr_cli/lib/src/actions/hostr_actions.dart is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.

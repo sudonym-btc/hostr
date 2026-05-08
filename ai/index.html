@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.5.3">
+
+    <!-- Primary Meta Tags -->
+    <title>AI</title>
+    <meta name="title" content="AI">
+    <meta name="description" content="Hostr's AI surface is the MCP server that lets an agent search listings, manage a Hostr session, create or edit listings, negotiate reservations, handle payments, upload images, and inspect trips/bookings through the same SDK paths used by the app.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/ai/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/ai/">
+    <meta property="og:title" content="AI">
+    <meta property="og:description" content="Hostr's AI surface is the MCP server that lets an agent search listings, manage a Hostr session, create or edit listings, negotiate reservations, handle payments, upload images, and inspect trips/bookings through the same SDK paths used by the app.">
+    <meta property="og:image" content="https://sudonym-btc.github.io/hostr/ai/ai_demo.gif">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AI">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/ai/">
+    <meta name="twitter:title" content="AI">
+    <meta name="twitter:description" content="Hostr's AI surface is the MCP server that lets an agent search listings, manage a Hostr session, create or edit listings, negotiate reservations, handle payments, upload images, and inspect trips/bookings through the same SDK paths used by the app.">
+    <meta name="twitter:image" content="https://sudonym-btc.github.io/hostr/ai/ai_demo.gif">
+    <meta name="twitter:image:alt" content="AI">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/ai/readme.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+    <script id="mermaid-js" data-cfasync="false" src="../resources/js/mermaid.js?v=4.5.3" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="ai">AI</h1>
+<p>Hostr&#x27;s AI surface is the MCP server that lets an agent search listings, manage a Hostr session, create or edit listings, negotiate reservations, handle payments, upload images, and inspect trips/bookings through the same SDK paths used by the app.</p>
+<figure class="content-center">
+    <img src="ai_demo.gif" alt="AI demo" class="max-w-full h-auto rounded-image-rounded border-image-border border-image-border-width" width="960" height="540" />
+    <figcaption class="caption">AI demo</figcaption>
+</figure>
+<h2 id="structure">Structure</h2>
+<div id="structure-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">../../ai
+└── mcp-server          # Node/TypeScript HTTP MCP server
+
+../../hostr_cli
+├── bin/hostr_daemon.dart
+└── lib/src/daemon     # Dart stdio daemon used by MCP</code></pre>
+</doc-codeblock></div>
+<ul>
+<li>MCP server source: <code translate="no" v-pre>ai/mcp-server</code></li>
+<li>Detailed MCP runtime README: <a href="../source/ai/mcp-server/"><code translate="no" v-pre>ai/mcp-server/README.md</code></a></li>
+<li>Daemon overview: <a href="daemon/"><code translate="no" v-pre>./daemon/README.md</code></a></li>
+<li>Action catalog source of truth: <a href="../source/hostr_cli/lib/src/actions/hostr_actions.dart"><code translate="no" v-pre>hostr_cli/lib/src/actions/hostr_actions.dart</code></a></li>
+</ul>
+<h2 id="how-the-mcp-server-runs">How the MCP Server Runs</h2>
+<p>The MCP server is a Node 22 service built from <a href="../source/ai/mcp-server/src/index.ts"><code translate="no" v-pre>ai/mcp-server/src/index.ts</code></a>. At startup it:</p>
+<ol>
+<li>Reads environment config from <a href="../source/ai/mcp-server/src/config.ts"><code translate="no" v-pre>ai/mcp-server/src/config.ts</code></a>.</li>
+<li>Creates a <code translate="no" v-pre>HostrDaemonClient</code>.</li>
+<li>Creates the Express app.</li>
+<li>Serves HTTP on <code translate="no" v-pre>PORT</code>, defaulting to <code translate="no" v-pre>8787</code>.</li>
+</ol>
+<p>The HTTP app exposes:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Route</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>GET /health</code></td>
+<td>Lightweight process/config health.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>GET /ready</code></td>
+<td>Readiness check that calls daemon <code translate="no" v-pre>describe</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>POST /mcp</code></td>
+<td>Streamable HTTP MCP endpoint.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>POST /mcp/uploads/images</code></td>
+<td>Raw image upload path for MCP clients that can stream files.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>/oauth/*</code> and <code translate="no" v-pre>/.well-known/oauth*</code></td>
+<td>OAuth metadata, dynamic client registration, authorization, and token flow.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>/assets/*</code></td>
+<td>Temporary payment QR/invoice assets returned by payment workflows.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>In local source mode:</p>
+<div id="how-the-mcp-server-runs-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd ai/mcp-server
+npm run dev:local</code></pre>
+</doc-codeblock></div>
+<p>This serves:</p>
+<div id="how-the-mcp-server-runs-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">http://127.0.0.1:8787/mcp</code></pre>
+</doc-codeblock></div>
+<p>The local helper sets the daemon command to:</p>
+<div id="how-the-mcp-server-runs-code-3" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">HOSTR_DAEMON_COMMAND=dart
+HOSTR_DAEMON_ARGS=&quot;bin/hostr_daemon.dart --stdio --env development&quot;
+HOSTR_DAEMON_CWD=../../hostr_cli
+HOSTR_DAEMON_STATE_DIR=../../docker/data/mcp-local</code></pre>
+</doc-codeblock></div>
+<p>In Docker, <a href="../source/ai/mcp-server/dockerfile"><code translate="no" v-pre>ai/mcp-server/Dockerfile</code></a> builds the TypeScript server and an AOT Dart daemon bundle. The runtime container then runs:</p>
+<div id="how-the-mcp-server-runs-code-4" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon
+HOSTR_DAEMON_CWD=/opt/hostr-daemon
+HOSTR_DAEMON_STATE_DIR=/data/mcp</code></pre>
+</doc-codeblock></div>
+<p>The compose service is named <code translate="no" v-pre>mcp</code>. In local compose, <code translate="no" v-pre>ai.hostr.development</code> prefers the source server on the macOS host at <code translate="no" v-pre>host.docker.internal:8787</code> and falls back to the Docker MCP container when that source server is not running.</p>
+<h2 id="mcp-to-daemon-flow">MCP to Daemon Flow</h2>
+<div class="overflow-hidden mb-6 py-4 dark:px-5 dark:bg-white rounded-md"><pre translate="no" class="mermaid w-full">sequenceDiagram
+    participant Agent as MCP Client / Agent
+    participant HTTP as Node HTTP + OAuth
+    participant MCP as MCP Tool Router
+    participant Bridge as HostrDaemonClient
+    participant Daemon as Dart hostr-daemon
+    participant SDK as Hostr SDK / Nostr / Blossom / Swaps
+
+    Agent-&gt;&gt;HTTP: OAuth login and POST /mcp
+    HTTP-&gt;&gt;MCP: Verify bearer token and route tool call
+    MCP-&gt;&gt;Bridge: callAction(pubkey, action, input)
+    Bridge-&gt;&gt;Daemon: JSON line on stdin
+    Daemon-&gt;&gt;SDK: Run Hostr action in session(pubkey)
+    SDK--&gt;&gt;Daemon: Result or issue
+    Daemon--&gt;&gt;Bridge: JSON line on stdout
+    Bridge--&gt;&gt;MCP: Parsed result
+    MCP--&gt;&gt;Agent: MCP tool result + optional UI metadata</pre></div>
+<p>Node owns client-facing protocol concerns: OAuth, MCP resources/tools, HTTP uploads, request tracing, widgets, and public asset URLs. Dart owns Hostr behavior: session state, Nostr Connect, relay queries, listing/reservation models, Blossom uploads through an authenticated session, swaps, and escrow-aware actions.</p>
+<h2 id="auth-and-sessions">Auth and Sessions</h2>
+<p>MCP calls use OAuth bearer tokens. The token&#x27;s <code translate="no" v-pre>pubkey</code> claim selects the Hostr daemon session:</p>
+<div id="auth-and-sessions-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">context.runtime.session(pubkey)</code></pre>
+</doc-codeblock></div>
+<p>Write actions should not accept a pubkey in tool input. The bridge passes the token pubkey separately, and the daemon rejects authenticated writes when the active Hostr session does not match that token.</p>
+<p>If the OAuth token is still valid but the NIP-46 signer is offline, tools return <code translate="no" v-pre>auth_required</code> with a <code translate="no" v-pre>sessionAction</code> hint. The agent should call <code translate="no" v-pre>hostr_session_connect</code>, show the returned Nostr Connect URI or QR image, then wait for the signer approval.</p>
+<h2 id="development-notes">Development Notes</h2>
+<ul>
+<li>Edit action definitions in Dart first, then regenerate MCP types with:
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd hostr_cli
+dart run bin/generate_mcp_types.dart /path/to/hostr</code></pre>
+</doc-codeblock></div>
+</li>
+<li>Run MCP checks from <code translate="no" v-pre>ai/mcp-server</code>:
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">npm run typecheck
+npm run test:unit</code></pre>
+</doc-codeblock></div>
+</li>
+<li>Keep daemon stdout reserved for JSON responses. Logs belong on stderr so the Node bridge can parse stdout safely.</li>
+<li><code translate="no" v-pre>HOSTR_DAEMON_TIMEOUT_MS</code> defaults to <code translate="no" v-pre>120000</code>. On timeout, the Node bridge sends a cooperative daemon <code translate="no" v-pre>cancel</code> request.</li>
+</ul>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1"> Hostr</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../ai/daemon/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Hostr Daemon</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "AI", level: 1, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: true, hasMath: false, tocDepth: 23, "md": "/ai/readme.md" }</script>
+</body>
+</html>

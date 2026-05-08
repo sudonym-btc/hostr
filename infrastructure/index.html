@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.5.3">
+
+    <!-- Primary Meta Tags -->
+    <title>Infrastructure</title>
+    <meta name="title" content="Infrastructure">
+    <meta name="description" content="Infrastructure is split into two Terraform stacks:">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/infrastructure/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/infrastructure/">
+    <meta property="og:title" content="Infrastructure">
+    <meta property="og:description" content="Infrastructure is split into two Terraform stacks:">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/infrastructure/">
+    <meta name="twitter:title" content="Infrastructure">
+    <meta name="twitter:description" content="Infrastructure is split into two Terraform stacks:">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/infrastructure/readme.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="infrastructure">Infrastructure</h1>
+<p>Infrastructure is split into <strong>two Terraform stacks</strong>:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Stack</th>
+<th>Path</th>
+<th>State</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bootstrap</strong></td>
+<td><code translate="no" v-pre>infrastructure/bootstrap/</code></td>
+<td>Local (checked into <code translate="no" v-pre>.gitignore</code>)</td>
+<td>State bucket, DNS zones, MX, NS delegation</td>
+</tr>
+<tr>
+<td><strong>Environment</strong></td>
+<td><code translate="no" v-pre>infrastructure/</code></td>
+<td>GCS remote (per-env prefix)</td>
+<td>Compute VM, VPC, secrets, DNS A records</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The compute stack deploys a <strong>single Compute Engine VM</strong> that runs Docker Compose
+for staging/production services (<code translate="no" v-pre>relay</code>, <code translate="no" v-pre>blossom</code>, <code translate="no" v-pre>escrow</code>) with
+<code translate="no" v-pre>compose.hosted.yaml</code> (Let&#x27;s Encrypt via <code translate="no" v-pre>acme-companion</code>).</p>
+<h2 id="fresh-setup-in-a-new-gcp-account">Fresh setup in a new GCP account</h2>
+<ol>
+<li>Create two GCP projects manually (or via <code translate="no" v-pre>gcloud</code>).</li>
+<li>Update project IDs in <code translate="no" v-pre>infrastructure/bootstrap/terraform.tfvars</code> and <code translate="no" v-pre>infrastructure/var/{staging,production}.tfvars</code>.</li>
+<li>Run the bootstrap stack:
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/bootstrap.sh</code></pre>
+</doc-codeblock></div>
+</li>
+<li>Deploy each environment:
+<div class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
+scripts/deploy.sh production</code></pre>
+</doc-codeblock></div>
+</li>
+<li>Update your domain registrar NS records to the values shown in bootstrap outputs.</li>
+<li>Seed runtime secrets in Secret Manager (see below).</li>
+</ol>
+<h2 id="local-deployment">Local deployment</h2>
+<h3 id="bootstrap-once--rare">Bootstrap (once / rare)</h3>
+<div id="bootstrap-once--rare-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/bootstrap.sh</code></pre>
+</doc-codeblock></div>
+<p>Creates: GCS state bucket, Cloud DNS zones (parent + staging child), MX records, NS delegation.</p>
+<h3 id="environment-deploy">Environment deploy</h3>
+<div id="environment-deploy-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
+# or
+scripts/deploy.sh production</code></pre>
+</doc-codeblock></div>
+<p>This initialises the GCS backend, runs <code translate="no" v-pre>terraform apply</code>, and optionally resets the VM.</p>
+<p>The state bucket name is read from <code translate="no" v-pre>infrastructure/bootstrap/terraform.tfvars</code>.
+You can override it with <code translate="no" v-pre>TF_STATE_BUCKET</code> env var.</p>
+<h2 id="ci-deployment-workload-identity-federation">CI deployment (Workload Identity Federation)</h2>
+<p>The GitHub Actions workflow (<code translate="no" v-pre>.github/workflows/infra_deploy.yaml</code>) handles
+environment deploys automatically. Authentication uses <strong>Workload Identity
+Federation</strong> (WIF) — no long-lived service account keys.</p>
+<h3 id="how-it-works">How it works</h3>
+<ol>
+<li>GitHub&#x27;s OIDC provider issues a short-lived JWT for the workflow run.</li>
+<li>GCP exchanges the JWT for temporary credentials via the WIF pool/provider.</li>
+<li>The workflow impersonates the <code translate="no" v-pre>ci-deploy</code> service account to run Terraform.</li>
+</ol>
+<h3 id="first-time-setup-chicken-and-egg">First-time setup (chicken-and-egg)</h3>
+<p>WIF resources are managed in Terraform (<code translate="no" v-pre>infrastructure/ci.tf</code>), so the first
+deploy must be run <strong>locally</strong>:</p>
+<div id="first-time-setup-chicken-and-egg-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">scripts/deploy.sh staging
+scripts/deploy.sh production</code></pre>
+</doc-codeblock></div>
+<p>After each apply, grab the outputs:</p>
+<div id="first-time-setup-chicken-and-egg-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd infrastructure
+terraform output ci_workload_identity_provider
+terraform output ci_service_account_email</code></pre>
+</doc-codeblock></div>
+<p>Then set these as <strong>environment variables</strong> in GitHub:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>GitHub environment</th>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>staging</td>
+<td><code translate="no" v-pre>GCP_WORKLOAD_IDENTITY_PROVIDER</code></td>
+<td><code translate="no" v-pre>terraform output ci_workload_identity_provider</code></td>
+</tr>
+<tr>
+<td>staging</td>
+<td><code translate="no" v-pre>GCP_SERVICE_ACCOUNT_EMAIL</code></td>
+<td><code translate="no" v-pre>terraform output ci_service_account_email</code></td>
+</tr>
+<tr>
+<td>staging</td>
+<td><code translate="no" v-pre>TF_STATE_BUCKET</code></td>
+<td>The GCS bucket from bootstrap</td>
+</tr>
+<tr>
+<td>production</td>
+<td><code translate="no" v-pre>GCP_WORKLOAD_IDENTITY_PROVIDER</code></td>
+<td>(same outputs from the production apply)</td>
+</tr>
+<tr>
+<td>production</td>
+<td><code translate="no" v-pre>GCP_SERVICE_ACCOUNT_EMAIL</code></td>
+<td>(same outputs from the production apply)</td>
+</tr>
+<tr>
+<td>production</td>
+<td><code translate="no" v-pre>TF_STATE_BUCKET</code></td>
+<td>The GCS bucket from bootstrap</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>After that, the workflow can self-manage — subsequent <code translate="no" v-pre>terraform apply</code> runs
+update the WIF resources if needed.</p>
+<p>Bootstrap is <strong>not</strong> run in CI — it&#x27;s a one-time local operation.</p>
+<h2 id="runtime-secrets-secret-manager">Runtime secrets (Secret Manager)</h2>
+<p>Terraform creates the required Secret Manager secret containers for:</p>
+<ul>
+<li><code translate="no" v-pre>ESCROW_PRIVATE_KEY</code></li>
+<li><code translate="no" v-pre>BLOSSOM_DASHBOARD_PASSWORD</code></li>
+<li><code translate="no" v-pre>OTEL_EXPORTER_OTLP_HEADERS</code></li>
+</ul>
+<p>Non-sensitive runtime values like <code translate="no" v-pre>DOMAIN</code>, <code translate="no" v-pre>LETSENCRYPT_EMAIL</code>, <code translate="no" v-pre>RPC_URL</code>, and
+<code translate="no" v-pre>ESCROW_CONTRACT_ADDRESS</code> is read from <code translate="no" v-pre>.env.staging</code> / <code translate="no" v-pre>.env.prod</code>.</p>
+<p><code translate="no" v-pre>OTEL_EXPORTER_OTLP_ENDPOINT</code> is also non-sensitive and can live in
+<code translate="no" v-pre>.env.staging</code> / <code translate="no" v-pre>.env.prod</code>, while the auth header stays in Secret Manager.</p>
+<p>You can seed values either:</p>
+<ol>
+<li>via Terraform variable <code translate="no" v-pre>compose_runtime_secret_values</code> (sensitive map), or</li>
+<li>manually in GCP Secret Manager.</li>
+</ol>
+<p>Manual example:</p>
+<div id="runtime-secrets-secret-manager-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">PROJECT_ID=&quot;&lt;terraform output project_id&gt;&quot;
+
+echo &quot;&lt;escrow-private-key&gt;&quot; | gcloud secrets versions add ESCROW_PRIVATE_KEY --project &quot;$PROJECT_ID&quot; --data-file=-
+echo &quot;&lt;blossom-dashboard-password&gt;&quot; | gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD --project &quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<h3 id="seeding-secrets-after-a-fresh-terraform-deploy">Seeding secrets after a fresh Terraform deploy</h3>
+<p>After <code translate="no" v-pre>scripts/deploy.sh staging</code> (or <code translate="no" v-pre>production</code>) completes, the Secret
+Manager <strong>containers</strong> exist but have <strong>no versions</strong> yet. You need to seed them
+before the VM can start the escrow daemon.</p>
+<h4 id="1-generate-and-store-the-escrow-key">1. Generate and store the escrow key</h4>
+<p>Generate a fresh Nostr private key and store it in one step:</p>
+<div id="1-generate-and-store-the-escrow-key-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash"># From the repo root
+PROJECT_ID=&quot;hostr-staging-d4c52998&quot;  # or hostr-production-d3ba05b4
+
+cd escrow &amp;&amp; dart run bin/generate_nsec.dart | \
+  gcloud secrets versions add ESCROW_PRIVATE_KEY \
+    --project=&quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<p>Or if you already have a key:</p>
+<div id="1-generate-and-store-the-escrow-key-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">echo -n &quot;&lt;nsec-hex&gt;&quot; | \
+  gcloud secrets versions add ESCROW_PRIVATE_KEY \
+    --project=&quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<h4 id="2-store-the-blossom-dashboard-password">2. Store the blossom dashboard password</h4>
+<div id="2-store-the-blossom-dashboard-password-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">echo -n &quot;&lt;password&gt;&quot; | \
+  gcloud secrets versions add BLOSSOM_DASHBOARD_PASSWORD \
+    --project=&quot;$PROJECT_ID&quot; --data-file=-</code></pre>
+</doc-codeblock></div>
+<h4 id="3-verify-the-escrow-pubkey">3. Verify the escrow pubkey</h4>
+<p>Derive the Nostr pubkey from the stored secret to confirm it&#x27;s correct and
+to get the value needed for the app&#x27;s <code translate="no" v-pre>bootstrapEscrowPubkeys</code> config:</p>
+<div id="3-verify-the-escrow-pubkey-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">./scripts/escrow-pubkey.sh &quot;$PROJECT_ID&quot;</code></pre>
+</doc-codeblock></div>
+<p>This outputs the pubkey. Update the corresponding config in
+<code translate="no" v-pre>app/lib/config/env/{staging,production}.config.dart</code>:</p>
+<div id="3-verify-the-escrow-pubkey-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-dart"><code v-pre class="language-dart">static const _hostrEscrowPubkey = '&lt;pubkey-from-above&gt;';</code></pre>
+</doc-codeblock></div>
+<h4 id="4-deploy-the-contract-and-set-the-address">4. Deploy the contract and set the address</h4>
+<p>Deploy the MultiEscrow contract to Rootstock (see the escrow README), then set
+<code translate="no" v-pre>ESCROW_CONTRACT_ADDRESS</code> in <code translate="no" v-pre>.env.staging</code> or <code translate="no" v-pre>.env.prod</code>:</p>
+<div id="4-deploy-the-contract-and-set-the-address-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">ESCROW_CONTRACT_ADDRESS=0x&lt;deployed-address&gt;</code></pre>
+</doc-codeblock></div>
+<p>This value is <strong>not</strong> a secret — it&#x27;s committed to the repo in the env file.</p>
+<h2 id="deployment-behavior">Deployment behavior</h2>
+<p>The VM startup/deploy script:</p>
+<ol>
+<li>Pulls the repo branch.</li>
+<li>Fetches secrets from Secret Manager into <code translate="no" v-pre>/opt/hostr/.env.runtime</code>.</li>
+<li>Merges <code translate="no" v-pre>.env</code> and <code translate="no" v-pre>.env.&lt;env&gt;</code> with Secret Manager values into <code translate="no" v-pre>/opt/hostr/.env.runtime</code>.</li>
+<li>Runs:</li>
+</ol>
+<div id="deployment-behavior-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">docker compose \
+    --env-file /opt/hostr/.env.runtime \
+    --profile &lt;staging|prod&gt; \
+  -f compose.yaml \
+  -f compose.hosted.yaml \
+    up -d --build --remove-orphans</code></pre>
+</doc-codeblock></div>
+<p>So TLS is always deployed through <code translate="no" v-pre>compose.hosted.yaml</code> in
+staging/production.</p>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../guides/release/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Release Guide</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../infrastructure/tailscale/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Tailscale</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "Infrastructure", level: 1, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/infrastructure/readme.md" }</script>
+</body>
+</html>

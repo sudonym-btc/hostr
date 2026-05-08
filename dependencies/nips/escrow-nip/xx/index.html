@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.5.3">
+
+    <!-- Primary Meta Tags -->
+    <title>NIP-XX</title>
+    <meta name="title" content="NIP-XX">
+    <meta name="description" content="Escrow Services">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/dependencies/nips/escrow-nip/xx/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/dependencies/nips/escrow-nip/xx/">
+    <meta property="og:title" content="NIP-XX">
+    <meta property="og:description" content="Escrow Services">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/dependencies/nips/escrow-nip/xx/">
+    <meta name="twitter:title" content="NIP-XX">
+    <meta name="twitter:description" content="Escrow Services">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/dependencies/nips/escrow-nip/xx.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="nip-xx">NIP-XX</h1>
+<p>Escrow Services</p>
+<hr>
+<p><code translate="no" v-pre>draft</code> <code translate="no" v-pre>optional</code></p>
+<p>This NIP defines a protocol for decentralized escrow services on Nostr, enabling trust-minimized commerce between buyers and sellers. Escrow operators advertise their services, buyers and sellers declare their trusted escrow providers, accepted contract bytecode hashes, and accepted payment forms, and the protocol coordinates on-chain settlement with arbitration capabilities.</p>
+<h2 id="terms">Terms</h2>
+<ul>
+<li><strong>Buyer</strong> — Nostr user making a payment for a good or service.</li>
+<li><strong>Seller</strong> — Nostr user providing a good or service.</li>
+<li><strong>Escrow</strong> — Nostr user operating an escrow service that holds funds and can arbitrate disputes.</li>
+<li><strong>Trade</strong> — A single escrow-backed transaction between a buyer and seller, mediated by an escrow.</li>
+</ul>
+<h2 id="event-kinds">Event Kinds</h2>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>17388</code></td>
+<td>Escrow Method</td>
+<td>Replaceable</td>
+<td>User&#x27;s accepted payment forms and trusted escrow providers</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>30302</code></td>
+<td>Escrow Service Selected</td>
+<td>Parameterized replaceable</td>
+<td>Buyer&#x27;s selected escrow and seller method for a trade</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>30303</code></td>
+<td>Escrow Service</td>
+<td>Parameterized replaceable</td>
+<td>Escrow operator&#x27;s service advertisement</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="escrow-service-kind30303">Escrow Service (<code translate="no" v-pre>kind:30303</code>)</h2>
+<p>Published by escrow operators to advertise their service. The <code translate="no" v-pre>d</code> tag MUST be set to the smart contract address.</p>
+<h3 id="content">Content</h3>
+<p>JSON object:</p>
+<div id="content-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;pubkey&quot;: &quot;&lt;escrow-operator-nostr-pubkey&gt;&quot;,
+  &quot;evmAddress&quot;: &quot;&lt;eip55-checksummed-address&gt;&quot;,
+  &quot;contractAddress&quot;: &quot;&lt;deployed-escrow-contract-address&gt;&quot;,
+  &quot;contractBytecodeHash&quot;: &quot;&lt;sha256-of-runtime-bytecode&gt;&quot;,
+  &quot;chainId&quot;: 30,
+  &quot;maxDuration&quot;: 31536000,
+  &quot;type&quot;: &quot;EVM&quot;,
+  &quot;feePercent&quot;: 1.0,
+  &quot;tokenFeeHints&quot;: {
+    &quot;native&quot;: { &quot;baseFee&quot;: 0, &quot;maxFee&quot;: 0, &quot;minFee&quot;: 0 },
+    &quot;0xdAC17F958D2ee523a2206206994597C13D831ec7&quot;: {
+      &quot;baseFee&quot;: 50000,
+      &quot;maxFee&quot;: 1000000,
+      &quot;minFee&quot;: 10000,
+    },
+  },
+}</code></pre>
+</doc-codeblock></div>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>pubkey</code></td>
+<td>string</td>
+<td>The escrow operator&#x27;s Nostr hex public key.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>evmAddress</code></td>
+<td>string</td>
+<td>The operator&#x27;s EVM address (EIP-55 checksum).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>contractAddress</code></td>
+<td>string</td>
+<td>Deployed escrow smart contract address.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>contractBytecodeHash</code></td>
+<td>string</td>
+<td>SHA-256 hash of the contract&#x27;s runtime bytecode. Clients use this to verify the contract matches a known, audited implementation.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>chainId</code></td>
+<td>integer</td>
+<td>EVM chain ID (e.g. <code translate="no" v-pre>30</code> for Rootstock mainnet).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>maxDuration</code></td>
+<td>integer</td>
+<td>Maximum escrow lock duration in seconds.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>type</code></td>
+<td>string</td>
+<td>Contract type. Currently <code translate="no" v-pre>&quot;EVM&quot;</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>feePercent</code></td>
+<td>number</td>
+<td>Proportional fee as a percentage (e.g. <code translate="no" v-pre>1.0</code> = 1%).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>tokenFeeHints</code></td>
+<td>object</td>
+<td>Per-token fee parameters, keyed by token address or <code translate="no" v-pre>&quot;native&quot;</code> for the chain&#x27;s native asset.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h4 id="token-fee-hints">Token Fee Hints</h4>
+<p>Each entry in <code translate="no" v-pre>tokenFeeHints</code> contains:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>baseFee</code></td>
+<td>integer</td>
+<td>Flat base fee in the token&#x27;s smallest unit.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>maxFee</code></td>
+<td>integer</td>
+<td>Maximum fee cap. <code translate="no" v-pre>0</code> = no maximum.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>minFee</code></td>
+<td>integer</td>
+<td>Minimum fee floor.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Fee calculation:</strong> <code translate="no" v-pre>fee = clamp(floor(amount × feePercent / 100) + baseFee, minFee, maxFee)</code></p>
+<h3 id="tags">Tags</h3>
+<div id="tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;d&quot;, &quot;&lt;contractAddress&gt;&quot;]</code></pre>
+</doc-codeblock></div>
+<h2 id="escrow-method-kind17388">Escrow Method (<code translate="no" v-pre>kind:17388</code>)</h2>
+<p>Published by both buyers and sellers to declare which escrow services they trust and which payment forms they accept.</p>
+<p>This event is replaceable per pubkey. Implementations SHOULD publish one current escrow method event per user. The event content is empty.</p>
+<h3 id="tags-1">Tags</h3>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Tag</th>
+<th>Format</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>p</code></td>
+<td><code translate="no" v-pre>[&quot;p&quot;, &quot;&lt;escrow-pubkey&gt;&quot;]</code></td>
+<td>Trusted escrow operator pubkey. Repeat for multiple.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>c</code></td>
+<td><code translate="no" v-pre>[&quot;c&quot;, &quot;&lt;bytecode-hash&gt;&quot;]</code></td>
+<td>Accepted contract bytecode hash. Repeat for multiple.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>o</code></td>
+<td><code translate="no" v-pre>[&quot;o&quot;, &quot;&lt;denomination&gt;&quot;, &quot;&lt;token-tag-id&gt;&quot;, &quot;&lt;app-id?&gt;&quot;]</code></td>
+<td>Accepted payment form mapping a denomination to a concrete token location. The optional fourth element scopes forms to an application.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h4 id="payment-form-tags">Payment Form Tags</h4>
+<p>The <code translate="no" v-pre>o</code> tag maps a denomination code (e.g. <code translate="no" v-pre>&quot;BTC&quot;</code>, <code translate="no" v-pre>&quot;USD&quot;</code>) to an on-chain token identifier:</p>
+<div id="payment-form-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;o&quot;, &quot;BTC&quot;, &quot;30:0x0000000000000000000000000000000000000000&quot;, &quot;&lt;app-id&gt;&quot;]</code></pre>
+</doc-codeblock></div>
+<p>The token tag ID format is <code translate="no" v-pre>&lt;chainId&gt;:&lt;tokenAddress&gt;</code>. The zero address (<code translate="no" v-pre>0x000...</code>) denotes the chain&#x27;s native asset. Non-EVM payment rails MAY use their own token tag IDs, such as <code translate="no" v-pre>&quot;BTC&quot;</code> for Lightning-denominated BTC.</p>
+<p>When present, <code translate="no" v-pre>&lt;app-id&gt;</code> scopes the payment form to an application.</p>
+<h3 id="example">Example</h3>
+<div id="example-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;kind&quot;: 17388,
+  &quot;pubkey&quot;: &quot;&lt;seller-pubkey&gt;&quot;,
+  &quot;tags&quot;: [
+    [&quot;p&quot;, &quot;abc123...&quot;],
+    [&quot;p&quot;, &quot;def456...&quot;],
+    [&quot;c&quot;, &quot;a1b2c3d4e5...&quot;],
+    [&quot;o&quot;, &quot;BTC&quot;, &quot;30:0x0000000000000000000000000000000000000000&quot;, &quot;example&quot;],
+    [&quot;o&quot;, &quot;USD&quot;, &quot;30:0xdAC17F958D2ee523a2206206994597C13D831ec7&quot;, &quot;example&quot;],
+  ],
+  &quot;content&quot;: &quot;&quot;,
+  // ...
+}</code></pre>
+</doc-codeblock></div>
+<h2 id="escrow-service-selected-kind30302">Escrow Service Selected (<code translate="no" v-pre>kind:30302</code>)</h2>
+<p>Created by the buyer to record the chosen escrow service and the seller&#x27;s escrow method for a trade.</p>
+<p>In private negotiation flows this event is usually sent as a signed child event inside a private <code translate="no" v-pre>kind:1327</code> structured-message rumor tagged <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code> and delivered with NIP-59 gift wraps, rather than being broadcast as a standalone public event. Implementations MAY publish it as a standalone event when the trade context is intended to be public.</p>
+<h3 id="tags-2">Tags</h3>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Tag</th>
+<th>Format</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>d</code></td>
+<td><code translate="no" v-pre>[&quot;d&quot;, &quot;&lt;trade-id&gt;&quot;]</code></td>
+<td>Reservation trade id. The selected escrow event is parameterized by trade.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>a</code></td>
+<td><code translate="no" v-pre>[&quot;a&quot;, &quot;&lt;listing-anchor&gt;&quot;]</code></td>
+<td>Listing anchor for the trade. SHOULD be included when known.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>p</code></td>
+<td><code translate="no" v-pre>[&quot;p&quot;, &quot;&lt;seller-pubkey&gt;&quot;]</code></td>
+<td>Seller pubkey. SHOULD be included when known.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <code translate="no" v-pre>d</code> tag is the only trade identifier carried by this child event. Private message grouping is performed by the enclosing <code translate="no" v-pre>kind:1327</code> rumor&#x27;s <code translate="no" v-pre>conversation</code> tag.</p>
+<h3 id="content-1">Content</h3>
+<p>JSON object containing the full serialized Nostr events:</p>
+<div id="content-1-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;service&quot;: &quot;&lt;JSON string of the EscrowService kind:30303 event&gt;&quot;,
+  &quot;sellerMethods&quot;: &quot;&lt;JSON string of the seller's EscrowMethod kind:17388 event&gt;&quot;
+}</code></pre>
+</doc-codeblock></div>
+<h2 id="mutual-escrow-resolution">Mutual Escrow Resolution</h2>
+<p>When a buyer and seller wish to transact, their clients SHOULD automatically resolve a mutually trusted escrow:</p>
+<ol>
+<li>Query both parties&#x27; <code translate="no" v-pre>kind:17388</code> (Escrow Method) events.</li>
+<li>Find the intersection of trusted escrow pubkeys (<code translate="no" v-pre>p</code> tags).</li>
+<li>Find the intersection of supported contract bytecode hashes (<code translate="no" v-pre>c</code> tags).</li>
+<li>Query <code translate="no" v-pre>kind:30303</code> (Escrow Service) events from mutually trusted pubkeys whose <code translate="no" v-pre>contractBytecodeHash</code> matches a mutually supported bytecode.</li>
+<li>If no mutual match exists, fall back to the seller&#x27;s trusted escrows.</li>
+</ol>
+<h2 id="on-chain-escrow-contract">On-Chain Escrow Contract</h2>
+<p>The on-chain escrow contract manages funds with the following lifecycle:</p>
+<h3 id="trade-lifecycle">Trade Lifecycle</h3>
+<div id="trade-lifecycle-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">                ┌──── releaseToCounterparty ────┐
+                │                                ▼
+(empty) ── createTrade ──► funded ──► released / arbitrated / claimed
+                │                        ▲
+                │       ┌── arbitrate ───┘
+                │       │
+                └───────┼── claim (after unlockAt) ──► claimed</code></pre>
+</doc-codeblock></div>
+<h3 id="trade-structure">Trade Structure</h3>
+<p>Each trade is identified by a <code translate="no" v-pre>tradeId</code> (bytes32) and stores:</p>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>buyer</code></td>
+<td>address</td>
+<td>The funding party.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>seller</code></td>
+<td>address</td>
+<td>The counterparty receiving goods/services.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>arbiter</code></td>
+<td>address</td>
+<td>The escrow operator&#x27;s EVM address.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>token</code></td>
+<td>address</td>
+<td>ERC-20 token address, or <code translate="no" v-pre>address(0)</code> for native asset.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>amount</code></td>
+<td>uint256</td>
+<td>Total escrowed amount.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>unlockAt</code></td>
+<td>uint256</td>
+<td>Unix timestamp after which the seller can claim unilaterally.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>escrowFee</code></td>
+<td>uint256</td>
+<td>Flat fee in token units, deducted at settlement.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="operations">Operations</h3>
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Operation</th>
+<th>Authorized Signer</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>createTrade</code></td>
+<td>Buyer (msg.sender)</td>
+<td>Deposits funds. Native asset via <code translate="no" v-pre>msg.value</code>; ERC-20 via <code translate="no" v-pre>transferFrom</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>releaseToCounterparty</code></td>
+<td>Buyer OR Seller (EIP-712)</td>
+<td>Voluntarily sends funds to the other party. If the buyer signs, funds go to the seller and vice versa.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>claim</code></td>
+<td>Seller (EIP-712)</td>
+<td>Claims funds after <code translate="no" v-pre>unlockAt</code> has passed.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>arbitrate</code></td>
+<td>Arbiter (EIP-712)</td>
+<td>Splits funds: <code translate="no" v-pre>factor/1000</code> to seller, remainder to buyer. <code translate="no" v-pre>factor</code> is <code translate="no" v-pre>0</code>–<code translate="no" v-pre>1000</code> (0.1% precision).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>withdraw</code></td>
+<td>Beneficiary (EIP-712)</td>
+<td>Pulls settled funds from the contract&#x27;s balance mapping.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>All operations use EIP-712 typed-data signatures, enabling gas-sponsored relay (anyone can broadcast the transaction).</p>
+<h3 id="settlement">Settlement</h3>
+<p>All settlements credit a <code translate="no" v-pre>balances[recipient][token]</code> mapping (pull pattern) rather than performing direct transfers. This prevents reentrancy and enables batched withdrawals.</p>
+<h3 id="arbitration">Arbitration</h3>
+<p>When a dispute arises:</p>
+<ol>
+<li>Either party messages the escrow operator via Nostr DMs.</li>
+<li>The escrow operator reviews the trade context (reservation, listing, payment proof, on-chain state).</li>
+<li>The operator submits an <code translate="no" v-pre>arbitrate</code> transaction with a <code translate="no" v-pre>factor</code> value:
+<ul>
+<li><code translate="no" v-pre>0</code> = full refund to buyer</li>
+<li><code translate="no" v-pre>1000</code> = all funds to seller</li>
+<li><code translate="no" v-pre>500</code> = 50/50 split</li>
+</ul>
+</li>
+<li><code translate="no" v-pre>amountAfterFee = amount - escrowFee</code></li>
+<li><code translate="no" v-pre>forwardAmount = (amountAfterFee × factor) / 1000</code> → credited to seller</li>
+<li><code translate="no" v-pre>amountAfterFee - forwardAmount</code> → credited to buyer</li>
+<li><code translate="no" v-pre>escrowFee</code> → credited to arbiter</li>
+</ol>
+<h2 id="escrow-proof">Escrow Proof</h2>
+<p>When a reservation is backed by escrow, the commitment includes an <code translate="no" v-pre>EscrowProof</code> in the reservation&#x27;s <code translate="no" v-pre>PaymentProof</code>:</p>
+<div id="escrow-proof-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;txHash&quot;: &quot;&lt;evm-transaction-hash&gt;&quot;,
+  &quot;escrowService&quot;: &quot;&lt;JSON string of the EscrowService kind:30303 event&gt;&quot;,
+  &quot;hostsEscrowMethods&quot;: &quot;&lt;JSON string of the host's EscrowMethod kind:17388 event&gt;&quot;
+}</code></pre>
+</doc-codeblock></div>
+<h3 id="verification">Verification</h3>
+<p>Clients and escrow operators MUST verify escrow proofs:</p>
+<ol>
+<li>Validate the <code translate="no" v-pre>EscrowService</code> event signature and pubkey.</li>
+<li>Verify the host&#x27;s <code translate="no" v-pre>EscrowMethod</code> event lists the escrow pubkey in a <code translate="no" v-pre>p</code> tag.</li>
+<li>Verify the host&#x27;s <code translate="no" v-pre>EscrowMethod</code> event lists the contract bytecode hash in a <code translate="no" v-pre>c</code> tag.</li>
+<li>Query on-chain for the <code translate="no" v-pre>TradeCreated</code> event matching <code translate="no" v-pre>txHash</code>.</li>
+<li>Verify the on-chain funded amount covers the reservation cost (accounting for token denomination and decimals).</li>
+<li>Verify the host&#x27;s <code translate="no" v-pre>EscrowMethod</code> accepts the on-chain token for the reservation&#x27;s denomination.</li>
+</ol>
+<h2 id="payment-integration">Payment Integration</h2>
+<h3 id="funding-lightning--on-chain">Funding (Lightning → On-Chain)</h3>
+<p>Buyers MAY fund escrow via Lightning using submarine swaps (e.g. Boltz):</p>
+<ol>
+<li>Build a swap-in request with post-claim calls: <code translate="no" v-pre>ERC20.approve</code> (if token) + <code translate="no" v-pre>createTrade</code>.</li>
+<li>Buyer pays the Lightning invoice.</li>
+<li>Swap provider claims the HTLC and atomically executes the on-chain escrow funding.</li>
+</ol>
+<h3 id="withdrawal-on-chain--lightning">Withdrawal (On-Chain → Lightning)</h3>
+<p>Settled funds MAY be withdrawn to Lightning via reverse submarine swaps:</p>
+<ol>
+<li>Build a <code translate="no" v-pre>withdraw</code> call as a pre-lock call in a swap-out operation.</li>
+<li>Atomically execute: <code translate="no" v-pre>withdraw()</code> from escrow → <code translate="no" v-pre>lock()</code> into swap contract.</li>
+<li>Swap provider pays a Lightning invoice to the beneficiary.</li>
+</ol>
+<h2 id="related-nips">Related NIPs</h2>
+<ul>
+<li><a href="01.md">NIP-01</a> — Event structure and parameterized replaceable events.</li>
+<li><a href="17.md">NIP-17</a> — Private message rumor kind <code translate="no" v-pre>14</code>.</li>
+<li><a href="44.md">NIP-44</a> — Encryption scheme.</li>
+<li><a href="59.md">NIP-59</a> — Gift wrap.</li>
+</ul>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../../../dependencies/nips/accommodation-nip/xx/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">NIP-​XX</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../../../dependencies/nips/reservation-nip/xx/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">NIP-​XX</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "NIP-XX", level: 4, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/dependencies/nips/escrow-nip/xx.md" }</script>
+</body>
+</html>
