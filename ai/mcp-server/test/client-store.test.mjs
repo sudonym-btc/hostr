@@ -271,6 +271,24 @@ test("payment widget stays empty until it can show the QR", () => {
   );
 });
 
+test("card widgets share title subtitle and button styling hooks", () => {
+  const widgetHtml = [
+    __testing.listingCardWidgetHtml,
+    __testing.paymentRequiredWidgetHtml,
+    __testing.sessionConnectWidgetHtml,
+    __testing.profileCardWidgetHtml,
+    __testing.tripHostingWidgetHtml("trip"),
+    __testing.tripHostingWidgetHtml("hosting"),
+  ];
+
+  for (const html of widgetHtml) {
+    assert.match(html, /\.hostr-title/);
+    assert.match(html, /\.hostr-subtitle/);
+    assert.match(html, /\.hostr-button/);
+    assert.match(html, /\.hostr-card/);
+  }
+});
+
 test("widgets poll for delayed ChatGPT tool output injection", () => {
   const widgetHtml = [
     __testing.listingCardWidgetHtml,
@@ -482,6 +500,80 @@ test("swap watch does not advertise a static payment widget", async () => {
   assert.equal(response._meta?.["openai/outputTemplate"], undefined);
 });
 
+test("swap watch timeout asks whether payment was sent and preserves retry args", async () => {
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.swaps.watch",
+    {
+      ok: true,
+      command: "hostr.swaps.watch",
+      data: {
+        status: "payment_awaiting",
+        stateName: "watch_timeout",
+        paymentAwaiting: true,
+        watchTimedOut: true,
+        swapId: "swap-123",
+        tradeId: "trade-123",
+        reservationWaitSeconds: 300,
+      },
+    },
+    false,
+  );
+
+  assert.match(
+    response.structuredContent.displayMarkdown,
+    /Payment is still being awaited\. Did you pay the invoice\?/,
+  );
+  assert.equal(response.structuredContent.status, "payment_awaiting");
+  assert.equal(response.structuredContent.paymentAwaiting, true);
+  assert.deepEqual(response.structuredContent.retry, {
+    name: "hostr_swaps_watch",
+    arguments: {
+      swapId: "swap-123",
+      tradeId: "trade-123",
+      reservationWaitSeconds: 300,
+    },
+  });
+  assert.match(
+    response.structuredContent.assistantInstructions.join("\n"),
+    /If the user replies yes/,
+  );
+});
+
+test("swap watch failure is explicit and does not ask to keep polling", async () => {
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.swaps.watch",
+    {
+      ok: true,
+      command: "hostr.swaps.watch",
+      data: {
+        stateName: "swap.failed",
+        isTerminal: true,
+        failureReason: "invoice expired",
+        swapId: "swap-123",
+        tradeId: "trade-123",
+      },
+    },
+    false,
+  );
+
+  assert.match(response.structuredContent.displayMarkdown, /Swap Failed/);
+  assert.match(response.structuredContent.displayMarkdown, /invoice expired/);
+  assert.equal(response.structuredContent.status, "swap_failed");
+  assert.equal(response.structuredContent.swapFailed, true);
+  assert.doesNotMatch(
+    response.structuredContent.assistantInstructions.join("\n"),
+    /If the user replies yes/,
+  );
+});
+
 test("updates responses omit raw inbox events and cap visible thread cards", async () => {
   const threads = Array.from({ length: 20 }, (_, index) => ({
     conversation: `trade-${index}`,
@@ -519,9 +611,11 @@ test("updates responses omit raw inbox events and cap visible thread cards", asy
   assert.equal(response.structuredContent.data.hasMoreThreads, true);
   assert.equal(response.structuredContent.threadCards.length, 10);
   assert.equal(response.structuredContent.threadCards[0].title, "Person 19");
+  assert.equal(response.structuredContent.threadCards[0].header, "Person 19 (3 Unread)");
   assert.equal(response.structuredContent.threadCards[0].unread, true);
   assert.equal(response.structuredContent.threadCards[0].unreadCount, 3);
   assert.equal(response.structuredContent.threadCards[1].unread, false);
+  assert.match(response.structuredContent.displayMarkdown, /\*\*Person 19 \(3 Unread\)\*\*/);
   assert.doesNotMatch(JSON.stringify(response.structuredContent), /xxxxx/);
 });
 

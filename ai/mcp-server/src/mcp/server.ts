@@ -315,6 +315,9 @@ const conciseActionDescription = (
     .join("\n\n");
 
 const presentationContract = (actionId: string): string | null => {
+  if (actionId === "hostr.swaps.watch") {
+    return "If payment is still awaiting or watch times out, ask whether the user paid. If they answer yes, call hostr_swaps_watch again with the returned retry arguments. If the swap failed, report the failure and stop polling.";
+  }
   if (listingActionIds.has(actionId)) {
     return "Returns listing-card output; render structuredContent.displayMarkdown and preserve image Markdown.";
   }
@@ -1595,6 +1598,7 @@ const reservationCardsFromResult = (
 type ThreadCardData = {
   type: "thread-card";
   title: string;
+  header: string;
   subtitle?: string;
   counterparties: string[];
   conversation?: string;
@@ -1755,9 +1759,17 @@ const threadCardData = (
   const unreadCount = Number(thread.unreadCount);
   const unread =
     Number.isFinite(unreadCount) ? unreadCount > 0 : Boolean(thread.unread);
+  const normalizedUnreadCount = Number.isFinite(unreadCount)
+    ? unreadCount
+    : undefined;
+  const header =
+    normalizedUnreadCount && normalizedUnreadCount > 0
+      ? `${title} (${normalizedUnreadCount} Unread)`
+      : title;
   return {
     type: "thread-card",
     title,
+    header,
     subtitle,
     counterparties,
     conversation: conversation ?? undefined,
@@ -1767,7 +1779,7 @@ const threadCardData = (
     amount: reservation.amount,
     stage: reservation.stage,
     unread,
-    unreadCount: Number.isFinite(unreadCount) ? unreadCount : undefined,
+    unreadCount: normalizedUnreadCount,
     preview: textDetails.preview,
     updatedAt,
     updatedAtMs,
@@ -1776,7 +1788,7 @@ const threadCardData = (
 
 const threadCard = (card: ThreadCardData): string => {
   return [
-    `**${card.title}**`,
+    `**${card.header}**`,
     card.subtitle ? truncate(card.subtitle, 180) : null,
     card.stage && card.stage.toLowerCase().includes("cancel")
       ? `**Status:** ${card.stage}`
@@ -1813,7 +1825,7 @@ const threadCardResponseText = (
 ): string => {
   const count = threadCards.length;
   return [
-    `Hostr thread-card response: the assistant's final answer must render the Markdown thread card${count === 1 ? "" : "s"} below. Use resolved profile names and stay titles. Do not show raw pubkeys, conversation ids, thread anchors, or event JSON unless the user asks for debugging details.`,
+    `Hostr thread-card response: the assistant's final answer must render the Markdown thread card${count === 1 ? "" : "s"} below. Use each card header exactly, including unread counts like "Participant (1 Unread)" when present. Use resolved profile names and stay titles. Do not show raw pubkeys, conversation ids, thread anchors, or event JSON unless the user asks for debugging details.`,
     displayMarkdown,
   ].join("\n\n");
 };
@@ -2481,6 +2493,160 @@ const compactPaymentRequiredResult = (
   };
 };
 
+const retryWatchArguments = (
+  data: Record<string, unknown>,
+): Record<string, unknown> => {
+  const state = record(data.state);
+  const retry = record(data.retry);
+  const retryArguments = record(retry?.arguments);
+  const swapState = record(data.swapState) ?? record(state?.swapState);
+  const swapId =
+    stringValue(data.swapId) ??
+    stringValue(state?.swapId) ??
+    stringValue(swapState?.id) ??
+    stringValue(retryArguments?.swapId);
+  const tradeId =
+    stringValue(data.tradeId) ??
+    stringValue(state?.tradeId) ??
+    stringValue(retryArguments?.tradeId);
+  const reservationWaitSeconds =
+    numberValue(data.reservationWaitSeconds) ??
+    numberValue(retryArguments?.reservationWaitSeconds) ??
+    300;
+  return {
+    ...(swapId ? { swapId } : {}),
+    ...(tradeId ? { tradeId } : {}),
+    reservationWaitSeconds,
+  };
+};
+
+const swapWatchInfo = (
+  result: Record<string, unknown>,
+): Record<string, unknown> | null => {
+  const data = record(result.data);
+  if (!data) {
+    return null;
+  }
+  const state = record(data.state);
+  const swapState = record(data.swapState) ?? record(state?.swapState);
+  const reservationLookup =
+    record(data.reservationLookup) ?? record(state?.reservationLookup);
+  const stateName =
+    stringValue(data.stateName) ??
+    stringValue(state?.state) ??
+    stringValue(swapState?.state) ??
+    (result.ok === false ? "failed" : "unknown");
+  const retryArguments = retryWatchArguments(data);
+  const isTerminal =
+    boolValue(data.isTerminal) ??
+    boolValue(state?.isTerminal) ??
+    boolValue(swapState?.isTerminal) ??
+    false;
+  const error = record(arrayValue(result.errors)[0]);
+  const errorCode = stringValue(error?.code);
+  const failureReason =
+    stringValue(data.failureReason) ??
+    stringValue(data.error) ??
+    stringValue(state?.error) ??
+    stringValue(swapState?.error) ??
+    stringValue(error?.message);
+  const lowerState = stateName.toLowerCase();
+  const timedOut =
+    data.watchTimedOut === true ||
+    errorCode === "hostr_swap_watch_timeout" ||
+    lowerState === "watch_timeout";
+  const failed =
+    !timedOut &&
+    (result.ok === false ||
+      /\b(fail|failed|failure|error|expired|cancelled|canceled|refund)\b/i.test(
+        stateName,
+      ));
+  const foundReservation = reservationLookup?.found === true;
+  const reservationPending =
+    !foundReservation &&
+    !failed &&
+    isTerminal &&
+    /\b(complet|settled|claimed|paid|proof)\b/i.test(stateName);
+  const paymentAwaiting =
+    !foundReservation && !failed && !reservationPending;
+  const status = failed
+    ? "swap_failed"
+    : reservationPending
+      ? "reservation_pending"
+      : paymentAwaiting
+        ? "payment_awaiting"
+        : "completed";
+
+  return {
+    status,
+    stateName,
+    isTerminal,
+    paymentAwaiting,
+    reservationPending,
+    swapFailed: failed,
+    watchTimedOut: timedOut,
+    ...(failureReason ? { failureReason } : {}),
+    retry: {
+      name: "hostr_swaps_watch",
+      arguments: retryArguments,
+    },
+  };
+};
+
+const compactSwapWatchResult = (
+  safeResult: Record<string, unknown>,
+  safeResultData: Record<string, unknown>,
+  info: Record<string, unknown>,
+): Record<string, unknown> => ({
+  ...safeResult,
+  status: info.status,
+  stateName: info.stateName,
+  paymentAwaiting: info.paymentAwaiting,
+  reservationPending: info.reservationPending,
+  swapFailed: info.swapFailed,
+  watchTimedOut: info.watchTimedOut,
+  retry: info.retry,
+  data: {
+    ...safeResultData,
+    status: info.status,
+    stateName: info.stateName,
+    paymentAwaiting: info.paymentAwaiting,
+    reservationPending: info.reservationPending,
+    swapFailed: info.swapFailed,
+    watchTimedOut: info.watchTimedOut,
+    retry: info.retry,
+    ...(info.failureReason ? { failureReason: info.failureReason } : {}),
+  },
+});
+
+const swapWatchTimeoutResult = (
+  actionId: string,
+  args: Record<string, unknown>,
+  error: unknown,
+): Record<string, unknown> => ({
+  ok: true,
+  command: actionId,
+  data: {
+    status: "payment_awaiting",
+    stateName: "watch_timeout",
+    paymentAwaiting: true,
+    watchTimedOut: true,
+    message: "Payment is still being awaited. Did you pay the invoice?",
+    retry: {
+      name: "hostr_swaps_watch",
+      arguments: retryWatchArguments({
+        swapId: args.swapId,
+        tradeId: args.tradeId,
+        reservationWaitSeconds: args.reservationWaitSeconds,
+      }),
+    },
+    warning:
+      error instanceof Error
+        ? error.message
+        : "Hostr swap watch timed out before payment completion.",
+  },
+});
+
 const paymentQrImageBlock = (
   config: AppConfig,
   notice: HostrCriticalNotice,
@@ -2596,6 +2762,27 @@ const formatToolContent = (
   actionId: string,
   result: Record<string, unknown>,
 ): string => {
+  if (actionId === "hostr.swaps.watch") {
+    const info = swapWatchInfo(result);
+    if (info?.status === "payment_awaiting") {
+      return "Payment is still being awaited. Did you pay the invoice?";
+    }
+    if (info?.status === "swap_failed") {
+      return [
+        "### Swap Failed",
+        info.failureReason
+          ? `The payment swap failed: ${stringValue(info.failureReason)}`
+          : "The payment swap failed.",
+        "The invoice should not be treated as payable for this booking. Check the swap details or run recovery before trying again.",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+    if (info?.status === "reservation_pending") {
+      return "Payment has been detected, but the reservation is still being finalized. I'll check for the reservation again.";
+    }
+  }
+
   if (result.ok === false) {
     return formatError(result);
   }
@@ -2699,6 +2886,20 @@ const formatToolContent = (
     }
     if (externalPayment) {
       return "External Lightning payment required.";
+    }
+    const info = swapWatchInfo(result);
+    if (info?.status === "payment_awaiting") {
+      return "Payment is still being awaited. Did you pay the invoice?";
+    }
+    if (info?.status === "swap_failed") {
+      return [
+        "### Swap Failed",
+        stringValue(info.failureReason)
+          ? `The payment swap failed: ${stringValue(info.failureReason)}`
+          : "The payment swap failed.",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
     }
     return [
       "### Swap Watch",
@@ -3054,8 +3255,12 @@ const toolResponse = async (
     : undefined;
   const bookAndPayPaymentRequired =
     actionId === "hostr.reservations.bookAndPay" && Boolean(paymentDisplay);
+  const swapWatchStatus =
+    actionId === "hostr.swaps.watch" ? swapWatchInfo(safeResult) : null;
   const structuredResult = bookAndPayPaymentRequired
     ? compactPaymentRequiredResult(safeResult, safeResultData, resultData)
+    : swapWatchStatus
+      ? compactSwapWatchResult(safeResult, safeResultData, swapWatchStatus)
     : compactThreadResult;
   const sessionConnectPending =
     actionId === "hostr.session.connect" &&
@@ -3075,6 +3280,25 @@ const toolResponse = async (
   const sessionConnectImageBlock = sessionConnectPending
     ? sessionConnectQrImageBlock(result, sessionConnectDisplay)
     : null;
+  const swapWatchAssistantInstructions = swapWatchStatus
+    ? swapWatchStatus.status === "payment_awaiting"
+      ? [
+          "Tell the user exactly: \"Payment is still being awaited. Did you pay the invoice?\"",
+          "If the user replies yes, paid, done, sent, or otherwise indicates they paid, immediately call hostr_swaps_watch again with structuredContent.retry.arguments. Do not ask for swapId or tradeId.",
+          "If the user says they have not paid, tell them to pay the visible Lightning invoice and reply yes once paid.",
+        ]
+      : swapWatchStatus.status === "swap_failed"
+        ? [
+            "Tell the user the swap failed, using structuredContent.data.failureReason when present.",
+            "Do not keep polling a failed swap automatically. Offer to inspect swaps or run the explicit recovery workflow if the user wants debugging or recovery.",
+          ]
+        : swapWatchStatus.status === "reservation_pending"
+          ? [
+              "Tell the user payment has been detected but the reservation is still being finalized.",
+              "Call hostr_trips_list with the same tradeId if available, or call hostr_swaps_watch again with structuredContent.retry.arguments.",
+            ]
+          : undefined
+    : undefined;
   const responseWidgetUri = paymentDisplay
     ? paymentRequiredWidgetUri
     : sessionConnectDisplay
@@ -3157,6 +3381,9 @@ const toolResponse = async (
       ...(sessionConnectAssistantInstructions
         ? { assistantInstructions: sessionConnectAssistantInstructions }
         : {}),
+      ...(swapWatchAssistantInstructions
+        ? { assistantInstructions: swapWatchAssistantInstructions }
+        : {}),
       ...(sessionConnectDisplay
         ? { display: sessionConnectDisplay }
         : {}),
@@ -3237,6 +3464,7 @@ const toolResponse = async (
     escrowBadgeDisplay ||
     paymentDisplay ||
     sessionConnectDisplay ||
+    swapWatchAssistantInstructions ||
     notices.length > 0 ||
     responseWidgetMeta ||
     errorInstructions
@@ -3351,6 +3579,7 @@ const toolResponse = async (
               ? { "hostr.notices": safeNotices }
               : {}),
             ...(paymentAssistantInstructions ||
+            swapWatchAssistantInstructions ||
             profileCardAssistantInstructions ||
             sessionConnectAssistantInstructions ||
             escrowServiceAssistantInstructions ||
@@ -3360,6 +3589,7 @@ const toolResponse = async (
               ? {
                   "hostr.assistantInstructions":
                     paymentAssistantInstructions ??
+                    swapWatchAssistantInstructions ??
                     profileCardAssistantInstructions ??
                     sessionConnectAssistantInstructions ??
                     escrowServiceAssistantInstructions ??
@@ -3855,6 +4085,127 @@ const profileCardWidgetResourceDomains = (config: AppConfig): string[] =>
     ),
   );
 
+const sharedWidgetCss = `
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --hostr-surface: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+        --hostr-surface-strong: color-mix(in srgb, Canvas 90%, CanvasText 10%);
+        --hostr-border: color-mix(in srgb, CanvasText 16%, transparent);
+        --hostr-border-strong: color-mix(in srgb, CanvasText 22%, transparent);
+        --hostr-muted: color-mix(in srgb, CanvasText 72%, transparent);
+        --hostr-chip: color-mix(in srgb, CanvasText 8%, transparent);
+        --hostr-radius: 8px;
+        --hostr-gap: 10px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        color: CanvasText;
+        background: Canvas;
+      }
+
+      .hostr-root {
+        display: grid;
+        gap: var(--hostr-gap);
+        padding: 2px;
+      }
+
+      .hostr-card {
+        border: 1px solid var(--hostr-border);
+        border-radius: var(--hostr-radius);
+        background: var(--hostr-surface);
+      }
+
+      .hostr-title {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 16px;
+        line-height: 1.25;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .hostr-subtitle,
+      .hostr-text {
+        margin: 0;
+        color: var(--hostr-muted);
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        line-height: 1.35;
+        letter-spacing: 0;
+      }
+
+      .hostr-pill {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        padding: 3px 7px;
+        border-radius: 999px;
+        color: color-mix(in srgb, CanvasText 88%, transparent);
+        background: var(--hostr-chip);
+        font-size: 12px;
+        line-height: 1.3;
+        letter-spacing: 0;
+      }
+
+      .hostr-status {
+        flex: none;
+        padding: 2px 6px;
+        border-radius: 999px;
+        color: color-mix(in srgb, CanvasText 78%, transparent);
+        background: var(--hostr-chip);
+        font-size: 11px;
+        line-height: 1.35;
+        letter-spacing: 0;
+      }
+
+      .hostr-button,
+      .hostr-link {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--hostr-border);
+        border-radius: 6px;
+        color: CanvasText;
+        background: var(--hostr-surface-strong);
+        font: 650 13px/1 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .hostr-link {
+        color: LinkText;
+        background: transparent;
+      }
+
+      .hostr-button:hover,
+      .hostr-link:hover {
+        border-color: var(--hostr-border-strong);
+        text-decoration: none;
+      }
+
+      .hostr-button:active {
+        transform: translateY(1px);
+      }
+
+      .hostr-empty {
+        padding: 10px;
+        color: var(--hostr-muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+`;
+
 const listingCardWidgetHtml = `
 <!doctype html>
 <html lang="en">
@@ -3862,26 +4213,7 @@ const listingCardWidgetHtml = `
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        color: CanvasText;
-        background: Canvas;
-      }
-
-      #root {
-        display: grid;
-        gap: 10px;
-        padding: 2px;
-      }
+${sharedWidgetCss}
 
       .card {
         display: grid;
@@ -3889,9 +4221,6 @@ const listingCardWidgetHtml = `
         gap: 12px;
         min-width: 0;
         padding: 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
-        border-radius: 8px;
-        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
       }
 
       .media {
@@ -3903,7 +4232,7 @@ const listingCardWidgetHtml = `
         overscroll-behavior-inline: contain;
         aspect-ratio: 4 / 3;
         border-radius: 7px;
-        background: color-mix(in srgb, CanvasText 8%, transparent);
+        background: var(--hostr-chip);
         scroll-snap-type: x mandatory;
       }
 
@@ -3929,63 +4258,10 @@ const listingCardWidgetHtml = `
         min-width: 0;
       }
 
-      h2 {
-        margin: 0;
-        overflow-wrap: anywhere;
-        font-size: 16px;
-        line-height: 1.25;
-        font-weight: 700;
-      }
-
-      .status {
-        flex: none;
-        padding: 2px 6px;
-        border-radius: 999px;
-        color: color-mix(in srgb, CanvasText 78%, transparent);
-        background: color-mix(in srgb, CanvasText 8%, transparent);
-        font-size: 11px;
-        line-height: 1.35;
-      }
-
-      .description {
-        margin: 0;
-        color: color-mix(in srgb, CanvasText 76%, transparent);
-        overflow-wrap: anywhere;
-        font-size: 13px;
-        line-height: 1.35;
-      }
-
       .meta {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-      }
-
-      .pill {
-        max-width: 100%;
-        overflow-wrap: anywhere;
-        padding: 3px 7px;
-        border-radius: 999px;
-        background: color-mix(in srgb, CanvasText 7%, transparent);
-        font-size: 12px;
-        line-height: 1.3;
-      }
-
-      a {
-        color: LinkText;
-        font-size: 13px;
-        font-weight: 650;
-        text-decoration: none;
-      }
-
-      a:hover {
-        text-decoration: underline;
-      }
-
-      .empty {
-        padding: 10px;
-        color: color-mix(in srgb, CanvasText 70%, transparent);
-        font-size: 13px;
       }
 
       @media (max-width: 520px) {
@@ -3996,7 +4272,7 @@ const listingCardWidgetHtml = `
     </style>
   </head>
   <body>
-    <main id="root"></main>
+    <main id="root" class="hostr-root"></main>
     <script>
       (function () {
         var root = document.getElementById("root");
@@ -4069,7 +4345,7 @@ const listingCardWidgetHtml = `
 
         function renderCard(card) {
           var article = document.createElement("article");
-          article.className = "card";
+          article.className = "card hostr-card";
           renderImages(card, article);
 
           var body = document.createElement("div");
@@ -4077,20 +4353,20 @@ const listingCardWidgetHtml = `
 
           var top = document.createElement("div");
           top.className = "topline";
-          appendText(top, "h2", "", text(card.title, "Untitled listing"));
+          appendText(top, "h2", "hostr-title", text(card.title, "Untitled listing"));
           var status = text(card.statusLabel, "");
-          if (status && status !== "active") appendText(top, "span", "status", status);
+          if (status && status !== "active") appendText(top, "span", "status hostr-status", status);
           body.appendChild(top);
 
-          appendText(body, "p", "description", text(card.description, ""));
+          appendText(body, "p", "description hostr-subtitle", text(card.description, ""));
 
           var meta = document.createElement("div");
           meta.className = "meta";
-          appendText(meta, "span", "pill", text(card.price, ""));
-          appendText(meta, "span", "pill", text(card.typeLabel, ""));
+          appendText(meta, "span", "pill hostr-pill", text(card.price, ""));
+          appendText(meta, "span", "pill hostr-pill", text(card.typeLabel, ""));
           if (Array.isArray(card.flags)) {
             card.flags.slice(0, 4).forEach(function (flag) {
-              appendText(meta, "span", "pill", text(flag, ""));
+              appendText(meta, "span", "pill hostr-pill", text(flag, ""));
             });
           }
           if (meta.childNodes.length > 0) body.appendChild(meta);
@@ -4101,6 +4377,7 @@ const listingCardWidgetHtml = `
             link.href = url;
             link.target = "_blank";
             link.rel = "noreferrer";
+            link.className = "hostr-link";
             link.textContent = "Open listing";
             body.appendChild(link);
           }
@@ -4117,7 +4394,7 @@ const listingCardWidgetHtml = `
           var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
-            appendText(root, "div", "empty", "No listings found.");
+            appendText(root, "div", "empty hostr-empty", "No listings found.");
             return;
           }
           cards.forEach(function (card) {
@@ -4168,21 +4445,7 @@ const paymentRequiredWidgetHtml = `
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        margin: 0;
-        background: transparent;
-        color: CanvasText;
-      }
+${sharedWidgetCss}
 
       .wrap {
         display: grid;
@@ -4190,16 +4453,6 @@ const paymentRequiredWidgetHtml = `
         width: fit-content;
         max-width: min(320px, 100%);
         padding: 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
-        border-radius: 8px;
-        background: Canvas;
-      }
-
-      .prompt {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 650;
-        line-height: 1.25;
       }
 
       img {
@@ -4222,10 +4475,10 @@ const paymentRequiredWidgetHtml = `
         min-width: 0;
         height: 32px;
         padding: 0 9px;
-        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+        border: 1px solid var(--hostr-border);
         border-radius: 6px;
         color: CanvasText;
-        background: color-mix(in srgb, Canvas 94%, CanvasText 6%);
+        background: var(--hostr-surface);
         font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: 0;
         overflow: hidden;
@@ -4234,17 +4487,6 @@ const paymentRequiredWidgetHtml = `
 
       .copy {
         height: 32px;
-        padding: 0 12px;
-        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
-        border-radius: 6px;
-        color: CanvasText;
-        background: color-mix(in srgb, Canvas 88%, CanvasText 12%);
-        font: 600 13px/1 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        cursor: pointer;
-      }
-
-      .copy:active {
-        transform: translateY(1px);
       }
 
       [hidden] {
@@ -4253,7 +4495,7 @@ const paymentRequiredWidgetHtml = `
     </style>
   </head>
   <body hidden>
-    <main id="root"></main>
+    <main id="root" class="hostr-root"></main>
     <script>
       (function () {
         var root = document.getElementById("root");
@@ -4640,9 +4882,9 @@ const paymentRequiredWidgetHtml = `
           }
 
           var wrap = document.createElement("section");
-          wrap.className = "wrap";
+          wrap.className = "wrap hostr-card";
           var prompt = document.createElement("p");
-          prompt.className = "prompt";
+          prompt.className = "prompt hostr-title";
           prompt.textContent = "Pay this lightning invoice to continue";
           wrap.appendChild(prompt);
           var image = document.createElement("img");
@@ -4660,7 +4902,7 @@ const paymentRequiredWidgetHtml = `
             invoiceInput.value = invoice;
             invoiceInput.setAttribute("aria-label", "Lightning invoice");
             var button = document.createElement("button");
-            button.className = "copy";
+            button.className = "copy hostr-button";
             button.type = "button";
             button.textContent = "Copy";
             button.addEventListener("click", function () {
@@ -4853,41 +5095,12 @@ const sessionConnectWidgetHtml = `
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        color: CanvasText;
-        background: Canvas;
-      }
+${sharedWidgetCss}
 
       .wrap {
         display: grid;
         gap: 10px;
         padding: 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
-        border-radius: 8px;
-        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 16px;
-        line-height: 1.25;
-      }
-
-      p {
-        margin: 0;
-        color: color-mix(in srgb, CanvasText 76%, transparent);
-        font-size: 13px;
-        line-height: 1.35;
       }
 
       img {
@@ -4898,22 +5111,10 @@ const sessionConnectWidgetHtml = `
         background: white;
       }
 
-      a {
-        color: LinkText;
-        font-size: 13px;
-        font-weight: 650;
-        text-decoration: none;
-      }
-
-      .empty {
-        padding: 10px;
-        color: color-mix(in srgb, CanvasText 70%, transparent);
-        font-size: 13px;
-      }
     </style>
   </head>
   <body>
-    <main id="root"></main>
+    <main id="root" class="hostr-root"></main>
     <script>
       (function () {
         var root = document.getElementById("root");
@@ -4950,18 +5151,20 @@ const sessionConnectWidgetHtml = `
           root.replaceChildren();
           if (!display) {
             var empty = document.createElement("div");
-            empty.className = "empty";
+            empty.className = "empty hostr-empty";
             empty.textContent = "No session QR is pending.";
             root.appendChild(empty);
             return;
           }
 
           var wrap = document.createElement("section");
-          wrap.className = "wrap";
+          wrap.className = "wrap hostr-card";
           var title = document.createElement("h2");
+          title.className = "hostr-title";
           title.textContent = display.title || "Log in to Hostr";
           wrap.appendChild(title);
           var message = document.createElement("p");
+          message.className = "hostr-subtitle";
           message.textContent = display.message || "Scan this with your Nostr app to log in to your Hostr account.";
           wrap.appendChild(message);
 
@@ -4979,6 +5182,7 @@ const sessionConnectWidgetHtml = `
             link.href = textUrl;
             link.target = "_blank";
             link.rel = "noreferrer";
+            link.className = "hostr-link";
             link.textContent = "Open exact nostrconnect URI";
             wrap.appendChild(link);
           }
@@ -5025,29 +5229,13 @@ const profileCardWidgetHtml = `
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        color: CanvasText;
-        background: Canvas;
-      }
+${sharedWidgetCss}
 
       .card {
         display: grid;
         grid-template-columns: 56px minmax(0, 1fr);
         gap: 10px;
         padding: 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
-        border-radius: 8px;
-        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
       }
 
       .avatar {
@@ -5055,7 +5243,7 @@ const profileCardWidgetHtml = `
         height: 56px;
         border-radius: 50%;
         object-fit: cover;
-        background: color-mix(in srgb, CanvasText 10%, transparent);
+        background: var(--hostr-chip);
       }
 
       .body {
@@ -5072,55 +5260,16 @@ const profileCardWidgetHtml = `
         min-width: 0;
       }
 
-      h2 {
-        margin: 0;
-        overflow-wrap: anywhere;
-        font-size: 16px;
-        line-height: 1.25;
-      }
-
-      .status {
-        flex: none;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: color-mix(in srgb, CanvasText 8%, transparent);
-        font-size: 11px;
-        line-height: 1.35;
-      }
-
-      p {
-        margin: 0;
-        color: color-mix(in srgb, CanvasText 76%, transparent);
-        overflow-wrap: anywhere;
-        font-size: 13px;
-        line-height: 1.35;
-      }
-
       .meta {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
       }
 
-      .pill {
-        max-width: 100%;
-        overflow-wrap: anywhere;
-        padding: 3px 7px;
-        border-radius: 999px;
-        background: color-mix(in srgb, CanvasText 7%, transparent);
-        font-size: 12px;
-        line-height: 1.3;
-      }
-
-      .empty {
-        padding: 10px;
-        color: color-mix(in srgb, CanvasText 70%, transparent);
-        font-size: 13px;
-      }
     </style>
   </head>
   <body>
-    <main id="root"></main>
+    <main id="root" class="hostr-root"></main>
     <script>
       (function () {
         var root = document.getElementById("root");
@@ -5167,12 +5316,12 @@ const profileCardWidgetHtml = `
           var card = cardFrom(toolData(output));
           root.replaceChildren();
           if (!card || card.exists === false) {
-            appendText(root, "div", "empty", "No Hostr profile metadata was found.");
+            appendText(root, "div", "empty hostr-empty", "No Hostr profile metadata was found.");
             return;
           }
 
           var article = document.createElement("article");
-          article.className = "card";
+          article.className = "card hostr-card";
           var picture = safeHttpUrl(card.picture);
           var avatar = document.createElement(picture ? "img" : "div");
           avatar.className = "avatar";
@@ -5186,16 +5335,16 @@ const profileCardWidgetHtml = `
           body.className = "body";
           var top = document.createElement("div");
           top.className = "topline";
-          appendText(top, "h2", "", card.name || "Hostr profile");
-          appendText(top, "span", "status", card.statusLabel || "current");
+          appendText(top, "h2", "hostr-title", card.name || "Hostr profile");
+          appendText(top, "span", "status hostr-status", card.statusLabel || "current");
           body.appendChild(top);
-          appendText(body, "p", "", card.about || "");
+          appendText(body, "p", "hostr-subtitle", card.about || "");
 
           var meta = document.createElement("div");
           meta.className = "meta";
-          appendText(meta, "span", "pill", card.lud16 || "");
-          appendText(meta, "span", "pill", card.nip05 || "");
-          appendText(meta, "span", "pill", card.website || "");
+          appendText(meta, "span", "pill hostr-pill", card.lud16 || "");
+          appendText(meta, "span", "pill hostr-pill", card.nip05 || "");
+          appendText(meta, "span", "pill hostr-pill", card.website || "");
           if (meta.childNodes.length > 0) body.appendChild(meta);
 
           article.appendChild(body);
@@ -5241,34 +5390,12 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root {
-        color-scheme: light dark;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        color: CanvasText;
-        background: Canvas;
-      }
-
-      #root {
-        display: grid;
-        gap: 10px;
-        padding: 2px;
-      }
+${sharedWidgetCss}
 
       .card {
         display: grid;
         gap: 8px;
         padding: 10px;
-        border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
-        border-radius: 8px;
-        background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
       }
 
       .topline {
@@ -5278,46 +5405,14 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
         gap: 8px;
       }
 
-      h2 {
-        margin: 0;
-        overflow-wrap: anywhere;
-        font-size: 16px;
-        line-height: 1.25;
-      }
-
       .cancelled {
         font-weight: 800;
       }
 
-      .line {
-        margin: 0;
-        overflow-wrap: anywhere;
-        font-size: 13px;
-        line-height: 1.35;
-      }
-
-      .muted {
-        color: color-mix(in srgb, CanvasText 72%, transparent);
-      }
-
-      .pill {
-        flex: none;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: color-mix(in srgb, CanvasText 8%, transparent);
-        font-size: 11px;
-        line-height: 1.35;
-      }
-
-      .empty {
-        padding: 10px;
-        color: color-mix(in srgb, CanvasText 70%, transparent);
-        font-size: 13px;
-      }
     </style>
   </head>
   <body>
-    <main id="root"></main>
+    <main id="root" class="hostr-root"></main>
     <script>
       (function () {
         var root = document.getElementById("root");
@@ -5351,25 +5446,25 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
 
         function renderCard(card) {
           var article = document.createElement("article");
-          article.className = "card";
+          article.className = "card hostr-card";
           var top = document.createElement("div");
           top.className = "topline";
-          appendText(top, "h2", "", variant === "hosting" ? "Hosting" : "Trip");
-          appendText(top, "span", "pill", card.mode === "cancelled" ? "cancelled" : "confirmed");
+          appendText(top, "h2", "hostr-title", variant === "hosting" ? "Hosting" : "Trip");
+          appendText(top, "span", "pill hostr-status", card.mode === "cancelled" ? "cancelled" : "confirmed");
           article.appendChild(top);
 
           if (card.mode === "cancelled") {
-            appendText(article, "p", "line cancelled", "Cancelled");
+            appendText(article, "p", "line cancelled hostr-text", "Cancelled");
           }
 
           if (variant === "hosting" || card.type === "hosting-card") {
-            appendText(article, "p", "line", "Hosting " + (card.guestName || "guest") + " at: " + (card.title || "Hostr stay"));
+            appendText(article, "p", "line hostr-text", "Hosting " + (card.guestName || "guest") + " at: " + (card.title || "Hostr stay"));
           } else {
-            appendText(article, "p", "line", card.title || "Hostr stay");
+            appendText(article, "p", "line hostr-text", card.title || "Hostr stay");
           }
 
           if (card.start && card.end) {
-            appendText(article, "p", "line muted", card.start + " to " + card.end);
+            appendText(article, "p", "line muted hostr-subtitle", card.start + " to " + card.end);
           }
 
           return article;
@@ -5383,7 +5478,7 @@ const tripHostingWidgetHtml = (variant: "trip" | "hosting") => `
           var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
-            appendText(root, "div", "empty", variant === "hosting" ? "No hosting reservations found." : "No trips found.");
+            appendText(root, "div", "empty hostr-empty", variant === "hosting" ? "No hosting reservations found." : "No trips found.");
             return;
           }
           cards.forEach(function (card) {
@@ -5994,6 +6089,26 @@ const createServer = (
             !result.ok,
             notices,
           );
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          if (
+            action.id === "hostr.swaps.watch" &&
+            /timed out|timeout/i.test(message)
+          ) {
+            const result = swapWatchTimeoutResult(action.id, args, error);
+            auditToolCall({
+              actionId: action.id,
+              pubkey: claims?.pubkey,
+              traceId,
+              result: {
+                ok: true,
+                data: result.data,
+              },
+            });
+            return toolResponse(config, action.id, result, false);
+          }
+          throw error;
         } finally {
           unsubscribe();
         }
