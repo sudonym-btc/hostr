@@ -4181,23 +4181,70 @@ const paymentRequiredWidgetHtml = `
       body {
         margin: 0;
         background: transparent;
+        color: CanvasText;
       }
 
       .wrap {
-        display: inline-grid;
-        padding: 8px;
+        display: grid;
+        gap: 10px;
+        width: fit-content;
+        max-width: min(320px, 100%);
+        padding: 10px;
         border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
         border-radius: 8px;
         background: Canvas;
       }
 
+      .prompt {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 650;
+        line-height: 1.25;
+      }
+
       img {
         display: block;
-        width: min(280px, 100%);
+        width: min(260px, 100%);
         aspect-ratio: 1;
         object-fit: contain;
         border-radius: 6px;
         background: white;
+      }
+
+      .copy-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .invoice {
+        min-width: 0;
+        height: 32px;
+        padding: 0 9px;
+        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+        border-radius: 6px;
+        color: CanvasText;
+        background: color-mix(in srgb, Canvas 94%, CanvasText 6%);
+        font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .copy {
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+        border-radius: 6px;
+        color: CanvasText;
+        background: color-mix(in srgb, Canvas 88%, CanvasText 12%);
+        font: 600 13px/1 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        cursor: pointer;
+      }
+
+      .copy:active {
+        transform: translateY(1px);
       }
 
       [hidden] {
@@ -4314,6 +4361,81 @@ const paymentRequiredWidgetHtml = `
           return null;
         }
 
+        function invoiceFromPayment(payment) {
+          if (!payment || typeof payment !== "object") return null;
+          if (typeof payment.invoice === "string") return payment.invoice;
+          if (payment.copy && typeof payment.copy.text === "string") {
+            return payment.copy.text;
+          }
+          if (Array.isArray(payment.actions)) {
+            for (var i = 0; i < payment.actions.length; i += 1) {
+              var action = payment.actions[i];
+              if (action && typeof action.text === "string") return action.text;
+            }
+          }
+          if (typeof payment.lightningUrl === "string") {
+            return payment.lightningUrl.replace(/^lightning:/i, "");
+          }
+          return null;
+        }
+
+        function invoiceFromQrUrl(value) {
+          if (typeof value !== "string") return null;
+          try {
+            var url = new URL(value);
+            var data = url.searchParams.get("data");
+            return data && /^lnbc/i.test(data) ? data : null;
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function invoiceFromText(value) {
+          if (typeof value !== "string") return null;
+          var match = /(lnbc[0-9a-z]+)/i.exec(value);
+          return match ? match[1] : null;
+        }
+
+        function invoiceFromOutput(output) {
+          if (output === undefined || output === null) return null;
+          if (typeof output === "string") return invoiceFromText(output);
+          if (Array.isArray(output)) {
+            for (var i = 0; i < output.length; i += 1) {
+              var fromItem = invoiceFromOutput(output[i]);
+              if (fromItem) return fromItem;
+            }
+            return null;
+          }
+          if (typeof output !== "object") return null;
+
+          var payment = paymentFrom(output);
+          var fromPayment = invoiceFromPayment(payment);
+          if (fromPayment) return fromPayment;
+
+          if (Array.isArray(output.parts)) {
+            for (var j = 0; j < output.parts.length; j += 1) {
+              var fromPart = invoiceFromOutput(output.parts[j]);
+              if (fromPart) return fromPart;
+            }
+          }
+
+          return (
+            invoiceFromText(output.text) ||
+            invoiceFromText(output.markdown) ||
+            invoiceFromOutput(output.structuredContent) ||
+            invoiceFromOutput(output.toolOutput) ||
+            invoiceFromOutput(output.toolResponseMetadata) ||
+            invoiceFromOutput(output.tool_response_metadata) ||
+            invoiceFromOutput(output.responseMetadata) ||
+            invoiceFromOutput(output.response_metadata) ||
+            invoiceFromOutput(output.metadata) ||
+            invoiceFromOutput(output.output) ||
+            invoiceFromOutput(output.result) ||
+            invoiceFromOutput(output.payload) ||
+            invoiceFromOutput(output.data)
+          );
+        }
+
         function redactForLog(value, depth) {
           if (depth > 3) return "[depth]";
           if (value === undefined) return "[undefined]";
@@ -4345,6 +4467,9 @@ const paymentRequiredWidgetHtml = `
 
         function debugLog(label, value) {
           try {
+            if (!window.__HOSTR_PAYMENT_WIDGET_DEBUG) {
+              return;
+            }
             window.__hostrPaymentWidgetDebugCounts =
               window.__hostrPaymentWidgetDebugCounts || {};
             var counts = window.__hostrPaymentWidgetDebugCounts;
@@ -4462,6 +4587,34 @@ const paymentRequiredWidgetHtml = `
           return value;
         }
 
+        function copyText(value, button) {
+          if (!value) return;
+          function markCopied() {
+            if (!button) return;
+            var original = button.textContent;
+            button.textContent = "Copied";
+            window.setTimeout(function () {
+              button.textContent = original || "Copy";
+            }, 1200);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).then(markCopied, function () {});
+            return;
+          }
+          var textarea = document.createElement("textarea");
+          textarea.value = value;
+          textarea.setAttribute("readonly", "readonly");
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand("copy");
+            markCopied();
+          } catch (_error) {}
+          textarea.remove();
+        }
+
         function render(output) {
           var extracted = extractToolOutput(output);
           var payment =
@@ -4472,6 +4625,11 @@ const paymentRequiredWidgetHtml = `
             safeImageUrl(payment && payment.qrImageUrl) ||
             qrFromOutput(output) ||
             qrFromOutput(extracted);
+          var invoice =
+            invoiceFromPayment(payment) ||
+            invoiceFromOutput(output) ||
+            invoiceFromOutput(extracted) ||
+            invoiceFromQrUrl(qrUrl);
           root.replaceChildren();
 
           if (!qrUrl) {
@@ -4483,11 +4641,35 @@ const paymentRequiredWidgetHtml = `
 
           var wrap = document.createElement("section");
           wrap.className = "wrap";
+          var prompt = document.createElement("p");
+          prompt.className = "prompt";
+          prompt.textContent = "Pay this lightning invoice to continue";
+          wrap.appendChild(prompt);
           var image = document.createElement("img");
           image.src = qrUrl;
           image.alt = "Lightning invoice QR";
           image.loading = "eager";
           wrap.appendChild(image);
+          if (invoice) {
+            var row = document.createElement("div");
+            row.className = "copy-row";
+            var invoiceInput = document.createElement("input");
+            invoiceInput.className = "invoice";
+            invoiceInput.type = "text";
+            invoiceInput.readOnly = true;
+            invoiceInput.value = invoice;
+            invoiceInput.setAttribute("aria-label", "Lightning invoice");
+            var button = document.createElement("button");
+            button.className = "copy";
+            button.type = "button";
+            button.textContent = "Copy";
+            button.addEventListener("click", function () {
+              copyText(invoice, button);
+            });
+            row.appendChild(invoiceInput);
+            row.appendChild(button);
+            wrap.appendChild(row);
+          }
           root.appendChild(wrap);
           document.documentElement.hidden = false;
           document.body.hidden = false;
@@ -4507,18 +4689,29 @@ const paymentRequiredWidgetHtml = `
         function candidatesFromOpenAI(openai) {
           var list = [];
           if (!openai || typeof openai !== "object") return list;
-          appendCandidate(list, openai.toolOutput);
-          appendCandidate(list, openai.tool_output);
-          appendCandidate(list, openai.toolResponseMetadata);
-          appendCandidate(list, openai.tool_response_metadata);
-          appendCandidate(list, openai.responseMetadata);
-          appendCandidate(list, openai.response_metadata);
-          appendCandidate(list, openai.metadata);
-          appendCandidate(list, openai.toolResult);
-          appendCandidate(list, openai.tool_result);
-          appendCandidate(list, openai.result);
-          appendCandidate(list, openai.output);
-          appendCandidate(list, openai.payload);
+          var keys = [];
+          try {
+            keys = Object.keys(openai);
+          } catch (_error) {}
+          var wanted = [
+            "toolOutput",
+            "tool_output",
+            "toolResponseMetadata",
+            "tool_response_metadata",
+            "responseMetadata",
+            "response_metadata",
+            "metadata",
+            "result",
+            "output",
+            "payload",
+          ];
+          for (var i = 0; i < wanted.length; i += 1) {
+            var key = wanted[i];
+            if (keys.indexOf(key) === -1) continue;
+            try {
+              appendCandidate(list, openai[key]);
+            } catch (_error) {}
+          }
           appendCandidate(list, openai);
           return list;
         }
