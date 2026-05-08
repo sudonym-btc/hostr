@@ -14,6 +14,9 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
   static final EventTagsParser<ReviewTags> _tagParser = ReviewTags.new;
   static final EventContentParser<ReviewContent> _contentParser =
       ReviewContent.fromJson;
+  static const requiredTags = [
+    ['d'],
+  ];
 
   // ── Convenience getters ─────────────────────────────────────────────
   int get rating => parsedContent.rating;

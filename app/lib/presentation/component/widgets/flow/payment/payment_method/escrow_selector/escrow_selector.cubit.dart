@@ -64,7 +64,14 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
       final tradeId = negotiateReservation.getDtag()!;
       final selected = EscrowServiceSelected(
         pubKey: getIt<Hostr>().auth.activeKeyPair!.publicKey,
-        tags: EscrowServiceSelectedTags([]),
+        tags: EscrowServiceSelectedTags([
+          ['d', tradeId],
+          [kListingRefTag, negotiateReservation.parsedTags.listingAnchor],
+          [
+            'p',
+            getPubKeyFromAnchor(negotiateReservation.parsedTags.listingAnchor),
+          ],
+        ]),
         content: EscrowServiceSelectedContent(
           service: loadedState.selectedEscrow!,
           sellerMethods: loadedState.result.sellerMethod!,

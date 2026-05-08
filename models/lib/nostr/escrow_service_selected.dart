@@ -16,7 +16,9 @@ class EscrowServiceSelected extends JsonContentNostrEvent<
       EscrowServiceSelectedTags.new;
   static final EventContentParser<EscrowServiceSelectedContent> _contentParser =
       EscrowServiceSelectedContent.fromJson;
-  static const requiredTags = [];
+  static const requiredTags = [
+    ['d'],
+  ];
 
   // ── Convenience getters ─────────────────────────────────────────────
   EscrowService get service => parsedContent.service;

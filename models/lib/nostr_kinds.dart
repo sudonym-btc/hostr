@@ -166,6 +166,5 @@ const kHostrOnlyKinds = <int>{
 };
 
 const kReservationRefTag = "r";
-const kThreadRefTag = "t";
-const kListingRefTag = "l";
+const kListingRefTag = "a";
 const kConversationTag = "conversation";

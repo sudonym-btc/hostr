@@ -1,0 +1,1 @@
+../../../../../../ai/mcp-server/src/generated/hostr-actions.ts

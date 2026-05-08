@@ -327,7 +327,6 @@ class Reservation
     PaymentProof? proof,
     CommitAuthorization? commitAuthorization,
     // Tag fields
-    String? threadAnchor,
     List<PTag> pTags = const [],
     List<List<String>> extraTags = const [],
     // Event-level
@@ -346,7 +345,6 @@ class Reservation
           [
             [kListingRefTag, listingAnchor],
             ['d', dTag],
-            if (threadAnchor != null) [kThreadRefTag, threadAnchor],
             for (final p in pTags) p.toTag(),
             ...extraTags,
           ],

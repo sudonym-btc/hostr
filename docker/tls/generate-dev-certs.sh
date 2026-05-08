@@ -111,9 +111,6 @@ generate_cert "lnbits.${DOMAIN}" \
 generate_cert "alby.${DOMAIN}" \
   "DNS:alby.${DOMAIN},DNS:alby,DNS:albyhub,DNS:localhost,IP:127.0.0.1"
 
-# generate_cert "landing.${DOMAIN}" \
-#   "DNS:landing.${DOMAIN},DNS:${DOMAIN},DNS:landing-page,DNS:localhost,IP:127.0.0.1"
-
 generate_cert "app.${DOMAIN}" \
   "DNS:app.${DOMAIN},DNS:${DOMAIN},DNS:app,DNS:localhost,IP:127.0.0.1"
 

@@ -52,7 +52,7 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
         prevTransitionId ??
         await _resolvePreviousTransitionId(tradeId: tradeId, pubkey: pubkey);
     final tags = <List<String>>[
-      if (tradeId.isNotEmpty) ['t', tradeId],
+      if (tradeId.isNotEmpty) ['d', tradeId],
       ['e', reservation.id],
       if (effectivePrevTransitionId != null)
         ['prev', effectivePrevTransitionId],

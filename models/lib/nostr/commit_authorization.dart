@@ -8,8 +8,8 @@ class CommitAuthorizationTags extends EventTags
   CommitAuthorizationTags(super.tags);
 
   String? get tradeId {
-    final tTags = getTags('t');
-    return tTags.isNotEmpty ? tTags.first : null;
+    final dTags = getTags('d');
+    return dTags.isNotEmpty ? dTags.first : null;
   }
 }
 
@@ -58,7 +58,7 @@ class CommitAuthorization extends JsonContentNostrEvent<
       pubKey: pubKey,
       tags: CommitAuthorizationTags([
         [kListingRefTag, listingAnchor],
-        ['t', tradeId],
+        ['d', tradeId],
       ]),
       content: CommitAuthorizationContent(
         commitHash: commitHash,

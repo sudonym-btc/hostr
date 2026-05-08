@@ -1,0 +1,1 @@
+../../../../hostr_cli/bin/hostr_daemon.dart

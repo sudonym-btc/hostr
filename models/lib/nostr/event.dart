@@ -318,16 +318,3 @@ mixin ReferencesReservation<T extends ReferencesReservation<T>> on EventTags {
     return this as T;
   }
 }
-
-mixin ReferencesThread<T extends ReferencesThread<T>> on EventTags {
-  String get threadAnchor {
-    return getTags(kThreadRefTag).first;
-  }
-
-  T setThreadAnchor(String? anchor) {
-    if (anchor != null) {
-      tags.add([kThreadRefTag, anchor]);
-    }
-    return this as T;
-  }
-}

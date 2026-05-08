@@ -424,7 +424,7 @@ EscrowMethod _escrowMethod() => EscrowMethod.fromNostrEvent(
     tags: [
       ['p', MockKeys.escrow.publicKey],
       ['c', 'mock-bytecode'],
-      ['a', 'BTC', Token.native(30).tagId],
+      [kAcceptedPaymentFormTag, 'BTC', Token.native(30).tagId],
     ],
     content: '',
     createdAt: 100,

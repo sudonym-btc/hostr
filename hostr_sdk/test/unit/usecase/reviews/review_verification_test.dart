@@ -288,6 +288,7 @@ Future<Review> _review({
     pubKey: signer.publicKey,
     createdAt: DateTime(2026, 6, 1).millisecondsSinceEpoch ~/ 1000,
     tags: ReviewTags([
+      ['d', proofReservation.getDtag() ?? 'review-trade'],
       [kListingRefTag, listing.anchor!],
       if (reservationAnchor != null) [kReservationRefTag, reservationAnchor],
     ]),

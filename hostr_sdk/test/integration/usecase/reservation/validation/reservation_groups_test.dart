@@ -225,7 +225,7 @@ EscrowMethod _buildEscrowMethod({required KeyPair host}) {
       tags: [
         ['t', 'evm'],
         ['c', 'MultiEscrow'],
-        ['a', 'BTC', Token.native(30).tagId],
+        [kAcceptedPaymentFormTag, 'BTC', Token.native(30).tagId],
       ],
       content: '',
       createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,

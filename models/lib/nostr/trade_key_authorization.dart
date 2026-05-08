@@ -8,8 +8,8 @@ class TradeKeyAuthorizationTags extends EventTags
   TradeKeyAuthorizationTags(super.tags);
 
   String? get tradeId {
-    final tTags = getTags('t');
-    return tTags.isNotEmpty ? tTags.first : null;
+    final dTags = getTags('d');
+    return dTags.isNotEmpty ? dTags.first : null;
   }
 }
 
@@ -58,7 +58,7 @@ class TradeKeyAuthorization extends JsonContentNostrEvent<
       pubKey: identityPubkey,
       tags: TradeKeyAuthorizationTags([
         [kListingRefTag, listingAnchor],
-        ['t', tradeId],
+        ['d', tradeId],
       ]),
       content: TradeKeyAuthorizationContent(
         role: role,

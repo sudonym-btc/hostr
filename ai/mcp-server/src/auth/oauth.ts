@@ -75,6 +75,10 @@ const nostrConnectCompleteSchema = z.object({
   request_id: z.string().min(1),
 });
 
+const cancelQuerySchema = z.object({
+  request_id: z.string().min(1),
+});
+
 const randomToken = (): string => crypto.randomBytes(32).toString("base64url");
 
 const authorizationRequestKey = (request: {
@@ -123,9 +127,13 @@ const qrImageUrl = (config: AppConfig, data: string): string | null => {
   if (template.includes("{data}")) {
     return template.replaceAll("{data}", encodeURIComponent(data));
   }
-  const url = new URL(template);
-  url.searchParams.set("data", data);
-  return url.toString();
+  try {
+    const url = new URL(template);
+    url.searchParams.set("data", data);
+    return url.toString();
+  } catch {
+    return null;
+  }
 };
 
 const clientAllowsRedirect = (clientId: string, redirectUri: string): boolean => {
@@ -213,6 +221,41 @@ const firstErrorMessage = (errors: unknown[] | undefined): string | null => {
   return typeof message === "string" ? message : null;
 };
 
+const scopeDescription = (scope: string): string => {
+  switch (scope) {
+    case "hostr:read":
+      return "Read Hostr profile, listings, trips, bookings, messages, and payment status.";
+    case "hostr:write":
+      return "Request Hostr actions such as creating listings, editing your profile, sending messages, or booking stays.";
+    default:
+      return `Use the ${scope} permission.`;
+  }
+};
+
+const authorizationDeniedRedirectUrl = (
+  request: PendingAuthorization,
+): string => {
+  const redirectUrl = new URL(request.redirectUri);
+  redirectUrl.searchParams.set("error", "access_denied");
+  redirectUrl.searchParams.set(
+    "error_description",
+    "The user cancelled authorization.",
+  );
+  if (request.state) {
+    redirectUrl.searchParams.set("state", request.state);
+  }
+  return redirectUrl.toString();
+};
+
+const removePendingAuthorization = (request: PendingAuthorization): void => {
+  pendingAuthorizations.delete(request.id);
+  for (const [key, pendingId] of authorizationRequestIds.entries()) {
+    if (pendingId === request.id) {
+      authorizationRequestIds.delete(key);
+    }
+  }
+};
+
 const renderAuthorizePage = (
   config: AppConfig,
   request: PendingAuthorization,
@@ -221,22 +264,40 @@ const renderAuthorizePage = (
     qrImage: string;
   },
 ): string => {
-  const escapedClientId = escapeHtml(request.clientId);
+  const clientName = registeredClients.get(request.clientId)?.clientName?.trim();
+  const clientLabel = clientName
+    ? `<strong>${escapeHtml(clientName)}</strong>`
+    : `<code>${escapeHtml(request.clientId)}</code>`;
+  const escapedCancelUrl = escapeHtml(
+    `${config.issuer}/oauth/cancel?request_id=${encodeURIComponent(request.id)}`,
+  );
   const escapedNostrConnect = escapeHtml(connect.nostrconnect);
   const escapedQrImage = escapeHtml(connect.qrImage);
   const environmentNotice = config.environmentDescription
     ? ` <span class="muted">Environment: ${escapeHtml(config.environmentDescription)}.</span>`
     : "";
-  const nostrConnectSection = `<p>Please scan this code to login with your existing nostr app and authorize <code>${escapedClientId}</code> for ${escapeHtml(config.displayName)}.${environmentNotice}</p>
+  const scopeItems = request.scope
+    .split(/\s+/)
+    .filter((scope) => scope !== "")
+    .map((scope) => `<li>${escapeHtml(scopeDescription(scope))}</li>`)
+    .join("");
+  const nostrConnectSection = `<div class="brand">
+        <span class="brand-mark" aria-hidden="true">H</span>
+        <span>${escapeHtml(config.displayName)}</span>
+      </div>
+      <p>${clientLabel} wants access to ${escapeHtml(config.displayName)}.${environmentNotice}</p>
+      <section class="permissions" aria-label="Requested access">
+        <p class="section-label">Requested access</p>
+        <ul>${scopeItems}</ul>
+      </section>
+      <p>Scan this code with your Nostr signer to approve.</p>
       <div class="qr"><img alt="Nostr Connect QR code" src="${escapedQrImage}" /></div>
-      <label>
-        Nostrconnect uri
-        <span class="copy-row">
-          <input readonly id="nostrconnect" value="${escapedNostrConnect}" />
-          <button type="button" id="copy">Copy</button>
-        </span>
-      </label>
-      <p id="status" class="status">Waiting for signer approval...</p>`;
+      <div class="copy-row">
+        <input readonly id="nostrconnect" aria-label="Nostr Connect URI" value="${escapedNostrConnect}" />
+        <button type="button" id="copy">Copy</button>
+      </div>
+      <p id="status" class="status">Waiting for signer connection...</p>
+      <a class="cancel-link" href="${escapedCancelUrl}">Cancel</a>`;
   const nostrConnectScript = `<script>
       const requestId = ${JSON.stringify(request.id)};
       const status = document.getElementById("status");
@@ -250,11 +311,18 @@ const renderAuthorizePage = (
           uriBox.select();
           document.execCommand("copy");
         }
-        status.textContent = "Copied nostrconnect URI.";
+        status.textContent = "Copied sign-in link.";
       });
 
+      function friendlyStatus(message) {
+        if (typeof message === "string" && message.includes("get_public_key")) {
+          return "Signer connected. Waiting for public key...";
+        }
+        return "Waiting for signer connection...";
+      }
+
       async function complete() {
-        status.textContent = "Waiting for get_public_key from your signer...";
+        status.textContent = "Waiting for signer connection...";
         try {
           const response = await fetch("/oauth/nostr-connect/complete", {
             method: "POST",
@@ -271,7 +339,7 @@ const renderAuthorizePage = (
           status.textContent = "Connected. Redirecting...";
           window.location.href = payload.redirectUrl;
         } catch (error) {
-          status.textContent = error instanceof Error ? error.message : String(error);
+          status.textContent = friendlyStatus(error instanceof Error ? error.message : String(error));
           setTimeout(() => void complete(), 1500);
         }
       }
@@ -286,25 +354,231 @@ const renderAuthorizePage = (
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Connect Hostr</title>
     <style>
-      :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f172a; color: #f8fafc; }
-      main { width: min(92vw, 520px); padding: 32px; }
-      h1 { font-size: 24px; margin: 0 0 12px; }
-      p { line-height: 1.5; margin: 0 0 20px; color: #cbd5e1; }
-      .qr { width: min(100%, 360px); aspect-ratio: 1; display: grid; place-items: center; border: 1px solid #475569; background: #f8fafc; color: #0f172a; margin: 24px auto; }
-      .qr img { width: 100%; height: 100%; image-rendering: pixelated; }
-      form { display: grid; gap: 12px; }
-      label { display: grid; gap: 6px; color: #cbd5e1; }
-      input { min-width: 0; padding: 10px 12px; border: 1px solid #475569; border-radius: 6px; background: #020617; color: #f8fafc; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-      button { padding: 10px 12px; border: 0; border-radius: 6px; background: #38bdf8; color: #082f49; font-weight: 700; cursor: pointer; }
-      .muted { color: #94a3b8; font-size: 14px; }
-      .status { min-height: 24px; margin-top: 12px; color: #bae6fd; }
-      .copy-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #121212;
+        color: #ffffff;
+        --surface: #121212;
+        --surface-low: #151515;
+        --surface-high: #222222;
+        --on-surface: #ffffff;
+        --on-surface-variant: #d0d0d0;
+        --outline: #6e6e6e;
+        --outline-variant: #3a3a3a;
+        --primary: #ffffff;
+        --on-primary: #000000;
+        --secondary-container: #102a55;
+        --on-secondary-container: #dce8ff;
+        --tertiary: #10b981;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--surface);
+        color: var(--on-surface);
+      }
+      main {
+        width: min(100% - 40px, 408px);
+        padding: 24px 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 32px;
+        color: var(--on-surface-variant);
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+        display: inline-grid;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--primary);
+        color: var(--on-primary);
+        font-size: 15px;
+        line-height: 1;
+      }
+      h1 {
+        font-size: 20px;
+        line-height: 1.2;
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+      p {
+        line-height: 1.5;
+        margin: 0 0 20px;
+        color: var(--on-surface-variant);
+        text-align: center;
+      }
+      code {
+        color: var(--on-surface);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9em;
+      }
+      .permissions {
+        margin: 0 0 20px;
+        padding: 16px;
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        background: var(--surface-low);
+      }
+      .section-label {
+        margin: 0 0 12px;
+        color: var(--on-surface);
+        font-size: 14px;
+        font-weight: 700;
+        text-align: left;
+      }
+      ul {
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+        list-style: none;
+      }
+      li {
+        position: relative;
+        padding-left: 18px;
+        color: var(--on-surface-variant);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.58em;
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--tertiary);
+      }
+      .qr {
+        width: min(100%, 384px);
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        padding: 16px;
+        border-radius: 14px;
+        background: #ffffff;
+        color: #000000;
+        margin: 24px auto 20px;
+        overflow: hidden;
+      }
+      .qr img {
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        display: block;
+      }
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--on-surface-variant);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      input {
+        min-width: 0;
+        height: 40px;
+        padding: 0 12px;
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        background: var(--surface-low);
+        color: var(--on-surface);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        outline: none;
+      }
+      input:focus {
+        border-color: var(--outline);
+      }
+      button {
+        min-height: 40px;
+        padding: 0 14px;
+        border: 1px solid var(--outline);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--primary);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:hover,
+      button:focus-visible {
+        background: var(--surface-high);
+        outline: none;
+      }
+      .muted {
+        color: var(--outline);
+        font-size: 14px;
+      }
+      .status {
+        min-height: 24px;
+        margin-top: 16px;
+        color: var(--on-surface-variant);
+        text-align: center;
+      }
+      .status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        display: inline-block;
+        margin-right: 8px;
+        border-radius: 999px;
+        background: var(--tertiary);
+        vertical-align: 1px;
+      }
+      .copy-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+      .cancel-link {
+        display: block;
+        width: max-content;
+        margin: 10px auto 0;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: var(--outline);
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .cancel-link:hover,
+      .cancel-link:focus-visible {
+        color: var(--on-surface);
+        background: var(--surface-high);
+        outline: none;
+      }
+      @media (max-width: 420px) {
+        main {
+          width: min(100% - 32px, 408px);
+        }
+        .brand {
+          margin-bottom: 24px;
+        }
+        .copy-row {
+          grid-template-columns: 1fr;
+        }
+        button {
+          width: 100%;
+        }
+      }
     </style>
   </head>
   <body>
     <main>
-      <h1>Connect Hostr</h1>
       ${nostrConnectSection}
     </main>
     ${nostrConnectScript}
@@ -323,12 +597,7 @@ const authorizationRedirectUrl = (
     pubkey,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
-  pendingAuthorizations.delete(request.id);
-  for (const [key, pendingId] of authorizationRequestIds.entries()) {
-    if (pendingId === request.id) {
-      authorizationRequestIds.delete(key);
-    }
-  }
+  removePendingAuthorization(request);
 
   const redirectUrl = new URL(request.redirectUri);
   redirectUrl.searchParams.set("code", code);
@@ -596,6 +865,33 @@ export const createOAuthRouter = (
       );
     },
   );
+
+  router.get("/oauth/cancel", (request: Request, response: Response) => {
+    sweepExpiredOAuthState();
+    const parsed = cancelQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return oauthError(
+        response,
+        400,
+        "invalid_request",
+        "Malformed cancellation request.",
+      );
+    }
+
+    const pending = pendingAuthorizations.get(parsed.data.request_id);
+    if (!pending) {
+      return oauthError(
+        response,
+        400,
+        "invalid_request",
+        "Unknown or expired authorization request.",
+      );
+    }
+
+    const redirectUrl = authorizationDeniedRedirectUrl(pending);
+    removePendingAuthorization(pending);
+    response.redirect(302, redirectUrl);
+  });
 
   router.post(
     "/oauth/nostr-connect/complete",

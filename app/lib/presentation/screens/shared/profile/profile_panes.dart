@@ -609,6 +609,17 @@ class _SwapInTile extends StatelessWidget {
                 label: 'View Claim Tx',
                 uri: _txExplorerUri(operation.chain.config, data?.claimTxHash),
               ),
+              if (state is SwapInFailed)
+                _SwapTxMenuItem.destructive(
+                  label: 'Delete failed swap',
+                  icon: Icons.delete_forever,
+                  onSelected: (context) => _confirmDeleteErroredSwap(
+                    context,
+                    namespace: 'swap_in',
+                    storeId: boltzId,
+                    trackerKey: id,
+                  ),
+                ),
             ],
           ),
         );
@@ -693,6 +704,17 @@ class _SwapOutTile extends StatelessWidget {
                 label: 'View Refund Tx',
                 uri: _txExplorerUri(operation.chain.config, data?.refundTxHash),
               ),
+              if (state is SwapOutFailed)
+                _SwapTxMenuItem.destructive(
+                  label: 'Delete failed swap',
+                  icon: Icons.delete_forever,
+                  onSelected: (context) => _confirmDeleteErroredSwap(
+                    context,
+                    namespace: 'swap_out',
+                    storeId: boltzId,
+                    trackerKey: id,
+                  ),
+                ),
             ],
           ),
         );
@@ -753,24 +775,46 @@ class _SwapTxMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = items.where((item) => item.uri != null).toList();
+    final visibleItems = items
+        .where((item) => item.uri != null || item.onSelected != null)
+        .toList();
     if (visibleItems.isEmpty) return const SizedBox.shrink();
 
-    return PopupMenuButton<Uri>(
+    return PopupMenuButton<_SwapTxMenuItem>(
       icon: const Icon(Icons.more_vert),
       tooltip: 'Swap transaction links',
-      onSelected: (uri) =>
-          unawaited(launchUrl(uri, mode: LaunchMode.externalApplication)),
+      onSelected: (item) {
+        final onSelected = item.onSelected;
+        if (onSelected != null) {
+          unawaited(onSelected(context));
+          return;
+        }
+        final uri = item.uri;
+        if (uri != null) {
+          unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+        }
+      },
       itemBuilder: (context) => [
         for (final item in visibleItems)
-          PopupMenuItem<Uri>(
-            value: item.uri!,
+          PopupMenuItem<_SwapTxMenuItem>(
+            value: item,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.open_in_new, size: 18),
+                Icon(
+                  item.icon,
+                  size: 18,
+                  color: item.destructive
+                      ? Theme.of(context).colorScheme.error
+                      : null,
+                ),
                 Gap.horizontal.sm(),
-                Text(item.label),
+                Text(
+                  item.label,
+                  style: item.destructive
+                      ? TextStyle(color: Theme.of(context).colorScheme.error)
+                      : null,
+                ),
               ],
             ),
           ),
@@ -782,8 +826,72 @@ class _SwapTxMenu extends StatelessWidget {
 class _SwapTxMenuItem {
   final String label;
   final Uri? uri;
+  final IconData icon;
+  final bool destructive;
+  final Future<void> Function(BuildContext context)? onSelected;
 
-  const _SwapTxMenuItem({required this.label, required this.uri});
+  const _SwapTxMenuItem({required this.label, required this.uri})
+    : icon = Icons.open_in_new,
+      destructive = false,
+      onSelected = null;
+
+  const _SwapTxMenuItem.destructive({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+  }) : uri = null,
+       destructive = true;
+}
+
+Future<void> _confirmDeleteErroredSwap(
+  BuildContext context, {
+  required String namespace,
+  required String storeId,
+  required String trackerKey,
+}) async {
+  final colorScheme = Theme.of(context).colorScheme;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      icon: Icon(Icons.delete_forever, color: colorScheme.error),
+      title: const Text('Delete failed swap?'),
+      content: const Text(
+        'This removes the errored swap from the local store and stops showing '
+        'it here. Recovery for this swap will no longer be available on this '
+        'device.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          style: AppButtonStyles.destructive(dialogContext),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          icon: const Icon(Icons.delete_forever),
+          label: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  final hostr = getIt<Hostr>();
+  await hostr.operationStateStore.remove(namespace, storeId);
+  switch (namespace) {
+    case 'swap_in':
+      hostr.swapInTracker.unregister(trackerKey);
+      if (trackerKey != storeId) hostr.swapInTracker.unregister(storeId);
+    case 'swap_out':
+      hostr.swapOutTracker.unregister(trackerKey);
+      if (trackerKey != storeId) hostr.swapOutTracker.unregister(storeId);
+  }
+
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('Failed swap deleted')));
 }
 
 Uri? _txExplorerUri(EvmChainConfig config, String? txHash) {

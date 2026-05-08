@@ -10,8 +10,16 @@ void main() {
   group('EvmChain escrow token resolution', () {
     test('uses a host-accepted token for the reservation denomination', () {
       final method = _escrowMethod([
-        ['a', 'USD', '412346:0x712516e61c8b383df4a63cfe83d7701bce54b03e'],
-        ['a', 'BTC', '33:0x0000000000000000000000000000000000000000'],
+        [
+          kAcceptedPaymentFormTag,
+          'USD',
+          '412346:0x712516e61c8b383df4a63cfe83d7701bce54b03e',
+        ],
+        [
+          kAcceptedPaymentFormTag,
+          'BTC',
+          '33:0x0000000000000000000000000000000000000000',
+        ],
       ]);
 
       expect(
@@ -26,7 +34,11 @@ void main() {
 
     test('refuses to fall back to an unaccepted bridge token', () {
       final method = _escrowMethod([
-        ['a', 'USD', '412346:0x712516e61c8b383df4a63cfe83d7701bce54b03e'],
+        [
+          kAcceptedPaymentFormTag,
+          'USD',
+          '412346:0x712516e61c8b383df4a63cfe83d7701bce54b03e',
+        ],
       ]);
 
       expect(
@@ -52,8 +64,12 @@ void main() {
       'ignores accepted tokens for other chains and Lightning sentinels',
       () {
         final method = _escrowMethod([
-          ['a', 'BTC', 'BTC'],
-          ['a', 'BTC', '33:0x0000000000000000000000000000000000000000'],
+          [kAcceptedPaymentFormTag, 'BTC', 'BTC'],
+          [
+            kAcceptedPaymentFormTag,
+            'BTC',
+            '33:0x0000000000000000000000000000000000000000',
+          ],
         ]);
 
         expect(

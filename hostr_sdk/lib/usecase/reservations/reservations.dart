@@ -326,7 +326,6 @@ class Reservations extends CrudUseCase<Reservation>
       pubKey: auth.activeKeyPair!.publicKey,
       dTag: request.getDtag()!,
       listingAnchor: request.parsedTags.listingAnchor,
-      threadAnchor: anchor,
       pTags: [
         PTag.seller(auth.activeKeyPair!.publicKey, relayHint: sellerHint),
         PTag.buyer(saltedPubkey, relayHint: buyerHint),
@@ -355,7 +354,6 @@ class Reservations extends CrudUseCase<Reservation>
     required PaymentProof proof,
   }) async {
     final tradeId = negotiateReservation.getDtag();
-    final threadAnchor = negotiateReservation.getFirstTag(kThreadRefTag);
     final listingAnchor = negotiateReservation.parsedTags.listingAnchor;
 
     final sellerPk = getPubKeyFromAnchor(listingAnchor);
@@ -404,7 +402,6 @@ class Reservations extends CrudUseCase<Reservation>
       pubKey: activeKeyPair.publicKey,
       dTag: tradeId,
       listingAnchor: listingAnchor,
-      threadAnchor: threadAnchor,
       start: negotiateReservation.start,
       end: negotiateReservation.end,
       stage: ReservationStage.commit,

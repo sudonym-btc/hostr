@@ -631,28 +631,6 @@ JSON
   echo ""
 }
 
-sync_landing_page_screenshots() {
-  local slug="$1"
-  local source_dir="$APP_DIR/screenshots/$slug/dark"
-  local dest_dir="$REPO_ROOT/landing-page/assets/screenshot"
-
-  if [[ ! -d "$source_dir" ]]; then
-    echo "   ⚠️  No dark-mode screenshots found at $source_dir"
-    return 1
-  fi
-
-  mkdir -p "$dest_dir"
-
-  if ! find "$source_dir" -maxdepth 1 -name '*.png' | grep -q .; then
-    echo "   ⚠️  No PNG screenshots found at $source_dir"
-    return 1
-  fi
-
-  find "$dest_dir" -maxdepth 1 -type f -name '*.png' -delete
-  cp "$source_dir"/*.png "$dest_dir"/
-  echo "   🖼️  Synced dark screenshots to landing-page/assets/screenshot/"
-}
-
 run_chrome_screenshots() {
   local slug="chrome"
   local chrome_viewport_size="${CHROME_WINDOW_SIZE:-$(detect_chrome_window_size)}"
@@ -803,12 +781,6 @@ for device_name in ${DEVICES[@]+"${DEVICES[@]}"}; do
 
   if [[ "$drive_status" -eq 0 ]]; then
     echo "   ✅ Done"
-    if [[ "$device_name" == iPhone* ]]; then
-      if ! sync_landing_page_screenshots "$slug"; then
-        echo "   ❌ Failed to sync screenshots into landing-page assets"
-        FAILED+=("$device_name (landing-page sync)")
-      fi
-    fi
   else
     echo "   ❌ Flutter drive failed for $device_name (exit $drive_status)"
     FAILED+=("$device_name")

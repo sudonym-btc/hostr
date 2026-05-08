@@ -80,15 +80,18 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
           .toList();
 
       // Determine the appId used by our resolved forms (if any).
-      // We strip all existing "a" tags that share this appId OR have no appId
-      // (legacy), then replace with the freshly-resolved set.
+      // We strip all existing payment-form tags that share this appId, then
+      // replace them with the freshly-resolved set.
       final appId = resolvedForms.isNotEmpty ? resolvedForms.first.appId : null;
 
-      // Existing "a" tags from other apps only — keep them.
+      // Existing payment-form tags from other apps only: keep them.
       final retainedForms = existing.tags
           .where(
             (t) =>
-                t.isNotEmpty && t[0] == 'a' && t.length >= 4 && t[3] != appId,
+                t.isNotEmpty &&
+                t[0] == kAcceptedPaymentFormTag &&
+                t.length >= 4 &&
+                t[3] != appId,
           )
           .toList();
 
@@ -108,11 +111,11 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
         return;
       }
 
-      // Rebuild tags: keep all non-"a" tags, plus retained foreign-appId "a"
-      // tags, then append our fresh forms.
+      // Rebuild tags: keep all non-payment-form tags, plus retained
+      // foreign-appId payment-form tags, then append our fresh forms.
       final tags = <List<String>>[];
       for (final tag in existing.tags) {
-        if (tag.isNotEmpty && tag[0] == 'a') continue; // strip all "a" tags
+        if (tag.isNotEmpty && tag[0] == kAcceptedPaymentFormTag) continue;
         tags.add([...tag]);
       }
       for (final pubkey in missingTrusted) {

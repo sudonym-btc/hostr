@@ -117,6 +117,7 @@ class EditReviewController extends UpsertFormController {
           proof: proof,
         ),
         tags: ReviewTags([
+          ['d', tradeId],
           [kListingRefTag, listing.anchor!],
           [kReservationRefTag, reservation?.anchor ?? ''],
           ['p', listing.pubKey],
