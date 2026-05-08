@@ -323,7 +323,7 @@ const presentationContract = (actionId: string): string | null => {
   }
   if (reservationActionIds.has(actionId)) {
     return actionId === "hostr.reservations.bookAndPay"
-      ? "May return a payment QR widget. If payment is required, show the QR/invoice and then call hostr_swaps_watch with the returned ids."
+      ? "May return a payment QR widget. If payment is required, render the QR/invoice and make the next assistant action a hostr_swaps_watch tool call with structuredContent.requiredNextTool.arguments. Do not stop after displaying the invoice."
       : "May return trip-card or hosting-card output; render structuredContent.displayMarkdown instead of raw JSON.";
   }
   if (profileActionIds.has(actionId)) {
@@ -2412,7 +2412,7 @@ const paymentResponseText = (
   displayMarkdown: string,
 ): string => {
   return [
-    "Hostr external-payment response: the assistant's final answer must render the fixed payment display below exactly. Do not render the BOLT11 invoice inline; the exact invoice is available only through structuredContent.paymentDisplays[0].copy.text and the exact invoice text URL. Do not expose internal tradeId or swapId in the payment prompt.",
+    "Hostr external-payment response: render the fixed payment display below exactly, then make the next assistant action a hostr_swaps_watch tool call using structuredContent.requiredNextTool.arguments. Do not stop after displaying the invoice, do not ask the user whether they paid first, and do not render the BOLT11 invoice inline. The exact invoice is available only through structuredContent.paymentDisplays[0].copy.text and the exact invoice text URL. Do not expose internal tradeId or swapId in the payment prompt.",
     displayMarkdown,
   ]
     .filter(Boolean)
@@ -2432,8 +2432,9 @@ const compactPaymentRequiredResult = (
     record(state?.externalPayment) ??
     record(safeResultData.externalPayment) ??
     record(safeState?.externalPayment);
-  const nextTool = record(resultData.nextTool) ?? record(safeResultData.nextTool);
-  const nextToolArguments = record(nextTool?.arguments);
+  const rawNextTool =
+    record(resultData.nextTool) ?? record(safeResultData.nextTool);
+  const nextToolArguments = record(rawNextTool?.arguments);
   const tradeId =
     stringValue(resultData.tradeId) ??
     stringValue(safeResultData.tradeId) ??
@@ -2459,6 +2460,13 @@ const compactPaymentRequiredResult = (
     ...(tradeId ? { tradeId } : {}),
     reservationWaitSeconds,
   };
+  const nextTool =
+    swapId || tradeId
+      ? {
+          name: "hostr_swaps_watch",
+          arguments: watchArguments,
+        }
+      : undefined;
 
   return {
     ok: safeResult.ok,
@@ -2470,6 +2478,14 @@ const compactPaymentRequiredResult = (
     stateName: "payment_required" as const,
     paymentRequired: true,
     externalPaymentRequired: true,
+    ...(nextTool
+      ? {
+          nextTool,
+          requiredNextTool: nextTool,
+          nextAction:
+            "Immediately call hostr_swaps_watch with requiredNextTool.arguments after rendering the payment display.",
+        }
+      : {}),
     data: {
       mode: stringValue(resultData.mode) ?? "book-and-pay",
       status: "payment_required" as const,
@@ -2481,14 +2497,7 @@ const compactPaymentRequiredResult = (
       ...(boolValue(resultData.continuesInBackground) !== null
         ? { continuesInBackground: boolValue(resultData.continuesInBackground) }
         : {}),
-      ...(swapId || tradeId
-        ? {
-            nextTool: {
-              name: "hostr_swaps_watch",
-              arguments: watchArguments,
-            },
-          }
-        : {}),
+      ...(nextTool ? { nextTool, requiredNextTool: nextTool } : {}),
     },
   };
 };
@@ -3246,12 +3255,12 @@ const toolResponse = async (
     (notice) => notice.type === "external-payment",
   )
     ? [
-        "CRITICAL: The Hostr result contains structuredContent.display.type=payment-external-required. Render structuredContent.displayMarkdown exactly so the user sees the QR and exact invoice/copy affordance.",
-        "The invoice copy source of truth is structuredContent.paymentDisplays[0].copy.text or the exact invoice text URL. Do not manually retype, display inline, truncate, normalize, wrap, add punctuation to, or otherwise modify the invoice string.",
-        "Do not show internal tradeId or swapId in the payment prompt.",
-        "Only after the QR and invoice are visible, call the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds to monitor payment, proof, and reservation completion.",
-        "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the trip card.",
-      ]
+      "CRITICAL: The Hostr result contains structuredContent.display.type=payment-external-required. Render structuredContent.displayMarkdown exactly so the user sees the QR and exact invoice/copy affordance.",
+      "The invoice copy source of truth is structuredContent.paymentDisplays[0].copy.text or the exact invoice text URL. Do not manually retype, display inline, truncate, normalize, wrap, add punctuation to, or otherwise modify the invoice string.",
+      "Do not show internal tradeId or swapId in the payment prompt.",
+      "The next assistant action after rendering this payment display MUST be a tool call to the read-only hostr_swaps_watch using structuredContent.requiredNextTool.arguments. Do not end the turn, ask the user whether they paid, or wait for user confirmation before making this watch call.",
+      "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the trip card.",
+    ]
     : undefined;
   const bookAndPayPaymentRequired =
     actionId === "hostr.reservations.bookAndPay" && Boolean(paymentDisplay);
@@ -3262,6 +3271,12 @@ const toolResponse = async (
     : swapWatchStatus
       ? compactSwapWatchResult(safeResult, safeResultData, swapWatchStatus)
     : compactThreadResult;
+  const requiredNextTool = bookAndPayPaymentRequired
+    ? (record(structuredResult.requiredNextTool) ??
+      record(structuredResult.nextTool) ??
+      record(record(structuredResult.data)?.requiredNextTool) ??
+      record(record(structuredResult.data)?.nextTool))
+    : undefined;
   const sessionConnectPending =
     actionId === "hostr.session.connect" &&
     resultData.authenticated !== true &&
@@ -3376,6 +3391,14 @@ const toolResponse = async (
       ...(responseNotices.length > 0 ? { hostrNotices: responseNotices } : {}),
       ...(paymentAssistantInstructions
         ? { assistantInstructions: paymentAssistantInstructions }
+        : {}),
+      ...(requiredNextTool
+        ? {
+            nextTool: requiredNextTool,
+            requiredNextTool,
+            nextAction:
+              "Immediately call hostr_swaps_watch with requiredNextTool.arguments after rendering the payment display.",
+          }
         : {}),
       ...(errorInstructions ? { assistantInstructions: errorInstructions } : {}),
       ...(sessionConnectAssistantInstructions
@@ -3511,6 +3534,14 @@ const toolResponse = async (
                   "hostr.contentType": paymentDisplay.type,
                   "hostr.display": paymentDisplay,
                   "hostr.paymentDisplays": paymentDisplays,
+                  ...(requiredNextTool
+                    ? {
+                        "hostr.nextTool": requiredNextTool,
+                        "hostr.requiredNextTool": requiredNextTool,
+                        "hostr.nextAction":
+                          "Immediately call hostr_swaps_watch with requiredNextTool.arguments after rendering the payment display.",
+                      }
+                    : {}),
                   "hostr.copyActions": paymentDisplays.flatMap(
                     (display) => display.actions,
                   ),

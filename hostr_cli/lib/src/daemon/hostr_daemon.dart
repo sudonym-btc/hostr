@@ -1769,7 +1769,7 @@ class HostrDaemon {
                 },
               },
               'nextStep':
-                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. After that visible payment prompt is in the output, call the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
+                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. The next assistant action after rendering that visible payment prompt must be the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds; do not stop after displaying the invoice or wait for the user to say they paid. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
             };
           }),
           terminal.future,
