@@ -213,6 +213,10 @@ test("payment widget stays empty until it can show the QR", () => {
   assert.match(__testing.paymentRequiredWidgetHtml, /\[Hostr payment widget\]/);
   assert.match(
     __testing.paymentRequiredWidgetHtml,
+    /__HOSTR_PAYMENT_WIDGET_DEBUG/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
     /var globals = detail\.globals \|\| detail;/,
   );
   assert.match(
@@ -247,6 +251,20 @@ test("payment widget stays empty until it can show the QR", () => {
     __testing.paymentRequiredWidgetHtml,
     /window\.__OPENAI__/,
   );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /Pay this lightning invoice to continue/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /className = "copy-row"/,
+  );
+  assert.match(
+    __testing.paymentRequiredWidgetHtml,
+    /navigator\.clipboard\.writeText/,
+  );
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /toolResult/);
+  assert.doesNotMatch(__testing.paymentRequiredWidgetHtml, /tool_result/);
   assert.match(
     __testing.paymentRequiredWidgetHtml,
     /window\.addEventListener\(\s+"message"/,
@@ -409,6 +427,9 @@ test("payment widget can read ChatGPT multimodal payment output", () => {
   assert.match(__testing.paymentRequiredWidgetHtml, /output\[key\] !== undefined/);
   assert.match(__testing.paymentRequiredWidgetHtml, /responseMetadata/);
   assert.match(__testing.paymentRequiredWidgetHtml, /metadata/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /function invoiceFromPayment/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /function invoiceFromQrUrl/);
+  assert.match(__testing.paymentRequiredWidgetHtml, /function invoiceFromOutput/);
 });
 
 test("tool descriptions omit repeated boilerplate", () => {
