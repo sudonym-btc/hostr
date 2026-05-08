@@ -23,13 +23,34 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 7.0.x
+          dotnet-version: 10.0.x
 
       - uses: retypeapp/action-build@latest
 
-      - name: Disable submodule recursion for Pages publish fetch
-        run: git config --global fetch.recurseSubmodules false
+      - name: Publish Retype branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
 
-      - uses: retypeapp/action-github-pages@latest
-        with:
-          update-branch: true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin retype:refs/remotes/origin/retype
+
+          publish_dir="$(mktemp -d)"
+          git worktree add "$publish_dir" origin/retype
+
+          find "$publish_dir" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "${RETYPE_OUTPUT_PATH}/." "$publish_dir/"
+          touch "$publish_dir/.nojekyll"
+
+          cd "$publish_dir"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Retype output is already up to date."
+            exit 0
+          fi
+
+          git commit -m "docs: publish Retype site"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:retype
