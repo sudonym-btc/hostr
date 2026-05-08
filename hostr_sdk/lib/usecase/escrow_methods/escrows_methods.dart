@@ -26,6 +26,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     if (keyPair == null) return null;
     return getOne(
       Filter(kinds: EscrowMethod.kinds, authors: [keyPair.publicKey]),
+      cacheRead: false,
     );
   }
 
@@ -67,6 +68,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     final pubkey = keyPair.publicKey;
     final existing = await getOne(
       Filter(kinds: EscrowMethod.kinds, authors: [pubkey]),
+      cacheRead: false,
     );
 
     if (existing != null) {

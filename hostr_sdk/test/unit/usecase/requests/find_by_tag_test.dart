@@ -17,6 +17,7 @@ import 'package:test/test.dart';
 class _FakeRequests extends Fake implements hostr_requests.Requests {
   final List<Nip01Event> events = [];
   final List<Filter> queryFilters = [];
+  final List<bool> queryCacheReads = [];
 
   @override
   Stream<T> query<T extends Nip01Event>({
@@ -28,6 +29,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     bool cacheWrite = true,
   }) async* {
     queryFilters.add(filter);
+    queryCacheReads.add(cacheRead);
     for (final event in events) {
       if (matchEvent(event, filter)) {
         yield event as T;
@@ -253,6 +255,25 @@ void main() {
       final filter = fakeRequests.queryFilters.single;
       expect(filter.authors, ['pub1']);
       expect(filter.dTags, unorderedEquals(['hash-a', 'hash-b']));
+    });
+
+    test('cacheRead false bypasses batching and forwards to query', () async {
+      final reservation = _reservation(
+        pubkey: 'pub1',
+        tradeId: 'hash-no-cache',
+        listingAnchor: '32121:host:listing-1',
+      );
+      fakeRequests.events.add(reservation);
+
+      final result = await useCase.getOne(
+        Filter(authors: ['pub1'], dTags: ['hash-no-cache']),
+        cacheRead: false,
+      );
+
+      expect(result?.getDtag(), 'hash-no-cache');
+      expect(fakeRequests.queryFilters, hasLength(1));
+      expect(fakeRequests.queryCacheReads, [isFalse]);
+      expect(fakeRequests.queryFilters.single.limit, 1);
     });
   });
 }
