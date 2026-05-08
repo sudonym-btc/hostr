@@ -27,6 +27,9 @@ jobs:
 
       - uses: retypeapp/action-build@latest
 
+      - name: Disable submodule recursion for Pages publish fetch
+        run: git config --global fetch.recurseSubmodules false
+
       - uses: retypeapp/action-github-pages@latest
         with:
           update-branch: true
