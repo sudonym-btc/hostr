@@ -1,6 +1,8 @@
 @Tags(['unit'])
 library;
 
+import 'dart:convert';
+
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:test/test.dart';
@@ -88,6 +90,82 @@ void main() {
       expect(parsed, isA<JsonMessage>());
       expect((parsed as JsonMessage).child, isA<Reservation>());
       expect((parsed.child as Reservation).getDtag(), 'trade-123');
+    });
+
+    test('rejects reservation events without listing anchors', () {
+      final event = Nip01Event(
+        pubKey: 'a' * 64,
+        kind: kNostrKindReservation,
+        tags: const [
+          ['d', 'trade-123'],
+        ],
+        content: '{"stage":"negotiate","quantity":1}',
+        createdAt: 124,
+      );
+
+      expect(
+        () => parser<Reservation>(event),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('missing required tag "a"'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects every typed event with declared missing tags', () {
+      final event = Nip01Event(
+        pubKey: 'a' * 64,
+        kind: kNostrKindEscrowServiceSelected,
+        tags: const [],
+        content: '{}',
+        createdAt: 124,
+      );
+
+      expect(
+        () => parser<Nip01Event>(event),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('missing required tag "d"'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects JSON child messages with malformed children', () {
+      final child = Nip01Event(
+        pubKey: 'a' * 64,
+        kind: kNostrKindReservation,
+        tags: const [
+          ['d', 'trade-123'],
+        ],
+        content: '{"stage":"negotiate","quantity":1}',
+        createdAt: 123,
+      );
+      final event = Nip01Event(
+        pubKey: 'a' * 64,
+        kind: kNostrKindJsonMessage,
+        tags: const [
+          ['p', 'b'],
+        ],
+        content: jsonEncode(Nip01EventModel.fromEntity(child).toJson()),
+        createdAt: 124,
+      );
+
+      expect(
+        () => parser<Nip01Event>(event),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('missing or invalid child event'),
+          ),
+        ),
+      );
     });
   });
 }

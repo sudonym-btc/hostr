@@ -40,6 +40,7 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
           e,
           tagParser: _tagParser,
           contentParser: _contentParser,
+          requiredTags: requiredTags,
         );
 }
 

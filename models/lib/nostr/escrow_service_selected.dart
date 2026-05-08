@@ -41,6 +41,7 @@ class EscrowServiceSelected extends JsonContentNostrEvent<
           e,
           tagParser: _tagParser,
           contentParser: _contentParser,
+          requiredTags: requiredTags,
         );
 }
 

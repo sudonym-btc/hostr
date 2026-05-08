@@ -29,10 +29,17 @@ abstract class JsonContentNostrEvent<ContentType extends EventContent,
 
   JsonContentNostrEvent.fromNostrEvent(Nip01Event e,
       {required EventTagsParser<TagsType> tagParser,
-      required this.contentParser})
-      : parsedContent =
-            contentParser(json.decode(e.content) as Map<String, dynamic>),
-        super.fromNostrEvent(e, tagParser: tagParser);
+      required this.contentParser,
+      List<List<String>> requiredTags = const []})
+      : parsedContent = contentParser(
+          json.decode(requireRequiredTags(e, requiredTags).content)
+              as Map<String, dynamic>,
+        ),
+        super.fromNostrEvent(
+          e,
+          tagParser: tagParser,
+          requiredTags: requiredTags,
+        );
 }
 
 class EventContent extends Serializable {

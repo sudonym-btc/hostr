@@ -12,10 +12,15 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
   late TagsType parsedTags;
   final EventTagsParser<TagsType> tagParser;
 
-  Event.fromNostrEvent(Nip01Event e, {EventTagsParser<TagsType>? tagParser})
+  Event.fromNostrEvent(
+    Nip01Event e, {
+    EventTagsParser<TagsType>? tagParser,
+    List<List<String>> requiredTags = const [],
+  })
       : tagParser = tagParser ?? ((tags) => EventTags(tags) as TagsType),
-        parsedTags =
-            (tagParser ?? ((tags) => EventTags(tags) as TagsType))(e.tags),
+        parsedTags = (tagParser ?? ((tags) => EventTags(tags) as TagsType))(
+          requireRequiredTags(e, requiredTags).tags,
+        ),
         super(
             id: e.id,
             pubKey: e.pubKey,
@@ -132,9 +137,34 @@ bool hasRequiredTags(
   List<List<String>> tags,
   List<List<String>> required,
 ) {
-  final requiredKeys = required.map((t) => t.first).toSet();
-  final presentKeys = tags.map((t) => t.first).toSet();
-  return requiredKeys.every(presentKeys.contains);
+  return required.where((t) => t.isNotEmpty).every((requiredTag) {
+    return tags.any((tag) {
+      if (tag.length < 2 || tag.length < requiredTag.length) return false;
+      for (var i = 0; i < requiredTag.length; i++) {
+        if (requiredTag[i].isNotEmpty && tag[i] != requiredTag[i]) {
+          return false;
+        }
+      }
+      return true;
+    });
+  });
+}
+
+Nip01Event requireRequiredTags(
+  Nip01Event event,
+  List<List<String>> requiredTags,
+) {
+  for (final required in requiredTags) {
+    if (required.isEmpty) continue;
+    final key = required.first;
+    if (!hasRequiredTags(event.tags, [required])) {
+      throw FormatException(
+        'Malformed Nostr event kind=${event.kind} id=${event.id}: '
+        'missing required tag "$key"',
+      );
+    }
+  }
+  return event;
 }
 
 class EventTags {
@@ -143,7 +173,10 @@ class EventTags {
   EventTags(this.tags);
 
   List<String> getTags(String key) {
-    return tags.where((t) => t.first == key).map((t) => t[1]).toList();
+    return tags
+        .where((t) => t.length >= 2 && t.first == key)
+        .map((t) => t[1])
+        .toList();
   }
 
   /// Returns the value (2nd element) of the first tag matching [key]
@@ -294,8 +327,14 @@ class EventTags {
 }
 
 mixin ReferencesListing<T extends ReferencesListing<T>> on EventTags {
+  String? get listingAnchorOrNull => getTagValue(kListingRefTag);
+
   String get listingAnchor {
-    return getTags(kListingRefTag).first;
+    final anchor = listingAnchorOrNull;
+    if (anchor == null) {
+      throw StateError('Missing listing reference tag "$kListingRefTag"');
+    }
+    return anchor;
   }
 
   T setListingAnchor(String? anchor) {
