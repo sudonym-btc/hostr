@@ -658,6 +658,12 @@ export const createOAuthRouter = (
   ensureRegisteredClientsLoaded(config);
   const router = express.Router();
 
+  router.use((_request, response, next) => {
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("Pragma", "no-cache");
+    next();
+  });
+
   router.get("/.well-known/oauth-protected-resource", (_request, response) => {
     response.json({
       resource: config.mcpResource,
