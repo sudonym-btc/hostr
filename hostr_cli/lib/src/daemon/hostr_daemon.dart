@@ -4663,181 +4663,32 @@ Future<String?> _pubkeyForThreadRole(
   };
 }
 
-class _EscrowTradeThreadPlan {
-  const _EscrowTradeThreadPlan({
-    required this.thread,
-    required this.participantPubkeys,
-    required this.recipientPubkeys,
-    required this.rolePubkeys,
-  });
-
-  final Thread thread;
-  final List<String> participantPubkeys;
-  final List<String> recipientPubkeys;
-  final Map<String, String> rolePubkeys;
-}
-
-Future<_EscrowTradeThreadPlan> _resolveEscrowTradeThreadPlan(
+Future<EscrowTradeThreadPlan> _resolveEscrowTradeThreadPlan(
   Hostr hostr, {
   required String activePubkey,
   required String tradeId,
   Thread? tradeThread,
   Duration timeout = const Duration(seconds: 12),
 }) async {
-  final normalizedTradeId = tradeId.trim();
-  if (normalizedTradeId.isEmpty) {
-    throw HostrCliException(
-      'trade_id_required',
-      'Messaging escrow requires a concrete reservation tradeId so buyer, seller, and escrow are all included in the thread.',
-    );
-  }
-
-  final resolvedItem = await _resolvedReservationGroupForTradeId(
-    hostr,
-    normalizedTradeId,
-    timeout: timeout,
-  );
-  final resolvedParticipants = resolvedItem?.participants;
-  final group = resolvedItem?.group;
-  final state = tradeThread?.state.value;
-
-  String? sellerPubkey =
-      resolvedParticipants?.resolvedParticipantPubkeyForRole('seller') ??
-      group?.sellerPubkey;
-  String? buyerPubkey =
-      resolvedParticipants?.resolvedParticipantPubkeyForRole('buyer') ??
-      group?.buyerPubkey;
-  String? escrowPubkey =
-      resolvedParticipants?.resolvedParticipantPubkeyForRole('escrow') ??
-      group?.escrowPubkey ??
-      state?.selectedEscrows.lastOrNull?.service.escrowPubkey;
-
-  final seenParticipants = <String>{
-    activePubkey,
-    if (state != null) ...state.participantPubkeys,
-    if (state != null) ...state.counterpartyPubkeys,
-  };
-
-  for (final request
-      in state?.reservationRequests.reversed ?? const <Reservation>[]) {
-    seenParticipants.add(request.pubKey);
-    seenParticipants.addAll(request.parsedTags.getTags('p'));
-    final anchor = request.parsedTags.listingAnchor;
-    if ((sellerPubkey == null || sellerPubkey.isEmpty) && anchor.isNotEmpty) {
-      sellerPubkey = getPubKeyFromAnchor(anchor);
+  try {
+    final trade = hostr.trade(tradeId, [activePubkey]);
+    try {
+      return await trade.resolveEscrowThread(
+        tradeThread: tradeThread,
+        timeout: timeout,
+      );
+    } finally {
+      await trade.close();
     }
-    buyerPubkey ??= request.parsedTags.getTagValueByMarker('p', 'buyer');
-    escrowPubkey ??= request.parsedTags.getTagValueByMarker('p', 'escrow');
-  }
-
-  if ((sellerPubkey == null || sellerPubkey.isEmpty) && state != null) {
-    sellerPubkey = await _pubkeyForThreadRole(
-      hostr,
-      tradeId: normalizedTradeId,
-      role: 'seller',
-      thread: tradeThread,
-      timeout: timeout,
-    );
-  }
-  if ((escrowPubkey == null || escrowPubkey.isEmpty) && state != null) {
-    escrowPubkey = await _pubkeyForThreadRole(
-      hostr,
-      tradeId: normalizedTradeId,
-      role: 'escrow',
-      thread: tradeThread,
-      timeout: timeout,
-    );
-  }
-
-  if (buyerPubkey == null || buyerPubkey.isEmpty) {
-    final candidates = seenParticipants
-        .where(
-          (pubkey) =>
-              pubkey.isNotEmpty &&
-              pubkey != sellerPubkey &&
-              pubkey != escrowPubkey,
-        )
-        .toSet();
-    if (activePubkey != sellerPubkey && activePubkey != escrowPubkey) {
-      buyerPubkey = activePubkey;
-    } else if (candidates.length == 1) {
-      buyerPubkey = candidates.single;
-    }
-  }
-
-  final missingRoles = <String>[
-    if (sellerPubkey == null || sellerPubkey.isEmpty) 'seller',
-    if (buyerPubkey == null || buyerPubkey.isEmpty) 'buyer',
-    if (escrowPubkey == null || escrowPubkey.isEmpty) 'escrow',
-  ];
-  if (missingRoles.isNotEmpty) {
+  } on StateError catch (error) {
     throw HostrCliException(
-      'trade_participants_not_found',
-      'Cannot message escrow until the tradeId resolves to seller, buyer, and escrow participants.',
-      details: {'tradeId': normalizedTradeId, 'missingRoles': missingRoles},
+      tradeId.trim().isEmpty
+          ? 'trade_id_required'
+          : 'escrow_thread_resolution_failed',
+      error.message,
+      details: {'tradeId': tradeId, 'activePubkey': activePubkey},
     );
   }
-
-  final rolePubkeys = <String, String>{
-    'seller': sellerPubkey!,
-    'buyer': buyerPubkey!,
-    'escrow': escrowPubkey!,
-  };
-  final participantPubkeys = rolePubkeys.values.toSet();
-  if (!participantPubkeys.contains(activePubkey)) {
-    throw HostrCliException(
-      'active_user_not_trade_participant',
-      'Cannot message escrow for a trade unless the authenticated user is the buyer, seller, or escrow participant.',
-      details: {
-        'tradeId': normalizedTradeId,
-        'activePubkey': activePubkey,
-        'roles': rolePubkeys,
-      },
-    );
-  }
-
-  final thread = hostr.messaging.threads.ensureTradeConversation(
-    tradeId: normalizedTradeId,
-    participants: participantPubkeys,
-  );
-  thread.configureConversation(
-    conversationTag: normalizedTradeId,
-    participants: participantPubkeys,
-  );
-
-  return _EscrowTradeThreadPlan(
-    thread: thread,
-    participantPubkeys: participantPubkeys.toList()..sort(),
-    recipientPubkeys:
-        participantPubkeys.where((pubkey) => pubkey != activePubkey).toList()
-          ..sort(),
-    rolePubkeys: rolePubkeys,
-  );
-}
-
-Future<ResolvedValidatedReservationGroupParticipants?>
-_resolvedReservationGroupForTradeId(
-  Hostr hostr,
-  String tradeId, {
-  Duration timeout = const Duration(seconds: 12),
-}) async {
-  final snapshots = await Future.wait([
-    _resolvedReservationGroupSnapshot(
-      hostr.userSubscriptions.myResolvedTripsList$,
-      timeout: timeout,
-    ),
-    _resolvedReservationGroupSnapshot(
-      hostr.userSubscriptions.myResolvedHostingsList$,
-      timeout: timeout,
-    ),
-  ]);
-  final matches = snapshots
-      .expand((items) => items)
-      .where((item) => item.group.tradeId == tradeId)
-      .toList();
-  if (matches.isEmpty) return null;
-  final valid = matches.where((item) => item.validation is Valid).toList();
-  return valid.isNotEmpty ? valid.last : matches.last;
 }
 
 List<String> _threadRecipients(Thread thread, String activePubkey) {

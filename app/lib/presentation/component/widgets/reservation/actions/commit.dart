@@ -2,7 +2,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
-import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/router.dart';
@@ -105,31 +104,17 @@ class CommitMenu extends StatelessWidget {
             case TradeAction.messageEscrow:
               final escrowPubkey = trade.getEscrowPubkey();
               if (escrowPubkey == null) return null;
-              // Skip if escrow is already participating in this conversation.
-              final currentThread = context.read<Thread>();
-              if (currentThread.state.value.participantPubkeys.contains(
-                escrowPubkey,
-              )) {
-                return null;
-              }
               return (
                 label: 'Message Escrow',
                 icon: Icons.support_agent_outlined,
-                onTap: () {
-                  final myPubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
-                  final nextThread = getIt<Hostr>().messaging.threads
-                      .ensureTradeConversation(
-                        tradeId: trade.tradeId,
-                        participants: {
-                          myPubkey,
-                          ...currentThread.state.value.participantPubkeys,
-                          ...currentThread.addedParticipants,
-                          escrowPubkey,
-                        },
-                      );
+                onTap: () async {
+                  final plan = await trade.resolveEscrowThread(
+                    tradeThread: context.read<Thread>(),
+                  );
+                  if (!context.mounted) return;
                   AutoRouter.of(
                     context,
-                  ).push(ThreadRoute(anchor: nextThread.anchor));
+                  ).push(ThreadRoute(anchor: plan.thread.anchor));
                 },
               );
             case TradeAction.refund:

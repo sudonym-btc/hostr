@@ -12,6 +12,7 @@ import '../auth/auth.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../identity_claims/identity_claims.dart';
 import '../listings/listings.dart';
+import '../messaging/escrow_trade_thread_resolver.dart';
 import '../messaging/thread/state.dart';
 import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
@@ -683,6 +684,24 @@ class Trade extends Cubit<TradeState> {
         .findTradeAccountIndexByTradeId(tradeId);
     return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
   });
+
+  Future<EscrowTradeThreadPlan> resolveEscrowThread({
+    Thread? tradeThread,
+    Duration timeout = const Duration(seconds: 12),
+  }) {
+    return EscrowTradeThreadResolver(
+      auth: _auth,
+      reservations: _reservations,
+      userSubscriptions: _userSubscriptions,
+      threads: _threads,
+      tradeAccountAllocator: _tradeAccountAllocator,
+      logger: _logger,
+    ).resolve(
+      tradeId: tradeId,
+      tradeThread: tradeThread ?? thread,
+      timeout: timeout,
+    );
+  }
 
   String _resolveNegotiationPubkey(List<Reservation> reservationRequests) {
     if (role == TradeRole.host) {
