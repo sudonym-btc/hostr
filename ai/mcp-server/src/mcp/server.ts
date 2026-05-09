@@ -1082,13 +1082,14 @@ const sessionConnectDisplayData = (
     return undefined;
   }
   const nostrconnect = stringValue(data.nostrconnect);
+  const qrImage = stringValue(data.qrImage);
   const remoteQrUrl = nostrconnect ? qrImageUrl(config, nostrconnect) : null;
   const asset = nostrconnect
-    ? storeQrTextAsset(remoteQrUrl ? null : stringValue(data.qrImage), nostrconnect)
+    ? storeQrTextAsset(qrImage ?? null, nostrconnect)
     : null;
   const qrUrl =
-    remoteQrUrl ??
-    (asset?.qrUrlPath ? absoluteUrl(config, asset.qrUrlPath) : null);
+    (asset?.qrUrlPath ? absoluteUrl(config, asset.qrUrlPath) : null) ??
+    remoteQrUrl;
   const textUrl = asset?.textUrlPath
     ? absoluteUrl(config, asset.textUrlPath)
     : null;
@@ -3083,11 +3084,11 @@ const formatToolContent = (
     const qrImage = stringValue(data.qrImage);
     const remoteQrUrl = nostrconnect ? qrImageUrl(config, nostrconnect) : null;
     const asset = nostrconnect
-      ? storeQrTextAsset(remoteQrUrl ? null : qrImage, nostrconnect)
+      ? storeQrTextAsset(qrImage ?? null, nostrconnect)
       : null;
     const qrUrl =
-      remoteQrUrl ??
-      (asset?.qrUrlPath ? absoluteUrl(config, asset.qrUrlPath) : null);
+      (asset?.qrUrlPath ? absoluteUrl(config, asset.qrUrlPath) : null) ??
+      remoteQrUrl;
     const textUrl = asset?.textUrlPath
       ? absoluteUrl(config, asset.textUrlPath)
       : null;

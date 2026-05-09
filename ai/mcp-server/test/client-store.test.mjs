@@ -372,6 +372,49 @@ test("card widgets stay visually empty until tool output is injected", () => {
   }
 });
 
+test("session connect QR markdown uses short hosted asset URL", async () => {
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+      qrImageUrlTemplate:
+        "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={data}",
+    },
+    "hostr.session.connect",
+    {
+      ok: true,
+      command: "hostr.session.connect",
+      environment: "staging",
+      dryRun: false,
+      data: {
+        pending: true,
+        nostrconnect:
+          "nostrconnect://0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef?relay=wss%3A%2F%2Frelay.hostr.network&secret=test",
+        qrImage:
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+      },
+    },
+    false,
+  );
+
+  assert.match(
+    response.structuredContent.displayMarkdown,
+    /!\[Nostr Connect QR\]\(https:\/\/ai\.staging\.hostr\.network\/assets\/payment-qr\/[0-9a-f-]{36}\.png\)/,
+  );
+  assert.doesNotMatch(
+    response.structuredContent.displayMarkdown,
+    /api\.qrserver\.com/,
+  );
+  assert.match(
+    response.structuredContent.display.qrImageUrl,
+    /^https:\/\/ai\.staging\.hostr\.network\/assets\/payment-qr\/[0-9a-f-]{36}\.png$/,
+  );
+  assert.equal(
+    response.content.some((part) => part.type === "image" && part.mimeType === "image/png"),
+    true,
+  );
+});
+
 test("payment responses include a result-bound payment widget", async () => {
   const response = await __testing.toolResponse(
     {
