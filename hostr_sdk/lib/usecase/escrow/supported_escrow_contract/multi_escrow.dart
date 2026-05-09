@@ -293,6 +293,18 @@ class MultiEscrowWrapper extends SupportedEscrowContract<MultiEscrow> {
     ensureDeployed: ensureDeployed,
   );
 
+  @override
+  Future<EscrowFundedEvent?> fundedEventFromTransaction({
+    required String tradeId,
+    required String txHash,
+    EscrowServiceSelected? selectedEscrow,
+  }) => _eventScanner.fundedEventFromTransaction(
+    tradeId: tradeId,
+    txHash: txHash,
+    selectedEscrow: selectedEscrow,
+    ensureDeployed: ensureDeployed,
+  );
+
   Trades? _extractTrade(dynamic trade) => logger.spanSync('_extractTrade', () {
     if (trade is Trades) {
       return trade;

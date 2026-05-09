@@ -127,6 +127,49 @@ class EscrowEventScanner {
     });
   }
 
+  Future<EscrowFundedEvent?> fundedEventFromTransaction({
+    required String tradeId,
+    required String txHash,
+    required Future<void> Function() ensureDeployed,
+    EscrowServiceSelected? selectedEscrow,
+  }) async {
+    await ensureDeployed();
+
+    final receipt =
+        await chain?.getTransactionReceipt(txHash) ??
+        await contract.client.getTransactionReceipt(txHash);
+    if (receipt == null) {
+      logger.w('No transaction receipt found for escrow proof tx=$txHash');
+      return null;
+    }
+    if (receipt.status == false) {
+      throw StateError('Escrow funding transaction $txHash failed');
+    }
+
+    final eventTopics = _eventNamesByTopic();
+    final tradeTopic = _tradeIdTopic(tradeId).toLowerCase();
+    final contractAddress = contract.self.address.eip55With0x.toLowerCase();
+
+    for (final log in receipt.logs) {
+      final topics = log.topics;
+      if (topics == null || topics.length < 2 || log.transactionHash == null) {
+        continue;
+      }
+      if (log.address?.eip55With0x.toLowerCase() != contractAddress) continue;
+      if (eventTopics[topics.first?.toLowerCase()] != 'TradeCreated') continue;
+      if (topics[1]?.toLowerCase() != tradeTopic) continue;
+
+      final event = await _mapAndCacheEscrowEvent(
+        log,
+        eventTopics,
+        selectedEscrow,
+      );
+      if (event is EscrowFundedEvent) return event;
+    }
+
+    return null;
+  }
+
   // ── Live polling ──────────────────────────────────────────────────
 
   Stream<EscrowEvent> _liveEvents(
@@ -382,7 +425,7 @@ class EscrowEventScanner {
   // ── Filter building ───────────────────────────────────────────────
 
   Map<String, String> _eventNamesByTopic() => {
-    for (final name in _eventNames) _eventTopic(name): name,
+    for (final name in _eventNames) _eventTopic(name).toLowerCase(): name,
   };
 
   FilterOptions _buildEventFilter(
@@ -485,7 +528,7 @@ class EscrowEventScanner {
     final transactionIndex = _transactionIndexForLog(log);
     final logIndex = _logIndexForLog(log);
 
-    switch (eventNamesByTopic[log.topics?.first]) {
+    switch (eventNamesByTopic[log.topics?.first?.toLowerCase()]) {
       case 'TradeCreated':
         final tradeCreated = TradeCreated(
           _decodeEvent('TradeCreated', log),

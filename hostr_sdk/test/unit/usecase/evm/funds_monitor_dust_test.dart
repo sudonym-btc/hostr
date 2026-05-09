@@ -302,7 +302,7 @@ class _FakeEvmChain extends Fake implements EvmChain {
   final EvmChainConfig config = const EvmChainConfig(
     id: 'arbitrum-regtest',
     chainId: 412346,
-    rpcUrl: 'http://localhost:8545',
+    rpcUrls: ['http://localhost:8545'],
     nativeDenomination: 'ETH',
   );
 

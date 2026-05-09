@@ -235,6 +235,9 @@ class ReservationGroups {
     if (buyer == null) {
       return Valid(baseGroup.copyWith(confirmedCommitted: confirmedCommitted));
     }
+    if (confirmedCommitted && !forceValidateSelfSigned) {
+      return Valid(baseGroup.copyWith(confirmedCommitted: confirmedCommitted));
+    }
 
     // Only check on-chain when:
     // a) escrowVerification is available, AND

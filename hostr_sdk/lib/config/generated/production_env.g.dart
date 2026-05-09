@@ -40,7 +40,10 @@ const evmConfig = EvmConfig(
     EvmChainConfig(
       id: 'arbitrum',
       chainId: 42161,
-      rpcUrl: 'https://arb1.arbitrum.io/rpc',
+      rpcUrls: [
+        'https://arbitrum.gateway.tenderly.co',
+        'https://arb1.arbitrum.io/rpc',
+      ],
       blockExplorerUrl: 'https://arbiscan.io',
       nativeDenomination: 'ETH',
       boltzCurrency: 'ARB',

@@ -183,7 +183,7 @@ EvmChain _chain(http.Client httpClient) {
     config: const EvmChainConfig(
       id: 'test-chain',
       chainId: 31,
-      rpcUrl: 'http://localhost:8545',
+      rpcUrls: ['http://localhost:8545'],
       nativeDenomination: 'BTC',
     ),
     auth: _FakeAuth(),
@@ -297,7 +297,7 @@ class _FakeLiveEvmChain extends Fake implements EvmChain {
   EvmChainConfig get config => const EvmChainConfig(
     id: 'test-chain',
     chainId: 31,
-    rpcUrl: 'http://localhost:8545',
+    rpcUrls: ['http://localhost:8545'],
     nativeDenomination: 'BTC',
   );
 
