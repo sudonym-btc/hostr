@@ -92,8 +92,14 @@ jobs:
               ;;
           esac
 
+          echo "Compose VM network:"
+          gcloud compute instances describe "$VM_NAME" \
+            --project "$PROJECT_ID" \
+            --zone "$ZONE" \
+            --format "table(name,status,networkInterfaces[0].networkIP,networkInterfaces[0].accessConfigs[0].natIP)"
+
           gcloud compute ssh "$VM_NAME" \
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
             --quiet \
-            --command 'cd /opt/hostr && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml logs --since 45m --tail 8000 mcp nginx-proxy 2>&1 | grep -E "oauth|nostr_connect|Nostr Connect|startOAuthNostrConnect|completeOAuthNostrConnect|signinWithNostrConnect|/oauth/authorize|/oauth/nostr-connect/complete|daemon\\.(request|response|timeout|exit)|hostr-daemon stderr|ai\\.hostr\\.network|ai\\.staging\\.hostr\\.network" || true'
+            --command 'cd /opt/hostr && echo "Compose services:" && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml ps && echo "Filtered logs:" && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml logs --since "${{ inputs.freshness }}" --tail 12000 mcp nginx-proxy 2>&1 | grep -E "oauth|nostr_connect|Nostr Connect|startOAuthNostrConnect|completeOAuthNostrConnect|signinWithNostrConnect|/oauth/authorize|/oauth/nostr-connect/complete|daemon\\.(request|response|timeout|exit)|http\\.request|hostr-daemon stderr|ai\\.hostr\\.network|ai\\.staging\\.hostr\\.network" || true'
