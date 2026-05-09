@@ -1,0 +1,56 @@
+name: Compose Redeploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: Hosted environment to redeploy
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  redeploy:
+    name: Reset compose VM
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_env }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Reset compose VM to pull latest images
+        run: |
+          case "${{ inputs.target_env }}" in
+            staging)
+              PROJECT_ID="hostr-staging-d4c52998"
+              VM_NAME="hostr-staging-compose"
+              ZONE="us-central1-b"
+              ;;
+            production)
+              PROJECT_ID="hostr-production-d3ba05b4"
+              VM_NAME="hostr-production-compose"
+              ZONE="us-central1-b"
+              ;;
+            *)
+              echo "Unsupported environment: ${{ inputs.target_env }}" >&2
+              exit 64
+              ;;
+          esac
+
+          gcloud compute instances reset "$VM_NAME" \
+            --project "$PROJECT_ID" \
+            --zone "$ZONE" \
+            --quiet
