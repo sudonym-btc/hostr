@@ -620,6 +620,39 @@ void main() {
     );
 
     test(
+      'adds configured public bootstrap relays only to legacy notices',
+      () async {
+        harness = _Harness();
+        harness.daemon.setLegacyDmBootstrapRelays([
+          'wss://relay.primal.net',
+          'wss://bootstrap.test',
+        ]);
+        final buyer = _buyerReservation(tradeId: 'trade-legacy-relays');
+        harness.reservations.seed([buyer]);
+
+        harness.daemon.startReservationListenerForTesting();
+        harness.reservations.source.add(buyer);
+
+        await _waitUntil(
+          () => _noticesOf(harness, 'reservation_placed').length == 2,
+          reason: 'daemon did not send reservation placed notices',
+        );
+
+        final legacyCalls = harness.requests.broadcastCalls
+            .where((call) => call.event.kind == kNostrKindLegacyDM)
+            .toList();
+        expect(legacyCalls, hasLength(2));
+        for (final call in legacyCalls) {
+          final recipient = _recipientPubkey(call);
+          expect(call.relays, [
+            ...harness.messaging.recipientRelays[recipient]!,
+            'wss://relay.primal.net',
+          ]);
+        }
+      },
+    );
+
+    test(
       'includes years in reservation notices outside the current year',
       () async {
         harness = _Harness(clock: () => DateTime.utc(2026, 5, 1));

@@ -443,6 +443,7 @@ class EscrowDaemon {
   final Map<String, ReservationGroup> _reservationGroups = {};
   final Map<String, Timer> _reservationRetryTimers = {};
   PublishSubject<String>? _reservationRetryTradeIds;
+  List<String> _legacyDmBootstrapRelays = const [];
 
   // ── Subscriptions ───────────────────────────────────────────────────────
   StreamSubscription? _eventSub;
@@ -508,6 +509,15 @@ class EscrowDaemon {
     );
   }
 
+  void setLegacyDmBootstrapRelays(List<String> relays) {
+    _legacyDmBootstrapRelays = [
+      ...{
+        for (final relay in relays)
+          if (relay.trim().isNotEmpty) relay.trim(),
+      },
+    ];
+  }
+
   Future<void> _sendLegacyDm({
     required String content,
     required List<List<String>> tags,
@@ -523,6 +533,13 @@ class EscrowDaemon {
       throw StateError('Failed to encrypt legacy DM for $recipientPubkey');
     }
 
+    final relays = [
+      ...{
+        ...await _messaging.recipientMessageRelays(recipientPubkey),
+        ..._legacyDmBootstrapRelays,
+      },
+    ];
+
     await _requests.broadcastEvent(
       event: Nip01Event(
         pubKey: keyPair.publicKey,
@@ -534,7 +551,7 @@ class EscrowDaemon {
         content: encrypted,
         createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ),
-      relays: await _messaging.recipientMessageRelays(recipientPubkey),
+      relays: relays,
     );
   }
 
