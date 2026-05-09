@@ -608,35 +608,6 @@ class HostrUpdatesInput {
   }
 }
 
-class HostrReplyInput {
-  const HostrReplyInput({
-    required this.content,
-    required this.recipientPubkeys,
-    this.conversation,
-    this.dryRun = true,
-  });
-
-  final String content;
-  final List<String> recipientPubkeys;
-  final String? conversation;
-  final bool dryRun;
-
-  factory HostrReplyInput.fromJson(Map<String, dynamic> json) {
-    final recipients = _optionalStringList(
-      json['recipientPubkeys'] ?? json['recipientPubkey'],
-    );
-    if (recipients.isEmpty) {
-      throw const FormatException('Missing required recipientPubkeys.');
-    }
-    return HostrReplyInput(
-      content: _requiredString(json, 'content'),
-      recipientPubkeys: recipients,
-      conversation: _optionalString(json['conversation'] ?? json['tradeId']),
-      dryRun: _optionalBool(json['dryRun']) ?? true,
-    );
-  }
-}
-
 class HostrThreadViewInput {
   const HostrThreadViewInput({
     this.threadAnchor,
@@ -1186,7 +1157,7 @@ class HostrActionSpec {
   }
 
   String get _commonDrivingNotes =>
-      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Do not use general web search for these live Hostr/Nostr workflows unless the user explicitly asks for public web documentation. The MCP access token selects the authenticated Hostr pubkey/session; do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action. Call the intended Hostr tool first; if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
+      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Do not use general web search for these live Hostr/Nostr workflows unless the user explicitly asks for public web documentation. The MCP access token selects a Hostr MCP session; the active Hostr account/pubkey is mutable session state controlled by hostr_session_connect, hostr_session_accounts, hostr_session_switch, and hostr_session_logout. Do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action. Call the intended Hostr tool first; if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
 
   String get _readOnlyNotes =>
       'Read-only behavior: this tool retrieves or analyzes Hostr state and is safe to call when the user asks to inspect, search, explain, debug, or choose the next action. Prefer read tools before write tools when the user intent is ambiguous or when you need concrete listing, trade, thread, or profile ids.';
@@ -1208,7 +1179,7 @@ class HostrActionSpec {
       case 'hostr.session.status':
         return 'Use when the user asks whether they are logged in, when debugging auth, or after a Hostr action returns an auth/profile/signature error. Do not call this as a routine preflight before every write; failed tools return structured recovery instructions.';
       case 'hostr.session.connect':
-        return 'Two-step login flow: call with wait=false to create or reuse a Nostr Connect request, display the nostrconnect URI or QR image to the user, then immediately call this tool again with wait=true and regenerate=false to listen for approval. After authenticated=true, retry or continue the Hostr action that required sign-in.';
+        return 'Two-step login flow: call with wait=false to create or reuse a Nostr Connect request, display the nostrconnect URI or QR image to the user, then immediately call this tool again with wait=true and regenerate=false to listen for approval. After authenticated=true, this account becomes the active Hostr account for the MCP session; retry or continue the Hostr action that required sign-in.';
       case 'hostr.listings.search':
         return 'Use for marketplace discovery from natural language lodging intents such as finding a place to stay, lodging, accommodation, room, apartment, house, villa, hotel-like stay, or rental in a destination. Put city/country/place names in location; put keyword filters in query; use guests/features/type only when the user provides them. Results return listing-card Markdown and structured cards; preserve every image tag when presenting results.';
       case 'hostr.listings.list':
@@ -1237,8 +1208,6 @@ class HostrActionSpec {
         return 'Use to cancel a private negotiation or committed reservation for a concrete trade. If tradeId is unclear, inspect updates, trips, bookings, or thread view first. Preview the cancellation and send with dryRun=false only after explicit approval.';
       case 'hostr.updates':
         return 'Use as the inbox/home-state tool when the user asks for messages, offers, notifications, latest activity, what needs attention, or when you need trade/thread ids for negotiation or messaging. It processes gift-wrapped events and returns thread cards; present displayMarkdown, not raw event JSON.';
-      case 'hostr.reply':
-        return 'Legacy/general threaded reply tool. Prefer hostr_thread_message for user-facing conversation work because it returns a fixed thread-view contract. Use this when you already have the exact conversation/trade recipient context and need a simple gift-wrapped reply.';
       case 'hostr.thread.view':
         return 'Use when the user asks to see a conversation, asks whether someone messaged them, references a trip/booking thread, or you need message history before replying. Prefer tradeId when the conversation is tied to a reservation; otherwise pass a known thread/conversation anchor from updates.';
       case 'hostr.thread.message':
@@ -1246,7 +1215,7 @@ class HostrActionSpec {
       case 'hostr.escrow.involve':
         return 'Use when the user explicitly asks to involve/message escrow for a specific reservation trade. Always pass tradeId. This opens the shared buyer/seller/escrow trade thread; never create an escrow-only side conversation. If no message content is provided, show the thread and ask what to send.';
       case 'hostr.profile.show':
-        return 'Use when the user asks who they are on Hostr, wants their current profile, or before profile/listing publishing when you need existing metadata. This reads the profile for the MCP token pubkey.';
+        return 'Use when the user asks who they are on Hostr, wants their current profile, or before profile/listing publishing when you need existing metadata. This reads the profile for the active Hostr account.';
       case 'hostr.profile.lookup':
         return 'Use when the user asks to view a specific public Nostr/Hostr profile by npub, including a host, guest, seller, buyer, or arbitrary profile that is not the authenticated MCP user. This tool is public and does not require sign-in.';
       case 'hostr.profile.edit':
@@ -1256,12 +1225,11 @@ class HostrActionSpec {
       case 'hostr.bookings.list':
         return 'Use for host-side reservations on listings authored by the authenticated user: "my bookings", "who booked my place", "hosting reservations", or host calendar context. Do not perform fresh reservation-by-author Nostr queries for this view.';
       case 'hostr.escrow.methods':
-        return 'Use before payment or when explaining how money is protected. It shows mutually compatible escrow methods/services between buyer and seller. If buyer is omitted, the authenticated token pubkey is used. Explain that Hostr swaps payment over Lightning into smart-contract escrow; the escrow service can only settle by forwarding or reversing according to trade outcome, not freely take custody.';
+        return 'Use before payment or when explaining how money is protected. It shows mutually compatible escrow methods/services between buyer and seller. If buyer is omitted, the active Hostr account pubkey is used. Explain that Hostr swaps payment over Lightning into smart-contract escrow; the escrow service can only settle by forwarding or reversing according to trade outcome, not freely take custody.';
       case 'hostr.escrow.service.list':
         return 'Escrow-operator inventory view: list public escrow service events published by the authenticated escrow pubkey. Use before editing/deleting when the user has not selected a specific service event.';
       case 'hostr.escrow.service.get':
         return 'Escrow-operator detail view: inspect one escrow service event before explaining or editing settings. Use serviceId from hostr_escrow_service_list or user input.';
-      case 'hostr.escrow.service.update':
       case 'hostr.escrow.service.edit':
         return 'Escrow-operator settings workflow: preview changes to fee percent, maximum duration, or token fee hints. Keep dryRun=true until the user approves the exact preview. Use hostr_profile_edit for public profile/identity metadata; this tool only changes escrow service parameters.';
       case 'hostr.escrow.service.delete':
@@ -1394,8 +1362,7 @@ class HostrActionCatalog {
   static const sessionStatus = HostrActionSpec(
     id: 'hostr.session.status',
     title: 'Hostr Session Status',
-    description:
-        'Inspect the authenticated Hostr session selected by the MCP access token pubkey.',
+    description: 'Inspect the active Hostr account for this MCP session.',
     inputTypeName: 'HostrSessionStatusInput',
     readOnly: true,
     inputSchema: {
@@ -1422,7 +1389,7 @@ export interface HostrSessionStatusInput {
     id: 'hostr.session.connect',
     title: 'Start Hostr Session',
     description:
-        'Create or complete an active Nostr Connect request for the MCP access token pubkey. When wait is false, show the returned QR/URI with the text "Scan this with your Nostr app to log in to your Hostr account", then immediately call this tool again with wait true to listen for the session connection and continue the intended Hostr action.',
+        'Create or complete a Nostr Connect request for this MCP session. When approved, the connected pubkey becomes the active Hostr account. When wait is false, show the returned QR/URI with the text "Scan this with your Nostr app to log in to your Hostr account", then immediately call this tool again with wait true to listen for the session connection and continue the intended Hostr action.',
     inputTypeName: 'HostrSessionConnectInput',
     readOnly: false,
     inputSchema: {
@@ -1568,7 +1535,7 @@ export interface HostrListingsListInput {
     id: 'hostr.listings.create',
     title: 'Create Hostr Listing',
     description:
-        'Create a Hostr listing for the authenticated token pubkey session. Listing images must be passed as images[].url. For user-uploaded files, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.image.url as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the logged-in session Blossom upload path before falling back to direct upload. Do not base64-encode user-uploaded images into this MCP tool call, do not serve temporary localhost URLs, and do not pass /mnt/data or file:// paths to images[].url. Set dryRun false only after explicit user approval to publish the listing event, and reuse the dryRun preview dTag so retries update the same replaceable listing.',
+        'Create a Hostr listing for the active Hostr account. Listing images must be passed as images[].url. For user-uploaded files, first call hostr_images_upload with the original image sent as the MCP file-typed argument named file so the client bridge can rewrite or stream the bytes, then pass structuredContent.usage.image.url as images[].url. If the client cannot call hostr_images_upload but can make raw HTTP requests, POST the original image bytes to /mcp/uploads/images on the same Hostr MCP origin using multipart/form-data field name file, then pass the returned upload.url as images[].url. The upload tool and endpoint do not require authorization, but when a valid MCP bearer token is present Hostr first tries the active account Blossom upload path before falling back to direct upload. Do not base64-encode user-uploaded images into this MCP tool call, do not serve temporary localhost URLs, and do not pass /mnt/data or file:// paths to images[].url. Set dryRun false only after explicit user approval to publish the listing event, and reuse the dryRun preview dTag so retries update the same replaceable listing.',
     inputTypeName: 'HostrListingsCreateInput',
     readOnly: false,
     inputSchema: {
@@ -2223,41 +2190,6 @@ export interface HostrUpdatesInput {
 ''',
   );
 
-  static const reply = HostrActionSpec(
-    id: 'hostr.reply',
-    title: 'Reply To Hostr Thread',
-    description:
-        'Preview or send a gift-wrapped text reply. Include conversation/tradeId to keep replies threaded.',
-    inputTypeName: 'HostrReplyInput',
-    readOnly: false,
-    inputSchema: {
-      'type': 'object',
-      'additionalProperties': false,
-      'required': ['content'],
-      'properties': {
-        'content': {'type': 'string'},
-        'recipientPubkeys': {
-          'type': 'array',
-          'items': {'type': 'string'},
-        },
-        'recipientPubkey': {'type': 'string'},
-        'conversation': {'type': 'string'},
-        'tradeId': {'type': 'string'},
-        'dryRun': {'type': 'boolean', 'default': true},
-      },
-    },
-    typescriptInput: '''
-export interface HostrReplyInput {
-  content: string;
-  recipientPubkeys?: string[];
-  recipientPubkey?: string;
-  conversation?: string;
-  tradeId?: string;
-  dryRun?: boolean;
-}
-''',
-  );
-
   static const threadView = HostrActionSpec(
     id: 'hostr.thread.view',
     title: 'View Hostr Thread',
@@ -2396,8 +2328,7 @@ export interface HostrEscrowInvolveInput {
   static const profileShow = HostrActionSpec(
     id: 'hostr.profile.show',
     title: 'Show Hostr Profile',
-    description:
-        'Show profile metadata for the authenticated MCP token pubkey session.',
+    description: 'Show profile metadata for the active Hostr account.',
     inputTypeName: 'HostrEmptyInput',
     readOnly: true,
     inputSchema: {
@@ -2564,7 +2495,7 @@ export interface HostrReservationCollectionInput {
     id: 'hostr.escrow.methods',
     title: 'Show Hostr Escrow Methods',
     description:
-        'Show mutual escrow methods and compatible services for a seller. If buyer is omitted, the authenticated token pubkey is used.',
+        'Show mutual escrow methods and compatible services for a seller. If buyer is omitted, the active Hostr account pubkey is used.',
     inputTypeName: 'HostrEscrowMethodsInput',
     readOnly: true,
     inputSchema: {
@@ -2580,7 +2511,7 @@ export interface HostrReservationCollectionInput {
         'buyer': {
           'type': 'string',
           'description':
-              'Buyer pubkey. Defaults to the authenticated token pubkey.',
+              'Buyer pubkey. Defaults to the active Hostr account pubkey.',
         },
       },
     },
@@ -2588,7 +2519,7 @@ export interface HostrReservationCollectionInput {
 export interface HostrEscrowMethodsInput {
   /** Seller/host pubkey to inspect escrow compatibility for. */
   user: string;
-  /** Buyer pubkey. Defaults to the authenticated token pubkey. */
+  /** Buyer pubkey. Defaults to the active Hostr account pubkey. */
   buyer?: string;
 }
 ''',
@@ -2598,7 +2529,7 @@ export interface HostrEscrowMethodsInput {
     id: 'hostr.escrow.trades.list',
     title: 'List Escrow Trades',
     description:
-        'Escrow-only tool. List on-chain Hostr trades where the authenticated pubkey is a configured escrow. Hidden unless the MCP token pubkey is in the daemon escrow pubkey allowlist.',
+        'Escrow-only tool. List on-chain Hostr trades where the active Hostr account is a configured escrow. Hidden unless the active account pubkey is in the daemon escrow pubkey allowlist.',
     inputTypeName: 'HostrEscrowTradesListInput',
     readOnly: true,
     requiredRole: 'escrow',
@@ -2706,92 +2637,11 @@ export interface HostrEscrowServiceGetInput {
 ''',
   );
 
-  static const escrowServiceUpdate = HostrActionSpec(
-    id: 'hostr.escrow.service.update',
-    title: 'Update Escrow Service Settings',
-    description:
-        'Escrow-only tool. Preview or publish the authenticated escrow service parameters: fee percent, maximum trade duration, and per-token fee hints. Hidden unless the MCP token pubkey is in the daemon escrow pubkey allowlist. Use hostr.profile.edit for the escrow user profile; this tool only changes the public escrow service event.',
-    inputTypeName: 'HostrEscrowServiceUpdateInput',
-    readOnly: false,
-    requiredRole: 'escrow',
-    inputSchema: {
-      'type': 'object',
-      'additionalProperties': false,
-      'properties': {
-        'serviceId': {
-          'type': 'string',
-          'description':
-              'Optional escrow service event id to edit. Omit to edit the daemon bootstrap service.',
-        },
-        'feePercent': {
-          'type': 'number',
-          'minimum': 0,
-          'maximum': 100,
-          'description':
-              'Proportional escrow fee as a percent, e.g. 1.5 for 1.5%.',
-        },
-        'maxDurationSeconds': {
-          'type': 'integer',
-          'minimum': 1,
-          'maximum': 315360000,
-          'description':
-              'Maximum supported escrow duration in seconds. Omit to preserve the current value.',
-        },
-        'tokenFeeHints': {
-          'type': 'object',
-          'description':
-              'Optional full replacement map keyed by token address, or "native". Values are smallest-unit fee hints.',
-          'additionalProperties': {
-            'type': 'object',
-            'additionalProperties': false,
-            'properties': {
-              'baseFee': {'type': 'integer', 'minimum': 0},
-              'maxFee': {'type': 'integer', 'minimum': 0},
-              'minFee': {'type': 'integer', 'minimum': 0},
-            },
-          },
-        },
-        'clearTokenFeeHints': {
-          'type': 'boolean',
-          'default': false,
-          'description':
-              'Clear all per-token fee hints. Ignored if tokenFeeHints is provided.',
-        },
-        'dryRun': {'type': 'boolean', 'default': true},
-      },
-    },
-    typescriptInput: '''
-export interface HostrTokenFeeHintsInput {
-  /** Flat base fee in token smallest units. */
-  baseFee?: number;
-  /** Maximum fee cap in token smallest units. Zero means no cap. */
-  maxFee?: number;
-  /** Minimum fee floor in token smallest units. Zero means no floor. */
-  minFee?: number;
-}
-
-export interface HostrEscrowServiceUpdateInput {
-  /** Optional escrow service event id to edit. Omit to edit the daemon bootstrap service. */
-  serviceId?: string;
-  /** Proportional escrow fee as a percent, e.g. 1.5 for 1.5%. */
-  feePercent?: number;
-  /** Maximum supported escrow duration in seconds. */
-  maxDurationSeconds?: number;
-  /** Full replacement map keyed by token address, or "native". */
-  tokenFeeHints?: Record<string, HostrTokenFeeHintsInput>;
-  /** Clear all per-token fee hints. Ignored if tokenFeeHints is provided. */
-  clearTokenFeeHints?: boolean;
-  /** Defaults to true. Set false only after explicit approval. */
-  dryRun?: boolean;
-}
-''',
-  );
-
   static const escrowServiceEdit = HostrActionSpec(
     id: 'hostr.escrow.service.edit',
     title: 'Edit Escrow Service Settings',
     description:
-        'Escrow-only tool. Alias of service update using the preferred user-facing wording. Preview or publish the authenticated escrow service parameters. Use hostr.profile.edit for the escrow user profile.',
+        'Escrow-only tool. Preview or publish the active escrow account service parameters. Use hostr.profile.edit for the escrow user profile.',
     inputTypeName: 'HostrEscrowServiceUpdateInput',
     readOnly: false,
     requiredRole: 'escrow',
@@ -3260,7 +3110,6 @@ export interface HostrSwapsRecoverAllInput {
     reservationsCommit,
     reservationsCancel,
     updates,
-    reply,
     threadView,
     threadMessage,
     escrowInvolve,
@@ -3272,7 +3121,6 @@ export interface HostrSwapsRecoverAllInput {
     escrowMethods,
     escrowServiceList,
     escrowServiceGet,
-    escrowServiceUpdate,
     escrowServiceEdit,
     escrowServiceDelete,
     escrowTradesList,
@@ -3307,7 +3155,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('# Hostr MCP action inputs')
       ..writeln()
       ..writeln(
-        'All Hostr MCP tools are backed by typed Dart daemon actions. The MCP access token selects the user pubkey; do not include pubkeys in tool inputs.',
+        'All Hostr MCP tools are backed by typed Dart daemon actions. The MCP access token selects a server-side MCP session; hostr_session_connect, hostr_session_accounts, hostr_session_switch, and hostr_session_logout manage the active Hostr account/pubkey for that session.',
       )
       ..writeln()
       ..writeln(
@@ -3367,7 +3215,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Messaging workflow')
       ..writeln()
       ..writeln(
-        'Call `hostr_updates`, choose the thread/trade recipient pubkeys, call `hostr_reply` with `dryRun: true`, then `dryRun: false` after approval.',
+        'Call `hostr_updates`, choose the thread/trade recipient pubkeys, call `hostr_thread_message` with `dryRun: true`, then `dryRun: false` after approval.',
       )
       ..writeln()
       ..writeln('### Swaps workflow')

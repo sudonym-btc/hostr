@@ -179,6 +179,54 @@ test("listing tool responses include result-level widget context without remount
   assert.deepEqual(response._meta.ui, {
     resourceUri: "ui://widget/listing-card.html",
   });
+  assert.deepEqual(response.structuredContent.data.listings[0].images, [
+    `https://blossom.staging.hostr.network/${hash}`,
+  ]);
+  assert.equal(
+    response.structuredContent.display.cards[0].primaryImageUrl,
+    `https://blossom.staging.hostr.network/${hash}`,
+  );
+});
+
+test("listing tool responses normalize raw object image fields for non-widget renderers", async () => {
+  const hash = "8d24fa683979cd913338f1945201382de81a4e5ead47537fde68808aaadf0908";
+  const result = {
+    ok: true,
+    data: {
+      listing: {
+        title: "Modern Apartment",
+        type: "room",
+        active: true,
+        images: [
+          { url: hash, alt: "Living room" },
+          { src: "https://cdn.example/photo.jpg", alt: "Kitchen" },
+        ],
+      },
+    },
+  };
+
+  const response = await __testing.toolResponse(
+    {
+      blossomUploadUrl: "https://blossom.hostr.network/upload",
+      publicAppBaseUrl: "https://hostr.network",
+    },
+    "hostr.listings.create",
+    result,
+    false,
+  );
+
+  assert.equal(
+    response.structuredContent.data.listing.images[0].url,
+    `https://blossom.hostr.network/${hash}`,
+  );
+  assert.equal(
+    response.structuredContent.data.listing.images[1].src,
+    "https://cdn.example/photo.jpg",
+  );
+  assert.match(
+    response.structuredContent.displayMarkdown,
+    /!\[Living room\]\(https:\/\/blossom\.hostr\.network\//,
+  );
 });
 
 test("payment widget stays empty until it can show the QR", () => {

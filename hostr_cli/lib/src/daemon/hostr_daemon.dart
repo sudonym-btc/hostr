@@ -346,13 +346,6 @@ class HostrDaemon {
             HostrUpdatesInput.fromJson(input),
           ),
         ),
-        'hostr.reply' => await () async {
-          final replyInput = HostrReplyInput.fromJson(input);
-          return (
-            dryRun: replyInput.dryRun,
-            data: await _reply(tokenPubkey, session, replyInput),
-          );
-        }(),
         'hostr.thread.view' => (
           dryRun: false,
           data: await _threadView(
@@ -435,13 +428,6 @@ class HostrDaemon {
             HostrEscrowServiceGetInput.fromJson(input),
           ),
         ),
-        'hostr.escrow.service.update' => await () async {
-          final updateInput = HostrEscrowServiceUpdateInput.fromJson(input);
-          return (
-            dryRun: updateInput.dryRun,
-            data: await _escrowServiceUpdate(tokenPubkey, session, updateInput),
-          );
-        }(),
         'hostr.escrow.service.edit' => await () async {
           final updateInput = HostrEscrowServiceUpdateInput.fromJson(input);
           return (
@@ -638,6 +624,27 @@ class HostrDaemon {
       'visibleActionIds': actions.map((spec) => spec.id).toList(),
       'actions': actions.map((spec) => spec.toJson()).toList(),
     };
+  }
+
+  Future<HostrCliResult> logoutSession({
+    required String pubkey,
+    String? traceId,
+  }) async {
+    return _guardAction('hostr.session.logout', () async {
+      final session = context.runtime.session(pubkey);
+      await session.ensureInitialized();
+      await session.auth.logout();
+      _pendingNostrConnect.remove(pubkey);
+      _pendingNostrConnectWaits.remove(pubkey);
+      return HostrCliResult(
+        ok: true,
+        command: 'hostr.session.logout',
+        environment: context.options.environment.name,
+        dryRun: false,
+        traceId: traceId,
+        data: {'pubkey': pubkey, 'signedOut': true},
+      );
+    }, traceId: traceId);
   }
 
   Future<HostrCliResult> uploadImage({
@@ -1158,20 +1165,31 @@ class HostrDaemon {
       rethrow;
     }
     final activePubkey = session.auth.activePubkey;
-    if (activePubkey != tokenPubkey) {
+    final bunkerConnection = session.auth.activeBunkerConnection;
+    if (activePubkey == null ||
+        activePubkey.isEmpty ||
+        bunkerConnection == null) {
       _pendingNostrConnect.remove(tokenPubkey);
       _pendingNostrConnectWaits.remove(tokenPubkey);
-      await session.auth.logout();
       throw HostrCliException(
-        'session_pubkey_mismatch',
-        'The approved Nostr Connect signer pubkey does not match the MCP access token pubkey.',
-        details: {'tokenPubkey': tokenPubkey, 'activePubkey': activePubkey},
+        'session_connect_failed',
+        'The approved Nostr Connect signer did not return a reusable session.',
       );
+    }
+
+    if (activePubkey != tokenPubkey) {
+      final accountSession = context.runtime.session(activePubkey);
+      await accountSession.ensureInitialized();
+      await accountSession.auth.signinWithBunkerConnection(bunkerConnection);
+      await session.auth.logout();
     }
 
     _pendingNostrConnect.remove(tokenPubkey);
     _pendingNostrConnectWaits.remove(tokenPubkey);
-    unawaited(_ensureAuthenticatedSessionHydrated(session));
+    final connectedSession = activePubkey == tokenPubkey
+        ? session
+        : context.runtime.session(activePubkey);
+    unawaited(_ensureAuthenticatedSessionHydrated(connectedSession));
     return {
       'authenticated': true,
       'pubkey': activePubkey,
@@ -1301,6 +1319,8 @@ class HostrDaemon {
     final materialized = await materializeListingImages(
       hostr: hostr,
       rawImages: listingInput['images'] as List<dynamic>,
+      // Listing previews must use the exact Blossom URLs that publish will use,
+      // so image materialization intentionally uploads even when input.dryRun is true.
       dryRun: false,
     );
     final h3Tags = await addressH3Tags(hostr, listingInput);
@@ -1376,7 +1396,10 @@ class HostrDaemon {
             rawImages: patch['images'] is List
                 ? patch['images'] as List<dynamic>
                 : [patch['images']],
-            dryRun: input.dryRun,
+            // Listing edit previews must use the exact Blossom URLs that
+            // publish will use, so image materialization intentionally uploads
+            // even when input.dryRun is true.
+            dryRun: false,
           )
         : null;
     final h3Tags = patch.containsKey('address')
@@ -2307,38 +2330,6 @@ class HostrDaemon {
       'profiles': profiles,
       'threads': threads
           .map((thread) => _threadJson(thread, profiles: profiles))
-          .toList(),
-    };
-  }
-
-  Future<Map<String, Object?>> _reply(
-    String tokenPubkey,
-    HostrSession session,
-    HostrReplyInput input,
-  ) async {
-    await _requireAuthenticatedPubkey(tokenPubkey, session, action: 'Reply');
-    final tags = <List<String>>[
-      if (input.conversation != null) [kConversationTag, input.conversation!],
-    ];
-    if (input.dryRun) {
-      return {
-        'dryRun': true,
-        'content': input.content,
-        'tags': tags,
-        'recipientPubkeys': input.recipientPubkeys,
-      };
-    }
-    final futures = await session.hostr.messaging.broadcastText(
-      content: input.content,
-      tags: tags,
-      recipientPubkeys: input.recipientPubkeys,
-    );
-    final nested = await Future.wait(futures);
-    return {
-      'dryRun': false,
-      'relayResponses': nested
-          .expand((responses) => responses)
-          .map(relayResponseJson)
           .toList(),
     };
   }

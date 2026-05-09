@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
 import { bearerToken } from "../auth/bearer.js";
 import { verifyAccessToken } from "../auth/jwt.js";
+import { McpSessionStore } from "../auth/session-store.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import { traceHeaders, traceIdFromRequest } from "../trace.js";
 
@@ -46,6 +47,30 @@ const stringValue = (value: unknown): string | undefined =>
 
 const numberValue = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+const uploadRateLimitWindowMs = 10 * 60 * 1000;
+const uploadRateLimitHits = new Map<string, number[]>();
+
+const uploadRateLimitExceeded = (
+  request: Request,
+  authenticated: boolean,
+): boolean => {
+  const now = Date.now();
+  const key = `${authenticated ? "auth" : "anon"}:${
+    request.ip ?? request.socket.remoteAddress ?? "unknown"
+  }`;
+  const hits = (uploadRateLimitHits.get(key) ?? []).filter(
+    (hit) => now - hit < uploadRateLimitWindowMs,
+  );
+  const maxHits = authenticated ? 120 : 30;
+  if (hits.length >= maxHits) {
+    uploadRateLimitHits.set(key, hits);
+    return true;
+  }
+  hits.push(now);
+  uploadRateLimitHits.set(key, hits);
+  return false;
+};
 
 const parseByteLimit = (value: string, fallback: number): number => {
   const match = /^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/i.exec(value.trim());
@@ -350,6 +375,28 @@ export const handleImageUpload =
       });
       return;
     }
+    let pubkey: string | undefined;
+    const token = bearerToken(request);
+    if (daemon && token) {
+      try {
+        const claims = await verifyAccessToken(config, token);
+        pubkey = new McpSessionStore(config.oauthClientStorePath).get(
+          claims.sessionId,
+        ).activePubkey;
+      } catch {
+        pubkey = undefined;
+      }
+    }
+    if (uploadRateLimitExceeded(request, Boolean(pubkey))) {
+      response.status(429).json({
+        ok: false,
+        traceId,
+        error: "rate_limited",
+        error_description: "Too many image uploads. Please try again later.",
+      });
+      return;
+    }
+
     const maxBytes = parseByteLimit(config.requestBodyLimit, 100 * 1024 * 1024);
     let upload: UploadedImage;
     try {
@@ -365,16 +412,6 @@ export const handleImageUpload =
         error instanceof Error ? error.message : "invalid_upload",
       );
       return;
-    }
-
-    let pubkey: string | undefined;
-    const token = bearerToken(request);
-    if (daemon && token) {
-      try {
-        pubkey = (await verifyAccessToken(config, token)).pubkey;
-      } catch {
-        pubkey = undefined;
-      }
     }
 
     let result: HostrImageUploadResult;
