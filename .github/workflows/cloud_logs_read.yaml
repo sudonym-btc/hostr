@@ -96,4 +96,4 @@ jobs:
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
             --quiet \
-            --command 'cd /opt/hostr && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml logs --since 45m --tail 3000 mcp 2>&1 | grep -E "oauth|nostr_connect|Nostr Connect|startOAuthNostrConnect|completeOAuthNostrConnect|signinWithNostrConnect|/oauth/authorize|/oauth/nostr-connect/complete|daemon\\.(request|response|timeout|exit)|hostr-daemon stderr" || true'
+            --command 'cd /opt/hostr && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml logs --since 45m --tail 8000 mcp nginx-proxy 2>&1 | grep -E "oauth|nostr_connect|Nostr Connect|startOAuthNostrConnect|completeOAuthNostrConnect|signinWithNostrConnect|/oauth/authorize|/oauth/nostr-connect/complete|daemon\\.(request|response|timeout|exit)|hostr-daemon stderr|ai\\.hostr\\.network|ai\\.staging\\.hostr\\.network" || true'
