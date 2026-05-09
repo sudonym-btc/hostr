@@ -1,0 +1,391 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import http from "node:http";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { jwtVerify } from "jose";
+import { signAccessToken, verifyAccessToken } from "../dist/auth/jwt.js";
+import { McpSessionStore } from "../dist/auth/session-store.js";
+import { createApp } from "../dist/http/app.js";
+
+const testConfig = (directory) => ({
+  issuer: "http://127.0.0.1:9999",
+  mcpResource: "http://127.0.0.1:9999/mcp",
+  publicAssetBaseUrl: "http://127.0.0.1:9999",
+  publicAppBaseUrl: "https://hostr.test",
+  environmentLabel: "development",
+  displayName: "Hostr Test",
+  port: 0,
+  requestBodyLimit: "1mb",
+  blossomUploadUrl: "https://blossom.hostr.network/upload",
+  oauthClientStorePath: path.join(directory, "oauth-clients.json"),
+  jwtSecret: new TextEncoder().encode("test-secret"),
+  accessTokenTtlSeconds: 3600,
+  hostrDaemon: {
+    command: "node",
+    args: [],
+    cwd: ".",
+    env: {},
+  },
+  hostrDaemonTimeoutMs: 1000,
+});
+
+const tempDirectory = () =>
+  fs.mkdtempSync(path.join(os.tmpdir(), "hostr-mcp-session-test-"));
+
+test("JWT access tokens bind to an MCP session id, not a pubkey", async () => {
+  const config = testConfig(tempDirectory());
+  const token = await signAccessToken(
+    config,
+    "session-id-1",
+    "hostr:read hostr:write",
+  );
+
+  const claims = await verifyAccessToken(config, token);
+  const { payload } = await jwtVerify(token, config.jwtSecret, {
+    issuer: config.issuer,
+    audience: config.mcpResource,
+  });
+
+  assert.equal(claims.sessionId, "session-id-1");
+  assert.equal(claims.sub, "session-id-1");
+  assert.equal(payload.sid, "session-id-1");
+  assert.equal(payload.sub, "session-id-1");
+  assert.equal(payload.pubkey, undefined);
+});
+
+test("MCP session store keeps multiple accounts and a mutable active pubkey", () => {
+  const config = testConfig(tempDirectory());
+  const store = new McpSessionStore(config.oauthClientStorePath);
+
+  store.addOrUpdateAccount({
+    sessionId: "session-id-1",
+    pubkey: "pubkey-1",
+    metadata: { name: "One" },
+  });
+  store.addOrUpdateAccount({
+    sessionId: "session-id-1",
+    pubkey: "pubkey-2",
+    metadata: { name: "Two" },
+  });
+
+  assert.equal(store.get("session-id-1").activePubkey, "pubkey-2");
+  assert.deepEqual(
+    store.get("session-id-1").accounts.map((account) => account.pubkey),
+    ["pubkey-1", "pubkey-2"],
+  );
+
+  store.switchActive("session-id-1", "pubkey-1");
+  assert.equal(store.get("session-id-1").activePubkey, "pubkey-1");
+
+  store.removeAccount("session-id-1", "pubkey-1");
+  assert.equal(store.get("session-id-1").activePubkey, "pubkey-2");
+
+  const persisted = JSON.parse(
+    fs.readFileSync(
+      path.join(path.dirname(config.oauthClientStorePath), "mcp-sessions.json"),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(persisted.sessions[0].accounts.map((account) => account.pubkey), [
+    "pubkey-2",
+  ]);
+});
+
+test("MCP session tools connect, list, switch, and logout backend accounts", async () => {
+  const directory = tempDirectory();
+  const config = testConfig(directory);
+  const calls = [];
+  const connectedPubkeys = ["pubkey-1", "pubkey-2"];
+
+  let connectCount = 0;
+  const daemon = {
+    visibleActions: async ({ pubkey }) => {
+      calls.push(["visibleActions", pubkey]);
+      return {
+        visibleActionIds: [
+          "hostr.session.status",
+          "hostr.session.connect",
+          "hostr.listings.list",
+          "hostr.thread.message",
+          "hostr.escrow.service.edit",
+        ],
+      };
+    },
+    callAction: async ({ pubkey, action, input }) => {
+      calls.push(["callAction", pubkey, action, input]);
+      if (action === "hostr.session.connect") {
+        const connected = connectedPubkeys[connectCount++];
+        return {
+          ok: true,
+          command: action,
+          environment: "test",
+          dryRun: false,
+          data: { authenticated: true, pubkey: connected },
+        };
+      }
+      if (action === "hostr.profile.show") {
+        if (pubkey === "pubkey-1" && connectCount >= 2) {
+          return {
+            ok: false,
+            command: action,
+            environment: "test",
+            dryRun: false,
+            errors: [{ code: "auth_required", message: "stale signer" }],
+          };
+        }
+        return {
+          ok: true,
+          command: action,
+          environment: "test",
+          dryRun: false,
+          data: {
+            pubkey,
+            npub: `npub-${pubkey}`,
+            metadata: { name: `Name ${pubkey}` },
+          },
+        };
+      }
+      if (action === "hostr.session.status") {
+        return {
+          ok: true,
+          command: action,
+          environment: "test",
+          dryRun: false,
+          data: {
+            authenticated: true,
+            signerOnline: pubkey === "pubkey-2",
+            reconnect: pubkey === "pubkey-1",
+          },
+        };
+      }
+      return {
+        ok: true,
+        command: action,
+        environment: "test",
+        dryRun: false,
+        data: {},
+      };
+    },
+    logoutSession: async ({ pubkey }) => {
+      calls.push(["logoutSession", pubkey]);
+      return {
+        ok: true,
+        command: "hostr.session.logout",
+        environment: "test",
+        dryRun: false,
+        data: { pubkey, signedOut: true },
+      };
+    },
+    uploadImage: async () => ({
+      ok: true,
+      command: "hostr.upload.image",
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    onNotification: () => () => {},
+  };
+
+  const token = await signAccessToken(
+    config,
+    "session-id-1",
+    "hostr:read hostr:write",
+  );
+  const client = await startMcpClient(config, daemon, token);
+  try {
+    const initialTools = await client.call("tools/list");
+    assert.equal(hasTool(initialTools, "hostr_session_connect"), true);
+    assert.equal(hasTool(initialTools, "hostr_session_accounts"), true);
+    assert.equal(hasTool(initialTools, "hostr_session_switch"), false);
+    assert.equal(hasTool(initialTools, "hostr_session_logout"), false);
+    assert.equal(hasTool(initialTools, "hostr_listings_list"), false);
+    assert.deepEqual(calls, []);
+
+    const firstConnect = await client.call("tools/call", {
+      name: "hostr_session_connect",
+      arguments: { wait: true },
+    });
+    assert.equal(
+      firstConnect.result.structuredContent.data.activePubkey,
+      "pubkey-1",
+    );
+    assert.equal(firstConnect.result.structuredContent.data.toolsChanged, true);
+
+    const postConnectTools = await client.call("tools/list");
+    assert.equal(hasTool(postConnectTools, "hostr_listings_list"), true);
+    assert.equal(hasTool(postConnectTools, "hostr_session_switch"), true);
+    assert.equal(hasTool(postConnectTools, "hostr_session_logout"), true);
+    assert.equal(hasTool(postConnectTools, "hostr_reply"), false);
+    assert.equal(hasTool(postConnectTools, "hostr_escrow_service_update"), false);
+
+    const secondConnect = await client.call("tools/call", {
+      name: "hostr_session_connect",
+      arguments: { wait: true },
+    });
+    assert.equal(
+      secondConnect.result.structuredContent.data.activePubkey,
+      "pubkey-2",
+    );
+
+    const accounts = await client.call("tools/call", {
+      name: "hostr_session_accounts",
+      arguments: {},
+    });
+    assert.equal(accounts.result.structuredContent.activePubkey, "pubkey-2");
+    assert.deepEqual(
+      accounts.result.structuredContent.accounts.map((account) => ({
+        pubkey: account.pubkey,
+        active: account.active,
+        name: account.metadata.name,
+        signerOnline: account.signerStatus.signerOnline,
+        needsReconnect: account.signerStatus.needsReconnect,
+      })),
+      [
+        {
+          pubkey: "pubkey-1",
+          active: false,
+          name: "Name pubkey-1",
+          signerOnline: false,
+          needsReconnect: true,
+        },
+        {
+          pubkey: "pubkey-2",
+          active: true,
+          name: "Name pubkey-2",
+          signerOnline: true,
+          needsReconnect: false,
+        },
+      ],
+    );
+
+    const status = await client.call("tools/call", {
+      name: "hostr_session_status",
+      arguments: { includeStorageDetails: true },
+    });
+    assert.equal(status.result.structuredContent.activePubkey, "pubkey-2");
+    assert.equal(status.result.structuredContent.accountCount, 2);
+    assert.equal(status.result.structuredContent.activeAccount.pubkey, "pubkey-2");
+    assert.deepEqual(status.result.structuredContent.storage.accountPubkeys, [
+      "pubkey-1",
+      "pubkey-2",
+    ]);
+
+    const switched = await client.call("tools/call", {
+      name: "hostr_session_switch",
+      arguments: { pubkey: "pubkey-1" },
+    });
+    assert.deepEqual(switched.result.structuredContent, {
+      ok: true,
+      activePubkey: "pubkey-1",
+      toolsChanged: true,
+    });
+
+    const logout = await client.call("tools/call", {
+      name: "hostr_session_logout",
+      arguments: { pubkey: "pubkey-1" },
+    });
+    assert.deepEqual(logout.result.structuredContent, {
+      ok: true,
+      loggedOutPubkeys: ["pubkey-1"],
+      activePubkey: "pubkey-2",
+      toolsChanged: true,
+    });
+
+    const session = new McpSessionStore(config.oauthClientStorePath).get(
+      "session-id-1",
+    );
+    assert.equal(session.activePubkey, "pubkey-2");
+    assert.deepEqual(
+      session.accounts.map((account) => account.pubkey),
+      ["pubkey-2"],
+    );
+    assert.deepEqual(
+      calls.filter((call) => call[0] === "callAction" && call[2] === "hostr.session.connect"),
+      [
+        [
+          "callAction",
+          "session-id-1",
+          "hostr.session.connect",
+          { wait: true, timeoutSeconds: 180, regenerate: false },
+        ],
+        [
+          "callAction",
+          "session-id-1",
+          "hostr.session.connect",
+          { wait: true, timeoutSeconds: 180, regenerate: false },
+        ],
+      ],
+    );
+    assert.deepEqual(
+      calls.filter((call) => call[0] === "logoutSession"),
+      [["logoutSession", "pubkey-1"]],
+    );
+    assert.deepEqual(
+      calls.filter((call) => call[0] === "visibleActions").map((call) => call[1]),
+      ["pubkey-1", "pubkey-2", "pubkey-1", "pubkey-2"],
+    );
+  } finally {
+    await client.close();
+  }
+});
+
+const hasTool = (toolsResponse, name) =>
+  toolsResponse.result.tools.some((tool) => tool.name === name);
+
+const startMcpClient = async (config, daemon, token) => {
+  const server = http.createServer(createApp(config, daemon));
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  const url = `http://127.0.0.1:${port}/mcp`;
+  let nextId = 1;
+  let mcpSessionId;
+
+  const post = async (body) => {
+    const headers = {
+      accept: "application/json, text/event-stream",
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      ...(mcpSessionId ? { "mcp-session-id": mcpSessionId } : {}),
+    };
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (response.headers.get("mcp-session-id")) {
+      mcpSessionId = response.headers.get("mcp-session-id");
+    }
+    const text = await response.text();
+    if (response.status === 202 && text === "") {
+      return undefined;
+    }
+    assert.equal(response.status, 200, text);
+    return parseSseJson(text);
+  };
+
+  await post({
+    jsonrpc: "2.0",
+    id: nextId++,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "hostr-session-test", version: "1.0.0" },
+    },
+  });
+  await post({ jsonrpc: "2.0", method: "notifications/initialized" });
+
+  return {
+    call: (method, params = {}) =>
+      post({ jsonrpc: "2.0", id: nextId++, method, params }),
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
+};
+
+const parseSseJson = (text) => {
+  const match = /^data: (.*)$/m.exec(text);
+  assert.ok(match, text);
+  return JSON.parse(match[1]);
+};

@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type {
@@ -23,6 +24,7 @@ import {
 } from "../auth/bearer.js";
 import type { AccessTokenClaims } from "../auth/bearer.js";
 import { verifyAccessToken } from "../auth/jwt.js";
+import { McpSessionStore } from "../auth/session-store.js";
 import type { HostrDaemonClient } from "../daemon/client.js";
 import type { HostrDaemonNotification } from "../daemon/client.js";
 import { auditLog } from "../logging.js";
@@ -142,6 +144,31 @@ const sessionConnectOutputSchema = z
       .optional(),
   })
   .passthrough();
+
+const sessionAccountsInputSchema = z.object({}).strict();
+
+const sessionSwitchInputSchema = z
+  .object({
+    pubkey: z
+      .string()
+      .describe("Connected account pubkey to make active."),
+  })
+  .strict();
+
+const sessionLogoutInputSchema = z
+  .object({
+    pubkey: z
+      .string()
+      .describe(
+        "Connected account pubkey to log out. Defaults to the active account when omitted.",
+      )
+      .optional(),
+    all: z
+      .boolean()
+      .describe("Log out every connected account in this MCP session.")
+      .optional(),
+  })
+  .strict();
 
 const profileCardOutputSchema = z
   .object({
@@ -363,7 +390,6 @@ const escrowTradeActionIds = new Set([
 const escrowServiceActionIds = new Set([
   "hostr.escrow.service.list",
   "hostr.escrow.service.get",
-  "hostr.escrow.service.update",
   "hostr.escrow.service.edit",
   "hostr.escrow.service.delete",
 ]);
@@ -1245,6 +1271,91 @@ const listingImage = (
     url: publicUrl,
     alt:
       stringValue(image?.alt) ?? stringValue(image?.description) ?? undefined,
+  };
+};
+
+const normalizedListingImageValue = (
+  config: AppConfig,
+  value: unknown,
+): unknown => {
+  const directUrl = stringValue(value);
+  if (directUrl) {
+    return publicBlossomFileUrl(config, directUrl) ?? value;
+  }
+
+  const image = record(value);
+  if (!image) {
+    return value;
+  }
+
+  const next = { ...image };
+  for (const key of ["url", "src", "image", "imageUrl"]) {
+    const raw = stringValue(next[key]);
+    if (!raw) {
+      continue;
+    }
+    next[key] = publicBlossomFileUrl(config, raw) ?? next[key];
+  }
+  return next;
+};
+
+const normalizeListingImages = (
+  config: AppConfig,
+  listing: Record<string, unknown>,
+): Record<string, unknown> => {
+  if (!Array.isArray(listing.images)) {
+    return listing;
+  }
+  return {
+    ...listing,
+    images: listing.images.map((image) =>
+      normalizedListingImageValue(config, image),
+    ),
+  };
+};
+
+const normalizeListingResultImages = (
+  config: AppConfig,
+  actionId: string,
+  result: Record<string, unknown>,
+): Record<string, unknown> => {
+  if (!listingActionIds.has(actionId)) {
+    return result;
+  }
+  const data = record(result.data);
+  if (!data) {
+    return result;
+  }
+
+  if (
+    actionId === "hostr.listings.search" ||
+    actionId === "hostr.listings.list"
+  ) {
+    return {
+      ...result,
+      data: {
+        ...data,
+        listings: arrayValue(data.listings)
+          .map((listing) => {
+            const listingRecord = record(listing);
+            return listingRecord
+              ? normalizeListingImages(config, listingRecord)
+              : listing;
+          }),
+      },
+    };
+  }
+
+  const listing = record(data.listing);
+  if (!listing) {
+    return result;
+  }
+  return {
+    ...result,
+    data: {
+      ...data,
+      listing: normalizeListingImages(config, listing),
+    },
   };
 };
 
@@ -2962,7 +3073,7 @@ const formatToolContent = (
 
   if (actionId === "hostr.session.connect") {
     if (data.authenticated === true) {
-      return `Hostr session connected for ${stringValue(data.pubkey) ?? "the token pubkey"}.`;
+      return `Hostr session connected for ${stringValue(data.pubkey) ?? "the active Hostr account"}.`;
     }
     const nostrconnect = stringValue(data.nostrconnect);
     const displayTitle = stringValue(data.displayTitle) ?? "Log in to Hostr";
@@ -3045,10 +3156,14 @@ const toolResponse = async (
   notices: HostrCriticalNotice[] = [],
 ) => {
   const displayMarkdown = formatToolContent(config, actionId, result);
-  const safeResult = sanitizeForStructuredContent(result) as Record<
-    string,
-    unknown
-  >;
+  const structuredResultSource = normalizeListingResultImages(
+    config,
+    actionId,
+    result,
+  );
+  const safeResult = sanitizeForStructuredContent(
+    structuredResultSource,
+  ) as Record<string, unknown>;
   const resultData = record(result.data) ?? {};
   const safeResultData = record(safeResult.data) ?? {};
   const listingCards = listingCardsFromResult(config, actionId, result);
@@ -4028,6 +4143,223 @@ const publicActionIds = new Set<string>([
   "hostr.listings.search",
   "hostr.profile.lookup",
 ]);
+
+const sessionManagedActionIds = new Set<string>([
+  "hostr.session.status",
+  "hostr.session.connect",
+]);
+
+const activePubkeyForClaims = (
+  sessionStore: McpSessionStore,
+  claims: AccessTokenClaims | null,
+): string | undefined =>
+  claims ? sessionStore.get(claims.sessionId).activePubkey : undefined;
+
+const refreshSessionToolVisibility = (
+  customToolHandles: Map<string, RegisteredTool>,
+  sessionStore: McpSessionStore,
+  claims: AccessTokenClaims | null,
+) => {
+  const accountCount = claims
+    ? sessionStore.get(claims.sessionId).accounts.length
+    : 0;
+  const visibility = new Map<string, boolean>([
+    ["hostr_session_accounts", Boolean(claims)],
+    ["hostr_session_switch", Boolean(claims) && accountCount > 0],
+    ["hostr_session_logout", Boolean(claims) && accountCount > 0],
+  ]);
+
+  for (const [toolName, shouldEnable] of visibility) {
+    const handle = customToolHandles.get(toolName);
+    if (!handle) {
+      continue;
+    }
+    if (shouldEnable && !handle.enabled) {
+      handle.enable();
+    } else if (!shouldEnable && handle.enabled) {
+      handle.disable();
+    }
+  }
+};
+
+const refreshToolVisibility = async (
+  server: McpServer,
+  toolHandles: Map<string, RegisteredTool>,
+  customToolHandles: Map<string, RegisteredTool>,
+  visibleActionIds: Set<string>,
+  sessionStore: McpSessionStore,
+  claims: AccessTokenClaims | null,
+) => {
+  for (const action of hostrActionCatalog) {
+    const handle = toolHandles.get(action.toolName);
+    if (!handle) {
+      continue;
+    }
+    const shouldEnable = visibleActionIds.has(action.id);
+    if (shouldEnable && !handle.enabled) {
+      handle.enable();
+    } else if (!shouldEnable && handle.enabled) {
+      handle.disable();
+    }
+  }
+  refreshSessionToolVisibility(customToolHandles, sessionStore, claims);
+  server.sendToolListChanged();
+};
+
+const toolListChangedResult = { toolsChanged: true };
+
+const sessionAccountMetadataFromResult = (
+  result: Record<string, unknown>,
+): Record<string, unknown> | undefined => {
+  const data = record(result.data);
+  const metadata = record(data?.metadata);
+  if (!metadata) {
+    return undefined;
+  }
+  return {
+    ...metadata,
+    pubkey: stringValue(data?.pubkey) ?? undefined,
+    npub: stringValue(data?.npub) ?? undefined,
+  };
+};
+
+const sessionAccountSummary = async (
+  daemon: HostrDaemonClient,
+  pubkey: string,
+  activePubkey: string | undefined,
+  traceId: string,
+  storedMetadata?: Record<string, unknown>,
+): Promise<Record<string, unknown>> => {
+  const [profileResult, statusResult] = await Promise.allSettled([
+    daemon.callAction({
+      pubkey,
+      action: "hostr.profile.show",
+      input: {},
+      traceId,
+    }),
+    daemon.callAction({
+      pubkey,
+      action: "hostr.session.status",
+      input: {},
+      traceId,
+    }),
+  ]);
+  const profile =
+    profileResult.status === "fulfilled" && profileResult.value.ok
+      ? sessionAccountMetadataFromResult(profileResult.value as Record<string, unknown>)
+      : storedMetadata;
+  const statusOk =
+    statusResult.status === "fulfilled" && statusResult.value.ok;
+  const statusData =
+    statusOk
+      ? record((statusResult.value as Record<string, unknown>).data)
+      : null;
+  const authenticated = boolValue(statusData?.authenticated) ?? false;
+  const signerOnline = boolValue(statusData?.signerOnline) ?? false;
+  const needsReconnect = statusOk ? Boolean(statusData?.reconnect) : true;
+  return {
+    pubkey,
+    active: pubkey === activePubkey,
+    metadata: profile,
+    signerStatus: {
+      authenticated,
+      signerOnline,
+      needsReconnect,
+      status: statusOk
+        ? needsReconnect
+          ? "needs_reconnect"
+          : signerOnline
+            ? "online"
+            : "offline"
+        : "unknown",
+    },
+  };
+};
+
+const sessionAccountsPayload = async (
+  sessionStore: McpSessionStore,
+  daemon: HostrDaemonClient,
+  claims: AccessTokenClaims,
+  traceId: string,
+): Promise<Record<string, unknown>> => {
+  const session = sessionStore.get(claims.sessionId);
+  const accounts = await Promise.all(
+    session.accounts.map((account) =>
+      sessionAccountSummary(
+        daemon,
+        account.pubkey,
+        session.activePubkey,
+        traceId,
+        account.metadata,
+      ),
+    ),
+  );
+  for (const account of accounts) {
+    sessionStore.updateAccountMetadata(
+      claims.sessionId,
+      stringValue(account.pubkey)!,
+      record(account.metadata) ?? undefined,
+    );
+  }
+  return {
+    sessionId: claims.sessionId,
+    activePubkey: sessionStore.get(claims.sessionId).activePubkey,
+    accounts,
+  };
+};
+
+const sessionStatusPayload = async (
+  sessionStore: McpSessionStore,
+  daemon: HostrDaemonClient,
+  claims: AccessTokenClaims,
+  args: Record<string, unknown>,
+  traceId: string,
+): Promise<Record<string, unknown>> => {
+  const session = sessionStore.get(claims.sessionId);
+  const activeAccount = session.accounts.find(
+    (account) => account.pubkey === session.activePubkey,
+  );
+  const summary = activeAccount
+    ? await sessionAccountSummary(
+        daemon,
+        activeAccount.pubkey,
+        session.activePubkey,
+        traceId,
+        activeAccount.metadata,
+      )
+    : undefined;
+  const signerStatus = record(summary?.signerStatus);
+  return {
+    sessionId: claims.sessionId,
+    activePubkey: session.activePubkey,
+    accountCount: session.accounts.length,
+    authenticated: boolValue(signerStatus?.authenticated) ?? false,
+    signerOnline: boolValue(signerStatus?.signerOnline) ?? false,
+    needsReconnect: boolValue(signerStatus?.needsReconnect) ?? false,
+    activeAccount: summary,
+    ...(boolValue(args.includeStorageDetails) === true
+      ? {
+          storage: {
+            scope: `mcp-session/${claims.sessionId}`,
+            accountPubkeys: session.accounts.map((account) => account.pubkey),
+          },
+        }
+      : {}),
+  };
+};
+
+const sessionToolResponse = (
+  payload: Record<string, unknown>,
+  message: string,
+): CallToolResult => ({
+  structuredContent: payload,
+  content: [
+    {
+      type: "text" as const,
+      text: message,
+    },
+  ],
+});
 
 const mcpTransports = new Map<string, StreamableHTTPServerTransport>();
 const mcpSessionTraceIds = new Map<string, string>();
@@ -5553,6 +5885,7 @@ const createServer = (
   config: AppConfig,
   daemon: HostrDaemonClient,
   claims: AccessTokenClaims | null,
+  sessionStore: McpSessionStore,
   visibleActionIds: Set<string> | null,
   currentTraceId: () => string,
 ) => {
@@ -5564,6 +5897,7 @@ const createServer = (
     {
       capabilities: {
         logging: {},
+        tools: { listChanged: true },
       },
     },
   );
@@ -5858,7 +6192,7 @@ const createServer = (
         const result = await uploadImageWithBestAvailableAuth(
           config,
           daemon,
-          claims?.pubkey,
+          activePubkeyForClaims(sessionStore, claims),
           upload,
           traceId,
         );
@@ -5899,15 +6233,179 @@ const createServer = (
     },
   );
 
+  const toolHandles = new Map<string, RegisteredTool>();
+  const customToolHandles = new Map<string, RegisteredTool>();
+
+  customToolHandles.set(
+    "hostr_session_accounts",
+    server.registerTool(
+      "hostr_session_accounts",
+      {
+        title: "Hostr Session Accounts",
+        description:
+          "List the Hostr/NIP-46 accounts connected to this MCP session, including profile metadata, active account, and signer status.",
+        inputSchema: sessionAccountsInputSchema,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async () => {
+        const traceId = currentTraceId();
+        if (!claims) {
+          return sessionToolResponse(
+            { ok: false, error: "auth_required" },
+            "Connect Hostr MCP with OAuth first.",
+          );
+        }
+        const payload = await sessionAccountsPayload(
+          sessionStore,
+          daemon,
+          claims,
+          traceId,
+        );
+        return sessionToolResponse(payload, JSON.stringify(payload, null, 2));
+      },
+    ),
+  );
+
+  customToolHandles.set(
+    "hostr_session_switch",
+    server.registerTool(
+      "hostr_session_switch",
+      {
+        title: "Switch Hostr Account",
+        description:
+          "Make one of this MCP session's connected Hostr accounts the active account. This changes which account future Hostr tools use.",
+        inputSchema: sessionSwitchInputSchema,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async (args: Record<string, unknown>) => {
+        const traceId = currentTraceId();
+        if (!claims) {
+          return sessionToolResponse(
+            { ok: false, error: "auth_required" },
+            "Connect Hostr MCP with OAuth first.",
+          );
+        }
+        const pubkey = stringValue(args.pubkey);
+        if (!pubkey) {
+          return sessionToolResponse(
+            { ok: false, error: "pubkey_required" },
+            "Choose a connected Hostr account pubkey to switch to.",
+          );
+        }
+        try {
+          sessionStore.switchActive(claims.sessionId, pubkey);
+        } catch {
+          return sessionToolResponse(
+            { ok: false, error: "unknown_session_account", pubkey },
+            "That pubkey is not connected to this MCP session. Call hostr_session_accounts, or connect it with hostr_session_connect first.",
+          );
+        }
+        const visible = await visibleActionIdsForPubkey(daemon, pubkey, traceId);
+        await refreshToolVisibility(
+          server,
+          toolHandles,
+          customToolHandles,
+          visible,
+          sessionStore,
+          claims,
+        );
+        const payload = {
+          ok: true,
+          activePubkey: pubkey,
+          ...toolListChangedResult,
+        };
+        return sessionToolResponse(
+          payload,
+          `Switched active Hostr account to ${pubkey}.`,
+        );
+      },
+    ),
+  );
+
+  customToolHandles.set(
+    "hostr_session_logout",
+    server.registerTool(
+      "hostr_session_logout",
+      {
+        title: "Log Out Hostr Account",
+        description:
+          "Log out one or all Hostr/NIP-46 accounts connected to this MCP session. If no pubkey is supplied, logs out the active account.",
+        inputSchema: sessionLogoutInputSchema,
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async (args: Record<string, unknown>) => {
+        const traceId = currentTraceId();
+        if (!claims) {
+          return sessionToolResponse(
+            { ok: false, error: "auth_required" },
+            "Connect Hostr MCP with OAuth first.",
+          );
+        }
+        const session = sessionStore.get(claims.sessionId);
+        const all = boolValue(args.all) === true;
+        const targets = all
+          ? session.accounts.map((account) => account.pubkey)
+          : [stringValue(args.pubkey) ?? session.activePubkey].filter(
+              (pubkey): pubkey is string => Boolean(pubkey),
+            );
+        if (targets.length === 0) {
+          return sessionToolResponse(
+            { ok: false, error: "no_active_account" },
+            "No Hostr account is active in this MCP session.",
+          );
+        }
+        for (const pubkey of targets) {
+          await daemon.logoutSession({ pubkey, traceId });
+          sessionStore.removeAccount(claims.sessionId, pubkey);
+        }
+        const activePubkey = sessionStore.get(claims.sessionId).activePubkey;
+        const visible = activePubkey
+          ? await visibleActionIdsForPubkey(daemon, activePubkey, traceId)
+          : fallbackVisibleActionIds(claims, undefined);
+        await refreshToolVisibility(
+          server,
+          toolHandles,
+          customToolHandles,
+          visible,
+          sessionStore,
+          claims,
+        );
+        const payload = {
+          ok: true,
+          loggedOutPubkeys: targets,
+          activePubkey,
+          ...toolListChangedResult,
+        };
+        return sessionToolResponse(
+          payload,
+          activePubkey
+            ? `Logged out ${targets.length} Hostr account${targets.length === 1 ? "" : "s"}. Active account is now ${activePubkey}.`
+            : `Logged out ${targets.length} Hostr account${targets.length === 1 ? "" : "s"}. No Hostr account is active.`,
+        );
+      },
+    ),
+  );
+  refreshSessionToolVisibility(customToolHandles, sessionStore, claims);
+
   for (const action of hostrActionCatalog) {
-    if (visibleActionIds && !visibleActionIds.has(action.id)) {
-      continue;
-    }
+    const initiallyVisible = !visibleActionIds || visibleActionIds.has(action.id);
     const isThreadViewAction =
       action.id === "hostr.thread.view" ||
       action.id === "hostr.thread.message" ||
       action.id === "hostr.escrow.involve";
-    server.registerTool(
+    const registeredTool = server.registerTool(
       action.toolName,
       {
         title: action.title,
@@ -6055,6 +6553,42 @@ const createServer = (
           return toolResponse(config, action.id, result, true);
         }
 
+        const activePubkey = activePubkeyForClaims(sessionStore, claims);
+        if (action.id === "hostr.session.status" && claims) {
+          const payload = await sessionStatusPayload(
+            sessionStore,
+            daemon,
+            claims,
+            args,
+            traceId,
+          );
+          return sessionToolResponse(payload, JSON.stringify(payload, null, 2));
+        }
+        if (
+          !publicAction &&
+          !sessionManagedActionIds.has(action.id) &&
+          claims &&
+          !activePubkey
+        ) {
+          const result = {
+            ok: false,
+            errors: [
+              {
+                code: "login_required",
+                message:
+                  "No Hostr account is active for this MCP session. Call hostr_session_connect first.",
+              },
+            ],
+          };
+          return toolResponse(config, action.id, result, true);
+        }
+        const actionPubkey =
+          action.id === "hostr.session.connect"
+            ? claims?.sessionId
+            : publicAction
+              ? undefined
+              : activePubkey;
+
         const notificationToken = randomUUID();
         const seenSignerRequestIds = new Set<string>();
         const seenCriticalNoticeKeys = new Set<string>();
@@ -6093,7 +6627,7 @@ const createServer = (
 
         try {
           const result = await daemon.callAction({
-            ...(claims ? { pubkey: claims.pubkey } : {}),
+            ...(actionPubkey ? { pubkey: actionPubkey } : {}),
             action: action.id,
             input: args,
             notificationToken,
@@ -6102,9 +6636,52 @@ const createServer = (
             : {}),
             traceId,
           });
+          if (
+            claims &&
+            action.id === "hostr.session.connect" &&
+            result.ok &&
+            record(result.data)?.authenticated === true
+          ) {
+            const connectedPubkey = stringValue(record(result.data)?.pubkey);
+            if (connectedPubkey) {
+              const profileResult = await daemon.callAction({
+                pubkey: connectedPubkey,
+                action: "hostr.profile.show",
+                input: {},
+                traceId,
+              });
+              sessionStore.addOrUpdateAccount({
+                sessionId: claims.sessionId,
+                pubkey: connectedPubkey,
+                metadata: profileResult.ok
+                  ? sessionAccountMetadataFromResult(
+                      profileResult as Record<string, unknown>,
+                    )
+                  : undefined,
+              });
+              const visible = await visibleActionIdsForPubkey(
+                daemon,
+                connectedPubkey,
+                traceId,
+              );
+              await refreshToolVisibility(
+                server,
+                toolHandles,
+                customToolHandles,
+                visible,
+                sessionStore,
+                claims,
+              );
+              result.data = {
+                ...(record(result.data) ?? {}),
+                activePubkey: connectedPubkey,
+                ...toolListChangedResult,
+              };
+            }
+          }
           auditToolCall({
             actionId: action.id,
-            pubkey: claims?.pubkey,
+            pubkey: actionPubkey,
             traceId,
             result,
           });
@@ -6130,7 +6707,7 @@ const createServer = (
             const result = swapWatchTimeoutResult(action.id, args, error);
             auditToolCall({
               actionId: action.id,
-              pubkey: claims?.pubkey,
+              pubkey: actionPubkey,
               traceId,
               result: {
                 ok: true,
@@ -6145,6 +6722,10 @@ const createServer = (
         }
       },
     );
+    toolHandles.set(action.toolName, registeredTool);
+    if (!initiallyVisible) {
+      registeredTool.disable();
+    }
   }
 
   return server;
@@ -6184,25 +6765,30 @@ const actionDocumentationFor = (visibleActionIds: Set<string> | null): string =>
   ].join("\n");
 };
 
-const fallbackVisibleActionIds = (claims: AccessTokenClaims | null) =>
+const fallbackVisibleActionIds = (
+  claims: AccessTokenClaims | null,
+  activePubkey: string | undefined,
+) =>
   new Set(
     hostrActionCatalog
       .filter((action) => !("requiredRole" in action) || !action.requiredRole)
-      .filter((action) => claims || publicActionIds.has(action.id))
+      .filter(
+        (action) =>
+          publicActionIds.has(action.id) ||
+          (claims &&
+            (sessionManagedActionIds.has(action.id) || Boolean(activePubkey))),
+      )
       .map((action) => action.id),
   );
 
-const visibleActionIdsForClaims = async (
+const visibleActionIdsForPubkey = async (
   daemon: HostrDaemonClient,
-  claims: AccessTokenClaims | null,
+  pubkey: string,
   traceId?: string,
 ): Promise<Set<string>> => {
-  if (!claims) {
-    return fallbackVisibleActionIds(claims);
-  }
   try {
     const result = record(
-      await daemon.visibleActions({ pubkey: claims.pubkey, traceId }),
+      await daemon.visibleActions({ pubkey, traceId }),
     );
     const ids = arrayValue(result?.visibleActionIds)
       .map(stringValue)
@@ -6213,7 +6799,23 @@ const visibleActionIdsForClaims = async (
   } catch (error) {
     console.error("[hostr-mcp] Failed to resolve visible Hostr actions:", error);
   }
-  return fallbackVisibleActionIds(claims);
+  return fallbackVisibleActionIds(
+    { sessionId: pubkey, scope: "hostr:read hostr:write", sub: pubkey },
+    pubkey,
+  );
+};
+
+const visibleActionIdsForClaims = async (
+  daemon: HostrDaemonClient,
+  sessionStore: McpSessionStore,
+  claims: AccessTokenClaims | null,
+  traceId?: string,
+): Promise<Set<string>> => {
+  const activePubkey = activePubkeyForClaims(sessionStore, claims);
+  if (!claims || !activePubkey) {
+    return fallbackVisibleActionIds(claims, activePubkey);
+  }
+  return visibleActionIdsForPubkey(daemon, activePubkey, traceId);
 };
 
 export const handleMcpRequest =
@@ -6245,6 +6847,7 @@ export const handleMcpRequest =
     }
 
     if (!sessionId && isInitializeRequest(request.body)) {
+      const sessionStore = new McpSessionStore(config.oauthClientStorePath);
       let transport: StreamableHTTPServerTransport;
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
@@ -6269,6 +6872,7 @@ export const handleMcpRequest =
 
       const visibleActionIds = await visibleActionIdsForClaims(
         daemon,
+        sessionStore,
         claims,
         traceId,
       );
@@ -6276,6 +6880,7 @@ export const handleMcpRequest =
         config,
         daemon,
         claims,
+        sessionStore,
         visibleActionIds,
         () =>
           (transport.sessionId

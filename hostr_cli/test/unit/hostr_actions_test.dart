@@ -24,7 +24,6 @@ void main() {
         'hostr_reservations_commit',
         'hostr_reservations_cancel',
         'hostr_updates',
-        'hostr_reply',
         'hostr_thread_view',
         'hostr_thread_message',
         'hostr_escrow_involve',
@@ -42,6 +41,22 @@ void main() {
     expect(
       HostrActionCatalog.all.map((spec) => spec.id),
       isNot(contains('hostr.reservations.offer')),
+    );
+    expect(
+      HostrActionCatalog.all.map((spec) => spec.id),
+      isNot(contains('hostr.reply')),
+    );
+    expect(
+      HostrActionCatalog.all.map((spec) => spec.id),
+      isNot(contains('hostr.escrow.service.update')),
+    );
+    expect(
+      HostrActionCatalog.all.map((spec) => spec.mcpToolName),
+      isNot(contains('hostr_reply')),
+    );
+    expect(
+      HostrActionCatalog.all.map((spec) => spec.mcpToolName),
+      isNot(contains('hostr_escrow_service_update')),
     );
     expect(
       HostrActionCatalog.all.map((spec) => spec.mcpToolName).join('\n'),
@@ -204,15 +219,17 @@ void main() {
       ).inputSchema;
       expect(availabilitySchema['required'], ['start', 'end']);
 
-      final reply = HostrReplyInput.fromJson({
+      final message = HostrThreadMessageInput.fromJson({
         'recipientPubkey': 'npub-or-hex',
         'content': 'Hello',
       });
-      expect(reply.recipientPubkeys, ['npub-or-hex']);
-      expect(reply.dryRun, isTrue);
+      expect(message.recipientPubkeys, ['npub-or-hex']);
+      expect(message.dryRun, isTrue);
 
-      final replySchema = HostrActionCatalog.byId('hostr.reply').inputSchema;
-      expect(replySchema['required'], ['content']);
+      final messageSchema = HostrActionCatalog.byId(
+        'hostr.thread.message',
+      ).inputSchema;
+      expect(messageSchema['required'], ['content']);
     },
   );
 

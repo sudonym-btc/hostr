@@ -14,6 +14,7 @@ import {
   type RegisteredClient,
 } from "./client-store.js";
 import { signAccessToken } from "./jwt.js";
+import { McpSessionStore } from "./session-store.js";
 
 type PendingAuthorization = {
   id: string;
@@ -29,7 +30,8 @@ type PendingAuthorization = {
 
 type AuthorizationCode = PendingAuthorization & {
   code: string;
-  pubkey: string;
+  sessionId: string;
+  initialPubkey: string;
   expiresAt: number;
 };
 
@@ -587,14 +589,21 @@ const renderAuthorizePage = (
 };
 
 const authorizationRedirectUrl = (
+  config: AppConfig,
   request: PendingAuthorization,
   pubkey: string,
 ): string => {
   const code = randomToken();
+  const sessionId = randomToken();
+  new McpSessionStore(config.oauthClientStorePath).addOrUpdateAccount({
+    sessionId,
+    pubkey,
+  });
   authorizationCodes.set(code, {
     ...request,
     code,
-    pubkey,
+    sessionId,
+    initialPubkey: pubkey,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
   removePendingAuthorization(request);
@@ -948,7 +957,7 @@ export const createOAuthRouter = (
 
       response.json({
         pubkey,
-        redirectUrl: authorizationRedirectUrl(pending, pubkey),
+        redirectUrl: authorizationRedirectUrl(config, pending, pubkey),
       });
     },
   );
@@ -1000,7 +1009,11 @@ export const createOAuthRouter = (
     }
 
     authorizationCodes.delete(parsed.data.code);
-    const accessToken = await signAccessToken(config, code.pubkey, code.scope);
+    const accessToken = await signAccessToken(
+      config,
+      code.sessionId,
+      code.scope,
+    );
 
     response.json({
       access_token: accessToken,

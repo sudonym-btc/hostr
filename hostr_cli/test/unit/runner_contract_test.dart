@@ -156,7 +156,13 @@ void main() {
             'guests': 1,
             'beds': 1,
             'bathrooms': 1,
-            'images': ['https://hostr.network/example.jpg'],
+            'images': [
+              {
+                'dataUrl':
+                    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+                'filename': 'listing.png',
+              },
+            ],
             'price': {
               'amount': {'value': '50000', 'currency': 'BTC', 'unit': 'sats'},
               'frequency': 'day',

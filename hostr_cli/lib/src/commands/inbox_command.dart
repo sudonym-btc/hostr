@@ -44,7 +44,7 @@ class InboxSendMessageCommand extends HostrCliCommand {
   Future<HostrCliResult> runCommand() async {
     return runSharedAction(
       this,
-      action: 'hostr.reply',
+      action: 'hostr.thread.message',
       input: readInputObject(),
       requireYesForLive: true,
     );

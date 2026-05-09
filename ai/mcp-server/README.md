@@ -148,6 +148,9 @@ dart run bin/generate_mcp_types.dart /path/to/hostr
 ```text
 hostr_session_status
 hostr_session_connect
+hostr_session_accounts
+hostr_session_switch
+hostr_session_logout
 hostr_listings_search
 hostr_listings_list
 hostr_listings_create
@@ -161,7 +164,9 @@ hostr_reservations_pay
 hostr_reservations_commit
 hostr_reservations_cancel
 hostr_updates
-hostr_reply
+hostr_thread_view
+hostr_thread_message
+hostr_escrow_involve
 hostr_profile_show
 hostr_profile_edit
 hostr_trips_list
@@ -233,7 +238,7 @@ Agents should use the workflow docs from `hostr://mcp/action-input-types`, but t
 - Search and reserve: call `hostr_listings_search`, then `hostr_listings_availability`, then `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.
 - Negotiation: call `hostr_updates` to inspect thread/trade ids. Use `hostr_reservations_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_reservations_negotiateAccept` to accept the latest offer, or `hostr_reservations_cancel` to cancel the private negotiation or committed reservation.
 - Payment: for normal instant-book payment, call `hostr_reservations_bookAndPay`. After showing the returned QR/invoice, call the read-only `hostr_swaps_watch` with `swapId`, `tradeId`, and `reservationWaitSeconds`; it has no `dryRun` parameter and does not require approval. Use `hostr_swaps_recoverAll` only for explicit manual recovery/debug flows.
-- Messaging: call `hostr_updates`, choose recipient pubkeys from the thread/trade, call `hostr_reply` with `dryRun: true`, then repeat with `dryRun: false`.
+- Messaging: call `hostr_updates`, choose recipient pubkeys from the thread/trade, call `hostr_thread_message` with `dryRun: true`, then repeat with `dryRun: false`.
 - Listing management/profile/trips/bookings: call `hostr_listings_list` to inspect listing inventory, `hostr_profile_show` to inspect the current profile, `hostr_profile_edit` to preview/publish profile changes, `hostr_trips_list` for guest-side reservations, and `hostr_bookings_list` for reservations on listings authored by the authenticated user.
 - Escrow compatibility: call `hostr_escrow_methods` with a seller pubkey before payment when the agent needs to explain compatible escrow services or ask the user to choose a non-default service.
 - Swaps: call `hostr_swaps_list`, then `hostr_swaps_watch` for a specific swap id, and `hostr_swaps_recoverAll` when stale operations need recovery.

@@ -104,6 +104,19 @@ export class HostrDaemonClient {
     return this.request("visibleActions", requestParams, undefined, traceId);
   }
 
+  async logoutSession(params: {
+    pubkey: string;
+    traceId?: string;
+  }): Promise<HostrDaemonCallResult> {
+    const { traceId, ...requestParams } = params;
+    return (await this.request(
+      "logoutSession",
+      requestParams,
+      undefined,
+      traceId,
+    )) as HostrDaemonCallResult;
+  }
+
   async uploadImage(params: {
     pubkey?: string;
     base64: string;

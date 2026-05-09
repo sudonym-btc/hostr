@@ -107,6 +107,13 @@ class HostrDaemonStdioServer {
         'visibleActions' => daemon.visibleActions(
           pubkey: _optionalString(params, 'pubkey'),
         ),
+        'logoutSession' =>
+          await daemon
+              .logoutSession(
+                pubkey: _requiredString(params, 'pubkey'),
+                traceId: traceId,
+              )
+              .then((result) => result.toJson()),
         'uploadImage' =>
           await daemon
               .uploadImage(
