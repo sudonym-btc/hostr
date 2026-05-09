@@ -89,8 +89,7 @@ class EnvConfig {
           EvmChainConfig(
             id: chain.id,
             chainId: chain.chainId,
-            rpcUrl: Platform.environment[_chainEnvKey(chain.id, 'RPC_URL')] ??
-                chain.rpcUrl,
+            rpcUrls: _runtimeRpcUrls(chain),
             blockExplorerUrl: chain.blockExplorerUrl,
             nativeDenomination: chain.nativeDenomination,
             boltzCurrency: chain.boltzCurrency,
@@ -100,6 +99,18 @@ class EnvConfig {
           ),
       ],
     );
+  }
+
+  static List<String> _runtimeRpcUrls(EvmChainConfig chain) {
+    final value = Platform.environment[_chainEnvKey(chain.id, 'RPC_URL')];
+    if (value == null) return chain.rpcUrls;
+
+    final urls = value
+        .split(',')
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toList(growable: false);
+    return urls.isEmpty ? chain.rpcUrls : urls;
   }
 
   static String _chainEnvKey(String chainId, String suffix) {
