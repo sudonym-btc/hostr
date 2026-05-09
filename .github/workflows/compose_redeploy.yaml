@@ -14,7 +14,7 @@ on:
 
 jobs:
   redeploy:
-    name: Reset compose VM
+    name: Pull and restart compose services
     runs-on: ubuntu-latest
     environment: ${{ inputs.target_env }}
     permissions:
@@ -31,7 +31,7 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v3
 
-      - name: Reset compose VM to pull latest images
+      - name: Pull latest images and restart compose services
         run: |
           case "${{ inputs.target_env }}" in
             staging)
@@ -50,7 +50,8 @@ jobs:
               ;;
           esac
 
-          gcloud compute instances reset "$VM_NAME" \
+          gcloud compute ssh "$VM_NAME" \
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
-            --quiet
+            --quiet \
+            --command 'cd /opt/hostr && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml pull app mcp escrow && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml up -d --remove-orphans --force-recreate app mcp escrow'
