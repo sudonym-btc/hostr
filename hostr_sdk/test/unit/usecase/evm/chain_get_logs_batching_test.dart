@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
@@ -20,6 +21,64 @@ import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';
 
 void main() {
+  test(
+    'Arbitrum locktime block falls through when RPC omits l1BlockNumber',
+    () async {
+      final rpc = await _ArbitrumBlockRpcServer.start();
+      final chain = EvmChain(
+        config: EvmChainConfig(
+          id: 'arbitrum',
+          chainId: 42161,
+          rpcUrls: rpc.urls,
+          nativeDenomination: 'ETH',
+        ),
+        auth: _FakeAuth(),
+        logger: CustomLogger(tag: 'test'),
+        quoteService: _FakeSwapQuoteService(),
+        nwc: _FakeNwc(),
+        payments: _FakePayments(),
+      );
+
+      try {
+        expect(await chain.getLocktimeBlockNumber(), 25054095);
+        expect(rpc.paths, ['/missing-l1', '/with-l1']);
+        expect(rpc.methods, everyElement('eth_getBlockByNumber'));
+      } finally {
+        await chain.dispose();
+        await rpc.close();
+      }
+    },
+  );
+
+  test(
+    'regtest Arbitrum locktime block falls back to eth_blockNumber',
+    () async {
+      final rpc = await _ArbitrumBlockRpcServer.start();
+      final chain = EvmChain(
+        config: EvmChainConfig(
+          id: 'arbitrum-regtest',
+          chainId: 412346,
+          rpcUrls: rpc.urls.take(1).toList(),
+          nativeDenomination: 'ETH',
+        ),
+        auth: _FakeAuth(),
+        logger: CustomLogger(tag: 'test'),
+        quoteService: _FakeSwapQuoteService(),
+        nwc: _FakeNwc(),
+        payments: _FakePayments(),
+      );
+
+      try {
+        expect(await chain.getLocktimeBlockNumber(), 42);
+        expect(rpc.paths, ['/missing-l1', '/missing-l1']);
+        expect(rpc.methods, ['eth_getBlockByNumber', 'eth_blockNumber']);
+      } finally {
+        await chain.dispose();
+        await rpc.close();
+      }
+    },
+  );
+
   test('newBlocks shares one block poll per chain', () async {
     final rpc = _FakeRpcClient();
     final chain = _chain(rpc);
@@ -282,6 +341,66 @@ class _FakeRpcClient extends http.BaseClient {
       200,
       headers: {'content-type': 'application/json'},
     );
+  }
+}
+
+class _ArbitrumBlockRpcServer {
+  final HttpServer _server;
+  final List<String> paths = [];
+  final List<String> methods = [];
+
+  _ArbitrumBlockRpcServer._(this._server);
+
+  List<String> get urls => [
+    'http://${_server.address.host}:${_server.port}/missing-l1',
+    'http://${_server.address.host}:${_server.port}/with-l1',
+  ];
+
+  static Future<_ArbitrumBlockRpcServer> start() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final rpc = _ArbitrumBlockRpcServer._(server);
+    server.listen(rpc._handle);
+    return rpc;
+  }
+
+  Future<void> close() => _server.close(force: true);
+
+  Future<void> _handle(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    final decoded = jsonDecode(body) as Map<String, dynamic>;
+    final id = decoded['id'];
+    final method = decoded['method'] as String;
+    paths.add(request.uri.path);
+    methods.add(method);
+
+    if (method == 'eth_blockNumber') {
+      _writeJson(request, {'jsonrpc': '2.0', 'id': id, 'result': '0x2a'});
+      return;
+    }
+
+    if (method != 'eth_getBlockByNumber') {
+      _writeJson(request, {
+        'jsonrpc': '2.0',
+        'id': id,
+        'error': {'code': -32601, 'message': 'Method not found: $method'},
+      });
+      return;
+    }
+
+    final result = <String, dynamic>{'number': '0x1b77eaf0'};
+    if (request.uri.path == '/with-l1') {
+      result['l1BlockNumber'] = '0x17e4b8f';
+    }
+
+    _writeJson(request, {'jsonrpc': '2.0', 'id': id, 'result': result});
+  }
+
+  void _writeJson(HttpRequest request, Map<String, dynamic> body) {
+    request.response
+      ..statusCode = 200
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode(body));
+    unawaited(request.response.close());
   }
 }
 
