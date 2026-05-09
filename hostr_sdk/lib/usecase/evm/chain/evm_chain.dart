@@ -36,6 +36,15 @@ import 'operations/swap_in/swap_in_operation.dart';
 import 'operations/swap_out/swap_out_operation.dart';
 import 'rpc_batch_builder.dart';
 
+class _RetryableRpcEndpointException implements Exception {
+  final String message;
+
+  const _RetryableRpcEndpointException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 /// Concrete EVM chain — transport layer plus assembled capabilities.
 ///
 /// Knows how to talk to an RPC node, poll blocks, manage HD keys,
@@ -187,6 +196,7 @@ class EvmChain {
       error is http.ClientException ||
       isPlatformSocketException(error) ||
       error is TimeoutException ||
+      error is _RetryableRpcEndpointException ||
       (error is RPCError &&
           (error.errorCode == 429 ||
               error.message.toLowerCase().contains('too many requests')));
@@ -485,6 +495,10 @@ class EvmChain {
     412346, // Anvil (local dev/test Arbitrum)
   };
 
+  static const Set<int> _localArbitrumChainIds = {
+    412346, // Anvil (local dev/test Arbitrum)
+  };
+
   /// Returns the block number relevant for locktime / timelock comparisons.
   ///
   /// On Arbitrum L2 chains, Boltz swap contracts and the Boltz backend use
@@ -505,17 +519,22 @@ class EvmChain {
       );
       final l1BlockHex = block['l1BlockNumber'] as String?;
       if (l1BlockHex == null) {
-        logger.w(
-          'Arbitrum block metadata missing l1BlockNumber, '
-          'falling back to eth_blockNumber',
+        if (_localArbitrumChainIds.contains(config.chainId)) {
+          logger.w(
+            'Local Arbitrum block metadata missing l1BlockNumber, '
+            'falling back to eth_blockNumber',
+          );
+          return client.getBlockNumber();
+        }
+        throw const _RetryableRpcEndpointException(
+          'Arbitrum block metadata missing l1BlockNumber',
         );
-        return client.getBlockNumber();
       }
       final clean = l1BlockHex.startsWith('0x')
           ? l1BlockHex.substring(2)
           : l1BlockHex;
       return int.parse(clean, radix: 16);
-    });
+    }, retries: max(1, config.rpcUrls.length - 1));
   }
 
   Future<TokenAmount> getBalance(EthereumAddress address) =>
