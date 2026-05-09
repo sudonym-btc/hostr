@@ -1,0 +1,64 @@
+name: Cloud Logs Read
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: Environment to read logs from
+        required: true
+        default: production
+        type: choice
+        options:
+          - staging
+          - production
+      freshness:
+        description: Log freshness window, for example 30m or 2h
+        required: true
+        default: 30m
+        type: string
+      limit:
+        description: Maximum log entries to print
+        required: true
+        default: "200"
+        type: string
+
+jobs:
+  read:
+    name: Read MCP logs
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_env }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Read recent Hostr MCP OAuth logs
+        run: |
+          case "${{ inputs.target_env }}" in
+            staging)
+              PROJECT_ID="hostr-staging-d4c52998"
+              ;;
+            production)
+              PROJECT_ID="hostr-production-d3ba05b4"
+              ;;
+            *)
+              echo "Unsupported environment: ${{ inputs.target_env }}" >&2
+              exit 64
+              ;;
+          esac
+
+          FILTER='resource.type="gce_instance" AND (jsonPayload.service="hostr-mcp" OR textPayload:"hostr-daemon" OR textPayload:"oauth.nostr_connect" OR textPayload:"signinWithNostrConnect" OR textPayload:"nostr_connect" OR jsonPayload.path:"/oauth/nostr-connect/complete" OR jsonPayload.path:"/oauth/authorize")'
+          gcloud logging read "$FILTER" \
+            --project "$PROJECT_ID" \
+            --freshness "${{ inputs.freshness }}" \
+            --limit "${{ inputs.limit }}" \
+            --format "table(timestamp,severity,jsonPayload.event,jsonPayload.path,jsonPayload.method,jsonPayload.statusCode,jsonPayload.traceId,jsonPayload.message,textPayload)"
