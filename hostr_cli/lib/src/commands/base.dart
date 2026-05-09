@@ -37,7 +37,8 @@ abstract class HostrCliCommand extends Command<int> {
     final allowInsecure =
         globalResults?['allow-insecure-file-secrets'] == true ||
         Platform.environment['HOSTR_CLI_ALLOW_INSECURE_STORAGE'] == '1' ||
-        Platform.environment['HOSTR_CLI_STORAGE'] == 'insecure-file';
+        Platform.environment['HOSTR_CLI_STORAGE'] == 'insecure-file' ||
+        Platform.environment['HOSTR_CLI_STORAGE'] == 'file';
     return HostrCliOptions(
       environment: HostrCliEnvironment.fromName(rawEnv),
       stateDir: Directory(_expandHome(rawStateDir)),

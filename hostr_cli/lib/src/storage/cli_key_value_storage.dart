@@ -34,7 +34,7 @@ class CliKeyValueStorage implements KeyValueStorage {
     }
     throw StateError(
       'No secure storage backend available. Install secret-tool on Linux, '
-      'or pass --allow-insecure-file-secrets for development only.',
+      'or configure file-backed storage for a private state directory.',
     );
   }
 
