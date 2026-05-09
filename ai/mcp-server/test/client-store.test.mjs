@@ -148,6 +148,44 @@ test("listing cards turn Blossom hashes into visible absolute image URLs", () =>
   );
 });
 
+test("listing cards upgrade configured Blossom image URLs to HTTPS", () => {
+  const hash = "dc518f2abcd1cdce61fbc1fb95e3c12f3ee1a31457916b87e08a467e8b0f53e8";
+  const result = {
+    ok: true,
+    data: {
+      listings: [
+        {
+          title: "Modern Apartment in San Salvador",
+          description: "A modern apartment",
+          type: "room",
+          active: true,
+          images: [`http://blossom.hostr.network/${hash}.webp`],
+        },
+      ],
+    },
+  };
+
+  const cards = __testing.listingCardsFromResult(
+    {
+      blossomUploadUrl: "https://blossom.hostr.network/upload",
+      publicAppBaseUrl: "https://hostr.network",
+    },
+    "hostr.listings.search",
+    result,
+  );
+  const markdown = __testing.listingCardsMarkdown(cards);
+
+  assert.equal(
+    cards[0].primaryImageUrl,
+    `https://blossom.hostr.network/${hash}.webp`,
+  );
+  assert.match(
+    markdown,
+    /!\[Modern Apartment in San Salvador photo 1 of 1\]\(https:\/\/blossom\.hostr\.network\//,
+  );
+  assert.doesNotMatch(markdown, /http:\/\/blossom\.hostr\.network/);
+});
+
 test("listing tool responses include result-level widget context without remount template", async () => {
   const hash = "7d24fa683979cd913338f1945201382de81a4e5ead47537fde68808aaadf0908";
   const result = {

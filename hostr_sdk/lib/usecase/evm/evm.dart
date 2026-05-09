@@ -31,6 +31,7 @@ class Evm {
   /// The shared Boltz client — `null` if no Boltz config is present.
   BoltzClient? _boltzClient;
   BoltzClient? get boltzClient => _boltzClient;
+  Future<void>? _initFuture;
 
   Evm(HostrConfig config, Auth auth, CustomLogger logger, [HostrScope? scope])
     : _config = config,
@@ -67,60 +68,65 @@ class Evm {
   ///
   /// Call this once after construction. It's separated from the constructor
   /// because it's async.
-  Future<void> init() => _logger.span('init', () async {
-    final chains = configuredChains;
-    if (_boltzClient == null) {
-      _logger.i('No Boltz config — skipping swap discovery');
-      return;
-    }
+  Future<void> init() {
+    final existing = _initFuture;
+    if (existing != null) return existing;
 
-    if (!_scope.isRegistered<BoltzClient>()) {
-      _scope.registerSingleton<BoltzClient>(_boltzClient!);
-    }
-
-    try {
-      final discovered = await _boltzClient!.discoverChains();
-      for (final info in discovered) {
-        final match = chains
-            .where((c) => c.config.chainId == info.chainId)
-            .firstOrNull;
-        if (match == null) {
-          _logger.d(
-            'Boltz chain ${info.chainKey} '
-            '(chainId=${info.chainId}) '
-            'has no matching chain config — skipping',
-          );
-          continue;
-        }
-
-        // Attach swap provider directly.
-        final swaps = BoltzSwapProvider(
-          boltzClient: _boltzClient!,
-          chainInfo: info,
-          chain: match,
-          logger: _logger,
-          nativeCurrency: match.config.boltzCurrency,
-        );
-        match.swaps = swaps;
-
-        // Resolve Boltz ERC-20 tokens so the chain token registry is warm.
-        // FundsMonitorService owns balance tracking and will register these
-        // tokens with its private trackers when it starts.
-        for (final entry in info.tokens.entries) {
-          await match.resolveToken(entry.value.eip55With0x);
-        }
-
-        _logger.i(
-          'Attached Boltz swap provider for ${info.chainKey} '
-          'to chain ${match.config.id}',
-        );
+    return _initFuture = _logger.span('init', () async {
+      final chains = configuredChains;
+      if (_boltzClient == null) {
+        _logger.i('No Boltz config — skipping swap discovery');
+        return;
       }
-    } catch (e) {
-      _logger.e('Boltz discovery failed (chains remain swap-less): $e');
-    }
 
-    // Balance monitoring is owned by FundsMonitorService.
-  });
+      if (!_scope.isRegistered<BoltzClient>()) {
+        _scope.registerSingleton<BoltzClient>(_boltzClient!);
+      }
+
+      try {
+        final discovered = await _boltzClient!.discoverChains();
+        for (final info in discovered) {
+          final match = chains
+              .where((c) => c.config.chainId == info.chainId)
+              .firstOrNull;
+          if (match == null) {
+            _logger.d(
+              'Boltz chain ${info.chainKey} '
+              '(chainId=${info.chainId}) '
+              'has no matching chain config — skipping',
+            );
+            continue;
+          }
+
+          // Attach swap provider directly.
+          final swaps = BoltzSwapProvider(
+            boltzClient: _boltzClient!,
+            chainInfo: info,
+            chain: match,
+            logger: _logger,
+            nativeCurrency: match.config.boltzCurrency,
+          );
+          match.swaps = swaps;
+
+          // Resolve Boltz ERC-20 tokens so the chain token registry is warm.
+          // FundsMonitorService owns balance tracking and will register these
+          // tokens with its private trackers when it starts.
+          for (final entry in info.tokens.entries) {
+            await match.resolveToken(entry.value.eip55With0x);
+          }
+
+          _logger.i(
+            'Attached Boltz swap provider for ${info.chainKey} '
+            'to chain ${match.config.id}',
+          );
+        }
+      } catch (e) {
+        _logger.e('Boltz discovery failed (chains remain swap-less): $e');
+      }
+
+      // Balance monitoring is owned by FundsMonitorService.
+    });
+  }
 
   EvmChain getChainForEscrowService(EscrowService service) =>
       _logger.spanSync('getChainForEscrowService', () {

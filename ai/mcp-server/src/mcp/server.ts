@@ -1220,6 +1220,26 @@ const publicBlossomFileUrl = (
   value: string,
 ): string | null => {
   if (/^https?:\/\//i.test(value)) {
+    const blossomOrigin = originForUrl(config.blossomUploadUrl);
+    if (!blossomOrigin) {
+      return value;
+    }
+    try {
+      const url = new URL(value);
+      const canonicalBlossom = new URL(blossomOrigin);
+      if (
+        url.protocol === "http:" &&
+        url.hostname === canonicalBlossom.hostname
+      ) {
+        url.protocol = canonicalBlossom.protocol;
+        if (!url.port) {
+          url.host = canonicalBlossom.host;
+        }
+        return url.toString();
+      }
+    } catch {
+      return value;
+    }
     return value;
   }
   if (/^blossom:\/\/dry-run\//i.test(value)) {

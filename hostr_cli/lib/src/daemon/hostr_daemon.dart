@@ -1172,10 +1172,7 @@ class HostrDaemon {
     required NostrConnect nostrConnect,
   }) async {
     try {
-      final connection = await _connectWithNostrConnect(
-        session,
-        nostrConnect,
-      );
+      final connection = await _connectWithNostrConnect(session, nostrConnect);
       if (connection == null) {
         throw HostrCliException(
           'session_connect_failed',
@@ -1336,7 +1333,6 @@ class HostrDaemon {
 
     if (!input.dryRun) {
       await session.accountSeedStore.ensureReady();
-      await session.metadata.ensureSellerConfig(activePubkey);
     }
 
     final materialized = await materializeListingImages(
@@ -1410,7 +1406,6 @@ class HostrDaemon {
     final patch = input.patch;
     if (!input.dryRun) {
       await session.accountSeedStore.ensureReady();
-      await session.metadata.ensureSellerConfig(activePubkey);
     }
 
     final materialized = patch.containsKey('images')
