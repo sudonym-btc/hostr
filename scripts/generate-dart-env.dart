@@ -169,7 +169,11 @@ String _generateDart(String target, Map<String, String> vars) {
   for (final chainId in chainIds) {
     final prefix = 'EVM_CHAIN_${chainId.toUpperCase().replaceAll('-', '_')}';
     final chainIdNum = int.tryParse(vars['${prefix}_CHAIN_ID'] ?? '') ?? 0;
-    final rpcUrl = vars['${prefix}_RPC_URL'] ?? '';
+    final rpcUrls = (vars['${prefix}_RPC_URL'] ?? '')
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     final blockExplorerUrl = vars['${prefix}_BLOCK_EXPLORER_URL'] ?? '';
 
     // AA config — per-chain
@@ -205,7 +209,11 @@ String _generateDart(String target, Map<String, String> vars) {
     buf.writeln('    EvmChainConfig(');
     buf.writeln("      id: '${_escape(chainId)}',");
     buf.writeln('      chainId: $chainIdNum,');
-    buf.writeln("      rpcUrl: '${_escape(rpcUrl)}',");
+    buf.writeln('      rpcUrls: [');
+    for (final rpcUrl in rpcUrls) {
+      buf.writeln("        '${_escape(rpcUrl)}',");
+    }
+    buf.writeln('      ],');
     if (blockExplorerUrl.isNotEmpty) {
       buf.writeln("      blockExplorerUrl: '${_escape(blockExplorerUrl)}',");
     }

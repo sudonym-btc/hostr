@@ -88,7 +88,13 @@ class KeysWidgetState extends State<KeysWidget> {
               ListTile(
                 title: Text(AppLocalizations.of(context)!.rootstock),
                 subtitle: Text(
-                  getIt<Config>().evmConfig.chains.firstOrNull?.rpcUrl ?? 'N/A',
+                  getIt<Config>()
+                          .evmConfig
+                          .chains
+                          .firstOrNull
+                          ?.rpcUrls
+                          .firstOrNull ??
+                      'N/A',
                 ),
               ),
             ],

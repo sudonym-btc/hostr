@@ -38,6 +38,7 @@ class _FakeEvm extends Fake implements Evm {}
 
 class _StubEscrowVerification extends Fake implements EscrowVerification {
   final Set<String> validTradeIds;
+  final List<String> verifiedTradeIds = [];
 
   _StubEscrowVerification({this.validTradeIds = const {}});
 
@@ -46,6 +47,7 @@ class _StubEscrowVerification extends Fake implements EscrowVerification {
     required Reservation reservation,
   }) async {
     final tradeId = reservation.getDtag();
+    if (tradeId != null) verifiedTradeIds.add(tradeId);
     if (tradeId != null && validTradeIds.contains(tradeId)) {
       return const EscrowVerificationResult.valid();
     }
@@ -1102,6 +1104,44 @@ void main() async {
           (result as Valid<ReservationGroup>).event.confirmedCommitted,
           isTrue,
         );
+      },
+    );
+
+    test(
+      'escrow commit is valid without rechecking buyer proof in normal UI mode',
+      () async {
+        final listing = _buildListing(
+          host: MockKeys.hoster,
+          allowSelfSignedReservation: true,
+        );
+        final negotiate = await _buildNegotiate(
+          listing: listing,
+          buyer: MockKeys.guest,
+          salt: 'payment-valid-escrow-commit-trusted',
+        );
+        final buyerCommit = await _buildSelfSignedCommit(
+          negotiate: negotiate,
+          listing: listing,
+          buyer: MockKeys.guest,
+          proof: _buildEscrowPaymentProof(listing: listing),
+        );
+        final escrowCommit = await _buildEscrowCommit(
+          source: buyerCommit,
+          listing: listing,
+        );
+        final verifier = _StubEscrowVerification();
+
+        final result = await ReservationGroups.verifyGroupOnChain(
+          ReservationGroup(reservations: [buyerCommit, escrowCommit]),
+          escrowVerification: verifier,
+        );
+
+        expect(result, isA<Valid<ReservationGroup>>());
+        expect(
+          (result as Valid<ReservationGroup>).event.confirmedCommitted,
+          isTrue,
+        );
+        expect(verifier.verifiedTradeIds, isEmpty);
       },
     );
 

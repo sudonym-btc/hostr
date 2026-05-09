@@ -156,6 +156,16 @@ abstract class SupportedEscrowContract<Contract extends GeneratedContract> {
     bool batch = true,
   });
 
+  /// Read and decode the `TradeCreated` log from a known funding transaction.
+  ///
+  /// This is used for proof verification where the proof already carries the
+  /// transaction hash, avoiding broad historical `eth_getLogs` scans.
+  Future<EscrowFundedEvent?> fundedEventFromTransaction({
+    required String tradeId,
+    required String txHash,
+    EscrowServiceSelected? selectedEscrow,
+  });
+
   /// Read the on-chain trade for [tradeId].
   ///
   /// Returns `null` if the trade does not exist or is not active.

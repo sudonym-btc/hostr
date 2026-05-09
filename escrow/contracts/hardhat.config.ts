@@ -32,7 +32,7 @@ const config: HardhatUserConfig = {
     },
     // Arbitrum One (chainId 42161)
     "arbitrum-one": {
-      url: "https://arb1.arbitrum.io/rpc",
+      url: process.env.RPC_URL ?? "https://arbitrum.gateway.tenderly.co",
       chainId: 42161,
       accounts: process.env.DEPLOYER_PRIVATE_KEY
         ? [process.env.DEPLOYER_PRIVATE_KEY]

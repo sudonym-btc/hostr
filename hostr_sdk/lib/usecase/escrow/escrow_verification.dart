@@ -152,7 +152,7 @@ class EscrowVerification {
     return configuredChain.escrow.getSupportedEscrowContract(escrowService);
   }
 
-  /// Queries on-chain events for [tradeId] and returns the
+  /// Queries the proof transaction receipt for [tradeId] and returns the
   /// [EscrowFundedEvent] matching [txHash], or an invalid result.
   Future<Object> _queryFundedEvent(
     SupportedEscrowContract contract,
@@ -161,40 +161,21 @@ class EscrowVerification {
   ) async {
     logger.d('Verifying escrow for trade $tradeId with contract $contract');
 
-    final events = contract.allEvents(
-      ContractEventsParams(tradeId: tradeId),
-      null,
-      includeLive: false,
-    );
     try {
-      final status = await events.status.firstWhere(
-        (status) =>
-            status is StreamStatusQueryComplete ||
-            status is StreamStatusLive ||
-            status is StreamStatusError,
+      final fundedEvent = await contract.fundedEventFromTransaction(
+        tradeId: tradeId,
+        txHash: txHash,
       );
-      if (status is StreamStatusError) {
-        return EscrowVerificationResult.invalid(
-          'Failed to query escrow logs for trade $tradeId: ${status.error}',
-        );
-      }
-
-      EscrowFundedEvent? fundedEvent;
-      for (final event in events.items) {
-        if (event is EscrowFundedEvent && event.transactionHash == txHash) {
-          fundedEvent = event;
-          break;
-        }
-      }
       if (fundedEvent == null) {
         return EscrowVerificationResult.invalid(
-          'Escrow logs do not contain a funding event for trade $tradeId in $txHash',
+          'Escrow transaction receipt does not contain a funding event for trade $tradeId in $txHash',
         );
       }
-
       return fundedEvent;
-    } finally {
-      await events.close();
+    } catch (error) {
+      return EscrowVerificationResult.invalid(
+        'Failed to query escrow transaction receipt for trade $tradeId in $txHash: $error',
+      );
     }
   }
 

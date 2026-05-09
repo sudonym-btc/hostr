@@ -83,12 +83,14 @@ class IntegrationTestHarness {
   /// RPC URL for the Arbitrum-regtest anvil (ERC-20 / escrow / AA tests).
   static var anvilRpc = env.evmConfig.chains
       .firstWhere((c) => c.id.contains('arbitrum'))
-      .rpcUrl;
+      .rpcUrls
+      .first;
 
   /// RPC URL for the Rootstock-regtest anvil (native swap tests).
   static var rootstockRpc = env.evmConfig.chains
       .firstWhere((c) => c.id.contains('rootstock'))
-      .rpcUrl;
+      .rpcUrls
+      .first;
 
   static const albyHubUrl = 'https://alby.hostr.development';
   static const lnbitsDomain = 'lnbits.hostr.development';

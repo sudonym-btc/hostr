@@ -52,7 +52,7 @@ class Evm {
           ? AACapability(
               aaConfig: chainConfig.accountAbstraction!,
               chainId: chainConfig.chainId,
-              nodeRpcUrl: chainConfig.rpcUrl,
+              nodeRpcUrl: chainConfig.rpcUrls.first,
               logger: _logger,
             )
           : null;

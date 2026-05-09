@@ -76,9 +76,11 @@ class EvmChain {
   late http.Client _httpClient;
   final List<({Web3Client client, http.Client httpClient})> _retiredClients =
       [];
+  int _rpcUrlIndex = 0;
 
   /// The current [Web3Client] instance.
   Web3Client get client => _client;
+  String get activeRpcUrl => _activeRpcUrl;
 
   int _clientGeneration = 0;
 
@@ -121,8 +123,22 @@ class EvmChain {
     @ignoreParam http.Client? httpClient,
   }) : logger = logger.scope('evm-chain') {
     _httpClient = httpClient ?? createPlatformHttpClient();
-    _client = Web3Client(config.rpcUrl, _httpClient);
+    _client = Web3Client(_activeRpcUrl, _httpClient);
     escrow = EscrowCapability(chain: this, logger: logger);
+  }
+
+  String get _activeRpcUrl {
+    if (config.rpcUrls.isEmpty) return '';
+    if (_rpcUrlIndex >= config.rpcUrls.length) _rpcUrlIndex = 0;
+    return config.rpcUrls[_rpcUrlIndex];
+  }
+
+  bool get _hasMultipleRpcUrls => config.rpcUrls.length > 1;
+
+  String _redactedRpcUrl(String rpcUrl) {
+    final uri = Uri.tryParse(rpcUrl);
+    if (uri == null || !uri.hasQuery) return rpcUrl;
+    return uri.replace(query: '<redacted>').toString();
   }
 
   static (Web3Client, http.Client) _buildWeb3Client(String rpcUrl) {
@@ -134,28 +150,37 @@ class EvmChain {
   ///
   /// **The caller is responsible for disposing both** the returned client
   /// and the [http.Client] (via the record's second element).
-  (Web3Client, http.Client) buildClient() => _buildWeb3Client(config.rpcUrl);
+  (Web3Client, http.Client) buildClient() => _buildWeb3Client(_activeRpcUrl);
 
-  void _rebuildClient() => logger.spanSync('_rebuildClient', () {
-    if (_disposed) return;
-    logger.i('Rebuilding Web3Client after consecutive failures');
-    final oldClient = _client;
-    final oldHttp = _httpClient;
-    final (newClient, newHttp) = _buildWeb3Client(config.rpcUrl);
-    _client = newClient;
-    _httpClient = newHttp;
-    _clientGeneration++;
-    _codeCache.clear();
-    // Generated contract bindings capture the Web3Client they were created
-    // with. Keep retired transports alive until the chain is disposed so a
-    // transient RPC timeout does not poison long-lived contract wrappers with
-    // "Client is already closed" errors.
-    _retiredClients.add((client: oldClient, httpClient: oldHttp));
-  });
+  void _rebuildClient({bool useNextRpcUrl = false}) => logger.spanSync(
+    '_rebuildClient',
+    () {
+      if (_disposed) return;
+      if (useNextRpcUrl && _hasMultipleRpcUrls) {
+        _rpcUrlIndex = (_rpcUrlIndex + 1) % config.rpcUrls.length;
+      }
+      logger.i(
+        'Rebuilding Web3Client after consecutive failures; '
+        'rpc=${_redactedRpcUrl(_activeRpcUrl)}',
+      );
+      final oldClient = _client;
+      final oldHttp = _httpClient;
+      final (newClient, newHttp) = _buildWeb3Client(_activeRpcUrl);
+      _client = newClient;
+      _httpClient = newHttp;
+      _clientGeneration++;
+      _codeCache.clear();
+      // Generated contract bindings capture the Web3Client they were created
+      // with. Keep retired transports alive until the chain is disposed so a
+      // transient RPC timeout does not poison long-lived contract wrappers with
+      // "Client is already closed" errors.
+      _retiredClients.add((client: oldClient, httpClient: oldHttp));
+    },
+  );
 
-  void _resetClientIfGeneration(int generation) {
+  void _resetClientIfGeneration(int generation, {bool useNextRpcUrl = false}) {
     if (_clientGeneration != generation) return;
-    _rebuildClient();
+    _rebuildClient(useNextRpcUrl: useNextRpcUrl);
   }
 
   bool _isTransientRpcError(Object error) =>
@@ -165,6 +190,19 @@ class EvmChain {
       (error is RPCError &&
           (error.errorCode == 429 ||
               error.message.toLowerCase().contains('too many requests')));
+
+  bool _isRetryableRpcError(Object error) {
+    if (_isTransientRpcError(error)) return true;
+    if (error is! RPCError) return false;
+
+    final message = error.message.toLowerCase();
+    return error.errorCode == -32000 ||
+        error.errorCode == -32603 ||
+        message.contains('internal server') ||
+        message.contains('block range') ||
+        message.contains('limited to') ||
+        message.contains('rate limit');
+  }
 
   Future<T> _callRpcWithRetry<T>(
     String operation,
@@ -178,12 +216,14 @@ class EvmChain {
       try {
         return await fn(client).timeout(timeout);
       } catch (error) {
-        if (!_isTransientRpcError(error) || attempt > retries) rethrow;
+        if (!_isRetryableRpcError(error) || attempt > retries) rethrow;
+        final switchRpcUrl = _hasMultipleRpcUrls;
         logger.w(
           '$operation failed on attempt $attempt/${retries + 1}: $error. '
-          'Resetting Web3Client and retrying.',
+          '${switchRpcUrl ? 'Switching RPC endpoint' : 'Resetting Web3Client'} '
+          'and retrying.',
         );
-        _resetClientIfGeneration(generation);
+        _resetClientIfGeneration(generation, useNextRpcUrl: switchRpcUrl);
         await Future.delayed(retryDelay * attempt);
       }
     }
@@ -535,7 +575,7 @@ class EvmChain {
       try {
         final response = await _httpClient
             .post(
-              Uri.parse(config.rpcUrl),
+              Uri.parse(_activeRpcUrl),
               headers: {'Content-Type': 'application/json'},
               body: payload,
             )
@@ -580,12 +620,14 @@ class EvmChain {
           return (r as Map<String, dynamic>)['result'];
         });
       } catch (error) {
-        if (!_isTransientRpcError(error) || attempt > retries) rethrow;
+        if (!_isRetryableRpcError(error) || attempt > retries) rethrow;
+        final switchRpcUrl = _hasMultipleRpcUrls;
         logger.w(
           'batchRpc failed on attempt $attempt/${retries + 1}: $error. '
-          'Resetting Web3Client and retrying.',
+          '${switchRpcUrl ? 'Switching RPC endpoint' : 'Resetting Web3Client'} '
+          'and retrying.',
         );
-        _resetClientIfGeneration(generation);
+        _resetClientIfGeneration(generation, useNextRpcUrl: switchRpcUrl);
         await Future.delayed(Duration(milliseconds: 250 * attempt));
       }
     }
@@ -758,6 +800,12 @@ class EvmChain {
     });
   });
 
+  Future<TransactionReceipt?> getTransactionReceipt(String txHash) =>
+      _callRpcWithRetry(
+        'getTransactionReceipt($txHash)',
+        (client) => client.getTransactionReceipt(txHash),
+      );
+
   Future<TransactionInformation> awaitTransaction(
     String txHash,
   ) => logger.span('awaitTransaction', () async {
@@ -781,10 +829,7 @@ class EvmChain {
         logger.d('awaitReceipt: polling for $txHash');
         while (true) {
           try {
-            final receipt = await _callRpcWithRetry(
-              'getTransactionReceipt($txHash)',
-              (client) => client.getTransactionReceipt(txHash),
-            );
+            final receipt = await getTransactionReceipt(txHash);
             if (receipt != null) {
               logger.i(
                 'awaitReceipt: got receipt for $txHash after $polls polls '

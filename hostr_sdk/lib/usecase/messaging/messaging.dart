@@ -218,6 +218,18 @@ class Messaging {
     return relays;
   }
 
+  /// Relay targets for private messages to [recipientPubkey].
+  ///
+  /// This includes the Hostr/bootstrap relays plus the recipient's NIP-17 DM
+  /// relays and NIP-65 relay list when available. Escrow legacy NIP-04 copies
+  /// use this so they are sent to relays the recipient is likely to monitor.
+  Future<List<String>> recipientMessageRelays(String recipientPubkey) {
+    return _giftWrapBroadcastRelays(
+      recipientPubkey,
+      allowExternalRelays: true,
+    );
+  }
+
   Future<Nip01Event> broadcastTextAndAwait({
     required String content,
     required List<List<String>> tags,

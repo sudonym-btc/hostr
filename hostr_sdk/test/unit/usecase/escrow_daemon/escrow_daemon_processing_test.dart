@@ -90,7 +90,7 @@ class _FakeEvmChain extends Fake implements EvmChain {
   EvmChainConfig get config => const EvmChainConfig(
     id: 'regtest',
     chainId: 30,
-    rpcUrl: 'http://127.0.0.1:8545',
+    rpcUrls: ['http://127.0.0.1:8545'],
     nativeDenomination: 'ETH',
     escrowContractAddress: '0x0000000000000000000000000000000000000001',
   );
@@ -183,11 +183,23 @@ class _FakeThreads extends Fake implements Threads {
 class _FakeMessaging extends Fake implements Messaging {
   final _FakeThreads fakeThreads;
   final sentTexts = <_SentText>[];
+  final recipientRelayLookups = <String>[];
+  final recipientRelays = <String, List<String>>{};
 
   _FakeMessaging(this.fakeThreads);
 
   @override
   Threads get threads => fakeThreads;
+
+  @override
+  Future<List<String>> recipientMessageRelays(String recipientPubkey) async {
+    recipientRelayLookups.add(recipientPubkey);
+    return recipientRelays[recipientPubkey] ??
+        [
+          'wss://bootstrap.test',
+          'wss://dm-${recipientPubkey.substring(0, 8)}.test',
+        ];
+  }
 
   @override
   Future<List<Future<List<RelayBroadcastResponse>>>>
@@ -209,8 +221,17 @@ class _FakeMessaging extends Fake implements Messaging {
   }
 }
 
+class _BroadcastCall {
+  final Nip01Event event;
+  final List<String>? relays;
+
+  _BroadcastCall({required this.event, required this.relays});
+}
+
 class _FakeRequests extends Fake implements Requests {
   final broadcasts = <Nip01Event>[];
+  final broadcastCalls = <_BroadcastCall>[];
+  bool failLegacyBroadcasts = false;
 
   @override
   Future<BroadcastResult> broadcastEvent({
@@ -222,6 +243,10 @@ class _FakeRequests extends Fake implements Requests {
         ? await signer(event)
         : event;
     broadcasts.add(eventToBroadcast);
+    broadcastCalls.add(_BroadcastCall(event: eventToBroadcast, relays: relays));
+    if (failLegacyBroadcasts && eventToBroadcast.kind == kNostrKindLegacyDM) {
+      throw StateError('legacy broadcast failed');
+    }
     return BroadcastResult(
       event: eventToBroadcast,
       responses: [_successfulBroadcastResponse()],
@@ -335,6 +360,10 @@ class _Harness {
   }) {
     final threads = _FakeThreads();
     final messaging = _FakeMessaging(threads);
+    messaging.recipientRelays.addAll({
+      MockKeys.guest.publicKey: ['wss://bootstrap.test', 'wss://guest.test'],
+      MockKeys.hoster.publicKey: ['wss://bootstrap.test', 'wss://host.test'],
+    });
     final requests = _FakeRequests();
     final escrows = _FakeEscrows();
     late _Harness harness;
@@ -505,6 +534,10 @@ Iterable<_SentText> _noticesOf(_Harness harness, String noticeType) {
   );
 }
 
+String _recipientPubkey(_BroadcastCall call) {
+  return call.event.tags.firstWhere((tag) => tag[0] == 'p')[1];
+}
+
 void main() {
   group('EscrowDaemon reservation processing', () {
     late _Harness harness;
@@ -572,6 +605,17 @@ void main() {
           ),
           hasLength(2),
         );
+        final legacyCalls = harness.requests.broadcastCalls
+            .where((call) => call.event.kind == kNostrKindLegacyDM)
+            .toList();
+        expect(legacyCalls.map(_recipientPubkey).toSet(), {
+          MockKeys.guest.publicKey,
+          MockKeys.hoster.publicKey,
+        });
+        for (final call in legacyCalls) {
+          final recipient = _recipientPubkey(call);
+          expect(call.relays, harness.messaging.recipientRelays[recipient]);
+        }
       },
     );
 
@@ -600,6 +644,36 @@ void main() {
             'reservation_placed',
           ).map((notice) => notice.content),
           everyElement(contains('Lake House 30 Apr 2027 - 2 May 2027')),
+        );
+      },
+    );
+
+    test(
+      'does not fail reservation processing when legacy notice broadcast fails',
+      () async {
+        harness = _Harness();
+        harness.requests.failLegacyBroadcasts = true;
+        final buyer = _buyerReservation(tradeId: 'trade-legacy-failure');
+        harness.reservations.seed([buyer]);
+
+        harness.daemon.startReservationListenerForTesting();
+        harness.reservations.source.add(buyer);
+
+        await _waitUntil(
+          () => harness.reservations.confirmed.length == 1,
+          reason: 'daemon did not publish escrow confirmation',
+        );
+        await _waitUntil(
+          () => _noticesOf(harness, 'reservation_placed').length == 2,
+          reason: 'daemon did not send modern reservation notices',
+        );
+
+        expect(harness.verifiedTradeIds, ['trade-legacy-failure']);
+        expect(
+          harness.requests.broadcastCalls.where(
+            (call) => call.event.kind == kNostrKindLegacyDM,
+          ),
+          hasLength(2),
         );
       },
     );
@@ -637,6 +711,14 @@ void main() {
             (e) => e.kind == kNostrKindLegacyDM,
           ),
           hasLength(1),
+        );
+        final legacyCall = harness.requests.broadcastCalls.singleWhere(
+          (call) => call.event.kind == kNostrKindLegacyDM,
+        );
+        expect(_recipientPubkey(legacyCall), MockKeys.guest.publicKey);
+        expect(
+          legacyCall.relays,
+          harness.messaging.recipientRelays[MockKeys.guest.publicKey],
         );
       },
     );

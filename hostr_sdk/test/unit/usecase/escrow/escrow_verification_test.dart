@@ -20,9 +20,12 @@ final _f = EntityFactory();
 
 class _FakeSupportedEscrowContract extends Fake
     implements SupportedEscrowContract<GeneratedContract> {
-  _FakeSupportedEscrowContract(this.events);
+  _FakeSupportedEscrowContract(this.fundedEvent);
 
-  final StreamWithStatus<EscrowEvent> events;
+  final EscrowFundedEvent? fundedEvent;
+
+  int allEventsCallCount = 0;
+  int fundedEventFromTransactionCallCount = 0;
 
   @override
   StreamWithStatus<EscrowEvent> allEvents(
@@ -30,7 +33,25 @@ class _FakeSupportedEscrowContract extends Fake
     EscrowServiceSelected? selectedEscrow, {
     bool includeLive = true,
     bool batch = true,
-  }) => events;
+  }) {
+    allEventsCallCount++;
+    return StreamWithStatus<EscrowEvent>()
+      ..addStatus(StreamStatusQueryComplete());
+  }
+
+  @override
+  Future<EscrowFundedEvent?> fundedEventFromTransaction({
+    required String tradeId,
+    required String txHash,
+    EscrowServiceSelected? selectedEscrow,
+  }) async {
+    fundedEventFromTransactionCallCount++;
+    if (fundedEvent?.tradeId == tradeId &&
+        fundedEvent?.transactionHash == txHash) {
+      return fundedEvent;
+    }
+    return null;
+  }
 }
 
 class _FakeEscrowCapability extends Fake implements EscrowCapability {
@@ -214,12 +235,6 @@ EscrowFundedEvent _fundedEvent({
   );
 }
 
-StreamWithStatus<EscrowEvent> _eventsSource(EscrowFundedEvent fundedEvent) {
-  return StreamWithStatus<EscrowEvent>()
-    ..add(fundedEvent)
-    ..addStatus(StreamStatusQueryComplete());
-}
-
 void main() {
   test(
     'uses seller-signed negotiated amount when validating escrow funding',
@@ -239,12 +254,10 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 80000,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 80000,
         ),
       );
       final verification = EscrowVerification(
@@ -256,6 +269,8 @@ void main() {
 
       expect(result.isValid, isTrue);
       expect(result.fundedEvent, isNotNull);
+      expect(contract.fundedEventFromTransactionCallCount, 1);
+      expect(contract.allEventsCallCount, 0);
     },
   );
 
@@ -288,12 +303,10 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 5003,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 5003,
         ),
       );
       final verification = EscrowVerification(
@@ -325,12 +338,10 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 80000,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 80000,
         ),
       );
       final verification = EscrowVerification(
@@ -368,12 +379,10 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
         ),
       );
       final verification = EscrowVerification(
@@ -409,13 +418,11 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            bondAmountSats: 50000,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          bondAmountSats: 50000,
         ),
       );
       final verification = EscrowVerification(
@@ -450,13 +457,11 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            // no bondAmountSats → null bond
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          // no bondAmountSats → null bond
         ),
       );
       final verification = EscrowVerification(
@@ -489,13 +494,11 @@ void main() {
     );
 
     final contract = _FakeSupportedEscrowContract(
-      _eventsSource(
-        _fundedEvent(
-          tradeId: reservation.getDtag()!,
-          txHash: txHash,
-          amountSats: 100000,
-          bondAmountSats: 25000, // less than required 50000
-        ),
+      _fundedEvent(
+        tradeId: reservation.getDtag()!,
+        txHash: txHash,
+        amountSats: 100000,
+        bondAmountSats: 25000, // less than required 50000
       ),
     );
     final verification = EscrowVerification(
@@ -523,13 +526,11 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            // no bond — fine since listing doesn't require one
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          // no bond — fine since listing doesn't require one
         ),
       );
       final verification = EscrowVerification(
@@ -560,13 +561,11 @@ void main() {
     );
 
     final contract = _FakeSupportedEscrowContract(
-      _eventsSource(
-        _fundedEvent(
-          tradeId: reservation.getDtag()!,
-          txHash: txHash,
-          amountSats: 100000,
-          bondAmountSats: 75000, // more than required 50000
-        ),
+      _fundedEvent(
+        tradeId: reservation.getDtag()!,
+        txHash: txHash,
+        amountSats: 100000,
+        bondAmountSats: 75000, // more than required 50000
       ),
     );
     final verification = EscrowVerification(
@@ -600,13 +599,11 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            unlockAt: endUnix + oneWeek, // exactly at the limit
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          unlockAt: endUnix + oneWeek, // exactly at the limit
         ),
       );
       final verification = EscrowVerification(
@@ -637,13 +634,11 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            unlockAt: endUnix + oneWeek + 1, // 1 second over the limit
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          unlockAt: endUnix + oneWeek + 1, // 1 second over the limit
         ),
       );
       final verification = EscrowVerification(
@@ -677,13 +672,11 @@ void main() {
 
       // Exactly at 2-week limit → valid
       final contractOk = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            unlockAt: endUnix + twoWeeks,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          unlockAt: endUnix + twoWeeks,
         ),
       );
       final verificationOk = EscrowVerification(
@@ -697,13 +690,11 @@ void main() {
 
       // 1 second over → invalid
       final contractBad = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            unlockAt: endUnix + twoWeeks + 1,
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          unlockAt: endUnix + twoWeeks + 1,
         ),
       );
       final verificationBad = EscrowVerification(
@@ -734,13 +725,11 @@ void main() {
       );
 
       final contract = _FakeSupportedEscrowContract(
-        _eventsSource(
-          _fundedEvent(
-            tradeId: reservation.getDtag()!,
-            txHash: txHash,
-            amountSats: 100000,
-            unlockAt: endUnix - 3600, // before end date
-          ),
+        _fundedEvent(
+          tradeId: reservation.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          unlockAt: endUnix - 3600, // before end date
         ),
       );
       final verification = EscrowVerification(

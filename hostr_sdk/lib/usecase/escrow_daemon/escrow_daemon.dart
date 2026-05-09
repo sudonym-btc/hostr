@@ -257,11 +257,19 @@ class EscrowReservationNotifier {
       tags: tags,
       recipientPubkeys: [recipientPubkey],
     );
-    await sendLegacyText(
-      content: content,
-      tags: tags,
-      recipientPubkey: recipientPubkey,
-    );
+    try {
+      await sendLegacyText(
+        content: content,
+        tags: tags,
+        recipientPubkey: recipientPubkey,
+      );
+    } catch (error, stackTrace) {
+      _logger.w(
+        'Legacy reservation notice failed: '
+        'trade=$tradeId role=$role recipient=$recipientPubkey error=$error',
+      );
+      _logger.d('$stackTrace');
+    }
     _sentNoticeKeys.add(noticeKey);
   }
 
@@ -526,6 +534,7 @@ class EscrowDaemon {
         content: encrypted,
         createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ),
+      relays: await _messaging.recipientMessageRelays(recipientPubkey),
     );
   }
 

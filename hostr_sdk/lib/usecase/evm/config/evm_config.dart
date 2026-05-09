@@ -35,7 +35,7 @@ class EvmConfig {
 class EvmChainConfig {
   final String id;
   final int chainId;
-  final String rpcUrl;
+  final List<String> rpcUrls;
   final String? blockExplorerUrl;
   final AAConfig? accountAbstraction;
 
@@ -69,7 +69,7 @@ class EvmChainConfig {
   const EvmChainConfig({
     required this.id,
     required this.chainId,
-    required this.rpcUrl,
+    required this.rpcUrls,
     required this.nativeDenomination,
     this.blockExplorerUrl,
     this.boltzCurrency,
@@ -88,10 +88,12 @@ class EvmChainConfig {
   }
 
   factory EvmChainConfig.fromJson(Map<String, dynamic> json) {
+    final rpcUrls = _parseRpcUrls(json['rpcUrls'] ?? json['rpcUrl']);
+
     return EvmChainConfig(
       id: json['id'] as String,
       chainId: json['chainId'] as int,
-      rpcUrl: json['rpcUrl'] as String,
+      rpcUrls: rpcUrls,
       blockExplorerUrl: json['blockExplorerUrl'] as String?,
       nativeDenomination: json['nativeDenomination'] as String? ?? 'BTC',
       boltzCurrency: json['boltzCurrency'] as String?,
@@ -115,7 +117,7 @@ class EvmChainConfig {
   Map<String, dynamic> toJson() => {
     'id': id,
     'chainId': chainId,
-    'rpcUrl': rpcUrl,
+    'rpcUrls': rpcUrls,
     if (blockExplorerUrl != null) 'blockExplorerUrl': blockExplorerUrl,
     'nativeDenomination': nativeDenomination,
     if (boltzCurrency != null) 'boltzCurrency': boltzCurrency,
@@ -126,6 +128,20 @@ class EvmChainConfig {
     if (tokens.isNotEmpty)
       'tokens': tokens.map((k, v) => MapEntry(k, v.toJson())),
   };
+
+  static List<String> _parseRpcUrls(dynamic value) {
+    final raw = switch (value) {
+      String urls => urls.split(','),
+      List<dynamic> urls => urls.whereType<String>(),
+      _ => const <String>[],
+    };
+
+    final seen = <String>{};
+    return raw
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty && seen.add(url))
+        .toList(growable: false);
+  }
 }
 
 /// Config for a well-known ERC-20 token on a specific chain.
