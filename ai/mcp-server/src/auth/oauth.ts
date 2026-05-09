@@ -107,7 +107,11 @@ const oauthError = (
   status: number,
   error: string,
   description: string,
-) => response.status(status).json({ error, error_description: description });
+  meta: Record<string, unknown> = {},
+) =>
+  response
+    .status(status)
+    .json({ error, error_description: description, ...meta });
 
 const messageFromError = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -223,6 +227,13 @@ const firstErrorMessage = (errors: unknown[] | undefined): string | null => {
   return typeof message === "string" ? message : null;
 };
 
+const firstErrorCode = (errors: unknown[] | undefined): string | null => {
+  const first = errors?.[0];
+  if (!first || typeof first !== "object") return null;
+  const code = (first as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+};
+
 const scopeDescription = (scope: string): string => {
   switch (scope) {
     case "hostr:read":
@@ -305,6 +316,9 @@ const renderAuthorizePage = (
       const status = document.getElementById("status");
       const copyButton = document.getElementById("copy");
       const uriBox = document.getElementById("nostrconnect");
+      const qr = document.querySelector(".qr");
+      const copyRow = document.querySelector(".copy-row");
+      let stopped = false;
 
       copyButton.addEventListener("click", async () => {
         try {
@@ -316,14 +330,30 @@ const renderAuthorizePage = (
         status.textContent = "Copied sign-in link.";
       });
 
-      function friendlyStatus(message) {
-        if (typeof message === "string" && message.includes("get_public_key")) {
+      function friendlyStatus(payload) {
+        const message = typeof payload?.error_description === "string"
+          ? payload.error_description
+          : typeof payload?.message === "string"
+            ? payload.message
+            : "";
+        if (message.includes("get_public_key")) {
           return "Signer connected. Waiting for public key...";
+        }
+        if (payload?.retryable === false || payload?.error === "invalid_request") {
+          return message || "This sign-in code is no longer active.";
         }
         return "Waiting for signer connection...";
       }
 
+      function stopWithExpired(message) {
+        stopped = true;
+        status.textContent = message;
+        if (qr) qr.style.display = "none";
+        if (copyRow) copyRow.style.display = "none";
+      }
+
       async function complete() {
+        if (stopped) return;
         status.textContent = "Waiting for signer connection...";
         try {
           const response = await fetch("/oauth/nostr-connect/complete", {
@@ -336,12 +366,16 @@ const renderAuthorizePage = (
             ? await response.json()
             : { error_description: await response.text() };
           if (!response.ok || !payload.redirectUrl) {
-            throw new Error(payload.error_description || "Nostr Connect approval is not complete yet.");
+            if (payload.retryable === false || payload.error === "invalid_request") {
+              stopWithExpired(friendlyStatus(payload));
+              return;
+            }
+            throw payload;
           }
           status.textContent = "Connected. Redirecting...";
           window.location.href = payload.redirectUrl;
         } catch (error) {
-          status.textContent = friendlyStatus(error instanceof Error ? error.message : String(error));
+          status.textContent = friendlyStatus(error);
           setTimeout(() => void complete(), 1500);
         }
       }
@@ -914,6 +948,7 @@ export const createOAuthRouter = (
           400,
           "invalid_request",
           "Malformed Nostr Connect completion request.",
+          { retryable: false },
         );
       }
 
@@ -924,6 +959,7 @@ export const createOAuthRouter = (
           400,
           "invalid_request",
           "Unknown or expired authorization request.",
+          { retryable: false },
         );
       }
 
@@ -942,16 +978,27 @@ export const createOAuthRouter = (
           504,
           "authorization_pending",
           messageFromError(error),
+          { retryable: true },
         );
       }
       const pubkey = completed.data?.pubkey;
       if (!completed.ok || !pubkey) {
+        const code = firstErrorCode(completed.errors);
+        const message =
+          firstErrorMessage(completed.errors) ??
+          "Nostr Connect approval is not complete yet.";
+        if (code === "unknown_oauth_request") {
+          removePendingAuthorization(pending);
+          return oauthError(response, 410, "invalid_request", message, {
+            retryable: false,
+          });
+        }
         return oauthError(
           response,
           400,
           "authorization_pending",
-          firstErrorMessage(completed.errors) ??
-            "Nostr Connect approval is not complete yet.",
+          message,
+          { retryable: true },
         );
       }
 
