@@ -21,6 +21,14 @@ on:
         required: true
         default: "200"
         type: string
+      source:
+        description: Where to read logs from
+        required: true
+        default: cloud_logging
+        type: choice
+        options:
+          - cloud_logging
+          - compose_vm
 
 jobs:
   read:
@@ -42,6 +50,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Read recent Hostr MCP OAuth logs
+        if: inputs.source == 'cloud_logging'
         run: |
           case "${{ inputs.target_env }}" in
             staging)
@@ -62,3 +71,29 @@ jobs:
             --freshness "${{ inputs.freshness }}" \
             --limit "${{ inputs.limit }}" \
             --format "table(timestamp,severity,jsonPayload.event,jsonPayload.path,jsonPayload.method,jsonPayload.statusCode,jsonPayload.traceId,jsonPayload.message,textPayload)"
+
+      - name: Read recent MCP container logs from compose VM
+        if: inputs.source == 'compose_vm'
+        run: |
+          case "${{ inputs.target_env }}" in
+            staging)
+              PROJECT_ID="hostr-staging-d4c52998"
+              VM_NAME="hostr-staging-compose"
+              ZONE="us-central1-b"
+              ;;
+            production)
+              PROJECT_ID="hostr-production-d3ba05b4"
+              VM_NAME="hostr-production-compose"
+              ZONE="us-central1-b"
+              ;;
+            *)
+              echo "Unsupported environment: ${{ inputs.target_env }}" >&2
+              exit 64
+              ;;
+          esac
+
+          gcloud compute ssh "$VM_NAME" \
+            --project "$PROJECT_ID" \
+            --zone "$ZONE" \
+            --quiet \
+            --command 'cd /opt/hostr && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml logs --since 45m --tail 300 mcp 2>&1'
