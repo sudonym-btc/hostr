@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
+import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -1020,7 +1022,18 @@ class HostrDaemon {
       try {
         final foreground = await context.runtime.foregroundSession();
         await foreground.ensureInitialized();
-        await foreground.auth.signinWithNostrConnect(nostrConnect);
+        final foregroundConnection = await _connectWithNostrConnect(
+          foreground,
+          nostrConnect,
+          traceId: traceId,
+        );
+        if (foregroundConnection == null) {
+          throw HostrCliException(
+            'nostr_connect_incomplete',
+            'Nostr Connect did not return a reusable session.',
+          );
+        }
+        await foreground.auth.signinWithBunkerConnection(foregroundConnection);
 
         final pubkey = foreground.auth.activePubkey;
         final bunkerConnection = foreground.auth.activeBunkerConnection;
@@ -1159,7 +1172,17 @@ class HostrDaemon {
     required NostrConnect nostrConnect,
   }) async {
     try {
-      await session.auth.signinWithNostrConnect(nostrConnect);
+      final connection = await _connectWithNostrConnect(
+        session,
+        nostrConnect,
+      );
+      if (connection == null) {
+        throw HostrCliException(
+          'session_connect_failed',
+          'The approved Nostr Connect signer did not return a reusable session.',
+        );
+      }
+      await session.auth.signinWithBunkerConnection(connection);
     } catch (_) {
       _pendingNostrConnectWaits.remove(tokenPubkey);
       rethrow;
@@ -4210,6 +4233,113 @@ NostrConnect? _buildMcpNostrConnect(HostrSession session) {
     _ => 'https://ai.hostr.development',
   };
   return buildNostrConnect(session.hostr, appName: appName, appUrl: appUrl);
+}
+
+Future<BunkerConnection?> _connectWithNostrConnect(
+  HostrSession session,
+  NostrConnect nostrConnect, {
+  String? traceId,
+}) async {
+  final relays = nostrConnect.relays;
+  if (relays.isEmpty) {
+    throw HostrCliException('relay_required', 'No Hostr relay is configured.');
+  }
+
+  final keyPair = nostrConnect.keyPair;
+  final localEventSigner = defaultEventSignerFactory(
+    publicKey: keyPair.publicKey,
+    privateKey: keyPair.privateKey,
+  );
+  final localPubkey = localEventSigner.getPublicKey();
+  final subscription = session.hostr.ndk.requests.subscription(
+    explicitRelays: relays,
+    filter: Filter(
+      kinds: [BunkerRequest.kKind],
+      pTags: [localPubkey],
+      since: session.hostr.ndk.bunkers.someTimeAgo(),
+    ),
+    name: 'mcp-nostrconnect',
+  );
+
+  _daemonDiagnostic('nostr_connect.listen.start', {
+    'traceId': ?traceId,
+    'clientPubkey': localPubkey,
+    'relayCount': relays.length,
+  });
+
+  try {
+    await for (final event in subscription.stream.timeout(
+      const Duration(seconds: Bunkers.kMaxWaitingTimeForConnectionSeconds),
+    )) {
+      try {
+        final decryptedContent = await localEventSigner.decryptNip44(
+          ciphertext: event.content,
+          senderPubKey: event.pubKey,
+        );
+        if (decryptedContent == null || decryptedContent.isEmpty) {
+          _daemonDiagnostic('nostr_connect.event.ignored', {
+            'traceId': ?traceId,
+            'eventId': event.id,
+            'senderPubkey': event.pubKey,
+            'reason': 'empty_decryption',
+          });
+          continue;
+        }
+
+        final response = jsonDecode(decryptedContent);
+        if (response is! Map) {
+          _daemonDiagnostic('nostr_connect.event.ignored', {
+            'traceId': ?traceId,
+            'eventId': event.id,
+            'senderPubkey': event.pubKey,
+            'reason': 'non_object_response',
+          });
+          continue;
+        }
+        if (response['result'] != nostrConnect.secret) {
+          _daemonDiagnostic('nostr_connect.event.ignored', {
+            'traceId': ?traceId,
+            'eventId': event.id,
+            'senderPubkey': event.pubKey,
+            'reason': response.containsKey('result')
+                ? 'result_mismatch'
+                : 'missing_result',
+          });
+          continue;
+        }
+
+        _daemonDiagnostic('nostr_connect.event.accepted', {
+          'traceId': ?traceId,
+          'eventId': event.id,
+          'senderPubkey': event.pubKey,
+        });
+        return BunkerConnection(
+          privateKey: keyPair.privateKey!,
+          remotePubkey: event.pubKey,
+          relays: relays,
+        );
+      } catch (error) {
+        _daemonDiagnostic('nostr_connect.event.ignored', {
+          'traceId': ?traceId,
+          'eventId': event.id,
+          'senderPubkey': event.pubKey,
+          'reason': 'decode_error',
+          'message': error.toString(),
+        });
+      }
+    }
+  } finally {
+    await session.hostr.ndk.requests.closeSubscription(subscription.requestId);
+    _daemonDiagnostic('nostr_connect.listen.stop', {
+      'traceId': ?traceId,
+      'clientPubkey': localPubkey,
+    });
+  }
+  return null;
+}
+
+void _daemonDiagnostic(String event, Map<String, Object?> data) {
+  stderr.writeln(jsonEncode({'event': event, ...data}));
 }
 
 Map<String, Object?> _nostrConnectJson(NostrConnect nostrConnect) {
