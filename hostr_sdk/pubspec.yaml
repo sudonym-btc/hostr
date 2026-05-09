@@ -14,6 +14,16 @@ dependencies:
   models:
     path: ../models
   ndk: ^0.7.1
+  ascii_qr: ^1.0.1
+  cbor: ^6.3.7
+  cryptography: ^2.9.0
+  elliptic: ^0.3.12
+  ffi: ^2.1.4
+  hooks: ^1.0.0
+  native_toolchain_rust: ^1.0.1
+  ndk_bip32_keys: ^0.1.0
+  sembast: ">=3.8.6 <4.0.0"
+  web_socket_client: ^0.2.1
   # ndk_rust_verifier: requires Flutter SDK
   injectable: ^2.7.1+4
   rxdart: ^0.28.0
