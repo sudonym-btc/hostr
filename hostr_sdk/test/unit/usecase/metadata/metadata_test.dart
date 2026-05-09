@@ -7,6 +7,7 @@ import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/usecase/blossom/blossom.dart';
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
+import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
@@ -27,12 +28,54 @@ class _FakeBlossomUseCase extends Fake implements BlossomUseCase {}
 
 class _FakeEvm extends Fake implements Evm {}
 
+class _RecordingEvm extends Fake implements Evm {
+  int initCalls = 0;
+
+  @override
+  Future<void> init() async {
+    initCalls++;
+  }
+
+  @override
+  List<EvmChain> get configuredChains => const [];
+}
+
 class _FakeIdentityClaimsUseCase extends Fake
     implements IdentityClaimsUseCase {}
 
+class _NoopIdentityClaimsUseCase extends Fake implements IdentityClaimsUseCase {
+  @override
+  Future<IdentityClaims?> ensureEvmAddress() async => null;
+}
+
 class _FakeHostrConfig extends Fake implements HostrConfig {}
 
+class _SellerConfigHostrConfig extends Fake implements HostrConfig {
+  @override
+  String get hostrRelay => '';
+
+  @override
+  List<String> get bootstrapEscrowPubkeys => const ['escrow-pubkey'];
+}
+
 class _FakeRequests extends Fake implements Requests {}
+
+class _RecordingEscrowMethods extends Fake implements EscrowMethods {
+  int ensureCalls = 0;
+  List<String>? trustedEscrowPubkeys;
+  Set<String>? bytecodeHashes;
+
+  @override
+  Future<void> ensureEscrowMethod({
+    Set<String> bytecodeHashes = const {},
+    List<String> trustedEscrowPubkeys = const [],
+    List<AcceptedPaymentForm>? acceptedPaymentForms,
+  }) async {
+    ensureCalls++;
+    this.bytecodeHashes = bytecodeHashes;
+    this.trustedEscrowPubkeys = trustedEscrowPubkeys;
+  }
+}
 
 class _TestMetadataUseCase extends MetadataUseCase {
   int loadCount = 0;
@@ -167,5 +210,30 @@ void main() {
         );
       },
     );
+  });
+
+  group('MetadataUseCase.ensureSellerConfig', () {
+    test('initializes EVM before ensuring escrow methods', () async {
+      final evm = _RecordingEvm();
+      final escrowMethods = _RecordingEscrowMethods();
+      final metadata = MetadataUseCase(
+        ndk: _FakeNdk(),
+        relays: _FakeRelays(),
+        escrowMethods: escrowMethods,
+        blossom: _FakeBlossomUseCase(),
+        evm: evm,
+        identityClaims: _NoopIdentityClaimsUseCase(),
+        config: _SellerConfigHostrConfig(),
+        requests: _FakeRequests(),
+        logger: CustomLogger(),
+      );
+
+      await metadata.ensureSellerConfig('host-pubkey');
+
+      expect(evm.initCalls, 1);
+      expect(escrowMethods.ensureCalls, 1);
+      expect(escrowMethods.trustedEscrowPubkeys, ['escrow-pubkey']);
+      expect(escrowMethods.bytecodeHashes, isEmpty);
+    });
   });
 }
