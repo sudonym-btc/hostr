@@ -81,6 +81,7 @@ Future<void> setupInjection({
   );
   getIt.registerSingleton<HostrRuntime>(runtime);
   final session = await runtime.foregroundSession();
+  session.hostr.escrowDaemon.setLegacyDmBootstrapRelays(env.bootstrapRelays);
   getIt.registerSingleton<HostrSession>(session);
   getIt.registerSingleton<Hostr>(session.hostr);
 }

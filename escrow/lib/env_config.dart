@@ -16,11 +16,13 @@ import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 /// exposes the correct constants.
 class EnvConfig {
   final String relayUrl;
+  final List<String> bootstrapRelays;
   final String blossomUrl;
   final EvmConfig evmConfig;
 
   const EnvConfig({
     required this.relayUrl,
+    required this.bootstrapRelays,
     required this.blossomUrl,
     required this.evmConfig,
   });
@@ -51,21 +53,25 @@ class EnvConfig {
     final config = switch (sdkEnvironment(environment)) {
       'staging' => const EnvConfig(
           relayUrl: staging_env.relayUrl,
+          bootstrapRelays: staging_env.bootstrapRelays,
           blossomUrl: staging_env.blossomUrl,
           evmConfig: staging_env.evmConfig,
         ),
       'prod' || 'production' => const EnvConfig(
           relayUrl: production_env.relayUrl,
+          bootstrapRelays: production_env.bootstrapRelays,
           blossomUrl: production_env.blossomUrl,
           evmConfig: production_env.evmConfig,
         ),
       'dev' || 'mock' => const EnvConfig(
           relayUrl: development_env.relayUrl,
+          bootstrapRelays: development_env.bootstrapRelays,
           blossomUrl: development_env.blossomUrl,
           evmConfig: development_env.evmConfig,
         ),
       _ => const EnvConfig(
           relayUrl: test_env.relayUrl,
+          bootstrapRelays: test_env.bootstrapRelays,
           blossomUrl: test_env.blossomUrl,
           evmConfig: test_env.evmConfig,
         ),
@@ -76,9 +82,23 @@ class EnvConfig {
   EnvConfig _withRuntimeOverrides() {
     return EnvConfig(
       relayUrl: Platform.environment['HOSTR_RELAY_URL'] ?? relayUrl,
+      bootstrapRelays: _runtimeBootstrapRelays(bootstrapRelays),
       blossomUrl: Platform.environment['HOSTR_BLOSSOM_URL'] ?? blossomUrl,
       evmConfig: _evmConfigWithRuntimeOverrides(evmConfig),
     );
+  }
+
+  static List<String> _runtimeBootstrapRelays(List<String> defaults) {
+    final value = Platform.environment['HOSTR_BOOTSTRAP_RELAYS'] ??
+        Platform.environment['BOOTSTRAP_RELAYS'];
+    if (value == null) return defaults;
+
+    final relays = value
+        .split(',')
+        .map((relay) => relay.trim())
+        .where((relay) => relay.isNotEmpty)
+        .toList(growable: false);
+    return relays.isEmpty ? defaults : relays;
   }
 
   static EvmConfig _evmConfigWithRuntimeOverrides(EvmConfig config) {
