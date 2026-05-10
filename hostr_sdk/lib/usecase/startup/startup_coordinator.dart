@@ -74,6 +74,8 @@ class StartupCoordinator {
     return _userRun ?? _startUser(pubkey);
   }
 
+  Future<StartupResult> ensureAuthenticatedUserReady() => awaitUserReady();
+
   Future<StartupResult> launchBackground({bool restart = false}) {
     if (!restart && _backgroundRun != null) return _backgroundRun!;
 
