@@ -69,9 +69,22 @@ mount_disk() {
     echo "$${dev} $${mnt} ext4 discard,defaults,nofail 0 2" >> /etc/fstab
 }
 
+link_persistent_dir() {
+  local source="$${1}" target="$${2}"
+  mkdir -p "$(dirname "$${target}")" "$${source}"
+
+  if [ -d "$${target}" ] && [ ! -L "$${target}" ] && [ -z "$(find "$${source}" -mindepth 1 -print -quit)" ]; then
+    cp -a "$${target}/." "$${source}/"
+  fi
+
+  rm -rf "$${target}"
+  ln -sfn "$${source}" "$${target}"
+}
+
 # ── Mount persistent data disks ──────────────────────────────────────
 mount_disk /dev/disk/by-id/google-relay-data   /mnt/relay-data
 mount_disk /dev/disk/by-id/google-blossom-data /mnt/blossom-data
+mount_disk /dev/disk/by-id/google-mcp-data     /mnt/mcp-data
 
 # ── Clone repo ────────────────────────────────────────────────────────
 mkdir -p /opt
@@ -84,11 +97,14 @@ fi
 chown -R 1000:1000 /mnt/relay-data
 # blossom runs as uid=1000
 chown -R 1000:1000 /mnt/blossom-data
+# mcp state is mounted into the MCP container and passed to the daemon
+chown -R 1000:1000 /mnt/mcp-data
 
 # Symlink compose volume mount paths to the persistent disks
 mkdir -p /opt/hostr/docker/data
-rm -rf /opt/hostr/docker/data/relay   && ln -sfn /mnt/relay-data   /opt/hostr/docker/data/relay
-rm -rf /opt/hostr/docker/data/blossom && ln -sfn /mnt/blossom-data /opt/hostr/docker/data/blossom
+link_persistent_dir /mnt/relay-data   /opt/hostr/docker/data/relay
+link_persistent_dir /mnt/blossom-data /opt/hostr/docker/data/blossom
+link_persistent_dir /mnt/mcp-data     /opt/hostr/docker/data/mcp
 
 # Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
 mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d /opt/hostr/docker/tls/ca
