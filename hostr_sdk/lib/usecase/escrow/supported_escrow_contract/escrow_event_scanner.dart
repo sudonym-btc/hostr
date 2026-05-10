@@ -76,7 +76,10 @@ class EscrowEventScanner {
       final eventFilter = _buildEventFilter(
         params,
         eventNamesByTopic.keys,
-        fromBlock: _effectiveFromBlock(cachedTrade),
+        fromBlock: _effectiveFromBlock(
+          cachedTrade,
+          override: params.fromBlockOverride,
+        ),
       );
       logger.d(
         'Subscribing to events for trade id at address: '
@@ -84,6 +87,9 @@ class EscrowEventScanner {
       );
 
       final cachedEvents = cachedTrade?.events ?? const <EscrowEvent>[];
+      final cachedEventIdentities = {
+        for (final event in cachedEvents) _eventIdentity(event),
+      };
       final logStore = <FilterEvent>[];
 
       return StreamWithStatus<EscrowEvent>.query(
@@ -106,11 +112,15 @@ class EscrowEventScanner {
 
           for (final log in logs) {
             if (log.transactionHash == null) continue;
-            yield await _mapAndCacheEscrowEvent(
+            final event = await _mapAndCacheEscrowEvent(
               log,
               eventNamesByTopic,
               selectedEscrow,
             );
+            if (cachedEventIdentities.contains(_eventIdentity(event))) {
+              continue;
+            }
+            yield event;
           }
         },
         live: includeLive
@@ -474,8 +484,11 @@ class EscrowEventScanner {
   }) {
     final currentChain = chain;
     final tradeId = params.tradeId;
-    if (currentChain == null || tradeId == null) {
+    if (currentChain == null) {
       return contract.client.getLogs(eventFilter);
+    }
+    if (tradeId == null) {
+      return currentChain.getLogs(eventFilter, batch: false);
     }
 
     return currentChain.getLogs(
@@ -507,7 +520,11 @@ class EscrowEventScanner {
     ].join('::');
   }
 
-  BlockNum _effectiveFromBlock(CachedTradeEvents? cachedTrade) {
+  BlockNum _effectiveFromBlock(
+    CachedTradeEvents? cachedTrade, {
+    BlockNum? override,
+  }) {
+    if (override != null) return override;
     if (cachedTrade?.highestSeenBlock == null) {
       return const BlockNum.exact(0);
     }

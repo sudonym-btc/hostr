@@ -211,18 +211,21 @@ class ContractEventsParams {
   final EthereumAddress? buyerEvmAddress;
   final EthereumAddress? sellerEvmAddress;
   final EthereumAddress? arbiterEvmAddress;
+  final BlockNum? fromBlockOverride;
 
   ContractEventsParams({
     this.tradeId,
     this.buyerEvmAddress,
     this.sellerEvmAddress,
     this.arbiterEvmAddress,
+    this.fromBlockOverride,
   });
 
   @override
   String toString() =>
       'ContractEventsParams(tradeId=$tradeId, buyer=$buyerEvmAddress, '
-      'seller=$sellerEvmAddress, arbiter=$arbiterEvmAddress)';
+      'seller=$sellerEvmAddress, arbiter=$arbiterEvmAddress, '
+      'fromBlockOverride=$fromBlockOverride)';
 }
 
 class ContractListTradesParams {
