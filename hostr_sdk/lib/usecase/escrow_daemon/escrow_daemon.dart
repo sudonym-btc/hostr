@@ -8,6 +8,7 @@ import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:web3dart/web3dart.dart' show BlockNum;
 
 import '../../config.dart' show CoinlibEventSigner;
 import '../../util/main.dart';
@@ -789,7 +790,10 @@ class EscrowDaemon {
     if (_tradeEventSubs.containsKey(tradeId)) return; // already listening
 
     final streamer = context.contract.allEvents(
-      ContractEventsParams(tradeId: tradeId),
+      ContractEventsParams(
+        tradeId: tradeId,
+        fromBlockOverride: const BlockNum.exact(0),
+      ),
       null,
     );
 

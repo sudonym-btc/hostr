@@ -134,6 +134,117 @@ void main() {
     await chain.dispose();
   });
 
+  test('escrow arbiter discovery uses EvmChain getLogs', () async {
+    final chain = _FakeLiveEvmChain();
+    final scanner = EscrowEventScanner(
+      contract: MultiEscrow(
+        address: _contractAddress,
+        client: Web3Client('http://localhost:8545', _FakeRpcClient()),
+      ),
+      chain: chain,
+      parentContract: null,
+      logger: CustomLogger(tag: 'test'),
+    );
+
+    final stream = scanner.allEvents(
+      ContractEventsParams(arbiterEvmAddress: _arbiterAddress),
+      null,
+      includeLive: false,
+      ensureDeployed: () async {},
+    );
+
+    await stream.status.firstWhere(
+      (status) => status is StreamStatusQueryComplete,
+    );
+
+    expect(chain.filters, hasLength(1));
+    expect(chain.filters.single.topics?[3], [
+      _indexedAddressTopic(_arbiterAddress),
+    ]);
+
+    await stream.close();
+    await chain.blocks.close();
+  });
+
+  test('cached escrow trade backfills can share one batching key', () async {
+    final firstTradeId = _tradeId(1);
+    final secondTradeId = _tradeId(2);
+    final chain = _FakeLiveEvmChain()
+      ..logsToReturn = [
+        _tradeCreatedLog(tradeId: firstTradeId, txHashByte: 1, blockNumber: 5),
+        _tradeCreatedLog(tradeId: secondTradeId, txHashByte: 2, blockNumber: 9),
+      ];
+    final scanner = EscrowEventScanner(
+      contract: MultiEscrow(
+        address: _contractAddress,
+        client: Web3Client('http://localhost:8545', _FakeRpcClient()),
+      ),
+      chain: chain,
+      parentContract: null,
+      logger: CustomLogger(tag: 'test'),
+    );
+
+    final discovery = scanner.allEvents(
+      ContractEventsParams(arbiterEvmAddress: _arbiterAddress),
+      null,
+      includeLive: false,
+      ensureDeployed: () async {},
+    );
+    await discovery.status.firstWhere(
+      (status) => status is StreamStatusQueryComplete,
+    );
+    expect(discovery.items.map((event) => event.tradeId), [
+      firstTradeId,
+      secondTradeId,
+    ]);
+
+    chain
+      ..filters.clear()
+      ..batchFlags.clear()
+      ..batchHints.clear()
+      ..logsToReturn = const [];
+
+    final first = scanner.allEvents(
+      ContractEventsParams(
+        tradeId: firstTradeId,
+        fromBlockOverride: const BlockNum.exact(0),
+      ),
+      null,
+      includeLive: false,
+      ensureDeployed: () async {},
+    );
+    final second = scanner.allEvents(
+      ContractEventsParams(
+        tradeId: secondTradeId,
+        fromBlockOverride: const BlockNum.exact(0),
+      ),
+      null,
+      includeLive: false,
+      ensureDeployed: () async {},
+    );
+
+    await Future.wait([
+      first.status.firstWhere((status) => status is StreamStatusQueryComplete),
+      second.status.firstWhere((status) => status is StreamStatusQueryComplete),
+    ]);
+
+    expect(chain.filters, hasLength(2));
+    expect(
+      chain.filters.map((filter) => filter.fromBlock?.toBlockParam()),
+      everyElement('0x0'),
+    );
+    expect(chain.batchFlags, everyElement(isTrue));
+    expect(chain.batchHints, hasLength(2));
+    expect(chain.batchHints.map((hint) => hint?.requestKey).toSet(), {
+      chain.batchHints.first!.requestKey,
+    });
+
+    await discovery.close();
+    await first.close();
+    await second.close();
+    await chain.blocks.close();
+  });
+
   test(
     'live escrow trade listeners share one block stream and getLogs call',
     () async {
@@ -407,6 +518,8 @@ class _ArbitrumBlockRpcServer {
 class _FakeLiveEvmChain extends Fake implements EvmChain {
   final blocks = StreamController<int>.broadcast();
   final filters = <FilterOptions>[];
+  final batchFlags = <bool>[];
+  final batchHints = <EvmLogsBatchHint?>[];
   final blockInformationRequests = <String>[];
   List<FilterEvent> logsToReturn = const [];
   int newBlocksCalls = 0;
@@ -433,6 +546,8 @@ class _FakeLiveEvmChain extends Fake implements EvmChain {
     EvmLogsBatchHint? batchHint,
   }) async {
     filters.add(filter);
+    batchFlags.add(batch);
+    batchHints.add(batchHint);
     return logsToReturn;
   }
 
