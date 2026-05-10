@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart';
@@ -54,6 +55,9 @@ class FundsMonitorService {
   /// Maximum fee-to-balance ratio tolerated for an auto-withdrawal.
   static const double maxFeeRatio = 0.10;
 
+  /// Minimum pause between processing replayed/live escrow settlement events.
+  static const Duration settlementEventProcessingGap = Duration(seconds: 5);
+
   // ── Dependencies ────────────────────────────────────────────────────────
 
   final Evm _evm;
@@ -65,6 +69,7 @@ class FundsMonitorService {
   final Escrows? _escrows;
   final HostrConfig? _config;
   final CustomLogger _logger;
+  final Duration _settlementEventProcessingGap;
 
   // ── Observable state ────────────────────────────────────────────────────
 
@@ -98,6 +103,9 @@ class FundsMonitorService {
   bool _swapInProgress = false;
   StreamSubscription? _eventSub;
   StreamSubscription? _sweepSub;
+  final Queue<EscrowEvent> _settlementEventQueue = Queue<EscrowEvent>();
+  int? _settlementEventQueueRunningGeneration;
+  int _settlementEventQueueGeneration = 0;
 
   Completer<void>? _scanCompleter;
   Future<void>? _startFuture;
@@ -117,7 +125,11 @@ class FundsMonitorService {
     CustomLogger logger, [
     this._escrows,
     this._config,
+    Duration? settlementEventProcessingGap,
   ]) : _logger = logger.scope('funds-monitor'),
+       _settlementEventProcessingGap =
+           settlementEventProcessingGap ??
+           FundsMonitorService.settlementEventProcessingGap,
        _liveErc20TrackingEnabled = false;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -191,6 +203,8 @@ class FundsMonitorService {
 
     await _eventSub?.cancel();
     _eventSub = null;
+    _settlementEventQueueGeneration++;
+    _settlementEventQueue.clear();
     await _sweepSub?.cancel();
     _sweepSub = null;
     for (final tracker in _chainTrackers.values) {
@@ -677,10 +691,7 @@ class FundsMonitorService {
   // ── Settlement event → escrow FundsItem refresh ─────────────────────────
 
   void _startEventListener() {
-    // Use .stream (not .replayStream) — historical balances are already
-    // covered by the startup scan. Replaying all past settlement events
-    // triggers expensive HD key derivation for every counterparty tradeId.
-    _eventSub = _userSubs.paymentEvents$.stream
+    _eventSub = _userSubs.paymentEvents$.replayStream
         .whereType<EscrowEvent>()
         .where(
           (e) =>
@@ -689,9 +700,42 @@ class FundsMonitorService {
               e is EscrowArbitratedEvent,
         )
         .listen(
-          _onSettlementEvent,
+          _enqueueSettlementEvent,
           onError: (Object e) => _logger.w('Settlement event error: $e'),
         );
+  }
+
+  void _enqueueSettlementEvent(EscrowEvent event) {
+    _settlementEventQueue.add(event);
+    if (_settlementEventQueueRunningGeneration ==
+        _settlementEventQueueGeneration) {
+      return;
+    }
+    unawaited(_processSettlementEventQueue(_settlementEventQueueGeneration));
+  }
+
+  Future<void> _processSettlementEventQueue(int generation) async {
+    if (_settlementEventQueueRunningGeneration == generation) return;
+    _settlementEventQueueRunningGeneration = generation;
+    try {
+      while (_started &&
+          generation == _settlementEventQueueGeneration &&
+          _settlementEventQueue.isNotEmpty) {
+        final event = _settlementEventQueue.removeFirst();
+        await _onSettlementEvent(event);
+        if (!_started || generation != _settlementEventQueueGeneration) break;
+        await Future<void>.delayed(_settlementEventProcessingGap);
+      }
+    } finally {
+      if (_settlementEventQueueRunningGeneration == generation) {
+        _settlementEventQueueRunningGeneration = null;
+      }
+      if (_started &&
+          generation == _settlementEventQueueGeneration &&
+          _settlementEventQueue.isNotEmpty) {
+        unawaited(_processSettlementEventQueue(generation));
+      }
+    }
   }
 
   Future<void> _onSettlementEvent(EscrowEvent event) async {

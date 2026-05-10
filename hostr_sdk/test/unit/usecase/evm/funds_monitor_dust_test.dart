@@ -5,6 +5,7 @@ import 'package:hostr_sdk/datasources/boltz/boltz.dart';
 import 'package:hostr_sdk/datasources/boltz/boltz_chain_info.dart';
 import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
+import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr_sdk/usecase/evm/capabilities/boltz_swap_provider.dart';
 import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
@@ -161,6 +162,64 @@ void main() {
       await chain.close();
     });
 
+    test(
+      'replayed settlement events are processed sequentially with a gap',
+      () async {
+        final chain = _FakeEvmChain(swaps: null, bridgeToken: token);
+        final contract = _FakeSupportedEscrowContract();
+        final userSubscriptions = _FakeUserSubscriptions();
+        final auth = _FakeAuth();
+        final allocator = _FakeTradeAccountAllocator();
+        final firstStarted = Completer<void>();
+        final firstCanFinish = Completer<int?>();
+        final secondStarted = Completer<void>();
+
+        allocator.lookup = (tradeId) {
+          if (tradeId == _tradeId(1)) {
+            firstStarted.complete();
+            return firstCanFinish.future;
+          }
+          if (tradeId == _tradeId(2)) {
+            secondStarted.complete();
+            return Future.value(2);
+          }
+          return Future.value(null);
+        };
+
+        userSubscriptions.paymentEvents$
+          ..add(_arbitratedEvent(_tradeId(1), chain, contract))
+          ..add(_arbitratedEvent(_tradeId(2), chain, contract));
+
+        final service = _fundsMonitorService(
+          evm: _FakeEvm([chain]),
+          userSubscriptions: userSubscriptions,
+          auth: auth,
+          tradeAccountAllocator: allocator,
+          settlementEventProcessingGap: const Duration(milliseconds: 50),
+        );
+
+        await service.start();
+        await firstStarted.future.timeout(const Duration(seconds: 1));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(secondStarted.isCompleted, isFalse);
+
+        firstCanFinish.complete(1);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(secondStarted.isCompleted, isFalse);
+
+        await secondStarted.future.timeout(const Duration(seconds: 1));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(allocator.lookupTradeIds, [_tradeId(1), _tradeId(2)]);
+        expect(auth.hd.accountIndices, [1, 2]);
+
+        await service.stop();
+        await chain.close();
+      },
+    );
+
     test('stop clears previously emitted balance snapshots', () async {
       final chain = _FakeEvmChain(swaps: null, bridgeToken: token);
       final service = _fundsMonitorService(evm: _FakeEvm([chain]));
@@ -200,16 +259,24 @@ void main() {
   });
 }
 
-FundsMonitorService _fundsMonitorService({_FakeEvm? evm}) =>
-    FundsMonitorService(
-      evm ?? _FakeEvm(),
-      _FakeUserSubscriptions(),
-      _FakeAuth(),
-      _FakeTradeAccountAllocator(),
-      _FakeOperationStateStore(),
-      _FakeUserConfigStore(),
-      CustomLogger(),
-    );
+FundsMonitorService _fundsMonitorService({
+  _FakeEvm? evm,
+  _FakeUserSubscriptions? userSubscriptions,
+  _FakeAuth? auth,
+  _FakeTradeAccountAllocator? tradeAccountAllocator,
+  Duration? settlementEventProcessingGap,
+}) => FundsMonitorService(
+  evm ?? _FakeEvm(),
+  userSubscriptions ?? _FakeUserSubscriptions(),
+  auth ?? _FakeAuth(),
+  tradeAccountAllocator ?? _FakeTradeAccountAllocator(),
+  _FakeOperationStateStore(),
+  _FakeUserConfigStore(),
+  CustomLogger(),
+  null,
+  null,
+  settlementEventProcessingGap,
+);
 
 class _FakeBoltzApi extends Fake implements Boltz {
   final String quote;
@@ -400,11 +467,73 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   final StreamWithStatus<PaymentEvent> paymentEvents$ = StreamWithStatus();
 }
 
-class _FakeAuth extends Fake implements Auth {}
+class _FakeAuth extends Fake implements Auth {
+  @override
+  final _FakeDeterministicKeys hd = _FakeDeterministicKeys();
+}
 
-class _FakeTradeAccountAllocator extends Fake
-    implements TradeAccountAllocator {}
+class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
+  Future<int?> Function(String tradeId)? lookup;
+  final List<String> lookupTradeIds = [];
+
+  @override
+  Future<int?> tryFindTradeAccountIndexByTradeId(
+    String tradeId, {
+    int maxScan = 20,
+  }) {
+    lookupTradeIds.add(tradeId);
+    return lookup?.call(tradeId) ?? Future.value(null);
+  }
+}
+
+class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
+  final List<int> accountIndices = [];
+
+  @override
+  Future<EthPrivateKey> getActiveEvmKey({int accountIndex = 0}) async {
+    accountIndices.add(accountIndex);
+    return EthPrivateKey.fromHex(
+      accountIndex.toRadixString(16).padLeft(64, '0'),
+    );
+  }
+}
+
+class _FakeSupportedEscrowContract extends Fake
+    implements SupportedEscrowContract {
+  @override
+  final EthereumAddress address = EthereumAddress.fromHex(
+    '0x5555555555555555555555555555555555555555',
+  );
+
+  @override
+  Future<Map<EthereumAddress, BigInt>> allBalances({
+    required EthereumAddress beneficiary,
+  }) async {
+    return {};
+  }
+}
 
 class _FakeOperationStateStore extends Fake implements OperationStateStore {}
 
 class _FakeUserConfigStore extends Fake implements UserConfigStore {}
+
+String _tradeId(int index) => index.toRadixString(16).padLeft(64, '0');
+
+EscrowArbitratedEvent _arbitratedEvent(
+  String tradeId,
+  EvmChain chain,
+  SupportedEscrowContract contract,
+) => EscrowArbitratedEvent(
+  tradeId: tradeId,
+  transactionHash: '0x${tradeId.substring(0, 64)}',
+  blockNum: 1,
+  block: null,
+  chainId: chain.config.chainId,
+  contractAddress: contract.address.eip55With0x,
+  transactionIndex: 0,
+  logIndex: 0,
+  chain: chain,
+  contract: contract,
+  paymentForwarded: 0,
+  bondForwarded: 0,
+);
