@@ -88,6 +88,29 @@ Reservation _escrowBackedReservation(Listing listing) {
   ).signAs(MockKeys.guest, Reservation.fromNostrEvent);
 }
 
+Reservation _reservationWithEscrowParticipantTag(Listing listing) {
+  return Reservation.create(
+    pubKey: MockKeys.hoster.publicKey,
+    dTag: 'trade-message-escrow-tag-only',
+    listingAnchor: listing.anchor!,
+    start: DateTime(2026, 3, 1),
+    end: DateTime(2026, 3, 2),
+    stage: ReservationStage.commit,
+    quantity: 1,
+    amount: DenominatedAmount(
+      value: BigInt.from(100000),
+      denomination: 'BTC',
+      decimals: 8,
+    ),
+    pTags: [
+      PTag.seller(MockKeys.hoster.publicKey),
+      PTag.buyer(MockKeys.guest.publicKey),
+      PTag.escrow(MockKeys.escrow.publicKey),
+    ],
+    createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
+  ).signAs(MockKeys.hoster, Reservation.fromNostrEvent);
+}
+
 Reservation _cancelledNegotiationRequest(Listing listing) {
   return Reservation.create(
     pubKey: MockKeys.guest.publicKey,
@@ -147,6 +170,34 @@ void main() {
         expect(result.actions, isNot(contains(TradeAction.cancel)));
       },
     );
+
+    test('shows messageEscrow action when escrow is known from p tag', () {
+      final listing = _listing();
+      final reservation = _reservationWithEscrowParticipantTag(listing);
+      final group = Valid(ReservationGroup(reservations: [reservation]));
+
+      final result = TradeActionResolver.resolve(
+        threadState: ThreadState.initial(
+          ourPubkey: MockKeys.hoster.publicKey,
+          anchor: 'thread-anchor',
+        ),
+        listing: listing,
+        role: TradeRole.host,
+        tradeId: reservation.getDtag()!,
+        start: reservation.start,
+        end: reservation.end,
+        amount: null,
+        ourPubkey: MockKeys.hoster.publicKey,
+        allReservations: const [],
+        allReservationsStatus: StreamStatusLive(),
+        ownReservations: [group],
+        ownReservationsStatus: StreamStatusLive(),
+        payments: const [],
+        paymentsStatus: StreamStatusLive(),
+      );
+
+      expect(result.actions, contains(TradeAction.messageEscrow));
+    });
 
     test('marks negotiate-only cancelled trades as unavailable', () {
       final listing = _listing();

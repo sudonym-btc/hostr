@@ -27,7 +27,9 @@ class ReservationActions {
     final escrowReservations = allReservations ?? reservations;
 
     final hasUsedEscrow = escrowReservations.any(
-      (reservation) => reservation.proof?.escrowProof != null,
+      (reservation) =>
+          reservation.proof?.escrowProof != null ||
+          reservation.parsedTags.getTagValueByMarker('p', 'escrow') != null,
     );
 
     final hasTerminalReservationState =
