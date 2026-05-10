@@ -29,6 +29,7 @@ class HostrDaemon {
       _signerNotifications = SignerRequestNotificationBridge(notifications);
 
   static const _publicActions = {
+    'hostr.session.status',
     'hostr.listings.search',
     'hostr.profile.lookup',
   };
@@ -37,6 +38,7 @@ class HostrDaemon {
   final HostrCliRuntimeContext context;
   final HostrDaemonNotificationSink? _notifications;
   final SignerRequestNotificationBridge _signerNotifications;
+  final CustomLogger _logger = CustomLogger(tag: 'hostr-daemon');
   final Map<String, NostrConnect> _pendingNostrConnect = {};
   final Map<String, Future<Map<String, Object?>>> _pendingNostrConnectWaits =
       {};
@@ -197,7 +199,7 @@ class HostrDaemon {
         activePubkey.isNotEmpty &&
         !session.auth.needsBunkerRecovery &&
         await session.auth.isAuthenticated()) {
-      unawaited(_ensureAuthenticatedSessionHydrated(session));
+      unawaited(_ensureAuthenticatedSessionHydrated(session, traceId: traceId));
     }
     if (notificationToken != null &&
         notificationToken.trim().isNotEmpty &&
@@ -236,6 +238,7 @@ class HostrDaemon {
             tokenPubkey,
             session,
             HostrSessionConnectInput.fromJson(input),
+            traceId: traceId,
             cancellationToken: cancellationToken,
           ),
         ),
@@ -607,26 +610,27 @@ class HostrDaemon {
 
   Map<String, Object?> describe() => HostrActionCatalog.toJson();
 
-  Map<String, Object?> visibleActions({String? pubkey}) {
-    final escrowPubkeys = _configuredEscrowPubkeys();
-    final isEscrow = _isConfiguredEscrowPubkey(pubkey);
-    final actions = HostrActionCatalog.all
-        .where(
-          (spec) =>
-              spec.requiredRole == null ||
-              spec.requiredRole != _escrowRole ||
-              isEscrow,
-        )
-        .toList();
-    return {
-      'version': 1,
-      'pubkey': pubkey,
-      'isEscrow': isEscrow,
-      'escrowPubkeys': escrowPubkeys,
-      'visibleActionIds': actions.map((spec) => spec.id).toList(),
-      'actions': actions.map((spec) => spec.toJson()).toList(),
-    };
-  }
+  Map<String, Object?> visibleActions({String? pubkey, String? traceId}) =>
+      TraceContext.run(traceId, () {
+        final escrowPubkeys = _configuredEscrowPubkeys();
+        final isEscrow = _isConfiguredEscrowPubkey(pubkey);
+        final actions = HostrActionCatalog.all
+            .where(
+              (spec) =>
+                  spec.requiredRole == null ||
+                  spec.requiredRole != _escrowRole ||
+                  isEscrow,
+            )
+            .toList();
+        return {
+          'version': 1,
+          'pubkey': pubkey,
+          'isEscrow': isEscrow,
+          'escrowPubkeys': escrowPubkeys,
+          'visibleActionIds': actions.map((spec) => spec.id).toList(),
+          'actions': actions.map((spec) => spec.toJson()).toList(),
+        };
+      });
 
   Future<HostrCliResult> logoutSession({
     required String pubkey,
@@ -1047,7 +1051,9 @@ class HostrDaemon {
         final session = context.runtime.session(pubkey);
         await session.ensureInitialized();
         await session.auth.signinWithBunkerConnection(bunkerConnection);
-        unawaited(_ensureAuthenticatedSessionHydrated(session));
+        unawaited(
+          _ensureAuthenticatedSessionHydrated(session, traceId: traceId),
+        );
         await foreground.auth.logout();
         _pendingOAuthNostrConnect.remove(requestId);
         _pendingOAuthNostrConnectWaits.remove(requestId);
@@ -1097,6 +1103,7 @@ class HostrDaemon {
     String tokenPubkey,
     HostrSession session,
     HostrSessionConnectInput input, {
+    String? traceId,
     HostrCancellationToken? cancellationToken,
   }) async {
     cancellationToken?.throwIfCancelled();
@@ -1138,6 +1145,7 @@ class HostrDaemon {
         tokenPubkey: tokenPubkey,
         session: session,
         nostrConnect: nostrConnect!,
+        traceId: traceId,
       ),
     );
 
@@ -1170,6 +1178,7 @@ class HostrDaemon {
     required String tokenPubkey,
     required HostrSession session,
     required NostrConnect nostrConnect,
+    String? traceId,
   }) async {
     try {
       final connection = await _connectWithNostrConnect(session, nostrConnect);
@@ -1209,7 +1218,9 @@ class HostrDaemon {
     final connectedSession = activePubkey == tokenPubkey
         ? session
         : context.runtime.session(activePubkey);
-    unawaited(_ensureAuthenticatedSessionHydrated(connectedSession));
+    unawaited(
+      _ensureAuthenticatedSessionHydrated(connectedSession, traceId: traceId),
+    );
     return {
       'authenticated': true,
       'pubkey': activePubkey,
@@ -1220,24 +1231,41 @@ class HostrDaemon {
   Future<void> _ensureAuthenticatedSessionHydrated(
     HostrSession session, {
     bool wait = false,
+    String? traceId,
   }) async {
     final activePubkey = session.auth.activePubkey;
-    if (activePubkey == null || activePubkey.isEmpty) return;
+    if (activePubkey == null || activePubkey.isEmpty) {
+      _logger.d('Skipping MCP session hydration: no active pubkey');
+      return;
+    }
     if (session.auth.needsBunkerRecovery ||
         !await session.auth.isAuthenticated()) {
+      _logger.d(
+        'Skipping MCP session hydration for $activePubkey: '
+        'authenticated=false needsBunkerRecovery=${session.auth.needsBunkerRecovery}',
+      );
       return;
     }
 
     final future = _sessionHydrations.putIfAbsent(activePubkey, () async {
-      try {
-        await session.startup.ensureAuthenticatedUserReady();
-        if (_isConfiguredEscrowPubkey(activePubkey)) {
-          await _escrowToolContext(session);
+      return TraceContext.run(traceId ?? TraceContext.currentTraceId, () async {
+        _logger.i('MCP session hydration starting pubkey=$activePubkey');
+        try {
+          await session.startup.ensureAuthenticatedUserReady();
+          if (_isConfiguredEscrowPubkey(activePubkey)) {
+            await _escrowToolContext(session);
+          }
+          _logger.i('MCP session hydration ready pubkey=$activePubkey');
+        } catch (error, stackTrace) {
+          _sessionHydrations.remove(activePubkey);
+          _logger.e(
+            'MCP session hydration failed pubkey=$activePubkey: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          rethrow;
         }
-      } catch (_) {
-        _sessionHydrations.remove(activePubkey);
-        rethrow;
-      }
+      });
     });
 
     if (wait) {

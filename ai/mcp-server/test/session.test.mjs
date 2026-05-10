@@ -307,11 +307,13 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
   const directory = tempDirectory();
   const config = testConfig(directory);
   const calls = [];
+  const traceIds = [];
   const connectedPubkeys = ["pubkey-1", "pubkey-2"];
 
   let connectCount = 0;
   const daemon = {
-    visibleActions: async ({ pubkey }) => {
+    visibleActions: async ({ pubkey, traceId }) => {
+      traceIds.push(["visibleActions", traceId]);
       calls.push(["visibleActions", pubkey]);
       return {
         visibleActionIds: [
@@ -323,7 +325,8 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
         ],
       };
     },
-    callAction: async ({ pubkey, action, input }) => {
+    callAction: async ({ pubkey, action, input, traceId }) => {
+      traceIds.push(["callAction", traceId]);
       calls.push(["callAction", pubkey, action, input]);
       if (action === "hostr.session.connect") {
         const connected = connectedPubkeys[connectCount++];
@@ -378,7 +381,8 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
         data: {},
       };
     },
-    logoutSession: async ({ pubkey }) => {
+    logoutSession: async ({ pubkey, traceId }) => {
+      traceIds.push(["logoutSession", traceId]);
       calls.push(["logoutSession", pubkey]);
       return {
         ok: true,
@@ -536,6 +540,11 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
     assert.deepEqual(
       calls.filter((call) => call[0] === "visibleActions").map((call) => call[1]),
       ["pubkey-1", "pubkey-2", "pubkey-1", "pubkey-2"],
+    );
+    assert.equal(traceIds.length > 0, true);
+    assert.equal(
+      traceIds.every(([, traceId]) => typeof traceId === "string" && traceId.length >= 8),
+      true,
     );
   } finally {
     await client.close();

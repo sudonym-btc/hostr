@@ -124,6 +124,12 @@ class CustomLogger extends Logger {
     return {...?attributes, 'trace.id': traceId};
   }
 
+  String _withTraceMessage(dynamic message) {
+    final traceId = TraceContext.currentTraceId;
+    if (traceId == null) return message.toString();
+    return '[traceId=$traceId] $message';
+  }
+
   /// Synchronous variant of [span].
   T spanSync<T>(
     String name,
@@ -158,11 +164,13 @@ class CustomLogger extends Logger {
     final suffix = attributes == null || attributes.isEmpty
         ? ''
         : ' attrs=$attributes';
-    super.t('▶ span start: $spanName$suffix');
+    super.t(_withTraceMessage('span start: $spanName$suffix'));
   }
 
   void _logSpanEnd(String spanName, {required Duration elapsed}) {
-    super.t('✓ span end: $spanName (${elapsed.inMilliseconds} ms)');
+    super.t(
+      _withTraceMessage('span end: $spanName (${elapsed.inMilliseconds} ms)'),
+    );
   }
 
   void _logSpanError(
@@ -172,7 +180,9 @@ class CustomLogger extends Logger {
     required Duration elapsed,
   }) {
     super.e(
-      '✗ span error: $spanName (${elapsed.inMilliseconds} ms) — $error',
+      _withTraceMessage(
+        'span error: $spanName (${elapsed.inMilliseconds} ms): $error',
+      ),
       error: error,
       stackTrace: stackTrace,
     );
@@ -194,7 +204,12 @@ class CustomLogger extends Logger {
     StackTrace? stackTrace,
   }) {
     _emitSpanEvent('TRACE', message, error: error, stackTrace: stackTrace);
-    super.t(message, time: time, error: error, stackTrace: stackTrace);
+    super.t(
+      _withTraceMessage(message),
+      time: time,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   @override
@@ -205,7 +220,12 @@ class CustomLogger extends Logger {
     StackTrace? stackTrace,
   }) {
     _emitSpanEvent('DEBUG', message, error: error, stackTrace: stackTrace);
-    super.d(message, time: time, error: error, stackTrace: stackTrace);
+    super.d(
+      _withTraceMessage(message),
+      time: time,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   @override
@@ -216,7 +236,12 @@ class CustomLogger extends Logger {
     StackTrace? stackTrace,
   }) {
     _emitSpanEvent('INFO', message, error: error, stackTrace: stackTrace);
-    super.i(message, time: time, error: error, stackTrace: stackTrace);
+    super.i(
+      _withTraceMessage(message),
+      time: time,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   @override
@@ -227,7 +252,12 @@ class CustomLogger extends Logger {
     StackTrace? stackTrace,
   }) {
     _emitSpanEvent('WARN', message, error: error, stackTrace: stackTrace);
-    super.w(message, time: time, error: error, stackTrace: stackTrace);
+    super.w(
+      _withTraceMessage(message),
+      time: time,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   @override
@@ -238,7 +268,12 @@ class CustomLogger extends Logger {
     StackTrace? stackTrace,
   }) {
     _emitSpanEvent('ERROR', message, error: error, stackTrace: stackTrace);
-    super.e(message, time: time, error: error, stackTrace: stackTrace);
+    super.e(
+      _withTraceMessage(message),
+      time: time,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   @override
@@ -249,7 +284,12 @@ class CustomLogger extends Logger {
     StackTrace? stackTrace,
   }) {
     _emitSpanEvent('FATAL', message, error: error, stackTrace: stackTrace);
-    super.f(message, time: time, error: error, stackTrace: stackTrace);
+    super.f(
+      _withTraceMessage(message),
+      time: time,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   /// Attaches a log entry as an event on whatever span is currently
@@ -260,12 +300,14 @@ class CustomLogger extends Logger {
     Object? error,
     StackTrace? stackTrace,
   }) {
+    final traceId = TraceContext.currentTraceId;
     _telemetry?.addEvent(
       'log',
       attributes: {
         'log.level': level,
         'log.tag': _resolvedTag,
         'log.message': message.toString(),
+        'trace.id': ?traceId,
         if (error != null) 'log.error': error.toString(),
         if (stackTrace != null) 'log.stackTrace': stackTrace.toString(),
       },
