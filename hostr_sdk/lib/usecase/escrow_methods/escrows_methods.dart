@@ -108,8 +108,14 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       final formsChanged =
           newFormsSet.length != existingFormsSet.length ||
           !newFormsSet.containsAll(existingFormsSet);
+      final hasLegacyHostrPaymentForms = existing.tags.any(
+        _isLegacyHostrAcceptedPaymentFormTag,
+      );
 
-      if (missingTrusted.isEmpty && missingContracts.isEmpty && !formsChanged) {
+      if (missingTrusted.isEmpty &&
+          missingContracts.isEmpty &&
+          !formsChanged &&
+          !hasLegacyHostrPaymentForms) {
         return;
       }
 
@@ -118,6 +124,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       final tags = <List<String>>[];
       for (final tag in existing.tags) {
         if (tag.isNotEmpty && tag[0] == kAcceptedPaymentFormTag) continue;
+        if (_isLegacyHostrAcceptedPaymentFormTag(tag)) continue;
         tags.add([...tag]);
       }
       for (final pubkey in missingTrusted) {
@@ -212,6 +219,14 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
 /// All forms are tagged with `appId: 'hostr'` so they can be atomically
 /// replaced on subsequent calls to [EscrowMethods.ensureEscrowMethod].
 const _appId = 'hostr';
+
+bool _isLegacyHostrAcceptedPaymentFormTag(List<String> tag) {
+  if (tag.length < 4 || tag[0] != 'a' || tag[3] != _appId) return false;
+
+  final tokenTagId = tag[2];
+  return tokenTagId == tokenTagId.toUpperCase() ||
+      RegExp(r'^\d+:0x[0-9a-fA-F]{40}$').hasMatch(tokenTagId);
+}
 
 List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
   final forms = <AcceptedPaymentForm>[];

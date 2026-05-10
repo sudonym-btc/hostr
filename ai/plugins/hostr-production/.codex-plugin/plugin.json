@@ -82,11 +82,7 @@
     "defaultPrompt": [
       "Find me a place to stay in San Salvador",
       "I want to rent out my room via Nostr",
-      "Explain how this service works?",
-      "Find somewhere to stay for 2 nights",
-      "Make a reservation for a Hostr stay",
-      "Reconnect my Nostr signer",
-      "Check my inbox"
+      "Explain how this service works?"
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/icon.png",

@@ -1230,13 +1230,7 @@ class HostrDaemon {
 
     final future = _sessionHydrations.putIfAbsent(activePubkey, () async {
       try {
-        await session.userSubscriptions.start();
-        await Future.wait([
-          _waitForStreamStatus(session.userSubscriptions.giftwraps$.status),
-          _waitForStreamStatus(
-            session.userSubscriptions.allMyReservations$.stream.status,
-          ),
-        ]);
+        await session.startup.ensureAuthenticatedUserReady();
         if (_isConfiguredEscrowPubkey(activePubkey)) {
           await _escrowToolContext(session);
         }

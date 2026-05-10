@@ -239,6 +239,29 @@ void main() {
     );
 
     test(
+      'ensureAuthenticatedUserReady launches the shared user gate',
+      () async {
+        auth.pubkey = 'pubkey';
+        authState.add(const LoggedIn('pubkey'));
+
+        final ready = coordinator.ensureAuthenticatedUserReady();
+        await pumpEventQueue();
+
+        expect(userProfile.launches, 1);
+
+        userProfile.complete(
+          const UserStartupReady(
+            pubkey: 'pubkey',
+            hasMetadata: true,
+            inboxLive: true,
+          ),
+        );
+
+        expect(await ready, isA<UserStartupReady>());
+      },
+    );
+
+    test(
       'launches background startup on demand without retargeting gate',
       () async {
         coordinator.start();
