@@ -100,7 +100,7 @@ HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon
 HOSTR_DAEMON_CWD=/opt/hostr-daemon
 ```
 
-Set `HOSTR_DAEMON_STATE_DIR=/data/mcp` (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at `MCP_OAUTH_CLIENT_STORE_PATH`, defaulting to `$HOSTR_DAEMON_STATE_DIR/oauth-clients.json`.
+Set `HOSTR_DAEMON_STATE_DIR=/data/mcp` (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at `MCP_OAUTH_CLIENT_STORE_PATH`, defaulting to `$HOSTR_DAEMON_STATE_DIR/oauth-clients.json`. OAuth refresh tokens are opaque, rotating, stored hashed beside that file, and default to `MCP_REFRESH_TOKEN_TTL_SECONDS=2592000`.
 Cold Dart starts can be slow in development, so MCP waits up to `HOSTR_DAEMON_TIMEOUT_MS` milliseconds per daemon request. The default is `120000`.
 
 ## Observability

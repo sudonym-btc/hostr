@@ -14,6 +14,7 @@ import {
   type RegisteredClient,
 } from "./client-store.js";
 import { signAccessToken } from "./jwt.js";
+import { RefreshTokenStore } from "./refresh-token-store.js";
 import { McpSessionStore } from "./session-store.js";
 
 type PendingAuthorization = {
@@ -53,14 +54,23 @@ const authorizationQuerySchema = z.object({
   code_challenge_method: z.literal("S256"),
 });
 
-const tokenBodySchema = z.object({
-  grant_type: z.literal("authorization_code"),
-  code: z.string().min(1),
-  redirect_uri: z.string().url(),
-  client_id: z.string().min(1),
-  code_verifier: z.string().min(43),
-  resource: z.string().url().optional(),
-});
+const tokenBodySchema = z.discriminatedUnion("grant_type", [
+  z.object({
+    grant_type: z.literal("authorization_code"),
+    code: z.string().min(1),
+    redirect_uri: z.string().url(),
+    client_id: z.string().min(1),
+    code_verifier: z.string().min(43),
+    resource: z.string().url().optional(),
+  }),
+  z.object({
+    grant_type: z.literal("refresh_token"),
+    refresh_token: z.string().min(1),
+    client_id: z.string().min(1),
+    scope: z.string().optional(),
+    resource: z.string().url().optional(),
+  }),
+]);
 
 const registrationBodySchema = z
   .object({
@@ -197,6 +207,18 @@ const clientAllowsScopes = (
   const allowed = new Set(requestedScopes(client.scope));
   return requestedScopes(scope).every((entry) => allowed.has(entry));
 };
+
+const clientAllowsGrant = (clientId: string, grantType: string): boolean => {
+  const client = registeredClients.get(clientId);
+  return Boolean(client && client.grantTypes.includes(grantType));
+};
+
+const scopeIsSubset = (requested: string, allowed: string): boolean => {
+  const allowedScopes = new Set(requestedScopes(allowed));
+  return requestedScopes(requested).every((entry) => allowedScopes.has(entry));
+};
+
+const oauthGrantTypesSupported = ["authorization_code", "refresh_token"];
 
 const sweepExpiredOAuthState = () => {
   const now = Date.now();
@@ -696,7 +718,7 @@ export const createOAuthRouter = (
         token_endpoint: `${config.issuer}/oauth/token`,
         registration_endpoint: `${config.issuer}/oauth/register`,
         response_types_supported: ["code"],
-        grant_types_supported: ["authorization_code"],
+        grant_types_supported: oauthGrantTypesSupported,
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["none"],
         scopes_supported: scopesSupported,
@@ -714,7 +736,7 @@ export const createOAuthRouter = (
         token_endpoint: `${config.issuer}/oauth/token`,
         registration_endpoint: `${config.issuer}/oauth/register`,
         response_types_supported: ["code"],
-        grant_types_supported: ["authorization_code"],
+        grant_types_supported: oauthGrantTypesSupported,
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["none"],
         scopes_supported: scopesSupported,
@@ -747,8 +769,12 @@ export const createOAuthRouter = (
       );
     }
 
+    const unsupportedGrant = grantTypes.some(
+      (grantType) => !oauthGrantTypesSupported.includes(grantType),
+    );
     if (
       !grantTypes.includes("authorization_code") ||
+      unsupportedGrant ||
       !responseTypes.includes("code") ||
       authMethod !== "none"
     ) {
@@ -756,7 +782,7 @@ export const createOAuthRouter = (
         response,
         400,
         "invalid_client_metadata",
-        "Hostr MCP only supports public authorization-code PKCE clients.",
+        "Hostr MCP only supports public authorization-code PKCE clients with optional refresh-token rotation.",
       );
     }
 
@@ -765,7 +791,9 @@ export const createOAuthRouter = (
       clientName: parsed.data.client_name,
       redirectUris: parsed.data.redirect_uris,
       scope: parsed.data.scope || scopesSupported.join(" "),
-      grantTypes: ["authorization_code"],
+      grantTypes: grantTypes.filter((grantType) =>
+        oauthGrantTypesSupported.includes(grantType),
+      ),
       responseTypes: ["code"],
       tokenEndpointAuthMethod: "none",
       clientIdIssuedAt: Math.floor(Date.now() / 1000),
@@ -1027,6 +1055,83 @@ export const createOAuthRouter = (
       );
     }
 
+    if (parsed.data.grant_type === "refresh_token") {
+      const refreshStore = new RefreshTokenStore(config.oauthClientStorePath);
+      const lookup = refreshStore.lookup(parsed.data.refresh_token);
+      if (lookup.status === "consumed" || lookup.status === "revoked") {
+        if (lookup.record) {
+          refreshStore.revokeFamily(lookup.record.familyId);
+        }
+        return oauthError(
+          response,
+          400,
+          "invalid_grant",
+          "Refresh token has already been used or revoked.",
+        );
+      }
+      if (lookup.status !== "valid" || !lookup.record) {
+        return oauthError(
+          response,
+          400,
+          "invalid_grant",
+          "Refresh token is invalid or expired.",
+        );
+      }
+
+      const token = lookup.record;
+      const resource = parsed.data.resource ?? token.resource;
+      const scope = parsed.data.scope ?? token.scope;
+      if (
+        token.clientId !== parsed.data.client_id ||
+        !clientAllowsGrant(parsed.data.client_id, "refresh_token") ||
+        !validateResource(config, resource) ||
+        resource !== token.resource ||
+        !validateScopes(scope) ||
+        !clientAllowsScopes(parsed.data.client_id, scope) ||
+        !scopeIsSubset(scope, token.scope)
+      ) {
+        return oauthError(
+          response,
+          400,
+          "invalid_grant",
+          "Refresh token binding did not match.",
+        );
+      }
+
+      const consumed = refreshStore.consume(token.id);
+      if (!consumed) {
+        refreshStore.revokeFamily(token.familyId);
+        return oauthError(
+          response,
+          400,
+          "invalid_grant",
+          "Refresh token has already been used or revoked.",
+        );
+      }
+
+      const accessToken = await signAccessToken(
+        config,
+        token.sessionId,
+        scope,
+      );
+      const rotated = refreshStore.issue({
+        clientId: token.clientId,
+        sessionId: token.sessionId,
+        scope,
+        resource: token.resource,
+        ttlSeconds: config.refreshTokenTtlSeconds,
+        familyId: token.familyId,
+      });
+
+      return response.json({
+        access_token: accessToken,
+        token_type: "Bearer",
+        expires_in: config.accessTokenTtlSeconds,
+        refresh_token: rotated.refreshToken,
+        scope,
+      });
+    }
+
     const code = authorizationCodes.get(parsed.data.code);
     if (!code || code.expiresAt < Date.now()) {
       authorizationCodes.delete(parsed.data.code);
@@ -1067,11 +1172,21 @@ export const createOAuthRouter = (
       code.sessionId,
       code.scope,
     );
+    const refreshToken = clientAllowsGrant(code.clientId, "refresh_token")
+      ? new RefreshTokenStore(config.oauthClientStorePath).issue({
+          clientId: code.clientId,
+          sessionId: code.sessionId,
+          scope: code.scope,
+          resource: code.resource,
+          ttlSeconds: config.refreshTokenTtlSeconds,
+        }).refreshToken
+      : undefined;
 
     response.json({
       access_token: accessToken,
       token_type: "Bearer",
       expires_in: config.accessTokenTtlSeconds,
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
       scope: code.scope,
     });
   });

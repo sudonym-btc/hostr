@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -22,6 +23,7 @@ const testConfig = (directory) => ({
   oauthClientStorePath: path.join(directory, "oauth-clients.json"),
   jwtSecret: new TextEncoder().encode("test-secret"),
   accessTokenTtlSeconds: 3600,
+  refreshTokenTtlSeconds: 2_592_000,
   hostrDaemon: {
     command: "node",
     args: [],
@@ -91,6 +93,214 @@ test("MCP session store keeps multiple accounts and a mutable active pubkey", ()
   assert.deepEqual(persisted.sessions[0].accounts.map((account) => account.pubkey), [
     "pubkey-2",
   ]);
+});
+
+test("hostr_session_status is visible without MCP OAuth", async () => {
+  const directory = tempDirectory();
+  const config = testConfig(directory);
+  const calls = [];
+  const daemon = {
+    visibleActions: async () => {
+      calls.push(["visibleActions"]);
+      return { visibleActionIds: [] };
+    },
+    callAction: async ({ action }) => {
+      calls.push(["callAction", action]);
+      return {
+        ok: true,
+        command: action,
+        environment: "test",
+        dryRun: false,
+        data: {},
+      };
+    },
+    logoutSession: async () => ({ ok: true }),
+    uploadImage: async () => ({
+      ok: true,
+      command: "hostr.upload.image",
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    onNotification: () => () => {},
+  };
+
+  const client = await startMcpClient(config, daemon);
+  try {
+    const tools = await client.call("tools/list");
+    assert.equal(hasTool(tools, "hostr_session_status"), true);
+    assert.equal(hasTool(tools, "hostr_session_connect"), false);
+    assert.equal(hasTool(tools, "hostr_session_accounts"), false);
+
+    const status = await client.call("tools/call", {
+      name: "hostr_session_status",
+      arguments: { includeStorageDetails: true },
+    });
+    assert.deepEqual(status.result.structuredContent, {
+      mcpAuthenticated: false,
+      accountCount: 0,
+      authenticated: false,
+      signerOnline: false,
+      needsReconnect: false,
+      storage: { accountPubkeys: [] },
+    });
+    assert.deepEqual(calls, []);
+  } finally {
+    await client.close();
+  }
+});
+
+test("OAuth authorization code exchange issues rotating refresh tokens", async () => {
+  const directory = tempDirectory();
+  const config = testConfig(directory);
+  const daemon = {
+    startOAuthNostrConnect: async ({ requestId }) => ({
+      ok: true,
+      command: "hostr.session.connect",
+      environment: "test",
+      dryRun: false,
+      data: {
+        nostrconnect: `nostrconnect://test?request=${requestId}`,
+        qrImage: "data:image/png;base64,test",
+      },
+    }),
+    completeOAuthNostrConnect: async () => ({
+      ok: true,
+      command: "hostr.session.connect",
+      environment: "test",
+      dryRun: false,
+      data: { pubkey: "pubkey-refresh" },
+    }),
+    visibleActions: async () => ({ visibleActionIds: [] }),
+    callAction: async ({ action }) => ({
+      ok: true,
+      command: action,
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    logoutSession: async () => ({ ok: true }),
+    uploadImage: async () => ({
+      ok: true,
+      command: "hostr.upload.image",
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    onNotification: () => () => {},
+  };
+
+  const server = await startHttpServer(config, daemon);
+  try {
+    const redirectUri = "http://127.0.0.1/callback";
+    const registered = await requestJson(server, "/oauth/register", {
+      method: "POST",
+      body: {
+        client_name: "Refresh Test",
+        redirect_uris: [redirectUri],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "none",
+        scope: "hostr:read hostr:write",
+      },
+    });
+    assert.equal(registered.status, 201);
+    assert.deepEqual(registered.body.grant_types, [
+      "authorization_code",
+      "refresh_token",
+    ]);
+
+    const verifier = "a".repeat(43);
+    const challenge = crypto
+      .createHash("sha256")
+      .update(verifier)
+      .digest("base64url");
+    const authorize = await requestText(
+      server,
+      `/oauth/authorize?${new URLSearchParams({
+        response_type: "code",
+        client_id: registered.body.client_id,
+        redirect_uri: redirectUri,
+        scope: "hostr:read hostr:write",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+      })}`,
+    );
+    assert.equal(authorize.status, 200);
+    const requestIdMatch = /const requestId = "([^"]+)"/.exec(authorize.text);
+    assert.ok(requestIdMatch, authorize.text);
+
+    const completed = await requestJson(
+      server,
+      "/oauth/nostr-connect/complete",
+      {
+        method: "POST",
+        body: { request_id: requestIdMatch[1] },
+      },
+    );
+    assert.equal(completed.status, 200);
+    const code = new URL(completed.body.redirectUrl).searchParams.get("code");
+    assert.ok(code);
+
+    const token = await requestJson(server, "/oauth/token", {
+      method: "POST",
+      body: {
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: registered.body.client_id,
+        code_verifier: verifier,
+      },
+    });
+    assert.equal(token.status, 200);
+    assert.equal(token.body.token_type, "Bearer");
+    assert.equal(token.body.expires_in, config.accessTokenTtlSeconds);
+    assert.equal(typeof token.body.refresh_token, "string");
+    const initialClaims = await verifyAccessToken(config, token.body.access_token);
+    assert.equal(initialClaims.sessionId.length > 0, true);
+
+    const refreshed = await requestJson(server, "/oauth/token", {
+      method: "POST",
+      body: {
+        grant_type: "refresh_token",
+        refresh_token: token.body.refresh_token,
+        client_id: registered.body.client_id,
+      },
+    });
+    assert.equal(refreshed.status, 200);
+    assert.equal(typeof refreshed.body.access_token, "string");
+    assert.equal(typeof refreshed.body.refresh_token, "string");
+    assert.notEqual(refreshed.body.refresh_token, token.body.refresh_token);
+    const refreshedClaims = await verifyAccessToken(
+      config,
+      refreshed.body.access_token,
+    );
+    assert.equal(refreshedClaims.sessionId, initialClaims.sessionId);
+
+    const replay = await requestJson(server, "/oauth/token", {
+      method: "POST",
+      body: {
+        grant_type: "refresh_token",
+        refresh_token: token.body.refresh_token,
+        client_id: registered.body.client_id,
+      },
+    });
+    assert.equal(replay.status, 400);
+    assert.equal(replay.body.error, "invalid_grant");
+
+    const familyRevoked = await requestJson(server, "/oauth/token", {
+      method: "POST",
+      body: {
+        grant_type: "refresh_token",
+        refresh_token: refreshed.body.refresh_token,
+        client_id: registered.body.client_id,
+      },
+    });
+    assert.equal(familyRevoked.status, 400);
+    assert.equal(familyRevoked.body.error, "invalid_grant");
+  } finally {
+    await server.close();
+  }
 });
 
 test("MCP session tools connect, list, switch, and logout backend accounts", async () => {
@@ -196,6 +406,7 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
   const client = await startMcpClient(config, daemon, token);
   try {
     const initialTools = await client.call("tools/list");
+    assert.equal(hasTool(initialTools, "hostr_session_status"), true);
     assert.equal(hasTool(initialTools, "hostr_session_connect"), true);
     assert.equal(hasTool(initialTools, "hostr_session_accounts"), true);
     assert.equal(hasTool(initialTools, "hostr_session_switch"), false);
@@ -334,6 +545,40 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
 const hasTool = (toolsResponse, name) =>
   toolsResponse.result.tools.some((tool) => tool.name === name);
 
+const startHttpServer = async (config, daemon) => {
+  const server = http.createServer(createApp(config, daemon));
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  return {
+    url: `http://127.0.0.1:${port}`,
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
+};
+
+const requestText = async (server, pathOrUrl, options = {}) => {
+  const response = await fetch(`${server.url}${pathOrUrl}`, {
+    method: options.method ?? "GET",
+    headers: {
+      ...(options.body ? { "content-type": "application/json" } : {}),
+      ...(options.headers ?? {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  return {
+    status: response.status,
+    headers: response.headers,
+    text: await response.text(),
+  };
+};
+
+const requestJson = async (server, pathOrUrl, options = {}) => {
+  const response = await requestText(server, pathOrUrl, options);
+  return {
+    ...response,
+    body: response.text === "" ? undefined : JSON.parse(response.text),
+  };
+};
+
 const startMcpClient = async (config, daemon, token) => {
   const server = http.createServer(createApp(config, daemon));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -345,9 +590,9 @@ const startMcpClient = async (config, daemon, token) => {
   const post = async (body) => {
     const headers = {
       accept: "application/json, text/event-stream",
-      authorization: `Bearer ${token}`,
       "content-type": "application/json",
       ...(mcpSessionId ? { "mcp-session-id": mcpSessionId } : {}),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
     };
     const response = await fetch(url, {
       method: "POST",
