@@ -247,8 +247,23 @@ void main() {
     expect(docs, contains('hostr_bookings_list'));
     expect(docs, contains('hostr_escrow_methods'));
     expect(docs, contains('dryRun: false'));
+    expect(docs, contains('Hostr-created per-trade temporary pubkeys'));
     expect(docs.toLowerCase(), isNot(contains('counter-offer')));
   });
+
+  test(
+    'reservation privacy descriptions do not frame temp pubkeys as mismatches',
+    () {
+      final booking = HostrActionCatalog.byId('hostr.reservations.bookAndPay');
+      final trips = HostrActionCatalog.byId('hostr.trips.list');
+      final swaps = HostrActionCatalog.byId('hostr.swaps.watch');
+
+      for (final spec in [booking, trips, swaps]) {
+        expect(spec.description, contains('temporary pubkey'));
+        expect(spec.description, contains('identity mismatch'));
+      }
+    },
+  );
 
   test('session connect contract avoids Nostr Connect listener races', () {
     final sessionConnect = HostrActionCatalog.byId('hostr.session.connect');
