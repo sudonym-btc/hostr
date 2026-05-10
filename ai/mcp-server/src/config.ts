@@ -154,6 +154,7 @@ export type AppConfig = {
   oauthClientStorePath: string;
   jwtSecret: Uint8Array;
   accessTokenTtlSeconds: number;
+  refreshTokenTtlSeconds: number;
   imageRevision?: string;
   imageCreated?: string;
   imageSource?: string;
@@ -196,6 +197,10 @@ export const config: AppConfig = {
   ),
   accessTokenTtlSeconds: Number.parseInt(
     process.env.MCP_ACCESS_TOKEN_TTL_SECONDS || "3600",
+    10,
+  ),
+  refreshTokenTtlSeconds: Number.parseInt(
+    process.env.MCP_REFRESH_TOKEN_TTL_SECONDS || "2592000",
     10,
   ),
   hostrDaemon: {

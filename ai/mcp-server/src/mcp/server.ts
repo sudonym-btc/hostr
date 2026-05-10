@@ -4166,6 +4166,7 @@ const sendHostrProgress = async (
 };
 
 const publicActionIds = new Set<string>([
+  "hostr.session.status",
   "hostr.listings.search",
   "hostr.profile.lookup",
 ]);
@@ -4337,10 +4338,27 @@ const sessionAccountsPayload = async (
 const sessionStatusPayload = async (
   sessionStore: McpSessionStore,
   daemon: HostrDaemonClient,
-  claims: AccessTokenClaims,
+  claims: AccessTokenClaims | null,
   args: Record<string, unknown>,
   traceId: string,
 ): Promise<Record<string, unknown>> => {
+  if (!claims) {
+    return {
+      mcpAuthenticated: false,
+      accountCount: 0,
+      authenticated: false,
+      signerOnline: false,
+      needsReconnect: false,
+      ...(boolValue(args.includeStorageDetails) === true
+        ? {
+            storage: {
+              accountPubkeys: [],
+            },
+          }
+        : {}),
+    };
+  }
+
   const session = sessionStore.get(claims.sessionId);
   const activeAccount = session.accounts.find(
     (account) => account.pubkey === session.activePubkey,
@@ -4356,6 +4374,7 @@ const sessionStatusPayload = async (
     : undefined;
   const signerStatus = record(summary?.signerStatus);
   return {
+    mcpAuthenticated: true,
     sessionId: claims.sessionId,
     activePubkey: session.activePubkey,
     accountCount: session.accounts.length,
@@ -6580,7 +6599,7 @@ const createServer = (
         }
 
         const activePubkey = activePubkeyForClaims(sessionStore, claims);
-        if (action.id === "hostr.session.status" && claims) {
+        if (action.id === "hostr.session.status") {
           const payload = await sessionStatusPayload(
             sessionStore,
             daemon,
