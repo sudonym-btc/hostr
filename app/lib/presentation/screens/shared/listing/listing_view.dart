@@ -184,6 +184,29 @@ class ListingViewBody extends StatelessWidget {
     );
   }
 
+  Widget _buildHeroToolbarButton({
+    required Widget icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(6),
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.46),
+        shape: CircleBorder(
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.34)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: IconButton(
+          tooltip: tooltip,
+          icon: icon,
+          color: Colors.white,
+          onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+
   Future<void> _navigateBack(BuildContext context) async {
     final router = context.router;
     final didPop = await router.maybePop();
@@ -202,8 +225,9 @@ class ListingViewBody extends StatelessWidget {
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       shadowColor: Colors.transparent,
-      leading: IconButton(
+      leading: _buildHeroToolbarButton(
         icon: const BackButtonIcon(),
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
         onPressed: () => _navigateBack(context),
       ),
       leadingWidth: kToolbarHeight,
@@ -211,8 +235,9 @@ class ListingViewBody extends StatelessWidget {
       actionsIconTheme: const IconThemeData(color: Colors.white),
       actions: [
         if (isOwner)
-          IconButton(
+          _buildHeroToolbarButton(
             icon: const Icon(Icons.edit),
+            tooltip: 'Edit listing',
             onPressed: () {
               context.router.push(EditListingRoute(a: listing.naddr()!));
             },
