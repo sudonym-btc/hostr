@@ -49,6 +49,8 @@ services:
     environment:
       - LETSENCRYPT_HOST=ai.${DOMAIN}
       - HOSTR_DAEMON_STATE_DIR=/data/mcp
+      - HOSTR_DAEMON_LOGS=1
+      - HOSTR_DAEMON_LOG_LEVEL=info
     volumes:
       - ./docker/data/mcp:/data/mcp
 

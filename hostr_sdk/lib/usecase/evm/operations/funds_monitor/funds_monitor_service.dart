@@ -144,9 +144,17 @@ class FundsMonitorService {
   /// Idempotent.
   Future<void> start() {
     final existing = _startFuture;
-    if (existing != null) return existing;
+    if (existing != null) {
+      _logger.d('FundsMonitorService start reused existing startup future');
+      return existing;
+    }
 
     final generation = ++_startGeneration;
+    _logger.i(
+      'FundsMonitorService starting '
+      'pubkey=$_activePubkeyForLogs '
+      'generation=$generation',
+    );
     late final Future<void> future;
     future = _logger.span('start', () => _startInternal(generation)).catchError(
       (Object e, StackTrace st) {
@@ -164,6 +172,7 @@ class FundsMonitorService {
   Future<void> _startInternal(int generation) async {
     if (_started) return;
     _started = true;
+    _logger.i('FundsMonitorService start internal generation=$generation');
 
     _buildFundsStream();
     _scanCompleter = Completer<void>();
@@ -173,6 +182,11 @@ class FundsMonitorService {
 
       _startEventListener();
       _startSweepListener();
+      _logger.i(
+        'FundsMonitorService listeners started '
+        'pubkey=$_activePubkeyForLogs '
+        'generation=$generation',
+      );
 
       try {
         await scan();
@@ -364,57 +378,67 @@ class FundsMonitorService {
   ///
   /// Discovers escrow services by fetching [EscrowService] events from
   /// bootstrap escrow pubkeys, then calls `allBalances` on each contract.
-  Future<void> _scanEscrowContracts() =>
-      _logger.span('_scanEscrowContracts', () async {
-        final config = _config;
-        final escrows = _escrows;
-        if (config == null ||
-            escrows == null ||
-            config.bootstrapEscrowPubkeys.isEmpty) {
-          return;
-        }
-
-        // Fetch known escrow service events.
-        final services = await escrows.list(
-          Filter(
-            kinds: EscrowService.kinds,
-            authors: config.bootstrapEscrowPubkeys,
-          ),
+  Future<void> _scanEscrowContracts() => _logger.span(
+    '_scanEscrowContracts',
+    () async {
+      final config = _config;
+      final escrows = _escrows;
+      if (config == null ||
+          escrows == null ||
+          config.bootstrapEscrowPubkeys.isEmpty) {
+        _logger.i(
+          'FundsMonitor escrow scan skipped: missing config, escrows, '
+          'or bootstrap escrow pubkeys',
         );
+        return;
+      }
 
-        for (final service in services) {
-          try {
-            final chain = _evm.getChainByChainId(service.chainId);
-            if (chain == null) continue;
+      // Fetch known escrow service events.
+      final services = await escrows.list(
+        Filter(
+          kinds: EscrowService.kinds,
+          authors: config.bootstrapEscrowPubkeys,
+        ),
+      );
+      _logger.i(
+        'FundsMonitor escrow scan discovered ${services.length} service(s) '
+        'for ${_addressToAccountIndex.values.toSet().length} account index(es)',
+      );
 
-            final contract = chain.escrow.getSupportedEscrowContract(service);
+      for (final service in services) {
+        try {
+          final chain = _evm.getChainByChainId(service.chainId);
+          if (chain == null) continue;
 
-            // Check all known account indices for balances.
-            final seenIndices = <int>{};
-            for (final index in _addressToAccountIndex.values) {
-              if (!seenIndices.add(index)) continue;
-              try {
-                final keypair = await _auth.hd.getActiveEvmKey(
-                  accountIndex: index,
-                );
-                await _refreshEscrowBalances(
-                  contract: contract,
-                  chain: chain,
-                  keypair: keypair,
-                  accountIndex: index,
-                );
-              } catch (e) {
-                _logger.w(
-                  'Escrow balance scan failed for account $index '
-                  'on ${chain.config.id}: $e',
-                );
-              }
+          final contract = chain.escrow.getSupportedEscrowContract(service);
+
+          // Check all known account indices for balances.
+          final seenIndices = <int>{};
+          for (final index in _addressToAccountIndex.values) {
+            if (!seenIndices.add(index)) continue;
+            try {
+              final keypair = await _auth.hd.getActiveEvmKey(
+                accountIndex: index,
+              );
+              await _refreshEscrowBalances(
+                contract: contract,
+                chain: chain,
+                keypair: keypair,
+                accountIndex: index,
+              );
+            } catch (e) {
+              _logger.w(
+                'Escrow balance scan failed for account $index '
+                'on ${chain.config.id}: $e',
+              );
             }
-          } catch (e) {
-            _logger.w('Escrow scan failed for service ${service.id}: $e');
           }
+        } catch (e) {
+          _logger.w('Escrow scan failed for service ${service.id}: $e');
         }
-      });
+      }
+    },
+  );
 
   // ══════════════════════════════════════════════════════════════════════════
   // Targeted refetch
@@ -691,6 +715,10 @@ class FundsMonitorService {
   // ── Settlement event → escrow FundsItem refresh ─────────────────────────
 
   void _startEventListener() {
+    _logger.i(
+      'FundsMonitorService subscribing to paymentEvents replay stream '
+      'pubkey=$_activePubkeyForLogs',
+    );
     _eventSub = _userSubs.paymentEvents$.replayStream
         .whereType<EscrowEvent>()
         .where(
@@ -706,6 +734,13 @@ class FundsMonitorService {
   }
 
   void _enqueueSettlementEvent(EscrowEvent event) {
+    _logger.i(
+      'FundsMonitor settlement replay event queued '
+      'type=${event.runtimeType} tradeId=${event.tradeId} '
+      'chain=${event.chain?.config.id ?? 'unknown'} '
+      'contract=${event.contract?.address.eip55With0x ?? 'unknown'} '
+      'queueDepth=${_settlementEventQueue.length + 1}',
+    );
     _settlementEventQueue.add(event);
     if (_settlementEventQueueRunningGeneration ==
         _settlementEventQueueGeneration) {
@@ -741,15 +776,31 @@ class FundsMonitorService {
   Future<void> _onSettlementEvent(EscrowEvent event) async {
     final chain = event.chain;
     final contract = event.contract;
-    if (chain == null || contract == null) return;
+    if (chain == null || contract == null) {
+      _logger.w(
+        'FundsMonitor settlement event skipped: missing chain or contract '
+        'type=${event.runtimeType} tradeId=${event.tradeId}',
+      );
+      return;
+    }
 
     try {
       // Skip events whose tradeId doesn't belong to this user's HD tree.
-      final accountIndex =
-          await _tradeAccountAllocator.tryFindTradeAccountIndexByTradeId(
-            event.tradeId,
-          ) ??
-          0;
+      final resolvedAccountIndex = await _tradeAccountAllocator
+          .tryFindTradeAccountIndexByTradeId(event.tradeId);
+      if (resolvedAccountIndex == null) {
+        _logger.w(
+          'FundsMonitor settlement trade account index not found; '
+          'falling back to account=0 tradeId=${event.tradeId}',
+        );
+      }
+      final accountIndex = resolvedAccountIndex ?? 0;
+      _logger.i(
+        'FundsMonitor settlement event processing '
+        'type=${event.runtimeType} tradeId=${event.tradeId} '
+        'account=$accountIndex chain=${chain.config.id} '
+        'contract=${contract.address.eip55With0x}',
+      );
 
       final keypair = await _auth.hd.getActiveEvmKey(
         accountIndex: accountIndex,
@@ -760,6 +811,11 @@ class FundsMonitorService {
         chain: chain,
         keypair: keypair,
         accountIndex: accountIndex,
+      );
+      _logger.i(
+        'FundsMonitor settlement balance refresh completed '
+        'tradeId=${event.tradeId} account=$accountIndex '
+        'address=${keypair.address.eip55With0x}',
       );
     } catch (e) {
       _logger.e('Failed to refresh escrow balances after ${event.tradeId}: $e');
@@ -774,6 +830,11 @@ class FundsMonitorService {
     required EthPrivateKey keypair,
     required int accountIndex,
   }) async {
+    _logger.i(
+      'FundsMonitor escrow balance refresh starting '
+      'chain=${chain.config.id} contract=${contract.address.eip55With0x} '
+      'beneficiary=${keypair.address.eip55With0x} account=$accountIndex',
+    );
     final balanceMap = await contract.allBalances(beneficiary: keypair.address);
 
     final smartAddr = chain.aa != null
@@ -791,11 +852,13 @@ class FundsMonitorService {
     );
 
     // Upsert non-zero balances.
+    var nonZeroBalances = 0;
     for (final entry in balanceMap.entries) {
       final token = await chain.resolveToken(entry.key.eip55With0x);
       final tokenKey = entry.key.eip55With0x.toLowerCase();
       final balance = TokenAmount(value: entry.value, token: token);
       if (balance.value > BigInt.zero) {
+        nonZeroBalances++;
         final dust = await _isDustBalance(chain, balance);
         _escrowItems[(addrKey, tokenKey)] = FundsItem(
           address: effectiveAddress,
@@ -814,6 +877,12 @@ class FundsMonitorService {
     }
 
     _escrowSubject.add(_escrowItems.values.toList());
+    _logger.i(
+      'FundsMonitor escrow balance refresh emitted '
+      'chain=${chain.config.id} contract=${contract.address.eip55With0x} '
+      'account=$accountIndex effectiveAddress=$addrKey '
+      'nonZeroBalances=$nonZeroBalances totalEscrowItems=${_escrowItems.length}',
+    );
   }
 
   // ── Sweep listener ───────────────────────────────────────────────────────
@@ -1200,6 +1269,14 @@ class FundsMonitorService {
         'token=${item.token.tagId}:${item.token.address} '
         'amountRaw=${item.balance.value} amount=${item.balance} '
         'source=$source dust=${item.dust}';
+  }
+
+  String get _activePubkeyForLogs {
+    try {
+      return _auth.activePubkey ?? 'unknown';
+    } catch (_) {
+      return 'unknown';
+    }
   }
 
   Future<String> _operationStateSummary(String namespace) async {

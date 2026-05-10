@@ -106,6 +106,7 @@ class HostrDaemonStdioServer {
         'describe' => HostrActionCatalog.toJson(),
         'visibleActions' => daemon.visibleActions(
           pubkey: _optionalString(params, 'pubkey'),
+          traceId: traceId,
         ),
         'logoutSession' =>
           await daemon
