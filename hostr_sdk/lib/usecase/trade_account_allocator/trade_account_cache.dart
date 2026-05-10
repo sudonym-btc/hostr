@@ -56,6 +56,10 @@ class TradeAccountCache {
   /// Pubkey for which the in-memory cache is currently loaded.
   String? _loadedPubkey;
 
+  /// Highest account index covered by [ensureTradeIdsLoaded] for
+  /// [_loadedPubkey].
+  int _loadedMaxAccountIndex = -1;
+
   /// Whether all entries have been fully promoted (evmAddress).
   bool _fullyLoaded = false;
 
@@ -91,24 +95,30 @@ class TradeAccountCache {
   Future<void> ensureTradeIdsLoaded() async {
     final pubkey = _currentPubkey();
     if (pubkey == null) return;
-    if (_loadedPubkey == pubkey) return;
 
-    _clear();
-    _loadedPubkey = pubkey;
+    if (_loadedPubkey != pubkey) {
+      _clear();
+      _loadedPubkey = pubkey;
+    }
 
     final maxAccountIndex = _auth.storedMaxAccountIndex;
-    if (maxAccountIndex < 0) return;
+    if (maxAccountIndex < 0 || _loadedMaxAccountIndex >= maxAccountIndex) {
+      return;
+    }
 
-    _logger.d('Deriving ${maxAccountIndex + 1} tradeIds');
-    for (var i = 0; i <= maxAccountIndex; i++) {
+    final start = _loadedMaxAccountIndex + 1;
+    _logger.d('Deriving tradeIds for indices $start..$maxAccountIndex');
+    for (var i = start; i <= maxAccountIndex; i++) {
       if (_byIndex.containsKey(i)) {
         await _yieldToEventLoop();
         continue;
       }
       final tradeId = await _hd.getTradeId(accountIndex: i);
       _indexPartialEntry(TradeAccountEntry(accountIndex: i, tradeId: tradeId));
+      _fullyLoaded = false;
       await _yieldToEventLoop();
     }
+    _loadedMaxAccountIndex = maxAccountIndex;
     _logger.d('TradeId cache ready: ${_byIndex.length} entries');
   }
 
@@ -162,6 +172,11 @@ class TradeAccountCache {
     _indexPartialEntry(
       TradeAccountEntry(accountIndex: accountIndex, tradeId: tradeId),
     );
+    _fullyLoaded = false;
+    if (_loadedPubkey == _currentPubkey() &&
+        accountIndex > _loadedMaxAccountIndex) {
+      _loadedMaxAccountIndex = accountIndex;
+    }
   }
 
   /// Ensure the entry at [accountIndex] is fully populated.
@@ -197,6 +212,7 @@ class TradeAccountCache {
     _byTradeId.clear();
     _byEvmAddress.clear();
     _loadedPubkey = null;
+    _loadedMaxAccountIndex = -1;
     _fullyLoaded = false;
   }
 

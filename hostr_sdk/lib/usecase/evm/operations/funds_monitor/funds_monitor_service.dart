@@ -58,6 +58,11 @@ class FundsMonitorService {
   /// Minimum pause between processing replayed/live escrow settlement events.
   static const Duration settlementEventProcessingGap = Duration(seconds: 5);
 
+  /// Settlement replay can be the first thing that re-discovers an old
+  /// trade after a stateless MCP login, so scan beyond the interactive
+  /// allocator default before giving up.
+  static const int settlementTradeAccountLookupScanLimit = 256;
+
   // ── Dependencies ────────────────────────────────────────────────────────
 
   final Evm _evm;
@@ -787,7 +792,10 @@ class FundsMonitorService {
     try {
       // Skip events whose tradeId doesn't belong to this user's HD tree.
       final resolvedAccountIndex = await _tradeAccountAllocator
-          .tryFindTradeAccountIndexByTradeId(event.tradeId);
+          .tryFindTradeAccountIndexByTradeId(
+            event.tradeId,
+            maxScan: settlementTradeAccountLookupScanLimit,
+          );
       if (resolvedAccountIndex == null) {
         _logger.w(
           'FundsMonitor settlement trade account index not found; '

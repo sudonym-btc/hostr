@@ -81,7 +81,7 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   @override
   Future<int> findTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 20,
+    int maxScan = 64,
   }) => _logger.span('findTradeAccountIndexByTradeId', () async {
     final index = await tryFindTradeAccountIndexByTradeId(
       tradeId,
@@ -96,13 +96,16 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   @override
   Future<int?> tryFindTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 20,
+    int maxScan = 64,
   }) async {
     await _cache.ensureTradeIdsLoaded();
 
     // O(1) cache hit.
     final cached = _cache.indexByTradeId(tradeId);
-    if (cached != null) return cached;
+    if (cached != null) {
+      await _rememberObservedTradeIndex(cached);
+      return cached;
+    }
 
     // Cache miss — lightweight scan using only getTradeId.
     final upperBound = _scanUpperBound(maxScan);
@@ -115,11 +118,18 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
       // Cache the tradeId for future lookups (no salt/evmAddress yet).
       _cache.putTradeIdOnly(index, derivedTradeId);
       if (derivedTradeId == tradeId) {
+        await _rememberObservedTradeIndex(index);
         return index;
       }
       await _yieldToEventLoop();
     }
     return null;
+  }
+
+  Future<void> _rememberObservedTradeIndex(int accountIndex) async {
+    if (accountIndex < kFirstTradeAccountIndex) return;
+    if (accountIndex <= _auth.storedMaxAccountIndex) return;
+    await _auth.updateMaxAccountIndex(accountIndex);
   }
 
   @override

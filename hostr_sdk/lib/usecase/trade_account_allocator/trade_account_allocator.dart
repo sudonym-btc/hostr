@@ -10,12 +10,12 @@ abstract class TradeAccountAllocator {
 
   Future<int> findTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 20,
+    int maxScan = 64,
   });
 
   Future<int?> tryFindTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 20,
+    int maxScan = 64,
   });
 
   List<int> getReservedTradeIndices();

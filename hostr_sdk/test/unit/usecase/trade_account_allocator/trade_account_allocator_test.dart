@@ -54,6 +54,8 @@ class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
   /// Map from accountIndex → EVM address.
   final Map<int, bip.EthereumAddress> evmAddresses;
 
+  final List<int> tradeIdLookups = [];
+
   static final KeyPair _tradeKey = MockKeys.reviewer;
 
   _FakeDeterministicKeys({
@@ -62,8 +64,10 @@ class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
   });
 
   @override
-  Future<String> getTradeId({required int accountIndex}) async =>
-      tradeIds[accountIndex] ?? 'trade-$accountIndex';
+  Future<String> getTradeId({required int accountIndex}) async {
+    tradeIdLookups.add(accountIndex);
+    return tradeIds[accountIndex] ?? 'trade-$accountIndex';
+  }
 
   @override
   Future<bip.EthereumAddress> getEvmAddress({int accountIndex = 0}) async =>
@@ -344,11 +348,101 @@ void main() {
       expect(index, 7);
     });
 
+    test(
+      'finds owned reservation trade outside the first scanned batch',
+      () async {
+        hd = _FakeDeterministicKeys(tradeIds: {42: 'old-reservation'});
+        cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
+        allocator = TradeAccountAllocatorImpl(
+          auth: auth,
+          hd: hd,
+          evm: evm,
+          reservations: reservations,
+          threads: _FakeThreads(),
+          cache: cache,
+          logger: logger,
+        );
+
+        final index = await allocator.tryFindTradeAccountIndexByTradeId(
+          'old-reservation',
+        );
+
+        expect(index, 42);
+        expect(auth.storedMaxAccountIndex, 42);
+        expect(hd.tradeIdLookups, contains(42));
+      },
+    );
+
+    test(
+      'extends tradeId cache after persisted maxAccountIndex grows',
+      () async {
+        auth = _FakeAuth(
+          keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null),
+          maxAccountIndex: 1,
+        );
+        hd = _FakeDeterministicKeys(tradeIds: {3: 'later-reservation'});
+        cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
+        allocator = TradeAccountAllocatorImpl(
+          auth: auth,
+          hd: hd,
+          evm: evm,
+          reservations: reservations,
+          threads: _FakeThreads(),
+          cache: cache,
+          logger: logger,
+        );
+
+        expect(
+          await allocator.tryFindTradeAccountIndexByTradeId(
+            'missing',
+            maxScan: 1,
+          ),
+          isNull,
+        );
+
+        await auth.updateMaxAccountIndex(3);
+
+        final index = await allocator.tryFindTradeAccountIndexByTradeId(
+          'later-reservation',
+          maxScan: 1,
+        );
+
+        expect(index, 3);
+        expect(auth.storedMaxAccountIndex, 3);
+      },
+    );
+
     test('returns null when no match', () async {
       final index = await allocator.tryFindTradeAccountIndexByTradeId(
         'missing',
       );
       expect(index, isNull);
+    });
+
+    test('stops a foreign trade id lookup at a large bounded scan', () async {
+      const scanLimit = 4096;
+      hd = _FakeDeterministicKeys();
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
+      allocator = TradeAccountAllocatorImpl(
+        auth: auth,
+        hd: hd,
+        evm: evm,
+        reservations: reservations,
+        threads: _FakeThreads(),
+        cache: cache,
+        logger: logger,
+      );
+
+      final index = await allocator.tryFindTradeAccountIndexByTradeId(
+        'foreign-trade-id',
+        maxScan: scanLimit,
+      );
+
+      expect(index, isNull);
+      expect(hd.tradeIdLookups.length, scanLimit);
+      expect(hd.tradeIdLookups.first, 0);
+      expect(hd.tradeIdLookups.last, scanLimit - 1);
+      expect(hd.tradeIdLookups, isNot(contains(scanLimit)));
     });
 
     test('yields to the event queue while scanning misses', () async {
