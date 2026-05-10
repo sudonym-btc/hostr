@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Hostr privacy policy">
+  <link rel="canonical" href="https://hostr.network/privacy/">
+  <title>Privacy Policy - Hostr</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #fcfcfc;
+      color: #1d1d1f;
+    }
+
+    body {
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 20px 72px;
+    }
+
+    a {
+      color: #0f766e;
+    }
+
+    h1,
+    h2 {
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2.25rem;
+    }
+
+    h2 {
+      margin-top: 32px;
+      font-size: 1.25rem;
+    }
+
+    p,
+    li {
+      color: color-mix(in srgb, currentColor 82%, transparent);
+    }
+
+    .updated {
+      margin-top: 0;
+      color: color-mix(in srgb, currentColor 62%, transparent);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        background: #121212;
+        color: #f3f4f6;
+      }
+
+      a {
+        color: #5eead4;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: May 10, 2026</p>
+
+    <p>
+      Hostr is a peer-to-peer accommodation app built on Nostr and Bitcoin/Lightning. This policy explains what information Hostr handles when you use the web app, mobile app, or Hostr MCP server.
+    </p>
+
+    <h2>Information We Handle</h2>
+    <p>Depending on how you use Hostr, we may process:</p>
+    <ul>
+      <li>Nostr identity information, such as your public key, npub, profile metadata, and signer connection status.</li>
+      <li>Marketplace content you create or request, such as listings, listing photos, prices, availability, reservation details, reviews, and messages.</li>
+      <li>Payment and escrow workflow metadata, such as Lightning invoice state, swap identifiers, trade status, escrow selections, and settlement state. Hostr does not need your wallet seed phrase or private keys.</li>
+      <li>Technical data needed to operate the service, such as request timestamps, IP-derived network information, device/browser details, error logs, and trace identifiers.</li>
+      <li>Information you send through ChatGPT or another MCP client when that client calls Hostr tools on your behalf.</li>
+    </ul>
+
+    <h2>How We Use Information</h2>
+    <p>We use this information to provide Hostr features, including account connection, listing search, listing management, reservations, messaging, image uploads, payment monitoring, escrow workflows, fraud/debugging checks, reliability, and security.</p>
+
+    <h2>Nostr and Public Data</h2>
+    <p>
+      Hostr uses Nostr relays. Public profile and listing events may be visible to anyone on the relays where they are published. Private reservation and message workflows may still reveal metadata to the participants and infrastructure needed to deliver the workflow.
+    </p>
+
+    <h2>Sharing</h2>
+    <p>We share information only as needed to run Hostr:</p>
+    <ul>
+      <li>With Nostr relays and marketplace participants when you publish listings, send messages, or make reservations.</li>
+      <li>With image hosting, payment, swap, escrow, infrastructure, logging, and hosting providers that help operate the service.</li>
+      <li>When required by law, security, abuse prevention, or to protect users and the service.</li>
+    </ul>
+
+    <h2>Retention</h2>
+    <p>
+      Public Nostr events may remain available on relays outside Hostr's control. Hostr keeps operational logs and server-side session data only as long as reasonably needed for service operation, debugging, security, and legal obligations.
+    </p>
+
+    <h2>Your Choices</h2>
+    <p>
+      You can disconnect your Nostr signer, avoid publishing optional profile or listing fields, and request deletion of Hostr-controlled account/session data. Data already published to third-party Nostr relays may need to be removed at those relays separately and may remain cached by others.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions or deletion requests can be sent to <a href="mailto:admin@hostr.network">admin@hostr.network</a>.
+    </p>
+  </main>
+</body>
+</html>

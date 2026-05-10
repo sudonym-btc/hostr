@@ -2,6 +2,8 @@
 
 The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart `hostr-daemon`. The action catalog in `hostr_cli/lib/src/actions/hostr_actions.dart` is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.
 
+For ChatGPT Apps Directory review prep, see [`CHATGPT_SUBMISSION.md`](./CHATGPT_SUBMISSION.md).
+
 ## One-click client install
 
 Use the hosted endpoint for AI clients that support remote HTTP MCP with OAuth:

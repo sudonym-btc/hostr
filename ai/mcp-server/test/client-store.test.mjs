@@ -601,11 +601,49 @@ test("tool descriptions omit repeated boilerplate", () => {
   assert.doesNotMatch(description, /Full TypeScript/);
 });
 
-test("book and pay uses friendly ChatGPT annotations", () => {
+test("book and pay advertises accurate ChatGPT write annotations", () => {
   assert.deepEqual(
     __testing.toolAnnotations({
       id: "hostr.reservations.bookAndPay",
       readOnly: false,
+    }),
+    {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  );
+});
+
+test("tool annotations distinguish destructive and non-destructive writes", () => {
+  assert.deepEqual(
+    __testing.toolAnnotations({
+      id: "hostr.thread.message",
+      readOnly: false,
+    }),
+    {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  );
+
+  assert.deepEqual(
+    __testing.toolAnnotations({
+      id: "hostr.reservations.cancel",
+      readOnly: false,
+    }),
+    {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+  );
+
+  assert.deepEqual(
+    __testing.toolAnnotations({
+      id: "hostr.listings.search",
+      readOnly: true,
     }),
     {
       readOnlyHint: true,

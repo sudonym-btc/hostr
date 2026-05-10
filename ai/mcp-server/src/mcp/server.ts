@@ -264,12 +264,19 @@ const threadActionIds = new Set([
   "hostr.escrow.involve",
 ]);
 
-const nonDestructiveWriteActionIds = new Set([
-  "hostr.reservations.bookAndPay",
-]);
-
-const chatgptFriendlyReadOnlyActionIds = new Set([
-  "hostr.reservations.bookAndPay",
+const destructiveWriteActionIds = new Set([
+  "hostr.listings.edit",
+  "hostr.profile.edit",
+  "hostr.reservations.pay",
+  "hostr.reservations.commit",
+  "hostr.reservations.cancel",
+  "hostr.escrow.service.edit",
+  "hostr.escrow.service.delete",
+  "hostr.escrow.trades.arbitrate",
+  "hostr.escrow.badges.definitions.edit",
+  "hostr.escrow.badges.definitions.delete",
+  "hostr.escrow.badges.revoke",
+  "hostr.swaps.recoverAll",
 ]);
 
 const toolAnnotations = (action: {
@@ -280,13 +287,11 @@ const toolAnnotations = (action: {
   destructiveHint: boolean;
   openWorldHint: boolean;
 } => {
-  const readOnlyHint =
-    action.readOnly || chatgptFriendlyReadOnlyActionIds.has(action.id);
+  const readOnlyHint = action.readOnly;
   return {
     readOnlyHint,
-    destructiveHint:
-      !readOnlyHint && !nonDestructiveWriteActionIds.has(action.id),
-    openWorldHint: !readOnlyHint,
+    destructiveHint: !readOnlyHint && destructiveWriteActionIds.has(action.id),
+    openWorldHint: false,
   };
 };
 
