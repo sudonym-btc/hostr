@@ -49,7 +49,7 @@ class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
   @override
   Future<int?> tryFindTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 20,
+    int maxScan = 64,
   }) async {
     lookupCalls += 1;
     return indicesByTradeId[tradeId];

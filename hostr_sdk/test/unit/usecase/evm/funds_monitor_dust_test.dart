@@ -213,7 +213,51 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         expect(allocator.lookupTradeIds, [_tradeId(1), _tradeId(2)]);
+        expect(allocator.lookupMaxScans, [
+          FundsMonitorService.settlementTradeAccountLookupScanLimit,
+          FundsMonitorService.settlementTradeAccountLookupScanLimit,
+        ]);
         expect(auth.hd.accountIndices, [1, 2]);
+
+        await service.stop();
+        await chain.close();
+      },
+    );
+
+    test(
+      'replayed settlement event resolves trade outside first scanned batch',
+      () async {
+        final chain = _FakeEvmChain(swaps: null, bridgeToken: token);
+        final contract = _FakeSupportedEscrowContract();
+        final userSubscriptions = _FakeUserSubscriptions();
+        final auth = _FakeAuth();
+        final allocator = _FakeTradeAccountAllocator();
+
+        allocator.lookup = (tradeId) {
+          if (tradeId == _tradeId(42)) return Future.value(42);
+          return Future.value(null);
+        };
+
+        userSubscriptions.paymentEvents$.add(
+          _arbitratedEvent(_tradeId(42), chain, contract),
+        );
+
+        final service = _fundsMonitorService(
+          evm: _FakeEvm([chain]),
+          userSubscriptions: userSubscriptions,
+          auth: auth,
+          tradeAccountAllocator: allocator,
+          settlementEventProcessingGap: Duration.zero,
+        );
+
+        await service.start();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(allocator.lookupTradeIds, [_tradeId(42)]);
+        expect(allocator.lookupMaxScans, [
+          FundsMonitorService.settlementTradeAccountLookupScanLimit,
+        ]);
+        expect(auth.hd.accountIndices, [42]);
 
         await service.stop();
         await chain.close();
@@ -475,13 +519,15 @@ class _FakeAuth extends Fake implements Auth {
 class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
   Future<int?> Function(String tradeId)? lookup;
   final List<String> lookupTradeIds = [];
+  final List<int> lookupMaxScans = [];
 
   @override
   Future<int?> tryFindTradeAccountIndexByTradeId(
     String tradeId, {
-    int maxScan = 20,
+    int maxScan = 64,
   }) {
     lookupTradeIds.add(tradeId);
+    lookupMaxScans.add(maxScan);
     return lookup?.call(tradeId) ?? Future.value(null);
   }
 }
