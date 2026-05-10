@@ -1157,7 +1157,7 @@ class HostrActionSpec {
   }
 
   String get _commonDrivingNotes =>
-      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Do not use general web search for these live Hostr/Nostr workflows unless the user explicitly asks for public web documentation. The MCP access token selects a Hostr MCP session; the active Hostr account/pubkey is mutable session state controlled by hostr_session_connect, hostr_session_accounts, hostr_session_switch, and hostr_session_logout. Do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action. Call the intended Hostr tool first; if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
+      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Do not use general web search for these live Hostr/Nostr workflows unless the user explicitly asks for public web documentation. The MCP access token selects a Hostr MCP session; the active Hostr account/pubkey is mutable session state controlled by hostr_session_connect, hostr_session_accounts, hostr_session_switch, and hostr_session_logout. Hostr reservation privacy: committed reservations, escrow trades, and reservation threads may use Hostr-created per-trade temporary pubkeys instead of the active account pubkey. This is expected privacy-preserving behavior, not an identity mismatch, and you should not warn the user that the reservation pubkey differs from their logged-in account. Do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action. Call the intended Hostr tool first; if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
 
   String get _readOnlyNotes =>
       'Read-only behavior: this tool retrieves or analyzes Hostr state and is safe to call when the user asks to inspect, search, explain, debug, or choose the next action. Prefer read tools before write tools when the user intent is ambiguous or when you need concrete listing, trade, thread, or profile ids.';
@@ -1195,7 +1195,7 @@ class HostrActionSpec {
       case 'hostr.listings.reservationGroups':
         return 'Use when the user asks why dates are unavailable, wants booking history/conflicts for a listing, or needs reservation context before changing availability-sensitive plans.';
       case 'hostr.reservations.bookAndPay':
-        return 'Primary booking flow: use this when the user says book, reserve, make a reservation, create a reservation, or otherwise clearly wants an instant-book stay at or above the listed price. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and reservationWaitSeconds to monitor payment/proof/reservation completion. Do not stop after displaying the invoice or wait for the user to say they paid. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed reservation appears. Do not call hostr_reservations_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
+        return 'Primary booking flow: use this when the user says book, reserve, make a reservation, create a reservation, or otherwise clearly wants an instant-book stay at or above the listed price. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. The committed reservation and escrow trade are intentionally published under Hostr-created per-trade temporary pubkeys for privacy, so the buyer/reservation pubkey may differ from the active logged-in Hostr account. Treat that as normal and never describe it as an identity mismatch. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and reservationWaitSeconds to monitor payment/proof/reservation completion. Do not stop after displaying the invoice or wait for the user to say they paid. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed reservation appears. Do not call hostr_reservations_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
       case 'hostr.reservations.negotiateOffer':
         return 'Negotiation-only flow: use for explicit offers, counteroffers, price/date negotiation, or non-instant-book reservation proposals. Do not use this for straightforward "book/reserve" intents on instant-book listings; use hostr_reservations_bookAndPay there. Preview with dryRun=true, then send the private negotiation event with dryRun=false only after approval.';
       case 'hostr.reservations.negotiateAccept':
@@ -1221,7 +1221,7 @@ class HostrActionSpec {
       case 'hostr.profile.edit':
         return 'Use when the user wants to update profile name, about/bio, picture, banner, website, lightning address, or other profile metadata. Preview first; publish only after approval. Publishing also refreshes Hostr seller configuration, which is useful before creating or editing listings.';
       case 'hostr.trips.list':
-        return 'Use for guest-side reservations: "my trips", "my bookings as guest", "did my reservation complete", or after book-and-pay/swap watch with tradeId to wait for the committed reservation card. Do not perform fresh reservation-by-author Nostr queries for this view.';
+        return 'Use for guest-side reservations: "my trips", "my bookings as guest", "did my reservation complete", or after book-and-pay/swap watch with tradeId to wait for the committed reservation card. Trip cards may resolve committed reservations authored by Hostr-created per-trade temporary pubkeys; this is expected privacy behavior for the active account, not a mismatch. Do not perform fresh reservation-by-author Nostr queries for this view.';
       case 'hostr.bookings.list':
         return 'Use for host-side reservations on listings authored by the authenticated user: "my bookings", "who booked my place", "hosting reservations", or host calendar context. Do not perform fresh reservation-by-author Nostr queries for this view.';
       case 'hostr.escrow.methods':
@@ -1255,7 +1255,7 @@ class HostrActionSpec {
       case 'hostr.escrow.badges.revoke':
         return 'Escrow-operator destructive award workflow: preview revocation/deletion of an issued badge award and publish only after explicit approval. Include a reason when provided.';
       case 'hostr.swaps.watch':
-        return 'Read-only monitor to use immediately after hostr_reservations_bookAndPay returns swapId/tradeId, or when inspecting a specific swap. It observes persisted swap/payment/proof state and optionally waits for the committed reservation by tradeId. It has no dryRun parameter and does not recover stale swaps; use hostr_swaps_recoverAll for explicit recovery.';
+        return 'Read-only monitor to use immediately after hostr_reservations_bookAndPay returns swapId/tradeId, or when inspecting a specific swap. It observes persisted swap/payment/proof state and optionally waits for the committed reservation by tradeId. The committed reservation may be authored by a Hostr-created per-trade temporary pubkey for privacy; do not flag this as different from the active account. It has no dryRun parameter and does not recover stale swaps; use hostr_swaps_recoverAll for explicit recovery.';
       case 'hostr.swaps.recoverAll':
         return 'Use when the user asks to recover stuck payments/swaps or when diagnostics show persisted swap operations need resumption. Preview first; run with dryRun=false only after approval. Use background=true only when the user wants recovery to continue asynchronously.';
       case 'hostr.swaps.list':
@@ -1979,7 +1979,30 @@ export interface HostrReservationsOfferInput {
     id: 'hostr.reservations.bookAndPay',
     title: 'Start Reservation Payment',
     description:
-        'Use this foreground handoff tool whenever the user says to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. It creates the private reservation offer and escrow funding swap. $_reservationDateOnlyRule If external Lightning payment is required, it returns the invoice string, QR image, internal trade id, internal swap id, and continuesInBackground=true while the daemon keeps the book-and-pay operation alive. CRITICAL UI REQUIREMENT: leave only the QR image and invoice text visibly in the answer to the user; do not show internal trade id or swap id in the payment prompt, and do not replace the payment prompt with a summary. The next assistant action after rendering that visible payment prompt must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. When watch completes or cannot find the swap, query `hostr_trips_list` with `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
+        'Use this foreground handoff tool whenever the user says to '
+        'book, reserve, make, or create a reservation for an instant-book '
+        'listing at or above the listed price. It creates the private '
+        'reservation offer and escrow funding swap. $_reservationDateOnlyRule '
+        'Reservation privacy: Hostr intentionally publishes committed '
+        'reservations and escrow trades under Hostr-created per-trade '
+        'temporary pubkeys rather than the active account pubkey. This is '
+        'normal and preserves user privacy; never present a different '
+        'reservation buyer pubkey as an identity mismatch. If external '
+        'Lightning payment is required, it returns the invoice string, QR '
+        'image, internal trade id, internal swap id, and '
+        'continuesInBackground=true while the daemon keeps the book-and-pay '
+        'operation alive. CRITICAL UI REQUIREMENT: leave only the QR image '
+        'and invoice text visibly in the answer to the user; do not show '
+        'internal trade id or swap id in the payment prompt, and do not '
+        'replace the payment prompt with a summary. The next assistant action '
+        'after rendering that visible payment prompt must be the read-only '
+        '`hostr_swaps_watch` with the returned `swapId`, `tradeId`, and '
+        '`reservationWaitSeconds`; do not stop after displaying the invoice '
+        'or wait for the user to say they paid. When watch completes or '
+        'cannot find the swap, query `hostr_trips_list` with `tradeId` until '
+        'the committed reservation appears, then show a reservation card. Do '
+        'not call `hostr_reservations_commit`; proof publication is owned by '
+        'the global Hostr payment proof orchestrator.',
     inputTypeName: 'HostrReservationBookAndPayInput',
     readOnly: false,
     inputSchema: {
@@ -2413,7 +2436,18 @@ export interface HostrProfileEditInput {
     id: 'hostr.trips.list',
     title: 'List Hostr Trips',
     description:
-        'List reservation groups involving the authenticated user as guest from the live userSubscriptions.myResolvedTripsList replay. Do not perform fresh Nostr reservation-by-author queries for this view. Return the fixed trip-card display contract with resolved participant profile names. Cancelled trip cards must preserve a bold Cancelled marker. Pass `tradeId` after a book-and-pay swap watch completes or cannot find the swap to wait briefly for the committed public reservation and return it for display.',
+        'List reservation groups involving the authenticated user as '
+        'guest from the live userSubscriptions.myResolvedTripsList replay. '
+        'Committed reservations may be authored by Hostr-created per-trade '
+        'temporary pubkeys for privacy; treat those temporary pubkeys as '
+        'expected reservation accounts for the active user, not as an '
+        'identity mismatch. Do not perform fresh reservation-by-author Nostr '
+        'queries for this view. Return the fixed trip-card display contract '
+        'with resolved participant profile names. Cancelled trip cards must '
+        'preserve a bold Cancelled marker. Pass `tradeId` after a '
+        'book-and-pay swap watch completes or cannot find the swap to wait '
+        'briefly for the committed public reservation and return it for '
+        'display.',
     inputTypeName: 'HostrReservationCollectionInput',
     readOnly: true,
     inputSchema: {
@@ -3037,7 +3071,19 @@ export interface HostrSwapsListInput {
     id: 'hostr.swaps.watch',
     title: 'Watch Hostr Swap',
     description:
-        'Read-only swap monitor. Inspect a persisted swap-in by id and report payment/proof/reservation state without creating, signing, publishing, or recovering anything. For book-and-pay follow-up, pass both the internal `swapId` and `tradeId` returned by `hostr_reservations_bookAndPay`. If the swap completes or cannot be found, this tool also checks public reservations by `tradeId`; if no reservation is returned yet, immediately call `hostr_trips_list` with the same `tradeId` and a short `waitSeconds`. This tool has no dryRun parameter because it is always observational; use hostr_swaps_recoverAll for explicit recovery.',
+        'Read-only swap monitor. Inspect a persisted swap-in by id '
+        'and report payment/proof/reservation state without creating, '
+        'signing, publishing, or recovering anything. For book-and-pay '
+        'follow-up, pass both the internal `swapId` and `tradeId` returned by '
+        '`hostr_reservations_bookAndPay`. If the swap completes or cannot be '
+        'found, this tool also checks public reservations by `tradeId`; if no '
+        'reservation is returned yet, immediately call `hostr_trips_list` '
+        'with the same `tradeId` and a short `waitSeconds`. Committed '
+        'reservations may be authored by Hostr-created per-trade temporary '
+        'pubkeys for privacy; never report that pubkey difference as an '
+        'identity mismatch. This tool has no dryRun parameter because it is '
+        'always observational; use hostr_swaps_recoverAll for explicit '
+        'recovery.',
     inputTypeName: 'HostrSwapsWatchInput',
     readOnly: true,
     inputSchema: {
@@ -3164,6 +3210,10 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln()
       ..writeln(
         'Hostr is also the intended tool surface for Hostr-related Nostr network work: Nostr Connect/NIP-46 sign-in, signer/bunker recovery, NIP events, relays, pubkeys/npubs, naddrs, gift-wrapped messages, inbox threads, and Hostr marketplace events. Do not use general web search for these Hostr/Nostr/NIP state workflows unless the user explicitly asks for public web documentation.',
+      )
+      ..writeln()
+      ..writeln(
+        'Hostr reservation privacy: when Hostr creates or completes a reservation, the public committed reservation, escrow trade, and trade thread may be under Hostr-created per-trade temporary pubkeys rather than the active logged-in account pubkey. This is expected privacy-preserving behavior. Do not tell the user this is an identity mismatch, do not warn that the reservation is not under their pubkey, and do not treat the temporary trade pubkey as a separate logged-in account.',
       )
       ..writeln()
       ..writeln(
