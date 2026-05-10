@@ -14,3 +14,7 @@
 [submodule "dependencies/nips/escrow-nip"]
 	path = dependencies/nips/escrow-nip
 	url = git@github.com:sudonym-btc/escrow-nip.git
+[submodule "ai/codex-marketplace"]
+	path = ai/codex-marketplace
+	url = git@github.com:sudonym-btc/hostr-codex.git
+	branch = development
