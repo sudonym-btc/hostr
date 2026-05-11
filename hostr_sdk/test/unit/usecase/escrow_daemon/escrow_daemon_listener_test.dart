@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 Reservation _reservation() => Reservation.create(
   pubKey: MockKeys.guest.publicKey,
   dTag: 'trade-startup-replay',
-  listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+  listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
   pTags: [
     PTag.seller(MockKeys.hoster.publicKey),
     PTag.buyer(MockKeys.guest.publicKey),
@@ -71,7 +71,7 @@ void main() {
       Reservation.create(
         pubKey: MockKeys.guest.publicKey,
         dTag: 'trade-no-escrow',
-        listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+        listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
         pTags: [
           PTag.seller(MockKeys.hoster.publicKey),
           PTag.buyer(MockKeys.guest.publicKey),

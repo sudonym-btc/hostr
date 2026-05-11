@@ -42,7 +42,7 @@ Reservation _reservation({
   return Reservation.create(
     pubKey: authorPubkey,
     dTag: tradeId,
-    listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-resolver',
+    listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-resolver',
     extraTags: extraTags,
   );
 }

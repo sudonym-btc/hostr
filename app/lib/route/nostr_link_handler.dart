@@ -14,7 +14,7 @@ import 'package:ndk/ndk.dart';
 /// can determine whether it handles a given link by inspecting the decoded kind.
 ///
 /// Supported kinds:
-/// - [kNostrKindListing] (32121) → navigates to the listing screen
+/// - [kNostrKindListing] (30402) -> navigates to the listing screen
 class NostrLinkHandler {
   final AppRouter _router;
   final CustomLogger _logger = CustomLogger();

@@ -279,7 +279,7 @@ void main() {
   test(
     'run emits hosting notifications and upserts heartbeat once ready',
     () async {
-      final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing';
+      final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
       final guestReservation = _reservation(
         pubkey: MockKeys.guest.publicKey,
         dTag: 'trade-1',

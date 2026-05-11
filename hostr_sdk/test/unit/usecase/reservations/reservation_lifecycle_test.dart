@@ -962,7 +962,7 @@ void main() async {
       final reservation = Reservation.create(
         pubKey: buyer.publicKey,
         dTag: 'trade-no-auth',
-        listingAnchor: '32121:${seller.publicKey}:listing',
+        listingAnchor: '30402:${seller.publicKey}:listing',
         start: DateTime(2026, 3, 1),
         end: DateTime(2026, 3, 5),
         quantity: 1,
@@ -1009,7 +1009,7 @@ void main() async {
       final reservation = Reservation.create(
         pubKey: buyer.publicKey,
         dTag: 'trade-roundtrip',
-        listingAnchor: '32121:${seller.publicKey}:listing',
+        listingAnchor: '30402:${seller.publicKey}:listing',
         start: DateTime(2026, 3, 1),
         end: DateTime(2026, 3, 5),
         quantity: 2,

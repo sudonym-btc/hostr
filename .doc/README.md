@@ -37,7 +37,9 @@ This repo contains
 - Escrow [README](./escrow/README.md)
 - AI [README](./ai/README.md)
 
-## Nips utilized
+## Nips developed
+
+New nips are needed to facilitate escrowed transactions via nostr. We also need to extend Nip-
 
 - [Accommodation listing NIP-XX](./dependencies/nips/accommodation-nip/XX.md)
 - [Reservation lifecycle NIP-XX](./dependencies/nips/reservation-nip/XX.md)
@@ -50,22 +52,3 @@ git clone --recursive git@github.com:sudonym-btc/hostr.git
 ```
 
 Quickstart: see the client app guide at `app/README.md` for run targets by environment.
-
-## TODO
-
-### App
-
-P1
-
-- [ ] Background worker: https://docs.page/fluttercommunity/flutter_workmanager/quickstart
-  - [ ] Must show notifications for items not already in thread messaege sync hydrated cubit
-- [ ] Deeplinks
-  - [ ] Allow opening of listings/reviews via deeplinks
-- [ ] Blossom files
-  - [ ] Caching of blossom servers between Image components
-- [ ] Routing: unify tab-initial-route source of truth
-  - [ ] `SearchRoute` is declared `initial: true` in the static route config but `buildAppNavigationDestinations` independently decides which tabs exist per mode — during mode transitions the router briefly shows the wrong initial tab (SearchRoute in host mode) before the dynamic destination list catches up. Remove `initial: true` from tab children and let `AutoTabsRouter` drive the initial index from `buildAppNavigationDestinations` so there is one mode-aware source of truth.
-
-### Escrow
-
-- [ ] Listen for cancelled events and arbitrate accordingly

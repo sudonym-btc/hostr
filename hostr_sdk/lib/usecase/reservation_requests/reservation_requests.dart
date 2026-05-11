@@ -14,7 +14,7 @@ import '../trade_account_allocator/trade_account_allocator.dart';
 /// "reservation requests"). The class name is kept for DI compatibility but
 /// now produces [Reservation] instances with `stage = negotiate`.
 @Singleton()
-class ReservationRequests extends CrudUseCase {
+class ReservationRequests extends CrudUseCase<Reservation> {
   final Auth _auth;
   final TradeAccountAllocator _tradeAccountAllocator;
   final Relays _relays;
@@ -28,6 +28,15 @@ class ReservationRequests extends CrudUseCase {
        _tradeAccountAllocator = tradeAccountAllocator,
        _relays = relays,
        super(kind: Reservation.kinds[0]);
+
+  @override
+  Future<void> beforeUpsert(Reservation event) async {
+    if (event.stage == ReservationStage.negotiate) {
+      throw StateError(
+        'Negotiate-stage reservations must be sent as private messages, not broadcast.',
+      );
+    }
+  }
 
   Future<Reservation> _signReservation({
     required Reservation reservation,

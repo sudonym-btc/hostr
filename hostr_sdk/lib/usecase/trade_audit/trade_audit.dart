@@ -1,6 +1,5 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 import '../../util/main.dart';
 import '../escrow/escrow_verification.dart';
@@ -200,7 +199,7 @@ class TradeAudit {
         sellerPubkey = getPubKeyFromAnchor(anchor) as String?;
         if (sellerPubkey != null) {
           listing = await listings.getOne(
-            Filter(kinds: Listing.kinds, authors: [sellerPubkey]),
+            Listing.baseFilter(authors: [sellerPubkey]),
           );
         }
       }

@@ -200,6 +200,30 @@ For Hostr MCP monetary inputs in sats, use:
 
 The `value` is the satoshi count as a string. Do not convert `50000 sats` to `50000 BTC`, `50000 USD`, or `0.0005` unless the receiving field explicitly asks for BTC decimal notation instead of `unit: "sats"`.
 
+## Listing specifications
+
+`hostr_listings_create.specifications` and `hostr_listings_edit.patch.specifications` are the canonical listing amenities/specifications map. Use the snake_case keys below, not display labels or arbitrary amenity names. In particular, Wi-Fi/wifi/WIFI is `wireless_internet`.
+
+Example:
+
+```json
+{
+  "specifications": {
+    "wireless_internet": true,
+    "kitchen": true,
+    "free_parking": true,
+    "max_guests": 4,
+    "beds": 2,
+    "bedrooms": 1,
+    "bathrooms": 1
+  }
+}
+```
+
+Boolean keys: `airconditioning`, `allows_pets`, `crib`, `tumble_dryer`, `washer`, `elevator`, `free_parking`, `gym`, `hair_dryer`, `heating`, `high_chair`, `wireless_internet`, `iron`, `jacuzzi`, `kitchen`, `outlet_covers`, `pool`, `private_entrance`, `smoking_allowed`, `breakfast`, `fireplace`, `smoke_detector`, `essentials`, `shampoo`, `infants_allowed`, `children_allowed`, `hangers`, `flat_smooth_pathway_to_front_door`, `grab_rails_in_shower_and_toilet`, `oven`, `bbq`, `balcony`, `patio`, `dishwasher`, `refrigerator`, `garden_or_backyard`, `microwave`, `coffee_maker`, `dishes_and_silverware`, `stove`, `fire_extinguisher`, `carbon_monoxide_detector`, `luggage_dropoff_allowed`, `beach_essentials`, `beachfront`, `baby_monitor`, `babysitter_recommendations`, `childrens_books_and_toys`, `game_console`, `street_parking`, `paid_parking`, `hot_water`, `lake_access`, `single_level_home`, `waterfront`, `first_aid_kit`, `handheld_shower_head`, `home_step_free_access`, `lock_on_bedroom_door`, `mobile_hoist`, `path_to_entrance_lit_at_night`, `pool_hoist`, `ev_charger`, `rollin_shower`, `shower_chair`, `tub_with_shower_bench`, `wide_clearance_to_bed`, `wide_clearance_to_shower_and_toilet`, `wide_hallway_clearance`, `baby_bath`, `changing_table`, `room_darkening_shades`, `stair_gates`, `table_corner_guards`, `extra_pillows_and_blankets`, `ski_in_ski_out`, `window_guards`, `disabled_parking_spot`, `grab_rails_in_toilet`, `events_allowed`, `common_spaces_shared`, `bathroom_shared`, `security_cameras`.
+
+Numeric keys: `max_guests`, `beds`, `bedrooms`, `bathrooms`, `bathtub`, `tv`. On create/edit, the top-level fields `guests`, `beds`, `bedrooms`, and `bathrooms` are also accepted and are folded into specifications; inside the specifications map, prefer `max_guests` rather than `guests`.
+
 ## Image uploads
 
 Remote clients that need to attach user-provided images must upload the original image bytes beside MCP, not inside the JSON-RPC `/mcp` request:

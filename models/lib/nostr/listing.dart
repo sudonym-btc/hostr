@@ -92,6 +92,7 @@ class ListingTags extends EventTags with ListingTagRead {
 // ── Event class ─────────────────────────────────────────────────────────────
 
 class Listing extends Event<ListingTags> with ListingTagRead {
+  static const String category = 'accommodation';
   static const List<int> kinds = [kNostrKindListing];
   static final EventTagsParser<ListingTags> _tagParser = ListingTags.new;
 
@@ -109,6 +110,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   // | b      | Beds          | ['spec','beds','2']       → ['b','2']     |
   // | B      | Bedrooms      | ['spec','bedrooms','2']   → ['B','2']     |
   // | R      | Bathrooms     | ['spec','bathrooms','2']  → ['R','2']     |
+  // | A      | Active        | ['active','true']          → ['A','true'] |
   // | N      | Negotiable    | ['negotiable','true']     → ['N','true']  |
   // | S      | Feature AND   | ['spec','pool'] + ['spec','gym'] → ['S','gym+pool'] |
 
@@ -119,6 +121,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     TagPromotion.valued(source: 'spec', match: 'beds', target: 'b'),
     TagPromotion.valued(source: 'spec', match: 'bedrooms', target: 'B'),
     TagPromotion.valued(source: 'spec', match: 'bathrooms', target: 'R'),
+    TagPromotion.direct(source: 'active', target: 'A'),
     TagPromotion.direct(source: 'instantBook', target: 'I'),
     TagPromotion.direct(source: 'negotiable', target: 'N'),
   ];
@@ -139,8 +142,28 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   ///   .features(['pool', 'beachfront'])
   ///   .build();
   /// ```
+  static Filter baseFilter({
+    List<String>? authors,
+    int? limit,
+    int? since,
+    int? until,
+  }) {
+    return Filter(
+      kinds: kinds,
+      authors: authors,
+      limit: limit,
+      since: since,
+      until: until,
+      tags: const {
+        't': [category],
+      },
+    );
+  }
+
   static ListingFilterBuilder buildFilter() =>
-      ListingFilterBuilder(promotions, kind: kNostrKindListing);
+      ListingFilterBuilder(promotions, kind: kNostrKindListing).rawTags(const {
+        't': [category],
+      });
 
   @override
   EventTags get tagSource => parsedTags;
@@ -203,7 +226,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add('title', title)
               ..addAll(_imageTags(images, imageMetas))
               ..addIMetas(imageMetas)
-              ..add('t', 'accommodation')
+              ..add('t', category)
               ..add(_publishedAtTag, eventCreatedAt.toString())
               ..addBool('active', active)
               ..addBool('negotiable', negotiable)
@@ -226,6 +249,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               // Emit single-letter promoted duplicates for relay indexing.
               ..addAll(TagPromotion.promoteAll([
                 ['type', type.name],
+                ['active', active.toString()],
                 ['instantBook', instantBook.toString()],
                 ['negotiable', negotiable.toString()],
                 ...specifications.toTags(),
@@ -319,7 +343,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add('title', title ?? this.title)
               ..addAll(_imageTags(updatedImages, updatedImageMetas))
               ..addIMetas(updatedImageMetas)
-              ..add('t', 'accommodation')
+              ..add('t', category)
               ..add(_publishedAtTag, firstPublishedAt.toString())
               ..addBool('active', active ?? this.active)
               ..addBool('negotiable', negotiable ?? this.negotiable)
@@ -355,6 +379,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               // Emit single-letter promoted duplicates for relay indexing.
               ..addAll(TagPromotion.promoteAll([
                 ['type', (type ?? this.listingType).name],
+                ['active', (active ?? this.active).toString()],
                 ['instantBook', (instantBook ?? this.instantBook).toString()],
                 ['negotiable', (negotiable ?? this.negotiable).toString()],
                 ...(specifications ?? this.specifications).toTags(),
@@ -441,6 +466,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   ) {
     for (final group in reservationGroups) {
       if (group.cancelled) continue;
+      if (group.stage != ReservationStage.commit) continue;
 
       final pairStart = group.start;
       final pairEnd = group.end;

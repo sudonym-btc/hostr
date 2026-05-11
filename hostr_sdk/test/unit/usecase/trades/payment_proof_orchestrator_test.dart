@@ -193,7 +193,7 @@ void main() {
     'after restart',
     () async {
       const tradeId = 'trade-already-booked';
-      final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing';
+      final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
       final negotiate = _reservation(
         tradeId: tradeId,
         listingAnchor: listingAnchor,
@@ -239,7 +239,7 @@ void main() {
 
   test('processes replayed payment events one at a time', () async {
     const tradeIds = ['trade-1', 'trade-2', 'trade-3'];
-    final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing';
+    final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
 
     final threads = <String, Thread>{};
     final existingCommits = <Reservation>[];

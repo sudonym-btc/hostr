@@ -12,7 +12,6 @@ import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart';
 
 @RoutePage()
 class MyListingsScreen extends StatefulWidget {
@@ -33,7 +32,9 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     _listCubit = ListCubit<Listing>(
       kinds: Listing.kinds,
       nostrService: getIt(),
-      filter: Filter(authors: [getIt<Hostr>().auth.activeKeyPair!.publicKey]),
+      filter: Listing.baseFilter(
+        authors: [getIt<Hostr>().auth.activeKeyPair!.publicKey],
+      ),
     )..next();
 
     // Update the list item in-place when a listing is mutated elsewhere.

@@ -533,7 +533,7 @@ test("payment responses include a result-bound payment widget", async () => {
     arguments: {
       swapId: "swap-123",
       tradeId: "trade-123",
-      reservationWaitSeconds: 300,
+      reservationWaitSeconds: 60,
     },
   });
   assert.equal(response.structuredContent.data.state, undefined);
@@ -667,7 +667,7 @@ test("swap watch does not advertise a static payment widget", async () => {
   assert.equal(response._meta?.["openai/outputTemplate"], undefined);
 });
 
-test("swap watch timeout asks whether payment was sent and preserves retry args", async () => {
+test("swap watch timeout preserves retry args and tells the assistant to rewatch", async () => {
   const response = await __testing.toolResponse(
     {
       publicAssetBaseUrl: "https://ai.staging.hostr.network",
@@ -692,7 +692,7 @@ test("swap watch timeout asks whether payment was sent and preserves retry args"
 
   assert.match(
     response.structuredContent.displayMarkdown,
-    /Payment is still being awaited\. Did you pay the invoice\?/,
+    /Payment or reservation confirmation is still pending/,
   );
   assert.equal(response.structuredContent.status, "payment_awaiting");
   assert.equal(response.structuredContent.paymentAwaiting, true);
@@ -701,12 +701,12 @@ test("swap watch timeout asks whether payment was sent and preserves retry args"
     arguments: {
       swapId: "swap-123",
       tradeId: "trade-123",
-      reservationWaitSeconds: 300,
+      reservationWaitSeconds: 60,
     },
   });
   assert.match(
     response.structuredContent.assistantInstructions.join("\n"),
-    /If the user replies yes/,
+    /Immediately call hostr_swaps_watch again/,
   );
 });
 

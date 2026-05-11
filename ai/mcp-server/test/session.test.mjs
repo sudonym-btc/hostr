@@ -95,7 +95,7 @@ test("MCP session store keeps multiple accounts and a mutable active pubkey", ()
   ]);
 });
 
-test("hostr_session_status is visible without MCP OAuth", async () => {
+test("ordinary Hostr tools are discoverable without MCP OAuth", async () => {
   const directory = tempDirectory();
   const config = testConfig(directory);
   const calls = [];
@@ -129,7 +129,10 @@ test("hostr_session_status is visible without MCP OAuth", async () => {
   try {
     const tools = await client.call("tools/list");
     assert.equal(hasTool(tools, "hostr_session_status"), true);
-    assert.equal(hasTool(tools, "hostr_session_connect"), false);
+    assert.equal(hasTool(tools, "hostr_session_connect"), true);
+    assert.equal(hasTool(tools, "hostr_listings_create"), true);
+    assert.equal(hasTool(tools, "hostr_profile_edit"), true);
+    assert.equal(hasTool(tools, "hostr_escrow_service_edit"), false);
     assert.equal(hasTool(tools, "hostr_session_accounts"), false);
 
     const status = await client.call("tools/call", {
@@ -144,6 +147,33 @@ test("hostr_session_status is visible without MCP OAuth", async () => {
       needsReconnect: false,
       storage: { accountPubkeys: [] },
     });
+
+    const createListing = await client.call("tools/call", {
+      name: "hostr_listings_create",
+      arguments: {
+        title: "Test Room",
+        description: "A test listing.",
+        address: "San Salvador, El Salvador",
+        images: [{ url: "https://example.com/listing.jpg" }],
+        prices: [
+          {
+            amount: {
+              value: "1000",
+              currency: "BTC",
+              unit: "sats",
+              decimals: 0,
+            },
+            frequency: "daily",
+          },
+        ],
+      },
+    });
+    assert.equal(createListing.result.isError, true);
+    assert.equal(createListing.result.structuredContent.ok, false);
+    assert.equal(
+      createListing.result.structuredContent.errors[0].code,
+      "auth_required",
+    );
     assert.deepEqual(calls, []);
   } finally {
     await client.close();
@@ -415,7 +445,9 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
     assert.equal(hasTool(initialTools, "hostr_session_accounts"), true);
     assert.equal(hasTool(initialTools, "hostr_session_switch"), false);
     assert.equal(hasTool(initialTools, "hostr_session_logout"), false);
-    assert.equal(hasTool(initialTools, "hostr_listings_list"), false);
+    assert.equal(hasTool(initialTools, "hostr_listings_list"), true);
+    assert.equal(hasTool(initialTools, "hostr_listings_create"), true);
+    assert.equal(hasTool(initialTools, "hostr_escrow_service_edit"), false);
     assert.deepEqual(calls, []);
 
     const firstConnect = await client.call("tools/call", {
@@ -433,7 +465,7 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
     assert.equal(hasTool(postConnectTools, "hostr_session_switch"), true);
     assert.equal(hasTool(postConnectTools, "hostr_session_logout"), true);
     assert.equal(hasTool(postConnectTools, "hostr_reply"), false);
-    assert.equal(hasTool(postConnectTools, "hostr_escrow_service_update"), false);
+    assert.equal(hasTool(postConnectTools, "hostr_escrow_service_edit"), true);
 
     const secondConnect = await client.call("tools/call", {
       name: "hostr_session_connect",

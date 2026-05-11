@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 
 const _publishedAtTag = 'published_at';
 
-final _listingAnchor = '32121:${MockKeys.hoster.publicKey}:test-listing';
+final _listingAnchor = '30402:${MockKeys.hoster.publicKey}:test-listing';
 
 Listing _listing({int createdAt = 1000}) {
   return Listing.create(

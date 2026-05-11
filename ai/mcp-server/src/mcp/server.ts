@@ -252,6 +252,7 @@ const escrowBadgeOutputSchema = z
 
 const reservationActionIds = new Set([
   "hostr.reservations.bookAndPay",
+  "hostr.reservations.review",
   "hostr.swaps.watch",
   "hostr.trips.list",
   "hostr.bookings.list",
@@ -348,7 +349,7 @@ const conciseActionDescription = (
 
 const presentationContract = (actionId: string): string | null => {
   if (actionId === "hostr.swaps.watch") {
-    return "If payment is still awaiting or watch times out, ask whether the user paid. If they answer yes, call hostr_swaps_watch again with the returned retry arguments. If the swap failed, report the failure and stop polling.";
+    return "If watchTimedOut is true or the reservation is still pending, call hostr_swaps_watch again with the returned retry arguments. If payment is merely awaiting and no timeout occurred, ask whether the user paid; if they answer yes, call hostr_swaps_watch again with the retry arguments. If the swap failed, report the failure and stop polling.";
   }
   if (listingActionIds.has(actionId)) {
     return "Returns listing-card output; render structuredContent.displayMarkdown and preserve image Markdown.";
@@ -432,6 +433,16 @@ const truncate = (value: string, max = 180): string =>
 const numberValue = (value: unknown): number | null => {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : null;
+};
+
+const maxSwapReservationWaitSeconds = 60;
+
+const reservationWatchSeconds = (value: unknown, fallback = 20): number => {
+  const number = numberValue(value) ?? fallback;
+  return Math.min(
+    maxSwapReservationWaitSeconds,
+    Math.max(0, Math.trunc(number)),
+  );
 };
 
 const parseJsonRecord = (value: unknown): Record<string, unknown> | null => {
@@ -2588,10 +2599,11 @@ const compactPaymentRequiredResult = (
     stringValue(swapState?.id) ??
     stringValue(nextToolArguments?.swapId);
   const reservationWaitSeconds =
-    numberValue(nextToolArguments?.reservationWaitSeconds) ??
-    numberValue(resultData.reservationWaitSeconds) ??
-    numberValue(safeResultData.reservationWaitSeconds) ??
-    300;
+    reservationWatchSeconds(
+      nextToolArguments?.reservationWaitSeconds ??
+        resultData.reservationWaitSeconds ??
+        safeResultData.reservationWaitSeconds,
+    );
   const watchArguments = {
     ...(swapId ? { swapId } : {}),
     ...(tradeId ? { tradeId } : {}),
@@ -2656,9 +2668,9 @@ const retryWatchArguments = (
     stringValue(state?.tradeId) ??
     stringValue(retryArguments?.tradeId);
   const reservationWaitSeconds =
-    numberValue(data.reservationWaitSeconds) ??
-    numberValue(retryArguments?.reservationWaitSeconds) ??
-    300;
+    reservationWatchSeconds(
+      data.reservationWaitSeconds ?? retryArguments?.reservationWaitSeconds,
+    );
   return {
     ...(swapId ? { swapId } : {}),
     ...(tradeId ? { tradeId } : {}),
@@ -2777,7 +2789,8 @@ const swapWatchTimeoutResult = (
     stateName: "watch_timeout",
     paymentAwaiting: true,
     watchTimedOut: true,
-    message: "Payment is still being awaited. Did you pay the invoice?",
+    message:
+      "Payment or reservation confirmation is still pending. Keep checking with the retry arguments.",
     retry: {
       name: "hostr_swaps_watch",
       arguments: retryWatchArguments({
@@ -2911,6 +2924,9 @@ const formatToolContent = (
   if (actionId === "hostr.swaps.watch") {
     const info = swapWatchInfo(result);
     if (info?.status === "payment_awaiting") {
+      if (info.watchTimedOut) {
+        return "Payment or reservation confirmation is still pending. I'll keep checking.";
+      }
       return "Payment is still being awaited. Did you pay the invoice?";
     }
     if (info?.status === "swap_failed") {
@@ -3001,7 +3017,10 @@ const formatToolContent = (
     const continuesInBackground = data.continuesInBackground === true;
     const paymentPrompt = paymentPromptMarkdown(config, externalPayment);
     if (paymentPrompt) {
-      return paymentPrompt;
+      return [
+        paymentPrompt,
+        "Assistant follow-up: after showing this payment prompt, call `hostr_swaps_watch` with the required next-tool arguments before checking trips or bookings.",
+      ].join("\n\n");
     }
     return [
       stateName === "completed"
@@ -3012,6 +3031,20 @@ const formatToolContent = (
       continuesInBackground
         ? "**Background:** Hostr daemon is continuing book-and-pay."
         : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  if (actionId === "hostr.reservations.review") {
+    const mode = result.dryRun === true ? "Preview" : "Published";
+    const rating = Number(data.rating);
+    const content = stringValue(data.content);
+    return [
+      `### Reservation Review ${mode}`,
+      Number.isFinite(rating) ? `**Rating:** ${rating}/5` : null,
+      content ? `**Review:** ${content}` : null,
+      stringValue(data.tradeId) ? `**Trade:** ${stringValue(data.tradeId)}` : null,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -3071,13 +3104,52 @@ const formatToolContent = (
 
   if (actionId === "hostr.updates") {
     const threadCards = threadCardsFromResult(actionId, result);
-    if (threadCards.length === 0) {
-      return "No recent Hostr threads found.";
+    const listingReviews = arrayValue(data.listingReviews)
+      .map(record)
+      .filter(isRecord);
+    const tripCards = arrayValue(data.trips)
+      .map(record)
+      .map((item) => reservationCardData(item, "trip-card"))
+      .filter((card): card is ReservationCardData => card !== null);
+    const bookingCards = arrayValue(data.bookings)
+      .map(record)
+      .map((item) => reservationCardData(item, "hosting-card"))
+      .filter((card): card is ReservationCardData => card !== null);
+    if (
+      threadCards.length === 0 &&
+      listingReviews.length === 0 &&
+      tripCards.length === 0 &&
+      bookingCards.length === 0
+    ) {
+      return "No recent Hostr updates found.";
     }
     return [
-      "**Recent Hostr Threads**",
-      threadCards.map((card) => threadCard(card)).join("\n\n---\n\n"),
-    ].join("\n\n");
+      threadCards.length > 0 ? "**Recent Hostr Threads**" : null,
+      threadCards.length > 0
+        ? threadCards.map((card) => threadCard(card)).join("\n\n---\n\n")
+        : null,
+      listingReviews.length > 0 ? "**Reviews On Your Listings**" : null,
+      listingReviews.length > 0
+        ? listingReviews
+            .map((entry) => {
+              const listing = record(entry.listing);
+              const title = stringValue(listing?.title) ?? "Hostr listing";
+              const count = Number(entry.count);
+              return `**${title}:** ${Number.isFinite(count) ? count : 0} review${count === 1 ? "" : "s"}`;
+            })
+            .join("\n\n")
+        : null,
+      tripCards.length > 0 ? "**Trips You Booked**" : null,
+      tripCards.length > 0
+        ? tripCards.map(reservationCard).join("\n\n---\n\n")
+        : null,
+      bookingCards.length > 0 ? "**Hosting Reservations**" : null,
+      bookingCards.length > 0
+        ? bookingCards.map(reservationCard).join("\n\n---\n\n")
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   if (
@@ -3312,6 +3384,17 @@ const toolResponse = async (
               ? Number(resultData.count)
               : undefined,
             threadCount: threadCards.length,
+            listingReviewCount: Number.isFinite(
+              Number(resultData.listingReviewCount),
+            )
+              ? Number(resultData.listingReviewCount)
+              : undefined,
+            tripCount: Number.isFinite(Number(resultData.tripCount))
+              ? Number(resultData.tripCount)
+              : undefined,
+            bookingCount: Number.isFinite(Number(resultData.bookingCount))
+              ? Number(resultData.bookingCount)
+              : undefined,
             hasMoreThreads:
               arrayValue(resultData.threads).length > threadCards.length,
           },
@@ -3438,10 +3521,16 @@ const toolResponse = async (
     : null;
   const swapWatchAssistantInstructions = swapWatchStatus
     ? swapWatchStatus.status === "payment_awaiting"
-      ? [
-          "Tell the user exactly: \"Payment is still being awaited. Did you pay the invoice?\"",
-          "If the user replies yes, paid, done, sent, or otherwise indicates they paid, immediately call hostr_swaps_watch again with structuredContent.retry.arguments. Do not ask for swapId or tradeId.",
-          "If the user says they have not paid, tell them to pay the visible Lightning invoice and reply yes once paid.",
+        ? [
+          swapWatchStatus.watchTimedOut
+            ? "Tell the user payment or reservation confirmation is still pending and that you are checking again."
+            : "Tell the user exactly: \"Payment is still being awaited. Did you pay the invoice?\"",
+          swapWatchStatus.watchTimedOut
+            ? "Immediately call hostr_swaps_watch again with structuredContent.retry.arguments. Do not ask for swapId or tradeId."
+            : "If the user replies yes, paid, done, sent, or otherwise indicates they paid, immediately call hostr_swaps_watch again with structuredContent.retry.arguments. Do not ask for swapId or tradeId.",
+          swapWatchStatus.watchTimedOut
+            ? "If repeated watch calls keep timing out, continue using the retry arguments until the swap resolves, the reservation appears, or the swap fails."
+            : "If the user says they have not paid, tell them to pay the visible Lightning invoice and reply yes once paid.",
         ]
       : swapWatchStatus.status === "swap_failed"
         ? [
@@ -4017,6 +4106,9 @@ const bookAndPayTimeoutMs = (args: Record<string, unknown>): number => {
       : 300_000;
   return Math.max(60 * 60 * 1000, proofTimeoutMs + 30 * 60 * 1000);
 };
+
+const swapWatchTimeoutMs = (args: Record<string, unknown>): number =>
+  (reservationWatchSeconds(args.reservationWaitSeconds) + 15) * 1000;
 
 const sendHostrElicitation = async (
   server: McpServer,
@@ -6288,7 +6380,7 @@ const createServer = (
       {
         title: "Hostr Session Accounts",
         description:
-          "List the Hostr/NIP-46 accounts connected to this MCP session, including profile metadata, active account, and signer status.",
+          "List the Hostr/NIP-46 accounts connected to this MCP session, including profile metadata, active account, and signer status. Use when the user says to switch accounts, act as guest/host/escrow, use a guest/host/escrow account, asks who is logged in, or needs the right Hostr role before bookings, hosting, messaging, or escrow work. Do not assume the currently active account satisfies a requested role merely because it is authenticated.",
         inputSchema: sessionAccountsInputSchema,
         annotations: {
           readOnlyHint: true,
@@ -6322,7 +6414,7 @@ const createServer = (
       {
         title: "Switch Hostr Account",
         description:
-          "Make one of this MCP session's connected Hostr accounts the active account. This changes which account future Hostr tools use.",
+          "Make one of this MCP session's connected Hostr accounts the active account. Use after hostr_session_accounts when the user says to switch to their guest account, host account, escrow account, or another connected Hostr profile. If the requested role/account is not clearly connected, use hostr_session_connect instead before doing role-specific work.",
         inputSchema: sessionSwitchInputSchema,
         annotations: {
           readOnlyHint: false,
@@ -6418,7 +6510,7 @@ const createServer = (
         const activePubkey = sessionStore.get(claims.sessionId).activePubkey;
         const visible = activePubkey
           ? await visibleActionIdsForPubkey(daemon, activePubkey, traceId)
-          : fallbackVisibleActionIds(claims, undefined);
+          : fallbackVisibleActionIds();
         await refreshToolVisibility(
           server,
           toolHandles,
@@ -6676,9 +6768,12 @@ const createServer = (
             action: action.id,
             input: args,
             notificationToken,
-          ...(action.id === "hostr.reservations.bookAndPay"
-            ? { timeoutMs: bookAndPayTimeoutMs(args) }
-            : {}),
+            ...(action.id === "hostr.reservations.bookAndPay"
+              ? { timeoutMs: bookAndPayTimeoutMs(args) }
+              : {}),
+            ...(action.id === "hostr.swaps.watch"
+              ? { timeoutMs: swapWatchTimeoutMs(args) }
+              : {}),
             traceId,
           });
           if (
@@ -6810,21 +6905,12 @@ const actionDocumentationFor = (visibleActionIds: Set<string> | null): string =>
   ].join("\n");
 };
 
-const fallbackVisibleActionIds = (
-  claims: AccessTokenClaims | null,
-  activePubkey: string | undefined,
-) =>
-  new Set(
-    hostrActionCatalog
-      .filter((action) => !("requiredRole" in action) || !action.requiredRole)
-      .filter(
-        (action) =>
-          publicActionIds.has(action.id) ||
-          (claims &&
-            (sessionManagedActionIds.has(action.id) || Boolean(activePubkey))),
-      )
-      .map((action) => action.id),
-  );
+const defaultDiscoverableActionIds = () =>
+  hostrActionCatalog
+    .filter((action) => !("requiredRole" in action) || !action.requiredRole)
+    .map((action) => action.id);
+
+const fallbackVisibleActionIds = () => new Set(defaultDiscoverableActionIds());
 
 const visibleActionIdsForPubkey = async (
   daemon: HostrDaemonClient,
@@ -6839,15 +6925,12 @@ const visibleActionIdsForPubkey = async (
       .map(stringValue)
       .filter((id): id is string => id !== null);
     if (ids.length > 0) {
-      return new Set(ids);
+      return new Set([...defaultDiscoverableActionIds(), ...ids]);
     }
   } catch (error) {
     console.error("[hostr-mcp] Failed to resolve visible Hostr actions:", error);
   }
-  return fallbackVisibleActionIds(
-    { sessionId: pubkey, scope: "hostr:read hostr:write", sub: pubkey },
-    pubkey,
-  );
+  return fallbackVisibleActionIds();
 };
 
 const visibleActionIdsForClaims = async (
@@ -6858,7 +6941,7 @@ const visibleActionIdsForClaims = async (
 ): Promise<Set<string>> => {
   const activePubkey = activePubkeyForClaims(sessionStore, claims);
   if (!claims || !activePubkey) {
-    return fallbackVisibleActionIds(claims, activePubkey);
+    return fallbackVisibleActionIds();
   }
   return visibleActionIdsForPubkey(daemon, activePubkey, traceId);
 };

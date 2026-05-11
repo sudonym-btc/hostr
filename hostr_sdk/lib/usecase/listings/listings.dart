@@ -2,6 +2,7 @@ import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 
+import '../../util/main.dart';
 import '../crud.usecase.dart';
 import '../metadata/metadata.dart';
 
@@ -21,7 +22,7 @@ class Listings extends CrudUseCase<Listing> {
       logger.span('list', () async {
         return requests
             .query<Listing>(
-              filter: kindFilter(f),
+              filter: getCombinedFilter(f, Listing.baseFilter()),
               name: 'Listing-list${name != null ? '-$name' : ''}',
               cacheRead: false,
             )

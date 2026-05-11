@@ -142,7 +142,7 @@ Future<ReservationGroup> _group({
   DateTime? end,
 }) async {
   final disposableBuyer = mockKeys[30];
-  final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing-1';
+  final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing-1';
   final reservationStart = start ?? DateTime.utc(_futureReservationYear, 5, 1);
   final reservationEnd = end ?? DateTime.utc(_futureReservationYear, 5, 3);
   final buyerTags = await _participantTags(

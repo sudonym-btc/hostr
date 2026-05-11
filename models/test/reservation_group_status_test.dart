@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 
 /// Listing anchor that resolves to [MockKeys.hoster]'s pubkey via
 /// [getPubKeyFromAnchor].
-final _listingAnchor = '32121:${MockKeys.hoster.publicKey}:test-listing';
+final _listingAnchor = '30402:${MockKeys.hoster.publicKey}:test-listing';
 
 Reservation _reservation({
   KeyPair? signer,
