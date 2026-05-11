@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.5.3">
@@ -38,12 +38,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+    <link href="../../../../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -186,7 +186,7 @@
 <td><code translate="no" v-pre>30302</code></td>
 <td>Escrow Service Selected</td>
 <td>Parameterized replaceable</td>
-<td>Buyer&#x27;s selected escrow and seller method for a trade</td>
+<td>Optional helper event recording the buyer&#x27;s selected escrow and seller method for a trade</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>30303</code></td>
@@ -198,7 +198,7 @@
 </table>
 </div>
 <h2 id="escrow-service-kind30303">Escrow Service (<code translate="no" v-pre>kind:30303</code>)</h2>
-<p>Published by escrow operators to advertise their service. The <code translate="no" v-pre>d</code> tag MUST be set to the smart contract address.</p>
+<p>Published by escrow operators to advertise their service. The <code translate="no" v-pre>d</code> tag is a stable service identifier chosen by the escrow operator and MUST remain stable across updates to the same advertised service.</p>
 <h3 id="content">Content</h3>
 <p>JSON object:</p>
 <div id="content-code-1" class="codeblock-wrapper"><doc-codeblock>
@@ -265,7 +265,7 @@
 <tr>
 <td><code translate="no" v-pre>type</code></td>
 <td>string</td>
-<td>Contract type. Currently <code translate="no" v-pre>&quot;EVM&quot;</code>.</td>
+<td>Escrow service type. One possible type is <code translate="no" v-pre>&quot;EVM&quot;</code>. Other service types MAY define their own payment rails, contract fields, and verification rules.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>feePercent</code></td>
@@ -313,11 +313,12 @@
 <p><strong>Fee calculation:</strong> <code translate="no" v-pre>fee = clamp(floor(amount × feePercent / 100) + baseFee, minFee, maxFee)</code></p>
 <h3 id="tags">Tags</h3>
 <div id="tags-code-1" class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;d&quot;, &quot;&lt;contractAddress&gt;&quot;]</code></pre>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;d&quot;, &quot;&lt;service-id&gt;&quot;]</code></pre>
 </doc-codeblock></div>
 <h2 id="escrow-method-kind17388">Escrow Method (<code translate="no" v-pre>kind:17388</code>)</h2>
-<p>Published by both buyers and sellers to declare which escrow services they trust and which payment forms they accept.</p>
-<p>This event is replaceable per pubkey. Implementations SHOULD publish one current escrow method event per user. The event content is empty.</p>
+<p>Usually published by sellers to declare which escrow services they trust and which payment forms they accept. When placing an order, buyers normally defer to the seller&#x27;s escrow method event and choose from the seller&#x27;s advertised escrow and payment options.</p>
+<p>Buyers MAY publish their own escrow method event to advertise preferred escrow services or accepted payment forms. When a buyer pays through an escrow service used with a seller, the buyer SHOULD adopt that escrow pubkey in their own escrow method event so future counterparties can discover that trust relationship.</p>
+<p>This event is replaceable per pubkey. Implementations SHOULD publish at most one current escrow method event per user. The event content is empty.</p>
 <h3 id="tags-1">Tags</h3>
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
@@ -373,6 +374,7 @@
 </doc-codeblock></div>
 <h2 id="escrow-service-selected-kind30302">Escrow Service Selected (<code translate="no" v-pre>kind:30302</code>)</h2>
 <p>Created by the buyer to record the chosen escrow service and the seller&#x27;s escrow method for a trade.</p>
+<p>This event is OPTIONAL. A buyer MAY use it to keep trade state synchronized across clients or with other participants, but it is not required before funding escrow or before publishing a reservation payment proof. The buyer is responsible for tracking where funds were deposited and for publishing a valid payment-proof reservation when committing the trade.</p>
 <p>In private negotiation flows this event is usually sent as a signed child event inside a private <code translate="no" v-pre>kind:1327</code> structured-message rumor tagged <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code> and delivered with NIP-59 gift wraps, rather than being broadcast as a standalone public event. Implementations MAY publish it as a standalone event when the trade context is intended to be public.</p>
 <h3 id="tags-2">Tags</h3>
 <div class="table-wrapper scrollbar overflow-hidden">

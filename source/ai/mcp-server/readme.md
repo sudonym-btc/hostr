@@ -2,6 +2,8 @@
 
 The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart `hostr-daemon`. The action catalog in `hostr_cli/lib/src/actions/hostr_actions.dart` is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.
 
+For ChatGPT Apps Directory review prep, see [`CHATGPT_SUBMISSION.md`](./CHATGPT_SUBMISSION.md).
+
 ## One-click client install
 
 Use the hosted endpoint for AI clients that support remote HTTP MCP with OAuth:
@@ -98,7 +100,7 @@ HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon
 HOSTR_DAEMON_CWD=/opt/hostr-daemon
 ```
 
-Set `HOSTR_DAEMON_STATE_DIR=/data/mcp` (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at `MCP_OAUTH_CLIENT_STORE_PATH`, defaulting to `$HOSTR_DAEMON_STATE_DIR/oauth-clients.json`.
+Set `HOSTR_DAEMON_STATE_DIR=/data/mcp` (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at `MCP_OAUTH_CLIENT_STORE_PATH`, defaulting to `$HOSTR_DAEMON_STATE_DIR/oauth-clients.json`. OAuth refresh tokens are opaque, rotating, stored hashed beside that file, and default to `MCP_REFRESH_TOKEN_TTL_SECONDS=2592000`.
 Cold Dart starts can be slow in development, so MCP waits up to `HOSTR_DAEMON_TIMEOUT_MS` milliseconds per daemon request. The default is `120000`.
 
 ## Observability
@@ -148,6 +150,9 @@ dart run bin/generate_mcp_types.dart /path/to/hostr
 ```text
 hostr_session_status
 hostr_session_connect
+hostr_session_accounts
+hostr_session_switch
+hostr_session_logout
 hostr_listings_search
 hostr_listings_list
 hostr_listings_create
@@ -161,7 +166,9 @@ hostr_reservations_pay
 hostr_reservations_commit
 hostr_reservations_cancel
 hostr_updates
-hostr_reply
+hostr_thread_view
+hostr_thread_message
+hostr_escrow_involve
 hostr_profile_show
 hostr_profile_edit
 hostr_trips_list
@@ -192,6 +199,30 @@ For Hostr MCP monetary inputs in sats, use:
 ```
 
 The `value` is the satoshi count as a string. Do not convert `50000 sats` to `50000 BTC`, `50000 USD`, or `0.0005` unless the receiving field explicitly asks for BTC decimal notation instead of `unit: "sats"`.
+
+## Listing specifications
+
+`hostr_listings_create.specifications` and `hostr_listings_edit.patch.specifications` are the canonical listing amenities/specifications map. Use the snake_case keys below, not display labels or arbitrary amenity names. In particular, Wi-Fi/wifi/WIFI is `wireless_internet`.
+
+Example:
+
+```json
+{
+  "specifications": {
+    "wireless_internet": true,
+    "kitchen": true,
+    "free_parking": true,
+    "max_guests": 4,
+    "beds": 2,
+    "bedrooms": 1,
+    "bathrooms": 1
+  }
+}
+```
+
+Boolean keys: `airconditioning`, `allows_pets`, `crib`, `tumble_dryer`, `washer`, `elevator`, `free_parking`, `gym`, `hair_dryer`, `heating`, `high_chair`, `wireless_internet`, `iron`, `jacuzzi`, `kitchen`, `outlet_covers`, `pool`, `private_entrance`, `smoking_allowed`, `breakfast`, `fireplace`, `smoke_detector`, `essentials`, `shampoo`, `infants_allowed`, `children_allowed`, `hangers`, `flat_smooth_pathway_to_front_door`, `grab_rails_in_shower_and_toilet`, `oven`, `bbq`, `balcony`, `patio`, `dishwasher`, `refrigerator`, `garden_or_backyard`, `microwave`, `coffee_maker`, `dishes_and_silverware`, `stove`, `fire_extinguisher`, `carbon_monoxide_detector`, `luggage_dropoff_allowed`, `beach_essentials`, `beachfront`, `baby_monitor`, `babysitter_recommendations`, `childrens_books_and_toys`, `game_console`, `street_parking`, `paid_parking`, `hot_water`, `lake_access`, `single_level_home`, `waterfront`, `first_aid_kit`, `handheld_shower_head`, `home_step_free_access`, `lock_on_bedroom_door`, `mobile_hoist`, `path_to_entrance_lit_at_night`, `pool_hoist`, `ev_charger`, `rollin_shower`, `shower_chair`, `tub_with_shower_bench`, `wide_clearance_to_bed`, `wide_clearance_to_shower_and_toilet`, `wide_hallway_clearance`, `baby_bath`, `changing_table`, `room_darkening_shades`, `stair_gates`, `table_corner_guards`, `extra_pillows_and_blankets`, `ski_in_ski_out`, `window_guards`, `disabled_parking_spot`, `grab_rails_in_toilet`, `events_allowed`, `common_spaces_shared`, `bathroom_shared`, `security_cameras`.
+
+Numeric keys: `max_guests`, `beds`, `bedrooms`, `bathrooms`, `bathtub`, `tv`. On create/edit, the top-level fields `guests`, `beds`, `bedrooms`, and `bathrooms` are also accepted and are folded into specifications; inside the specifications map, prefer `max_guests` rather than `guests`.
 
 ## Image uploads
 
@@ -233,7 +264,7 @@ Agents should use the workflow docs from `hostr://mcp/action-input-types`, but t
 - Search and reserve: call `hostr_listings_search`, then `hostr_listings_availability`, then `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.
 - Negotiation: call `hostr_updates` to inspect thread/trade ids. Use `hostr_reservations_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_reservations_negotiateAccept` to accept the latest offer, or `hostr_reservations_cancel` to cancel the private negotiation or committed reservation.
 - Payment: for normal instant-book payment, call `hostr_reservations_bookAndPay`. After showing the returned QR/invoice, call the read-only `hostr_swaps_watch` with `swapId`, `tradeId`, and `reservationWaitSeconds`; it has no `dryRun` parameter and does not require approval. Use `hostr_swaps_recoverAll` only for explicit manual recovery/debug flows.
-- Messaging: call `hostr_updates`, choose recipient pubkeys from the thread/trade, call `hostr_reply` with `dryRun: true`, then repeat with `dryRun: false`.
+- Messaging: call `hostr_updates`, choose recipient pubkeys from the thread/trade, call `hostr_thread_message` with `dryRun: true`, then repeat with `dryRun: false`.
 - Listing management/profile/trips/bookings: call `hostr_listings_list` to inspect listing inventory, `hostr_profile_show` to inspect the current profile, `hostr_profile_edit` to preview/publish profile changes, `hostr_trips_list` for guest-side reservations, and `hostr_bookings_list` for reservations on listings authored by the authenticated user.
 - Escrow compatibility: call `hostr_escrow_methods` with a seller pubkey before payment when the agent needs to explain compatible escrow services or ask the user to choose a non-default service.
 - Swaps: call `hostr_swaps_list`, then `hostr_swaps_watch` for a specific swap id, and `hostr_swaps_recoverAll` when stale operations need recovery.

@@ -18,7 +18,7 @@
 
 #### Accommodation nip
 
-- [NIP-XX](https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx.md): Accommodation Listings
+- [NIP-XX](https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx.md): Accommodation Listing Extension for NIP-99
 
 #### Escrow nip
 

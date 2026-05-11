@@ -20,7 +20,7 @@ Future<void> main(List<String> args) async {
       'allow-insecure-file-secrets',
       defaultsTo: false,
       help:
-          'Allow file-backed secret storage for local development and tests only.',
+          'Allow file-backed secret storage when the state directory is private.',
     )
     ..addFlag('help', abbr: 'h', negatable: false);
 
@@ -39,7 +39,8 @@ Future<void> main(List<String> args) async {
     allowInsecureFileSecrets:
         parsed['allow-insecure-file-secrets'] == true ||
         Platform.environment['HOSTR_CLI_ALLOW_INSECURE_STORAGE'] == '1' ||
-        Platform.environment['HOSTR_CLI_STORAGE'] == 'insecure-file',
+        Platform.environment['HOSTR_CLI_STORAGE'] == 'insecure-file' ||
+        Platform.environment['HOSTR_CLI_STORAGE'] == 'file',
     relayOverride: parsed['relay'] as String?,
   );
 

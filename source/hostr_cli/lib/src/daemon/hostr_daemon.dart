@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
+import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
+import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -27,6 +29,7 @@ class HostrDaemon {
       _signerNotifications = SignerRequestNotificationBridge(notifications);
 
   static const _publicActions = {
+    'hostr.session.status',
     'hostr.listings.search',
     'hostr.profile.lookup',
   };
@@ -35,6 +38,7 @@ class HostrDaemon {
   final HostrCliRuntimeContext context;
   final HostrDaemonNotificationSink? _notifications;
   final SignerRequestNotificationBridge _signerNotifications;
+  final CustomLogger _logger = CustomLogger(tag: 'hostr-daemon');
   final Map<String, NostrConnect> _pendingNostrConnect = {};
   final Map<String, Future<Map<String, Object?>>> _pendingNostrConnectWaits =
       {};
@@ -195,7 +199,7 @@ class HostrDaemon {
         activePubkey.isNotEmpty &&
         !session.auth.needsBunkerRecovery &&
         await session.auth.isAuthenticated()) {
-      unawaited(_ensureAuthenticatedSessionHydrated(session));
+      unawaited(_ensureAuthenticatedSessionHydrated(session, traceId: traceId));
     }
     if (notificationToken != null &&
         notificationToken.trim().isNotEmpty &&
@@ -234,6 +238,7 @@ class HostrDaemon {
             tokenPubkey,
             session,
             HostrSessionConnectInput.fromJson(input),
+            traceId: traceId,
             cancellationToken: cancellationToken,
           ),
         ),
@@ -338,6 +343,13 @@ class HostrDaemon {
             data: await _reservationsCancel(tokenPubkey, session, tradeInput),
           );
         }(),
+        'hostr.reservations.review' => await () async {
+          final reviewInput = HostrReservationReviewInput.fromJson(input);
+          return (
+            dryRun: reviewInput.dryRun,
+            data: await _reservationsReview(tokenPubkey, session, reviewInput),
+          );
+        }(),
         'hostr.updates' => (
           dryRun: false,
           data: await _updates(
@@ -346,13 +358,6 @@ class HostrDaemon {
             HostrUpdatesInput.fromJson(input),
           ),
         ),
-        'hostr.reply' => await () async {
-          final replyInput = HostrReplyInput.fromJson(input);
-          return (
-            dryRun: replyInput.dryRun,
-            data: await _reply(tokenPubkey, session, replyInput),
-          );
-        }(),
         'hostr.thread.view' => (
           dryRun: false,
           data: await _threadView(
@@ -435,13 +440,6 @@ class HostrDaemon {
             HostrEscrowServiceGetInput.fromJson(input),
           ),
         ),
-        'hostr.escrow.service.update' => await () async {
-          final updateInput = HostrEscrowServiceUpdateInput.fromJson(input);
-          return (
-            dryRun: updateInput.dryRun,
-            data: await _escrowServiceUpdate(tokenPubkey, session, updateInput),
-          );
-        }(),
         'hostr.escrow.service.edit' => await () async {
           final updateInput = HostrEscrowServiceUpdateInput.fromJson(input);
           return (
@@ -619,25 +617,47 @@ class HostrDaemon {
 
   Map<String, Object?> describe() => HostrActionCatalog.toJson();
 
-  Map<String, Object?> visibleActions({String? pubkey}) {
-    final escrowPubkeys = _configuredEscrowPubkeys();
-    final isEscrow = _isConfiguredEscrowPubkey(pubkey);
-    final actions = HostrActionCatalog.all
-        .where(
-          (spec) =>
-              spec.requiredRole == null ||
-              spec.requiredRole != _escrowRole ||
-              isEscrow,
-        )
-        .toList();
-    return {
-      'version': 1,
-      'pubkey': pubkey,
-      'isEscrow': isEscrow,
-      'escrowPubkeys': escrowPubkeys,
-      'visibleActionIds': actions.map((spec) => spec.id).toList(),
-      'actions': actions.map((spec) => spec.toJson()).toList(),
-    };
+  Map<String, Object?> visibleActions({String? pubkey, String? traceId}) =>
+      TraceContext.run(traceId, () {
+        final escrowPubkeys = _configuredEscrowPubkeys();
+        final isEscrow = _isConfiguredEscrowPubkey(pubkey);
+        final actions = HostrActionCatalog.all
+            .where(
+              (spec) =>
+                  spec.requiredRole == null ||
+                  spec.requiredRole != _escrowRole ||
+                  isEscrow,
+            )
+            .toList();
+        return {
+          'version': 1,
+          'pubkey': pubkey,
+          'isEscrow': isEscrow,
+          'escrowPubkeys': escrowPubkeys,
+          'visibleActionIds': actions.map((spec) => spec.id).toList(),
+          'actions': actions.map((spec) => spec.toJson()).toList(),
+        };
+      });
+
+  Future<HostrCliResult> logoutSession({
+    required String pubkey,
+    String? traceId,
+  }) async {
+    return _guardAction('hostr.session.logout', () async {
+      final session = context.runtime.session(pubkey);
+      await session.ensureInitialized();
+      await session.auth.logout();
+      _pendingNostrConnect.remove(pubkey);
+      _pendingNostrConnectWaits.remove(pubkey);
+      return HostrCliResult(
+        ok: true,
+        command: 'hostr.session.logout',
+        environment: context.options.environment.name,
+        dryRun: false,
+        traceId: traceId,
+        data: {'pubkey': pubkey, 'signedOut': true},
+      );
+    }, traceId: traceId);
   }
 
   Future<HostrCliResult> uploadImage({
@@ -1013,7 +1033,18 @@ class HostrDaemon {
       try {
         final foreground = await context.runtime.foregroundSession();
         await foreground.ensureInitialized();
-        await foreground.auth.signinWithNostrConnect(nostrConnect);
+        final foregroundConnection = await _connectWithNostrConnect(
+          foreground,
+          nostrConnect,
+          traceId: traceId,
+        );
+        if (foregroundConnection == null) {
+          throw HostrCliException(
+            'nostr_connect_incomplete',
+            'Nostr Connect did not return a reusable session.',
+          );
+        }
+        await foreground.auth.signinWithBunkerConnection(foregroundConnection);
 
         final pubkey = foreground.auth.activePubkey;
         final bunkerConnection = foreground.auth.activeBunkerConnection;
@@ -1027,7 +1058,9 @@ class HostrDaemon {
         final session = context.runtime.session(pubkey);
         await session.ensureInitialized();
         await session.auth.signinWithBunkerConnection(bunkerConnection);
-        unawaited(_ensureAuthenticatedSessionHydrated(session));
+        unawaited(
+          _ensureAuthenticatedSessionHydrated(session, traceId: traceId),
+        );
         await foreground.auth.logout();
         _pendingOAuthNostrConnect.remove(requestId);
         _pendingOAuthNostrConnectWaits.remove(requestId);
@@ -1077,6 +1110,7 @@ class HostrDaemon {
     String tokenPubkey,
     HostrSession session,
     HostrSessionConnectInput input, {
+    String? traceId,
     HostrCancellationToken? cancellationToken,
   }) async {
     cancellationToken?.throwIfCancelled();
@@ -1118,6 +1152,7 @@ class HostrDaemon {
         tokenPubkey: tokenPubkey,
         session: session,
         nostrConnect: nostrConnect!,
+        traceId: traceId,
       ),
     );
 
@@ -1150,28 +1185,49 @@ class HostrDaemon {
     required String tokenPubkey,
     required HostrSession session,
     required NostrConnect nostrConnect,
+    String? traceId,
   }) async {
     try {
-      await session.auth.signinWithNostrConnect(nostrConnect);
+      final connection = await _connectWithNostrConnect(session, nostrConnect);
+      if (connection == null) {
+        throw HostrCliException(
+          'session_connect_failed',
+          'The approved Nostr Connect signer did not return a reusable session.',
+        );
+      }
+      await session.auth.signinWithBunkerConnection(connection);
     } catch (_) {
       _pendingNostrConnectWaits.remove(tokenPubkey);
       rethrow;
     }
     final activePubkey = session.auth.activePubkey;
-    if (activePubkey != tokenPubkey) {
+    final bunkerConnection = session.auth.activeBunkerConnection;
+    if (activePubkey == null ||
+        activePubkey.isEmpty ||
+        bunkerConnection == null) {
       _pendingNostrConnect.remove(tokenPubkey);
       _pendingNostrConnectWaits.remove(tokenPubkey);
-      await session.auth.logout();
       throw HostrCliException(
-        'session_pubkey_mismatch',
-        'The approved Nostr Connect signer pubkey does not match the MCP access token pubkey.',
-        details: {'tokenPubkey': tokenPubkey, 'activePubkey': activePubkey},
+        'session_connect_failed',
+        'The approved Nostr Connect signer did not return a reusable session.',
       );
+    }
+
+    if (activePubkey != tokenPubkey) {
+      final accountSession = context.runtime.session(activePubkey);
+      await accountSession.ensureInitialized();
+      await accountSession.auth.signinWithBunkerConnection(bunkerConnection);
+      await session.auth.logout();
     }
 
     _pendingNostrConnect.remove(tokenPubkey);
     _pendingNostrConnectWaits.remove(tokenPubkey);
-    unawaited(_ensureAuthenticatedSessionHydrated(session));
+    final connectedSession = activePubkey == tokenPubkey
+        ? session
+        : context.runtime.session(activePubkey);
+    unawaited(
+      _ensureAuthenticatedSessionHydrated(connectedSession, traceId: traceId),
+    );
     return {
       'authenticated': true,
       'pubkey': activePubkey,
@@ -1182,30 +1238,41 @@ class HostrDaemon {
   Future<void> _ensureAuthenticatedSessionHydrated(
     HostrSession session, {
     bool wait = false,
+    String? traceId,
   }) async {
     final activePubkey = session.auth.activePubkey;
-    if (activePubkey == null || activePubkey.isEmpty) return;
+    if (activePubkey == null || activePubkey.isEmpty) {
+      _logger.d('Skipping MCP session hydration: no active pubkey');
+      return;
+    }
     if (session.auth.needsBunkerRecovery ||
         !await session.auth.isAuthenticated()) {
+      _logger.d(
+        'Skipping MCP session hydration for $activePubkey: '
+        'authenticated=false needsBunkerRecovery=${session.auth.needsBunkerRecovery}',
+      );
       return;
     }
 
     final future = _sessionHydrations.putIfAbsent(activePubkey, () async {
-      try {
-        await session.userSubscriptions.start();
-        await Future.wait([
-          _waitForStreamStatus(session.userSubscriptions.giftwraps$.status),
-          _waitForStreamStatus(
-            session.userSubscriptions.allMyReservations$.stream.status,
-          ),
-        ]);
-        if (_isConfiguredEscrowPubkey(activePubkey)) {
-          await _escrowToolContext(session);
+      return TraceContext.run(traceId ?? TraceContext.currentTraceId, () async {
+        _logger.i('MCP session hydration starting pubkey=$activePubkey');
+        try {
+          await session.startup.ensureAuthenticatedUserReady();
+          if (_isConfiguredEscrowPubkey(activePubkey)) {
+            await _escrowToolContext(session);
+          }
+          _logger.i('MCP session hydration ready pubkey=$activePubkey');
+        } catch (error, stackTrace) {
+          _sessionHydrations.remove(activePubkey);
+          _logger.e(
+            'MCP session hydration failed pubkey=$activePubkey: $error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          rethrow;
         }
-      } catch (_) {
-        _sessionHydrations.remove(activePubkey);
-        rethrow;
-      }
+      });
     });
 
     if (wait) {
@@ -1233,7 +1300,7 @@ class HostrDaemon {
       final h3 = H3Engine.bundled();
       final tags = await h3.polygonCover.fromGeoJsonTagsInBackground(
         geoJson: polygon.geoJson,
-        maxH3Tags: 30,
+        maxH3Tags: 500,
       );
       builder.rawTags({'g': tags.map((tag) => tag.index).toList()});
     }
@@ -1295,12 +1362,13 @@ class HostrDaemon {
 
     if (!input.dryRun) {
       await session.accountSeedStore.ensureReady();
-      await session.metadata.ensureSellerConfig(activePubkey);
     }
 
     final materialized = await materializeListingImages(
       hostr: hostr,
       rawImages: listingInput['images'] as List<dynamic>,
+      // Listing previews must use the exact Blossom URLs that publish will use,
+      // so image materialization intentionally uploads even when input.dryRun is true.
       dryRun: false,
     );
     final h3Tags = await addressH3Tags(hostr, listingInput);
@@ -1367,7 +1435,6 @@ class HostrDaemon {
     final patch = input.patch;
     if (!input.dryRun) {
       await session.accountSeedStore.ensureReady();
-      await session.metadata.ensureSellerConfig(activePubkey);
     }
 
     final materialized = patch.containsKey('images')
@@ -1376,7 +1443,10 @@ class HostrDaemon {
             rawImages: patch['images'] is List
                 ? patch['images'] as List<dynamic>
                 : [patch['images']],
-            dryRun: input.dryRun,
+            // Listing edit previews must use the exact Blossom URLs that
+            // publish will use, so image materialization intentionally uploads
+            // even when input.dryRun is true.
+            dryRun: false,
           )
         : null;
     final h3Tags = patch.containsKey('address')
@@ -1654,6 +1724,9 @@ class HostrDaemon {
     final states = <Map<String, Object?>>[];
     final handoff = Completer<Map<String, Object?>>();
     final terminal = Completer<Map<String, Object?>>();
+    final reservationWatchSeconds = input.proofTimeoutSeconds
+        .clamp(0, hostrMaxSwapReservationWaitSeconds)
+        .toInt();
     final sub = operation.stream.listen((state) {
       final json = _augmentBookAndPayStateJson(state.toJson());
       states.add(json);
@@ -1765,11 +1838,11 @@ class HostrDaemon {
                 'arguments': {
                   if (swapId != null && swapId.isNotEmpty) 'swapId': swapId,
                   if (tradeId != null && tradeId.isNotEmpty) 'tradeId': tradeId,
-                  'reservationWaitSeconds': input.proofTimeoutSeconds,
+                  'reservationWaitSeconds': reservationWatchSeconds,
                 },
               },
               'nextStep':
-                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. After that visible payment prompt is in the output, call the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
+                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. The next assistant action after rendering that visible payment prompt must be the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds; do not stop after displaying the invoice or wait for the user to say they paid. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
             };
           }),
           terminal.future,
@@ -2282,6 +2355,121 @@ class HostrDaemon {
     };
   }
 
+  Future<Map<String, Object?>> _reservationsReview(
+    String tokenPubkey,
+    HostrSession session,
+    HostrReservationReviewInput input,
+  ) async {
+    await _requireAuthenticatedPubkey(
+      tokenPubkey,
+      session,
+      action: 'Reservation review',
+    );
+    await _ensureAuthenticatedSessionHydrated(session, wait: true);
+    final hostr = session.hostr;
+    final lookup = await _reservationLookupByTradeId(
+      hostr,
+      input.tradeId,
+      waitSeconds: input.timeoutSeconds,
+    );
+    final reservations = (lookup['reservations'] as List?)
+        ?.whereType<Map<String, Object?>>()
+        .map(
+          (json) => Reservation.fromNostrEvent(
+            _eventFromJson(Map<String, dynamic>.from(json)),
+          ),
+        )
+        .toList();
+    final publicReservations =
+        reservations ??
+        await _waitForPublicReservationsByTradeId(
+          hostr,
+          input.tradeId,
+          until: (items) => items.any(
+            (reservation) => reservation.stage == ReservationStage.commit,
+          ),
+          timeout: Duration(seconds: input.timeoutSeconds),
+        );
+    final committed = publicReservations
+        .where((reservation) => reservation.stage == ReservationStage.commit)
+        .toList();
+    if (committed.isEmpty) {
+      throw HostrCliException(
+        'reservation_not_reviewable',
+        'No committed reservation was found for this trade, so it cannot be reviewed yet.',
+        details: {'tradeId': input.tradeId, 'reservationLookup': lookup},
+      );
+    }
+    final group = ReservationGroup(reservations: publicReservations);
+    final reservation = group.buyerReservation ?? committed.last;
+    final listingAnchor = reservation.parsedTags.listingAnchor;
+    final reservationAnchor = reservation.anchor ?? input.tradeId;
+    final signerKeyPair = hostr.auth.getActiveKey();
+    final recipientKeyPair = await _activeReservationKeyPair(
+      hostr,
+      sellerPubkey: group.sellerPubkey,
+      tradeId: input.tradeId,
+    );
+    final review = Review(
+      pubKey: signerKeyPair.publicKey,
+      tags: ReviewTags([
+        ['d', input.tradeId],
+        [kReservationRefTag, reservationAnchor],
+        [kListingRefTag, listingAnchor],
+      ]),
+      content: ReviewContent(
+        rating: input.rating,
+        content: input.content,
+        proof: await hostr.reservations.createParticipationProofForReview(
+          reservation: reservation,
+          role: 'buyer',
+          recipientKeyPair: recipientKeyPair,
+          identityKeyPair: signerKeyPair,
+        ),
+      ),
+    );
+    final verification = hostr.reviews.verify(
+      review,
+      await hostr.reviews.resolve(review),
+    );
+    if (verification is Invalid<Review>) {
+      throw HostrCliException(
+        'review_invalid',
+        verification.reason,
+        details: {
+          'tradeId': input.tradeId,
+          'event': eventJson(review),
+          'reservationLookup': lookup,
+        },
+      );
+    }
+    if (input.dryRun) {
+      return {
+        'dryRun': true,
+        'willPublish': true,
+        'tradeId': input.tradeId,
+        'rating': input.rating,
+        'content': input.content,
+        'listingAnchor': listingAnchor,
+        'reservationAnchor': reservationAnchor,
+        'event': eventJson(review),
+        'reservationLookup': lookup,
+      };
+    }
+
+    final result = await hostr.reviews.upsert(review);
+    return {
+      'dryRun': false,
+      'tradeId': input.tradeId,
+      'rating': input.rating,
+      'content': input.content,
+      'listingAnchor': listingAnchor,
+      'reservationAnchor': reservationAnchor,
+      'event': eventJson(result.event),
+      'relayResponses': result.responses.map(relayResponseJson).toList(),
+    };
+  }
+
   Future<Map<String, Object?>> _updates(
     String tokenPubkey,
     HostrSession session,
@@ -2301,6 +2489,55 @@ class HostrDaemon {
       threads,
       activePubkey: tokenPubkey,
     );
+    final listings = await session.listings.list(
+      Filter(authors: [tokenPubkey], limit: input.limit),
+      name: 'mcp-updates-listings',
+    );
+    final listingReviews = <Map<String, Object?>>[];
+    for (final listing in listings.take(input.limit)) {
+      final anchor = listing.anchor;
+      if (anchor == null || anchor.isEmpty) continue;
+      final reviews = await session.reviews.findByTag(kListingRefTag, anchor);
+      if (reviews.isEmpty) continue;
+      listingReviews.add({
+        'listing': listingSummary(listing),
+        'anchor': anchor,
+        'count': reviews.length,
+        'reviews': reviews.take(input.limit).map(eventJson).toList(),
+      });
+    }
+    final tripSnapshot = await _resolvedReservationGroupSnapshot(
+      hostr.userSubscriptions.myResolvedTripsList$,
+      timeout: Duration(seconds: input.timeoutSeconds),
+    );
+    final bookingSnapshot = await _resolvedReservationGroupSnapshot(
+      hostr.userSubscriptions.myResolvedHostingsList$,
+      timeout: Duration(seconds: input.timeoutSeconds),
+    );
+    final trips = await Future.wait(
+      tripSnapshot
+          .where((item) => item.validation is Valid<ReservationGroup>)
+          .take(input.limit)
+          .map(
+            (item) => _resolvedReservationCollectionItemJson(
+              hostr,
+              item,
+              mode: 'trips',
+            ),
+          ),
+    );
+    final bookings = await Future.wait(
+      bookingSnapshot
+          .where((item) => item.validation is Valid<ReservationGroup>)
+          .take(input.limit)
+          .map(
+            (item) => _resolvedReservationCollectionItemJson(
+              hostr,
+              item,
+              mode: 'bookings',
+            ),
+          ),
+    );
     return {
       'count': events.length,
       'events': events.take(input.limit).map(eventJson).toList(),
@@ -2308,38 +2545,15 @@ class HostrDaemon {
       'threads': threads
           .map((thread) => _threadJson(thread, profiles: profiles))
           .toList(),
-    };
-  }
-
-  Future<Map<String, Object?>> _reply(
-    String tokenPubkey,
-    HostrSession session,
-    HostrReplyInput input,
-  ) async {
-    await _requireAuthenticatedPubkey(tokenPubkey, session, action: 'Reply');
-    final tags = <List<String>>[
-      if (input.conversation != null) [kConversationTag, input.conversation!],
-    ];
-    if (input.dryRun) {
-      return {
-        'dryRun': true,
-        'content': input.content,
-        'tags': tags,
-        'recipientPubkeys': input.recipientPubkeys,
-      };
-    }
-    final futures = await session.hostr.messaging.broadcastText(
-      content: input.content,
-      tags: tags,
-      recipientPubkeys: input.recipientPubkeys,
-    );
-    final nested = await Future.wait(futures);
-    return {
-      'dryRun': false,
-      'relayResponses': nested
-          .expand((responses) => responses)
-          .map(relayResponseJson)
-          .toList(),
+      'listingReviewCount': listingReviews.fold<int>(
+        0,
+        (total, entry) => total + ((entry['count'] as int?) ?? 0),
+      ),
+      'listingReviews': listingReviews,
+      'tripCount': trips.length,
+      'trips': trips,
+      'bookingCount': bookings.length,
+      'bookings': bookings,
     };
   }
 
@@ -3885,11 +4099,16 @@ class HostrDaemon {
       action: 'Swap watch',
     );
     final requestedTradeId = input.tradeId;
+    final reservationWaitSeconds = input.reservationWaitSeconds
+        .clamp(0, hostrMaxSwapReservationWaitSeconds)
+        .toInt();
     if (requestedTradeId != null && requestedTradeId.isNotEmpty) {
+      // Avoid spending the full wait budget twice. This fast pre-check catches
+      // already-committed reservations; terminal swap states do the real wait.
       final lookup = await _reservationLookupByTradeId(
         session.hostr,
         requestedTradeId,
-        waitSeconds: input.reservationWaitSeconds,
+        waitSeconds: 0,
         cancellationToken: cancellationToken,
       );
       if (lookup['committed'] == true) {
@@ -3924,7 +4143,7 @@ class HostrDaemon {
         'reservationLookup': await _reservationLookupByTradeId(
           session.hostr,
           tradeId,
-          waitSeconds: input.reservationWaitSeconds,
+          waitSeconds: reservationWaitSeconds,
           cancellationToken: cancellationToken,
         ),
       };
@@ -3936,7 +4155,7 @@ class HostrDaemon {
       hostr: session.hostr,
       swapId: input.swapId,
       tradeId: beforeTradeId,
-      reservationWaitSeconds: input.reservationWaitSeconds,
+      reservationWaitSeconds: reservationWaitSeconds,
       resolved: 0,
       state: before,
       cancellationToken: cancellationToken,
@@ -4219,6 +4438,113 @@ NostrConnect? _buildMcpNostrConnect(HostrSession session) {
     _ => 'https://ai.hostr.development',
   };
   return buildNostrConnect(session.hostr, appName: appName, appUrl: appUrl);
+}
+
+Future<BunkerConnection?> _connectWithNostrConnect(
+  HostrSession session,
+  NostrConnect nostrConnect, {
+  String? traceId,
+}) async {
+  final relays = nostrConnect.relays;
+  if (relays.isEmpty) {
+    throw HostrCliException('relay_required', 'No Hostr relay is configured.');
+  }
+
+  final keyPair = nostrConnect.keyPair;
+  final localEventSigner = defaultEventSignerFactory(
+    publicKey: keyPair.publicKey,
+    privateKey: keyPair.privateKey,
+  );
+  final localPubkey = localEventSigner.getPublicKey();
+  final subscription = session.hostr.ndk.requests.subscription(
+    explicitRelays: relays,
+    filter: Filter(
+      kinds: [BunkerRequest.kKind],
+      pTags: [localPubkey],
+      since: session.hostr.ndk.bunkers.someTimeAgo(),
+    ),
+    name: 'mcp-nostrconnect',
+  );
+
+  _daemonDiagnostic('nostr_connect.listen.start', {
+    'traceId': ?traceId,
+    'clientPubkey': localPubkey,
+    'relayCount': relays.length,
+  });
+
+  try {
+    await for (final event in subscription.stream.timeout(
+      const Duration(seconds: Bunkers.kMaxWaitingTimeForConnectionSeconds),
+    )) {
+      try {
+        final decryptedContent = await localEventSigner.decryptNip44(
+          ciphertext: event.content,
+          senderPubKey: event.pubKey,
+        );
+        if (decryptedContent == null || decryptedContent.isEmpty) {
+          _daemonDiagnostic('nostr_connect.event.ignored', {
+            'traceId': ?traceId,
+            'eventId': event.id,
+            'senderPubkey': event.pubKey,
+            'reason': 'empty_decryption',
+          });
+          continue;
+        }
+
+        final response = jsonDecode(decryptedContent);
+        if (response is! Map) {
+          _daemonDiagnostic('nostr_connect.event.ignored', {
+            'traceId': ?traceId,
+            'eventId': event.id,
+            'senderPubkey': event.pubKey,
+            'reason': 'non_object_response',
+          });
+          continue;
+        }
+        if (response['result'] != nostrConnect.secret) {
+          _daemonDiagnostic('nostr_connect.event.ignored', {
+            'traceId': ?traceId,
+            'eventId': event.id,
+            'senderPubkey': event.pubKey,
+            'reason': response.containsKey('result')
+                ? 'result_mismatch'
+                : 'missing_result',
+          });
+          continue;
+        }
+
+        _daemonDiagnostic('nostr_connect.event.accepted', {
+          'traceId': ?traceId,
+          'eventId': event.id,
+          'senderPubkey': event.pubKey,
+        });
+        return BunkerConnection(
+          privateKey: keyPair.privateKey!,
+          remotePubkey: event.pubKey,
+          relays: relays,
+        );
+      } catch (error) {
+        _daemonDiagnostic('nostr_connect.event.ignored', {
+          'traceId': ?traceId,
+          'eventId': event.id,
+          'senderPubkey': event.pubKey,
+          'reason': 'decode_error',
+          'message': error.toString(),
+        });
+      }
+    }
+  } finally {
+    await session.hostr.ndk.requests.closeSubscription(subscription.requestId);
+    _daemonDiagnostic('nostr_connect.listen.stop', {
+      'traceId': ?traceId,
+      'clientPubkey': localPubkey,
+    });
+  }
+  return null;
+}
+
+void _daemonDiagnostic(String event, Map<String, Object?> data) {
+  stderr.writeln(jsonEncode({'event': event, ...data}));
 }
 
 Map<String, Object?> _nostrConnectJson(NostrConnect nostrConnect) {
@@ -4663,181 +4989,32 @@ Future<String?> _pubkeyForThreadRole(
   };
 }
 
-class _EscrowTradeThreadPlan {
-  const _EscrowTradeThreadPlan({
-    required this.thread,
-    required this.participantPubkeys,
-    required this.recipientPubkeys,
-    required this.rolePubkeys,
-  });
-
-  final Thread thread;
-  final List<String> participantPubkeys;
-  final List<String> recipientPubkeys;
-  final Map<String, String> rolePubkeys;
-}
-
-Future<_EscrowTradeThreadPlan> _resolveEscrowTradeThreadPlan(
+Future<EscrowTradeThreadPlan> _resolveEscrowTradeThreadPlan(
   Hostr hostr, {
   required String activePubkey,
   required String tradeId,
   Thread? tradeThread,
   Duration timeout = const Duration(seconds: 12),
 }) async {
-  final normalizedTradeId = tradeId.trim();
-  if (normalizedTradeId.isEmpty) {
-    throw HostrCliException(
-      'trade_id_required',
-      'Messaging escrow requires a concrete reservation tradeId so buyer, seller, and escrow are all included in the thread.',
-    );
-  }
-
-  final resolvedItem = await _resolvedReservationGroupForTradeId(
-    hostr,
-    normalizedTradeId,
-    timeout: timeout,
-  );
-  final resolvedParticipants = resolvedItem?.participants;
-  final group = resolvedItem?.group;
-  final state = tradeThread?.state.value;
-
-  String? sellerPubkey =
-      resolvedParticipants?.resolvedParticipantPubkeyForRole('seller') ??
-      group?.sellerPubkey;
-  String? buyerPubkey =
-      resolvedParticipants?.resolvedParticipantPubkeyForRole('buyer') ??
-      group?.buyerPubkey;
-  String? escrowPubkey =
-      resolvedParticipants?.resolvedParticipantPubkeyForRole('escrow') ??
-      group?.escrowPubkey ??
-      state?.selectedEscrows.lastOrNull?.service.escrowPubkey;
-
-  final seenParticipants = <String>{
-    activePubkey,
-    if (state != null) ...state.participantPubkeys,
-    if (state != null) ...state.counterpartyPubkeys,
-  };
-
-  for (final request
-      in state?.reservationRequests.reversed ?? const <Reservation>[]) {
-    seenParticipants.add(request.pubKey);
-    seenParticipants.addAll(request.parsedTags.getTags('p'));
-    final anchor = request.parsedTags.listingAnchor;
-    if ((sellerPubkey == null || sellerPubkey.isEmpty) && anchor.isNotEmpty) {
-      sellerPubkey = getPubKeyFromAnchor(anchor);
+  try {
+    final trade = hostr.trade(tradeId, [activePubkey]);
+    try {
+      return await trade.resolveEscrowThread(
+        tradeThread: tradeThread,
+        timeout: timeout,
+      );
+    } finally {
+      await trade.close();
     }
-    buyerPubkey ??= request.parsedTags.getTagValueByMarker('p', 'buyer');
-    escrowPubkey ??= request.parsedTags.getTagValueByMarker('p', 'escrow');
-  }
-
-  if ((sellerPubkey == null || sellerPubkey.isEmpty) && state != null) {
-    sellerPubkey = await _pubkeyForThreadRole(
-      hostr,
-      tradeId: normalizedTradeId,
-      role: 'seller',
-      thread: tradeThread,
-      timeout: timeout,
-    );
-  }
-  if ((escrowPubkey == null || escrowPubkey.isEmpty) && state != null) {
-    escrowPubkey = await _pubkeyForThreadRole(
-      hostr,
-      tradeId: normalizedTradeId,
-      role: 'escrow',
-      thread: tradeThread,
-      timeout: timeout,
-    );
-  }
-
-  if (buyerPubkey == null || buyerPubkey.isEmpty) {
-    final candidates = seenParticipants
-        .where(
-          (pubkey) =>
-              pubkey.isNotEmpty &&
-              pubkey != sellerPubkey &&
-              pubkey != escrowPubkey,
-        )
-        .toSet();
-    if (activePubkey != sellerPubkey && activePubkey != escrowPubkey) {
-      buyerPubkey = activePubkey;
-    } else if (candidates.length == 1) {
-      buyerPubkey = candidates.single;
-    }
-  }
-
-  final missingRoles = <String>[
-    if (sellerPubkey == null || sellerPubkey.isEmpty) 'seller',
-    if (buyerPubkey == null || buyerPubkey.isEmpty) 'buyer',
-    if (escrowPubkey == null || escrowPubkey.isEmpty) 'escrow',
-  ];
-  if (missingRoles.isNotEmpty) {
+  } on StateError catch (error) {
     throw HostrCliException(
-      'trade_participants_not_found',
-      'Cannot message escrow until the tradeId resolves to seller, buyer, and escrow participants.',
-      details: {'tradeId': normalizedTradeId, 'missingRoles': missingRoles},
+      tradeId.trim().isEmpty
+          ? 'trade_id_required'
+          : 'escrow_thread_resolution_failed',
+      error.message,
+      details: {'tradeId': tradeId, 'activePubkey': activePubkey},
     );
   }
-
-  final rolePubkeys = <String, String>{
-    'seller': sellerPubkey!,
-    'buyer': buyerPubkey!,
-    'escrow': escrowPubkey!,
-  };
-  final participantPubkeys = rolePubkeys.values.toSet();
-  if (!participantPubkeys.contains(activePubkey)) {
-    throw HostrCliException(
-      'active_user_not_trade_participant',
-      'Cannot message escrow for a trade unless the authenticated user is the buyer, seller, or escrow participant.',
-      details: {
-        'tradeId': normalizedTradeId,
-        'activePubkey': activePubkey,
-        'roles': rolePubkeys,
-      },
-    );
-  }
-
-  final thread = hostr.messaging.threads.ensureTradeConversation(
-    tradeId: normalizedTradeId,
-    participants: participantPubkeys,
-  );
-  thread.configureConversation(
-    conversationTag: normalizedTradeId,
-    participants: participantPubkeys,
-  );
-
-  return _EscrowTradeThreadPlan(
-    thread: thread,
-    participantPubkeys: participantPubkeys.toList()..sort(),
-    recipientPubkeys:
-        participantPubkeys.where((pubkey) => pubkey != activePubkey).toList()
-          ..sort(),
-    rolePubkeys: rolePubkeys,
-  );
-}
-
-Future<ResolvedValidatedReservationGroupParticipants?>
-_resolvedReservationGroupForTradeId(
-  Hostr hostr,
-  String tradeId, {
-  Duration timeout = const Duration(seconds: 12),
-}) async {
-  final snapshots = await Future.wait([
-    _resolvedReservationGroupSnapshot(
-      hostr.userSubscriptions.myResolvedTripsList$,
-      timeout: timeout,
-    ),
-    _resolvedReservationGroupSnapshot(
-      hostr.userSubscriptions.myResolvedHostingsList$,
-      timeout: timeout,
-    ),
-  ]);
-  final matches = snapshots
-      .expand((items) => items)
-      .where((item) => item.group.tradeId == tradeId)
-      .toList();
-  if (matches.isEmpty) return null;
-  final valid = matches.where((item) => item.validation is Valid).toList();
-  return valid.isNotEmpty ? valid.last : matches.last;
 }
 
 List<String> _threadRecipients(Thread thread, String activePubkey) {
@@ -5468,7 +5645,11 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
 
   final selectedEscrow = EscrowServiceSelected(
     pubKey: hostr.auth.getActiveKey().publicKey,
-    tags: EscrowServiceSelectedTags([]),
+    tags: EscrowServiceSelectedTags([
+      ['d', reservation.getDtag()!],
+      [kListingRefTag, reservation.parsedTags.listingAnchor],
+      ['p', sellerProfile.pubKey],
+    ]),
     content: EscrowServiceSelectedContent(
       service: service,
       sellerMethods: mutual.sellerMethod!,

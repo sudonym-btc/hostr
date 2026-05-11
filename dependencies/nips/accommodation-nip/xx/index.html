@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.5.3">
@@ -13,7 +13,7 @@
     <!-- Primary Meta Tags -->
     <title>NIP-XX</title>
     <meta name="title" content="NIP-XX">
-    <meta name="description" content="Accommodation Listings">
+    <meta name="description" content="Accommodation Listing Extension for NIP-99">
 
     <!-- Canonical -->
     <link rel="canonical" href="https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx/">
@@ -23,7 +23,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx/">
     <meta property="og:title" content="NIP-XX">
-    <meta property="og:description" content="Accommodation Listings">
+    <meta property="og:description" content="Accommodation Listing Extension for NIP-99">
     <meta property="og:site_name" content="Hostr">
     <meta property="og:locale" content="en_US">
 
@@ -31,19 +31,19 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx/">
     <meta name="twitter:title" content="NIP-XX">
-    <meta name="twitter:description" content="Accommodation Listings">
+    <meta name="twitter:description" content="Accommodation Listing Extension for NIP-99">
 
     <!-- Alternate Markdown -->
     <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/dependencies/nips/accommodation-nip/xx.md">
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+    <link href="../../../../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -153,17 +153,12 @@
 
                 <!-- Page content  -->
 <h1 id="nip-xx">NIP-XX</h1>
-<p>Accommodation Listings</p>
+<p>Accommodation Listing Extension for NIP-99</p>
 <hr>
 <p><code translate="no" v-pre>draft</code> <code translate="no" v-pre>optional</code></p>
-<p>This NIP defines <code translate="no" v-pre>kind:32121</code> for accommodation listings as parameterized replaceable events. It provides a structured format for hosts to advertise accommodation with pricing, availability rules, amenities, cancellation policies, and location data.</p>
-<h2 id="terms">Terms</h2>
-<ul>
-<li><strong>Guest</strong> — Nostr user searching for accommodation.</li>
-<li><strong>Host</strong> — Nostr user providing accommodation.</li>
-<li><strong>Listing</strong> — A single accommodation unit or property advertised by a host.</li>
-</ul>
-<h2 id="event-kind">Event Kind</h2>
+<p>This NIP defines an accommodation-specific profile for <a href="99.md">NIP-99</a>
+classified listings. It does not define a new listing event kind.</p>
+<p>Accommodation listings use the NIP-99 event kinds:</p>
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -174,17 +169,40 @@
 </thead>
 <tbody>
 <tr>
-<td><code translate="no" v-pre>32121</code></td>
-<td>Accommodation listing</td>
+<td><code translate="no" v-pre>30402</code></td>
+<td>Active accommodation listing</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>30403</code></td>
+<td>Draft or inactive accommodation listing</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p><code translate="no" v-pre>kind:32121</code> is a parameterized replaceable event (NIP-01). The <code translate="no" v-pre>d</code> tag provides a stable identifier for the listing across updates.</p>
-<h2 id="content">Content</h2>
-<p>The <code translate="no" v-pre>.content</code> field contains the listing <strong>description</strong> in Markdown.</p>
-<h2 id="tags">Tags</h2>
-<h3 id="required-tags">Required Tags</h3>
+<p>All rules for NIP-99 listing identity, authoring, content, base metadata,
+images, prices, and status remain defined by NIP-99. This NIP only defines
+additional tags and behavior for listings categorized as accommodation.</p>
+<h2 id="terms">Terms</h2>
+<ul>
+<li><strong>Buyer</strong> - Nostr user searching for accommodation.</li>
+<li><strong>Seller</strong> - Nostr user providing accommodation.</li>
+<li><strong>Listing</strong> - A single accommodation unit or property advertised by a seller.</li>
+</ul>
+<h2 id="category-tags">Category Tags</h2>
+<p>Accommodation listings MUST include:</p>
+<div id="category-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;t&quot;, &quot;accommodation&quot;]</code></pre>
+</doc-codeblock></div>
+<p>Clients SHOULD treat <code translate="no" v-pre>[&quot;t&quot;, &quot;accommodation&quot;]</code> as the canonical signal that a
+NIP-99 listing follows this accommodation profile.</p>
+<h2 id="accommodation-tags">Accommodation Tags</h2>
+<p>Accommodation listings SHOULD include a <code translate="no" v-pre>type</code> tag:</p>
+<div id="accommodation-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;type&quot;, &quot;&lt;listing-type&gt;&quot;]</code></pre>
+</doc-codeblock></div>
+<p>Recognized listing types are:</p>
+<p><code translate="no" v-pre>room</code>, <code translate="no" v-pre>house</code>, <code translate="no" v-pre>apartment</code>, <code translate="no" v-pre>villa</code>, <code translate="no" v-pre>hotel</code>, <code translate="no" v-pre>hostel</code>, <code translate="no" v-pre>resort</code></p>
+<p>Accommodation listings MAY include the following additional tags:</p>
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -195,45 +213,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><code translate="no" v-pre>d</code></td>
-<td><code translate="no" v-pre>[&quot;d&quot;, &quot;&lt;unique-id&gt;&quot;]</code></td>
-<td>Stable listing identifier. SHOULD be generated once at creation (e.g. base-36 timestamp) and reused across updates.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>title</code></td>
-<td><code translate="no" v-pre>[&quot;title&quot;, &quot;&lt;string&gt;&quot;]</code></td>
-<td>Human-readable listing title.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>t</code></td>
-<td><code translate="no" v-pre>[&quot;t&quot;, &quot;accommodation&quot;]</code></td>
-<td>Topic tag. MUST be <code translate="no" v-pre>&quot;accommodation&quot;</code>.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>type</code></td>
-<td><code translate="no" v-pre>[&quot;type&quot;, &quot;&lt;listing-type&gt;&quot;]</code></td>
-<td>One of: <code translate="no" v-pre>room</code>, <code translate="no" v-pre>house</code>, <code translate="no" v-pre>apartment</code>, <code translate="no" v-pre>villa</code>, <code translate="no" v-pre>hotel</code>, <code translate="no" v-pre>hostel</code>, <code translate="no" v-pre>resort</code>.</td>
-</tr>
-</tbody>
-</table>
-</div>
-<h3 id="optional-tags">Optional Tags</h3>
-<div class="table-wrapper scrollbar overflow-hidden">
-<table class="comfortable">
-<thead>
-<tr>
-<th>Tag</th>
-<th>Format</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code translate="no" v-pre>image</code></td>
-<td><code translate="no" v-pre>[&quot;image&quot;, &quot;&lt;url&gt;&quot;]</code></td>
-<td>Image URL. Repeat for multiple images.</td>
-</tr>
 <tr>
 <td><code translate="no" v-pre>active</code></td>
 <td><code translate="no" v-pre>[&quot;active&quot;, &quot;true&quot;\|&quot;false&quot;]</code></td>
@@ -242,7 +221,7 @@
 <tr>
 <td><code translate="no" v-pre>negotiable</code></td>
 <td><code translate="no" v-pre>[&quot;negotiable&quot;, &quot;true&quot;\|&quot;false&quot;]</code></td>
-<td>Whether the host accepts negotiated prices below the listed price. Default <code translate="no" v-pre>false</code>.</td>
+<td>Whether the seller accepts negotiated prices below the listed price. Default <code translate="no" v-pre>false</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>minStay</code></td>
@@ -252,111 +231,138 @@
 <tr>
 <td><code translate="no" v-pre>checkIn</code></td>
 <td><code translate="no" v-pre>[&quot;checkIn&quot;, &quot;&lt;hour&gt;:&lt;minute&gt;&quot;]</code></td>
-<td>Check-in time (24h format). Default <code translate="no" v-pre>&quot;15:0&quot;</code>.</td>
+<td>Check-in time in 24h format. Default <code translate="no" v-pre>&quot;15:0&quot;</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>checkOut</code></td>
 <td><code translate="no" v-pre>[&quot;checkOut&quot;, &quot;&lt;hour&gt;:&lt;minute&gt;&quot;]</code></td>
-<td>Check-out time (24h format). Default <code translate="no" v-pre>&quot;11:0&quot;</code>.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>location</code></td>
-<td><code translate="no" v-pre>[&quot;location&quot;, &quot;&lt;string&gt;&quot;]</code></td>
-<td>Human-readable location or address.</td>
+<td>Check-out time in 24h format. Default <code translate="no" v-pre>&quot;11:0&quot;</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>quantity</code></td>
 <td><code translate="no" v-pre>[&quot;quantity&quot;, &quot;&lt;integer&gt;&quot;]</code></td>
-<td>Number of bookable units. Default <code translate="no" v-pre>1</code>.</td>
+<td>Number of independently bookable units. Default <code translate="no" v-pre>1</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>instantBook</code></td>
 <td><code translate="no" v-pre>[&quot;instantBook&quot;, &quot;true&quot;\|&quot;false&quot;]</code></td>
-<td>Whether reservations are confirmed instantly without host approval. Default <code translate="no" v-pre>true</code>. Promoted as <code translate="no" v-pre>[&quot;I&quot;, &quot;true&quot;\|&quot;false&quot;]</code>.</td>
+<td>Whether reservations are confirmed instantly without seller approval. Default <code translate="no" v-pre>true</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>allowSelfSignedReservation</code></td>
 <td><code translate="no" v-pre>[&quot;allowSelfSignedReservation&quot;, &quot;true&quot;\|&quot;false&quot;]</code></td>
-<td>Whether guests may self-sign reservations (e.g. via zap proof). Default <code translate="no" v-pre>false</code>.</td>
+<td>Whether buyers may self-sign reservations, for example via zap proof. Default <code translate="no" v-pre>false</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>securityDeposit</code></td>
 <td><code translate="no" v-pre>[&quot;securityDeposit&quot;, &quot;&lt;amount&gt;&quot;, &quot;&lt;denom&gt;&quot;, &quot;&lt;decimals&gt;&quot;]</code></td>
-<td>Optional security deposit the guest must lock alongside the payment.</td>
+<td>Optional security deposit the buyer must lock alongside the payment.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>minPaymentAmount</code></td>
 <td><code translate="no" v-pre>[&quot;minPaymentAmount&quot;, &quot;&lt;amount&gt;&quot;, &quot;&lt;denom&gt;&quot;, &quot;&lt;decimals&gt;&quot;]</code></td>
-<td>Minimum payment amount the host will accept for a reservation.</td>
+<td>Minimum payment amount the seller will accept for a reservation.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>maxDisputePeriod</code></td>
 <td><code translate="no" v-pre>[&quot;maxDisputePeriod&quot;, &quot;&lt;seconds&gt;&quot;]</code></td>
-<td>Maximum time after checkout that escrow may remain disputed before unilateral claim. Default is 1209600 seconds.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>published_at</code></td>
-<td><code translate="no" v-pre>[&quot;published_at&quot;, &quot;&lt;unix-seconds&gt;&quot;]</code></td>
-<td>Timestamp of first publication. Publishers SHOULD preserve this value across listing edits.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>imeta</code></td>
-<td><code translate="no" v-pre>[&quot;imeta&quot;, &quot;url &lt;url&gt;&quot;, ...]</code></td>
-<td>Inline image metadata as described by NIP-92. Repeat for multiple images.</td>
-</tr>
-<tr>
-<td><code translate="no" v-pre>g</code></td>
-<td><code translate="no" v-pre>[&quot;g&quot;, &quot;&lt;h3-index&gt;&quot;]</code></td>
-<td>H3 cell/index for location-based search. Publishers SHOULD use H3 tags, not geohash strings.</td>
+<td>Maximum time after checkout that escrow may remain disputed before unilateral claim. Default <code translate="no" v-pre>1209600</code>.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<h3 id="price-tags">Price Tags</h3>
-<p>Listings MAY include one or more <code translate="no" v-pre>price</code> tags. Clients SHOULD use the cheapest applicable price when computing reservation cost.</p>
-<p><strong>Recurring price:</strong></p>
-<div id="price-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;price&quot;, &quot;&lt;decimal-amount&gt;&quot;, &quot;&lt;denomination&gt;&quot;, &quot;&lt;frequency&gt;&quot;]</code></pre>
+<p>Tags already defined by NIP-99, such as <code translate="no" v-pre>title</code>, <code translate="no" v-pre>summary</code>, <code translate="no" v-pre>published_at</code>,
+<code translate="no" v-pre>location</code>, <code translate="no" v-pre>image</code>, <code translate="no" v-pre>price</code>, and <code translate="no" v-pre>status</code>, SHOULD be used as defined there.</p>
+<h2 id="location-indexing">Location Indexing</h2>
+<p>Accommodation listings SHOULD include <code translate="no" v-pre>g</code> tags containing H3 cell indexes for
+location-based search.</p>
+<p>Publishers MUST include multiple <code translate="no" v-pre>g</code> tags: one for the listing&#x27;s most precise
+public H3 cell, plus every parent cell in that H3 hierarchy. This allows a
+listing to appear in search results regardless of the buyer&#x27;s selected search
+granularity.</p>
+<p>If a seller does not want to disclose the exact property location, the publisher
+SHOULD choose the most precise H3 cell the seller is willing to reveal, then add
+that cell and all parent cells.</p>
+<p>For example, a listing whose most precise public H3 cell is resolution 12 would
+include:</p>
+<div id="location-indexing-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;g&quot;, &quot;&lt;h3-res-12-cell&gt;&quot;]
+[&quot;g&quot;, &quot;&lt;h3-res-11-parent&gt;&quot;]
+[&quot;g&quot;, &quot;&lt;h3-res-10-parent&gt;&quot;]
+[&quot;g&quot;, &quot;&lt;h3-res-9-parent&gt;&quot;]
+[&quot;g&quot;, &quot;&lt;h3-res-8-parent&gt;&quot;]
+[&quot;g&quot;, &quot;...&quot;]
+[&quot;g&quot;, &quot;&lt;h3-res-0-parent&gt;&quot;]</code></pre>
 </doc-codeblock></div>
-<ul>
-<li><code translate="no" v-pre>&lt;decimal-amount&gt;</code> — Amount as a decimal string in the denomination&#x27;s standard unit (e.g. <code translate="no" v-pre>&quot;0.00100000&quot;</code> for 100,000 satoshis).</li>
-<li><code translate="no" v-pre>&lt;denomination&gt;</code> — Currency code: <code translate="no" v-pre>&quot;BTC&quot;</code>, <code translate="no" v-pre>&quot;USD&quot;</code>, <code translate="no" v-pre>&quot;ETH&quot;</code>, etc.</li>
-<li><code translate="no" v-pre>&lt;frequency&gt;</code> — One of: <code translate="no" v-pre>day</code>, <code translate="no" v-pre>week</code>, <code translate="no" v-pre>month</code>, <code translate="no" v-pre>year</code>.</li>
-</ul>
-<p><strong>One-time/fixed price:</strong></p>
-<div id="price-tags-code-2" class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;price&quot;, &quot;&lt;decimal-amount&gt;&quot;, &quot;&lt;denomination&gt;&quot;]</code></pre>
-</doc-codeblock></div>
-<h3 id="cancellation-policy-tags">Cancellation Policy Tags</h3>
-<p>Listings MAY include one or more <code translate="no" v-pre>cancellationPolicy</code> tags defining refund terms based on how far in advance the guest cancels.</p>
+<p>Clients searching by area SHOULD query the <code translate="no" v-pre>g</code> value matching their desired H3
+granularity. Clients MAY also query neighboring cells when the search radius
+crosses cell boundaries.</p>
+<p>Publishers SHOULD use H3 indexes for accommodation listings. They SHOULD NOT use
+geohash strings in <code translate="no" v-pre>g</code> tags for this profile.</p>
+<h2 id="cancellation-policy-tags">Cancellation Policy Tags</h2>
+<p>Listings MAY include one or more <code translate="no" v-pre>cancellationPolicy</code> tags defining refund terms
+based on how far in advance the buyer cancels.</p>
 <div id="cancellation-policy-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;cancellationPolicy&quot;, &quot;&lt;seconds-before-start&gt;&quot;, &quot;&lt;refund-fraction&gt;&quot;]</code></pre>
 </doc-codeblock></div>
 <ul>
-<li><code translate="no" v-pre>&lt;seconds-before-start&gt;</code> — Number of seconds before check-in that this policy applies.</li>
-<li><code translate="no" v-pre>&lt;refund-fraction&gt;</code> — Decimal fraction <code translate="no" v-pre>0.0</code>–<code translate="no" v-pre>1.0</code> of the total cost refunded (e.g. <code translate="no" v-pre>&quot;0.5&quot;</code> = 50% refund).</li>
+<li>
+<p><code translate="no" v-pre>&lt;seconds-before-start&gt;</code> is the number of seconds before check-in that this
+policy applies.</p>
+</li>
+<li>
+<p><code translate="no" v-pre>&lt;refund-fraction&gt;</code> is a decimal fraction from <code translate="no" v-pre>0.0</code> to <code translate="no" v-pre>1.0</code> of the total
+cost refunded, for example <code translate="no" v-pre>&quot;0.5&quot;</code> for 50%.</p>
+</li>
 </ul>
-<h3 id="specification-tags">Specification Tags</h3>
-<p>Listings MAY include <code translate="no" v-pre>spec</code> tags advertising features and details.</p>
-<p><strong>Boolean specification</strong> (presence = <code translate="no" v-pre>true</code>):</p>
+<p>Clients SHOULD sort cancellation policies by advance notice period before
+displaying them.</p>
+<h2 id="specification-tags">Specification Tags</h2>
+<p>Listings MAY include <code translate="no" v-pre>spec</code> tags advertising accommodation features and details.</p>
+<p>Boolean specifications are represented by presence:</p>
 <div id="specification-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;spec&quot;, &quot;&lt;spec-name&gt;&quot;]</code></pre>
 </doc-codeblock></div>
-<p><strong>Valued specification:</strong></p>
+<p>Valued specifications include a value:</p>
 <div id="specification-tags-code-2" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;spec&quot;, &quot;&lt;spec-name&gt;&quot;, &quot;&lt;value&gt;&quot;]</code></pre>
 </doc-codeblock></div>
 <p>Valued specs MUST include a value. Boolean specs MUST NOT include a value.</p>
-<h4 id="recognized-specifications-for-accommodation">Recognized Specifications for Accommodation</h4>
-<p>The recognized names below are specific to <code translate="no" v-pre>accommodation</code> listings. Other listing kinds will define their own recognized names.</p>
-<p><strong>Valued</strong> (integer value):</p>
+<h3 id="recognized-accommodation-specifications">Recognized Accommodation Specifications</h3>
+<p>The recognized names below are specific to accommodation listings. Clients
+SHOULD treat unrecognized spec names gracefully and MAY display them as-is.</p>
+<p>Valued integer specs:</p>
 <p><code translate="no" v-pre>bathtub</code>, <code translate="no" v-pre>bathrooms</code>, <code translate="no" v-pre>beds</code>, <code translate="no" v-pre>bedrooms</code>, <code translate="no" v-pre>max_guests</code>, <code translate="no" v-pre>tv</code></p>
-<p><strong>Boolean</strong> (presence = true, absence = false):</p>
-<p><code translate="no" v-pre>airconditioning</code>, <code translate="no" v-pre>allows_pets</code>, <code translate="no" v-pre>crib</code>, <code translate="no" v-pre>tumble_dryer</code>, <code translate="no" v-pre>washer</code>, <code translate="no" v-pre>elevator</code>, <code translate="no" v-pre>free_parking</code>, <code translate="no" v-pre>gym</code>, <code translate="no" v-pre>hair_dryer</code>, <code translate="no" v-pre>heating</code>, <code translate="no" v-pre>high_chair</code>, <code translate="no" v-pre>wireless_internet</code>, <code translate="no" v-pre>iron</code>, <code translate="no" v-pre>jacuzzi</code>, <code translate="no" v-pre>kitchen</code>, <code translate="no" v-pre>outlet_covers</code>, <code translate="no" v-pre>pool</code>, <code translate="no" v-pre>private_entrance</code>, <code translate="no" v-pre>smoking_allowed</code>, <code translate="no" v-pre>breakfast</code>, <code translate="no" v-pre>fireplace</code>, <code translate="no" v-pre>smoke_detector</code>, <code translate="no" v-pre>essentials</code>, <code translate="no" v-pre>shampoo</code>, <code translate="no" v-pre>infants_allowed</code>, <code translate="no" v-pre>children_allowed</code>, <code translate="no" v-pre>hangers</code>, <code translate="no" v-pre>flat_smooth_pathway_to_front_door</code>, <code translate="no" v-pre>grab_rails_in_shower_and_toilet</code>, <code translate="no" v-pre>oven</code>, <code translate="no" v-pre>bbq</code>, <code translate="no" v-pre>balcony</code>, <code translate="no" v-pre>patio</code>, <code translate="no" v-pre>dishwasher</code>, <code translate="no" v-pre>refrigerator</code>, <code translate="no" v-pre>garden_or_backyard</code>, <code translate="no" v-pre>microwave</code>, <code translate="no" v-pre>coffee_maker</code>, <code translate="no" v-pre>dishes_and_silverware</code>, <code translate="no" v-pre>stove</code>, <code translate="no" v-pre>fire_extinguisher</code>, <code translate="no" v-pre>carbon_monoxide_detector</code>, <code translate="no" v-pre>luggage_dropoff_allowed</code>, <code translate="no" v-pre>beach_essentials</code>, <code translate="no" v-pre>beachfront</code>, <code translate="no" v-pre>baby_monitor</code>, <code translate="no" v-pre>babysitter_recommendations</code>, <code translate="no" v-pre>childrens_books_and_toys</code>, <code translate="no" v-pre>game_console</code>, <code translate="no" v-pre>street_parking</code>, <code translate="no" v-pre>paid_parking</code>, <code translate="no" v-pre>hot_water</code>, <code translate="no" v-pre>lake_access</code>, <code translate="no" v-pre>single_level_home</code>, <code translate="no" v-pre>waterfront</code>, <code translate="no" v-pre>first_aid_kit</code>, <code translate="no" v-pre>handheld_shower_head</code>, <code translate="no" v-pre>home_step_free_access</code>, <code translate="no" v-pre>lock_on_bedroom_door</code>, <code translate="no" v-pre>mobile_hoist</code>, <code translate="no" v-pre>path_to_entrance_lit_at_night</code>, <code translate="no" v-pre>pool_hoist</code>, <code translate="no" v-pre>ev_charger</code>, <code translate="no" v-pre>rollin_shower</code>, <code translate="no" v-pre>shower_chair</code>, <code translate="no" v-pre>tub_with_shower_bench</code>, <code translate="no" v-pre>wide_clearance_to_bed</code>, <code translate="no" v-pre>wide_clearance_to_shower_and_toilet</code>, <code translate="no" v-pre>wide_hallway_clearance</code>, <code translate="no" v-pre>baby_bath</code>, <code translate="no" v-pre>changing_table</code>, <code translate="no" v-pre>room_darkening_shades</code>, <code translate="no" v-pre>stair_gates</code>, <code translate="no" v-pre>table_corner_guards</code>, <code translate="no" v-pre>extra_pillows_and_blankets</code>, <code translate="no" v-pre>ski_in_ski_out</code>, <code translate="no" v-pre>window_guards</code>, <code translate="no" v-pre>disabled_parking_spot</code>, <code translate="no" v-pre>grab_rails_in_toilet</code>, <code translate="no" v-pre>events_allowed</code>, <code translate="no" v-pre>common_spaces_shared</code>, <code translate="no" v-pre>bathroom_shared</code>, <code translate="no" v-pre>security_cameras</code></p>
-<p>Clients SHOULD treat unrecognized spec names gracefully and MAY display them as-is.</p>
-<h3 id="relay-index-tags">Relay Index Tags</h3>
-<p>Publishers MAY duplicate selected multi-letter tags into single-letter index tags so relays can filter more efficiently. Readers MUST treat the canonical multi-letter tags as authoritative and use index tags only as hints.</p>
-<p>These single-letter index meanings are scoped to <code translate="no" v-pre>kind:32121</code>; readers MUST NOT interpret them outside accommodation listing events.</p>
+<p>Boolean specs:</p>
+<p><code translate="no" v-pre>airconditioning</code>, <code translate="no" v-pre>allows_pets</code>, <code translate="no" v-pre>crib</code>, <code translate="no" v-pre>tumble_dryer</code>, <code translate="no" v-pre>washer</code>, <code translate="no" v-pre>elevator</code>,
+<code translate="no" v-pre>free_parking</code>, <code translate="no" v-pre>gym</code>, <code translate="no" v-pre>hair_dryer</code>, <code translate="no" v-pre>heating</code>, <code translate="no" v-pre>high_chair</code>,
+<code translate="no" v-pre>wireless_internet</code>, <code translate="no" v-pre>iron</code>, <code translate="no" v-pre>jacuzzi</code>, <code translate="no" v-pre>kitchen</code>, <code translate="no" v-pre>outlet_covers</code>, <code translate="no" v-pre>pool</code>,
+<code translate="no" v-pre>private_entrance</code>, <code translate="no" v-pre>smoking_allowed</code>, <code translate="no" v-pre>breakfast</code>, <code translate="no" v-pre>fireplace</code>,
+<code translate="no" v-pre>smoke_detector</code>, <code translate="no" v-pre>essentials</code>, <code translate="no" v-pre>shampoo</code>, <code translate="no" v-pre>infants_allowed</code>,
+<code translate="no" v-pre>children_allowed</code>, <code translate="no" v-pre>hangers</code>, <code translate="no" v-pre>flat_smooth_pathway_to_front_door</code>,
+<code translate="no" v-pre>grab_rails_in_shower_and_toilet</code>, <code translate="no" v-pre>oven</code>, <code translate="no" v-pre>bbq</code>, <code translate="no" v-pre>balcony</code>, <code translate="no" v-pre>patio</code>,
+<code translate="no" v-pre>dishwasher</code>, <code translate="no" v-pre>refrigerator</code>, <code translate="no" v-pre>garden_or_backyard</code>, <code translate="no" v-pre>microwave</code>,
+<code translate="no" v-pre>coffee_maker</code>, <code translate="no" v-pre>dishes_and_silverware</code>, <code translate="no" v-pre>stove</code>, <code translate="no" v-pre>fire_extinguisher</code>,
+<code translate="no" v-pre>carbon_monoxide_detector</code>, <code translate="no" v-pre>luggage_dropoff_allowed</code>, <code translate="no" v-pre>beach_essentials</code>,
+<code translate="no" v-pre>beachfront</code>, <code translate="no" v-pre>baby_monitor</code>, <code translate="no" v-pre>babysitter_recommendations</code>,
+<code translate="no" v-pre>childrens_books_and_toys</code>, <code translate="no" v-pre>game_console</code>, <code translate="no" v-pre>street_parking</code>, <code translate="no" v-pre>paid_parking</code>,
+<code translate="no" v-pre>hot_water</code>, <code translate="no" v-pre>lake_access</code>, <code translate="no" v-pre>single_level_home</code>, <code translate="no" v-pre>waterfront</code>,
+<code translate="no" v-pre>first_aid_kit</code>, <code translate="no" v-pre>handheld_shower_head</code>, <code translate="no" v-pre>home_step_free_access</code>,
+<code translate="no" v-pre>lock_on_bedroom_door</code>, <code translate="no" v-pre>mobile_hoist</code>, <code translate="no" v-pre>path_to_entrance_lit_at_night</code>,
+<code translate="no" v-pre>pool_hoist</code>, <code translate="no" v-pre>ev_charger</code>, <code translate="no" v-pre>rollin_shower</code>, <code translate="no" v-pre>shower_chair</code>,
+<code translate="no" v-pre>tub_with_shower_bench</code>, <code translate="no" v-pre>wide_clearance_to_bed</code>,
+<code translate="no" v-pre>wide_clearance_to_shower_and_toilet</code>, <code translate="no" v-pre>wide_hallway_clearance</code>, <code translate="no" v-pre>baby_bath</code>,
+<code translate="no" v-pre>changing_table</code>, <code translate="no" v-pre>room_darkening_shades</code>, <code translate="no" v-pre>stair_gates</code>,
+<code translate="no" v-pre>table_corner_guards</code>, <code translate="no" v-pre>extra_pillows_and_blankets</code>, <code translate="no" v-pre>ski_in_ski_out</code>,
+<code translate="no" v-pre>window_guards</code>, <code translate="no" v-pre>disabled_parking_spot</code>, <code translate="no" v-pre>grab_rails_in_toilet</code>,
+<code translate="no" v-pre>events_allowed</code>, <code translate="no" v-pre>common_spaces_shared</code>, <code translate="no" v-pre>bathroom_shared</code>,
+<code translate="no" v-pre>security_cameras</code></p>
+<h2 id="relay-index-tags">Relay Index Tags</h2>
+<p>Publishers MAY duplicate selected accommodation tags into single-letter index
+tags so relays can filter more efficiently. Readers MUST treat the canonical
+multi-letter tags as authoritative and use index tags only as hints.</p>
+<p>These single-letter index meanings are scoped to NIP-99 listings with
+<code translate="no" v-pre>[&quot;t&quot;, &quot;accommodation&quot;]</code>; readers MUST NOT interpret them outside this profile.</p>
 <p>Known index tags include:</p>
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
@@ -370,6 +376,10 @@
 <tr>
 <td><code translate="no" v-pre>T</code></td>
 <td><code translate="no" v-pre>type</code></td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>A</code></td>
+<td><code translate="no" v-pre>active</code></td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>I</code></td>
@@ -407,28 +417,37 @@
 </table>
 </div>
 <h2 id="listing-anchor">Listing Anchor</h2>
-<p>A listing&#x27;s stable identity for cross-event references follows the parameterized replaceable event address format:</p>
+<p>Accommodation listing anchors use the NIP-99 addressable event form:</p>
 <div id="listing-anchor-code-1" class="codeblock-wrapper"><doc-codeblock>
-<pre translate="no" class="language-none"><code v-pre class="language-none">32121:&lt;pubkey&gt;:&lt;d-tag&gt;</code></pre>
+<pre translate="no" class="language-none"><code v-pre class="language-none">30402:&lt;pubkey&gt;:&lt;d-tag&gt;</code></pre>
 </doc-codeblock></div>
-<p>This anchor can be encoded as an <code translate="no" v-pre>naddr</code> (<a href="19.md">NIP-19</a>) or a <code translate="no" v-pre>nostr:</code> URI (<a href="21.md">NIP-21</a>). Other event kinds (reservations, reviews) reference listings via an <code translate="no" v-pre>a</code> tag containing this anchor.</p>
+<p>Draft or inactive listing anchors use:</p>
+<div id="listing-anchor-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">30403:&lt;pubkey&gt;:&lt;d-tag&gt;</code></pre>
+</doc-codeblock></div>
+<p>Other event kinds, such as reservations and reviews, SHOULD reference the active
+listing address with an <code translate="no" v-pre>a</code> tag.</p>
 <h2 id="example-event">Example Event</h2>
 <div id="example-event-code-1" class="codeblock-wrapper"><doc-codeblock>
 <div class="codeblock-title">jsonc</div>
 <pre translate="no" class="language-none"><code v-pre class="language-none">{
-  &quot;kind&quot;: 32121,
+  &quot;kind&quot;: 30402,
   &quot;pubkey&quot;: &quot;a1b2c3d4e5f6...&quot;,
   &quot;created_at&quot;: 1712678400,
   &quot;content&quot;: &quot;A beautiful beachfront villa with stunning ocean views. Two bedrooms, private pool, and direct beach access. Perfect for a quiet getaway.&quot;,
   &quot;tags&quot;: [
     [&quot;d&quot;, &quot;m1abc2&quot;],
     [&quot;title&quot;, &quot;Ocean View Villa&quot;],
+    [&quot;summary&quot;, &quot;Two bedroom beachfront villa with pool&quot;],
     [&quot;image&quot;, &quot;https://example.com/villa-front.jpg&quot;],
     [&quot;image&quot;, &quot;https://example.com/villa-pool.jpg&quot;],
     [&quot;image&quot;, &quot;https://example.com/villa-bedroom.jpg&quot;],
+    [&quot;published_at&quot;, &quot;1712678400&quot;],
+    [&quot;status&quot;, &quot;active&quot;],
     [&quot;t&quot;, &quot;accommodation&quot;],
     [&quot;active&quot;, &quot;true&quot;],
     [&quot;type&quot;, &quot;villa&quot;],
+    [&quot;A&quot;, &quot;true&quot;],
     [&quot;negotiable&quot;, &quot;false&quot;],
     [&quot;minStay&quot;, &quot;2&quot;],
     [&quot;checkIn&quot;, &quot;15:0&quot;],
@@ -437,7 +456,6 @@
     [&quot;quantity&quot;, &quot;1&quot;],
     [&quot;instantBook&quot;, &quot;true&quot;],
     [&quot;allowSelfSignedReservation&quot;, &quot;false&quot;],
-    [&quot;published_at&quot;, &quot;1712678400&quot;],
     [&quot;price&quot;, &quot;0.00050000&quot;, &quot;BTC&quot;, &quot;day&quot;],
     [&quot;cancellationPolicy&quot;, &quot;172800&quot;, &quot;1.0&quot;],
     [&quot;cancellationPolicy&quot;, &quot;86400&quot;, &quot;0.5&quot;],
@@ -454,39 +472,30 @@
     [&quot;securityDeposit&quot;, &quot;0.00025000&quot;, &quot;BTC&quot;, &quot;8&quot;],
     [&quot;minPaymentAmount&quot;, &quot;0.00010000&quot;, &quot;BTC&quot;, &quot;8&quot;],
     [&quot;maxDisputePeriod&quot;, &quot;1209600&quot;],
-    [&quot;g&quot;, &quot;8c2ab34567&quot;],
+    [&quot;g&quot;, &quot;8c2ab34567fffff&quot;],
+    [&quot;g&quot;, &quot;8b2ab34567fffff&quot;],
+    [&quot;g&quot;, &quot;8a2ab34567fffff&quot;],
+    [&quot;g&quot;, &quot;892ab34567fffff&quot;],
+    [&quot;g&quot;, &quot;882ab34567fffff&quot;]
   ],
   &quot;id&quot;: &quot;...&quot;,
-  &quot;sig&quot;: &quot;...&quot;,
+  &quot;sig&quot;: &quot;...&quot;
 }</code></pre>
 </doc-codeblock></div>
-<h2 id="cost-calculation">Cost Calculation</h2>
-<p>When a guest selects dates, the client computes the cost from the listing&#x27;s <code translate="no" v-pre>price</code> tags:</p>
-<ul>
-<li><strong>Recurring prices:</strong> <code translate="no" v-pre>units = days_in_range / frequency_in_days</code>, then <code translate="no" v-pre>cost = units × amount</code>.
-<ul>
-<li><code translate="no" v-pre>day</code> = 1 day, <code translate="no" v-pre>week</code> = 7 days, <code translate="no" v-pre>month</code> = 30 days, <code translate="no" v-pre>year</code> = 365 days.</li>
-</ul>
-</li>
-<li><strong>One-time/fixed prices:</strong> <code translate="no" v-pre>cost = amount × quantity</code>.</li>
-<li>If multiple <code translate="no" v-pre>price</code> tags are present, the client SHOULD use the cheapest applicable price for the selected date range.</li>
-</ul>
 <h2 id="client-behavior">Client Behavior</h2>
-<p>Clients displaying listings SHOULD:</p>
+<p>Clients displaying accommodation listings SHOULD:</p>
 <ol>
-<li>Render the <code translate="no" v-pre>.content</code> as Markdown for the description.</li>
-<li>Display images from <code translate="no" v-pre>image</code> tags in a gallery or carousel.</li>
-<li>Show pricing with frequency (e.g. &quot;0.0005 BTC / day&quot;).</li>
-<li>Display specifications grouped by category when possible.</li>
+<li>Apply the base NIP-99 listing behavior.</li>
+<li>Use <code translate="no" v-pre>[&quot;t&quot;, &quot;accommodation&quot;]</code> to detect this profile.</li>
+<li>Display accommodation specifications grouped by category when possible.</li>
 <li>Show cancellation policies sorted by advance notice period.</li>
-<li>Support geospatial search using H3 values from <code translate="no" v-pre>g</code> tags.</li>
-<li>Only show listings where <code translate="no" v-pre>active</code> is <code translate="no" v-pre>true</code> (or absent) in search results.</li>
+<li>Support geospatial search using all published H3 <code translate="no" v-pre>g</code> tags.</li>
 </ol>
 <h2 id="related-nips">Related NIPs</h2>
 <ul>
-<li><a href="01.md">NIP-01</a> — Event structure and parameterized replaceable events.</li>
-<li><a href="19.md">NIP-19</a> — <code translate="no" v-pre>naddr</code> encoding for listing anchors.</li>
-<li><a href="21.md">NIP-21</a> — <code translate="no" v-pre>nostr:</code> URI scheme for linking to listings.</li>
+<li><a href="99.md">NIP-99</a> - Classified Listings.</li>
+<li><a href="19.md">NIP-19</a> - <code translate="no" v-pre>naddr</code> encoding for listing anchors.</li>
+<li><a href="21.md">NIP-21</a> - <code translate="no" v-pre>nostr:</code> URI scheme for linking to listings.</li>
 </ul>
 
                 

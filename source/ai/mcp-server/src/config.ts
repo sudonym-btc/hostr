@@ -154,6 +154,7 @@ export type AppConfig = {
   oauthClientStorePath: string;
   jwtSecret: Uint8Array;
   accessTokenTtlSeconds: number;
+  refreshTokenTtlSeconds: number;
   imageRevision?: string;
   imageCreated?: string;
   imageSource?: string;
@@ -169,6 +170,9 @@ export type AppConfig = {
 const environmentLabel = readEnvironmentLabel();
 const hostrDaemonCommand = process.env.HOSTR_DAEMON_COMMAND || "dart";
 const baseUrl = readBaseUrl();
+const hostrDaemonStorage =
+  process.env.HOSTR_CLI_STORAGE ||
+  (environmentLabel === "development" ? "insecure-file" : "file");
 
 export const config: AppConfig = {
   issuer: baseUrl,
@@ -195,6 +199,10 @@ export const config: AppConfig = {
     process.env.MCP_ACCESS_TOKEN_TTL_SECONDS || "3600",
     10,
   ),
+  refreshTokenTtlSeconds: Number.parseInt(
+    process.env.MCP_REFRESH_TOKEN_TTL_SECONDS || "2592000",
+    10,
+  ),
   hostrDaemon: {
     command: hostrDaemonCommand,
     args: parseDaemonArgs(
@@ -209,9 +217,7 @@ export const config: AppConfig = {
       HOSTR_CLI_ALLOW_INSECURE_STORAGE:
         process.env.HOSTR_CLI_ALLOW_INSECURE_STORAGE ||
         (environmentLabel === "production" ? "0" : "1"),
-      HOSTR_CLI_STORAGE:
-        process.env.HOSTR_CLI_STORAGE ||
-        (environmentLabel === "production" ? "" : "insecure-file"),
+      HOSTR_CLI_STORAGE: hostrDaemonStorage,
     },
   },
   hostrDaemonTimeoutMs: Number.parseInt(

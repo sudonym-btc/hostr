@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.5.3">
@@ -38,12 +38,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+    <link href="../../../../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -160,11 +160,11 @@
 <p>Negotiation is private. Signed reservation and escrow-selection events are sent as child events inside encrypted structured-message rumors and delivered with NIP-59 gift wraps. Public committed/cancelled reservation snapshots and transition records are published to relays chosen by the implementation.</p>
 <h2 id="terms">Terms</h2>
 <ul>
-<li><strong>Guest</strong> — Nostr user requesting a reservation (buyer).</li>
-<li><strong>Host</strong> — Nostr user who owns the listing being reserved (seller).</li>
+<li><strong>Buyer</strong> — Nostr user requesting a reservation.</li>
+<li><strong>Seller</strong> — Nostr user who owns the listing being reserved.</li>
 <li><strong>Escrow</strong> — Optional service participant that verifies funding and can arbitrate disputes.</li>
 <li><strong>Trade</strong> — A single reservation negotiation and lifecycle, identified by a stable <code translate="no" v-pre>d</code> tag (trade ID).</li>
-<li><strong>Listing Anchor</strong> — A parameterized replaceable event address in the format <code translate="no" v-pre>&lt;kind&gt;:&lt;pubkey&gt;:&lt;d-tag&gt;</code>, for example <code translate="no" v-pre>32121:&lt;host-pubkey&gt;:&lt;listing-d-tag&gt;</code>.</li>
+<li><strong>Listing Anchor</strong> — A NIP-99 accommodation listing address in the format <code translate="no" v-pre>30402:&lt;seller-pubkey&gt;:&lt;listing-d-tag&gt;</code>.</li>
 <li><strong>Trade Key</strong> — A per-trade Nostr key that can publish buyer-side reservation events. The buyer&#x27;s account identity is bound to this key through encrypted <code translate="no" v-pre>participant_proof</code> tags.</li>
 </ul>
 <h2 id="event-kinds">Event Kinds</h2>
@@ -201,7 +201,7 @@
 <td><code translate="no" v-pre>1328</code></td>
 <td>Commit Authorization</td>
 <td>Regular helper event</td>
-<td>Host/seller authorization over exact negotiated commit terms.</td>
+<td>Seller authorization over exact negotiated commit terms.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>1329</code></td>
@@ -220,7 +220,7 @@
 </div>
 <p>These kinds are application-specific and SHOULD be routed only to relays that support this protocol when broadcast as public events. Gift-wrapped private messages use standard NIP-59 outer <code translate="no" v-pre>kind:1059</code> events and MAY be routed according to the implementation&#x27;s private-message relay policy.</p>
 <h2 id="reservation-kind32122">Reservation (<code translate="no" v-pre>kind:32122</code>)</h2>
-<p>A reservation event represents one participant&#x27;s current position in a trade. Multiple participants (guest, host, and optionally escrow) may each publish reservation events sharing the same <code translate="no" v-pre>d</code> tag.</p>
+<p>A reservation event represents one participant&#x27;s current position in a trade. Multiple participants (buyer, seller, and optionally escrow) may each publish reservation events sharing the same <code translate="no" v-pre>d</code> tag.</p>
 <h3 id="stages">Stages</h3>
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
@@ -233,7 +233,7 @@
 <tbody>
 <tr>
 <td><code translate="no" v-pre>negotiate</code></td>
-<td>Mutable private proposal or counteroffer. Clients MUST NOT treat negotiate-stage events as affecting availability.</td>
+<td>Mutable private proposal or counteroffer. Negotiate-stage reservations MUST only be exchanged as private messages in the negotiation protocol and MUST NOT be broadcast as public events. Clients MUST NOT treat negotiate-stage events as affecting availability.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>commit</code></td>
@@ -274,7 +274,7 @@
 <tr>
 <td><code translate="no" v-pre>a</code></td>
 <td>Yes</td>
-<td>Listing anchor (<code translate="no" v-pre>&lt;kind&gt;:&lt;pubkey&gt;:&lt;d-tag&gt;</code>).</td>
+<td>Listing anchor (<code translate="no" v-pre>30402:&lt;seller-pubkey&gt;:&lt;listing-d-tag&gt;</code>). The referenced event MUST be a NIP-99 classified listing with <code translate="no" v-pre>[&quot;t&quot;, &quot;accommodation&quot;]</code>.</td>
 </tr>
 <tr>
 <td><code translate="no" v-pre>p</code></td>
@@ -423,7 +423,7 @@
 </doc-codeblock></div>
 <p>Implementations SHOULD canonicalize those fields before hashing. <code translate="no" v-pre>stage</code>, <code translate="no" v-pre>proof</code>, and participant proof tags are not part of the commit terms.</p>
 <h4 id="commit-authorization-kind1328">Commit Authorization (<code translate="no" v-pre>kind:1328</code>)</h4>
-<p>When the host accepts off-list or negotiated terms, the host signs a <code translate="no" v-pre>kind:1328</code> event authorizing the reservation commit hash.</p>
+<p>When the seller accepts off-list or negotiated terms, the seller signs a <code translate="no" v-pre>kind:1328</code> event authorizing the reservation commit hash.</p>
 <p>Tags:</p>
 <div id="commit-authorization-kind1328-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-json"><code v-pre class="language-json">[
@@ -497,7 +497,7 @@
   &quot;fromStage&quot;: &quot;negotiate&quot;,
   &quot;toStage&quot;: &quot;commit&quot;,
   &quot;commitTermsHash&quot;: &quot;&lt;sha256-hex&gt;&quot;,
-  &quot;reason&quot;: &quot;Accepted by host&quot;,
+  &quot;reason&quot;: &quot;Accepted by seller&quot;,
   &quot;updatedFields&quot;: {}
 }</code></pre>
 </doc-codeblock></div>
@@ -570,13 +570,13 @@ commit    -&gt; commit      confirm</code></pre>
 <h3 id="escrow-monotonicity">Escrow Monotonicity</h3>
 <p>Escrow MAY publish <code translate="no" v-pre>negotiate -&gt; commit</code> or <code translate="no" v-pre>negotiate -&gt; cancel</code> before accepting a trade. Escrow MUST NOT publish <code translate="no" v-pre>commit -&gt; cancel</code>. Once escrow confirms a funded trade, financial resolution must happen through payment settlement, claim, release, or arbitration rather than by erasing the committed reservation state.</p>
 <h2 id="payment-proof">Payment Proof</h2>
-<p>A <code translate="no" v-pre>commit</code> reservation SHOULD include a <code translate="no" v-pre>proof</code> object unless it is a host-published blocked reservation.</p>
+<p>A <code translate="no" v-pre>commit</code> reservation SHOULD include a <code translate="no" v-pre>proof</code> object unless it is a seller-published blocked reservation.</p>
 <h3 id="zap-proof">Zap Proof</h3>
 <div id="zap-proof-code-1" class="codeblock-wrapper"><doc-codeblock>
 <div class="codeblock-title">jsonc</div>
 <pre translate="no" class="language-none"><code v-pre class="language-none">{
-  &quot;hoster&quot;: { &quot;...&quot;: &quot;host profile/event JSON&quot; },
-  &quot;listing&quot;: { &quot;...&quot;: &quot;kind:32121 listing event JSON&quot; },
+  &quot;seller&quot;: { &quot;...&quot;: &quot;seller profile/event JSON&quot; },
+  &quot;listing&quot;: { &quot;...&quot;: &quot;kind:30402 NIP-99 accommodation listing event JSON&quot; },
   &quot;zapProof&quot;: {
     &quot;receipt&quot;: { &quot;...&quot;: &quot;zap receipt event JSON&quot; }
   },
@@ -587,18 +587,18 @@ commit    -&gt; commit      confirm</code></pre>
 <div id="escrow-proof-code-1" class="codeblock-wrapper"><doc-codeblock>
 <div class="codeblock-title">jsonc</div>
 <pre translate="no" class="language-none"><code v-pre class="language-none">{
-  &quot;hoster&quot;: { &quot;...&quot;: &quot;host profile/event JSON&quot; },
-  &quot;listing&quot;: { &quot;...&quot;: &quot;kind:32121 listing event JSON&quot; },
+  &quot;seller&quot;: { &quot;...&quot;: &quot;seller profile/event JSON&quot; },
+  &quot;listing&quot;: { &quot;...&quot;: &quot;kind:30402 NIP-99 accommodation listing event JSON&quot; },
   &quot;zapProof&quot;: null,
   &quot;escrowProof&quot;: {
     &quot;txHash&quot;: &quot;&lt;evm-transaction-hash&gt;&quot;,
     &quot;escrowService&quot;: &quot;&lt;JSON string of the EscrowService kind:30303 event&gt;&quot;,
-    &quot;hostsEscrowMethods&quot;: &quot;&lt;JSON string of the host's EscrowMethod kind:17388 event&gt;&quot;
+    &quot;sellerEscrowMethods&quot;: &quot;&lt;JSON string of the seller's EscrowMethod kind:17388 event&gt;&quot;
   }
 }</code></pre>
 </doc-codeblock></div>
 <p>See the Escrow Services NIP for escrow verification requirements.</p>
-<h3 id="host-published-reservations">Host-Published Reservations</h3>
+<h3 id="seller-published-reservations">Seller-Published Reservations</h3>
 <p>The listing owner MAY publish <code translate="no" v-pre>commit</code> reservations without a payment proof, for example to block dates. Clients MAY accept proofless reservations when <code translate="no" v-pre>reservation.pubkey == listing.pubkey</code>.</p>
 <h2 id="reservation-group">Reservation Group</h2>
 <p>All reservation events with the same trade id form a reservation group. The participant set is the union of event pubkeys, role-marked <code translate="no" v-pre>p</code> tags, and any identity pubkeys revealed through valid participant proofs.</p>
@@ -613,11 +613,11 @@ commit    -&gt; commit      confirm</code></pre>
 </thead>
 <tbody>
 <tr>
-<td>Host</td>
+<td>Seller</td>
 <td><code translate="no" v-pre>pubkey == getPubKeyFromAnchor(listingAnchor)</code> or a <code translate="no" v-pre>p</code> tag role of <code translate="no" v-pre>seller</code>.</td>
 </tr>
 <tr>
-<td>Guest</td>
+<td>Buyer</td>
 <td>A participant with role <code translate="no" v-pre>buyer</code>, including a trade-key participant resolved through <code translate="no" v-pre>participant_proof</code>.</td>
 </tr>
 <tr>
@@ -636,11 +636,11 @@ commit    -&gt; commit      confirm</code></pre>
 </ul>
 <p>A group is <strong>confirmed committed</strong> if any of the following hold after validation:</p>
 <ul>
-<li>the host has a <code translate="no" v-pre>commit</code> reservation;</li>
+<li>the seller has a <code translate="no" v-pre>commit</code> reservation;</li>
 <li>the escrow has a <code translate="no" v-pre>commit</code> reservation;</li>
-<li>the guest&#x27;s escrow-backed payment proof validates on-chain.</li>
+<li>the buyer&#x27;s escrow-backed payment proof validates on-chain.</li>
 </ul>
-<p>Later buyer or host cancellation MUST NOT by itself erase the fact that a trade reached confirmed commitment.</p>
+<p>Later buyer or seller cancellation MUST NOT by itself erase the fact that a trade reached confirmed commitment.</p>
 <h2 id="review-kind32124">Review (<code translate="no" v-pre>kind:32124</code>)</h2>
 <p>After a completed or confirmed committed stay, a participant MAY publish a review.</p>
 <h3 id="tags-2">Tags</h3>
@@ -704,18 +704,18 @@ commit    -&gt; commit      confirm</code></pre>
 </ol>
 <p>This NIP does not define a canonical on-chain or block-time proof that the review was written after checkout. Clients MAY additionally require checkout to be in the past or a terminal payment event to exist, but those timing rules are application policy unless standardized separately.</p>
 <h2 id="protocol-flow">Protocol Flow</h2>
-<h3 id="1-guest-initiates-negotiation">1. Guest Initiates Negotiation</h3>
+<h3 id="1-buyer-initiates-negotiation">1. Buyer Initiates Negotiation</h3>
 <ol>
-<li>Guest discovers a listing (<code translate="no" v-pre>kind:32121</code>).</li>
-<li>Guest allocates a deterministic trade id and trade key.</li>
-<li>Guest creates a <code translate="no" v-pre>kind:32122</code> reservation with <code translate="no" v-pre>stage=negotiate</code>, signed by the trade key.</li>
-<li>Guest includes role-marked participant <code translate="no" v-pre>p</code> tags and encrypted <code translate="no" v-pre>participant_proof</code> tags as needed.</li>
-<li>Guest sends the reservation as a child event inside a private <code translate="no" v-pre>kind:1327</code> rumor tagged <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code>, delivered with NIP-59 gift wraps to the host and self.</li>
+<li>Buyer discovers a NIP-99 accommodation listing (<code translate="no" v-pre>kind:30402</code>, <code translate="no" v-pre>[&quot;t&quot;, &quot;accommodation&quot;]</code>).</li>
+<li>Buyer allocates a deterministic trade id and trade key.</li>
+<li>Buyer creates a <code translate="no" v-pre>kind:32122</code> reservation with <code translate="no" v-pre>stage=negotiate</code>, signed by the trade key.</li>
+<li>Buyer includes role-marked participant <code translate="no" v-pre>p</code> tags and encrypted <code translate="no" v-pre>participant_proof</code> tags as needed.</li>
+<li>Buyer sends the reservation as a child event inside a private <code translate="no" v-pre>kind:1327</code> rumor tagged <code translate="no" v-pre>[&quot;conversation&quot;, &quot;&lt;trade-id&gt;&quot;]</code>, delivered with NIP-59 gift wraps to the seller and self.</li>
 </ol>
 <h3 id="2-negotiation">2. Negotiation</h3>
 <ol start="6">
-<li>Host reviews the request. If counter-offering, host creates a new <code translate="no" v-pre>stage=negotiate</code> reservation with changed terms.</li>
-<li>If the host accepts negotiated terms, the host signs a <code translate="no" v-pre>kind:1328</code> commit authorization and embeds it in the reservation content.</li>
+<li>Seller reviews the request. If counter-offering, seller creates a new <code translate="no" v-pre>stage=negotiate</code> reservation with changed terms.</li>
+<li>If the seller accepts negotiated terms, the seller signs a <code translate="no" v-pre>kind:1328</code> commit authorization and embeds it in the reservation content.</li>
 <li>Counteroffers continue privately until terms are accepted or cancelled.</li>
 </ol>
 <h3 id="3-escrow-selection-and-payment">3. Escrow Selection and Payment</h3>
@@ -727,15 +727,17 @@ commit    -&gt; commit      confirm</code></pre>
 <ol start="11">
 <li>Once payment proof exists, the buyer/trade key publishes a public <code translate="no" v-pre>stage=commit</code> <code translate="no" v-pre>kind:32122</code> reservation with <code translate="no" v-pre>proof</code>.</li>
 <li>A matching <code translate="no" v-pre>kind:1326</code> transition is published.</li>
-<li>Host or escrow MAY publish their own <code translate="no" v-pre>stage=commit</code> reservation/confirmation.</li>
+<li>Seller or escrow MAY publish their own <code translate="no" v-pre>stage=commit</code> reservation/confirmation.</li>
 </ol>
 <h3 id="5-cancellation">5. Cancellation</h3>
 <p>Either party MAY cancel a private negotiation with a private <code translate="no" v-pre>stage=cancel</code> reservation child event. After public commitment, cancellation publishes a public <code translate="no" v-pre>stage=cancel</code> reservation plus a <code translate="no" v-pre>kind:1326</code> cancel transition. Escrow may only cancel before it has committed.</p>
 <h2 id="availability">Availability</h2>
 <p>Clients MUST only consider public <code translate="no" v-pre>stage=commit</code> reservations from active, non-cancelled groups when computing listing availability. Private <code translate="no" v-pre>stage=negotiate</code> events MUST NOT affect availability.</p>
+<p>Reservation clients SHOULD verify that the referenced listing is an active NIP-99 accommodation listing before displaying or accepting a reservation. For this protocol, listing subtype such as <code translate="no" v-pre>villa</code>, <code translate="no" v-pre>hotel</code>, or <code translate="no" v-pre>apartment</code> is determined by the listing&#x27;s <code translate="no" v-pre>type</code> tag and its relay-indexed <code translate="no" v-pre>T</code> duplicate, not by additional <code translate="no" v-pre>t</code> tags.</p>
 <h2 id="related-nips">Related NIPs</h2>
 <ul>
 <li><a href="01.md">NIP-01</a> — Event structure and parameterized replaceable events.</li>
+<li><a href="99.md">NIP-99</a> — Classified listings.</li>
 <li><a href="17.md">NIP-17</a> — Private message rumor kind <code translate="no" v-pre>14</code>.</li>
 <li><a href="19.md">NIP-19</a> — <code translate="no" v-pre>naddr</code> encoding for anchors.</li>
 <li><a href="44.md">NIP-44</a> — Encryption scheme.</li>

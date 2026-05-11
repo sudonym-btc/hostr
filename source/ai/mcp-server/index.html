@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831587693577">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.5.3">
@@ -38,12 +38,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../../resources/css/retype.css?v=4.5.3.831587693577" rel="stylesheet">
+    <link href="../../../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.5.3.831587693577" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.5.3.831587693577" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -154,6 +154,7 @@
                 <!-- Page content  -->
 <h1 id="hostr-mcp-server">Hostr MCP Server</h1>
 <p>The Hostr MCP server exposes typed Hostr actions over MCP and delegates Hostr SDK work to the Dart <code translate="no" v-pre>hostr-daemon</code>. The action catalog in <code translate="no" v-pre>hostr_cli/lib/src/actions/hostr_actions.dart</code> is the source of truth for MCP tool names, input JSON schemas, generated TypeScript types, and workflow documentation.</p>
+<p>For ChatGPT Apps Directory review prep, see <a href="./chatgpt_submission.md"><code translate="no" v-pre>CHATGPT_SUBMISSION.md</code></a>.</p>
 <h2 id="one-click-client-install">One-click client install</h2>
 <p>Use the hosted endpoint for AI clients that support remote HTTP MCP with OAuth:</p>
 <div id="one-click-client-install-code-1" class="codeblock-wrapper"><doc-codeblock>
@@ -220,7 +221,7 @@ HOSTR_DAEMON_CWD=../hostr_cli</code></pre>
 <pre translate="no" class="language-none"><code v-pre class="language-none">HOSTR_DAEMON_COMMAND=/opt/hostr-daemon/bin/hostr_daemon
 HOSTR_DAEMON_CWD=/opt/hostr-daemon</code></pre>
 </doc-codeblock></div>
-<p>Set <code translate="no" v-pre>HOSTR_DAEMON_STATE_DIR=/data/mcp</code> (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at <code translate="no" v-pre>MCP_OAUTH_CLIENT_STORE_PATH</code>, defaulting to <code translate="no" v-pre>$HOSTR_DAEMON_STATE_DIR/oauth-clients.json</code>.
+<p>Set <code translate="no" v-pre>HOSTR_DAEMON_STATE_DIR=/data/mcp</code> (or another mounted directory) when session state must survive container restarts. Dynamic OAuth client registrations are stored atomically at <code translate="no" v-pre>MCP_OAUTH_CLIENT_STORE_PATH</code>, defaulting to <code translate="no" v-pre>$HOSTR_DAEMON_STATE_DIR/oauth-clients.json</code>. OAuth refresh tokens are opaque, rotating, stored hashed beside that file, and default to <code translate="no" v-pre>MCP_REFRESH_TOKEN_TTL_SECONDS=2592000</code>.
 Cold Dart starts can be slow in development, so MCP waits up to <code translate="no" v-pre>HOSTR_DAEMON_TIMEOUT_MS</code> milliseconds per daemon request. The default is <code translate="no" v-pre>120000</code>.</p>
 <h2 id="observability">Observability</h2>
 <p>All MCP HTTP, daemon-client, daemon stderr, and tool audit logs are structured JSON lines. Keep daemon stdout reserved for newline-delimited JSON responses. Every request gets an <code translate="no" v-pre>x-trace-id</code>; the same trace id is propagated through HTTP, MCP tool execution, the stdio daemon request, Hostr SDK trace context, and outbound SDK HTTP calls where supported. <code translate="no" v-pre>/health</code> and <code translate="no" v-pre>/ready</code> include image provenance (<code translate="no" v-pre>revision</code>, <code translate="no" v-pre>created</code>, and <code translate="no" v-pre>source</code>) when the container was built with provenance build args.</p>
@@ -254,6 +255,9 @@ dart run bin/generate_mcp_types.dart /path/to/hostr</code></pre>
 <div id="tools-code-1" class="codeblock-wrapper"><doc-codeblock>
 <pre translate="no" class="language-none"><code v-pre class="language-none">hostr_session_status
 hostr_session_connect
+hostr_session_accounts
+hostr_session_switch
+hostr_session_logout
 hostr_listings_search
 hostr_listings_list
 hostr_listings_create
@@ -267,7 +271,9 @@ hostr_reservations_pay
 hostr_reservations_commit
 hostr_reservations_cancel
 hostr_updates
-hostr_reply
+hostr_thread_view
+hostr_thread_message
+hostr_escrow_involve
 hostr_profile_show
 hostr_profile_edit
 hostr_trips_list
@@ -291,6 +297,24 @@ hostr_swaps_list</code></pre>
 }</code></pre>
 </doc-codeblock></div>
 <p>The <code translate="no" v-pre>value</code> is the satoshi count as a string. Do not convert <code translate="no" v-pre>50000 sats</code> to <code translate="no" v-pre>50000 BTC</code>, <code translate="no" v-pre>50000 USD</code>, or <code translate="no" v-pre>0.0005</code> unless the receiving field explicitly asks for BTC decimal notation instead of <code translate="no" v-pre>unit: &quot;sats&quot;</code>.</p>
+<h2 id="listing-specifications">Listing specifications</h2>
+<p><code translate="no" v-pre>hostr_listings_create.specifications</code> and <code translate="no" v-pre>hostr_listings_edit.patch.specifications</code> are the canonical listing amenities/specifications map. Use the snake_case keys below, not display labels or arbitrary amenity names. In particular, Wi-Fi/wifi/WIFI is <code translate="no" v-pre>wireless_internet</code>.</p>
+<p>Example:</p>
+<div id="listing-specifications-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">{
+  &quot;specifications&quot;: {
+    &quot;wireless_internet&quot;: true,
+    &quot;kitchen&quot;: true,
+    &quot;free_parking&quot;: true,
+    &quot;max_guests&quot;: 4,
+    &quot;beds&quot;: 2,
+    &quot;bedrooms&quot;: 1,
+    &quot;bathrooms&quot;: 1
+  }
+}</code></pre>
+</doc-codeblock></div>
+<p>Boolean keys: <code translate="no" v-pre>airconditioning</code>, <code translate="no" v-pre>allows_pets</code>, <code translate="no" v-pre>crib</code>, <code translate="no" v-pre>tumble_dryer</code>, <code translate="no" v-pre>washer</code>, <code translate="no" v-pre>elevator</code>, <code translate="no" v-pre>free_parking</code>, <code translate="no" v-pre>gym</code>, <code translate="no" v-pre>hair_dryer</code>, <code translate="no" v-pre>heating</code>, <code translate="no" v-pre>high_chair</code>, <code translate="no" v-pre>wireless_internet</code>, <code translate="no" v-pre>iron</code>, <code translate="no" v-pre>jacuzzi</code>, <code translate="no" v-pre>kitchen</code>, <code translate="no" v-pre>outlet_covers</code>, <code translate="no" v-pre>pool</code>, <code translate="no" v-pre>private_entrance</code>, <code translate="no" v-pre>smoking_allowed</code>, <code translate="no" v-pre>breakfast</code>, <code translate="no" v-pre>fireplace</code>, <code translate="no" v-pre>smoke_detector</code>, <code translate="no" v-pre>essentials</code>, <code translate="no" v-pre>shampoo</code>, <code translate="no" v-pre>infants_allowed</code>, <code translate="no" v-pre>children_allowed</code>, <code translate="no" v-pre>hangers</code>, <code translate="no" v-pre>flat_smooth_pathway_to_front_door</code>, <code translate="no" v-pre>grab_rails_in_shower_and_toilet</code>, <code translate="no" v-pre>oven</code>, <code translate="no" v-pre>bbq</code>, <code translate="no" v-pre>balcony</code>, <code translate="no" v-pre>patio</code>, <code translate="no" v-pre>dishwasher</code>, <code translate="no" v-pre>refrigerator</code>, <code translate="no" v-pre>garden_or_backyard</code>, <code translate="no" v-pre>microwave</code>, <code translate="no" v-pre>coffee_maker</code>, <code translate="no" v-pre>dishes_and_silverware</code>, <code translate="no" v-pre>stove</code>, <code translate="no" v-pre>fire_extinguisher</code>, <code translate="no" v-pre>carbon_monoxide_detector</code>, <code translate="no" v-pre>luggage_dropoff_allowed</code>, <code translate="no" v-pre>beach_essentials</code>, <code translate="no" v-pre>beachfront</code>, <code translate="no" v-pre>baby_monitor</code>, <code translate="no" v-pre>babysitter_recommendations</code>, <code translate="no" v-pre>childrens_books_and_toys</code>, <code translate="no" v-pre>game_console</code>, <code translate="no" v-pre>street_parking</code>, <code translate="no" v-pre>paid_parking</code>, <code translate="no" v-pre>hot_water</code>, <code translate="no" v-pre>lake_access</code>, <code translate="no" v-pre>single_level_home</code>, <code translate="no" v-pre>waterfront</code>, <code translate="no" v-pre>first_aid_kit</code>, <code translate="no" v-pre>handheld_shower_head</code>, <code translate="no" v-pre>home_step_free_access</code>, <code translate="no" v-pre>lock_on_bedroom_door</code>, <code translate="no" v-pre>mobile_hoist</code>, <code translate="no" v-pre>path_to_entrance_lit_at_night</code>, <code translate="no" v-pre>pool_hoist</code>, <code translate="no" v-pre>ev_charger</code>, <code translate="no" v-pre>rollin_shower</code>, <code translate="no" v-pre>shower_chair</code>, <code translate="no" v-pre>tub_with_shower_bench</code>, <code translate="no" v-pre>wide_clearance_to_bed</code>, <code translate="no" v-pre>wide_clearance_to_shower_and_toilet</code>, <code translate="no" v-pre>wide_hallway_clearance</code>, <code translate="no" v-pre>baby_bath</code>, <code translate="no" v-pre>changing_table</code>, <code translate="no" v-pre>room_darkening_shades</code>, <code translate="no" v-pre>stair_gates</code>, <code translate="no" v-pre>table_corner_guards</code>, <code translate="no" v-pre>extra_pillows_and_blankets</code>, <code translate="no" v-pre>ski_in_ski_out</code>, <code translate="no" v-pre>window_guards</code>, <code translate="no" v-pre>disabled_parking_spot</code>, <code translate="no" v-pre>grab_rails_in_toilet</code>, <code translate="no" v-pre>events_allowed</code>, <code translate="no" v-pre>common_spaces_shared</code>, <code translate="no" v-pre>bathroom_shared</code>, <code translate="no" v-pre>security_cameras</code>.</p>
+<p>Numeric keys: <code translate="no" v-pre>max_guests</code>, <code translate="no" v-pre>beds</code>, <code translate="no" v-pre>bedrooms</code>, <code translate="no" v-pre>bathrooms</code>, <code translate="no" v-pre>bathtub</code>, <code translate="no" v-pre>tv</code>. On create/edit, the top-level fields <code translate="no" v-pre>guests</code>, <code translate="no" v-pre>beds</code>, <code translate="no" v-pre>bedrooms</code>, and <code translate="no" v-pre>bathrooms</code> are also accepted and are folded into specifications; inside the specifications map, prefer <code translate="no" v-pre>max_guests</code> rather than <code translate="no" v-pre>guests</code>.</p>
 <h2 id="image-uploads">Image uploads</h2>
 <p>Remote clients that need to attach user-provided images must upload the original image bytes beside MCP, not inside the JSON-RPC <code translate="no" v-pre>/mcp</code> request:</p>
 <p>Preferred MCP tool flow:</p>
@@ -320,7 +344,7 @@ field: file=&lt;original image file&gt;</code></pre>
 <li>Search and reserve: call <code translate="no" v-pre>hostr_listings_search</code>, then <code translate="no" v-pre>hostr_listings_availability</code>, then <code translate="no" v-pre>hostr_reservations_negotiateOffer</code> with <code translate="no" v-pre>dryRun: true</code>; repeat with <code translate="no" v-pre>dryRun: false</code> to send the private negotiate-stage reservation DM.</li>
 <li>Negotiation: call <code translate="no" v-pre>hostr_updates</code> to inspect thread/trade ids. Use <code translate="no" v-pre>hostr_reservations_negotiateOffer</code> with <code translate="no" v-pre>tradeId</code> and <code translate="no" v-pre>amount</code> to send a follow-up offer, <code translate="no" v-pre>hostr_reservations_negotiateAccept</code> to accept the latest offer, or <code translate="no" v-pre>hostr_reservations_cancel</code> to cancel the private negotiation or committed reservation.</li>
 <li>Payment: for normal instant-book payment, call <code translate="no" v-pre>hostr_reservations_bookAndPay</code>. After showing the returned QR/invoice, call the read-only <code translate="no" v-pre>hostr_swaps_watch</code> with <code translate="no" v-pre>swapId</code>, <code translate="no" v-pre>tradeId</code>, and <code translate="no" v-pre>reservationWaitSeconds</code>; it has no <code translate="no" v-pre>dryRun</code> parameter and does not require approval. Use <code translate="no" v-pre>hostr_swaps_recoverAll</code> only for explicit manual recovery/debug flows.</li>
-<li>Messaging: call <code translate="no" v-pre>hostr_updates</code>, choose recipient pubkeys from the thread/trade, call <code translate="no" v-pre>hostr_reply</code> with <code translate="no" v-pre>dryRun: true</code>, then repeat with <code translate="no" v-pre>dryRun: false</code>.</li>
+<li>Messaging: call <code translate="no" v-pre>hostr_updates</code>, choose recipient pubkeys from the thread/trade, call <code translate="no" v-pre>hostr_thread_message</code> with <code translate="no" v-pre>dryRun: true</code>, then repeat with <code translate="no" v-pre>dryRun: false</code>.</li>
 <li>Listing management/profile/trips/bookings: call <code translate="no" v-pre>hostr_listings_list</code> to inspect listing inventory, <code translate="no" v-pre>hostr_profile_show</code> to inspect the current profile, <code translate="no" v-pre>hostr_profile_edit</code> to preview/publish profile changes, <code translate="no" v-pre>hostr_trips_list</code> for guest-side reservations, and <code translate="no" v-pre>hostr_bookings_list</code> for reservations on listings authored by the authenticated user.</li>
 <li>Escrow compatibility: call <code translate="no" v-pre>hostr_escrow_methods</code> with a seller pubkey before payment when the agent needs to explain compatible escrow services or ask the user to choose a non-default service.</li>
 <li>Swaps: call <code translate="no" v-pre>hostr_swaps_list</code>, then <code translate="no" v-pre>hostr_swaps_watch</code> for a specific swap id, and <code translate="no" v-pre>hostr_swaps_recoverAll</code> when stale operations need recovery.</li>
