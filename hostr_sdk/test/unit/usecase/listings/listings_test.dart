@@ -76,6 +76,7 @@ void main() {
         expect(requests.queries.single.cacheRead, isFalse);
         expect(requests.queries.single.name, 'Listing-list-test');
         expect(requests.queries.single.filter.kinds, Listing.kinds);
+        expect(requests.queries.single.filter.tags?['#t'], ['accommodation']);
       },
     );
   });

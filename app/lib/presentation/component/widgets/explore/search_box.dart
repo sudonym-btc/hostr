@@ -34,9 +34,11 @@ class SearchBoxWidget extends StatelessWidget {
 
     // Count extra filters beyond location & date range.
     // Promoted tag keys: T = type, c = guests, s = features, N = negotiable.
-    // g = geohash (part of location) — excluded from the count.
+    // g = H3 location and t = accommodation category are base filters.
     final tags = filterState.filter?.tags ?? {};
-    final extraFilterCount = tags.keys.where((k) => k != 'g').length;
+    final extraFilterCount = tags.keys
+        .where((k) => k != 'g' && k != 't' && k != '#t')
+        .length;
 
     final whenText = dateRangeState.dateRange == null
         ? AppLocalizations.of(context)!.when

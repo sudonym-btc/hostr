@@ -12,10 +12,10 @@ const googleMapsApiKey = '';
 const googleMapsWebMapId = '';
 const googleMapsAndroidMapId = '';
 const googleMapsIosMapId = '';
-const hostrSocialNpub =
-    'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
+const hostrSocialNpub = 'npub1ltsyzs4ldxjr8n60dgg27ap4d4rzgsdyrmx4dh3tk3e2csyrtzws87qksx';
 
-const bootstrapRelays = <String>[];
+const bootstrapRelays = <String>[
+];
 
 const bootstrapEscrowPubkeys = <String>[
   '84d4dd964730c6cd1b901b0bb60a60ca4fb085878efd577b7a3ad60872772c5e',
@@ -32,7 +32,9 @@ const evmConfig = EvmConfig(
     EvmChainConfig(
       id: 'arbitrum-regtest',
       chainId: 412346,
-      rpcUrls: ['https://arbitrum.hostr.development'],
+      rpcUrls: [
+        'https://arbitrum.hostr.development',
+      ],
       blockExplorerUrl: 'https://otterscan.hostr.development',
       nativeDenomination: 'ETH',
       boltzCurrency: 'ARB',
@@ -57,7 +59,9 @@ const evmConfig = EvmConfig(
     EvmChainConfig(
       id: 'rootstock-regtest',
       chainId: 33,
-      rpcUrls: ['https://rsk.hostr.development'],
+      rpcUrls: [
+        'https://rsk.hostr.development',
+      ],
       nativeDenomination: 'BTC',
       boltzCurrency: 'RBTC',
     ),

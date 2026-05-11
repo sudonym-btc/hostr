@@ -69,6 +69,15 @@ class Reservations extends CrudUseCase<Reservation>
     return now <= existing.createdAt ? existing.createdAt + 1 : now;
   }
 
+  @override
+  Future<void> beforeUpsert(Reservation event) async {
+    if (event.stage == ReservationStage.negotiate) {
+      throw StateError(
+        'Negotiate-stage reservations must be sent as private messages, not broadcast.',
+      );
+    }
+  }
+
   Future<Reservation> _signReservation({
     required Reservation reservation,
     required KeyPair signerKeyPair,

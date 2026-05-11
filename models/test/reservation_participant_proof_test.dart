@@ -58,7 +58,7 @@ void main() {
     test('encodes, decodes, and verifies a signed authorization event', () {
       final authorization = TradeKeyAuthorization.create(
         identityPubkey: MockKeys.guest.publicKey,
-        listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+        listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
         tradeId: 'trade-123',
         participantPubkey: 'alias-pubkey',
         role: 'buyer',
@@ -76,7 +76,7 @@ void main() {
       expect(
         decoded.verifiesForReservation(
           tradeId: 'trade-123',
-          listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+          listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
           participantPubkey: 'alias-pubkey',
           role: 'buyer',
         ),
@@ -85,7 +85,7 @@ void main() {
       expect(
         decoded.verifiesForReservation(
           tradeId: 'trade-456',
-          listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+          listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
           participantPubkey: 'alias-pubkey',
           role: 'buyer',
         ),
@@ -122,7 +122,7 @@ void main() {
       final reservation = Reservation.create(
         pubKey: MockKeys.guest.publicKey,
         dTag: 'trade-123',
-        listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+        listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
         extraTags: [proof.toTag()],
       );
 

@@ -343,6 +343,13 @@ class HostrDaemon {
             data: await _reservationsCancel(tokenPubkey, session, tradeInput),
           );
         }(),
+        'hostr.reservations.review' => await () async {
+          final reviewInput = HostrReservationReviewInput.fromJson(input);
+          return (
+            dryRun: reviewInput.dryRun,
+            data: await _reservationsReview(tokenPubkey, session, reviewInput),
+          );
+        }(),
         'hostr.updates' => (
           dryRun: false,
           data: await _updates(
@@ -1293,7 +1300,7 @@ class HostrDaemon {
       final h3 = H3Engine.bundled();
       final tags = await h3.polygonCover.fromGeoJsonTagsInBackground(
         geoJson: polygon.geoJson,
-        maxH3Tags: 30,
+        maxH3Tags: 500,
       );
       builder.rawTags({'g': tags.map((tag) => tag.index).toList()});
     }
@@ -1717,6 +1724,9 @@ class HostrDaemon {
     final states = <Map<String, Object?>>[];
     final handoff = Completer<Map<String, Object?>>();
     final terminal = Completer<Map<String, Object?>>();
+    final reservationWatchSeconds = input.proofTimeoutSeconds
+        .clamp(0, hostrMaxSwapReservationWaitSeconds)
+        .toInt();
     final sub = operation.stream.listen((state) {
       final json = _augmentBookAndPayStateJson(state.toJson());
       states.add(json);
@@ -1828,7 +1838,7 @@ class HostrDaemon {
                 'arguments': {
                   if (swapId != null && swapId.isNotEmpty) 'swapId': swapId,
                   if (tradeId != null && tradeId.isNotEmpty) 'tradeId': tradeId,
-                  'reservationWaitSeconds': input.proofTimeoutSeconds,
+                  'reservationWaitSeconds': reservationWatchSeconds,
                 },
               },
               'nextStep':
@@ -2345,6 +2355,121 @@ class HostrDaemon {
     };
   }
 
+  Future<Map<String, Object?>> _reservationsReview(
+    String tokenPubkey,
+    HostrSession session,
+    HostrReservationReviewInput input,
+  ) async {
+    await _requireAuthenticatedPubkey(
+      tokenPubkey,
+      session,
+      action: 'Reservation review',
+    );
+    await _ensureAuthenticatedSessionHydrated(session, wait: true);
+    final hostr = session.hostr;
+    final lookup = await _reservationLookupByTradeId(
+      hostr,
+      input.tradeId,
+      waitSeconds: input.timeoutSeconds,
+    );
+    final reservations = (lookup['reservations'] as List?)
+        ?.whereType<Map<String, Object?>>()
+        .map(
+          (json) => Reservation.fromNostrEvent(
+            _eventFromJson(Map<String, dynamic>.from(json)),
+          ),
+        )
+        .toList();
+    final publicReservations =
+        reservations ??
+        await _waitForPublicReservationsByTradeId(
+          hostr,
+          input.tradeId,
+          until: (items) => items.any(
+            (reservation) => reservation.stage == ReservationStage.commit,
+          ),
+          timeout: Duration(seconds: input.timeoutSeconds),
+        );
+    final committed = publicReservations
+        .where((reservation) => reservation.stage == ReservationStage.commit)
+        .toList();
+    if (committed.isEmpty) {
+      throw HostrCliException(
+        'reservation_not_reviewable',
+        'No committed reservation was found for this trade, so it cannot be reviewed yet.',
+        details: {'tradeId': input.tradeId, 'reservationLookup': lookup},
+      );
+    }
+    final group = ReservationGroup(reservations: publicReservations);
+    final reservation = group.buyerReservation ?? committed.last;
+    final listingAnchor = reservation.parsedTags.listingAnchor;
+    final reservationAnchor = reservation.anchor ?? input.tradeId;
+    final signerKeyPair = hostr.auth.getActiveKey();
+    final recipientKeyPair = await _activeReservationKeyPair(
+      hostr,
+      sellerPubkey: group.sellerPubkey,
+      tradeId: input.tradeId,
+    );
+    final review = Review(
+      pubKey: signerKeyPair.publicKey,
+      tags: ReviewTags([
+        ['d', input.tradeId],
+        [kReservationRefTag, reservationAnchor],
+        [kListingRefTag, listingAnchor],
+      ]),
+      content: ReviewContent(
+        rating: input.rating,
+        content: input.content,
+        proof: await hostr.reservations.createParticipationProofForReview(
+          reservation: reservation,
+          role: 'buyer',
+          recipientKeyPair: recipientKeyPair,
+          identityKeyPair: signerKeyPair,
+        ),
+      ),
+    );
+    final verification = hostr.reviews.verify(
+      review,
+      await hostr.reviews.resolve(review),
+    );
+    if (verification is Invalid<Review>) {
+      throw HostrCliException(
+        'review_invalid',
+        verification.reason,
+        details: {
+          'tradeId': input.tradeId,
+          'event': eventJson(review),
+          'reservationLookup': lookup,
+        },
+      );
+    }
+    if (input.dryRun) {
+      return {
+        'dryRun': true,
+        'willPublish': true,
+        'tradeId': input.tradeId,
+        'rating': input.rating,
+        'content': input.content,
+        'listingAnchor': listingAnchor,
+        'reservationAnchor': reservationAnchor,
+        'event': eventJson(review),
+        'reservationLookup': lookup,
+      };
+    }
+
+    final result = await hostr.reviews.upsert(review);
+    return {
+      'dryRun': false,
+      'tradeId': input.tradeId,
+      'rating': input.rating,
+      'content': input.content,
+      'listingAnchor': listingAnchor,
+      'reservationAnchor': reservationAnchor,
+      'event': eventJson(result.event),
+      'relayResponses': result.responses.map(relayResponseJson).toList(),
+    };
+  }
+
   Future<Map<String, Object?>> _updates(
     String tokenPubkey,
     HostrSession session,
@@ -2364,6 +2489,55 @@ class HostrDaemon {
       threads,
       activePubkey: tokenPubkey,
     );
+    final listings = await session.listings.list(
+      Filter(authors: [tokenPubkey], limit: input.limit),
+      name: 'mcp-updates-listings',
+    );
+    final listingReviews = <Map<String, Object?>>[];
+    for (final listing in listings.take(input.limit)) {
+      final anchor = listing.anchor;
+      if (anchor == null || anchor.isEmpty) continue;
+      final reviews = await session.reviews.findByTag(kListingRefTag, anchor);
+      if (reviews.isEmpty) continue;
+      listingReviews.add({
+        'listing': listingSummary(listing),
+        'anchor': anchor,
+        'count': reviews.length,
+        'reviews': reviews.take(input.limit).map(eventJson).toList(),
+      });
+    }
+    final tripSnapshot = await _resolvedReservationGroupSnapshot(
+      hostr.userSubscriptions.myResolvedTripsList$,
+      timeout: Duration(seconds: input.timeoutSeconds),
+    );
+    final bookingSnapshot = await _resolvedReservationGroupSnapshot(
+      hostr.userSubscriptions.myResolvedHostingsList$,
+      timeout: Duration(seconds: input.timeoutSeconds),
+    );
+    final trips = await Future.wait(
+      tripSnapshot
+          .where((item) => item.validation is Valid<ReservationGroup>)
+          .take(input.limit)
+          .map(
+            (item) => _resolvedReservationCollectionItemJson(
+              hostr,
+              item,
+              mode: 'trips',
+            ),
+          ),
+    );
+    final bookings = await Future.wait(
+      bookingSnapshot
+          .where((item) => item.validation is Valid<ReservationGroup>)
+          .take(input.limit)
+          .map(
+            (item) => _resolvedReservationCollectionItemJson(
+              hostr,
+              item,
+              mode: 'bookings',
+            ),
+          ),
+    );
     return {
       'count': events.length,
       'events': events.take(input.limit).map(eventJson).toList(),
@@ -2371,6 +2545,15 @@ class HostrDaemon {
       'threads': threads
           .map((thread) => _threadJson(thread, profiles: profiles))
           .toList(),
+      'listingReviewCount': listingReviews.fold<int>(
+        0,
+        (total, entry) => total + ((entry['count'] as int?) ?? 0),
+      ),
+      'listingReviews': listingReviews,
+      'tripCount': trips.length,
+      'trips': trips,
+      'bookingCount': bookings.length,
+      'bookings': bookings,
     };
   }
 
@@ -3916,11 +4099,16 @@ class HostrDaemon {
       action: 'Swap watch',
     );
     final requestedTradeId = input.tradeId;
+    final reservationWaitSeconds = input.reservationWaitSeconds
+        .clamp(0, hostrMaxSwapReservationWaitSeconds)
+        .toInt();
     if (requestedTradeId != null && requestedTradeId.isNotEmpty) {
+      // Avoid spending the full wait budget twice. This fast pre-check catches
+      // already-committed reservations; terminal swap states do the real wait.
       final lookup = await _reservationLookupByTradeId(
         session.hostr,
         requestedTradeId,
-        waitSeconds: input.reservationWaitSeconds,
+        waitSeconds: 0,
         cancellationToken: cancellationToken,
       );
       if (lookup['committed'] == true) {
@@ -3955,7 +4143,7 @@ class HostrDaemon {
         'reservationLookup': await _reservationLookupByTradeId(
           session.hostr,
           tradeId,
-          waitSeconds: input.reservationWaitSeconds,
+          waitSeconds: reservationWaitSeconds,
           cancellationToken: cancellationToken,
         ),
       };
@@ -3967,7 +4155,7 @@ class HostrDaemon {
       hostr: session.hostr,
       swapId: input.swapId,
       tradeId: beforeTradeId,
-      reservationWaitSeconds: input.reservationWaitSeconds,
+      reservationWaitSeconds: reservationWaitSeconds,
       resolved: 0,
       state: before,
       cancellationToken: cancellationToken,
@@ -5457,7 +5645,11 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
 
   final selectedEscrow = EscrowServiceSelected(
     pubKey: hostr.auth.getActiveKey().publicKey,
-    tags: EscrowServiceSelectedTags([]),
+    tags: EscrowServiceSelectedTags([
+      ['d', reservation.getDtag()!],
+      [kListingRefTag, reservation.parsedTags.listingAnchor],
+      ['p', sellerProfile.pubKey],
+    ]),
     content: EscrowServiceSelectedContent(
       service: service,
       sellerMethods: mutual.sellerMethod!,

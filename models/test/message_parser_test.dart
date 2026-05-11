@@ -72,7 +72,7 @@ void main() {
       final child = Reservation.create(
         pubKey: 'a' * 64,
         dTag: 'trade-123',
-        listingAnchor: '32121:${'b' * 64}:listing-1',
+        listingAnchor: '30402:${'b' * 64}:listing-1',
         recipient: 'c' * 64,
       );
       final event = Nip01Event(

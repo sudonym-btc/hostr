@@ -24,6 +24,7 @@ class ExploreScreen extends StatelessWidget {
         BlocProvider(
           create: (context) => ListCubit<Listing>(
             kinds: Listing.kinds,
+            filter: Listing.baseFilter(),
             limit: 20,
             nostrService: getIt(),
             sortCubit: context.read<SortCubit<Listing>>(),

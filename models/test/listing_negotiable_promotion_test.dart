@@ -40,7 +40,19 @@ void main() {
     test('filter builder targets promoted negotiable tag', () {
       final filter = Listing.buildFilter().negotiable().build();
 
+      expect(filter.tags?['t'], ['accommodation']);
       expect(filter.tags?['N'], ['true']);
+    });
+
+    test('emits promoted A tag for active state', () {
+      final activeListing = _base();
+      final inactiveListing = activeListing.rebuild(active: false);
+
+      expect(activeListing.active, isTrue);
+      expect(activeListing.parsedTags.getTags('A'), contains('true'));
+      expect(inactiveListing.active, isFalse);
+      expect(inactiveListing.parsedTags.getTags('A'), contains('false'));
+      expect(inactiveListing.parsedTags.getTags('A'), isNot(contains('true')));
     });
 
     test('rebuild refreshes promoted negotiable tag', () {
@@ -72,6 +84,7 @@ void main() {
       final filter =
           Listing.buildFilter().features(['kitchen', 'allows_pets']).build();
 
+      expect(filter.tags?['t'], ['accommodation']);
       expect(filter.tags?['s'], isNull);
       expect(filter.tags?['S'], ['allows_pets+kitchen']);
     });

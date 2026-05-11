@@ -252,7 +252,7 @@ void main() {
       final reservation = Reservation.create(
         pubKey: tempBuyer.publicKey,
         dTag: 'trade-6',
-        listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+        listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
         extraTags: plan.tags,
       );
 
@@ -295,7 +295,7 @@ void main() {
         final reservation = Reservation.create(
           pubKey: tempBuyer.publicKey,
           dTag: tradeId,
-          listingAnchor: '32121:${MockKeys.hoster.publicKey}:listing-1',
+          listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
           extraTags: plan.tags,
         );
 

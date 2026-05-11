@@ -247,7 +247,7 @@ EscrowService _buildBogusEscrowService(SeedContext ctx) {
     pubKey: MockKeys.escrow.publicKey,
     content: content,
     tags: EventTags([
-      ['d', content.contractAddress],
+      ['d', 'bogus-escrow-service-${content.chainId}'],
     ]),
     createdAt: ctx.timestampDaysAfter(60 + ctx.random.nextInt(30)),
   );

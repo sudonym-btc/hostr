@@ -591,11 +591,14 @@ class EscrowDaemon {
       pubKey: pubKey,
       contractAddress: contractAddress,
     );
+    final serviceId =
+        existingService?.getFirstTag('d') ??
+        'multi-escrow-${chain.config.chainId}';
 
     final escrowService = EscrowService(
       pubKey: pubKey,
       tags: EventTags([
-        ['d', contractAddress],
+        ['d', serviceId],
       ]),
       content: EscrowServiceContent(
         pubkey: pubKey,

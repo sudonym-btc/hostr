@@ -37,7 +37,7 @@ import 'package:web3dart/web3dart.dart'
     show BlockNum, EthPrivateKey, Web3Client;
 
 final _listingAnchor =
-    '32121:${MockKeys.hoster.publicKey}:daemon-processing-listing';
+    '30402:${MockKeys.hoster.publicKey}:daemon-processing-listing';
 
 class _SentText {
   final String content;
@@ -433,7 +433,7 @@ Listing _listing() => Listing.create(
 EscrowService _escrowService() => EscrowService(
   pubKey: MockKeys.escrow.publicKey,
   tags: EventTags([
-    ['d', '0x0000000000000000000000000000000000000001'],
+    ['d', 'mock-escrow-service-30'],
   ]),
   content: EscrowServiceContent(
     pubkey: MockKeys.escrow.publicKey,

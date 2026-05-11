@@ -172,7 +172,7 @@ void main() {
         expect(create.exitCode, 0);
         final json = jsonDecode(create.stdout) as Map<String, dynamic>;
         expect(json['data']['dryRun'], isTrue);
-        expect(json['data']['event']['kind'], 32121);
+        expect(json['data']['event']['kind'], 30402);
 
         final profile = await _run([
           '--env',

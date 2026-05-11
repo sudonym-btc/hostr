@@ -191,18 +191,28 @@ class ListingViewBody extends StatelessWidget {
   }) {
     return Padding(
       padding: const EdgeInsets.all(6),
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.46),
-        shape: CircleBorder(
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.34)),
+      child: IconButton(
+        tooltip: tooltip,
+        icon: IconTheme.merge(
+          data: const IconThemeData(
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black87,
+                offset: Offset(0, 1),
+                blurRadius: 8,
+              ),
+              Shadow(
+                color: Colors.black54,
+                offset: Offset(0, 2),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: icon,
         ),
-        clipBehavior: Clip.antiAlias,
-        child: IconButton(
-          tooltip: tooltip,
-          icon: icon,
-          color: Colors.white,
-          onPressed: onPressed,
-        ),
+        color: Colors.white,
+        onPressed: onPressed,
       ),
     );
   }

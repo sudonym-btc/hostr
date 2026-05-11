@@ -13,7 +13,9 @@ class EscrowService
   static final EventContentParser<EscrowServiceContent> _contentParser =
       EscrowServiceContent.fromJson;
 
-  static const List<List<String>> requiredTags = [];
+  static const List<List<String>> requiredTags = [
+    ['d'],
+  ];
 
   // ── Convenience getters ─────────────────────────────────────────────
   String get escrowPubkey => parsedContent.pubkey;

@@ -82,7 +82,7 @@ void main() {
       final r1 = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-a',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.add(r1);
 
@@ -95,7 +95,7 @@ void main() {
       final r1 = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-a',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.add(r1);
 
@@ -107,12 +107,12 @@ void main() {
       final r1 = _reservation(
         pubkey: 'guest1',
         tradeId: 'hash-shared',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       final r2 = _reservation(
         pubkey: 'host1',
         tradeId: 'hash-shared',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.addAll([r1, r2]);
 
@@ -124,17 +124,17 @@ void main() {
       final r1 = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-a',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       final r2 = _reservation(
         pubkey: 'pub2',
         tradeId: 'hash-b',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       final r3 = _reservation(
         pubkey: 'pub3',
         tradeId: 'hash-c',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.addAll([r1, r2, r3]);
 
@@ -158,7 +158,7 @@ void main() {
       final r1 = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-dup',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.add(r1);
 
@@ -211,7 +211,7 @@ void main() {
       final reservation = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-dup',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.add(reservation);
 
@@ -233,12 +233,12 @@ void main() {
       final first = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-a',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       final second = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-b',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.addAll([first, second]);
 
@@ -261,7 +261,7 @@ void main() {
       final reservation = _reservation(
         pubkey: 'pub1',
         tradeId: 'hash-no-cache',
-        listingAnchor: '32121:host:listing-1',
+        listingAnchor: '30402:host:listing-1',
       );
       fakeRequests.events.add(reservation);
 

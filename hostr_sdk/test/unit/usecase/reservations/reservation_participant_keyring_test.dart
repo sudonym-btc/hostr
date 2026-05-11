@@ -80,7 +80,7 @@ void main() {
   const tradeId = 'trade-keyring';
   final tempBuyer = mockKeys[30];
   final tradeKey = mockKeys[31];
-  final listingAnchor = '32121:${MockKeys.hoster.publicKey}:listing-keyring';
+  final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing-keyring';
 
   Reservation reservation() => Reservation.create(
     pubKey: tempBuyer.publicKey,

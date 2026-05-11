@@ -32,7 +32,7 @@ int _sampleAverage(Random r, double avg) {
   return base + (r.nextDouble() < remainder ? 1 : 0);
 }
 
-/// Stage 3: Build listing events (kind 32121) for host users.
+/// Stage 3: Build listing events (kind 30402) for host users.
 ///
 /// Respects per-user [SeedUserSpec.listingCount] overrides and falls back
 /// to the global [SeedPipelineConfig.listingsPerHostAvg].

@@ -10,6 +10,9 @@
     "prestart": "npm run build",
     "start": "node dist/index.js",
     "test:unit": "npm run build && node --test test/*.test.mjs",
+    "test:ai:e2e": "node scripts/codex-ai-e2e.mjs",
+    "test:ai:e2e:supervised": "node scripts/codex-ai-e2e.mjs --supervised",
+    "test:ai:e2e:smoke": "node scripts/codex-ai-e2e.mjs --mode smoke",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

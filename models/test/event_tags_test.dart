@@ -6,18 +6,18 @@ void main() {
     test('getTags skips malformed tag entries', () {
       final tags = EventTags([
         ['a'],
-        ['a', '32121:pubkey:listing'],
+        ['a', '30402:pubkey:listing'],
         [],
       ]);
 
-      expect(tags.getTags('a'), ['32121:pubkey:listing']);
+      expect(tags.getTags('a'), ['30402:pubkey:listing']);
     });
 
     test('hasRequiredTags matches full required tag patterns', () {
       expect(
         hasRequiredTags(
           [
-            ['a', '32121:pubkey:listing'],
+            ['a', '30402:pubkey:listing'],
           ],
           [
             ['a', 'other-anchor'],
@@ -28,10 +28,10 @@ void main() {
       expect(
         hasRequiredTags(
           [
-            ['a', '32121:pubkey:listing'],
+            ['a', '30402:pubkey:listing'],
           ],
           [
-            ['a', '32121:pubkey:listing'],
+            ['a', '30402:pubkey:listing'],
           ],
         ),
         isTrue,

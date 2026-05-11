@@ -8,6 +8,7 @@ import 'package:models/main.dart';
 ReservationGroup _reservationGroup({
   required DateTime start,
   required DateTime end,
+  ReservationStage stage = ReservationStage.commit,
 }) {
   final hostKey = 'host-pubkey';
   return ReservationGroup(
@@ -15,9 +16,10 @@ ReservationGroup _reservationGroup({
       Reservation.create(
         pubKey: hostKey,
         dTag: 'test-reservation',
-        listingAnchor: '32121:$hostKey:test-listing',
+        listingAnchor: '30402:$hostKey:test-listing',
         start: start,
         end: end,
+        stage: stage,
       ),
     ],
   );
@@ -86,6 +88,27 @@ void main() {
         isA<AvailabilityLoading>(),
         isA<AvailabilityUnavailable>(),
       ],
+    );
+
+    blocTest<AvailabilityCubit, AvailabilityCubitState>(
+      'emits Loading -> Available when selected range only overlaps negotiation',
+      build: () {
+        dateRangeCubit.updateDateRange(
+          DateTimeRange(start: DateTime(2026, 2, 1), end: DateTime(2026, 2, 3)),
+        );
+        return AvailabilityCubit(
+          dateRangeCubit: dateRangeCubit,
+          reservationGroups: [
+            _reservationGroup(
+              start: DateTime(2026, 2, 2),
+              end: DateTime(2026, 2, 4),
+              stage: ReservationStage.negotiate,
+            ),
+          ],
+        );
+      },
+      act: (cubit) => cubit.refresh(),
+      expect: () => [isA<AvailabilityLoading>(), isA<AvailabilityAvailable>()],
     );
   });
 }

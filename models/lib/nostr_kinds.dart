@@ -1,6 +1,6 @@
-/// Hostr listing, custom addressable event using NIP-01 kind ranges:
-/// https://nips.nostr.com/01
-const kNostrKindListing = 32121;
+/// Hostr accommodation listing, using NIP-99 classified listings:
+/// https://nips.nostr.com/99
+const kNostrKindListing = 30402;
 
 /// Hostr reservation, custom addressable event using NIP-01 kind ranges:
 /// https://nips.nostr.com/01

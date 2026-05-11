@@ -16,7 +16,7 @@ Reservation _reservation({
     id: id,
     pubKey: pubkey,
     dTag: tradeId,
-    listingAnchor: '32121:host:listing-1',
+    listingAnchor: '30402:host:listing-1',
     start: DateTime.utc(2026, 1, 1),
     end: DateTime.utc(2026, 1, 3),
   );

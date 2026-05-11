@@ -312,7 +312,9 @@ class Seeder {
                 type: EscrowType.EVM,
                 feePercent: 1.0,
               ),
-              tags: EventTags([]),
+              tags: EventTags([
+                ['d', 'seed-escrow-service-31337'],
+              ]),
               createdAt: ctx.timestampDaysAfter(1),
             ),
         methodByPubkey: methodByPubkey,
