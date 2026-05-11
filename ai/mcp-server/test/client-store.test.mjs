@@ -710,6 +710,49 @@ test("swap watch timeout preserves retry args and tells the assistant to rewatch
   );
 });
 
+test("completed swap with proof but no reservation is reservation pending", async () => {
+  const response = await __testing.toolResponse(
+    {
+      publicAssetBaseUrl: "https://ai.staging.hostr.network",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.swaps.watch",
+    {
+      ok: true,
+      command: "hostr.swaps.watch",
+      data: {
+        swapId: "swap-123",
+        tradeId: "trade-123",
+        state: {
+          state: "completed",
+          isTerminal: true,
+          claimTxHash: "0xabc",
+        },
+        stateName: "completed",
+        isTerminal: true,
+        escrowProofAvailable: true,
+        claimTxHash: "0xabc",
+        reservationLookup: {
+          tradeId: "trade-123",
+          found: false,
+          committed: false,
+          count: 0,
+          reservations: [],
+        },
+      },
+    },
+    false,
+  );
+
+  assert.equal(response.structuredContent.status, "reservation_pending");
+  assert.equal(response.structuredContent.paymentAwaiting, false);
+  assert.equal(response.structuredContent.reservationPending, true);
+  assert.match(
+    response.structuredContent.assistantInstructions.join("\n"),
+    /hostr_trips_list/,
+  );
+});
+
 test("swap watch failure is explicit and does not ask to keep polling", async () => {
   const response = await __testing.toolResponse(
     {
