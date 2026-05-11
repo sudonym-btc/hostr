@@ -428,6 +428,10 @@ function buildPhases(runMode) {
       prompt: buildFullGuestPrompt(versions[0]),
       expectedRoleAction: "guest",
       followups: [
+        {
+          prompt: "Yes, please help me log in with my guest account and then book it.",
+          when: needsGuestLogin,
+        },
         { prompt: "Yes, book it.", when: needsBookingConfirmation },
         { prompt: "A place to stay.", when: needsStayClarification },
         {
@@ -472,8 +476,8 @@ function buildHostListingSetupPrompt() {
 
 function buildFullGuestPrompt(version = "canonical") {
   return version === "natural"
-    ? `I want to book a place to stay with my guest account via Hostr in San Salvador for Aug 1-3, 2027.`
-    : `I want to make a Hostr reservation with my guest account for a place to stay in San Salvador from Aug 1 to Aug 3, 2027.`;
+    ? `I want to book a place to stay with my guest account via Hostr in San Salvador for Aug 1-3, 2027. If I'm on the wrong account, help me sign into the guest one.`
+    : `I want to make a Hostr reservation with my guest account for a place to stay in San Salvador from Aug 1 to Aug 3, 2027. If I'm on the wrong account, help me sign into the guest one.`;
 }
 
 function buildPostBookingFollowupPrompt(tradeId, version = "canonical") {
@@ -487,17 +491,17 @@ function buildPostBookingFollowupPrompt(tradeId, version = "canonical") {
 function buildReservationConcernPrompt(tradeId, version = "canonical") {
   const ask =
     version === "natural"
-      ? "Hostr, I'm uneasy about my stay. The host seems quiet and I want to know what I can say or do."
-      : "Hostr, please check my reservation thread. The host has not replied and I may need help, but do not involve escrow yet.";
+      ? "Hostr, I'm uneasy about my stay. The host seems quiet and I want to know what I can say or do. If escrow would be the next step later, tell me how to ask for that without doing it now."
+      : "Hostr, please check my reservation thread. The host has not replied and I may need help, but do not involve escrow yet. If escrow would be the next step later, tell me how to ask for that without doing it now.";
   return `${ask} My reservation reference is ${tradeId}. Don't send anything yet; just tell me what I can do and what I could say.`;
 }
 
 function buildGuestCoveragePrompt(tradeId, version = "canonical") {
-  return `Hostr, what are my updates? Also show me my account, my profile, and my trip ${tradeId}. I want to see the place I booked, whether those Aug 1-3 dates still look available, reviews for the place, and whether payment looks okay. Don't change anything unless I already said yes. If I can review this trip, leave 5 stars and say "Great stay, smooth check-in, and helpful communication." I also want to upload this listing photo: ${fixtureImagePath}.`;
+  return `Hostr, what are my updates? Also show me my account, my profile, and my trip ${tradeId}. Look up the host profile too. I want to see the place I booked, whether those Aug 1-3 dates still look available, reviews for the place, and whether payment looks okay. Don't change anything unless I already said yes. If I can review this trip, leave 5 stars and say "Great stay, smooth check-in, and helpful communication." I also want to upload this listing photo: ${fixtureImagePath}.`;
 }
 
 function buildManualReservationCoveragePrompt(tradeId) {
-  return `Hostr, something seems off with reservation ${tradeId}. Can you check my trip, see whether payment got stuck, and show me what you would do to fix it? Don't actually send, pay, or recover anything.`;
+  return `Hostr, something seems off with reservation ${tradeId}. Can you check my trip, see whether payment got stuck, show me any saved payment operations, and preview what recovery would do? Also show me what it would look like to send a new offer, accept the latest offer, pay a negotiated reservation, and publish the final reservation record from a paid proof. Don't actually send, pay, recover, or publish anything.`;
 }
 
 function buildFullHostPrompt(tradeId, version = "canonical") {
@@ -505,7 +509,7 @@ function buildFullHostPrompt(tradeId, version = "canonical") {
 }
 
 function buildHostCoveragePrompt(tradeId, version = "canonical") {
-  return `Hostr, as host, show my profile and my listings. I might want to change my about text to "I enjoy hosting travelers and sharing local recommendations" and tweak one listing description to "Updated preview description for a clean, comfortable stay." Also sketch out a new San Salvador listing called "Preview City Stay" for 10 USD a night using one of my existing photos. Don't publish those changes yet. Then tell me my latest updates.`;
+  return `Hostr, as host, show my profile and my listings. Look up the guest profile for reservation ${tradeId}. I might want to change my about text to "I enjoy hosting travelers and sharing local recommendations" and tweak the newest City Center Spare Room listing description to "Updated preview description for a clean, comfortable stay." Show the reservation groups for that listing too. Also sketch out a new San Salvador listing called "Preview City Stay" for 10 USD a night using one of my existing photos. Don't publish those changes yet. Then tell me my latest updates.`;
 }
 
 function buildEscrowLoginPrompt() {
@@ -513,11 +517,11 @@ function buildEscrowLoginPrompt() {
 }
 
 function buildFullEscrowPrompt(tradeId, version = "canonical") {
-  return `Hostr, as escrow, show me my trades and look into ${tradeId}. Check whether anything looks wrong. If arbitration is still possible, split it evenly. Also tell the people in the trade: "I am reviewing this trade and will follow up with the next steps."`;
+  return `Hostr, as escrow, show me my trades and open the full details for ${tradeId}. Check whether anything looks wrong. If arbitration is still possible, split it evenly. Also tell the people in the trade: "I am reviewing this trade and will follow up with the next steps."`;
 }
 
 function buildEscrowCoveragePrompt(tradeId, version = "canonical") {
-  return `Hostr, as escrow, look at ${tradeId} again and show me how the host and buyer can be paid. Show my escrow services too. I want to see what changing a service fee or deleting a service would look like, but don't actually do it. Also show me the badges area; try drafting a "Trusted Host Preview" badge, awarding it, and revoking it, but don't make live badge changes.`;
+  return `Hostr, as escrow, look at ${tradeId} again and show me how the host and buyer can be paid. Open the trade details. Show my escrow services and open the service details too. I want to see what changing a service fee or deleting a service would look like, but don't actually do it. Also show me the badges area; try drafting a "Trusted Host Preview" badge, awarding it, revoking an award, and previewing deletion of that badge definition, but don't make live badge changes.`;
 }
 
 function buildRehydrationPrompt(tradeId) {
@@ -1059,6 +1063,25 @@ function needsBookingConfirmation(phaseStart) {
   }
   const lastMessage = phaseAgentMessages(phaseStart).at(-1) ?? "";
   return /\b(confirm|approve|go ahead|proceed|book it|should i book|want me to book|ready to book)\b/i.test(
+    lastMessage,
+  );
+}
+
+function needsGuestLogin(phaseStart) {
+  const calls = phaseToolCalls(phaseStart);
+  if (calls.some((call) => call.tool === "hostr_reservations_bookAndPay")) {
+    return false;
+  }
+  const connectedGuest = calls.some((call) => {
+    if (call.tool !== "hostr_session_connect" || call.status !== "completed") {
+      return false;
+    }
+    const pubkey = findStringByKey(call.result, "pubkey");
+    return pubkey && pubkey !== roleQueue[0]?.pubkey;
+  });
+  if (connectedGuest) return false;
+  const lastMessage = phaseAgentMessages(phaseStart).at(-1) ?? "";
+  return /\b(guest account|guest profile|connect.*guest|sign in.*guest|logged in.*host|only.*host|not.*guest)\b/i.test(
     lastMessage,
   );
 }
