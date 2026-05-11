@@ -1700,11 +1700,33 @@ class HostrDaemon {
     HostrCancellationToken? cancellationToken,
   }) async {
     cancellationToken?.throwIfCancelled();
-    await _requireAuthenticatedPubkey(
+    final activePubkey = await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
       action: 'Book and pay reservation',
     );
+    final listing = await session.listings.getOneByAnchor(input.listingAnchor);
+    if (listing == null) {
+      throw HostrCliException(
+        'listing_not_found',
+        'Listing for reservation not found.',
+        details: {'anchor': input.listingAnchor},
+      );
+    }
+    if (listing.pubKey == activePubkey ||
+        getPubKeyFromAnchor(input.listingAnchor) == activePubkey) {
+      throw HostrCliException(
+        'same_account_as_host',
+        'The active Hostr account is the host for this listing, so it cannot book it as a guest.',
+        hint:
+            'Switch to a guest account or start a new Hostr login, then try the reservation again.',
+        details: {
+          'activePubkey': activePubkey,
+          'sellerPubkey': listing.pubKey,
+          'listing': listingSummary(listing),
+        },
+      );
+    }
     final operation = BookAndPayOperation(
       accountSeedStore: session.accountSeedStore,
       auth: session.auth,

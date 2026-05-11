@@ -83,6 +83,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
 
         final listing = await _requireListing(input.listingAnchor);
         _assertInstantBookEligible(listing);
+        _assertNotOwnListing(listing);
         await _assertAvailable(listing, input);
 
         final requiredAmount = listing.cost(start: input.start, end: input.end);
@@ -243,6 +244,16 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     }
     if (!listing.instantBook) {
       throw StateError('Listing does not allow instant book.');
+    }
+  }
+
+  void _assertNotOwnListing(Listing listing) {
+    final activePubkey = _auth.getActiveKey().publicKey;
+    if (listing.pubKey == activePubkey ||
+        getPubKeyFromAnchor(listing.anchor!) == activePubkey) {
+      throw StateError(
+        'The active account is the host for this listing and cannot book it as a guest.',
+      );
     }
   }
 

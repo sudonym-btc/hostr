@@ -2720,11 +2720,19 @@ const swapWatchInfo = (
         stateName,
       ));
   const foundReservation = reservationLookup?.found === true;
+  const proofAvailable =
+    data.escrowProofAvailable === true ||
+    stringValue(data.claimTxHash) !== null ||
+    stringValue(state?.claimTxHash) !== null ||
+    stringValue(swapState?.claimTxHash) !== null;
+  const completedLike =
+    /\b(complet|settled|claimed|paid|proof)\b/i.test(stateName) ||
+    proofAvailable;
   const reservationPending =
     !foundReservation &&
     !failed &&
-    isTerminal &&
-    /\b(complet|settled|claimed|paid|proof)\b/i.test(stateName);
+    (isTerminal || proofAvailable) &&
+    completedLike;
   const paymentAwaiting =
     !foundReservation && !failed && !reservationPending;
   const status = failed
@@ -2901,9 +2909,14 @@ const errorAssistantInstructions = (
     instructions.push(...detailInstructions);
 
     const code = stringValue(error.code);
-    if (code === "auth_required") {
+    if (code === "auth_required" || code === "login_required") {
       instructions.push(
-        "Call hostr_session_connect to reconnect the Hostr/Nostr session, complete the sign-in flow, then retry the original Hostr action with the same user-approved intent.",
+        "Call hostr_session_connect with wait=false, render the returned Nostr Connect QR/login prompt, immediately call hostr_session_connect with wait=true, then retry the original Hostr action with the same user-approved intent.",
+      );
+    }
+    if (code === "same_account_as_host") {
+      instructions.push(
+        "The active Hostr account is the listing host. Call hostr_session_accounts to inspect connected accounts; if no guest account is clearly connected, call hostr_session_connect with wait=false, render the login prompt, then call hostr_session_connect with wait=true before retrying the reservation.",
       );
     }
     if (code === "profile_required") {
@@ -4424,6 +4437,12 @@ const sessionAccountsPayload = async (
     sessionId: claims.sessionId,
     activePubkey: sessionStore.get(claims.sessionId).activePubkey,
     accounts,
+    assistantInstructions: [
+      accounts.length === 0
+        ? "No Hostr accounts are connected to this MCP session. Call hostr_session_connect with wait=false, render the returned login prompt, then immediately call hostr_session_connect with wait=true and continue the user's Hostr request."
+        : "If the user requested a guest, host, or escrow account and no connected account clearly satisfies that role, do not ask the user to connect it out of band. Call hostr_session_connect with wait=false, render the returned login prompt, then immediately call hostr_session_connect with wait=true and continue the user's Hostr request.",
+      "If a connected account clearly satisfies the requested role, call hostr_session_switch for that account before role-specific Hostr actions.",
+    ],
   };
 };
 
