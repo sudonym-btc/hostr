@@ -599,8 +599,11 @@ class _SwapInTile extends StatelessWidget {
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          trailing: _SwapTxMenu(
-            items: [
+          trailing: _SwapActions(
+            namespace: 'swap_in',
+            storeId: boltzId,
+            trackerKey: id,
+            menuItems: [
               _SwapTxMenuItem(
                 label: 'View Lock Tx',
                 uri: _txExplorerUri(operation.chain.config, data?.lockupTxHash),
@@ -609,17 +612,6 @@ class _SwapInTile extends StatelessWidget {
                 label: 'View Claim Tx',
                 uri: _txExplorerUri(operation.chain.config, data?.claimTxHash),
               ),
-              if (state is SwapInFailed)
-                _SwapTxMenuItem.destructive(
-                  label: 'Delete failed swap',
-                  icon: Icons.delete_forever,
-                  onSelected: (context) => _confirmDeleteErroredSwap(
-                    context,
-                    namespace: 'swap_in',
-                    storeId: boltzId,
-                    trackerKey: id,
-                  ),
-                ),
             ],
           ),
         );
@@ -694,8 +686,11 @@ class _SwapOutTile extends StatelessWidget {
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          trailing: _SwapTxMenu(
-            items: [
+          trailing: _SwapActions(
+            namespace: 'swap_out',
+            storeId: boltzId,
+            trackerKey: id,
+            menuItems: [
               _SwapTxMenuItem(
                 label: 'View Lock Tx',
                 uri: _txExplorerUri(operation.chain.config, data?.fundTxHash),
@@ -704,17 +699,6 @@ class _SwapOutTile extends StatelessWidget {
                 label: 'View Refund Tx',
                 uri: _txExplorerUri(operation.chain.config, data?.refundTxHash),
               ),
-              if (state is SwapOutFailed)
-                _SwapTxMenuItem.destructive(
-                  label: 'Delete failed swap',
-                  icon: Icons.delete_forever,
-                  onSelected: (context) => _confirmDeleteErroredSwap(
-                    context,
-                    namespace: 'swap_out',
-                    storeId: boltzId,
-                    trackerKey: id,
-                  ),
-                ),
             ],
           ),
         );
@@ -764,6 +748,41 @@ class _SwapOutAmountLabel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SwapActions extends StatelessWidget {
+  final String namespace;
+  final String storeId;
+  final String trackerKey;
+  final List<_SwapTxMenuItem> menuItems;
+
+  const _SwapActions({
+    required this.namespace,
+    required this.storeId,
+    required this.trackerKey,
+    required this.menuItems,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.delete_forever),
+          tooltip: 'Delete swap',
+          color: Theme.of(context).colorScheme.error,
+          onPressed: () => _confirmDeleteSwap(
+            context,
+            namespace: namespace,
+            storeId: storeId,
+            trackerKey: trackerKey,
+          ),
+        ),
+        _SwapTxMenu(items: menuItems),
+      ],
     );
   }
 }
@@ -834,16 +853,9 @@ class _SwapTxMenuItem {
     : icon = Icons.open_in_new,
       destructive = false,
       onSelected = null;
-
-  const _SwapTxMenuItem.destructive({
-    required this.label,
-    required this.icon,
-    required this.onSelected,
-  }) : uri = null,
-       destructive = true;
 }
 
-Future<void> _confirmDeleteErroredSwap(
+Future<void> _confirmDeleteSwap(
   BuildContext context, {
   required String namespace,
   required String storeId,
@@ -854,11 +866,10 @@ Future<void> _confirmDeleteErroredSwap(
     context: context,
     builder: (dialogContext) => AlertDialog(
       icon: Icon(Icons.delete_forever, color: colorScheme.error),
-      title: const Text('Delete failed swap?'),
+      title: const Text('Delete swap?'),
       content: const Text(
-        'This removes the errored swap from the local store and stops showing '
-        'it here. Recovery for this swap will no longer be available on this '
-        'device.',
+        'This removes the swap from the local store and stops showing it here. '
+        'Recovery for this swap will no longer be available on this device.',
       ),
       actions: [
         TextButton(
@@ -891,7 +902,7 @@ Future<void> _confirmDeleteErroredSwap(
   if (!context.mounted) return;
   ScaffoldMessenger.of(
     context,
-  ).showSnackBar(const SnackBar(content: Text('Failed swap deleted')));
+  ).showSnackBar(const SnackBar(content: Text('Swap deleted')));
 }
 
 Uri? _txExplorerUri(EvmChainConfig config, String? txHash) {
