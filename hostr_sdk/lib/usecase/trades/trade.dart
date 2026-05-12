@@ -46,6 +46,25 @@ class TradeContext {
 
   bool matchesParticipants(Iterable<String> other) =>
       Threads.normalizeParticipants(other).join('\u0000') == participantKey;
+
+  bool matchesParticipantSet(
+    Iterable<String> other, {
+    String? optionalEscrowPubkey,
+  }) {
+    if (matchesParticipants(other)) return true;
+
+    final expected = participants.toSet();
+    final candidate = other.where((pubkey) => pubkey.isNotEmpty).toSet();
+    if (!candidate.containsAll(expected)) return false;
+
+    final extraParticipants = candidate.difference(expected);
+    return extraParticipants.isEmpty ||
+        (optionalEscrowPubkey != null &&
+            optionalEscrowPubkey.isNotEmpty &&
+            extraParticipants.every(
+              (pubkey) => pubkey == optionalEscrowPubkey,
+            ));
+  }
 }
 
 /// A short-lived, reactive view-model for a single trade.
@@ -195,23 +214,27 @@ class Trade extends Cubit<TradeState> {
     ResolvedValidatedReservationGroupParticipants item,
   ) {
     if (item.group.tradeId != context.tradeId) return false;
+    final escrowPubkey = item.group.escrowPubkey;
+    if (item.participants.rawGroupId == context.conversationId) {
+      return true;
+    }
     if (item.participants.resolvedGroupId == context.conversationId) {
       return true;
     }
-    if (context.matchesParticipants(item.participants.resolvedParticipantSet)) {
+    if (context.matchesParticipantSet(
+      item.participants.rawParticipantSet,
+      optionalEscrowPubkey: escrowPubkey,
+    )) {
+      return true;
+    }
+    if (context.matchesParticipantSet(
+      item.participants.resolvedParticipantSet,
+      optionalEscrowPubkey: escrowPubkey,
+    )) {
       return true;
     }
     if (_matchesLocalParticipantAlias(item)) return true;
-
-    final expected = context.participants.toSet();
-    final resolved = item.participants.resolvedParticipantSet;
-    if (!resolved.containsAll(expected)) return false;
-
-    final extraParticipants = resolved.difference(expected);
-    final escrowPubkey = item.group.escrowPubkey;
-    return extraParticipants.isEmpty ||
-        (escrowPubkey != null &&
-            extraParticipants.every((pubkey) => pubkey == escrowPubkey));
+    return false;
   }
 
   bool _matchesLocalParticipantAlias(

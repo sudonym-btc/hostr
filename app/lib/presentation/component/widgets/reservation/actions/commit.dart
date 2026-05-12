@@ -67,6 +67,7 @@ class CommitMenu extends StatelessWidget {
     final destructiveStyle = AppButtonStyles.destructive(context);
     final cancelPrefix =
         'trade_live_${tradeState.role.name}_cancel_${trade.tradeId}';
+    final messageEscrowItem = _buildMessageEscrowItem(context, trade);
 
     final List<_TradeMenuItem> items = tradeState.actions
         .map((action) {
@@ -102,23 +103,7 @@ class CommitMenu extends StatelessWidget {
                 ),
               );
             case TradeAction.messageEscrow:
-              final commitStage = tradeState.stage;
-              if (commitStage is! CommitStage) return null;
-              final escrowPubkey =
-                  commitStage.reservationGroup.escrowPubkey ??
-                  trade.getEscrowPubkey();
-              if (escrowPubkey == null || escrowPubkey.isEmpty) return null;
-              return (
-                label: 'Message Escrow',
-                icon: Icons.support_agent_outlined,
-                onTap: () async {
-                  final plan = await trade.resolveEscrowThread();
-                  if (!context.mounted) return;
-                  AutoRouter.of(
-                    context,
-                  ).push(ThreadRoute(anchor: plan.thread.anchor));
-                },
-              );
+              return messageEscrowItem;
             case TradeAction.refund:
               return null; // Hidden for now
             case TradeAction.claim:
@@ -157,6 +142,31 @@ class CommitMenu extends StatelessWidget {
         })
         .whereType<_TradeMenuItem>()
         .toList();
+    if (!tradeState.actions.contains(TradeAction.messageEscrow) &&
+        messageEscrowItem != null) {
+      items.add(messageEscrowItem);
+    }
     return items;
+  }
+
+  _TradeMenuItem? _buildMessageEscrowItem(BuildContext context, Trade trade) {
+    final commitStage = tradeState.stage;
+    if (commitStage is! CommitStage) return null;
+    final escrowPubkey =
+        commitStage.reservationGroup.escrowPubkey ?? trade.getEscrowPubkey();
+    if (escrowPubkey == null || escrowPubkey.isEmpty) return null;
+
+    return (
+      key: ValueKey(
+        'trade_live_${tradeState.role.name}_message_escrow_menu_item_${trade.tradeId}',
+      ),
+      label: 'Message Escrow',
+      icon: Icons.support_agent_outlined,
+      onTap: () async {
+        final plan = await trade.resolveEscrowThread();
+        if (!context.mounted) return;
+        AutoRouter.of(context).push(ThreadRoute(anchor: plan.thread.anchor));
+      },
+    );
   }
 }
