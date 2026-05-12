@@ -104,7 +104,9 @@ class CommitMenu extends StatelessWidget {
             case TradeAction.messageEscrow:
               final commitStage = tradeState.stage;
               if (commitStage is! CommitStage) return null;
-              final escrowPubkey = commitStage.reservationGroup.escrowPubkey;
+              final escrowPubkey =
+                  commitStage.reservationGroup.escrowPubkey ??
+                  trade.getEscrowPubkey();
               if (escrowPubkey == null || escrowPubkey.isEmpty) return null;
               return (
                 label: 'Message Escrow',
