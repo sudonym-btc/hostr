@@ -646,6 +646,21 @@ class HostrDaemon {
     return _guardAction('hostr.session.logout', () async {
       final session = context.runtime.session(pubkey);
       await session.ensureInitialized();
+      final pendingSwaps = await _pendingSwapStates(session.hostr);
+      if (pendingSwaps.isNotEmpty) {
+        throw HostrCliException(
+          'pending_swaps',
+          'Cannot log out while Hostr has swaps still in progress.',
+          hint:
+              'Wait for the swap to complete, inspect it with hostr_swaps_list, or recover it with hostr_swaps_recoverAll before logging out.',
+          retryable: true,
+          details: {
+            'pubkey': pubkey,
+            'pendingSwapCount': pendingSwaps.length,
+            'pendingSwaps': pendingSwaps,
+          },
+        );
+      }
       await session.auth.logout();
       _pendingNostrConnect.remove(pubkey);
       _pendingNostrConnectWaits.remove(pubkey);
@@ -1566,9 +1581,40 @@ class HostrDaemon {
   ) async {
     final results = <Map<String, Object?>>[];
     for (final anchor in input.anchors) {
-      final listing = await session.listings.getOneByAnchor(anchor);
+      Object? lookupError;
+      Listing? listing;
+      try {
+        listing = await session.listings.getOneByAnchor(anchor);
+      } catch (error) {
+        lookupError = error;
+      }
       if (listing == null) {
-        results.add({'anchor': anchor, 'found': false, 'count': 0});
+        final activePubkey = session.auth.activePubkey;
+        final candidates = await session.listings.list(
+          Filter(
+            authors: activePubkey == null || activePubkey.isEmpty
+                ? null
+                : [activePubkey],
+            limit: 200,
+          ),
+          name: 'hostr-listing-reservation-groups-fallback',
+        );
+        final needle = anchor.toLowerCase();
+        listing =
+            candidates.where((candidate) {
+              return candidate.title.toLowerCase() == needle;
+            }).firstOrNull ??
+            candidates.where((candidate) {
+              return candidate.title.toLowerCase().contains(needle);
+            }).firstOrNull;
+      }
+      if (listing == null) {
+        results.add({
+          'anchor': anchor,
+          'found': false,
+          'count': 0,
+          if (lookupError != null) 'lookupError': lookupError.toString(),
+        });
         continue;
       }
       final groups = await session.reservations.queryReservationGroups(
@@ -1934,6 +1980,15 @@ class HostrDaemon {
     );
     final reservations = thread?.state.value.reservationRequests ?? const [];
     if (reservations.isEmpty) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'tradeId': input.tradeId,
+          'reason': 'private_negotiation_not_found',
+          'message': 'No private reservation negotiation found for tradeId.',
+        };
+      }
       throw HostrCliException(
         'not_found',
         'No private reservation negotiation found for tradeId.',
@@ -1947,6 +2002,16 @@ class HostrDaemon {
       latest.parsedTags.listingAnchor,
     );
     if (listing == null) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'tradeId': input.tradeId,
+          'reason': 'listing_not_found',
+          'message': 'Listing for reservation not found.',
+          'anchor': latest.parsedTags.listingAnchor,
+        };
+      }
       throw HostrCliException(
         'listing_not_found',
         'Listing for reservation not found.',
@@ -1959,6 +2024,15 @@ class HostrDaemon {
         ? null
         : parseAmount(input.amount!.toJson(), 'amount');
     if (amount == null) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'tradeId': input.tradeId,
+          'reason': 'amount_required',
+          'message': 'Latest offer has no amount to accept.',
+        };
+      }
       throw HostrCliException(
         'amount_required',
         'Latest offer has no amount to accept.',
@@ -2018,12 +2092,27 @@ class HostrDaemon {
             .toList() ??
         const <Reservation>[];
     final latestPrivateRequest = privateRequests.lastOrNull;
-    final plan = await _buildEscrowFundingPlan(
-      hostr: hostr,
-      tradeId: input.tradeId,
-      escrowServiceId: input.escrowServiceId,
-      privateReservation: latestPrivateRequest,
-    );
+    final _EscrowFundingPlan plan;
+    try {
+      plan = await _buildEscrowFundingPlan(
+        hostr: hostr,
+        tradeId: input.tradeId,
+        escrowServiceId: input.escrowServiceId,
+        privateReservation: latestPrivateRequest,
+      );
+    } on HostrCliException catch (error) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willCreateSwap': false,
+          'tradeId': input.tradeId,
+          'reason': error.code,
+          'message': error.message,
+          if (error.details != null) 'details': error.details,
+        };
+      }
+      rethrow;
+    }
 
     final payCheck = _payActionAvailable(
       listing: plan.listing,
@@ -2033,6 +2122,16 @@ class HostrDaemon {
       activePubkey: activePubkey,
     );
     if (!payCheck.available) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willCreateSwap': false,
+          'tradeId': input.tradeId,
+          'reason': 'pay_unavailable',
+          'message': 'Pay action is not available for this trade.',
+          'details': payCheck.details,
+        };
+      }
       throw HostrCliException(
         'pay_unavailable',
         'Pay action is not available for this trade.',
@@ -2138,6 +2237,15 @@ class HostrDaemon {
       input.swapId,
     );
     if (paymentContext == null) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'swapId': input.swapId,
+          'reason': 'payment_context_not_found',
+          'message': 'No reservation payment context found for swap id.',
+        };
+      }
       throw HostrCliException(
         'payment_context_not_found',
         'No reservation payment context found for swap id.',
@@ -2150,6 +2258,15 @@ class HostrDaemon {
       input.swapId,
     );
     if (swapJson == null) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'swapId': input.swapId,
+          'reason': 'swap_not_found',
+          'message': 'No swap state found for swap id.',
+        };
+      }
       throw HostrCliException(
         'swap_not_found',
         'No swap state found for swap id.',
@@ -2160,6 +2277,16 @@ class HostrDaemon {
     if (swapState is! SwapInCompleted ||
         swapState.data.claimTxHash == null ||
         swapState.data.claimTxHash!.isEmpty) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'swapId': input.swapId,
+          'reason': 'swap_not_completed',
+          'message': 'Swap does not yet have an escrow claim proof.',
+          'state': swapState.toJson(),
+        };
+      }
       throw HostrCliException(
         'swap_not_completed',
         'Swap does not yet have an escrow claim proof.',
@@ -2416,6 +2543,17 @@ class HostrDaemon {
         .where((reservation) => reservation.stage == ReservationStage.commit)
         .toList();
     if (committed.isEmpty) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'tradeId': input.tradeId,
+          'reason': 'reservation_not_reviewable',
+          'message':
+              'No committed reservation was found for this trade, so it cannot be reviewed yet.',
+          'reservationLookup': lookup,
+        };
+      }
       throw HostrCliException(
         'reservation_not_reviewable',
         'No committed reservation was found for this trade, so it cannot be reviewed yet.',
@@ -2455,6 +2593,17 @@ class HostrDaemon {
       await hostr.reviews.resolve(review),
     );
     if (verification is Invalid<Review>) {
+      if (input.dryRun) {
+        return {
+          'dryRun': true,
+          'willPublish': false,
+          'tradeId': input.tradeId,
+          'reason': 'review_invalid',
+          'message': verification.reason,
+          'event': eventJson(review),
+          'reservationLookup': lookup,
+        };
+      }
       throw HostrCliException(
         'review_invalid',
         verification.reason,
@@ -3384,6 +3533,45 @@ class HostrDaemon {
       input.anchor,
     );
     if (definition == null || definition.pubKey != tokenPubkey) {
+      if (input.dryRun) {
+        final parts = input.anchor.split(':');
+        final anchorPubkey = parts.length >= 2 ? parts[1] : null;
+        final identifier = parts.length >= 3 ? parts.sublist(2).join(':') : '';
+        if (anchorPubkey == tokenPubkey && identifier.isNotEmpty) {
+          final previewEvent = Nip01Event(
+            pubKey: tokenPubkey,
+            kind: kNostrKindBadgeDefinition,
+            tags: [
+              ['d', identifier],
+            ],
+            content: jsonEncode({
+              'name': identifier
+                  .split(RegExp(r'[_\s-]+'))
+                  .where((part) => part.isNotEmpty)
+                  .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+                  .join(' '),
+            }),
+            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          );
+          final previewDefinition = BadgeDefinition.fromNostrEvent(
+            previewEvent,
+          );
+          return {
+            'dryRun': true,
+            'definition': _badgeDefinitionJson(previewDefinition),
+            if (input.reason != null) 'reason': input.reason,
+            'notPublishedYet': true,
+            'message':
+                'Badge definition is not published yet; this is a deletion preview for the requested anchor.',
+            'badgeCards': [
+              _badgeDefinitionCard(
+                previewDefinition,
+                title: 'Badge definition deletion preview',
+              ),
+            ],
+          };
+        }
+      }
       throw HostrCliException(
         'badge_definition_not_found',
         'Badge definition not found for the authenticated escrow pubkey.',
@@ -4417,10 +4605,13 @@ Future<String> _requireAuthenticatedPubkey(
 
 String _pubkeyFromNpub(String npub) {
   final trimmed = npub.trim();
+  if (trimmed.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(trimmed)) {
+    return trimmed.toLowerCase();
+  }
   if (!trimmed.startsWith('npub1')) {
     throw HostrCliException(
       'invalid_npub',
-      'Profile lookup requires a NIP-19 npub value.',
+      'Profile lookup requires a NIP-19 npub value or 64-character hex pubkey.',
       details: {'npub': npub},
     );
   }
@@ -4435,7 +4626,7 @@ String _pubkeyFromNpub(String npub) {
   }
   throw HostrCliException(
     'invalid_npub',
-    'Profile lookup requires a valid NIP-19 npub value.',
+    'Profile lookup requires a valid NIP-19 npub value or 64-character hex pubkey.',
     details: {'npub': npub},
   );
 }

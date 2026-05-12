@@ -74,6 +74,26 @@ const widgetResultMeta = (
   ...extras,
 });
 
+const widgetDomain = (config: AppConfig): string | undefined =>
+  originForUrl(config.publicAssetBaseUrl) ?? undefined;
+
+const widgetResourceMeta = (
+  config: AppConfig,
+  resourceDomains: string[] = [],
+): Record<string, unknown> => ({
+  ui: {
+    domain: widgetDomain(config),
+    prefersBorder: true,
+    csp: {
+      connectDomains: [],
+      resourceDomains,
+    },
+  },
+  "openai/widgetDomain": widgetDomain(config),
+  "openai/widgetPrefersBorder": true,
+  "openai/widgetAccessible": true,
+});
+
 const profileActionIds = new Set([
   "hostr.profile.show",
   "hostr.profile.lookup",
@@ -280,6 +300,10 @@ const destructiveWriteActionIds = new Set([
   "hostr.swaps.recoverAll",
 ]);
 
+const localOnlyActionIds = new Set([
+  "hostr.session.status",
+]);
+
 const toolAnnotations = (action: {
   id: string;
   readOnly: boolean;
@@ -292,7 +316,7 @@ const toolAnnotations = (action: {
   return {
     readOnlyHint,
     destructiveHint: !readOnlyHint && destructiveWriteActionIds.has(action.id),
-    openWorldHint: false,
+    openWorldHint: !localOnlyActionIds.has(action.id),
   };
 };
 
@@ -377,9 +401,27 @@ const presentationContract = (actionId: string): string | null => {
   return null;
 };
 
+const discoveryHint = (actionId: string): string | null => {
+  switch (actionId) {
+    case "hostr.profile.lookup":
+      return "Use this when the user asks to open, look up, inspect, or view another guest, host, seller, buyer, escrow, or participant profile from a reservation, listing, trade, or thread. It accepts npubs and 64-character hex pubkeys returned by Hostr cards.";
+    case "hostr.swaps.list":
+      return "Use this before recovery when the user asks about saved payments, payment operations, swap operations, stuck payments, pending payments, refunds, or whether payment got stuck.";
+    case "hostr.reservations.negotiateOffer":
+      return "Use this for previewing or sending a new reservation offer/counteroffer. If the user asks what an offer would look like and gives a total price or says to use the same trip total, include that amount.";
+    case "hostr.reservations.negotiateAccept":
+      return "Use this when the user asks to accept, preview accepting, or show what accepting the latest reservation offer would look like.";
+    case "hostr.escrow.methods":
+      return "Use this when escrow asks how the buyer or host/seller can be paid, refunded, released, reversed, or settled for a trade.";
+    default:
+      return null;
+  }
+};
+
 const toolDescription = (action: (typeof hostrActionCatalog)[number]): string =>
   [
     conciseActionDescription(action),
+    discoveryHint(action.id),
     presentationContract(action.id),
     `Input type: ${action.inputTypeName}.`,
   ]
@@ -3525,7 +3567,12 @@ const toolResponse = async (
         "Do not stop after displaying the QR. Immediately call hostr_session_connect with wait=true and regenerate=false to listen for the session connection.",
         "After hostr_session_connect returns authenticated=true, retry or continue the Hostr action that required sign-in.",
       ]
-    : undefined;
+    : actionId === "hostr.session.connect" && resultData.authenticated === true
+      ? [
+          "The Hostr account is connected. Continue the user's original Hostr request using details already present in the conversation.",
+          "If the user asked to book or reserve a stay with a destination and dates but no listing link, search Hostr listings in that destination, check availability for the requested dates, then continue the booking flow for a suitable active instant-book listing.",
+        ]
+      : undefined;
   const sessionConnectDisplay = sessionConnectPending
     ? sessionConnectDisplayData(config, result, safeResultData)
     : undefined;
@@ -4442,6 +4489,7 @@ const sessionAccountsPayload = async (
         ? "No Hostr accounts are connected to this MCP session. Call hostr_session_connect with wait=false, render the returned login prompt, then immediately call hostr_session_connect with wait=true and continue the user's Hostr request."
         : "If the user requested a guest, host, or escrow account and no connected account clearly satisfies that role, do not ask the user to connect it out of band. Call hostr_session_connect with wait=false, render the returned login prompt, then immediately call hostr_session_connect with wait=true and continue the user's Hostr request.",
       "If a connected account clearly satisfies the requested role, call hostr_session_switch for that account before role-specific Hostr actions.",
+      "For a Hostr reservation request with a destination and dates but no listing link, do not ask the user for a listing first; call hostr_listings_search for the destination, then continue with availability and booking on a suitable active listing.",
     ],
   };
 };
@@ -6120,16 +6168,9 @@ const createServer = (
           mimeType: "text/html;profile=mcp-app",
           text: listingCardWidgetHtml,
           _meta: {
-            ui: {
-              prefersBorder: true,
-              csp: {
-                resourceDomains: listingCardWidgetResourceDomains(config),
-              },
-            },
+            ...widgetResourceMeta(config, listingCardWidgetResourceDomains(config)),
             "openai/widgetDescription":
               "Renders Hostr listing-card structuredContent as lightweight cards with images, price, type, status, and open links.",
-            "openai/widgetPrefersBorder": true,
-            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -6152,16 +6193,9 @@ const createServer = (
           mimeType: "text/html;profile=mcp-app",
           text: paymentRequiredWidgetHtml,
           _meta: {
-            ui: {
-              prefersBorder: true,
-              csp: {
-                resourceDomains: qrWidgetResourceDomains(config),
-              },
-            },
+            ...widgetResourceMeta(config, qrWidgetResourceDomains(config)),
             "openai/widgetDescription":
               "Renders Hostr external-payment structuredContent as a Lightning invoice QR, wallet link, and copy action.",
-            "openai/widgetPrefersBorder": true,
-            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -6184,16 +6218,9 @@ const createServer = (
           mimeType: "text/html;profile=mcp-app",
           text: sessionConnectWidgetHtml,
           _meta: {
-            ui: {
-              prefersBorder: true,
-              csp: {
-                resourceDomains: qrWidgetResourceDomains(config),
-              },
-            },
+            ...widgetResourceMeta(config, qrWidgetResourceDomains(config)),
             "openai/widgetDescription":
               "Renders Hostr session initialization structuredContent as a Nostr Connect QR and exact URI link.",
-            "openai/widgetPrefersBorder": true,
-            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -6216,16 +6243,9 @@ const createServer = (
           mimeType: "text/html;profile=mcp-app",
           text: profileCardWidgetHtml,
           _meta: {
-            ui: {
-              prefersBorder: true,
-              csp: {
-                resourceDomains: profileCardWidgetResourceDomains(config),
-              },
-            },
+            ...widgetResourceMeta(config, profileCardWidgetResourceDomains(config)),
             "openai/widgetDescription":
               "Renders Hostr profile structuredContent as a compact profile card with avatar and identity fields.",
-            "openai/widgetPrefersBorder": true,
-            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -6248,11 +6268,9 @@ const createServer = (
           mimeType: "text/html;profile=mcp-app",
           text: tripHostingWidgetHtml("trip"),
           _meta: {
-            ui: { prefersBorder: true },
+            ...widgetResourceMeta(config),
             "openai/widgetDescription":
               "Renders Hostr trip structuredContent, including a bold Cancelled state when present.",
-            "openai/widgetPrefersBorder": true,
-            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -6275,11 +6293,9 @@ const createServer = (
           mimeType: "text/html;profile=mcp-app",
           text: tripHostingWidgetHtml("hosting"),
           _meta: {
-            ui: { prefersBorder: true },
+            ...widgetResourceMeta(config),
             "openai/widgetDescription":
               "Renders Hostr hosting structuredContent with the guest and stay location text.",
-            "openai/widgetPrefersBorder": true,
-            "openai/widgetAccessible": true,
           },
         },
       ],
@@ -6493,7 +6509,7 @@ const createServer = (
       {
         title: "Log Out Hostr Account",
         description:
-          "Log out one or all Hostr/NIP-46 accounts connected to this MCP session. If no pubkey is supplied, logs out the active account.",
+          "Log out one or all Hostr/NIP-46 accounts connected to this MCP session. If no pubkey is supplied, logs out the active account. Hostr refuses to log out an account with non-terminal swaps in progress; inspect or recover swaps before retrying.",
         inputSchema: sessionLogoutInputSchema,
         annotations: {
           readOnlyHint: false,
@@ -6523,7 +6539,31 @@ const createServer = (
           );
         }
         for (const pubkey of targets) {
-          await daemon.logoutSession({ pubkey, traceId });
+          try {
+            await daemon.logoutSession({ pubkey, traceId });
+          } catch (error) {
+            const code =
+              error && typeof error === "object" && "code" in error
+                ? String((error as { code?: unknown }).code)
+                : "logout_failed";
+            const details =
+              error && typeof error === "object" && "details" in error
+                ? (error as { details?: unknown }).details
+                : undefined;
+            if (code === "pending_swaps") {
+              const payload = {
+                ok: false,
+                error: code,
+                pubkey,
+                details,
+              };
+              return sessionToolResponse(
+                payload,
+                "Hostr did not log out this account because it still has swaps in progress. Use hostr_swaps_list to inspect them or hostr_swaps_recoverAll to recover stuck swaps, then try logging out again.",
+              );
+            }
+            throw error;
+          }
           sessionStore.removeAccount(claims.sessionId, pubkey);
         }
         const activePubkey = sessionStore.get(claims.sessionId).activePubkey;
@@ -6741,9 +6781,7 @@ const createServer = (
         const actionPubkey =
           action.id === "hostr.session.connect"
             ? claims?.sessionId
-            : publicAction
-              ? undefined
-              : activePubkey;
+            : activePubkey;
 
         const notificationToken = randomUUID();
         const seenSignerRequestIds = new Set<string>();
@@ -7067,5 +7105,6 @@ export const __testing = {
   toolAnnotations,
   toolDescription,
   tripHostingWidgetHtml,
+  widgetResourceMeta,
   widgetTemplateMeta,
 };

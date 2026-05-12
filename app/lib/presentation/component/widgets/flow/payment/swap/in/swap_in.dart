@@ -141,6 +141,7 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
   final _amountController = AmountFieldController();
   bool _loading = false;
   bool _amountSeeded = false;
+  Future<SwapQuote>? _quoteFuture;
 
   @override
   void dispose() {
@@ -156,6 +157,16 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<SwapQuote> _quoteFor(SwapInOperation operation) {
+    return _quoteFuture ??= operation.chain.swapInQuote(
+      params: operation.params,
+    );
+  }
+
+  void _refreshQuote(SwapInOperation operation) {
+    _quoteFuture = operation.chain.swapInQuote(params: operation.params);
   }
 
   void _syncAmount(TokenAmount amount) {
@@ -220,11 +231,12 @@ class _SwapInConfirmWidgetState extends State<SwapInConfirmWidget> {
               operation.updateAmount(
                 TokenAmount.fromDenominated(amount, params.amount.token),
               );
+              setState(() => _refreshQuote(operation));
             },
           ),
           Gap.vertical.sm(),
           FutureBuilder<SwapQuote>(
-            future: operation.chain.swapInQuote(params: operation.params),
+            future: _quoteFor(operation),
             builder: (context, snapshot) {
               final baseStyle = Theme.of(context).textTheme.bodySmall!;
               final subtleStyle = baseStyle.copyWith(
