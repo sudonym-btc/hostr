@@ -549,13 +549,18 @@ class Trade extends Cubit<TradeState> {
           .map((v) => v.event)
           .where((p) => !p.cancelled)
           .firstOrNull;
-      final anyGroup = ownReservations
+      final anyValidGroup = ownReservations
           .whereType<Valid<ReservationGroup>>()
           .map((v) => v.event)
           .firstOrNull;
+      final anyObservedGroup = ownReservations
+          .map((validation) => validation.event)
+          .firstOrNull;
+      final commitReservationGroup =
+          validGroup ?? anyValidGroup ?? anyObservedGroup ?? ReservationGroup();
 
       stage = CommitStage(
-        reservationGroup: validGroup ?? anyGroup ?? ReservationGroup(),
+        reservationGroup: commitReservationGroup,
         payments: payments,
         transitions: transitions,
       );
@@ -586,7 +591,7 @@ class Trade extends Cubit<TradeState> {
 
       resolvedActions.addAll(
         ReviewActions.resolve(
-          reservationGroup: validGroup ?? anyGroup ?? ReservationGroup(),
+          reservationGroup: validGroup ?? anyValidGroup ?? ReservationGroup(),
           reservationStreamStatus: ownReservationsStatus,
           payments: payments,
           role: role,
