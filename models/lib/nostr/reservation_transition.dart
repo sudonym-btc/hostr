@@ -7,10 +7,16 @@ class ReservationTransitionTags extends EventTags
     with ReferencesListing<ReservationTransitionTags> {
   ReservationTransitionTags(super.tags);
 
-  /// The d tag (trade identifier) linking this transition to its reservation.
+  /// The canonical d tag (trade identifier) linking this transition to its
+  /// reservation.
+  ///
+  /// Older events may have used a `t` tag for this lookup, so retain that as a
+  /// read-only fallback when parsing historical data.
   String? get tradeId {
     final dTags = getTags('d');
-    return dTags.isNotEmpty ? dTags.first : null;
+    if (dTags.isNotEmpty) return dTags.first;
+    final tTags = getTags('t');
+    return tTags.isNotEmpty ? tTags.first : null;
   }
 
   /// The event id of the reservation this transition applies to (`e` tag).

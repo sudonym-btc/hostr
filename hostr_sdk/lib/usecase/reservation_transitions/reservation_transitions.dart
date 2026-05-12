@@ -53,6 +53,7 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
         await _resolvePreviousTransitionId(tradeId: tradeId, pubkey: pubkey);
     final tags = <List<String>>[
       if (tradeId.isNotEmpty) ['d', tradeId],
+      if (tradeId.isNotEmpty) ['t', tradeId],
       ['e', reservation.id],
       if (effectivePrevTransitionId != null)
         ['prev', effectivePrevTransitionId],
@@ -108,30 +109,20 @@ class ReservationTransitions extends CrudUseCase<ReservationTransition> {
     return chain.transitions.last.id;
   }
 
-  /// Query all transitions for a given trade id (t tag).
+  /// Query all transitions for a given trade id (`d` tag).
   Future<List<ReservationTransition>> getForReservation(String tradeId) {
     return list(
-      Filter(
-        kinds: ReservationTransition.kinds,
-        tags: {
-          't': [tradeId],
-        },
-      ),
+      Filter(kinds: ReservationTransition.kinds, dTags: [tradeId]),
       name: 'reservation-transitions-get-$tradeId',
     );
   }
 
-  /// Subscribe to live transitions for a given trade id (t tag).
+  /// Subscribe to live transitions for a given trade id (`d` tag).
   StreamWithStatus<ReservationTransition> subscribeForReservation(
     String tradeId,
   ) {
     return subscribe(
-      Filter(
-        kinds: ReservationTransition.kinds,
-        tags: {
-          't': [tradeId],
-        },
-      ),
+      Filter(kinds: ReservationTransition.kinds, dTags: [tradeId]),
       name: 'reservation-transitions-$tradeId',
     );
   }

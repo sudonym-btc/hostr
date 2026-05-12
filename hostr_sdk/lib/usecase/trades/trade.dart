@@ -830,6 +830,13 @@ class Trade extends Cubit<TradeState> {
 
   /// Returns the Nostr pubkey of the escrow service used in this trade.
   String? getEscrowPubkey() => _logger.spanSync('getEscrowPubkey', () {
+    final current = state;
+    if (current is TradeReady && current.stage is CommitStage) {
+      final group = (current.stage as CommitStage).reservationGroup;
+      final pubkey = group.escrowPubkey;
+      if (pubkey != null && pubkey.isNotEmpty) return pubkey;
+    }
+
     final groups = reservationGroup$.items;
     for (final validation in groups) {
       final group = validation.event;

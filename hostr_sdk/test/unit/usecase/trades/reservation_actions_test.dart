@@ -66,6 +66,8 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
 }
 
 Reservation _escrowBackedReservation(Listing listing) {
+  final proof = _escrowPaymentProof(listing: listing);
+
   return Reservation.create(
     pubKey: MockKeys.guest.publicKey,
     dTag: 'trade-message-escrow-invalid',
@@ -79,10 +81,11 @@ Reservation _escrowBackedReservation(Listing listing) {
       denomination: 'BTC',
       decimals: 8,
     ),
-    proof: _escrowPaymentProof(listing: listing),
+    proof: proof,
     pTags: [
       PTag.seller(MockKeys.hoster.publicKey),
       PTag.buyer(MockKeys.guest.publicKey),
+      PTag.escrow(proof.escrowProof!.escrowService.escrowPubkey),
     ],
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
   ).signAs(MockKeys.guest, Reservation.fromNostrEvent);

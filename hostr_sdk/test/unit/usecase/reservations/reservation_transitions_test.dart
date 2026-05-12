@@ -45,6 +45,8 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
   final _source = StreamWithStatus<ReservationTransition>();
   final List<Nip01Event> broadcasted = [];
   final List<Nip01Event> queryResults = [];
+  final List<Filter> queries = [];
+  final List<Filter> subscriptions = [];
 
   _FakeRequests({this.defaultSigner});
 
@@ -55,6 +57,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     String? name,
     bool setSinceOnLiveFilter = true,
   }) {
+    subscriptions.add(filter);
     return _source as StreamWithStatus<T>;
   }
 
@@ -67,6 +70,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     bool cacheRead = true,
     bool cacheWrite = true,
   }) {
+    queries.add(filter);
     return Stream<T>.fromIterable(queryResults.whereType<T>());
   }
 
@@ -205,7 +209,7 @@ void main() {
         expect(result.reason, 'Changed plans');
       });
 
-      test('includes d-tag, e-tag, listing-ref tags', () async {
+      test('includes d-tag, t-tag, e-tag, listing-ref tags', () async {
         final myListing = _f.listing(
           dTag: 'my-listing',
           signer: MockKeys.hoster,
@@ -223,8 +227,33 @@ void main() {
         );
 
         expect(result.parsedTags.tradeId, 'trade-3');
+        expect(result.parsedTags.getTags('d'), contains('trade-3'));
+        expect(result.parsedTags.getTags('t'), contains('trade-3'));
         expect(result.parsedTags.reservationEventId, reservation.id);
         expect(result.parsedTags.listingAnchor, myListing.anchor);
+      });
+
+      test('falls back to legacy t-tag when d-tag is missing', () {
+        final transition = ReservationTransition.fromNostrEvent(
+          Nip01Utils.signWithPrivateKey(
+            event: Nip01Event(
+              kind: kNostrKindReservationTransition,
+              pubKey: MockKeys.guest.publicKey,
+              tags: const [
+                ['t', 'legacy-trade'],
+                ['e', 'reservation-id'],
+              ],
+              content: ReservationTransitionContent(
+                transitionType: ReservationTransitionType.commit,
+                fromStage: ReservationStage.negotiate,
+                toStage: ReservationStage.commit,
+              ).toString(),
+            ),
+            privateKey: MockKeys.guest.privateKey!,
+          ),
+        );
+
+        expect(transition.parsedTags.tradeId, 'legacy-trade');
       });
 
       test('includes prev tag when prevTransitionId is provided', () async {
@@ -293,11 +322,10 @@ void main() {
 
     group('getForReservation()', () {
       test('queries with correct filter kind and d-tag', () async {
-        // getForReservation delegates to list() which calls requests.query.
-        // With our fake it returns an empty stream so we just verify it
-        // completes without error and returns a list.
         final result = await usecase.getForReservation('trade-id-abc');
         expect(result, isA<List<ReservationTransition>>());
+        expect(relay.queries.single.kinds, ReservationTransition.kinds);
+        expect(relay.queries.single.dTags, ['trade-id-abc']);
       });
     });
 
@@ -305,6 +333,8 @@ void main() {
       test('returns a StreamWithStatus', () {
         final stream = usecase.subscribeForReservation('trade-id-xyz');
         expect(stream, isA<StreamWithStatus<ReservationTransition>>());
+        expect(relay.subscriptions.single.kinds, ReservationTransition.kinds);
+        expect(relay.subscriptions.single.dTags, ['trade-id-xyz']);
       });
     });
   });

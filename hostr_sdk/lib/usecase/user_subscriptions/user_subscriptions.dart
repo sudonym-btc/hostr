@@ -44,7 +44,7 @@ import '../zaps/zaps.dart';
 /// | Stream | Filter pattern | Expandable? |
 /// |---|---|---|
 /// | [allMyReservations$] | `kinds=[32122], #d=[known tradeIds]` | Yes |
-/// | [allTransitions$]    | reservation transitions, `#t=[known tradeIds]` | Yes |
+/// | [allTransitions$]    | reservation transitions, `#d=[known tradeIds]` | Yes |
 /// | [myReviews$]       | `kinds=[32124], authors=[myPubkey]`  | No (static) |
 /// | [paymentEvents$]   | kind 9735 + EVM contract queries     | Dynamic (combine) |
 @Singleton()
@@ -520,8 +520,8 @@ class UserSubscriptions {
 
   void _emitTransitionFilter() => _logger.spanSync('_emitTransitionFilter', () {
     if (_knownTradeIds.isEmpty) return;
-    final filter = Filter(tags: {'t': _knownTradeIds.toList()});
-    _logger.d('emitting transition filter #t=$_knownTradeIds');
+    final filter = Filter(dTags: _knownTradeIds.toList());
+    _logger.d('emitting transition filter #d=$_knownTradeIds');
     _transitionFilterSource?.add(filter);
   });
 
