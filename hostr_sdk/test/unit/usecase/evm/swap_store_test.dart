@@ -140,6 +140,27 @@ void main() {
         expect(all, hasLength(1));
         expect(all.first['id'], 'to-keep');
       });
+
+      test('removes entries matched by row id or persisted json', () async {
+        await store.write('swap_in', 'parent-op', {
+          ...entry0(id: 'old-row-id'),
+          'boltzId': 'boltz-1',
+          'parentOperationId': 'parent-op',
+        });
+        await store.write('swap_in', 'to-keep', entry0(id: 'to-keep'));
+
+        final removed = await store.removeWhere('swap_in', (rowId, json) {
+          return rowId == 'boltz-1' ||
+              json['id'] == 'boltz-1' ||
+              json['boltzId'] == 'boltz-1' ||
+              json['parentOperationId'] == 'boltz-1';
+        });
+
+        expect(removed, 1);
+        final all = await store.readAll('swap_in');
+        expect(all, hasLength(1));
+        expect(all.first['id'], 'to-keep');
+      });
     });
 
     group('hasNonTerminal', () {

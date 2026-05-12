@@ -441,6 +441,11 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
   Future<void> run() => logger.span('run', () async {
     applyTelemetry();
     while (true) {
+      if (isClosed) {
+        logger.i('Operation is closed — exiting run loop');
+        break;
+      }
+
       // ── 1. Re-read from persistence ──
       final current = await _reloadOrCurrent();
 
@@ -488,10 +493,23 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
       // ── 6. Execute ──
       try {
         final next = await executeStep(guard.step);
+        if (isClosed) {
+          logger.i(
+            'Operation closed after "${guard.step.name}" — skipping write',
+          );
+          break;
+        }
         final busyState = busyStateFor(guard.step, current);
         final expectedDiskState = busyState?.stateName ?? current.stateName;
         await _emitIfStillOwned(next, expectedDiskState, guard.step);
       } catch (e, st) {
+        if (isClosed) {
+          logger.i(
+            'Operation closed while "${guard.step.name}" failed — '
+            'suppressing error state',
+          );
+          break;
+        }
         logger.e('Step "${guard.step.name}" failed: $e');
         emitError(e, current, st, stepName: guard.step.name);
         break;
@@ -539,6 +557,11 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
   ) => logger.span('runUntil', () async {
     applyTelemetry();
     while (true) {
+      if (isClosed) {
+        logger.i('Operation is closed — exiting runUntil loop');
+        break;
+      }
+
       final current = await _reloadOrCurrent();
       if (current.isTerminal) {
         logger.i(
@@ -566,10 +589,23 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
 
       try {
         final next = await executeStep(guard.step);
+        if (isClosed) {
+          logger.i(
+            'Operation closed after "${guard.step.name}" — skipping write',
+          );
+          break;
+        }
         final busyState = busyStateFor(guard.step, current);
         final expectedDiskState = busyState?.stateName ?? current.stateName;
         await _emitIfStillOwned(next, expectedDiskState, guard.step);
       } catch (e, st) {
+        if (isClosed) {
+          logger.i(
+            'Operation closed while "${guard.step.name}" failed — '
+            'suppressing error state',
+          );
+          break;
+        }
         logger.e('Step "${guard.step.name}" failed: $e');
         emitError(e, current, st, stepName: guard.step.name);
         break;
@@ -594,6 +630,11 @@ abstract class OperationMachine<S extends MachineState, E extends Enum>
     String expectedDiskState,
     E step,
   ) async {
+    if (isClosed) {
+      logger.i('${step.name}: operation closed — skipping persisted write');
+      return false;
+    }
+
     final id = next.operationId;
     if (id == null) {
       // Pre-creation — no risk of regression.

@@ -170,6 +170,45 @@ class OperationStateStore {
         _onChanged.add(null);
       });
 
+  /// Remove every entry in [namespace] whose row id or decoded JSON matches
+  /// [predicate].
+  Future<int> removeWhere(
+    String namespace,
+    bool Function(String id, Map<String, dynamic> json) predicate,
+  ) => _logger.span('removeWhere', () async {
+    final pubkey = _currentPubkey();
+    if (pubkey == null) return 0;
+
+    final idsToRemove = <String>[];
+    try {
+      final rows = _db.select(
+        'SELECT id, data FROM operations WHERE pubkey = ? AND namespace = ?',
+        [pubkey, namespace],
+      );
+
+      for (final row in rows) {
+        final id = row['id'] as String;
+        final json = jsonDecode(row['data'] as String) as Map<String, dynamic>;
+        if (predicate(id, json)) idsToRemove.add(id);
+      }
+    } catch (e) {
+      _logger.e('OperationStateStore: failed to scan $namespace: $e');
+      return 0;
+    }
+
+    if (idsToRemove.isEmpty) return 0;
+
+    for (final id in idsToRemove) {
+      _db.execute(
+        'DELETE FROM operations '
+        'WHERE pubkey = ? AND namespace = ? AND id = ?',
+        [pubkey, namespace, id],
+      );
+    }
+    _onChanged.add(null);
+    return idsToRemove.length;
+  });
+
   /// Whether any entries in [namespace] have `is_terminal = 0`.
   Future<bool> hasNonTerminal(String namespace) =>
       _logger.span('hasNonTerminal', () async {

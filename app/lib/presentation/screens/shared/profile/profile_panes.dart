@@ -601,8 +601,13 @@ class _SwapInTile extends StatelessWidget {
           ),
           trailing: _SwapActions(
             namespace: 'swap_in',
-            storeId: boltzId,
-            trackerKey: id,
+            candidateIds: {
+              id,
+              boltzId,
+              ?state.operationId,
+              ?data?.parentOperationId,
+            }.toList(),
+            closeOperation: operation.close,
             menuItems: [
               _SwapTxMenuItem(
                 label: 'View Lock Tx',
@@ -688,8 +693,8 @@ class _SwapOutTile extends StatelessWidget {
           ),
           trailing: _SwapActions(
             namespace: 'swap_out',
-            storeId: boltzId,
-            trackerKey: id,
+            candidateIds: {id, boltzId, ?state.operationId}.toList(),
+            closeOperation: operation.close,
             menuItems: [
               _SwapTxMenuItem(
                 label: 'View Lock Tx',
@@ -754,14 +759,14 @@ class _SwapOutAmountLabel extends StatelessWidget {
 
 class _SwapActions extends StatelessWidget {
   final String namespace;
-  final String storeId;
-  final String trackerKey;
+  final List<String> candidateIds;
+  final Future<void> Function() closeOperation;
   final List<_SwapTxMenuItem> menuItems;
 
   const _SwapActions({
     required this.namespace,
-    required this.storeId,
-    required this.trackerKey,
+    required this.candidateIds,
+    required this.closeOperation,
     required this.menuItems,
   });
 
@@ -777,8 +782,8 @@ class _SwapActions extends StatelessWidget {
           onSelected: (context) => _confirmDeleteSwap(
             context,
             namespace: namespace,
-            storeId: storeId,
-            trackerKey: trackerKey,
+            candidateIds: candidateIds,
+            closeOperation: closeOperation,
           ),
         ),
       ],
@@ -864,8 +869,8 @@ class _SwapTxMenuItem {
 Future<void> _confirmDeleteSwap(
   BuildContext context, {
   required String namespace,
-  required String storeId,
-  required String trackerKey,
+  required List<String> candidateIds,
+  required Future<void> Function() closeOperation,
 }) async {
   final colorScheme = Theme.of(context).colorScheme;
   final confirmed = await showDialog<bool>(
@@ -895,14 +900,26 @@ Future<void> _confirmDeleteSwap(
   if (confirmed != true) return;
 
   final hostr = getIt<Hostr>();
-  await hostr.operationStateStore.remove(namespace, storeId);
+  final ids = candidateIds.where((id) => id.isNotEmpty).toSet();
+  await closeOperation();
+  await hostr.operationStateStore.removeWhere(namespace, (rowId, json) {
+    final jsonIds = [
+      rowId,
+      json['id'],
+      json['boltzId'],
+      json['parentOperationId'],
+    ].whereType<String>();
+    return jsonIds.any(ids.contains);
+  });
   switch (namespace) {
     case 'swap_in':
-      hostr.swapInTracker.unregister(trackerKey);
-      if (trackerKey != storeId) hostr.swapInTracker.unregister(storeId);
+      for (final id in ids) {
+        hostr.swapInTracker.unregister(id);
+      }
     case 'swap_out':
-      hostr.swapOutTracker.unregister(trackerKey);
-      if (trackerKey != storeId) hostr.swapOutTracker.unregister(storeId);
+      for (final id in ids) {
+        hostr.swapOutTracker.unregister(id);
+      }
   }
 
   if (!context.mounted) return;
