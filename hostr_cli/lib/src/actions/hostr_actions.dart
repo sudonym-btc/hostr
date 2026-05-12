@@ -1250,7 +1250,7 @@ class HostrActionSpec {
       case 'hostr.profile.show':
         return 'Use when the user asks who they are on Hostr, wants their current profile, or before profile/listing publishing when you need existing metadata. This reads the profile for the active Hostr account.';
       case 'hostr.profile.lookup':
-        return 'Use when the user asks to view a specific public Nostr/Hostr profile by npub, including a host, guest, seller, buyer, or arbitrary profile that is not the authenticated MCP user. This tool is public and does not require sign-in.';
+        return 'Use when the user asks to view a specific public Nostr/Hostr profile by npub or pubkey, including a host, guest, seller, buyer, or arbitrary profile that is not the authenticated MCP user. This tool is public and does not require sign-in.';
       case 'hostr.profile.edit':
         return 'Use when the user wants to update profile name, about/bio, picture, banner, website, lightning address, or other profile metadata. Preview first; publish only after approval. Publishing also refreshes Hostr seller configuration, which is useful before creating or editing listings.';
       case 'hostr.trips.list':
@@ -2558,9 +2558,9 @@ export interface HostrEmptyInput {}
 
   static const profileLookup = HostrActionSpec(
     id: 'hostr.profile.lookup',
-    title: 'Show Hostr Profile By Npub',
+    title: 'Show Hostr Profile By Npub Or Pubkey',
     description:
-        'Public read-only lookup for any Hostr/Nostr profile metadata by npub. Use this when the user asks to view a specific user, host, guest, seller, buyer, or arbitrary Nostr profile that is not necessarily their authenticated profile.',
+        'Public read-only lookup for any Hostr/Nostr profile metadata by npub or 64-character hex pubkey. Use this when the user asks to view a specific user, host, guest, seller, buyer, or arbitrary Nostr profile that is not necessarily their authenticated profile.',
     inputTypeName: 'HostrProfileLookupInput',
     readOnly: true,
     inputSchema: {
@@ -2570,7 +2570,8 @@ export interface HostrEmptyInput {}
       'properties': {
         'npub': {
           'type': 'string',
-          'description': 'NIP-19 npub for the profile to display.',
+          'description':
+              'NIP-19 npub or 64-character hex pubkey for the profile to display.',
         },
       },
     },

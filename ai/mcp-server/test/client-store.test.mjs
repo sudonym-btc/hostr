@@ -49,6 +49,62 @@ test("read-only Hostr MCP tools do not expose dryRun inputs", () => {
   assert.deepEqual(offenders, []);
 });
 
+test("widget resource metadata includes submission domain and exact CSP", () => {
+  assert.deepEqual(
+    __testing.widgetResourceMeta(
+      {
+        publicAssetBaseUrl: "https://ai.hostr.network",
+      },
+      ["https://hostr.network", "https://blossom.hostr.network"],
+    ),
+    {
+      ui: {
+        domain: "https://ai.hostr.network",
+        prefersBorder: true,
+        csp: {
+          connectDomains: [],
+          resourceDomains: [
+            "https://hostr.network",
+            "https://blossom.hostr.network",
+          ],
+        },
+      },
+      "openai/widgetDomain": "https://ai.hostr.network",
+      "openai/widgetPrefersBorder": true,
+      "openai/widgetAccessible": true,
+    },
+  );
+});
+
+test("Hostr tool annotations mark external Hostr actions as open-world", () => {
+  assert.deepEqual(
+    __testing.toolAnnotations({ id: "hostr.session.status", readOnly: true }),
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  );
+
+  assert.deepEqual(
+    __testing.toolAnnotations({ id: "hostr.listings.search", readOnly: true }),
+    {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+  );
+
+  assert.deepEqual(
+    __testing.toolAnnotations({ id: "hostr.profile.edit", readOnly: false }),
+    {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: true,
+    },
+  );
+});
+
 test("listing links use the Flutter hash route with encoded naddrs", () => {
   const naddr =
     "naddr1qq9xs6tpvyunjaesdfnsyg8mt0ed4ge0ull6wffplfr4leqf7ytzeas9ht67u54avegma27h7upsgqqq04usgezq5w";
@@ -610,7 +666,7 @@ test("book and pay advertises accurate ChatGPT write annotations", () => {
     {
       readOnlyHint: false,
       destructiveHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   );
 });
@@ -624,7 +680,7 @@ test("tool annotations distinguish destructive and non-destructive writes", () =
     {
       readOnlyHint: false,
       destructiveHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   );
 
@@ -636,7 +692,7 @@ test("tool annotations distinguish destructive and non-destructive writes", () =
     {
       readOnlyHint: false,
       destructiveHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   );
 
@@ -648,7 +704,7 @@ test("tool annotations distinguish destructive and non-destructive writes", () =
     {
       readOnlyHint: true,
       destructiveHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   );
 });

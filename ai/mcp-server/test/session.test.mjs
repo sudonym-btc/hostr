@@ -583,6 +583,94 @@ test("MCP session tools connect, list, switch, and logout backend accounts", asy
   }
 });
 
+test("MCP logout keeps accounts connected when swaps are in progress", async () => {
+  const directory = tempDirectory();
+  const config = testConfig(directory);
+  const store = new McpSessionStore(config.oauthClientStorePath);
+  store.addOrUpdateAccount({
+    sessionId: "session-id-1",
+    pubkey: "pubkey-with-swap",
+    metadata: { name: "Pending Guest" },
+  });
+
+  const calls = [];
+  const daemon = {
+    visibleActions: async () => ({
+      visibleActionIds: [
+        "hostr.session.status",
+        "hostr.session.connect",
+        "hostr.swaps.list",
+      ],
+    }),
+    callAction: async ({ action }) => ({
+      ok: true,
+      command: action,
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    logoutSession: async ({ pubkey }) => {
+      calls.push(["logoutSession", pubkey]);
+      const error = new Error("Cannot log out while swaps are in progress.");
+      error.code = "pending_swaps";
+      error.details = {
+        pubkey,
+        pendingSwapCount: 1,
+        pendingSwaps: [
+          {
+            namespace: "swap_in",
+            state: { id: "swap-1", state: "requestCreated", isTerminal: false },
+          },
+        ],
+      };
+      throw error;
+    },
+    uploadImage: async () => ({
+      ok: true,
+      command: "hostr.upload.image",
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    onNotification: () => () => {},
+  };
+
+  const token = await signAccessToken(
+    config,
+    "session-id-1",
+    "hostr:read hostr:write",
+  );
+  const client = await startMcpClient(config, daemon, token);
+  try {
+    const logout = await client.call("tools/call", {
+      name: "hostr_session_logout",
+      arguments: { pubkey: "pubkey-with-swap" },
+    });
+    assert.equal(logout.result.structuredContent.ok, false);
+    assert.equal(logout.result.structuredContent.error, "pending_swaps");
+    assert.equal(
+      logout.result.structuredContent.details.pendingSwapCount,
+      1,
+    );
+    assert.match(
+      logout.result.content[0].text,
+      /still has swaps in progress/,
+    );
+
+    const session = new McpSessionStore(config.oauthClientStorePath).get(
+      "session-id-1",
+    );
+    assert.equal(session.activePubkey, "pubkey-with-swap");
+    assert.deepEqual(
+      session.accounts.map((account) => account.pubkey),
+      ["pubkey-with-swap"],
+    );
+    assert.deepEqual(calls, [["logoutSession", "pubkey-with-swap"]]);
+  } finally {
+    await client.close();
+  }
+});
+
 const hasTool = (toolsResponse, name) =>
   toolsResponse.result.tools.some((tool) => tool.name === name);
 

@@ -74,8 +74,11 @@ class AuthRecord {
   );
 
   static AuthRecord? fromStorage(List<String> raw) {
-    if (raw.isEmpty) return null;
-    final first = raw.first;
+    final first = raw
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .firstOrNull;
+    if (first == null) return null;
     try {
       final decoded = jsonDecode(first);
       if (decoded is Map<String, dynamic>) {

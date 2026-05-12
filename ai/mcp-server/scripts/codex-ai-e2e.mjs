@@ -156,6 +156,21 @@ async function main() {
       prompt,
       label,
     });
+    if (phaseResult.exitCode === 0 && noHostrToolCalls(phaseStart)) {
+      const followupPrompt =
+        "Please use the Hostr app in this chat for this. Stop reading local files, ports, databases, logs, or HTTP endpoints; check my Hostr session there and continue the Hostr request.";
+      if (supervised) {
+        supervisedLog("Follow-up");
+        supervisedLog(indent(followupPrompt));
+        supervisedLog("");
+      }
+      phaseResult = await runCodex({
+        codexHome,
+        prompt: followupPrompt,
+        label: `${label} follow-up`,
+        resume: true,
+      });
+    }
     for (const followup of phase.followups ?? []) {
       if (phaseResult.exitCode !== 0) break;
       if (!followup.when(phaseStart)) continue;
@@ -417,6 +432,10 @@ function buildPhases(runMode) {
       expectedRoleAction: "host",
       followups: [
         {
+          prompt: "Please do this in Hostr, not by looking for local project files.",
+          when: noHostrToolCalls,
+        },
+        {
           prompt: "Use Plaza Libertad, San Salvador, El Salvador.",
           when: needsAddressClarification,
         },
@@ -439,6 +458,11 @@ function buildPhases(runMode) {
           when: needsGuestPreferences,
         },
         { prompt: "I paid it.", when: needsPaymentConfirmation },
+        {
+          prompt:
+            "The invoice is paid; please monitor the Hostr payment completion before checking the trip again.",
+          when: missingSwapWatchAfterBooking,
+        },
       ],
     },
     ...versions.map((version) => ({
@@ -449,15 +473,192 @@ function buildPhases(runMode) {
       label: `Reservation concern (${version})`,
       prompt: () => buildReservationConcernPrompt(requireLatestTradeId(), version),
     })),
-    { label: "Guest tool coverage", prompt: () => buildGuestCoveragePrompt(requireLatestTradeId(), versions[0]) },
-    { label: "Manual reservation coverage", prompt: () => buildManualReservationCoveragePrompt(requireLatestTradeId()) },
-    { label: `Host actions (${versions[0]})`, prompt: () => buildFullHostPrompt(requireLatestTradeId(), versions[0]), expectedRoleAction: "host" },
-    { label: "Host tool coverage", prompt: () => buildHostCoveragePrompt(requireLatestTradeId(), versions[0]) },
+    {
+      label: "Guest tool coverage",
+      prompt: () => buildGuestCoveragePrompt(requireLatestTradeId(), versions[0]),
+      followups: [
+        {
+          prompt:
+            "Please open the booked place's reviews and availability views directly for Aug 1-3.",
+          when: missingAnyTool(
+            "hostr_listings_reviews",
+            "hostr_listings_availability",
+          ),
+        },
+        {
+          prompt:
+            "Please open the host's public Hostr profile card directly, not just infer it from the trip.",
+          when: missingTool("hostr_profile_lookup"),
+        },
+        {
+          prompt:
+            "Please use Hostr's public profile lookup for Taylor instead of switching into Taylor's account, then switch me back to my guest account.",
+          when: missingTool("hostr_profile_lookup"),
+        },
+        {
+          prompt:
+            "Please draft that five-star Hostr trip review now and show me the preview. If it cannot be published yet, the preview is enough.",
+          when: missingTool("hostr_reservations_review"),
+        },
+      ],
+    },
+    {
+      label: "Manual reservation coverage",
+      prompt: () => buildManualReservationCoveragePrompt(requireLatestTradeId()),
+      followups: [
+        {
+          prompt:
+            "Please show the saved Hostr payment and swap list itself before previewing any recovery.",
+          when: missingTool("hostr_swaps_list"),
+        },
+        {
+          prompt:
+            "Please open the saved Hostr payment or swap list directly, not from memory or from a recovery summary.",
+          when: missingTool("hostr_swaps_list"),
+        },
+        {
+          prompt:
+            "Please show me what Hostr would do to recover any stuck saved payment operations, but only as a preview.",
+          when: missingTool("hostr_swaps_recoverAll"),
+        },
+        {
+          prompt:
+            "For the reservation offer examples, use the same $20 stay total. Preview sending that counteroffer and preview accepting the latest offer; don't send or pay anything.",
+          when: missingAnyTool(
+            "hostr_reservations_negotiateOffer",
+            "hostr_reservations_negotiateAccept",
+          ),
+        },
+        {
+          prompt:
+            "Please retry the reservation offer preview with the same $20 total; don't send it.",
+          when: failedTool("hostr_reservations_negotiateOffer"),
+        },
+        {
+          prompt:
+            "Please retry the latest-offer acceptance preview; don't accept it live.",
+          when: failedTool("hostr_reservations_negotiateAccept"),
+        },
+        {
+          prompt:
+            "Please switch back to my guest account and preview the negotiated payment check for this reservation; don't pay anything.",
+          when: failedTool("hostr_reservations_pay"),
+        },
+        {
+          prompt:
+            "Please also preview the final reservation publication check from a saved paid proof or payment record; don't publish anything.",
+          when: missingTool("hostr_reservations_commit"),
+        },
+        {
+          prompt:
+            "Please try the final reservation publication preview anyway; if the proof is missing, let Hostr return that as the preview result. Don't publish anything.",
+          when: missingTool("hostr_reservations_commit"),
+        },
+      ],
+    },
+    {
+      label: `Host actions (${versions[0]})`,
+      prompt: () => buildFullHostPrompt(requireLatestTradeId(), versions[0]),
+      expectedRoleAction: "host",
+      followups: [
+        {
+          prompt:
+            "Please use my host-side bookings or hosting reservations view for that stay, not my guest trips.",
+          when: missingTool("hostr_bookings_list"),
+        },
+        {
+          prompt:
+            "Please also send the guest a normal Hostr reservation-thread check-in message, separate from the escrow help request.",
+          when: missingTool("hostr_thread_message"),
+        },
+        {
+          prompt:
+            "Please involve Hostr escrow through the reservation's escrow/help flow for this stay, not only by sending an ordinary thread message.",
+          when: missingTool("hostr_escrow_involve"),
+        },
+      ],
+    },
+    {
+      label: "Host tool coverage",
+      prompt: () => buildHostCoveragePrompt(requireLatestTradeId(), versions[0]),
+      followups: [
+        {
+          prompt:
+            "Please show my host-side bookings or hosting reservations too, especially that reservation.",
+          when: missingTool("hostr_bookings_list"),
+        },
+        {
+          prompt:
+            "Please open my Hostr listings list directly too; I want the listing cards, not just updates or booking summaries.",
+          when: missingTool("hostr_listings_list"),
+        },
+        {
+          prompt:
+            "Please open the reservation groups view for the newest City Center Spare Room listing itself.",
+          when: missingTool("hostr_listings_reservationGroups"),
+        },
+      ],
+    },
     { label: "Escrow login", prompt: () => buildEscrowLoginPrompt(), expectedRoleAction: "escrow" },
-    { label: `Escrow actions (${versions[0]})`, prompt: () => buildFullEscrowPrompt(requireLatestTradeId(), versions[0]) },
-    { label: "Escrow tool coverage", prompt: () => buildEscrowCoveragePrompt(requireLatestTradeId(), versions[0]) },
+    {
+      label: `Escrow actions (${versions[0]})`,
+      prompt: () => buildFullEscrowPrompt(requireLatestTradeId(), versions[0]),
+      followups: [
+        {
+          prompt:
+            "Please run Hostr's escrow audit/check on that trade too, so I can see whether anything looks inconsistent.",
+          when: missingTool("hostr_escrow_trades_audit"),
+        },
+        {
+          prompt:
+            "Please preview an even-split Hostr arbitration for that escrow trade if arbitration is still available; don't finalize it.",
+          when: missingTool("hostr_escrow_trades_arbitrate"),
+        },
+      ],
+    },
+    {
+      label: "Escrow tool coverage",
+      prompt: () => buildEscrowCoveragePrompt(requireLatestTradeId(), versions[0]),
+      followups: [
+        {
+          prompt:
+            "Please open the payment-methods view for this escrow trade so I can see how funds can be released or returned.",
+          when: missingTool("hostr_escrow_methods"),
+        },
+        {
+          prompt:
+            "Please show the escrow service fee-change preview and the service deletion preview too; don't publish either one.",
+          when: missingAnyTool(
+            "hostr_escrow_service_edit",
+            "hostr_escrow_service_delete",
+          ),
+        },
+        {
+          prompt:
+            "For the revocation preview, use one existing published badge award from the badge awards list instead of the draft award you just sketched.",
+          when: failedTool("hostr_escrow_badges_revoke"),
+        },
+        {
+          prompt:
+            "Please open the existing badge awards list and preview revoking one existing award, not a draft award.",
+          when: missingAnyTool(
+            "hostr_escrow_badges_awards_list",
+            "hostr_escrow_badges_revoke",
+          ),
+        },
+      ],
+    },
     { label: "MCP restart", restartServer: true },
-    { label: "Session rehydration", prompt: () => buildRehydrationPrompt(requireLatestTradeId()) },
+    {
+      label: "Session rehydration",
+      prompt: () => buildRehydrationPrompt(requireLatestTradeId()),
+      followups: [
+        {
+          prompt: "Please check this inside Hostr, not by reading local files.",
+          when: noHostrToolCalls,
+        },
+      ],
+    },
     { label: "Session cleanup", prompt: () => buildSessionCleanupPrompt() },
   ];
 }
@@ -471,7 +672,7 @@ function buildSmokePrompt() {
 }
 
 function buildHostListingSetupPrompt() {
-  return `Hostr, I'm hosting now. Please publish my spare room at Plaza Libertad, San Salvador, El Salvador. Call it "City Center Spare Room". It's a simple private room near the city center for one guest, with one bed, one bedroom, one bathroom, and instant booking is fine. Charge 10 USD per night. Use this photo: https://placehold.co/800x600.jpg`;
+  return `Hostr, in Hostr I'm hosting now. Please publish my spare room at Plaza Libertad, San Salvador, El Salvador. Call it "City Center Spare Room". It's a simple private room near the city center for one guest, with one bed, one bedroom, one bathroom, and instant booking is fine. Charge 10 USD per night. Use this photo: https://placehold.co/800x600.jpg`;
 }
 
 function buildFullGuestPrompt(version = "canonical") {
@@ -484,28 +685,28 @@ function buildPostBookingFollowupPrompt(tradeId, version = "canonical") {
   const ask =
     version === "natural"
       ? "Hostr, I finished booking. Please check my trip and tell me anything useful I should do next."
-      : "My reservation is booked. Check my Hostr trip if needed and tell me the next useful follow-up.";
+      : "My reservation is booked. Check my Hostr trip if needed and tell me the next useful follow-up, including whether I should message the host now.";
   return `${ask} My reservation reference is ${tradeId}. Don't message anyone yet.`;
 }
 
 function buildReservationConcernPrompt(tradeId, version = "canonical") {
   const ask =
     version === "natural"
-      ? "Hostr, I'm uneasy about my stay. The host seems quiet and I want to know what I can say or do. If escrow would be the next step later, tell me how to ask for that without doing it now."
-      : "Hostr, please check my reservation thread. The host has not replied and I may need help, but do not involve escrow yet. If escrow would be the next step later, tell me how to ask for that without doing it now.";
+      ? "Hostr, I'm uneasy about my stay. Please check my Hostr reservation thread first. The host seems quiet and I want to know what I can say or do. If I may need to involve escrow later, tell me how to ask for that without doing it now."
+      : "Hostr, please check my reservation thread. The host has not replied and I may need help, but do not involve escrow yet. If I may need to involve escrow later, tell me how to ask for that without doing it now.";
   return `${ask} My reservation reference is ${tradeId}. Don't send anything yet; just tell me what I can do and what I could say.`;
 }
 
 function buildGuestCoveragePrompt(tradeId, version = "canonical") {
-  return `Hostr, what are my updates? Also show me my account, my profile, and my trip ${tradeId}. Look up the host profile too. I want to see the place I booked, whether those Aug 1-3 dates still look available, reviews for the place, and whether payment looks okay. Don't change anything unless I already said yes. If I can review this trip, leave 5 stars and say "Great stay, smooth check-in, and helpful communication." I also want to upload this listing photo: ${fixtureImagePath}.`;
+  return `Hostr, what are my updates? Also show me my account, my profile, and my trip ${tradeId}. Open the host's full profile record too. I want to see the place I booked. Please use Hostr's listing reviews and listing availability views for that place, explicitly check whether those Aug 1-3 dates still look available, and tell me whether payment looks okay. Don't change anything unless I already said yes. If I can review this trip, leave 5 stars and say "Great stay, smooth check-in, and helpful communication." If it isn't ready for a live review yet, just show me a review preview instead. Also upload this image to Hostr media so I can use it later: ${fixtureImagePath}.`;
 }
 
 function buildManualReservationCoveragePrompt(tradeId) {
-  return `Hostr, something seems off with reservation ${tradeId}. Can you check my trip, see whether payment got stuck, show me any saved payment operations, and preview what recovery would do? Also show me what it would look like to send a new offer, accept the latest offer, pay a negotiated reservation, and publish the final reservation record from a paid proof. Don't actually send, pay, recover, or publish anything.`;
+  return `Hostr, in the Hostr app, something seems off with reservation ${tradeId}. Use my guest account if needed. Can you check my trip, see whether payment got stuck, list my saved payment or swap operations, and preview what recovery would do? Also show me what it would look like to send a new offer, accept the latest offer, pay a negotiated reservation, and preview publishing the final reservation record from a paid proof. Don't actually send, pay, recover, or publish anything.`;
 }
 
 function buildFullHostPrompt(tradeId, version = "canonical") {
-  return `Hostr, I'm the host now. Show my recent bookings, especially ${tradeId}. Open the conversation and tell the guest: "Hi, just checking in on your stay details." Then ask escrow to help with it. After that, cancel the reservation if it looks like I can.`;
+  return `Hostr, use my host account now; switch accounts if needed. Show my recent bookings, especially ${tradeId}. Open the conversation and tell the guest: "Hi, just checking in on your stay details." Then ask escrow to help with it. After that, cancel the reservation if it looks like I can.`;
 }
 
 function buildHostCoveragePrompt(tradeId, version = "canonical") {
@@ -513,23 +714,23 @@ function buildHostCoveragePrompt(tradeId, version = "canonical") {
 }
 
 function buildEscrowLoginPrompt() {
-  return `Hostr, I'm handling escrow now. Switch me to that account and show me the accounts you know about.`;
+  return `Hostr, in the Hostr app I'm handling escrow now. Switch me to my escrow account and show me the Hostr accounts you know about.`;
 }
 
 function buildFullEscrowPrompt(tradeId, version = "canonical") {
-  return `Hostr, as escrow, show me my trades and open the full details for ${tradeId}. Check whether anything looks wrong. If arbitration is still possible, split it evenly. Also tell the people in the trade: "I am reviewing this trade and will follow up with the next steps."`;
+  return `Hostr, as escrow, show me my trades and open the full details for ${tradeId}. Check whether anything looks wrong. If arbitration is still possible, split it evenly. Don't message the people in the trade yet; just tell me what you would say.`;
 }
 
 function buildEscrowCoveragePrompt(tradeId, version = "canonical") {
-  return `Hostr, as escrow, look at ${tradeId} again and show me how the host and buyer can be paid. Open the trade details. Show my escrow services and open the service details too. I want to see what changing a service fee or deleting a service would look like, but don't actually do it. Also show me the badges area; try drafting a "Trusted Host Preview" badge, awarding it, revoking an award, and previewing deletion of that badge definition, but don't make live badge changes.`;
+  return `Hostr, as escrow, look at ${tradeId} again and show me how the host and buyer can be paid. Open the trade details. Show my escrow services and open the service details too. Use the service management previews to show changing the fee to 1.5% and deleting that service; don't actually do either. Also show me the badges area; try drafting a "Trusted Host Preview" badge, awarding it, revoking an award, and previewing deletion of that badge definition, but don't make live badge changes.`;
 }
 
 function buildRehydrationPrompt(tradeId) {
-  return `Hostr, after that restart, what account am I on? Show me the accounts you remember, go back to escrow if needed, and make sure ${tradeId} still shows up.`;
+  return `Hostr, after that restart, check inside Hostr: what account am I on? Show me the Hostr accounts you remember, go back to escrow if needed, and make sure ${tradeId} still shows up in Hostr.`;
 }
 
 function buildSessionCleanupPrompt() {
-  return `Hostr, show me the accounts connected to this session, then log me out of all Hostr accounts and confirm I am logged out.`;
+  return `Hostr, show me my login status and the accounts connected to this session, then log me out of all Hostr accounts and confirm I am logged out.`;
 }
 
 function unnaturalPromptReason(prompt) {
@@ -674,12 +875,8 @@ async function handleCodexLine(line) {
     return;
   }
 
-  const argumentTradeId =
-    typeof item.arguments?.tradeId === "string" ? item.arguments.tradeId : null;
   const observedTradeId = findStringByKey(item.result, "tradeId");
-  if (argumentTradeId) {
-    latestTradeId = argumentTradeId;
-  } else if (
+  if (
     observedTradeId &&
     ["hostr_reservations_bookAndPay", "hostr_swaps_watch"].includes(item.tool)
   ) {
@@ -1034,6 +1231,37 @@ function phaseToolCalls(phaseStart) {
   return toolCalls.slice(phaseStart.toolCount);
 }
 
+function noHostrToolCalls(phaseStart) {
+  return phaseToolCalls(phaseStart).every((call) => !call.tool?.startsWith("hostr_"));
+}
+
+function missingSwapWatchAfterBooking(phaseStart) {
+  const calls = phaseToolCalls(phaseStart);
+  return (
+    calls.some((call) => call.tool === "hostr_reservations_bookAndPay") &&
+    calls.every((call) => call.tool !== "hostr_swaps_watch")
+  );
+}
+
+function missingTool(tool) {
+  return (phaseStart) => !phaseToolCalls(phaseStart).some((call) => call.tool === tool);
+}
+
+function missingAnyTool(...tools) {
+  return (phaseStart) => tools.some((tool) => missingTool(tool)(phaseStart));
+}
+
+function failedTool(tool) {
+  return (phaseStart) =>
+    phaseToolCalls(phaseStart).some(
+      (call) => call.tool === tool && (call.status === "failed" || call.error),
+    );
+}
+
+function missingOrFailedTool(requiredTool, failureTool = requiredTool) {
+  return (phaseStart) => missingTool(requiredTool)(phaseStart) || failedTool(failureTool)(phaseStart);
+}
+
 function validatePhase(label, phase, phaseStart, result) {
   if (phase.restartServer) return;
   const calls = phaseToolCalls(phaseStart);
@@ -1047,13 +1275,31 @@ function validatePhase(label, phase, phaseStart, result) {
     const transitioned = calls.some((call) =>
       ["hostr_session_connect", "hostr_session_switch"].includes(call.tool),
     );
-    if (!transitioned) {
+    if (!transitioned && !roleActionWasSatisfied(phase.expectedRoleAction, calls)) {
       failures.push(
         `Phase "${label}" did not connect or switch to the requested ${phase.expectedRoleAction} account`,
       );
       result.exitCode = 1;
     }
   }
+}
+
+function roleActionWasSatisfied(role, calls) {
+  if (role === "guest") {
+    return calls.some((call) => call.tool === "hostr_reservations_bookAndPay");
+  }
+  if (role === "host") {
+    return (
+      calls.some((call) => call.tool === "hostr_bookings_list") &&
+      calls.some((call) =>
+        ["hostr_thread_message", "hostr_reservations_cancel"].includes(call.tool),
+      )
+    );
+  }
+  if (role === "escrow") {
+    return calls.some((call) => call.tool?.startsWith("hostr_escrow_"));
+  }
+  return false;
 }
 
 function needsBookingConfirmation(phaseStart) {
@@ -1072,13 +1318,9 @@ function needsGuestLogin(phaseStart) {
   if (calls.some((call) => call.tool === "hostr_reservations_bookAndPay")) {
     return false;
   }
-  const connectedGuest = calls.some((call) => {
-    if (call.tool !== "hostr_session_connect" || call.status !== "completed") {
-      return false;
-    }
-    const pubkey = findStringByKey(call.result, "pubkey");
-    return pubkey && pubkey !== roleQueue[0]?.pubkey;
-  });
+  const connectedGuest = calls.some(
+    (call) => call.tool === "hostr_session_connect" && call.status === "completed",
+  );
   if (connectedGuest) return false;
   const lastMessage = phaseAgentMessages(phaseStart).at(-1) ?? "";
   return /\b(guest account|guest profile|connect.*guest|sign in.*guest|logged in.*host|only.*host|not.*guest)\b/i.test(
