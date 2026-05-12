@@ -23,7 +23,7 @@ Production testers can add the public Hostr Codex marketplace from the default `
 codex plugin marketplace add sudonym-btc/hostr-codex
 ```
 
-The `main` branch exposes only `hostr-production`. The `development` branch exposes `hostr-development`, `hostr-staging`, and `hostr-production` for local debugging:
+The `main` branch exposes only `hostr`. The `development` branch exposes `hostr-development`, `hostr-staging`, and `hostr` for local debugging:
 
 ```sh
 codex plugin marketplace add sudonym-btc/hostr-codex@development
