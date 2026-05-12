@@ -26,12 +26,13 @@ class ReservationActions {
 
     final escrowReservations = allReservations ?? reservations;
 
-    final hasUsedEscrow = escrowReservations.any(
-      (reservation) =>
-          reservation.proof?.escrowProof != null ||
-          reservation.parsedTags.getTagValueByMarker('p', 'escrow') != null,
-    );
-
+    final hasEscrowReservation = escrowReservations.any((reservation) {
+      final escrowPubkey = reservation.parsedTags.getTagValueByMarker(
+        'p',
+        'escrow',
+      );
+      return escrowPubkey != null && escrowPubkey.isNotEmpty;
+    });
     final hasTerminalReservationState =
         reservationStatus == ReservationStatus.cancelled ||
         reservationStatus == ReservationStatus.invalid ||
@@ -40,7 +41,7 @@ class ReservationActions {
       actions.add(TradeAction.cancel);
     }
 
-    if (hasUsedEscrow) {
+    if (hasEscrowReservation) {
       actions.add(TradeAction.messageEscrow);
     }
 

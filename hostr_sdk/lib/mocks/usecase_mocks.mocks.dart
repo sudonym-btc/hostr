@@ -1659,6 +1659,15 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i29.Stream<_i10.Reservation>);
 
   @override
+  _i29.Future<void> beforeUpsert(_i10.Reservation? event) =>
+      (super.noSuchMethod(
+            Invocation.method(#beforeUpsert, [event]),
+            returnValue: _i29.Future<void>.value(),
+            returnValueForMissingStub: _i29.Future<void>.value(),
+          )
+          as _i29.Future<void>);
+
+  @override
   _i29.Future<List<_i10.Reservation>> getByTradeId(String? tradeId) =>
       (super.noSuchMethod(
             Invocation.method(#getByTradeId, [tradeId]),
@@ -1982,15 +1991,6 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
     Invocation.method(#notifyUpdate, [event]),
     returnValueForMissingStub: null,
   );
-
-  @override
-  _i29.Future<void> beforeUpsert(_i10.Reservation? event) =>
-      (super.noSuchMethod(
-            Invocation.method(#beforeUpsert, [event]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
-          )
-          as _i29.Future<void>);
 
   @override
   _i29.Future<void> afterUpsert(_i9.UpsertResult<_i10.Reservation>? result) =>
@@ -3334,6 +3334,14 @@ class MockMessaging extends _i1.Mock implements _i13.Messaging {
           as _i29.Future<_i6.Nip01Event>);
 
   @override
+  _i29.Future<List<String>> recipientMessageRelays(String? recipientPubkey) =>
+      (super.noSuchMethod(
+            Invocation.method(#recipientMessageRelays, [recipientPubkey]),
+            returnValue: _i29.Future<List<String>>.value(<String>[]),
+          )
+          as _i29.Future<List<String>>);
+
+  @override
   _i29.Future<_i6.Nip01Event> broadcastTextAndAwait({
     required String? content,
     required List<List<String>>? tags,
@@ -3491,12 +3499,21 @@ class MockReservationRequests extends _i1.Mock
       (super.noSuchMethod(Invocation.getter(#kind), returnValue: 0) as int);
 
   @override
-  _i29.Stream<_i6.Nip01Event> get updates =>
+  _i29.Stream<_i10.Reservation> get updates =>
       (super.noSuchMethod(
             Invocation.getter(#updates),
-            returnValue: _i29.Stream<_i6.Nip01Event>.empty(),
+            returnValue: _i29.Stream<_i10.Reservation>.empty(),
           )
-          as _i29.Stream<_i6.Nip01Event>);
+          as _i29.Stream<_i10.Reservation>);
+
+  @override
+  _i29.Future<void> beforeUpsert(_i10.Reservation? event) =>
+      (super.noSuchMethod(
+            Invocation.method(#beforeUpsert, [event]),
+            returnValue: _i29.Future<void>.value(),
+            returnValueForMissingStub: _i29.Future<void>.value(),
+          )
+          as _i29.Future<void>);
 
   @override
   _i29.Future<_i10.Reservation> createReservationRequest({
@@ -3577,22 +3594,13 @@ class MockReservationRequests extends _i1.Mock
           as _i29.Future<_i10.Reservation>);
 
   @override
-  void notifyUpdate(_i6.Nip01Event? event) => super.noSuchMethod(
+  void notifyUpdate(_i10.Reservation? event) => super.noSuchMethod(
     Invocation.method(#notifyUpdate, [event]),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i29.Future<void> beforeUpsert(_i6.Nip01Event? event) =>
-      (super.noSuchMethod(
-            Invocation.method(#beforeUpsert, [event]),
-            returnValue: _i29.Future<void>.value(),
-            returnValueForMissingStub: _i29.Future<void>.value(),
-          )
-          as _i29.Future<void>);
-
-  @override
-  _i29.Future<void> afterUpsert(_i9.UpsertResult<_i6.Nip01Event>? result) =>
+  _i29.Future<void> afterUpsert(_i9.UpsertResult<_i10.Reservation>? result) =>
       (super.noSuchMethod(
             Invocation.method(#afterUpsert, [result]),
             returnValue: _i29.Future<void>.value(),
@@ -3601,32 +3609,32 @@ class MockReservationRequests extends _i1.Mock
           as _i29.Future<void>);
 
   @override
-  _i7.StreamWithStatus<_i6.Nip01Event> subscribe(
+  _i7.StreamWithStatus<_i10.Reservation> subscribe(
     _i6.Filter? f, {
     String? name,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#subscribe, [f], {#name: name}),
-            returnValue: _FakeStreamWithStatus_6<_i6.Nip01Event>(
+            returnValue: _FakeStreamWithStatus_6<_i10.Reservation>(
               this,
               Invocation.method(#subscribe, [f], {#name: name}),
             ),
           )
-          as _i7.StreamWithStatus<_i6.Nip01Event>);
+          as _i7.StreamWithStatus<_i10.Reservation>);
 
   @override
-  _i7.StreamWithStatus<_i6.Nip01Event> query(_i6.Filter? f, {String? name}) =>
+  _i7.StreamWithStatus<_i10.Reservation> query(_i6.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#query, [f], {#name: name}),
-            returnValue: _FakeStreamWithStatus_6<_i6.Nip01Event>(
+            returnValue: _FakeStreamWithStatus_6<_i10.Reservation>(
               this,
               Invocation.method(#query, [f], {#name: name}),
             ),
           )
-          as _i7.StreamWithStatus<_i6.Nip01Event>);
+          as _i7.StreamWithStatus<_i10.Reservation>);
 
   @override
-  _i8.ExpandableSubscription<_i6.Nip01Event> expandableSubscribe(
+  _i8.ExpandableSubscription<_i10.Reservation> expandableSubscribe(
     _i7.StreamWithStatus<_i6.Filter>? filterSource, {
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
@@ -3637,7 +3645,7 @@ class MockReservationRequests extends _i1.Mock
               [filterSource],
               {#name: name, #debounceDuration: debounceDuration},
             ),
-            returnValue: _FakeExpandableSubscription_11<_i6.Nip01Event>(
+            returnValue: _FakeExpandableSubscription_11<_i10.Reservation>(
               this,
               Invocation.method(
                 #expandableSubscribe,
@@ -3646,10 +3654,10 @@ class MockReservationRequests extends _i1.Mock
               ),
             ),
           )
-          as _i8.ExpandableSubscription<_i6.Nip01Event>);
+          as _i8.ExpandableSubscription<_i10.Reservation>);
 
   @override
-  _i8.ExpandableSubscription<_i6.Nip01Event> createExpandable({
+  _i8.ExpandableSubscription<_i10.Reservation> createExpandable({
     required String? name,
     Duration? debounceDuration = const Duration(milliseconds: 500),
   }) =>
@@ -3658,7 +3666,7 @@ class MockReservationRequests extends _i1.Mock
               #name: name,
               #debounceDuration: debounceDuration,
             }),
-            returnValue: _FakeExpandableSubscription_11<_i6.Nip01Event>(
+            returnValue: _FakeExpandableSubscription_11<_i10.Reservation>(
               this,
               Invocation.method(#createExpandable, [], {
                 #name: name,
@@ -3666,11 +3674,11 @@ class MockReservationRequests extends _i1.Mock
               }),
             ),
           )
-          as _i8.ExpandableSubscription<_i6.Nip01Event>);
+          as _i8.ExpandableSubscription<_i10.Reservation>);
 
   @override
   _i29.Future<void> startExpandable(
-    _i8.ExpandableSubscription<_i6.Nip01Event>? subscription,
+    _i8.ExpandableSubscription<_i10.Reservation>? subscription,
     _i7.StreamWithStatus<_i6.Filter>? filterSource,
   ) =>
       (super.noSuchMethod(
@@ -3692,24 +3700,24 @@ class MockReservationRequests extends _i1.Mock
           as _i6.Filter);
 
   @override
-  _i29.Future<_i9.UpsertResult<_i6.Nip01Event>> upsert(
-    _i6.Nip01Event? event, {
+  _i29.Future<_i9.UpsertResult<_i10.Reservation>> upsert(
+    _i10.Reservation? event, {
     _i8.NostrEventSigner? signer,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#upsert, [event], {#signer: signer}),
-            returnValue: _i29.Future<_i9.UpsertResult<_i6.Nip01Event>>.value(
-              _FakeUpsertResult_13<_i6.Nip01Event>(
+            returnValue: _i29.Future<_i9.UpsertResult<_i10.Reservation>>.value(
+              _FakeUpsertResult_13<_i10.Reservation>(
                 this,
                 Invocation.method(#upsert, [event], {#signer: signer}),
               ),
             ),
           )
-          as _i29.Future<_i9.UpsertResult<_i6.Nip01Event>>);
+          as _i29.Future<_i9.UpsertResult<_i10.Reservation>>);
 
   @override
   _i29.Future<List<_i31.RelayBroadcastResponse>> delete(
-    _i6.Nip01Event? event,
+    _i10.Reservation? event,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#delete, [event]),
@@ -3720,17 +3728,17 @@ class MockReservationRequests extends _i1.Mock
           as _i29.Future<List<_i31.RelayBroadcastResponse>>);
 
   @override
-  _i29.Future<List<_i6.Nip01Event>> list(_i6.Filter? f, {String? name}) =>
+  _i29.Future<List<_i10.Reservation>> list(_i6.Filter? f, {String? name}) =>
       (super.noSuchMethod(
             Invocation.method(#list, [f], {#name: name}),
-            returnValue: _i29.Future<List<_i6.Nip01Event>>.value(
-              <_i6.Nip01Event>[],
+            returnValue: _i29.Future<List<_i10.Reservation>>.value(
+              <_i10.Reservation>[],
             ),
           )
-          as _i29.Future<List<_i6.Nip01Event>>);
+          as _i29.Future<List<_i10.Reservation>>);
 
   @override
-  _i29.Future<_i6.Nip01Event?> getOne(
+  _i29.Future<_i10.Reservation?> getOne(
     _i6.Filter? f, {
     bool? batch = true,
     bool? cacheRead = true,
@@ -3741,27 +3749,27 @@ class MockReservationRequests extends _i1.Mock
               [f],
               {#batch: batch, #cacheRead: cacheRead},
             ),
-            returnValue: _i29.Future<_i6.Nip01Event?>.value(),
+            returnValue: _i29.Future<_i10.Reservation?>.value(),
           )
-          as _i29.Future<_i6.Nip01Event?>);
+          as _i29.Future<_i10.Reservation?>);
 
   @override
-  _i29.Future<_i6.Nip01Event?> getOneByAnchor(String? anchor) =>
+  _i29.Future<_i10.Reservation?> getOneByAnchor(String? anchor) =>
       (super.noSuchMethod(
             Invocation.method(#getOneByAnchor, [anchor]),
-            returnValue: _i29.Future<_i6.Nip01Event?>.value(),
+            returnValue: _i29.Future<_i10.Reservation?>.value(),
           )
-          as _i29.Future<_i6.Nip01Event?>);
+          as _i29.Future<_i10.Reservation?>);
 
   @override
-  _i29.Future<_i6.Nip01Event> getById(String? id) =>
+  _i29.Future<_i10.Reservation> getById(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getById, [id]),
-            returnValue: _i29.Future<_i6.Nip01Event>.value(
-              _FakeNip01Event_4(this, Invocation.method(#getById, [id])),
+            returnValue: _i29.Future<_i10.Reservation>.value(
+              _FakeReservation_29(this, Invocation.method(#getById, [id])),
             ),
           )
-          as _i29.Future<_i6.Nip01Event>);
+          as _i29.Future<_i10.Reservation>);
 
   @override
   _i29.Future<int> count() =>
@@ -3772,14 +3780,14 @@ class MockReservationRequests extends _i1.Mock
           as _i29.Future<int>);
 
   @override
-  _i29.Future<List<_i6.Nip01Event>> findByTag(String? tag, String? value) =>
+  _i29.Future<List<_i10.Reservation>> findByTag(String? tag, String? value) =>
       (super.noSuchMethod(
             Invocation.method(#findByTag, [tag, value]),
-            returnValue: _i29.Future<List<_i6.Nip01Event>>.value(
-              <_i6.Nip01Event>[],
+            returnValue: _i29.Future<List<_i10.Reservation>>.value(
+              <_i10.Reservation>[],
             ),
           )
-          as _i29.Future<List<_i6.Nip01Event>>);
+          as _i29.Future<List<_i10.Reservation>>);
 }
 
 /// A class which mocks [Payments].

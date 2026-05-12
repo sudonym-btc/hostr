@@ -195,6 +195,13 @@ class EscrowVerification {
     final expected = expectedAmount.expectedAmount;
     final denomination = expected.denomination;
 
+    final bindingError = _verifyFundedEventBinding(
+      fundedEvent: fundedEvent,
+      escrowProof: escrowProof,
+      onChainAmount: onChainAmount,
+    );
+    if (bindingError != null) return bindingError;
+
     // Verify the host accepts this on-chain token for the denomination.
     if (!escrowProof.hostsEscrowMethods.acceptsToken(
       denomination,
@@ -256,17 +263,17 @@ class EscrowVerification {
     }
 
     // ── Max claim period verification ─────────────────────────────────
-    // Ensure the on-chain unlockAt does not exceed the reservation end
+    // Ensure the on-chain unlockAt matches the committed reservation end
     // date plus the listing's maxDisputePeriod.
     final reservationEnd = reservation.end;
     if (reservationEnd != null) {
       final maxDisputePeriod = proof.listing.maxDisputePeriod;
-      final maxUnlockAt =
+      final expectedUnlockAt =
           reservationEnd.millisecondsSinceEpoch ~/ 1000 + maxDisputePeriod;
-      if (fundedEvent.unlockAt > maxUnlockAt) {
+      if (fundedEvent.unlockAt != expectedUnlockAt) {
         return EscrowVerificationResult.invalid(
-          'Escrow unlockAt (${fundedEvent.unlockAt}) exceeds reservation end '
-          '+ maxDisputePeriod ($maxUnlockAt)',
+          'Escrow unlockAt (${fundedEvent.unlockAt}) does not match '
+          'reservation end + maxDisputePeriod ($expectedUnlockAt)',
         );
       }
     }
@@ -280,4 +287,122 @@ class EscrowVerification {
 
     return EscrowVerificationResult.valid(fundedEvent: fundedEvent);
   }
+
+  EscrowVerificationResult? _verifyFundedEventBinding({
+    required EscrowFundedEvent fundedEvent,
+    required EscrowProof escrowProof,
+    required TokenAmount onChainAmount,
+  }) {
+    final service = escrowProof.escrowService;
+
+    if (fundedEvent.chainId != service.chainId) {
+      return EscrowVerificationResult.invalid(
+        'Escrow funding chain ${fundedEvent.chainId} does not match selected '
+        'service chain ${service.chainId}',
+      );
+    }
+    if (escrowProof.chainId != null &&
+        escrowProof.chainId != fundedEvent.chainId) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof chain ${escrowProof.chainId} does not match funding '
+        'event chain ${fundedEvent.chainId}',
+      );
+    }
+
+    if (!_sameAddress(fundedEvent.contractAddress, service.contractAddress)) {
+      return EscrowVerificationResult.invalid(
+        'Escrow funding contract ${fundedEvent.contractAddress} does not match '
+        'selected service contract ${service.contractAddress}',
+      );
+    }
+    if (escrowProof.contractAddress != null &&
+        !_sameAddress(
+          escrowProof.contractAddress!,
+          fundedEvent.contractAddress,
+        )) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof contract ${escrowProof.contractAddress} does not match '
+        'funding event contract ${fundedEvent.contractAddress}',
+      );
+    }
+
+    final arbiter = fundedEvent.arbiter?.eip55With0x;
+    if (arbiter == null || !_sameAddress(arbiter, service.evmAddress)) {
+      return EscrowVerificationResult.invalid(
+        'Escrow funding arbiter ${arbiter ?? 'missing'} does not match '
+        'selected service arbiter ${service.evmAddress}',
+      );
+    }
+    if (escrowProof.arbiterEvmAddress != null &&
+        !_sameAddress(escrowProof.arbiterEvmAddress!, arbiter)) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof arbiter ${escrowProof.arbiterEvmAddress} does not match '
+        'funding event arbiter $arbiter',
+      );
+    }
+
+    final seller = fundedEvent.seller?.eip55With0x;
+    if (escrowProof.sellerEvmAddress != null &&
+        (seller == null ||
+            !_sameAddress(escrowProof.sellerEvmAddress!, seller))) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof seller ${escrowProof.sellerEvmAddress} does not match '
+        'funding event seller ${seller ?? 'missing'}',
+      );
+    }
+
+    final buyer = fundedEvent.buyer?.eip55With0x;
+    if (escrowProof.buyerEvmAddress != null &&
+        (buyer == null || !_sameAddress(escrowProof.buyerEvmAddress!, buyer))) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof buyer ${escrowProof.buyerEvmAddress} does not match '
+        'funding event buyer ${buyer ?? 'missing'}',
+      );
+    }
+
+    if (escrowProof.tokenTagId != null &&
+        AcceptedPaymentForm.canonicalTokenTagId(escrowProof.tokenTagId!) !=
+            AcceptedPaymentForm.canonicalTokenTagId(
+              onChainAmount.token.tagId,
+            )) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof token ${escrowProof.tokenTagId} does not match funding '
+        'event token ${onChainAmount.token.tagId}',
+      );
+    }
+
+    if (escrowProof.unlockAt != null &&
+        escrowProof.unlockAt != fundedEvent.unlockAt) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof unlockAt ${escrowProof.unlockAt} does not match funding '
+        'event unlockAt ${fundedEvent.unlockAt}',
+      );
+    }
+
+    final tokenAddress = onChainAmount.token.isERC20
+        ? onChainAmount.token.address
+        : 'native';
+    final expectedFee = service.escrowFee(
+      onChainAmount.value,
+      tokenAddress: tokenAddress,
+    );
+    final actualFee = fundedEvent.escrowFee?.value ?? BigInt.zero;
+    if (actualFee != expectedFee) {
+      return EscrowVerificationResult.invalid(
+        'Escrow fee $actualFee does not match selected service fee '
+        '$expectedFee',
+      );
+    }
+    if (escrowProof.escrowFee != null && escrowProof.escrowFee != actualFee) {
+      return EscrowVerificationResult.invalid(
+        'Escrow proof fee ${escrowProof.escrowFee} does not match funding '
+        'event fee $actualFee',
+      );
+    }
+
+    return null;
+  }
+
+  bool _sameAddress(String left, String right) =>
+      left.toLowerCase() == right.toLowerCase();
 }

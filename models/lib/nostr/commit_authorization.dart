@@ -16,6 +16,14 @@ class CommitAuthorizationTags extends EventTags
 class CommitAuthorization extends JsonContentNostrEvent<
     CommitAuthorizationContent, CommitAuthorizationTags> {
   static const List<int> kinds = [kNostrKindCommitAuthorization];
+  static const String reservationCommitHashAlg = 'sha256';
+  static const List<String> reservationCommittedFields = [
+    'amount',
+    'end',
+    'quantity',
+    'recipient',
+    'start',
+  ];
   static final EventTagsParser<CommitAuthorizationTags> _tagParser =
       CommitAuthorizationTags.new;
   static final EventContentParser<CommitAuthorizationContent> _contentParser =
@@ -23,6 +31,8 @@ class CommitAuthorization extends JsonContentNostrEvent<
 
   String get commitHash => parsedContent.commitHash;
   String get role => parsedContent.role;
+  String get hashAlg => parsedContent.hashAlg;
+  List<String> get committedFields => parsedContent.committedFields;
   String? get tradeId => parsedTags.tradeId;
   String get listingAnchor => parsedTags.listingAnchor;
 
@@ -63,6 +73,8 @@ class CommitAuthorization extends JsonContentNostrEvent<
       content: CommitAuthorizationContent(
         commitHash: commitHash,
         role: role,
+        hashAlg: reservationCommitHashAlg,
+        committedFields: reservationCommittedFields,
       ),
       createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
@@ -73,6 +85,8 @@ class CommitAuthorization extends JsonContentNostrEvent<
     required String listingAnchor,
     required String tradeId,
     required String commitHash,
+    Iterable<String> committedFields = reservationCommittedFields,
+    String hashAlg = reservationCommitHashAlg,
     String role = 'seller',
   }) {
     if (pubKey != authorPubkey) return false;
@@ -80,7 +94,24 @@ class CommitAuthorization extends JsonContentNostrEvent<
     if (this.listingAnchor != listingAnchor) return false;
     if (this.tradeId != tradeId) return false;
     if (this.commitHash != commitHash) return false;
+    if (this.hashAlg != hashAlg) return false;
+    if (!_sameCommittedFields(this.committedFields, committedFields)) {
+      return false;
+    }
     if (this.role != role) return false;
+    return true;
+  }
+
+  static bool _sameCommittedFields(
+    Iterable<String> left,
+    Iterable<String> right,
+  ) {
+    final a = left.toSet().toList()..sort();
+    final b = right.toSet().toList()..sort();
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
     return true;
   }
 }
@@ -89,18 +120,25 @@ class CommitAuthorizationContent extends EventContent {
   final int version;
   final String commitHash;
   final String role;
+  final String hashAlg;
+  final List<String> committedFields;
 
   CommitAuthorizationContent({
     this.version = 1,
     required this.commitHash,
     required this.role,
-  });
+    this.hashAlg = CommitAuthorization.reservationCommitHashAlg,
+    Iterable<String> committedFields =
+        CommitAuthorization.reservationCommittedFields,
+  }) : committedFields = (committedFields.toSet().toList()..sort());
 
   @override
   Map<String, dynamic> toJson() {
     return {
       'version': version,
       'commitHash': commitHash,
+      'hashAlg': hashAlg,
+      'committedFields': committedFields,
       'role': role,
     };
   }
@@ -110,6 +148,11 @@ class CommitAuthorizationContent extends EventContent {
       version: json['version'] as int? ?? 1,
       commitHash: json['commitHash'] as String,
       role: json['role'] as String? ?? 'seller',
+      hashAlg: json['hashAlg'] as String? ??
+          CommitAuthorization.reservationCommitHashAlg,
+      committedFields: (json['committedFields'] as List<dynamic>?)
+              ?.map((e) => e.toString()) ??
+          CommitAuthorization.reservationCommittedFields,
     );
   }
 }

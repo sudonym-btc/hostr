@@ -767,21 +767,20 @@ class _SwapActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.delete_forever),
-          tooltip: 'Delete swap',
-          color: Theme.of(context).colorScheme.error,
-          onPressed: () => _confirmDeleteSwap(
+    return _SwapTxMenu(
+      items: [
+        ...menuItems,
+        _SwapTxMenuItem.action(
+          label: 'Delete',
+          icon: Icons.delete_forever,
+          destructive: true,
+          onSelected: (context) => _confirmDeleteSwap(
             context,
             namespace: namespace,
             storeId: storeId,
             trackerKey: trackerKey,
           ),
         ),
-        _SwapTxMenu(items: menuItems),
       ],
     );
   }
@@ -853,6 +852,13 @@ class _SwapTxMenuItem {
     : icon = Icons.open_in_new,
       destructive = false,
       onSelected = null;
+
+  const _SwapTxMenuItem.action({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.destructive = false,
+  }) : uri = null;
 }
 
 Future<void> _confirmDeleteSwap(

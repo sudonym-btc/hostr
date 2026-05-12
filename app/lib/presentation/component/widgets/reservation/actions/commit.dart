@@ -102,15 +102,15 @@ class CommitMenu extends StatelessWidget {
                 ),
               );
             case TradeAction.messageEscrow:
-              final escrowPubkey = trade.getEscrowPubkey();
-              if (escrowPubkey == null) return null;
+              final commitStage = tradeState.stage;
+              if (commitStage is! CommitStage) return null;
+              final escrowPubkey = commitStage.reservationGroup.escrowPubkey;
+              if (escrowPubkey == null || escrowPubkey.isEmpty) return null;
               return (
                 label: 'Message Escrow',
                 icon: Icons.support_agent_outlined,
                 onTap: () async {
-                  final plan = await trade.resolveEscrowThread(
-                    tradeThread: context.read<Thread>(),
-                  );
+                  final plan = await trade.resolveEscrowThread();
                   if (!context.mounted) return;
                   AutoRouter.of(
                     context,

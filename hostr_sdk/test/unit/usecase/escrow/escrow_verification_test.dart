@@ -13,7 +13,7 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:test/test.dart';
-import 'package:wallet/wallet.dart' show BlockInformation;
+import 'package:wallet/wallet.dart' show BlockInformation, EthereumAddress;
 import 'package:web3dart/web3dart.dart' show GeneratedContract;
 
 final _f = EntityFactory();
@@ -129,7 +129,11 @@ EscrowMethod _escrowMethod({
     ['c', escrowService.contractBytecodeHash],
     ['p', escrowService.pubKey],
     if (includeAcceptedToken)
-      [kAcceptedPaymentFormTag, 'BTC', Token.native(30).tagId],
+      [
+        kAcceptedPaymentFormTag,
+        'BTC',
+        Token.native(escrowService.chainId).tagId,
+      ],
   ];
   final event = Nip01Utils.signWithPrivateKey(
     event: Nip01Event(
@@ -216,24 +220,45 @@ EscrowFundedEvent _fundedEvent({
   required String txHash,
   required int amountSats,
   int? bondAmountSats,
-  int unlockAt = 0,
+  int? unlockAt,
 }) {
+  final amount = rbtcFromSats(BigInt.from(amountSats), chainId: 412346);
   return EscrowFundedEvent(
     tradeId: tradeId,
     blockNum: 1,
     block: BlockInformation(baseFeePerGas: null, timestamp: DateTime.utc(2026)),
     transactionHash: txHash,
     chainId: 412346,
-    contractAddress: '0x0000000000000000000000000000000000000001',
+    contractAddress: '0x000000000000000000000000000000000000dEaD',
     transactionIndex: 0,
     logIndex: 0,
-    amount: rbtcFromSats(BigInt.from(amountSats)),
+    amount: amount,
     bondAmount: bondAmountSats != null
-        ? rbtcFromSats(BigInt.from(bondAmountSats))
+        ? rbtcFromSats(BigInt.from(bondAmountSats), chainId: 412346)
         : null,
-    unlockAt: unlockAt,
+    unlockAt: unlockAt ?? _defaultUnlockAt(),
+    buyer: EthereumAddress.fromHex(
+      '0x000000000000000000000000000000000000b0b0',
+    ),
+    seller: EthereumAddress.fromHex(
+      '0x000000000000000000000000000000000000cafe',
+    ),
+    arbiter: EthereumAddress.fromHex(
+      '0x000000000000000000000000000000000000bEEF',
+    ),
+    tokenAddress: EthereumAddress.fromHex(
+      '0x0000000000000000000000000000000000000000',
+    ),
+    escrowFee: TokenAmount(
+      value: amount.value ~/ BigInt.from(100),
+      token: amount.token,
+    ),
   );
 }
+
+int _defaultUnlockAt() =>
+    DateTime(2026, 3, 2).millisecondsSinceEpoch ~/ 1000 +
+    ListingTagRead.defaultMaxDisputePeriod;
 
 void main() {
   test(
@@ -710,7 +735,7 @@ void main() {
   );
 
   test(
-    'valid when unlockAt is before reservation end (within claim period)',
+    'invalid when unlockAt is before reservation end plus dispute period',
     () async {
       final endUnix =
           DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
@@ -739,7 +764,8 @@ void main() {
 
       final result = await verification.verify(reservation: reservation);
 
-      expect(result.isValid, isTrue);
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('unlockAt'));
     },
   );
 }

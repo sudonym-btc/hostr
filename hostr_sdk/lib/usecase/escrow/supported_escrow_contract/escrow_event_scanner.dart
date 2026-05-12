@@ -574,6 +574,16 @@ class EscrowEventScanner {
                 )
               : null,
           unlockAt: tradeCreated.unlockAt.toInt(),
+          buyer: tradeCreated.buyer,
+          seller: tradeCreated.seller,
+          arbiter: tradeCreated.arbiter,
+          tokenAddress: tradeCreated.token,
+          escrowFee: tradeCreated.escrowFee > BigInt.zero
+              ? await _tokenAmountFromEvent(
+                  tradeCreated.token,
+                  tradeCreated.escrowFee,
+                )
+              : null,
         );
       case 'Arbitrated':
         final arb = Arbitrated(_decodeEvent('Arbitrated', log), log);

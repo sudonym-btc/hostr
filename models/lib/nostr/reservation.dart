@@ -259,6 +259,7 @@ class Reservation
       listingAnchor: parsedTags.listingAnchor,
       tradeId: tradeId,
       commitHash: commitHash(),
+      committedFields: parsedContent.committedFields,
     );
   }
 
@@ -806,17 +807,42 @@ class EscrowProof {
 
   final EscrowService escrowService;
   final EscrowMethod hostsEscrowMethods;
+  final String? buyerEvmAddress;
+  final String? sellerEvmAddress;
+  final String? arbiterEvmAddress;
+  final String? contractAddress;
+  final int? chainId;
+  final String? tokenTagId;
+  final int? unlockAt;
+  final BigInt? escrowFee;
 
-  EscrowProof(
-      {required this.txHash,
-      required this.hostsEscrowMethods,
-      required this.escrowService});
+  EscrowProof({
+    required this.txHash,
+    required this.hostsEscrowMethods,
+    required this.escrowService,
+    this.buyerEvmAddress,
+    this.sellerEvmAddress,
+    this.arbiterEvmAddress,
+    this.contractAddress,
+    this.chainId,
+    this.tokenTagId,
+    this.unlockAt,
+    this.escrowFee,
+  });
 
   toJson() {
     return {
       "txHash": txHash,
       "escrowService": escrowService.toString(),
       "hostsEscrowMethods": hostsEscrowMethods.toString(),
+      if (buyerEvmAddress != null) "buyerEvmAddress": buyerEvmAddress,
+      if (sellerEvmAddress != null) "sellerEvmAddress": sellerEvmAddress,
+      if (arbiterEvmAddress != null) "arbiterEvmAddress": arbiterEvmAddress,
+      if (contractAddress != null) "contractAddress": contractAddress,
+      if (chainId != null) "chainId": chainId,
+      if (tokenTagId != null) "tokenTagId": tokenTagId,
+      if (unlockAt != null) "unlockAt": unlockAt,
+      if (escrowFee != null) "escrowFee": escrowFee.toString(),
     };
   }
 
@@ -827,6 +853,16 @@ class EscrowProof {
       txHash: json['txHash'],
       hostsEscrowMethods: EscrowMethod.fromNostrEvent(
           Nip01EventModel.fromJson(jsonDecode(json["hostsEscrowMethods"]))),
+      buyerEvmAddress: json['buyerEvmAddress'] as String?,
+      sellerEvmAddress: json['sellerEvmAddress'] as String?,
+      arbiterEvmAddress: json['arbiterEvmAddress'] as String?,
+      contractAddress: json['contractAddress'] as String?,
+      chainId: json['chainId'] as int?,
+      tokenTagId: json['tokenTagId'] as String?,
+      unlockAt: json['unlockAt'] as int?,
+      escrowFee: json['escrowFee'] != null
+          ? BigInt.parse(json['escrowFee'].toString())
+          : null,
     );
   }
 }

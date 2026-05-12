@@ -19,6 +19,7 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:test/test.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
 
 class _FakeAuth extends Fake implements Auth {
   @override
@@ -163,6 +164,19 @@ EscrowFundedEvent _fundedEvent(String tradeId) {
     logIndex: 0,
     amount: TokenAmount(value: BigInt.one, token: Token.native(30)),
     unlockAt: 0,
+    buyer: EthereumAddress.fromHex(
+      '0x000000000000000000000000000000000000b0b0',
+    ),
+    seller: EthereumAddress.fromHex(
+      '0x000000000000000000000000000000000000cafe',
+    ),
+    arbiter: EthereumAddress.fromHex(
+      '0x000000000000000000000000000000000000bEEF',
+    ),
+    tokenAddress: EthereumAddress.fromHex(
+      '0x0000000000000000000000000000000000000000',
+    ),
+    escrowFee: TokenAmount(value: BigInt.zero, token: Token.native(30)),
   );
 }
 

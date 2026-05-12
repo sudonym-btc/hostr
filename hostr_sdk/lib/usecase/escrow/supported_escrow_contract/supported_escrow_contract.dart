@@ -350,6 +350,11 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
 
   /// The unix timestamp (seconds) after which the buyer can claim back funds.
   final int unlockAt;
+  final EthereumAddress? buyer;
+  final EthereumAddress? seller;
+  final EthereumAddress? arbiter;
+  final EthereumAddress? tokenAddress;
+  final TokenAmount? escrowFee;
 
   EscrowFundedEvent({
     required super.tradeId,
@@ -366,6 +371,11 @@ class EscrowFundedEvent extends EscrowEvent implements PaymentFundedEvent {
     required this.amount,
     this.bondAmount,
     required this.unlockAt,
+    this.buyer,
+    this.seller,
+    this.arbiter,
+    this.tokenAddress,
+    this.escrowFee,
   });
 }
 
