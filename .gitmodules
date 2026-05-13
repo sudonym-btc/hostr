@@ -18,3 +18,6 @@
 	path = ai/codex-marketplace
 	url = git@github.com:sudonym-btc/hostr-codex.git
 	branch = development
+[submodule "dependencies/nips/marketplace-listing-nip"]
+	path = dependencies/nips/marketplace-listing-nip
+	url = git@github.com:sudonym-btc/marketplace-listing-nip.git
