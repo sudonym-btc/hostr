@@ -15,7 +15,15 @@ import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Ndk;
+import 'package:ndk/ndk.dart'
+    show
+        Filter,
+        MemCacheManager,
+        Metadata,
+        Metadatas,
+        Ndk,
+        NdkConfig,
+        Nip01Event;
 import 'package:test/test.dart';
 
 class _FakeNdk extends Fake implements Ndk {}
@@ -50,6 +58,17 @@ class _NoopIdentityClaimsUseCase extends Fake implements IdentityClaimsUseCase {
 
 class _FakeHostrConfig extends Fake implements HostrConfig {}
 
+class _MetadataDiscoveryHostrConfig extends Fake implements HostrConfig {
+  @override
+  String get hostrRelay => 'wss://relay-a.test';
+
+  @override
+  List<String> get bootstrapRelays => const [
+    'wss://relay-b.test',
+    'wss://relay-c.test',
+  ];
+}
+
 class _SellerConfigHostrConfig extends Fake implements HostrConfig {
   @override
   String get hostrRelay => '';
@@ -59,6 +78,74 @@ class _SellerConfigHostrConfig extends Fake implements HostrConfig {
 }
 
 class _FakeRequests extends Fake implements Requests {}
+
+class _MetadataDiscoveryRequests extends Fake implements Requests {
+  _MetadataDiscoveryRequests(this.eventsByRelay);
+
+  final Map<String, List<ProfileMetadata>> eventsByRelay;
+  final relayCalls = <List<String>>[];
+  final cacheReadValues = <bool>[];
+
+  @override
+  Stream<T> query<T extends Nip01Event>({
+    required Filter filter,
+    List<String>? relays,
+    Duration? timeout,
+    String? name,
+    bool cacheRead = true,
+    bool cacheWrite = true,
+  }) {
+    relayCalls.add(relays ?? const []);
+    cacheReadValues.add(cacheRead);
+    final relay = relays == null || relays.length != 1 ? null : relays.single;
+    final events = relay == null
+        ? const <ProfileMetadata>[]
+        : eventsByRelay[relay] ?? const <ProfileMetadata>[];
+    return Stream<T>.fromIterable(events.cast<T>());
+  }
+}
+
+class _RecordingRelays extends Fake implements Relays {
+  _RecordingRelays(this.connectedByRelay);
+
+  final Map<String, bool> connectedByRelay;
+  final ensureCalls = <String>[];
+
+  @override
+  Future<bool> ensureConnected(
+    String url, {
+    Duration timeout = const Duration(seconds: 10),
+    Duration pollInterval = const Duration(milliseconds: 200),
+  }) async {
+    ensureCalls.add(url);
+    return connectedByRelay[url] ?? false;
+  }
+}
+
+class _NullMetadatas extends Fake implements Metadatas {
+  @override
+  Future<Metadata?> loadMetadata(
+    String pubKey, {
+    bool forceRefresh = false,
+    Duration idleTimeout = const Duration(seconds: 5),
+  }) async {
+    return null;
+  }
+}
+
+class _MetadataDiscoveryNdk extends Fake implements Ndk {
+  final _metadata = _NullMetadatas();
+  final _config = NdkConfig(
+    eventVerifier: const TrustAllEventVerifier(),
+    cache: MemCacheManager(),
+  );
+
+  @override
+  Metadatas get metadata => _metadata;
+
+  @override
+  NdkConfig get config => _config;
+}
 
 class _RecordingEscrowMethods extends Fake implements EscrowMethods {
   int ensureCalls = 0;
@@ -134,6 +221,49 @@ void main() {
   });
 
   group('MetadataUseCase.loadMetadata', () {
+    test(
+      'queries connected discovery relays individually and keeps latest profile',
+      () async {
+        final relays = _RecordingRelays({
+          'wss://relay-a.test': true,
+          'wss://relay-b.test': false,
+          'wss://relay-c.test': true,
+        });
+        final requests = _MetadataDiscoveryRequests({
+          'wss://relay-a.test': [_profile('pubkey', name: 'Old', createdAt: 1)],
+          'wss://relay-c.test': [_profile('pubkey', name: 'New', createdAt: 2)],
+        });
+        final metadata = MetadataUseCase(
+          ndk: _MetadataDiscoveryNdk(),
+          relays: relays,
+          escrowMethods: _FakeEscrowMethods(),
+          blossom: _FakeBlossomUseCase(),
+          evm: _FakeEvm(),
+          identityClaims: _FakeIdentityClaimsUseCase(),
+          config: _MetadataDiscoveryHostrConfig(),
+          requests: requests,
+          logger: CustomLogger(),
+        );
+
+        final profile = await metadata.loadMetadataFromSources(
+          'pubkey',
+          forceRefresh: false,
+        );
+
+        expect(profile?.metadata.name, 'New');
+        expect(relays.ensureCalls, [
+          'wss://relay-a.test',
+          'wss://relay-b.test',
+          'wss://relay-c.test',
+        ]);
+        expect(requests.relayCalls, [
+          ['wss://relay-a.test'],
+          ['wss://relay-c.test'],
+        ]);
+        expect(requests.cacheReadValues, [false, false]);
+      },
+    );
+
     test(
       'shares concurrent loads for the same pubkey and refresh mode',
       () async {
@@ -236,4 +366,22 @@ void main() {
       expect(escrowMethods.bytecodeHashes, isEmpty);
     });
   });
+}
+
+ProfileMetadata _profile(
+  String pubkey, {
+  required String name,
+  required int createdAt,
+}) {
+  return ProfileMetadata.fromNostrEvent(
+    Nip01Event(
+      pubKey: pubkey,
+      createdAt: createdAt,
+      kind: Metadata.kKind,
+      tags: const [],
+      content: '{"name":"$name"}',
+      sig: 'sig',
+      id: 'id-$pubkey-$createdAt',
+    ),
+  );
 }

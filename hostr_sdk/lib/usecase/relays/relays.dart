@@ -262,6 +262,40 @@ class Relays {
         });
   }
 
+  Future<bool> ensureConnected(
+    String url, {
+    Duration timeout = const Duration(seconds: 10),
+    Duration pollInterval = const Duration(milliseconds: 200),
+  }) => _logger.span('ensureConnected', () async {
+    final relay = url.trim();
+    if (relay.isEmpty) return false;
+    if (_ndk.relays.isRelayConnected(relay)) return true;
+
+    final deadline = DateTime.now().add(timeout);
+    if (!_ndk.relays.isRelayConnecting(relay)) {
+      try {
+        await _ndk.relays.connectRelay(
+          dirtyUrl: relay,
+          connectionSource: ConnectionSource.explicit,
+          connectTimeout: timeout.inSeconds < 1 ? 1 : timeout.inSeconds,
+        );
+      } catch (error, stackTrace) {
+        _logger.w(
+          'Relay connection attempt failed for $relay',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (_ndk.relays.isRelayConnected(relay)) return true;
+      await Future.delayed(pollInterval);
+    }
+
+    return _ndk.relays.isRelayConnected(relay);
+  });
+
   /// Fetches the user's NIP-65 relay list into NDK's cache.
   ///
   /// NDK's JIT engine connects to the selected read/write relays on demand, so

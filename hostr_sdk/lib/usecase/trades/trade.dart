@@ -713,8 +713,7 @@ class Trade extends Cubit<TradeState> {
     return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
   });
 
-  Future<EscrowTradeThreadPlan> resolveEscrowThread({
-    Thread? tradeThread,
+  Future<Thread> resolveEscrowThread({
     Duration timeout = const Duration(seconds: 12),
   }) {
     return EscrowTradeThreadResolver(
@@ -724,11 +723,7 @@ class Trade extends Cubit<TradeState> {
       threads: _threads,
       tradeAccountAllocator: _tradeAccountAllocator,
       logger: _logger,
-    ).resolve(
-      tradeId: tradeId,
-      tradeThread: tradeThread ?? thread,
-      timeout: timeout,
-    );
+    ).resolve(tradeId: tradeId, timeout: timeout);
   }
 
   String _resolveNegotiationPubkey(List<Reservation> reservationRequests) {
