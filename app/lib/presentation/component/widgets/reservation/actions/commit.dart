@@ -163,9 +163,9 @@ class CommitMenu extends StatelessWidget {
       label: 'Message Escrow',
       icon: Icons.support_agent_outlined,
       onTap: () async {
-        final plan = await trade.resolveEscrowThread();
+        final thread = await trade.resolveEscrowThread();
         if (!context.mounted) return;
-        AutoRouter.of(context).push(ThreadRoute(anchor: plan.thread.anchor));
+        AutoRouter.of(context).push(ThreadRoute(anchor: thread.anchor));
       },
     );
   }

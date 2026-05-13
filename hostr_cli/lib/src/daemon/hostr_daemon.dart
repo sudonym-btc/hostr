@@ -2809,15 +2809,13 @@ class HostrDaemon {
           'Messaging escrow requires a concrete reservation tradeId so buyer, seller, and escrow are all included in the thread.',
         );
       }
-      final plan = await _resolveEscrowTradeThreadPlan(
+      thread = await _resolveEscrowTradeThread(
         hostr,
         activePubkey: activePubkey,
         tradeId: tradeId,
-        tradeThread: thread,
         timeout: Duration(seconds: input.timeoutSeconds),
       );
-      recipients = plan.recipientPubkeys;
-      thread = plan.thread;
+      recipients = _threadRecipients(thread, activePubkey);
     } else if (recipients.isEmpty && input.recipientRole != null) {
       final pubkey = await _pubkeyForThreadRole(
         hostr,
@@ -2901,15 +2899,21 @@ class HostrDaemon {
         'Messaging escrow requires a concrete reservation tradeId so buyer, seller, and escrow are all included in the thread.',
       );
     }
-    final tradeThread = _resolveThread(hostr, tradeId: tradeId);
-    final plan = await _resolveEscrowTradeThreadPlan(
+    final escrowThread = await _resolveEscrowTradeThread(
       hostr,
       activePubkey: activePubkey,
       tradeId: tradeId,
-      tradeThread: tradeThread,
       timeout: Duration(seconds: input.timeoutSeconds),
     );
-    final escrowThread = plan.thread;
+    final participants = await _escrowTradeParticipantsJson(session, tradeId);
+    final participantPubkeys =
+        participants?['participantPubkeys'] ??
+        _threadParticipantPubkeys(escrowThread);
+    final recipientPubkeys = _threadRecipients(escrowThread, activePubkey);
+    final roles = participants?['roles'];
+    final roleFields = roles == null
+        ? const <String, Object?>{}
+        : <String, Object?>{'roles': roles};
     final content = input.content;
     if (content == null || content.trim().isEmpty) {
       return {
@@ -2918,9 +2922,9 @@ class HostrDaemon {
         'message':
             'Escrow trade thread is open. Ask the user what they would like to message the escrow.',
         'tradeId': tradeId,
-        'participantPubkeys': plan.participantPubkeys,
-        'recipientPubkeys': plan.recipientPubkeys,
-        'roles': plan.rolePubkeys,
+        'participantPubkeys': participantPubkeys,
+        'recipientPubkeys': recipientPubkeys,
+        ...roleFields,
         'threadView': await _threadViewJson(
           hostr,
           escrowThread,
@@ -2934,9 +2938,9 @@ class HostrDaemon {
         'dryRun': true,
         'content': content,
         'tradeId': tradeId,
-        'participantPubkeys': plan.participantPubkeys,
-        'recipientPubkeys': plan.recipientPubkeys,
-        'roles': plan.rolePubkeys,
+        'participantPubkeys': participantPubkeys,
+        'recipientPubkeys': recipientPubkeys,
+        ...roleFields,
         'threadView': await _threadViewJson(
           hostr,
           escrowThread,
@@ -2952,9 +2956,9 @@ class HostrDaemon {
       'dryRun': false,
       'sentMessage': _sentTextEventJson(sentEvent, activePubkey: activePubkey),
       'tradeId': tradeId,
-      'participantPubkeys': plan.participantPubkeys,
-      'recipientPubkeys': plan.recipientPubkeys,
-      'roles': plan.rolePubkeys,
+      'participantPubkeys': participantPubkeys,
+      'recipientPubkeys': recipientPubkeys,
+      ...roleFields,
       'threadView': await _threadViewJson(
         hostr,
         escrowThread,
@@ -5202,20 +5206,16 @@ Future<String?> _pubkeyForThreadRole(
   };
 }
 
-Future<EscrowTradeThreadPlan> _resolveEscrowTradeThreadPlan(
+Future<Thread> _resolveEscrowTradeThread(
   Hostr hostr, {
   required String activePubkey,
   required String tradeId,
-  Thread? tradeThread,
   Duration timeout = const Duration(seconds: 12),
 }) async {
   try {
     final trade = hostr.trade(tradeId, [activePubkey]);
     try {
-      return await trade.resolveEscrowThread(
-        tradeThread: tradeThread,
-        timeout: timeout,
-      );
+      return await trade.resolveEscrowThread(timeout: timeout);
     } finally {
       await trade.close();
     }
@@ -5236,6 +5236,13 @@ List<String> _threadRecipients(Thread thread, String activePubkey) {
       ...thread.state.value.participantPubkeys,
     }.where((pubkey) => pubkey.isNotEmpty && pubkey != activePubkey).toList()
     ..sort();
+}
+
+List<String> _threadParticipantPubkeys(Thread thread) {
+  return {
+    ...thread.state.value.counterpartyPubkeys,
+    ...thread.state.value.participantPubkeys,
+  }.where((pubkey) => pubkey.isNotEmpty).toList()..sort();
 }
 
 Future<Map<String, Object?>> _threadProfileSummaries(

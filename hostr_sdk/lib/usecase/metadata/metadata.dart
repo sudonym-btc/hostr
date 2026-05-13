@@ -32,7 +32,12 @@ List<String> metadataDiscoveryRelays({
 
 @Singleton()
 class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
-  static const Duration metadataLoadTimeout = Duration(seconds: 40);
+  static const Duration metadataDiscoveryRelayConnectTimeout = Duration(
+    seconds: 10,
+  );
+  static const Duration metadataDiscoveryRelayQueryTimeout = Duration(
+    seconds: 12,
+  );
 
   final Ndk _ndk;
   final Relays _relays;
@@ -152,13 +157,11 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     );
     if (relays.isEmpty) return null;
 
+    final profiles = await Future.wait(
+      relays.map((relay) => _loadMetadataFromDiscoveryRelay(pubkey, relay)),
+    );
     ProfileMetadata? latest;
-    await for (final profile in requests.query<ProfileMetadata>(
-      filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
-      relays: relays,
-      name: 'metadata-discovery',
-      timeout: metadataLoadTimeout,
-    )) {
+    for (final profile in profiles.whereType<ProfileMetadata>()) {
       if (latest == null || latest.createdAt < profile.createdAt) {
         latest = profile;
       }
@@ -168,6 +171,40 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
       await _ndk.config.cache.saveMetadata(latest.metadata);
     }
     return latest;
+  }
+
+  Future<ProfileMetadata?> _loadMetadataFromDiscoveryRelay(
+    String pubkey,
+    String relay,
+  ) async {
+    try {
+      final connected = await _relays.ensureConnected(
+        relay,
+        timeout: metadataDiscoveryRelayConnectTimeout,
+      );
+      if (!connected) return null;
+
+      ProfileMetadata? latest;
+      await for (final profile in requests.query<ProfileMetadata>(
+        filter: Filter(kinds: [Metadata.kKind], authors: [pubkey], limit: 1),
+        relays: [relay],
+        name: 'metadata-discovery',
+        timeout: metadataDiscoveryRelayQueryTimeout,
+        cacheRead: false,
+      )) {
+        if (latest == null || latest.createdAt < profile.createdAt) {
+          latest = profile;
+        }
+      }
+      return latest;
+    } catch (error, stackTrace) {
+      logger.w(
+        'Failed to load metadata for $pubkey from $relay',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
   }
 
   /// Refreshes the cached NIP-65 relay list for [pubkey] from the network.
