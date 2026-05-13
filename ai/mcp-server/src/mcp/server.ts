@@ -7003,6 +7003,16 @@ const visibleActionIdsForClaims = async (
   return visibleActionIdsForPubkey(daemon, activePubkey, traceId);
 };
 
+const jsonRpcIdFromBody = (body: unknown): string | number | null => {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return null;
+  }
+  const id = (body as Record<string, unknown>).id;
+  return typeof id === "string" || typeof id === "number" || id === null
+    ? id
+    : null;
+};
+
 export const handleMcpRequest =
   (config: AppConfig, daemon: HostrDaemonClient) =>
   async (request: Request, response: Response) => {
@@ -7031,7 +7041,7 @@ export const handleMcpRequest =
       return;
     }
 
-    if (!sessionId && isInitializeRequest(request.body)) {
+    if (isInitializeRequest(request.body)) {
       const sessionStore = new McpSessionStore(config.oauthClientStorePath);
       let transport: StreamableHTTPServerTransport;
       transport = new StreamableHTTPServerTransport({
@@ -7077,13 +7087,25 @@ export const handleMcpRequest =
       return;
     }
 
+    if (sessionId) {
+      response.status(404).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: "Session not found",
+        },
+        id: jsonRpcIdFromBody(request.body),
+      });
+      return;
+    }
+
     response.status(400).json({
       jsonrpc: "2.0",
       error: {
         code: -32000,
         message: "Bad Request: No valid MCP session ID provided.",
       },
-      id: null,
+      id: jsonRpcIdFromBody(request.body),
     });
   };
 

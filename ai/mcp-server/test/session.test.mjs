@@ -180,6 +180,80 @@ test("ordinary Hostr tools are discoverable without MCP OAuth", async () => {
   }
 });
 
+test("stale MCP transport sessions return recoverable session-not-found errors", async () => {
+  const config = testConfig(tempDirectory());
+  const daemon = {
+    visibleActions: async () => ({ visibleActionIds: [] }),
+    callAction: async ({ action }) => ({
+      ok: true,
+      command: action,
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    logoutSession: async () => ({ ok: true }),
+    uploadImage: async () => ({
+      ok: true,
+      command: "hostr.upload.image",
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    onNotification: () => () => {},
+  };
+  const server = await startHttpServer(config, daemon);
+  const initializeRequest = (id) => ({
+    jsonrpc: "2.0",
+    id,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "hostr-stale-session-test", version: "1.0.0" },
+    },
+  });
+
+  try {
+    const initialized = await requestText(server, "/mcp", {
+      method: "POST",
+      headers: { accept: "application/json, text/event-stream" },
+      body: initializeRequest(1),
+    });
+    assert.equal(initialized.status, 200, initialized.text);
+    assert.ok(initialized.headers.get("mcp-session-id"));
+
+    const stale = await requestJson(server, "/mcp", {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "mcp-session-id": "stale-session-id",
+      },
+      body: { jsonrpc: "2.0", id: 99, method: "tools/list" },
+    });
+    assert.equal(stale.status, 404);
+    assert.equal(stale.body.id, 99);
+    assert.equal(stale.body.error.code, -32001);
+    assert.equal(stale.body.error.message, "Session not found");
+
+    const reinitialized = await requestText(server, "/mcp", {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "mcp-session-id": "stale-session-id",
+      },
+      body: initializeRequest(100),
+    });
+    assert.equal(reinitialized.status, 200, reinitialized.text);
+    assert.ok(reinitialized.headers.get("mcp-session-id"));
+    assert.notEqual(
+      reinitialized.headers.get("mcp-session-id"),
+      "stale-session-id",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
 test("OAuth authorization code exchange issues rotating refresh tokens", async () => {
   const directory = tempDirectory();
   const config = testConfig(directory);
