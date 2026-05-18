@@ -65,11 +65,14 @@ jobs:
         working-directory: infrastructure
         run: |
           echo "project_id=$(terraform output -raw project_id)" >> "$GITHUB_OUTPUT"
-          echo "vm_name=$(terraform output -raw compose_vm_name)" >> "$GITHUB_OUTPUT"
+          echo "mig_name=$(terraform output -raw compose_mig_name)" >> "$GITHUB_OUTPUT"
           echo "zone=$(terraform output -raw compose_vm_zone)" >> "$GITHUB_OUTPUT"
 
-      - name: Reset VM to trigger compose deploy
+      - name: Replace compose MIG VM to trigger compose deploy
         run: |
-          gcloud compute instances reset "${{ steps.tfout.outputs.vm_name }}" \
+          gcloud compute instance-groups managed rolling-action replace "${{ steps.tfout.outputs.mig_name }}" \
             --project "${{ steps.tfout.outputs.project_id }}" \
-            --zone "${{ steps.tfout.outputs.zone }}"
+            --zone "${{ steps.tfout.outputs.zone }}" \
+            --max-surge=0 \
+            --max-unavailable=1 \
+            --replacement-method=recreate

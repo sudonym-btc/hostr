@@ -36,12 +36,16 @@ jobs:
           case "${{ inputs.target_env }}" in
             staging)
               PROJECT_ID="hostr-staging-d4c52998"
-              VM_NAME="hostr-staging-compose"
+              LEGACY_VM_NAME="hostr-staging-compose"
+              MIG_NAME="hostr-staging-compose-mig"
+              DEPLOY_ENV="staging"
               ZONE="us-central1-b"
               ;;
             production)
               PROJECT_ID="hostr-production-d3ba05b4"
-              VM_NAME="hostr-production-compose"
+              LEGACY_VM_NAME="hostr-production-compose"
+              MIG_NAME="hostr-production-compose-mig"
+              DEPLOY_ENV="production"
               ZONE="us-central1-b"
               ;;
             *)
@@ -50,8 +54,14 @@ jobs:
               ;;
           esac
 
+          VM_NAME="$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
+            --project "$PROJECT_ID" \
+            --zone "$ZONE" \
+            --format='value(instance)' 2>/dev/null | awk -F/ 'NF {print $NF; exit}')"
+          VM_NAME="${VM_NAME:-$LEGACY_VM_NAME}"
+
           gcloud compute ssh "$VM_NAME" \
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
             --quiet \
-            --command 'cd /opt/hostr && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml pull app mcp escrow && sudo docker compose --env-file /opt/hostr/.env.runtime --profile prod -f compose.yaml -f compose.hosted.yaml up -d --remove-orphans --force-recreate app mcp escrow'
+            --command "sudo /usr/local/bin/hostr-deploy '$DEPLOY_ENV'"
