@@ -254,6 +254,8 @@ class UserStartupProfile implements StartupProfile {
       final inboxFuture = tracker.runOptional(StartupItemId.inbox, () async {
         await hasNip65Future;
         context.token.throwIfCancelled();
+        await _auth.ensureNip42AuthForHostrRelay();
+        context.token.throwIfCancelled();
         await _userSubscriptions.start();
         return _userSubscriptions.isLive
             .where((live) => live)

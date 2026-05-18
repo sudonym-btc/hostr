@@ -220,7 +220,10 @@ class MockNwc extends Nwc {
 
   @override
   Future<NwcConnection> connect(String url) async {
-    return NwcConnection(nwc_uri.NostrWalletConnectUri.parseConnectionUri(url));
+    return NwcConnection(
+      nwc_uri.NostrWalletConnectUri.parseConnectionUri(url),
+      eventSignerFactory: _ndk.config.eventSignerFactory,
+    );
   }
 
   @override

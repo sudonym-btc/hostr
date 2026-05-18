@@ -64,6 +64,7 @@ Future<void> setupInjection({
         engine: NdkEngine.RELAY_SETS,
         bootstrapRelays: [env.relayUrl],
         defaultQueryTimeout: const Duration(seconds: 10),
+        eagerAuth: false,
       ),
       syncAccountSeedRemotely: true,
       telemetry: Telemetry(

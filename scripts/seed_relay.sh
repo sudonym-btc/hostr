@@ -89,6 +89,20 @@ wait_for_signet_bunker() {
     echo "Signet bunker ready (${attempts}s)."
 }
 
+stop_relay_authz_for_seed() {
+    echo "Temporarily stopping relay-authz so seed writes use relay fail-open admission..."
+    _compose stop relay-authz >/dev/null 2>&1 || true
+}
+
+restore_relay_authz_after_seed() {
+    local status=$?
+    echo "Restoring relay-authz..."
+    if ! _compose up -d relay-authz >/dev/null 2>&1; then
+        echo "Warning: failed to restart relay-authz. Restart it manually before accepting untrusted writes." >&2
+    fi
+    return "$status"
+}
+
 reset_relay() {
     echo "Resetting relay container and state..."
 
@@ -100,8 +114,10 @@ reset_relay() {
     rm -rf "$REPO_ROOT/docker/data/relay"
     mkdir -p "$REPO_ROOT/docker/data/relay"
 
-    # Start a fresh relay container.
-    _compose up -d relay
+    # Start a fresh relay container without starting relay-authz. The seed
+    # script deliberately relies on nostr-rs-relay's fail-open behavior when
+    # the configured gRPC admission service is unavailable.
+    _compose up -d --no-deps relay
 
     # Wait until the relay is actually accepting connections.
     echo "Waiting for relay to become ready..."
@@ -158,11 +174,13 @@ seed_relay() {
         export SEED_SIGNET_BUNKER_URL="https://bunker-nostr.hostr.development"
     fi
     
-    reset_relay
-    wait_for_arbitrum_tokens
-    wait_for_signet_bunker
-
     (
+        trap restore_relay_authz_after_seed EXIT
+        stop_relay_authz_for_seed
+        reset_relay
+        wait_for_arbitrum_tokens
+        wait_for_signet_bunker
+
         set -o pipefail
         cd "$REPO_ROOT/hostr_sdk"
         if [ "${#extra_args[@]}" -gt 0 ]; then

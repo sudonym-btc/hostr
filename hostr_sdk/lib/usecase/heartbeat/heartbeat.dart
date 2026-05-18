@@ -18,6 +18,7 @@ class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
   final Duration _debounceDuration;
   Timer? _pendingUpsertTimer;
   Completer<ReceivedHeartbeat>? _pendingUpsertCompleter;
+  Future<ReceivedHeartbeat>? _inFlightUpsert;
   int? _pendingCreatedAt;
   List<List<String>> _pendingExtraTags = const [];
 
@@ -80,7 +81,33 @@ class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
   Future<ReceivedHeartbeat> upsertCurrent({
     int? createdAt,
     List<List<String>> extraTags = const [],
-  }) => logger.span('upsertCurrent', () async {
+  }) => logger.span('upsertCurrent', () {
+    final inFlight = _inFlightUpsert;
+    if (inFlight != null) return inFlight;
+
+    final upsert = _upsertCurrent(createdAt: createdAt, extraTags: extraTags);
+    _inFlightUpsert = upsert;
+    void clearInFlight() {
+      if (identical(_inFlightUpsert, upsert)) {
+        _inFlightUpsert = null;
+      }
+    }
+
+    unawaited(
+      upsert.then<void>(
+        (_) => clearInFlight(),
+        onError: (_, _) {
+          clearInFlight();
+        },
+      ),
+    );
+    return upsert;
+  });
+
+  Future<ReceivedHeartbeat> _upsertCurrent({
+    int? createdAt,
+    List<List<String>> extraTags = const [],
+  }) async {
     final keyPair = _auth.activeKeyPair;
     if (keyPair == null) {
       throw StateError('No active key pair');
@@ -99,7 +126,7 @@ class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
 
     await upsert(heartbeat);
     return heartbeat;
-  });
+  }
 
   Future<ReceivedHeartbeat?> latestForUser(String pubkey) =>
       logger.span('latestForUser', () async {

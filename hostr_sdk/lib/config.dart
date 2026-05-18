@@ -15,11 +15,8 @@ EventVerifier _defaultEventVerifier() {
   return CoinlibVerifier();
 }
 
-EventSigner _defaultEventSignerFactory({
-  required String publicKey,
-  String? privateKey,
-}) {
-  return CoinlibEventSigner(privateKey: privateKey, publicKey: publicKey);
+LocalEventSignerFactory _defaultEventSignerFactory() {
+  return const CoinlibEventSignerFactory();
 }
 
 Nip44Cryptography _defaultNip44Cryptography() {
@@ -137,6 +134,41 @@ class CoinlibEventSigner implements EventSigner {
   }
 }
 
+class CoinlibEventSignerFactory implements LocalEventSignerFactory {
+  const CoinlibEventSignerFactory();
+
+  static const _keyFactory = Bip340EventSignerFactory();
+
+  @override
+  EventSigner create({String? privateKey, String? publicKey}) {
+    final resolvedPublicKey =
+        publicKey ?? (privateKey == null ? null : derivePublicKey(privateKey));
+    if (resolvedPublicKey == null) {
+      throw ArgumentError('Either publicKey or privateKey must be provided');
+    }
+    return CoinlibEventSigner(
+      privateKey: privateKey,
+      publicKey: resolvedPublicKey,
+    );
+  }
+
+  @override
+  String derivePublicKey(String privateKey) {
+    return _keyFactory.derivePublicKey(privateKey);
+  }
+
+  @override
+  (String, String) generateKeyPair() {
+    return _keyFactory.generateKeyPair();
+  }
+
+  @override
+  EventSigner createWithNewKeyPair() {
+    final (privateKey, publicKey) = generateKeyPair();
+    return create(privateKey: privateKey, publicKey: publicKey);
+  }
+}
+
 /// Fast NIP-44 cryptography backed by Hostr's configured crypto provider.
 class CoinlibNip44Cryptography implements Nip44Cryptography {
   CoinlibNip44Cryptography();
@@ -200,7 +232,7 @@ class HostrConfig {
   final Telemetry telemetry;
   final CalendarPort? calendarPort;
   final EventVerifier eventVerifier;
-  final EventSignerFactory eventSignerFactory;
+  final LocalEventSignerFactory eventSignerFactory;
   final Nip44Cryptography nip44Cryptography;
   final bool syncAccountSeedRemotely;
 
@@ -239,7 +271,7 @@ class HostrConfig {
     this.showNotification,
     this.syncAccountSeedRemotely = true,
     EventVerifier? eventVerifier,
-    EventSignerFactory? eventSignerFactory,
+    LocalEventSignerFactory? eventSignerFactory,
     Nip44Cryptography? nip44Cryptography,
     KeyValueStorage? storage,
     AppDatabase? appDatabase,
@@ -252,20 +284,21 @@ class HostrConfig {
          storage ?? InMemoryKeyValueStorage(),
        ),
        eventVerifier = eventVerifier ?? _defaultEventVerifier(),
-       eventSignerFactory = eventSignerFactory ?? _defaultEventSignerFactory,
+       eventSignerFactory = eventSignerFactory ?? _defaultEventSignerFactory(),
        nip44Cryptography = nip44Cryptography ?? _defaultNip44Cryptography(),
        ndkConfig =
            ndk ??
            NdkConfig(
              eventVerifier: eventVerifier ?? _defaultEventVerifier(),
              eventSignerFactory:
-                 eventSignerFactory ?? _defaultEventSignerFactory,
+                 eventSignerFactory ?? _defaultEventSignerFactory(),
              nip44Cryptography:
                  nip44Cryptography ?? _defaultNip44Cryptography(),
              cache: MemCacheManager(),
              fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,
              defaultQueryTimeout: Duration(seconds: 10),
+             eagerAuth: false,
              // NDK eagerly opens sockets for every bootstrap relay and owns
              // their reconnect loops. Keep that eager pool to the canonical
              // Hostr relay; other configured relays remain available for

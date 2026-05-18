@@ -517,10 +517,10 @@ class BackgroundWorker {
       return resolved;
     }
 
-    final fallback = item.group.buyerReservation?.pubKey;
+    final fallback = item.participants.rawParticipantPubkeyForRole('buyer');
     if (fallback == null || fallback.isEmpty) {
       throw StateError(
-        'Cannot resolve guest pubkey without a buyer reservation',
+        'Cannot resolve guest pubkey without a buyer participant',
       );
     }
     return fallback;

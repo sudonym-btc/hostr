@@ -12,7 +12,6 @@ import 'package:hostr/presentation/component/widgets/keys/backup_key.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
 import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
 import 'package:ndk/ndk.dart'
     show BunkerConnection, Bunkers, Filter, NdkResponse, NostrConnect;
@@ -332,7 +331,7 @@ class SignInScreenState extends State<SignInScreen> {
     }
 
     final keyPair = nostrConnect.keyPair;
-    final localEventSigner = defaultEventSignerFactory(
+    final localEventSigner = const CoinlibEventSignerFactory().create(
       publicKey: keyPair.publicKey,
       privateKey: keyPair.privateKey,
     );

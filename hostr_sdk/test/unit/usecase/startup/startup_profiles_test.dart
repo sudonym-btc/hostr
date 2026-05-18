@@ -116,6 +116,7 @@ void main() {
         when(
           relays.loadNip65Hints('user-pubkey'),
         ).thenAnswer((_) async => false);
+        when(auth.ensureNip42AuthForHostrRelay()).thenAnswer((_) async {});
         when(
           metadata.loadMetadata('user-pubkey', forceRefresh: false),
         ).thenAnswer((_) async => null);
@@ -270,6 +271,7 @@ void main() {
       ).thenReturn(KeyPair('privkey', 'user-pubkey', null, null));
       when(auth.activePubkey).thenReturn('user-pubkey');
       when(relays.loadNip65Hints('user-pubkey')).thenAnswer((_) async => true);
+      when(auth.ensureNip42AuthForHostrRelay()).thenAnswer((_) async {});
       when(
         metadata.loadMetadata('user-pubkey', forceRefresh: false),
       ).thenAnswer((_) async => null);

@@ -261,17 +261,11 @@ class Calendar {
   String? _resolveGuestPubkey(
     ResolvedValidatedReservationGroupParticipants item,
   ) {
-    final group = item.group;
-    final buyerReservation = group.buyerReservation;
     final resolved = item.participants.resolvedParticipantPubkeyForRole(
       'buyer',
     );
     if (resolved != null && resolved.isNotEmpty) return resolved;
-    if (buyerReservation == null) return null;
-    return group.buyerPubkey ??
-        buyerReservation.parsedTags.getTagValueByMarker('p', 'buyer') ??
-        buyerReservation.recipient ??
-        buyerReservation.pubKey;
+    return item.participants.rawParticipantPubkeyForRole('buyer');
   }
 
   bool _isFuture(ReservationGroup group) {

@@ -89,7 +89,7 @@ class _HostingListItem extends StatefulWidget {
 }
 
 class _HostingListItemState extends State<_HostingListItem> {
-  late final Future<String?> _guestFuture;
+  late Future<String?> _guestFuture;
 
   @override
   void initState() {
@@ -97,34 +97,33 @@ class _HostingListItemState extends State<_HostingListItem> {
     _guestFuture = _resolveGuestPubkey();
   }
 
+  @override
+  void didUpdateWidget(covariant _HostingListItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.group, widget.group)) {
+      _guestFuture = _resolveGuestPubkey();
+    }
+  }
+
   Future<String?> _resolveGuestPubkey() async {
-    final pair = widget.group.group;
-    final resolvedParticipants = widget.group.participants;
-    final buyerReservation = pair.buyerReservation;
-    final rawBuyerPubkey = pair.buyerPubkey ?? buyerReservation?.pubKey;
-    final resolvedBuyerPubkey = rawBuyerPubkey == null
-        ? null
-        : resolvedParticipants.identityByParticipantPubkey[rawBuyerPubkey];
+    final participants = widget.group.participants;
+    final resolvedBuyerPubkey = participants.resolvedParticipantPubkeyForRole(
+      'buyer',
+    );
     if (resolvedBuyerPubkey != null && resolvedBuyerPubkey.isNotEmpty) {
       return resolvedBuyerPubkey;
     }
-    if (buyerReservation == null) return rawBuyerPubkey;
-
-    return resolvedBuyerPubkey ??
-        pair.buyerPubkey ??
-        buyerReservation.parsedTags.getTagValueByMarker('p', 'buyer') ??
-        buyerReservation.recipient;
+    return participants.rawParticipantPubkeyForRole('buyer');
   }
 
   @override
   Widget build(BuildContext context) {
-    final pair = widget.group.group;
     final participants = widget.group.participants;
+    final pair = participants.group;
     final activePubkey = getIt<Hostr>().auth.getActiveKey().publicKey;
     final buyerPubkey =
         participants.resolvedParticipantPubkeyForRole('buyer') ??
-        pair.buyerPubkey ??
-        pair.buyerReservation?.pubKey;
+        participants.rawParticipantPubkeyForRole('buyer');
     final conversationParticipants = {
       activePubkey,
       if (buyerPubkey != null && buyerPubkey.isNotEmpty) buyerPubkey,

@@ -8,6 +8,7 @@ import 'package:ndk/ndk.dart';
 import '../../util/main.dart';
 import '../escrow/escrow_verification.dart';
 import '../evm/evm.dart';
+import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
 
 /// Dependencies resolved for a single reservation-group verification.
@@ -385,7 +386,7 @@ class ReservationGroups {
 
       for (final item in items) {
         final tradeId = item.getDtag() ?? item.id; // for logging only
-        final groupId = ReservationGroup.groupIdFromEvent(item);
+        final groupId = rawReservationGroupId(item);
         final existing = groups[groupId];
         groups[groupId] = existing != null
             ? existing.addReservation(item)

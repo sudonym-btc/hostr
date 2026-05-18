@@ -1,7 +1,7 @@
 # Nostr-rs-relay configuration (staging)
 
 [info]
-relay_url = "wss://relay.staging.hostr.network/"
+relay_url = "wss://relay.staging.hostr.network"
 name = "Hostr"
 description = "Hostr staging relay."
 
@@ -9,8 +9,16 @@ description = "Hostr staging relay."
 address = "0.0.0.0"
 port = 80
 
+[grpc]
+event_admission_server = "http://relay-authz:50051"
+restricts_write = true
+
 [options]
 reject_future_seconds = 1800
+
+[authorization]
+nip42_auth = true
+nip42_dms = true
 
 [limits]
 limit_scrapers = false

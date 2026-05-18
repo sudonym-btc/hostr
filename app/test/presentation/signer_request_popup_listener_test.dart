@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/presentation/signer_request_popup_listener.dart';
 import 'package:models/main.dart';
@@ -17,6 +18,25 @@ void main() {
       expect(
         visibleFullPageSignerRequest(
           requests: [heartbeat],
+          dismissedRequestIds: const {},
+          now: now,
+        ),
+        isNull,
+      );
+    });
+
+    test('does not show the full-page popup for relay auth publications', () {
+      final now = DateTime(2026, 1, 1, 12);
+      final relayAuth = _request(
+        id: 'relay-auth',
+        kind: kNostrKindRelayAuthentication,
+        createdAt: now.subtract(kSignerApprovalDelay * 2),
+      );
+
+      expect(shouldShowFullPageSignerRequest(relayAuth), isFalse);
+      expect(
+        visibleFullPageSignerRequest(
+          requests: [relayAuth],
           dismissedRequestIds: const {},
           now: now,
         ),
@@ -52,7 +72,7 @@ void main() {
       final reservation = _request(
         id: 'reservation',
         kind: kNostrKindReservation,
-        createdAt: now.subtract(const Duration(seconds: 4)),
+        createdAt: now.subtract(const Duration(seconds: 1)),
       );
 
       expect(
@@ -75,9 +95,40 @@ void main() {
         'reservation update',
       );
       expect(
-        signerRequestEventKindDescription(424242),
-        'Nostr event kind 424242',
+        signerRequestEventKindDescription(kNostrKindRelayAuthentication),
+        'relay authentication',
       );
+      expect(signerRequestEventKindDescription(424242), 'Nostr event');
+    });
+
+    testWidgets('hides event payload and kind number in the approval popup', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SignerRequestPopupPage(
+            kind: kNostrKindSeal,
+            method: 'sign_event',
+            createdAt: DateTime.now().subtract(const Duration(seconds: 8)),
+            onKeepWaiting: () {},
+            onCancel: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('Request details'), findsOneWidget);
+      expect(find.textContaining('Kind number'), findsNothing);
+      expect(find.textContaining('As1/YUad'), findsNothing);
+      expect(find.textContaining('Action:'), findsNothing);
+      expect(find.textContaining(RegExp(r'Waiting: \d+s')), findsOneWidget);
+
+      await tester.tap(find.text('Request details'));
+      await tester.pump();
+
+      expect(find.textContaining(RegExp(r'Waiting: \d+s')), findsNWidgets(2));
+      expect(find.text('Action: Sign approval'), findsOneWidget);
+      expect(find.text('Request: encrypted message seal'), findsOneWidget);
+      expect(find.textContaining('Kind number'), findsNothing);
     });
   });
 }

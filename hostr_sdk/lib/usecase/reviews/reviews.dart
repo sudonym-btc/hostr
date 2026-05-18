@@ -6,6 +6,7 @@ import '../crud.usecase.dart';
 import '../escrow/escrow_verification.dart';
 import '../listings/listings.dart';
 import '../reservation_groups/reservation_groups.dart';
+import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
 
 /// Dependencies resolved for a single review verification.
@@ -56,12 +57,15 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
         reviewProof.participantPubkey == review.pubKey &&
         reservation.parsedTags.getTagValueByMarker('p', reviewProof.role) ==
             reviewProof.participantPubkey;
-    final matchingHashExists = reservation.parsedTags.participantProofs.any(
-      (proof) =>
-          proof.role == reviewProof.role &&
-          proof.participantPubkey == reviewProof.participantPubkey &&
-          proof.payloadHash == reviewProof.authorizationPayloadHash,
-    );
+    final matchingHashExists = reservationParticipantProofsByPubkey(reservation)
+        .values
+        .expand((proofs) => proofs)
+        .any(
+          (proof) =>
+              proof.role == reviewProof.role &&
+              proof.participantPubkey == reviewProof.participantPubkey &&
+              proof.payloadHash == reviewProof.authorizationPayloadHash,
+        );
     if (!matchingHashExists && !rawParticipantMatches) return false;
 
     return authorization.verifiesForReservation(

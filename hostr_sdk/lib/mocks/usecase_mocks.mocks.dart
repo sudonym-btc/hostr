@@ -427,6 +427,19 @@ class MockAuth extends _i1.Mock implements _i14.Auth {
           as T);
 
   @override
+  _i29.Future<void> ensureNip42AuthForHostrRelay({
+    Duration? timeout = const Duration(seconds: 30),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(#ensureNip42AuthForHostrRelay, [], {
+              #timeout: timeout,
+            }),
+            returnValue: _i29.Future<void>.value(),
+            returnValueForMissingStub: _i29.Future<void>.value(),
+          )
+          as _i29.Future<void>);
+
+  @override
   _i29.Future<void> signup() =>
       (super.noSuchMethod(
             Invocation.method(#signup, []),
@@ -4075,6 +4088,22 @@ class MockRelays extends _i1.Mock implements _i45.Relays {
             returnValueForMissingStub: _i29.Future<void>.value(),
           )
           as _i29.Future<void>);
+
+  @override
+  _i29.Future<bool> ensureConnected(
+    String? url, {
+    Duration? timeout = const Duration(seconds: 10),
+    Duration? pollInterval = const Duration(milliseconds: 200),
+  }) =>
+      (super.noSuchMethod(
+            Invocation.method(
+              #ensureConnected,
+              [url],
+              {#timeout: timeout, #pollInterval: pollInterval},
+            ),
+            returnValue: _i29.Future<bool>.value(false),
+          )
+          as _i29.Future<bool>);
 
   @override
   _i29.Future<bool> loadNip65Hints(String? pubkey) =>

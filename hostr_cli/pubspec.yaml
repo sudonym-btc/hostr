@@ -34,7 +34,7 @@ dependency_overrides:
   ndk:
     git:
       url: https://github.com/sudonym-btc/ndk.git
-      ref: codex/hostr-ndk-fixes
+      ref: codex/hostr-ndk-fixes-upstream-master
       path: packages/ndk
   freezed_annotation: ^3.1.0
   pointycastle: ^4.0.0

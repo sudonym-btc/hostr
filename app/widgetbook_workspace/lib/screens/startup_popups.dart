@@ -49,8 +49,6 @@ Widget awaitingBunkerCommitConfirmation(BuildContext context) {
     kind: kNostrKindCommitAuthorization,
     method: 'sign_event',
     createdAt: _waitingSince(),
-    eventPreview:
-        'Authorize payment commitment for the selected reservation terms.',
     onKeepWaiting: () {},
     onCancel: () {},
   );
@@ -65,7 +63,6 @@ Widget awaitingBunkerTradeKeyConfirmation(BuildContext context) {
     kind: kNostrKindTradeKeyAuthorization,
     method: 'sign_event',
     createdAt: _waitingSince(),
-    eventPreview: 'Authorize this trade key for the current reservation.',
     onKeepWaiting: () {},
     onCancel: () {},
   );
@@ -80,8 +77,6 @@ Widget awaitingBunkerReservationConfirmation(BuildContext context) {
     kind: kNostrKindReservation,
     method: 'sign_event',
     createdAt: _waitingSince(),
-    eventPreview:
-        'Reservation update for Apr 25 - Apr 27 with the latest booking terms.',
     onKeepWaiting: () {},
     onCancel: () {},
   );

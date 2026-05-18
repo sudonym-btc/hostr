@@ -25,10 +25,10 @@ class ReservationParticipantAuthorizationResolver {
     final tradeId = reservation.getDtag();
     if (tradeId == null || tradeId != draft.tradeId) return null;
 
-    for (final proof in reservation.parsedTags.participantProofs) {
+    final proofMap = reservationParticipantProofsByPubkey(reservation);
+    for (final proof in proofMap[draft.participantPubkey] ?? const []) {
       if (proof.scheme != kReservationParticipantProofSchemeNip44) continue;
       if (proof.role != draft.role) continue;
-      if (proof.participantPubkey != draft.participantPubkey) continue;
       if (proof.recipientPubkey != recipientKeyPair.publicKey) continue;
 
       try {

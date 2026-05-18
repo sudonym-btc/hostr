@@ -4,6 +4,31 @@ import '../../util/main.dart';
 import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservation_participant_tags.dart';
 
+class ResolvedReservationParticipants {
+  final Reservation reservation;
+  final Set<String> rawParticipantSet;
+  final Set<String> resolvedParticipantSet;
+  final List<ResolvedReservationParticipantProof> resolvedProofs;
+
+  const ResolvedReservationParticipants({
+    required this.reservation,
+    required this.rawParticipantSet,
+    required this.resolvedParticipantSet,
+    required this.resolvedProofs,
+  });
+
+  Map<String, String> get identityByParticipantPubkey => {
+    for (final proof in resolvedProofs)
+      proof.participantPubkey: proof.identityPubkey,
+  };
+
+  bool hasParticipantProofFor(String participantPubkey) =>
+      reservationHasParticipantProof(reservation, participantPubkey);
+
+  bool hasResolvedProofFor(String participantPubkey) =>
+      identityByParticipantPubkey.containsKey(participantPubkey);
+}
+
 class ResolvedReservationGroupParticipants {
   final ReservationGroup group;
   final String rawGroupId;
@@ -41,6 +66,10 @@ class ResolvedReservationGroupParticipants {
         if (buyerPubkey != null && buyerPubkey.isNotEmpty) {
           return buyerPubkey;
         }
+        final buyerRecipient = group.buyerReservation?.recipient;
+        if (buyerRecipient != null && buyerRecipient.isNotEmpty) {
+          return buyerRecipient;
+        }
         break;
       case 'escrow':
         final escrowPubkey = group.escrowPubkey;
@@ -57,10 +86,29 @@ class ResolvedReservationGroupParticipants {
     return null;
   }
 
-  String? resolvedParticipantPubkeyForRole(String role) {
+  String? resolvedParticipantPubkeyForRole(
+    String role, {
+    bool requireResolvedProof = false,
+  }) {
     final rawPubkey = rawParticipantPubkeyForRole(role);
     if (rawPubkey == null || rawPubkey.isEmpty) return null;
+    if (requireResolvedProof &&
+        hasParticipantProofFor(rawPubkey) &&
+        !hasResolvedProofFor(rawPubkey)) {
+      return null;
+    }
     return identityByParticipantPubkey[rawPubkey] ?? rawPubkey;
+  }
+
+  bool hasResolvedParticipantForRole(
+    String role, {
+    bool requireResolvedProof = false,
+  }) {
+    final pubkey = resolvedParticipantPubkeyForRole(
+      role,
+      requireResolvedProof: requireResolvedProof,
+    );
+    return pubkey != null && pubkey.isNotEmpty;
   }
 
   Set<String> get resolvedParticipantSetWithoutEscrow {
@@ -74,12 +122,7 @@ class ResolvedReservationGroupParticipants {
   }
 
   bool hasParticipantProofFor(String participantPubkey) {
-    if (participantPubkey.isEmpty) return false;
-    return group.reservations.any(
-      (reservation) => reservation.parsedTags.participantProofs.any(
-        (proof) => proof.participantPubkey == participantPubkey,
-      ),
-    );
+    return reservationGroupHasParticipantProof(group, participantPubkey);
   }
 
   bool hasResolvedProofFor(String participantPubkey) =>
@@ -98,6 +141,82 @@ class ResolvedValidatedReservationGroupParticipants {
   ReservationGroup get group => validation.event;
 }
 
+Future<ResolvedReservationParticipants> resolveReservationParticipants({
+  required Reservation reservation,
+  required ReservationParticipantKeyring keyring,
+}) async {
+  final resolvedProofsByParticipant =
+      <String, ResolvedReservationParticipantProof>{};
+  final proofMap = reservationParticipantProofsByPubkey(reservation);
+
+  for (final proofs in proofMap.values) {
+    for (final proof in proofs) {
+      final resolved = await keyring.tryDecryptParticipantProof(
+        reservation: reservation,
+        proof: proof,
+      );
+      if (resolved == null) continue;
+      resolvedProofsByParticipant.putIfAbsent(
+        resolved.participantPubkey,
+        () => resolved,
+      );
+    }
+  }
+
+  final resolvedProofs = resolvedProofsByParticipant.values.toList(
+    growable: false,
+  );
+  return ResolvedReservationParticipants(
+    reservation: reservation,
+    rawParticipantSet: rawReservationParticipantSet(reservation),
+    resolvedParticipantSet: resolvedReservationParticipantSet(
+      reservation: reservation,
+      resolvedProofs: resolvedProofs,
+    ),
+    resolvedProofs: List.unmodifiable(resolvedProofs),
+  );
+}
+
+Future<ResolvedReservationGroupParticipants>
+resolveReservationGroupParticipants({
+  required ReservationGroup group,
+  required ReservationParticipantKeyring keyring,
+}) async {
+  final resolvedProofsByParticipant =
+      <String, ResolvedReservationParticipantProof>{};
+
+  for (final reservation in group.reservations) {
+    final resolved = await resolveReservationParticipants(
+      reservation: reservation,
+      keyring: keyring,
+    );
+    for (final proof in resolved.resolvedProofs) {
+      resolvedProofsByParticipant.putIfAbsent(
+        proof.participantPubkey,
+        () => proof,
+      );
+    }
+  }
+
+  final resolvedProofs = resolvedProofsByParticipant.values.toList(
+    growable: false,
+  );
+  return ResolvedReservationGroupParticipants(
+    group: group,
+    rawGroupId: rawReservationGroupIdForGroup(group),
+    resolvedGroupId: resolvedReservationGroupIdForGroup(
+      group: group,
+      resolvedProofs: resolvedProofs,
+    ),
+    rawParticipantSet: rawReservationGroupParticipantSet(group),
+    resolvedParticipantSet: resolvedReservationGroupParticipantSet(
+      group: group,
+      resolvedProofs: resolvedProofs,
+    ),
+    resolvedProofs: List.unmodifiable(resolvedProofs),
+  );
+}
+
 class ReservationGroupParticipantResolver {
   final ReservationParticipantKeyring _keyring;
 
@@ -107,44 +226,7 @@ class ReservationGroupParticipantResolver {
 
   Future<ResolvedReservationGroupParticipants> resolve(
     ReservationGroup group,
-  ) async {
-    final resolvedProofsByParticipant =
-        <String, ResolvedReservationParticipantProof>{};
-
-    for (final reservation in group.reservations) {
-      for (final proof in reservation.parsedTags.participantProofs) {
-        final resolved = await _keyring.tryDecryptParticipantProof(
-          reservation: reservation,
-          proof: proof,
-        );
-        if (resolved == null) continue;
-        resolvedProofsByParticipant.putIfAbsent(
-          resolved.participantPubkey,
-          () => resolved,
-        );
-      }
-    }
-
-    final rawParticipants = group.participantSet;
-    final resolvedParticipants = rawParticipants.toSet();
-    for (final proof in resolvedProofsByParticipant.values) {
-      if (resolvedParticipants.remove(proof.participantPubkey)) {
-        resolvedParticipants.add(proof.identityPubkey);
-      }
-    }
-
-    return ResolvedReservationGroupParticipants(
-      group: group,
-      rawGroupId: group.groupId,
-      resolvedGroupId: ReservationGroup.groupIdForParticipants(
-        tradeId: group.tradeId,
-        participants: resolvedParticipants,
-      ),
-      rawParticipantSet: Set.unmodifiable(rawParticipants),
-      resolvedParticipantSet: Set.unmodifiable(resolvedParticipants),
-      resolvedProofs: List.unmodifiable(resolvedProofsByParticipant.values),
-    );
-  }
+  ) => resolveReservationGroupParticipants(group: group, keyring: _keyring);
 
   StreamWithStatus<ResolvedReservationGroupParticipants> resolveStream(
     StreamWithStatus<ReservationGroup> source,

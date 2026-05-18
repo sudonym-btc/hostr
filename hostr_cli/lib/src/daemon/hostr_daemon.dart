@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
-import 'package:ndk/data_layer/repositories/signers/default_event_signer_factory.dart';
 import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
@@ -4522,6 +4521,7 @@ class SignerRequestNotificationBridge {
 
   static const _nonBlockingSignerRequestEventKinds = <int>{
     kNostrKindReceivedHeartbeat,
+    kNostrKindRelayAuthentication,
   };
 
   final HostrDaemonNotificationSink? _notifications;
@@ -4640,6 +4640,7 @@ class SignerRequestNotificationBridge {
   String _eventKindDescription(int? kind) {
     return switch (kind) {
       kNostrKindProfile => 'profile metadata',
+      kNostrKindRelayAuthentication => 'relay authentication',
       kNostrKindListing => 'listing',
       kNostrKindReservation => 'reservation update',
       kNostrKindReview => 'review',
@@ -4776,7 +4777,7 @@ Future<BunkerConnection?> _connectWithNostrConnect(
   }
 
   final keyPair = nostrConnect.keyPair;
-  final localEventSigner = defaultEventSignerFactory(
+  final localEventSigner = const CoinlibEventSignerFactory().create(
     publicKey: keyPair.publicKey,
     privateKey: keyPair.privateKey,
   );

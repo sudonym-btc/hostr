@@ -9,6 +9,7 @@ import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/seed/signet_bunker_client.dart';
 import 'package:logger/logger.dart';
 import 'package:models/main.dart';
+import 'package:models/stubs.dart';
 import 'package:ndk/ndk.dart' show Filter;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
@@ -496,11 +497,16 @@ Future<_EscrowFixture> _seedEscrowFixture(
     usdtAddress: chainConfig.tokens['USDT']?.address,
   );
 
+  await hostr.auth.signin(MockKeys.escrow.privateKey!);
+  await hostr.escrows.upsert(escrowService);
+  await hostr.auth.logout();
+  await hostr.ndk.relays.closeAllTransports();
+
+  await hostr.auth.signin(host.privateKey);
   await hostr.metadata.upsert(host.profile);
   if (host.identityClaims != null) {
     await hostr.identityClaims.upsert(host.identityClaims!);
   }
-  await hostr.escrows.upsert(escrowService);
   await hostr.escrowMethods.upsert(hostEscrowMethod);
 
   final runId = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
@@ -580,6 +586,8 @@ Future<_EscrowFixture> _seedEscrowFixture(
     negotiatedBtcListing,
     negotiatedUsdListing,
   ]);
+  await hostr.auth.logout();
+  await hostr.ndk.relays.closeAllTransports();
 
   return _EscrowFixture(
     host: host,
@@ -901,4 +909,5 @@ Future<void> _resetSession(Hostr hostr) async {
   await hostr.nwc.reset();
   await hostr.reservations.reset();
   await hostr.auth.logout();
+  await hostr.ndk.relays.closeAllTransports();
 }
