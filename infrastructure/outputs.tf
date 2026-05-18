@@ -3,11 +3,17 @@ output "project_id" {
 }
 
 output "compose_vm_name" {
-  value = google_compute_instance.compose_vm.name
+  description = "Base name used for VMs created by the compose managed instance group."
+  value       = local.compose_instance_name
 }
 
 output "compose_vm_zone" {
-  value = google_compute_instance.compose_vm.zone
+  value = google_compute_instance_group_manager.compose_mig.zone
+}
+
+output "compose_mig_name" {
+  description = "Managed instance group that owns the Docker Compose VM."
+  value       = google_compute_instance_group_manager.compose_mig.name
 }
 
 output "compose_runtime_secret_names" {

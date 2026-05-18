@@ -106,8 +106,12 @@ link_persistent_dir /mnt/relay-data   /opt/hostr/docker/data/relay
 link_persistent_dir /mnt/blossom-data /opt/hostr/docker/data/blossom
 link_persistent_dir /mnt/mcp-data     /opt/hostr/docker/data/mcp
 
-# Small data (escrow, certs, vhost.d) stays on the boot disk — trivial size
-mkdir -p /opt/hostr/docker/data/escrow /opt/hostr/docker/certs /opt/hostr/docker/vhost.d /opt/hostr/docker/tls/ca
+# Keep small runtime state needed for clean VM recreation on the MCP disk.
+mkdir -p /mnt/mcp-data/compose-state/escrow /mnt/mcp-data/compose-state/certs /mnt/mcp-data/compose-state/tls
+link_persistent_dir /mnt/mcp-data/compose-state/escrow /opt/hostr/docker/data/escrow
+link_persistent_dir /mnt/mcp-data/compose-state/certs  /opt/hostr/docker/certs
+link_persistent_dir /mnt/mcp-data/compose-state/tls    /opt/hostr/docker/tls
+mkdir -p /opt/hostr/docker/vhost.d /opt/hostr/docker/tls/ca
 # Pre-create ca.crt as a file so Docker doesn't auto-create it as a directory
 # when mounting it into the escrow container before tls-init has run.
 touch /opt/hostr/docker/tls/ca/ca.crt

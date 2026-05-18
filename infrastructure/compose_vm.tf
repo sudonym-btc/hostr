@@ -17,7 +17,27 @@ resource "google_compute_firewall" "compose_public" {
   target_tags   = ["hostr-compose"]
 }
 
+resource "google_compute_firewall" "compose_health_checks" {
+  name    = "compose-health-checks"
+  project = var.project_id
+  network = google_compute_network.vpc.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  source_ranges = [
+    "35.191.0.0/16",
+    "130.211.0.0/22",
+  ]
+  target_tags = ["hostr-compose"]
+}
+
 locals {
+  compose_instance_name = "${local.project_base_name}-compose"
+  compose_mig_name      = "${local.project_base_name}-compose-mig"
+
   compose_runtime_secret_names = [
     "ESCROW_PRIVATE_KEY",
     "BLOSSOM_DASHBOARD_PASSWORD",
@@ -197,35 +217,39 @@ resource "google_compute_disk" "mcp_data" {
   depends_on = [google_project_service.compute]
 }
 
-resource "google_compute_instance" "compose_vm" {
-  name                      = "${local.project_base_name}-compose"
-  project                   = var.project_id
-  machine_type              = var.compose_machine_type
-  zone                      = var.compose_zone
-  tags                      = ["hostr-compose"]
-  allow_stopping_for_update = true
+resource "google_compute_instance_template" "compose_vm" {
+  name_prefix  = "${local.compose_instance_name}-"
+  project      = var.project_id
+  machine_type = var.compose_machine_type
+  tags         = ["hostr-compose"]
 
-  boot_disk {
-    initialize_params {
-      image = "projects/debian-cloud/global/images/family/debian-12"
-      size  = var.compose_boot_disk_size_gb
-      type  = "pd-balanced"
-    }
+  disk {
+    boot         = true
+    auto_delete  = true
+    source_image = "projects/debian-cloud/global/images/family/debian-12"
+    disk_size_gb = var.compose_boot_disk_size_gb
+    disk_type    = "pd-balanced"
   }
 
-  attached_disk {
-    source      = google_compute_disk.relay_data.self_link
+  disk {
+    source      = google_compute_disk.relay_data.name
     device_name = "relay-data"
+    mode        = "READ_WRITE"
+    auto_delete = false
   }
 
-  attached_disk {
-    source      = google_compute_disk.blossom_data.self_link
+  disk {
+    source      = google_compute_disk.blossom_data.name
     device_name = "blossom-data"
+    mode        = "READ_WRITE"
+    auto_delete = false
   }
 
-  attached_disk {
-    source      = google_compute_disk.mcp_data.self_link
+  disk {
+    source      = google_compute_disk.mcp_data.name
     device_name = "mcp-data"
+    mode        = "READ_WRITE"
+    auto_delete = false
   }
 
   network_interface {
@@ -258,5 +282,87 @@ resource "google_compute_instance" "compose_vm" {
     google_project_service.secretmanager,
     google_project_iam_member.compose_vm_secret_access,
     google_compute_firewall.compose_public,
+    google_compute_firewall.compose_health_checks,
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_compute_health_check" "compose_autoheal" {
+  name                = "${local.project_base_name}-compose-autoheal"
+  project             = var.project_id
+  check_interval_sec  = 30
+  timeout_sec         = 10
+  healthy_threshold   = 2
+  unhealthy_threshold = 3
+
+  http_health_check {
+    host         = "relay.${var.domain_name}"
+    port         = 80
+    request_path = "/"
+  }
+
+  depends_on = [google_project_service.compute]
+}
+
+resource "google_compute_instance_group_manager" "compose_mig" {
+  name               = local.compose_mig_name
+  project            = var.project_id
+  zone               = var.compose_zone
+  base_instance_name = local.compose_instance_name
+  target_size        = 1
+
+  version {
+    instance_template = google_compute_instance_template.compose_vm.self_link_unique
+  }
+
+  named_port {
+    name = "http"
+    port = 80
+  }
+
+  named_port {
+    name = "https"
+    port = 443
+  }
+
+  auto_healing_policies {
+    health_check      = google_compute_health_check.compose_autoheal.id
+    initial_delay_sec = 900
+  }
+
+  stateful_disk {
+    device_name = "relay-data"
+    delete_rule = "NEVER"
+  }
+
+  stateful_disk {
+    device_name = "blossom-data"
+    delete_rule = "NEVER"
+  }
+
+  stateful_disk {
+    device_name = "mcp-data"
+    delete_rule = "NEVER"
+  }
+
+  update_policy {
+    type                           = "OPPORTUNISTIC"
+    minimal_action                 = "REPLACE"
+    most_disruptive_allowed_action = "REPLACE"
+    max_surge_fixed                = 0
+    max_unavailable_fixed          = 1
+    replacement_method             = "RECREATE"
+  }
+
+  instance_lifecycle_policy {
+    force_update_on_repair = "YES"
+  }
+
+  depends_on = [
+    google_compute_health_check.compose_autoheal,
+    google_compute_instance_template.compose_vm,
   ]
 }

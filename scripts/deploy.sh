@@ -153,16 +153,19 @@ terraform apply \
 sync_maps_env "$TARGET_ENV"
 
 PROJECT_ID="$(terraform output -raw project_id)"
-VM_NAME="$(terraform output -raw compose_vm_name)"
+MIG_NAME="$(terraform output -raw compose_mig_name)"
 ZONE="$(terraform output -raw compose_vm_zone)"
 
 echo ""
-read -rp "Reset VM to trigger redeploy? [y/N] " confirm
+read -rp "Replace compose MIG VM to trigger redeploy? [y/N] " confirm
 if [[ "$confirm" =~ ^[Yy]$ ]]; then
-  gcloud compute instances reset "$VM_NAME" \
+  gcloud compute instance-groups managed rolling-action replace "$MIG_NAME" \
     --project "$PROJECT_ID" \
-    --zone "$ZONE"
-  echo "VM reset triggered."
+    --zone "$ZONE" \
+    --max-surge=0 \
+    --max-unavailable=1 \
+    --replacement-method=recreate
+  echo "MIG replacement triggered."
 fi
 
 echo ""
