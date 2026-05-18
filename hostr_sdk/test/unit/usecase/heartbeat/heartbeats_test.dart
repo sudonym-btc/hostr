@@ -17,11 +17,15 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
 class _FakeRequests extends Fake implements Requests {
-  _FakeRequests({String? activePubkey, String? signingPrivateKey})
-    : _ndk = _FakeNdk(
-        activePubkey: activePubkey,
-        signingPrivateKey: signingPrivateKey,
-      );
+  _FakeRequests({
+    String? activePubkey,
+    String? signingPrivateKey,
+    Completer<void>? signGate,
+  }) : _ndk = _FakeNdk(
+         activePubkey: activePubkey,
+         signingPrivateKey: signingPrivateKey,
+         signGate: signGate,
+       );
 
   final StreamWithStatus<ReceivedHeartbeat> subscribeSource =
       StreamWithStatus<ReceivedHeartbeat>();
@@ -32,6 +36,9 @@ class _FakeRequests extends Fake implements Requests {
   Filter? lastSubscribeFilter;
   Filter? lastQueryFilter;
   Nip01Event? lastBroadcastEvent;
+  int broadcastCount = 0;
+
+  _FakeAccounts get accounts => (_ndk as _FakeNdk).accounts;
 
   @override
   Ndk get ndk => _ndk;
@@ -66,6 +73,7 @@ class _FakeRequests extends Fake implements Requests {
     List<String>? relays,
     NostrEventSigner? signer,
   }) async {
+    broadcastCount++;
     lastBroadcastEvent = event.sig == null && signer != null
         ? await signer(event)
         : event;
@@ -92,16 +100,20 @@ RelayBroadcastResponse _successfulBroadcastResponse() {
 }
 
 class _FakeAccounts extends Fake implements Accounts {
-  _FakeAccounts({this.activePubkey, this.signingPrivateKey});
+  _FakeAccounts({this.activePubkey, this.signingPrivateKey, this.signGate});
 
   final String? activePubkey;
   final String? signingPrivateKey;
+  final Completer<void>? signGate;
+  int signCallCount = 0;
 
   @override
   String? getPublicKey() => activePubkey;
 
   @override
   Future<Nip01Event> sign(Nip01Event event) async {
+    signCallCount++;
+    await signGate?.future;
     return Nip01Utils.signWithPrivateKey(
       event: event,
       privateKey: signingPrivateKey ?? MockKeys.hoster.privateKey!,
@@ -110,16 +122,15 @@ class _FakeAccounts extends Fake implements Accounts {
 }
 
 class _FakeNdk extends Fake implements Ndk {
-  _FakeNdk({this.activePubkey, this.signingPrivateKey});
-
-  final String? activePubkey;
-  final String? signingPrivateKey;
+  _FakeNdk({String? activePubkey, String? signingPrivateKey, signGate})
+    : accounts = _FakeAccounts(
+        activePubkey: activePubkey,
+        signingPrivateKey: signingPrivateKey,
+        signGate: signGate,
+      );
 
   @override
-  Accounts get accounts => _FakeAccounts(
-    activePubkey: activePubkey,
-    signingPrivateKey: signingPrivateKey,
-  );
+  final _FakeAccounts accounts;
 }
 
 class _FakeAuth extends Fake implements Auth {
@@ -281,6 +292,48 @@ void main() {
       final broadcast = requests.lastBroadcastEvent as ReceivedHeartbeat?;
       expect(broadcast, isNotNull);
       expect(broadcast!.createdAt, 1710000020);
+    },
+  );
+
+  test(
+    'requestUpsertCurrent reuses an in-flight heartbeat while signer approval is pending',
+    () async {
+      final signGate = Completer<void>();
+      requests = _FakeRequests(
+        activePubkey: MockKeys.hoster.publicKey,
+        signingPrivateKey: MockKeys.hoster.privateKey,
+        signGate: signGate,
+      );
+      auth = _FakeAuth()
+        ..activeKeyPair = KeyPair.justPublicKey(MockKeys.hoster.publicKey);
+      heartbeats = Heartbeats.withDebounce(
+        requests: requests,
+        logger: CustomLogger(),
+        auth: auth,
+        debounceDuration: const Duration(milliseconds: 20),
+      );
+
+      final first = heartbeats.requestUpsertCurrent(createdAt: 1710000030);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(requests.accounts.signCallCount, 1);
+      expect(requests.broadcastCount, 0);
+
+      final second = heartbeats.requestUpsertCurrent(createdAt: 1710000040);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(requests.accounts.signCallCount, 1);
+      expect(requests.broadcastCount, 0);
+
+      signGate.complete();
+
+      final firstHeartbeat = await first;
+      final secondHeartbeat = await second;
+
+      expect(firstHeartbeat.createdAt, 1710000030);
+      expect(secondHeartbeat.createdAt, 1710000030);
+      expect(requests.accounts.signCallCount, 1);
+      expect(requests.broadcastCount, 1);
     },
   );
 

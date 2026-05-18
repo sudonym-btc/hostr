@@ -5,7 +5,15 @@ import 'dart:math';
 import 'package:injectable/injectable.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/nostr_kinds.dart'
-    show kHostrOnlyKinds, kNostrKindIdentityClaims;
+    show
+        kHostrOnlyKinds,
+        kNostrKindConnect,
+        kNostrKindIdentityClaims,
+        kNostrKindNWCInfo,
+        kNostrKindNWCNotification,
+        kNostrKindNWCRequest,
+        kNostrKindNWCResponse,
+        kNostrKindRelayAuthentication;
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
@@ -29,6 +37,18 @@ import '../auth/auth.dart';
 export 'expandable_subscription.dart';
 
 typedef NostrEventSigner = Future<Nip01Event> Function(Nip01Event event);
+
+const _kNostrKindCurrentNWCNotification = 23197;
+
+const _authOptionalHostrWriteKinds = <int>{
+  kNostrKindConnect,
+  kNostrKindNWCInfo,
+  kNostrKindNWCRequest,
+  kNostrKindNWCResponse,
+  kNostrKindNWCNotification,
+  _kNostrKindCurrentNWCNotification,
+  kNostrKindRelayAuthentication,
+};
 
 class BroadcastResult {
   final Nip01Event event;
@@ -101,6 +121,7 @@ String requestInFlightKeyFor({
   Duration? timeout,
   bool cacheRead = true,
   bool cacheWrite = true,
+  List<String>? authenticateAsPubkeys,
 }) {
   return jsonEncode({
     'filter': cleanTags(filter)?.toMap() ?? filter.toMap(),
@@ -108,6 +129,7 @@ String requestInFlightKeyFor({
     'timeoutUs': timeout?.inMicroseconds,
     'cacheRead': cacheRead,
     'cacheWrite': cacheWrite,
+    'authenticateAs': authenticateAsPubkeys,
   });
 }
 
@@ -142,6 +164,17 @@ Stream<T> parseNostrEventsForSdk<T extends Nip01Event>({
 
 bool hasSuccessfulBroadcast(List<RelayBroadcastResponse> responses) {
   return responses.any((response) => response.broadcastSuccessful);
+}
+
+bool shouldPreAuthHostrRelayForBroadcast({
+  required int eventKind,
+  required String hostrRelay,
+  List<String>? relays,
+}) {
+  final relay = hostrRelay.trim();
+  if (relay.isEmpty) return false;
+  if (_authOptionalHostrWriteKinds.contains(eventKind)) return false;
+  return relays == null || relays.contains(relay);
 }
 
 String formatBroadcastResponses(List<RelayBroadcastResponse> responses) {
@@ -564,6 +597,15 @@ class Requests extends RequestsModel {
       );
     }
     relays = guardedRelays;
+
+    if (shouldPreAuthHostrRelayForBroadcast(
+          eventKind: event.kind,
+          hostrRelay: _config.hostrRelay,
+          relays: relays,
+        ) &&
+        _auth.activePubkey != null) {
+      await _auth.ensureNip42AuthForHostrRelay();
+    }
 
     var eventToBroadcast = event;
 

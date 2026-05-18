@@ -882,6 +882,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "10.1.1"
+  idb_shim:
+    dependency: transitive
+    description:
+      name: idb_shim
+      sha256: d46b09e116508e817f5ea2d8e1f6f55fb98bf7966175152809fd29791bfba3b8
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.9.1"
   image:
     dependency: transitive
     description:
@@ -1157,11 +1165,11 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/ndk"
-      ref: "codex/hostr-ndk-fixes"
-      resolved-ref: e6de62ca03f6253decf5c96677723b33278e9a3c
+      ref: "codex/hostr-ndk-fixes-upstream-master"
+      resolved-ref: a283cab0388fc528c775ea7e44e765a94c1f89fd
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
-    version: "0.8.2-dev.5"
+    version: "0.8.2-dev.8"
   ndk_bip32_keys:
     dependency: transitive
     description:
@@ -1506,6 +1514,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.8.7"
+  sembast_web:
+    dependency: transitive
+    description:
+      name: sembast_web
+      sha256: eaeb2f14613098fb8b363b01ae4e280031736b7ae1aa38653dbee0d47af6e3ea
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.4+1"
   shared_preferences:
     dependency: transitive
     description:

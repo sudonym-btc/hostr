@@ -45,6 +45,10 @@ const kNostrKindEscrowServiceSelected = 30302;
 /// https://nips.nostr.com/01
 const kNostrKindProfile = 0;
 
+/// Relay authentication event, defined by NIP-42:
+/// https://nips.nostr.com/42
+const kNostrKindRelayAuthentication = 22242;
+
 /// External identity claims, defined by NIP-39:
 /// https://nips.nostr.com/39
 const kNostrKindIdentityClaims = 10011;

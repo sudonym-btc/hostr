@@ -155,13 +155,7 @@ class _HostrCliFoundation {
           : (options.json ? ndk.LogLevel.off : ndk.LogLevel.warning),
     );
     final eventVerifier = CoinlibVerifier();
-    CoinlibEventSigner eventSignerFactory({
-      required String publicKey,
-      String? privateKey,
-    }) {
-      return CoinlibEventSigner(privateKey: privateKey, publicKey: publicKey);
-    }
-
+    const eventSignerFactory = CoinlibEventSignerFactory();
     final nip44Cryptography = CoinlibNip44Cryptography();
     final ndkConfig = ndk.NdkConfig(
       eventVerifier: eventVerifier,
@@ -171,6 +165,7 @@ class _HostrCliFoundation {
       fetchedRangesEnabled: true,
       engine: ndk.NdkEngine.RELAY_SETS,
       defaultQueryTimeout: const Duration(seconds: 10),
+      eagerAuth: false,
       bootstrapRelays: [if (env.hostrRelay.trim().isNotEmpty) env.hostrRelay],
       ignoreRelays: env.hostrRelay == 'wss://relay.hostr.development'
           ? const []

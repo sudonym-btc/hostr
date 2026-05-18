@@ -977,7 +977,7 @@ class DaemonHandler {
           'hasSeller': g.sellerReservation != null,
           'hasEscrow': g.escrowReservation != null,
           'escrowStage': g.escrowReservation?.stage.name,
-          'participants': g.participantSet.toList(),
+          'participants': rawReservationGroupParticipantSet(g).toList(),
         };
       }).toList(),
     };

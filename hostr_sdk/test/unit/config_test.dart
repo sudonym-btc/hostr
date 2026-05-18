@@ -34,6 +34,7 @@ void main() {
     expect(config.bootstrapRelays, hasLength(3));
     expect(config.ndkConfig.bootstrapRelays, ['wss://relay.hostr.network']);
     expect(config.ndkConfig.ignoreRelays, ['wss://relay.hostr.development']);
+    expect(config.ndkConfig.eagerAuth, isFalse);
   });
 
   test('default NDK config falls back when no Hostr relay is configured', () {
@@ -69,7 +70,7 @@ void main() {
       bootstrapRelays: const ['wss://relay.hostr.network'],
     );
 
-    final signer = config.ndkConfig.eventSignerFactory(
+    final signer = config.ndkConfig.eventSignerFactory.create(
       publicKey: 'pubkey',
       privateKey: 'privkey',
     );

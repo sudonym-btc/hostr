@@ -267,24 +267,20 @@ class Trade extends Cubit<TradeState> {
             extraParticipants.every((pubkey) => pubkey == escrowPubkey));
   }
 
-  Future<String?> resolveGuestPubkey() => _logger.span(
-    'resolveGuestPubkey',
-    () async {
-      for (final item in resolvedReservationGroup$.items.reversed) {
-        final group = item.group;
-        final buyerPubkey = group.buyerPubkey ?? group.buyerReservation?.pubKey;
-        if (buyerPubkey == null || buyerPubkey.isEmpty) continue;
-        final resolved =
-            item.participants.identityByParticipantPubkey[buyerPubkey];
-        if (resolved != null && resolved.isNotEmpty) return resolved;
-      }
+  Future<String?> resolveGuestPubkey() =>
+      _logger.span('resolveGuestPubkey', () async {
+        for (final item in resolvedReservationGroup$.items.reversed) {
+          final resolved = item.participants.resolvedParticipantPubkeyForRole(
+            'buyer',
+          );
+          if (resolved != null && resolved.isNotEmpty) return resolved;
+        }
 
-      final request = thread?.state.value.reservationRequests.lastOrNull;
-      if (request == null) return null;
-      return request.parsedTags.getTagValueByMarker('p', 'buyer') ??
-          request.recipient;
-    },
-  );
+        final request = thread?.state.value.reservationRequests.lastOrNull;
+        if (request == null) return null;
+        return request.parsedTags.getTagValueByMarker('p', 'buyer') ??
+            request.recipient;
+      });
 
   Future<void> start() => _logger.span('start', () async {
     if (_bootstrapped || isClosed) return;

@@ -78,6 +78,56 @@ class ResolvedReservationParticipantProof {
   });
 }
 
+Map<String, List<ReservationParticipantProofTag>>
+reservationParticipantProofsByPubkey(Reservation reservation) {
+  final result = <String, List<ReservationParticipantProofTag>>{};
+  for (final proof in reservation.parsedTags.participantProofs) {
+    final participantPubkey = proof.participantPubkey;
+    if (participantPubkey.isEmpty) continue;
+    result.putIfAbsent(participantPubkey, () => []).add(proof);
+  }
+  return Map<String, List<ReservationParticipantProofTag>>.unmodifiable({
+    for (final entry in result.entries)
+      entry.key: List<ReservationParticipantProofTag>.unmodifiable(entry.value),
+  });
+}
+
+Map<String, List<ReservationParticipantProofTag>>
+reservationGroupParticipantProofsByPubkey(ReservationGroup group) {
+  final result = <String, List<ReservationParticipantProofTag>>{};
+  for (final reservation in group.reservations) {
+    for (final entry in reservationParticipantProofsByPubkey(
+      reservation,
+    ).entries) {
+      result.putIfAbsent(entry.key, () => []).addAll(entry.value);
+    }
+  }
+  return Map<String, List<ReservationParticipantProofTag>>.unmodifiable({
+    for (final entry in result.entries)
+      entry.key: List<ReservationParticipantProofTag>.unmodifiable(entry.value),
+  });
+}
+
+bool reservationHasParticipantProof(
+  Reservation reservation,
+  String participantPubkey,
+) {
+  if (participantPubkey.isEmpty) return false;
+  return reservationParticipantProofsByPubkey(
+    reservation,
+  ).containsKey(participantPubkey);
+}
+
+bool reservationGroupHasParticipantProof(
+  ReservationGroup group,
+  String participantPubkey,
+) {
+  if (participantPubkey.isEmpty) return false;
+  return reservationGroupParticipantProofsByPubkey(
+    group,
+  ).containsKey(participantPubkey);
+}
+
 Set<String> rawReservationParticipantSet(Reservation reservation) {
   return Set.unmodifiable(
     {
@@ -87,11 +137,21 @@ Set<String> rawReservationParticipantSet(Reservation reservation) {
   );
 }
 
-Set<String> resolvedReservationParticipantSet({
-  required Reservation reservation,
+Set<String> rawReservationGroupParticipantSet(ReservationGroup group) {
+  final participants = <String>{};
+  for (final reservation in group.reservations) {
+    participants.addAll(rawReservationParticipantSet(reservation));
+  }
+  return Set.unmodifiable(participants);
+}
+
+Set<String> resolveParticipantSet({
+  required Iterable<String> rawParticipants,
   Iterable<ResolvedReservationParticipantProof> resolvedProofs = const [],
 }) {
-  final participants = rawReservationParticipantSet(reservation).toSet();
+  final participants = rawParticipants
+      .where((pubkey) => pubkey.isNotEmpty)
+      .toSet();
   for (final proof in resolvedProofs) {
     if (proof.participantPubkey.isEmpty) {
       throw ArgumentError.value(
@@ -114,8 +174,35 @@ Set<String> resolvedReservationParticipantSet({
   return Set.unmodifiable(participants);
 }
 
+Set<String> resolvedReservationParticipantSet({
+  required Reservation reservation,
+  Iterable<ResolvedReservationParticipantProof> resolvedProofs = const [],
+}) {
+  return resolveParticipantSet(
+    rawParticipants: rawReservationParticipantSet(reservation),
+    resolvedProofs: resolvedProofs,
+  );
+}
+
+Set<String> resolvedReservationGroupParticipantSet({
+  required ReservationGroup group,
+  Iterable<ResolvedReservationParticipantProof> resolvedProofs = const [],
+}) {
+  return resolveParticipantSet(
+    rawParticipants: rawReservationGroupParticipantSet(group),
+    resolvedProofs: resolvedProofs,
+  );
+}
+
 String rawReservationGroupId(Reservation reservation) {
   return ReservationGroup.groupIdFromEvent(reservation);
+}
+
+String rawReservationGroupIdForGroup(ReservationGroup group) {
+  return ReservationGroup.groupIdForParticipants(
+    tradeId: group.tradeId,
+    participants: rawReservationGroupParticipantSet(group),
+  );
 }
 
 String resolvedReservationGroupId({
@@ -130,6 +217,19 @@ String resolvedReservationGroupId({
     tradeId: tradeId,
     participants: resolvedReservationParticipantSet(
       reservation: reservation,
+      resolvedProofs: resolvedProofs,
+    ),
+  );
+}
+
+String resolvedReservationGroupIdForGroup({
+  required ReservationGroup group,
+  Iterable<ResolvedReservationParticipantProof> resolvedProofs = const [],
+}) {
+  return ReservationGroup.groupIdForParticipants(
+    tradeId: group.tradeId,
+    participants: resolvedReservationGroupParticipantSet(
+      group: group,
       resolvedProofs: resolvedProofs,
     ),
   );

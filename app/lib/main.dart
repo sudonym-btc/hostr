@@ -21,6 +21,8 @@ export './export.dart';
 void mainCommon(String env) async {
   runZonedGuarded(
     () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      runApp(const _BootstrapLoadingApp());
       await initCore(env);
       runApp(const MyApp());
       await initApp();
@@ -31,6 +33,31 @@ void mainCommon(String env) async {
       debugPrint('Stack trace: $stackTrace');
     },
   );
+}
+
+class _BootstrapLoadingApp extends StatelessWidget {
+  const _BootstrapLoadingApp();
+
+  @override
+  Widget build(BuildContext context) {
+    const background = Color(0xFF101010);
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: background,
+        body: Center(
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator.adaptive(
+              strokeWidth: 4,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 @pragma('vm:entry-point')

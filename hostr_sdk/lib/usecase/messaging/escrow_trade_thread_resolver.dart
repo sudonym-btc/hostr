@@ -69,9 +69,21 @@ class EscrowTradeThreadResolver {
     }
 
     final missingRoles = <String>[
-      if (!_hasResolvedRole(resolvedParticipants, 'seller')) 'seller',
-      if (!_hasResolvedRole(resolvedParticipants, 'buyer')) 'buyer',
-      if (!_hasResolvedRole(resolvedParticipants, 'escrow')) 'escrow',
+      if (!resolvedParticipants.hasResolvedParticipantForRole(
+        'seller',
+        requireResolvedProof: true,
+      ))
+        'seller',
+      if (!resolvedParticipants.hasResolvedParticipantForRole(
+        'buyer',
+        requireResolvedProof: true,
+      ))
+        'buyer',
+      if (!resolvedParticipants.hasResolvedParticipantForRole(
+        'escrow',
+        requireResolvedProof: true,
+      ))
+        'escrow',
     ];
     if (missingRoles.isNotEmpty) {
       throw StateError(
@@ -93,22 +105,6 @@ class EscrowTradeThreadResolver {
       participants: participantPubkeys,
     );
     return thread;
-  }
-
-  bool _hasResolvedRole(
-    ResolvedReservationGroupParticipants participants,
-    String role,
-  ) {
-    final rawPubkey = participants.rawParticipantPubkeyForRole(role);
-    final resolvedPubkey = participants.resolvedParticipantPubkeyForRole(role);
-    if (rawPubkey == null ||
-        rawPubkey.isEmpty ||
-        resolvedPubkey == null ||
-        resolvedPubkey.isEmpty) {
-      return false;
-    }
-    return !participants.hasParticipantProofFor(rawPubkey) ||
-        participants.hasResolvedProofFor(rawPubkey);
   }
 
   Future<ResolvedValidatedReservationGroupParticipants?>

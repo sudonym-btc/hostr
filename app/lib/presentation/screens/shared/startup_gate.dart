@@ -521,6 +521,38 @@ class _BunkerRecoveryViewState extends State<BunkerRecoveryView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    if (_isRestoring) {
+      return Center(
+        child: CustomPadding.horizontal.lg(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppLoadingIndicator.large(color: colors.primary),
+                Gap.vertical.lg(),
+                Text(
+                  'Connecting to your remote signer',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Gap.vertical.sm(),
+                Text(
+                  'Hostr is restoring your saved bunker session. Keep your Nostr signer open.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: CustomPadding.horizontal.lg(
         child: ConstrainedBox(

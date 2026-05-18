@@ -25,6 +25,7 @@ import '../requests/requests.dart';
 import '../reservation_groups/reservation_group_participant_resolver.dart';
 import '../reservation_groups/reservation_groups.dart';
 import '../reservations/reservation_participant_keyring.dart';
+import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'escrow_daemon_models.dart';
@@ -212,14 +213,10 @@ class EscrowReservationNotifier {
     required String role,
     bool requireProofWhenPresent = false,
   }) {
-    final rawPubkey = participants.rawParticipantPubkeyForRole(role);
-    if (rawPubkey == null || rawPubkey.isEmpty) return null;
-    if (requireProofWhenPresent &&
-        participants.hasParticipantProofFor(rawPubkey) &&
-        !participants.hasResolvedProofFor(rawPubkey)) {
-      return null;
-    }
-    return participants.identityByParticipantPubkey[rawPubkey] ?? rawPubkey;
+    return participants.resolvedParticipantPubkeyForRole(
+      role,
+      requireResolvedProof: requireProofWhenPresent,
+    );
   }
 
   Future<void> _maybeSend({
@@ -1101,7 +1098,7 @@ class EscrowDaemon {
     final reservation = await _reservations.confirm(group, keyPair);
 
     // Update local group so we don't re-process.
-    final groupId = ReservationGroup.groupIdFromEvent(reservation);
+    final groupId = rawReservationGroupId(reservation);
     _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
         .addReservation(reservation);
 
@@ -1134,7 +1131,7 @@ class EscrowDaemon {
     final reservation = await _reservations.cancel(group, keyPair);
 
     // Update local group so we don't re-process.
-    final groupId = ReservationGroup.groupIdFromEvent(reservation);
+    final groupId = rawReservationGroupId(reservation);
     _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
         .addReservation(reservation);
 

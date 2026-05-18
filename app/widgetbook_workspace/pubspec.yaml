@@ -42,7 +42,7 @@ dependency_overrides:
   ndk:
     git:
       url: https://github.com/sudonym-btc/ndk.git
-      ref: codex/hostr-ndk-fixes
+      ref: codex/hostr-ndk-fixes-upstream-master
       path: packages/ndk
   google_maps_flutter_web:
     path: ../../dependencies/google_maps_flutter_web

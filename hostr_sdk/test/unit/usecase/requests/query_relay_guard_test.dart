@@ -6,7 +6,8 @@ import 'package:hostr_sdk/usecase/requests/requests.dart'
         applyQueryRelayGuard,
         applyQueryRelayGuardForFilter,
         parseNostrEventsForSdk,
-        requestInFlightKeyFor;
+        requestInFlightKeyFor,
+        shouldPreAuthHostrRelayForBroadcast;
 import 'package:models/main.dart' show ProfileMetadata;
 import 'package:models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
@@ -158,6 +159,13 @@ void main() {
         requestInFlightKeyFor(filter: filter, cacheWrite: false),
         isNot(base),
       );
+      expect(
+        requestInFlightKeyFor(
+          filter: filter,
+          authenticateAsPubkeys: const ['alice'],
+        ),
+        isNot(base),
+      );
     });
 
     test('keeps identical behavior inputs stable', () {
@@ -212,6 +220,46 @@ void main() {
       expect(failures, hasLength(1));
       expect(failures.single.event, same(badEvent));
       expect(failures.single.error, isA<TypeError>());
+    });
+  });
+
+  group('shouldPreAuthHostrRelayForBroadcast', () {
+    test('requires pre-auth when a broadcast may touch the Hostr relay', () {
+      expect(
+        shouldPreAuthHostrRelayForBroadcast(
+          eventKind: kNostrKindListing,
+          hostrRelay: _hostrRelay,
+          relays: null,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldPreAuthHostrRelayForBroadcast(
+          eventKind: kNostrKindListing,
+          hostrRelay: _hostrRelay,
+          relays: [_hostrRelay],
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not pre-auth external-only or auth-optional broadcasts', () {
+      expect(
+        shouldPreAuthHostrRelayForBroadcast(
+          eventKind: kNostrKindListing,
+          hostrRelay: _hostrRelay,
+          relays: [_externalRelay],
+        ),
+        isFalse,
+      );
+      expect(
+        shouldPreAuthHostrRelayForBroadcast(
+          eventKind: kNostrKindConnect,
+          hostrRelay: _hostrRelay,
+          relays: [_hostrRelay],
+        ),
+        isFalse,
+      );
     });
   });
 }

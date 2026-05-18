@@ -9,9 +9,12 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
-const kSignerApprovalDelay = Duration(seconds: 5);
+const kSignerApprovalDelay = Duration(seconds: 2);
 
-const kNonBlockingSignerRequestEventKinds = <int>{kNostrKindReceivedHeartbeat};
+const kNonBlockingSignerRequestEventKinds = <int>{
+  kNostrKindReceivedHeartbeat,
+  kNostrKindRelayAuthentication,
+};
 
 bool shouldShowFullPageSignerRequest(PendingSignerRequest request) {
   if (request.method != SignerMethod.signEvent) return true;
@@ -38,6 +41,7 @@ PendingSignerRequest? visibleFullPageSignerRequest({
 String signerRequestEventKindDescription(int? kind) {
   return switch (kind) {
     kNostrKindProfile => 'profile metadata',
+    kNostrKindRelayAuthentication => 'relay authentication',
     kNostrKindListing => 'listing',
     kNostrKindReservation => 'reservation update',
     kNostrKindReview => 'review',
@@ -70,7 +74,7 @@ String signerRequestEventKindDescription(int? kind) {
     kNostrKindBadgeDefinition => 'badge definition',
     kNostrKindProfileBadges => 'profile badges',
     null => 'signer request',
-    _ => 'Nostr event kind $kind',
+    _ => 'Nostr event',
   };
 }
 
@@ -176,7 +180,6 @@ class _SignerRequestPopupListenerState
               kind: request.event?.kind,
               method: request.method.protocolString,
               createdAt: request.createdAt,
-              eventPreview: request.event?.content,
               onKeepWaiting: () => _keepWaiting(request),
               onCancel: () => _cancel(request),
             ),
@@ -190,7 +193,6 @@ class SignerRequestPopupPage extends StatelessWidget {
   final int? kind;
   final String method;
   final DateTime createdAt;
-  final String? eventPreview;
   final VoidCallback onKeepWaiting;
   final VoidCallback onCancel;
 
@@ -199,7 +201,6 @@ class SignerRequestPopupPage extends StatelessWidget {
     required this.kind,
     required this.method,
     required this.createdAt,
-    this.eventPreview,
     required this.onKeepWaiting,
     required this.onCancel,
   });
@@ -214,75 +215,85 @@ class SignerRequestPopupPage extends StatelessWidget {
       key: const ValueKey('signer_request_popup_page'),
       body: AppPane(
         child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: colors.tertiaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.approval_outlined,
-                        size: 40,
-                        color: colors.onTertiaryContainer,
-                      ),
-                    ),
-                    Gap.vertical.lg(),
-                    Text(
-                      'Approve in your Nostr app',
-                      key: const ValueKey('signer_request_popup_title'),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Gap.vertical.sm(),
-                    Text(
-                      'Hostr is waiting for your remote signer to approve the $description. This usually means your signer app needs attention.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    Gap.vertical.lg(),
-                    _EventPreviewMessage(
-                      method: method,
-                      kind: kind,
-                      createdAt: createdAt,
-                      eventPreview: eventPreview,
-                    ),
-                    Gap.vertical.lg(),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        key: const ValueKey(
-                          'signer_request_keep_waiting_button',
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: colors.tertiaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.approval_outlined,
+                                size: 40,
+                                color: colors.onTertiaryContainer,
+                              ),
+                            ),
+                            Gap.vertical.lg(),
+                            Text(
+                              'Approve in your Nostr app',
+                              key: const ValueKey('signer_request_popup_title'),
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Gap.vertical.sm(),
+                            Text(
+                              'Hostr is waiting for your remote signer to approve the $description. This usually means your signer app needs attention.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                            Gap.vertical.lg(),
+                            _SignerRequestDetails(
+                              method: method,
+                              kind: kind,
+                              createdAt: createdAt,
+                            ),
+                            Gap.vertical.lg(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                key: const ValueKey(
+                                  'signer_request_keep_waiting_button',
+                                ),
+                                onPressed: onKeepWaiting,
+                                child: const Text('Keep waiting'),
+                              ),
+                            ),
+                            Gap.vertical.sm(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                key: const ValueKey(
+                                  'signer_request_cancel_button',
+                                ),
+                                onPressed: onCancel,
+                                child: const Text('Cancel request'),
+                              ),
+                            ),
+                          ],
                         ),
-                        onPressed: onKeepWaiting,
-                        child: const Text('Keep waiting'),
                       ),
                     ),
-                    Gap.vertical.sm(),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        key: const ValueKey('signer_request_cancel_button'),
-                        onPressed: onCancel,
-                        child: const Text('Cancel request'),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -290,24 +301,44 @@ class SignerRequestPopupPage extends StatelessWidget {
   }
 }
 
-class _EventPreviewMessage extends StatelessWidget {
+class _SignerRequestDetails extends StatefulWidget {
   final String method;
   final int? kind;
   final DateTime createdAt;
-  final String? eventPreview;
 
-  const _EventPreviewMessage({
+  const _SignerRequestDetails({
     required this.method,
     required this.kind,
     required this.createdAt,
-    this.eventPreview,
   });
+
+  @override
+  State<_SignerRequestDetails> createState() => _SignerRequestDetailsState();
+}
+
+class _SignerRequestDetailsState extends State<_SignerRequestDetails> {
+  bool _expanded = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final preview = eventPreview?.trim();
+    final elapsed = _elapsedText(widget.createdAt);
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -321,21 +352,47 @@ class _EventPreviewMessage extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Event preview',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Request details',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Waiting: $elapsed',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                        Gap.horizontal.xs(),
+                        Icon(
+                          _expanded
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                          size: 20,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Gap.vertical.xs(),
-                Text('Method: $method'),
-                Text('Kind: ${signerRequestEventKindDescription(kind)}'),
-                if (kind != null) Text('Kind number: $kind'),
-                Text('Waiting since: ${_formatTime(createdAt)}'),
-                if (preview != null && preview.isNotEmpty) ...[
-                  Gap.vertical.sm(),
-                  Text(preview, maxLines: 4, overflow: TextOverflow.ellipsis),
+                if (_expanded) ...[
+                  Gap.vertical.xs(),
+                  Text('Waiting: $elapsed'),
+                  Text('Action: ${_methodLabel(widget.method)}'),
+                  Text(
+                    'Request: ${signerRequestEventKindDescription(widget.kind)}',
+                  ),
                 ],
               ],
             ),
@@ -345,10 +402,18 @@ class _EventPreviewMessage extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime value) {
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    final second = value.second.toString().padLeft(2, '0');
-    return '$hour:$minute:$second';
+  String _elapsedText(DateTime value) {
+    final seconds = DateTime.now().difference(value).inSeconds;
+    if (seconds <= 0) return 'now';
+    return '${seconds}s';
+  }
+
+  String _methodLabel(String value) {
+    return switch (value) {
+      'sign_event' => 'Sign approval',
+      'nip04_encrypt' || 'nip44_encrypt' => 'Encrypt message',
+      'nip04_decrypt' || 'nip44_decrypt' => 'Decrypt message',
+      _ => value.replaceAll('_', ' '),
+    };
   }
 }

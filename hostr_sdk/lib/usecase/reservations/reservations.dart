@@ -230,7 +230,7 @@ class Reservations extends CrudUseCase<Reservation>
     final Map<String, List<Reservation>> grouped = {};
 
     for (final reservation in reservations) {
-      final groupId = ReservationGroup.groupIdFromEvent(reservation);
+      final groupId = rawReservationGroupId(reservation);
       grouped.putIfAbsent(groupId, () => []);
       // Replace any existing reservation from the same pubkey
       grouped[groupId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
@@ -260,17 +260,14 @@ class Reservations extends CrudUseCase<Reservation>
     for (final reservation in reservations) {
       final tradeId = reservation.getDtag();
       if (tradeId == null || tradeId.isEmpty) continue;
-      final participants = {
-        reservation.pubKey,
-        ...reservation.parsedTags.getTags('p'),
-      };
+      final participants = rawReservationParticipantSet(reservation);
       final thread = messaging.threads.findTradeThread(
         tradeId: tradeId,
         participants: participants,
       );
       if (thread == null) continue;
 
-      final groupId = ReservationGroup.groupIdFromEvent(reservation);
+      final groupId = rawReservationGroupId(reservation);
       grouped.putIfAbsent(groupId, () => []);
       grouped[groupId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
       grouped[groupId]!.add(reservation);

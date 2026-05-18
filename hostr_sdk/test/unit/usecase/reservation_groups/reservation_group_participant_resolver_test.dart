@@ -155,6 +155,65 @@ void main() {
       },
     );
 
+    test('resolves buyer proofs from a host-only reservation group', () async {
+      final proof = ResolvedReservationParticipantProof(
+        participantPubkey: tempBuyer.publicKey,
+        identityPubkey: MockKeys.guest.publicKey,
+      );
+      final keyring = _FakeParticipantKeyring(
+        resolvedByPayload: {'buyer-proof': proof},
+      );
+      final resolver = ReservationGroupParticipantResolver(keyring: keyring);
+      final reservation = _reservation(
+        tradeId: tradeId,
+        authorPubkey: MockKeys.hoster.publicKey,
+        extraTags: [
+          ['p', tempBuyer.publicKey, '', 'buyer'],
+          ['p', escrow, '', 'escrow'],
+          ReservationParticipantProofTag(
+            role: 'buyer',
+            participantPubkey: tempBuyer.publicKey,
+            recipientPubkey: MockKeys.hoster.publicKey,
+            scheme: kReservationParticipantProofSchemeNip44,
+            payloadHash: ReservationParticipantProofTag.hashPayload(
+              'buyer-proof',
+            ),
+            payload: 'buyer-proof',
+          ).toTag(),
+        ],
+      );
+      final group = ReservationGroup(reservations: [reservation]);
+
+      final resolved = await resolver.resolve(group);
+
+      expect(group.buyerReservation, isNull);
+      expect(
+        resolved.rawParticipantPubkeyForRole('buyer'),
+        tempBuyer.publicKey,
+      );
+      expect(
+        resolved.resolvedParticipantPubkeyForRole('buyer'),
+        MockKeys.guest.publicKey,
+      );
+      expect(
+        resolved.hasResolvedParticipantForRole(
+          'buyer',
+          requireResolvedProof: true,
+        ),
+        isTrue,
+      );
+      expect(resolved.rawParticipantSet, {
+        MockKeys.hoster.publicKey,
+        tempBuyer.publicKey,
+        escrow,
+      });
+      expect(resolved.resolvedParticipantSet, {
+        MockKeys.hoster.publicKey,
+        MockKeys.guest.publicKey,
+        escrow,
+      });
+    });
+
     test('deduplicates repeated resolved proofs for the same alias', () async {
       final proof = ResolvedReservationParticipantProof(
         participantPubkey: tempBuyer.publicKey,

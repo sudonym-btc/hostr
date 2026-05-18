@@ -263,6 +263,74 @@ void main() {
             .toSet(),
         plan.proofTags.map((proof) => proof.toTag()).toSet(),
       );
+      final proofMap = reservationParticipantProofsByPubkey(reservation);
+      expect(proofMap.keys, {tempBuyer.publicKey});
+      expect(
+        proofMap[tempBuyer.publicKey]!.map((proof) => proof.toTag()).toSet(),
+        plan.proofTags.map((proof) => proof.toTag()).toSet(),
+      );
+    });
+
+    test('maps participant proofs across reservation groups', () async {
+      final tempBuyer = mockKeys[25];
+      final buyerProof = ReservationParticipantProofTag(
+        role: 'buyer',
+        participantPubkey: tempBuyer.publicKey,
+        recipientPubkey: MockKeys.hoster.publicKey,
+        scheme: kReservationParticipantProofSchemeNip44,
+        payloadHash: ReservationParticipantProofTag.hashPayload('buyer-proof'),
+        payload: 'buyer-proof',
+      );
+      final escrowProof = ReservationParticipantProofTag(
+        role: 'escrow',
+        participantPubkey: MockKeys.escrow.publicKey,
+        recipientPubkey: MockKeys.hoster.publicKey,
+        scheme: kReservationParticipantProofSchemeNip44,
+        payloadHash: ReservationParticipantProofTag.hashPayload('escrow-proof'),
+        payload: 'escrow-proof',
+      );
+      final hostReservation = Reservation.create(
+        pubKey: MockKeys.hoster.publicKey,
+        dTag: 'trade-proof-map',
+        listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
+        extraTags: [
+          ['p', tempBuyer.publicKey, '', 'buyer'],
+          ['p', MockKeys.escrow.publicKey, '', 'escrow'],
+          buyerProof.toTag(),
+        ],
+      );
+      final escrowReservation = Reservation.create(
+        pubKey: MockKeys.escrow.publicKey,
+        dTag: 'trade-proof-map',
+        listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
+        extraTags: [
+          ['p', tempBuyer.publicKey, '', 'buyer'],
+          ['p', MockKeys.hoster.publicKey, '', 'seller'],
+          escrowProof.toTag(),
+        ],
+      );
+
+      final group = ReservationGroup(
+        reservations: [hostReservation, escrowReservation],
+      );
+
+      final proofMap = reservationGroupParticipantProofsByPubkey(group);
+      expect(proofMap.keys, {tempBuyer.publicKey, MockKeys.escrow.publicKey});
+      expect(proofMap[tempBuyer.publicKey]!.map((proof) => proof.toTag()), [
+        buyerProof.toTag(),
+      ]);
+      expect(
+        proofMap[MockKeys.escrow.publicKey]!.map((proof) => proof.toTag()),
+        [escrowProof.toTag()],
+      );
+      expect(
+        reservationGroupHasParticipantProof(group, tempBuyer.publicKey),
+        isTrue,
+      );
+      expect(
+        reservationGroupHasParticipantProof(group, MockKeys.guest.publicKey),
+        isFalse,
+      );
     });
 
     test(

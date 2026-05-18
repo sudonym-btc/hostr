@@ -117,7 +117,7 @@ dependency_overrides:
   ndk:
     git:
       url: https://github.com/sudonym-btc/ndk.git
-      ref: codex/hostr-ndk-fixes
+      ref: codex/hostr-ndk-fixes-upstream-master
       path: packages/ndk
   intl: ^0.20.2
   pointycastle: ^4.0.0

@@ -1387,9 +1387,9 @@ class EntityFactory {
     }
     final participantPubkey = reservation.participantPubkeyForRole(role);
 
-    for (final proof in reservation.parsedTags.participantProofs) {
+    final proofMap = reservationParticipantProofsByPubkey(reservation);
+    for (final proof in proofMap[participantPubkey] ?? const []) {
       if (proof.role != role) continue;
-      if (proof.participantPubkey != participantPubkey) continue;
       if (proof.recipientPubkey != recipientKeyPair.publicKey) continue;
       if (proof.scheme != kReservationParticipantProofSchemeNip44) continue;
 
