@@ -1,0 +1,155 @@
+name: Relay Images Build & Push
+
+# Manual-only by design. The relay and relay admission sidecar are infrastructure
+# images, not application release images, so they must not rebuild on every commit.
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Registry environment to publish'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+          - both
+      relay_commit:
+        description: 'nostr-rs-relay commit SHA to build'
+        required: true
+        default: '64cfcaf44af498bf7969a8be5d6f0115abf98e4a'
+        type: string
+      tag_latest:
+        description: 'Also update the latest tags'
+        required: true
+        default: true
+        type: boolean
+      confirm_production:
+        description: 'Required when publishing to production'
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  prepare:
+    name: Prepare relay image build
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      relay_tag: ${{ steps.meta.outputs.relay_tag }}
+    steps:
+      - name: Guard production publish
+        run: |
+          target_env="${{ inputs.target_env }}"
+          confirm_production="${{ inputs.confirm_production }}"
+          if { [ "$target_env" = "production" ] || [ "$target_env" = "both" ]; } && [ "$confirm_production" != "true" ]; then
+            echo "confirm_production must be true when publishing relay images to production." >&2
+            exit 64
+          fi
+
+      - name: Validate relay commit
+        id: meta
+        run: |
+          relay_commit="${{ inputs.relay_commit }}"
+          if ! [[ "$relay_commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "relay_commit must be a full 40-character lowercase hex commit SHA." >&2
+            exit 64
+          fi
+          echo "relay_tag=${relay_commit:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Select target registries
+        id: matrix
+        run: |
+          case "${{ inputs.target_env }}" in
+            staging)
+              echo 'matrix={"include":[{"environment":"staging"}]}' >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              echo 'matrix={"include":[{"environment":"production"}]}' >> "$GITHUB_OUTPUT"
+              ;;
+            both)
+              echo 'matrix={"include":[{"environment":"staging"},{"environment":"production"}]}' >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported target_env: ${{ inputs.target_env }}" >&2
+              exit 64
+              ;;
+          esac
+
+  build_push:
+    name: Build & Push Relay Images (${{ matrix.environment }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set image tags
+        id: meta
+        run: |
+          registry="${{ vars.DOCKER_REGISTRY }}"
+          registry_host="${registry%%/*}"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+          echo "registry_host=$registry_host" >> "$GITHUB_OUTPUT"
+          echo "sidecar_tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ steps.meta.outputs.registry_host }}" --quiet
+
+      - name: Build & push nostr-rs-relay
+        env:
+          REGISTRY: ${{ steps.meta.outputs.registry }}
+          RELAY_COMMIT: ${{ inputs.relay_commit }}
+          RELAY_TAG: ${{ needs.prepare.outputs.relay_tag }}
+          TAG_LATEST: ${{ inputs.tag_latest }}
+        run: |
+          images=("$REGISTRY/relay:$RELAY_TAG")
+          if [ "$TAG_LATEST" = "true" ]; then
+            images+=("$REGISTRY/relay:latest")
+          fi
+
+          tags=()
+          for image in "${images[@]}"; do
+            tags+=(-t "$image")
+          done
+
+          docker build "${tags[@]}" "https://github.com/scsibug/nostr-rs-relay.git#$RELAY_COMMIT"
+
+          for image in "${images[@]}"; do
+            docker push "$image"
+          done
+
+      - name: Build & push relay authz sidecar
+        env:
+          REGISTRY: ${{ steps.meta.outputs.registry }}
+          SIDECAR_TAG: ${{ steps.meta.outputs.sidecar_tag }}
+          TAG_LATEST: ${{ inputs.tag_latest }}
+        run: |
+          images=("$REGISTRY/relay-authz:$SIDECAR_TAG")
+          if [ "$TAG_LATEST" = "true" ]; then
+            images+=("$REGISTRY/relay-authz:latest")
+          fi
+
+          tags=()
+          for image in "${images[@]}"; do
+            tags+=(-t "$image")
+          done
+
+          docker build "${tags[@]}" -f relay-authz/Dockerfile .
+
+          for image in "${images[@]}"; do
+            docker push "$image"
+          done

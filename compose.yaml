@@ -58,9 +58,16 @@ services:
           - paymaster.${DOMAIN}
 
   relay:
-    image: scsibug/nostr-rs-relay:0.9.0
+    # Local dev can build the pinned upstream commit with the NIP-42 AUTH OK fix.
+    # Hosted overlays pull the same commit tag from the environment registry.
+    image: hostr/nostr-rs-relay:64cfcaf
+    build:
+      context: https://github.com/scsibug/nostr-rs-relay.git#64cfcaf44af498bf7969a8be5d6f0115abf98e4a
     platform: linux/amd64
     restart: unless-stopped
+    depends_on:
+      relay-authz:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -83,6 +90,20 @@ services:
     volumes:
       - ./docker/${RELAY_TOML_FILE:-relay.development.toml}:/usr/src/app/config.toml
       - ./docker/data/relay:/usr/src/app/db
+    networks:
+      - default
+
+  relay-authz:
+    build:
+      context: .
+      dockerfile: relay-authz/Dockerfile
+    restart: unless-stopped
+    environment:
+      - RELAY_AUTHZ_REQUIRE_AUTHOR_MATCH=true
+      - RELAY_AUTHZ_AUTHOR_MISMATCH_KINDS=1059,32122,1326
+      - RELAY_AUTHZ_PUBLIC_WRITE_KINDS=24133,13194,23194,23195,23196,23197
+    expose:
+      - "50051"
     networks:
       - default
 

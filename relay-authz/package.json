@@ -1,0 +1,17 @@
+{
+  "name": "@hostr/relay-authz",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.2",
+    "@grpc/proto-loader": "^0.8.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

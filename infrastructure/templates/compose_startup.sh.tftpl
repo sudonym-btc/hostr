@@ -259,6 +259,8 @@ docker compose \
 docker pull "${docker_registry}/app:latest"
 docker pull "${docker_registry}/escrow:latest"
 docker pull "${docker_registry}/mcp:latest"
+docker pull "${docker_registry}/relay:64cfcaf"
+docker pull "${docker_registry}/relay-authz:latest"
 
 docker compose \
   --env-file /opt/hostr/.env.runtime \

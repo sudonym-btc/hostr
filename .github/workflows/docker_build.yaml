@@ -1,6 +1,8 @@
 name: Docker Build & Push
 
-# Build all compose service images and push to Artifact Registry.
+# Build release-coupled app/service images and push to Artifact Registry.
+# Relay infrastructure images are intentionally manual-only; see
+# relay_images_build.yaml.
 # Called automatically after a semantic-release in CI, or triggered manually.
 on:
   workflow_call:
