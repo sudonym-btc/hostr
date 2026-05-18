@@ -1,5 +1,5 @@
 const sensitiveKeyPattern =
-  /(authorization|access[_-]?token|refresh[_-]?token|id[_-]?token|jwt|secret|password|passwd|private[_-]?key|seed|mnemonic|preimage|signature|qrImage|nostrconnect)/i;
+  /(authorization|access[_-]?token|refresh[_-]?token|id[_-]?token|jwt|secret|password|passwd|private[_-]?key|nsec|seed|mnemonic|preimage|signature|qrImage|nostrconnect)/i;
 
 const maxLoggedStringLength = 1_000;
 

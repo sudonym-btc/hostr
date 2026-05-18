@@ -407,6 +407,120 @@ test("OAuth authorization code exchange issues rotating refresh tokens", async (
   }
 });
 
+test("OAuth authorization page can complete login with nsec", async () => {
+  const directory = tempDirectory();
+  const config = testConfig(directory);
+  const calls = [];
+  const daemon = {
+    startOAuthNostrConnect: async ({ requestId }) => ({
+      ok: true,
+      command: "hostr.session.connect",
+      environment: "test",
+      dryRun: false,
+      data: {
+        nostrconnect: `nostrconnect://test?request=${requestId}`,
+        qrImage: "data:image/png;base64,test",
+      },
+    }),
+    completeOAuthNsec: async ({ requestId, nsec }) => {
+      calls.push(["completeOAuthNsec", requestId, nsec]);
+      return {
+        ok: true,
+        command: "oauth.nsec.complete",
+        environment: "test",
+        dryRun: false,
+        data: { pubkey: "pubkey-nsec", credentialType: "private_key" },
+      };
+    },
+    visibleActions: async () => ({ visibleActionIds: [] }),
+    callAction: async ({ action }) => ({
+      ok: true,
+      command: action,
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    logoutSession: async () => ({ ok: true }),
+    uploadImage: async () => ({
+      ok: true,
+      command: "hostr.upload.image",
+      environment: "test",
+      dryRun: false,
+      data: {},
+    }),
+    onNotification: () => () => {},
+  };
+
+  const server = await startHttpServer(config, daemon);
+  try {
+    const redirectUri = "http://127.0.0.1/callback";
+    const registered = await requestJson(server, "/oauth/register", {
+      method: "POST",
+      body: {
+        client_name: "Nsec Test",
+        redirect_uris: [redirectUri],
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "none",
+        scope: "hostr:read hostr:write",
+      },
+    });
+    assert.equal(registered.status, 201);
+
+    const verifier = "b".repeat(43);
+    const challenge = crypto
+      .createHash("sha256")
+      .update(verifier)
+      .digest("base64url");
+    const authorize = await requestText(
+      server,
+      `/oauth/authorize?${new URLSearchParams({
+        response_type: "code",
+        client_id: registered.body.client_id,
+        redirect_uri: redirectUri,
+        scope: "hostr:read hostr:write",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+      })}`,
+    );
+    assert.equal(authorize.status, 200);
+    assert.match(authorize.text, /id="nsec"/);
+    assert.match(authorize.text, /\/oauth\/nsec\/complete/);
+    const requestIdMatch = /const requestId = "([^"]+)"/.exec(authorize.text);
+    assert.ok(requestIdMatch, authorize.text);
+
+    const nsec =
+      "nsec1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+    const completed = await requestJson(server, "/oauth/nsec/complete", {
+      method: "POST",
+      body: { request_id: requestIdMatch[1], nsec },
+    });
+    assert.equal(completed.status, 200);
+    assert.deepEqual(calls, [["completeOAuthNsec", requestIdMatch[1], nsec]]);
+    const code = new URL(completed.body.redirectUrl).searchParams.get("code");
+    assert.ok(code);
+
+    const token = await requestJson(server, "/oauth/token", {
+      method: "POST",
+      body: {
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: registered.body.client_id,
+        code_verifier: verifier,
+      },
+    });
+    assert.equal(token.status, 200);
+    const claims = await verifyAccessToken(config, token.body.access_token);
+    const session = new McpSessionStore(config.oauthClientStorePath).get(
+      claims.sessionId,
+    );
+    assert.equal(session.activePubkey, "pubkey-nsec");
+  } finally {
+    await server.close();
+  }
+});
+
 test("MCP session tools connect, list, switch, and logout backend accounts", async () => {
   const directory = tempDirectory();
   const config = testConfig(directory);

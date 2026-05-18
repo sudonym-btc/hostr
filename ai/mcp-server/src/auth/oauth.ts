@@ -87,6 +87,11 @@ const nostrConnectCompleteSchema = z.object({
   request_id: z.string().min(1),
 });
 
+const nsecCompleteSchema = z.object({
+  request_id: z.string().min(1),
+  nsec: z.string().trim().regex(/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/),
+});
+
 const cancelQuerySchema = z.object({
   request_id: z.string().min(1),
 });
@@ -291,6 +296,9 @@ const removePendingAuthorization = (request: PendingAuthorization): void => {
   }
 };
 
+const pendingAuthorizationIsActive = (request: PendingAuthorization): boolean =>
+  pendingAuthorizations.get(request.id) === request;
+
 const renderAuthorizePage = (
   config: AppConfig,
   request: PendingAuthorization,
@@ -332,12 +340,27 @@ const renderAuthorizePage = (
         <button type="button" id="copy">Copy</button>
       </div>
       <p id="status" class="status">Waiting for signer connection...</p>
+      <details class="advanced-login">
+        <summary>Advanced options</summary>
+        <div class="advanced-panel">
+          <p class="nsec-warning">Not recommended. This sends your private nsec to the Hostr MCP server so it can sign actions for this session.</p>
+          <form id="nsec-form" class="nsec-form">
+            <label for="nsec">Private nsec</label>
+            <div class="nsec-row">
+              <input id="nsec" name="nsec" type="password" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="nsec1..." />
+              <button type="submit">Sign in</button>
+            </div>
+          </form>
+        </div>
+      </details>
       <a class="cancel-link" href="${escapedCancelUrl}">Cancel</a>`;
   const nostrConnectScript = `<script>
       const requestId = ${JSON.stringify(request.id)};
       const status = document.getElementById("status");
       const copyButton = document.getElementById("copy");
       const uriBox = document.getElementById("nostrconnect");
+      const nsecForm = document.getElementById("nsec-form");
+      const nsecInput = document.getElementById("nsec");
       const qr = document.querySelector(".qr");
       const copyRow = document.querySelector(".copy-row");
       let stopped = false;
@@ -374,6 +397,43 @@ const renderAuthorizePage = (
         if (copyRow) copyRow.style.display = "none";
       }
 
+      nsecForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const nsec = nsecInput.value.trim();
+        if (!nsec.startsWith("nsec1")) {
+          status.textContent = "Enter a valid nsec key.";
+          nsecInput.focus();
+          return;
+        }
+        stopped = true;
+        status.textContent = "Signing in...";
+        try {
+          const response = await fetch("/oauth/nsec/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ request_id: requestId, nsec }),
+          });
+          const contentType = response.headers.get("content-type") || "";
+          const payload = contentType.includes("application/json")
+            ? await response.json()
+            : { error_description: await response.text() };
+          nsecInput.value = "";
+          if (!response.ok || !payload.redirectUrl) {
+            stopped = false;
+            status.textContent = friendlyStatus(payload) || "Could not sign in with that nsec.";
+            setTimeout(() => void complete(), 1500);
+            return;
+          }
+          status.textContent = "Connected. Redirecting...";
+          window.location.href = payload.redirectUrl;
+        } catch (error) {
+          stopped = false;
+          nsecInput.value = "";
+          status.textContent = friendlyStatus(error) || "Could not sign in with that nsec.";
+          setTimeout(() => void complete(), 1500);
+        }
+      });
+
       async function complete() {
         if (stopped) return;
         status.textContent = "Waiting for signer connection...";
@@ -383,10 +443,12 @@ const renderAuthorizePage = (
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ request_id: requestId }),
           });
+          if (stopped) return;
           const contentType = response.headers.get("content-type") || "";
           const payload = contentType.includes("application/json")
             ? await response.json()
             : { error_description: await response.text() };
+          if (stopped) return;
           if (!response.ok || !payload.redirectUrl) {
             if (payload.retryable === false || payload.error === "invalid_request") {
               stopWithExpired(friendlyStatus(payload));
@@ -397,6 +459,7 @@ const renderAuthorizePage = (
           status.textContent = "Connected. Redirecting...";
           window.location.href = payload.redirectUrl;
         } catch (error) {
+          if (stopped) return;
           status.textContent = friendlyStatus(error);
           setTimeout(() => void complete(), 1500);
         }
@@ -602,6 +665,47 @@ const renderAuthorizePage = (
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 8px;
       }
+      .advanced-login {
+        margin-top: 18px;
+        border-top: 1px solid var(--outline-variant);
+        padding-top: 12px;
+      }
+      .advanced-login summary {
+        width: max-content;
+        margin: 0 auto;
+        color: var(--outline);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .advanced-login summary:hover,
+      .advanced-login summary:focus-visible {
+        color: var(--on-surface-variant);
+        outline: none;
+      }
+      .advanced-panel {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        background: var(--surface-low);
+      }
+      .nsec-form {
+        display: grid;
+        gap: 10px;
+      }
+      .nsec-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+      .nsec-warning {
+        margin: 0 0 12px;
+        color: var(--on-surface-variant);
+        font-size: 12px;
+        line-height: 1.45;
+        text-align: left;
+      }
       .cancel-link {
         display: block;
         width: max-content;
@@ -627,6 +731,9 @@ const renderAuthorizePage = (
           margin-bottom: 24px;
         }
         .copy-row {
+          grid-template-columns: 1fr;
+        }
+        .nsec-row {
           grid-template-columns: 1fr;
         }
         button {
@@ -1033,6 +1140,87 @@ export const createOAuthRouter = (
           "authorization_pending",
           message,
           { retryable: true },
+        );
+      }
+      if (!pendingAuthorizationIsActive(pending)) {
+        return oauthError(
+          response,
+          410,
+          "invalid_request",
+          "This authorization request was already completed.",
+          { retryable: false },
+        );
+      }
+
+      response.json({
+        pubkey,
+        redirectUrl: authorizationRedirectUrl(config, pending, pubkey),
+      });
+    },
+  );
+
+  router.post(
+    "/oauth/nsec/complete",
+    async (request: Request, response: Response) => {
+      sweepExpiredOAuthState();
+      const traceId = request.hostrTraceId ?? traceIdFromRequest(request);
+      const parsed = nsecCompleteSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return oauthError(
+          response,
+          400,
+          "invalid_request",
+          "Malformed nsec completion request.",
+          { retryable: true },
+        );
+      }
+
+      const pending = pendingAuthorizations.get(parsed.data.request_id);
+      if (!pending) {
+        return oauthError(
+          response,
+          400,
+          "invalid_request",
+          "Unknown or expired authorization request.",
+          { retryable: false },
+        );
+      }
+
+      let completed;
+      try {
+        completed = await daemon.completeOAuthNsec({
+          requestId: pending.id,
+          nsec: parsed.data.nsec,
+          traceId,
+        });
+      } catch (error) {
+        return oauthError(
+          response,
+          500,
+          "server_error",
+          messageFromError(error),
+          { retryable: true },
+        );
+      }
+
+      const pubkey = completed.data?.pubkey;
+      if (!completed.ok || !pubkey) {
+        return oauthError(
+          response,
+          400,
+          "invalid_request",
+          firstErrorMessage(completed.errors) ??
+            "Could not sign in with that nsec.",
+          { retryable: true },
+        );
+      }
+      if (!pendingAuthorizationIsActive(pending)) {
+        return oauthError(
+          response,
+          410,
+          "invalid_request",
+          "This authorization request was already completed.",
+          { retryable: false },
         );
       }
 

@@ -144,6 +144,15 @@ class HostrDaemonStdioServer {
                 cancellationToken: cancellationToken,
               )
               .then((result) => result.toJson()),
+        'completeOAuthNsec' =>
+          await daemon
+              .completeOAuthNsec(
+                requestId: _requiredString(params, 'requestId'),
+                nsec: _requiredString(params, 'nsec'),
+                traceId: traceId,
+                cancellationToken: cancellationToken,
+              )
+              .then((result) => result.toJson()),
         'callAction' =>
           await daemon
               .call(
