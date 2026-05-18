@@ -32,8 +32,14 @@ services:
       - acme-html:/usr/share/nginx/html
 
   relay:
+    image: ${DOCKER_REGISTRY}/relay:64cfcaf
+    build: !reset null
     environment:
       - LETSENCRYPT_HOST=relay.${DOMAIN}
+
+  relay-authz:
+    image: ${DOCKER_REGISTRY}/relay-authz:latest
+    build: !reset null
 
   blossom:
     environment:

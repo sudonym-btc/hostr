@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package nauthz;
+
+service Authorization {
+  rpc EventAdmit(EventRequest) returns (EventReply) {}
+}
+
+message Event {
+  bytes id = 1;
+  bytes pubkey = 2;
+  fixed64 created_at = 3;
+  uint64 kind = 4;
+  string content = 5;
+  repeated TagEntry tags = 6;
+  bytes sig = 7;
+
+  message TagEntry {
+    repeated string values = 1;
+  }
+}
+
+message EventRequest {
+  Event event = 1;
+  optional string ip_addr = 2;
+  optional string origin = 3;
+  optional string user_agent = 4;
+  optional bytes auth_pubkey = 5;
+  optional Nip05Name nip05 = 6;
+
+  message Nip05Name {
+    string local = 1;
+    string domain = 2;
+  }
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_PERMIT = 1;
+  DECISION_DENY = 2;
+}
+
+message EventReply {
+  Decision decision = 1;
+  optional string message = 2;
+}
