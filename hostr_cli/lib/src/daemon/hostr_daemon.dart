@@ -1039,6 +1039,108 @@ class HostrDaemon {
     }
   }
 
+  Future<HostrCliResult> completeOAuthNsec({
+    required String requestId,
+    required String nsec,
+    String? traceId,
+    HostrCancellationToken? cancellationToken,
+  }) async {
+    try {
+      cancellationToken?.throwIfCancelled();
+      return await TraceContext.run(traceId, () async {
+        final trimmed = nsec.trim();
+        if (!trimmed.startsWith('nsec1')) {
+          throw HostrCliException(
+            'invalid_nsec',
+            'Expected an nsec1 private key.',
+            path: 'nsec',
+            retryable: true,
+          );
+        }
+
+        final foreground = await context.runtime.foregroundSession();
+        await foreground.ensureInitialized();
+        final record = await () async {
+          try {
+            return await foreground.auth.previewResolvedIdentity(trimmed);
+          } catch (_) {
+            throw HostrCliException(
+              'invalid_nsec',
+              'Invalid nsec key.',
+              path: 'nsec',
+              retryable: true,
+            );
+          }
+        }();
+
+        final pubkey = record.publicKeyHex;
+        if (pubkey == null || pubkey.isEmpty) {
+          throw HostrCliException(
+            'invalid_nsec',
+            'The nsec key did not resolve to a public key.',
+            path: 'nsec',
+            retryable: true,
+          );
+        }
+
+        final session = context.runtime.session(pubkey);
+        await session.ensureInitialized();
+        try {
+          await session.auth.signin(trimmed);
+        } catch (_) {
+          throw HostrCliException(
+            'invalid_nsec',
+            'Invalid nsec key.',
+            path: 'nsec',
+            retryable: true,
+          );
+        }
+        unawaited(
+          _ensureAuthenticatedSessionHydrated(session, traceId: traceId),
+        );
+        _pendingOAuthNostrConnect.remove(requestId);
+        _pendingOAuthNostrConnectWaits.remove(requestId);
+
+        return HostrCliResult(
+          ok: true,
+          command: 'oauth.nsec.complete',
+          environment: context.options.environment.name,
+          dryRun: false,
+          traceId: traceId,
+          data: {
+            'authenticated': true,
+            'pubkey': pubkey,
+            'credentialType': 'private_key',
+          },
+        );
+      });
+    } on HostrCliException catch (error) {
+      return HostrCliResult(
+        ok: false,
+        command: 'oauth.nsec.complete',
+        environment: context.options.environment.name,
+        dryRun: false,
+        traceId: traceId,
+        errors: [error.toIssue()],
+      );
+    } catch (error) {
+      return HostrCliResult(
+        ok: false,
+        command: 'oauth.nsec.complete',
+        environment: context.options.environment.name,
+        dryRun: false,
+        traceId: traceId,
+        errors: [
+          HostrCliIssue(
+            code: 'unexpected_error',
+            message: error.toString(),
+            retryable: false,
+          ),
+        ],
+      );
+    }
+  }
+
   Future<HostrCliResult> _completeOAuthNostrConnectInternal({
     required String requestId,
     required NostrConnect nostrConnect,
@@ -1057,6 +1159,12 @@ class HostrDaemon {
           throw HostrCliException(
             'nostr_connect_incomplete',
             'Nostr Connect did not return a reusable session.',
+          );
+        }
+        if (!identical(_pendingOAuthNostrConnect[requestId], nostrConnect)) {
+          throw HostrCliException(
+            'unknown_oauth_request',
+            'OAuth Nostr Connect request is no longer active.',
           );
         }
         await foreground.auth.signinWithBunkerConnection(foregroundConnection);

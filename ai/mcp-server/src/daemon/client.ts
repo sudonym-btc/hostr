@@ -53,6 +53,14 @@ export type OAuthNostrConnectCompleteResult = HostrDaemonCallResult & {
   };
 };
 
+export type OAuthNsecCompleteResult = HostrDaemonCallResult & {
+  data?: {
+    authenticated?: boolean;
+    pubkey?: string;
+    credentialType?: string;
+  };
+};
+
 export type HostrImageUploadResult = HostrDaemonCallResult & {
   data?: {
     url?: string;
@@ -160,6 +168,21 @@ export class HostrDaemonClient {
       timeoutMs,
       traceId,
     )) as OAuthNostrConnectCompleteResult;
+  }
+
+  async completeOAuthNsec(params: {
+    requestId: string;
+    nsec: string;
+    timeoutMs?: number;
+    traceId?: string;
+  }): Promise<OAuthNsecCompleteResult> {
+    const { timeoutMs, traceId, ...requestParams } = params;
+    return (await this.request(
+      "completeOAuthNsec",
+      requestParams,
+      timeoutMs,
+      traceId,
+    )) as OAuthNsecCompleteResult;
   }
 
   async close(): Promise<void> {
