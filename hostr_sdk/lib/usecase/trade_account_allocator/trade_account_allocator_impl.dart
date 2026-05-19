@@ -57,11 +57,12 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
           final entry = await _cache.ensureFullEntry(accountIndex);
 
           final tradeExists = await _tradeExists(entry.tradeId);
-          final addressUsed = await _evmAddressIsUsed(
-            bip.EthereumAddress.fromHex(entry.evmAddress!),
+          final accountUsed = await _tradeAccountIsUsed(
+            accountIndex,
+            eoaAddress: bip.EthereumAddress.fromHex(entry.evmAddress!),
           );
 
-          if (!tradeExists && !addressUsed) {
+          if (!tradeExists && !accountUsed) {
             break;
           }
 
@@ -181,11 +182,13 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     }
   }
 
-  Future<bool> _evmAddressIsUsed(bip.EthereumAddress address) async {
+  Future<bool> _tradeAccountIsUsed(
+    int accountIndex, {
+    required bip.EthereumAddress eoaAddress,
+  }) async {
+    final signer = await _hd.getActiveEvmKey(accountIndex: accountIndex);
     for (final configured in _evm.configuredChains) {
-      final nonce = await configured.client.getTransactionCount(address);
-      final balance = await configured.client.getBalance(address);
-      if (nonce > 0 || balance.getInWei > BigInt.zero) {
+      if (await configured.hasAccountActivity(signer, eoaAddress: eoaAddress)) {
         return true;
       }
     }

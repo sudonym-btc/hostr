@@ -21,7 +21,8 @@ import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' as bip;
-import 'package:web3dart/web3dart.dart' show BlockNum, Web3Client;
+import 'package:web3dart/web3dart.dart'
+    show BlockNum, EthPrivateKey, Web3Client;
 
 // ── Fakes ──────────────────────────────────────────────────────────────
 
@@ -77,6 +78,12 @@ class _FakeDeterministicKeys extends Fake implements DeterministicKeys {
       );
 
   @override
+  Future<EthPrivateKey> getActiveEvmKey({int accountIndex = 0}) async =>
+      EthPrivateKey.fromHex(
+        (accountIndex + 1).toRadixString(16).padLeft(64, '0'),
+      );
+
+  @override
   Future<KeyPair> getTradeKeyPair({required int accountIndex}) async =>
       _tradeKey;
 }
@@ -85,7 +92,37 @@ class _FakeEvmChain extends Fake implements EvmChain {
   @override
   final Web3Client client;
 
-  _FakeEvmChain(this.client);
+  final Map<String, bip.EthereumAddress> smartAddressesByEoa;
+  final Set<String> usedSmartAddresses;
+
+  _FakeEvmChain(
+    this.client, {
+    this.smartAddressesByEoa = const {},
+    this.usedSmartAddresses = const {},
+  });
+
+  @override
+  Future<bool> hasAccountActivity(
+    EthPrivateKey signer, {
+    bip.EthereumAddress? eoaAddress,
+  }) async {
+    final eoa = eoaAddress ?? signer.address;
+    final eoaNonce = await client.getTransactionCount(eoa);
+    final eoaBalance = await client.getBalance(eoa);
+    if (eoaNonce > 0 || eoaBalance.getInWei > BigInt.zero) return true;
+
+    final smartAddress =
+        smartAddressesByEoa[eoa.with0x.toLowerCase()] ??
+        smartAddressesByEoa[eoa.eip55With0x.toLowerCase()];
+    if (smartAddress == null) return false;
+
+    final smartKey = smartAddress.with0x.toLowerCase();
+    if (usedSmartAddresses.contains(smartKey)) return true;
+
+    final smartNonce = await client.getTransactionCount(smartAddress);
+    final smartBalance = await client.getBalance(smartAddress);
+    return smartNonce > 0 || smartBalance.getInWei > BigInt.zero;
+  }
 }
 
 class _FakeWeb3Client extends Fake implements Web3Client {
@@ -294,6 +331,37 @@ void main() {
 
       final index = await allocator.reserveNextTradeIndex();
       expect(index, 2); // skipped trade index 1
+    });
+
+    test('skips indices with used AA smart accounts', () async {
+      final eoaAddress = bip.EthereumAddress.fromHex(
+        '0x${1.toRadixString(16).padLeft(40, '0')}',
+      );
+      final smartAddress = bip.EthereumAddress.fromHex(
+        '0x${101.toRadixString(16).padLeft(40, '0')}',
+      );
+      hd = _FakeDeterministicKeys(evmAddresses: {1: eoaAddress});
+      web3 = _FakeWeb3Client();
+      evm = _FakeEvm([
+        _FakeEvmChain(
+          web3,
+          smartAddressesByEoa: {eoaAddress.with0x.toLowerCase(): smartAddress},
+          usedSmartAddresses: {smartAddress.with0x.toLowerCase()},
+        ),
+      ]);
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
+      allocator = TradeAccountAllocatorImpl(
+        auth: auth,
+        hd: hd,
+        evm: evm,
+        reservations: reservations,
+        threads: _FakeThreads(),
+        cache: cache,
+        logger: logger,
+      );
+
+      final index = await allocator.reserveNextTradeIndex();
+      expect(index, 2);
     });
 
     test('updates maxAccountIndex via Auth', () async {
