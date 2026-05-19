@@ -604,7 +604,7 @@ packages:
     description:
       path: "packages/ndk"
       ref: "codex/hostr-ndk-fixes-upstream-master"
-      resolved-ref: a283cab0388fc528c775ea7e44e765a94c1f89fd
+      resolved-ref: "85f5ca2d3791b56149caaac09a0877b658f56d5a"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
     version: "0.8.2-dev.8"

@@ -183,6 +183,7 @@ Future<void> _runSignedInPaymentProofCase({
   );
 
   final proofCompleter = Completer<Reservation>();
+  final proofPublishCompleter = Completer<void>();
   final updatesSub = hostr.reservations.updates.listen((reservation) {
     if (_isBuyerEscrowProofReservation(
       reservation: reservation,
@@ -258,18 +259,28 @@ Future<void> _runSignedInPaymentProofCase({
         'PAYMENT_PROOF_IT $label:completed-swap '
         'trade=${prepared.tradeId} tx=$txHash',
       );
+      final publishFuture = hostr.paymentProofOrchestrator
+          .publishEscrowProofForCompletedSwap(
+            tradeId: prepared.tradeId,
+            transactionHash: txHash,
+            escrowService: prepared.selectedEscrow,
+          );
       unawaited(
-        hostr.paymentProofOrchestrator
-            .publishEscrowProofForCompletedSwap(
-              tradeId: prepared.tradeId,
-              transactionHash: txHash,
-              escrowService: prepared.selectedEscrow,
-            )
-            .catchError((Object error, StackTrace stackTrace) {
-              if (!proofCompleter.isCompleted) {
-                proofCompleter.completeError(error, stackTrace);
-              }
-            }),
+        publishFuture.then(
+          (_) {
+            if (!proofPublishCompleter.isCompleted) {
+              proofPublishCompleter.complete();
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!proofPublishCompleter.isCompleted) {
+              proofPublishCompleter.completeError(error, stackTrace);
+            }
+            if (!proofCompleter.isCompleted) {
+              proofCompleter.completeError(error, stackTrace);
+            }
+          },
+        ),
       );
     });
 
@@ -313,6 +324,14 @@ Future<void> _runSignedInPaymentProofCase({
       published.proof?.escrowProof?.txHash.toLowerCase(),
       equals(txHash!.toLowerCase()),
       reason: 'Published proof must reference the completed escrow tx',
+    );
+    await proofPublishCompleter.future.timeout(
+      const Duration(seconds: 90),
+      onTimeout: () => throw TimeoutException(
+        'PaymentProofOrchestrator did not finish proof publish for $label. '
+        'tx=$txHash ${_snapshot(hostr, prepared.tradeId)} '
+        'states=${seenSwapStates.join(" > ")}',
+      ),
     );
 
     await _expectProofReadableFromRelay(
@@ -489,25 +508,21 @@ Future<_EscrowFixture> _seedEscrowFixture(
     contractAddress: contractAddress,
     multiEscrowBytecodeHash: bytecodeHash,
   )).first;
-  final hostEscrowMethod = await harness.seeds.entities.escrowMethod(
-    signer: host.keyPair,
-    multiEscrowBytecodeHash: bytecodeHash,
-    chainId: chainConfig.chainId,
-    tbtcAddress: chainConfig.tokens['tBTC']?.address,
-    usdtAddress: chainConfig.tokens['USDT']?.address,
-  );
-
   await hostr.auth.signin(MockKeys.escrow.privateKey!);
   await hostr.escrows.upsert(escrowService);
   await hostr.auth.logout();
   await hostr.ndk.relays.closeAllTransports();
 
   await hostr.auth.signin(host.privateKey);
-  await hostr.metadata.upsert(host.profile);
   if (host.identityClaims != null) {
     await hostr.identityClaims.upsert(host.identityClaims!);
   }
-  await hostr.escrowMethods.upsert(hostEscrowMethod);
+  await hostr.metadata.upsert(host.profile);
+  await hostr.metadata.ensureSellerConfig(host.keyPair.publicKey);
+  final hostEscrowMethod = await hostr.escrowMethods.myMethod();
+  if (hostEscrowMethod == null) {
+    throw StateError('Host escrow method was not published for payment proof');
+  }
 
   final runId = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
   var createdAt =

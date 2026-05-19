@@ -294,6 +294,7 @@ class PaymentProofOrchestrator {
         'PaymentProofOrchestrator: failed to publish proof for $tradeId: $e',
       );
       _logger.d('$st');
+      rethrow;
     } finally {
       _inFlightTradeIds.remove(tradeId);
     }

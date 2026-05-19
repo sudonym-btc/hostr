@@ -50,6 +50,9 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   final IdentityClaimsUseCase _identityClaims;
   final HostrConfig _config;
   final Map<String, Future<ProfileMetadata?>> _inFlightLoads = {};
+  // Profile upserts, startup, and listing writes can all ask for seller config
+  // at once. Share the same run so they do not publish duplicate config events.
+  final Map<String, Future<void>> _inFlightSellerConfigs = {};
 
   MetadataUseCase({
     required Ndk ndk,
@@ -231,64 +234,80 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   /// startup/profile sync. Hostr may read NIP-65 for discovery, but should
   /// not silently append its own relay while the product is still treating the
   /// wider relay graph as read-mostly.
-  Future<void> ensureSellerConfig(String pubkey) => logger.span(
-    'ensureSellerConfig',
-    () async {
-      if (_config.hostrRelay.isNotEmpty) {
-        logger.i(
-          'Skipping automatic NIP-65 publish for $pubkey '
-          'while syncing via ${_relays.runtimeType}',
-        );
-      }
+  Future<void> ensureSellerConfig(String pubkey) {
+    final trimmedPubkey = pubkey.trim();
+    if (trimmedPubkey.isEmpty) return Future.value();
 
-      try {
-        await _identityClaims.ensureEvmAddress();
-      } catch (e) {
-        logger.e('IdentityClaims.ensureEvmAddress failed: $e');
-      }
+    final existing = _inFlightSellerConfigs[trimmedPubkey];
+    if (existing != null) return existing;
 
-      try {
-        // Accepted BTC payment forms depend on Boltz swap discovery attaching
-        // swap providers to configured chains. Without this, seller config can
-        // be rebuilt from static token config only and lose the BTC form.
-        await _evm.init();
-
-        final bytecodeHashes = <String>{};
-        for (final chain in _evm.configuredChains) {
-          final addr = chain.config.escrowContractAddress;
-          if (addr == null || addr.isEmpty) continue;
-          try {
-            bytecodeHashes.add(
-              await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-                chain,
-                EthereumAddress.fromHex(addr),
-              ),
-            );
-          } catch (e) {
-            logger.w(
-              'Could not resolve bytecode hash for $addr on '
-              '${chain.config.id}: $e',
-            );
+    late final Future<void> ensure;
+    ensure = logger
+        .span('ensureSellerConfig', () => _ensureSellerConfig(trimmedPubkey))
+        .whenComplete(() {
+          if (identical(_inFlightSellerConfigs[trimmedPubkey], ensure)) {
+            _inFlightSellerConfigs.remove(trimmedPubkey);
           }
-        }
-        await _escrowMethods.ensureEscrowMethod(
-          trustedEscrowPubkeys: _config.bootstrapEscrowPubkeys,
-          bytecodeHashes: bytecodeHashes,
-        );
-      } catch (e) {
-        logger.e('ensureEscrowMethod failed: $e');
-      }
+        });
+    _inFlightSellerConfigs[trimmedPubkey] = ensure;
+    return ensure;
+  }
 
-      logger.i('Skipping automatic Blossom server-list publish for $pubkey');
-      /*
+  Future<void> _ensureSellerConfig(String pubkey) async {
+    if (_config.hostrRelay.isNotEmpty) {
+      logger.i(
+        'Skipping automatic NIP-65 publish for $pubkey '
+        'while syncing via ${_relays.runtimeType}',
+      );
+    }
+
+    try {
+      await _identityClaims.ensureEvmAddress();
+    } catch (e) {
+      logger.e('IdentityClaims.ensureEvmAddress failed: $e');
+    }
+
+    try {
+      // Accepted BTC payment forms depend on Boltz swap discovery attaching
+      // swap providers to configured chains. Without this, seller config can
+      // be rebuilt from static token config only and lose the BTC form.
+      await _evm.init();
+
+      final bytecodeHashes = <String>{};
+      for (final chain in _evm.configuredChains) {
+        final addr = chain.config.escrowContractAddress;
+        if (addr == null || addr.isEmpty) continue;
         try {
-          await _blossom.ensureBlossomServer(pubkey);
+          bytecodeHashes.add(
+            await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+              chain,
+              EthereumAddress.fromHex(addr),
+            ),
+          );
         } catch (e) {
-          logger.e('ensureBlossomServer failed: $e');
+          logger.w(
+            'Could not resolve bytecode hash for $addr on '
+            '${chain.config.id}: $e',
+          );
         }
-        */
-    },
-  );
+      }
+      await _escrowMethods.ensureEscrowMethod(
+        trustedEscrowPubkeys: _config.bootstrapEscrowPubkeys,
+        bytecodeHashes: bytecodeHashes,
+      );
+    } catch (e) {
+      logger.e('ensureEscrowMethod failed: $e');
+    }
+
+    logger.i('Skipping automatic Blossom server-list publish for $pubkey');
+    /*
+      try {
+        await _blossom.ensureBlossomServer(pubkey);
+      } catch (e) {
+        logger.e('ensureBlossomServer failed: $e');
+      }
+      */
+  }
 
   Future<void> ensureUserConfig(String pubkey) => ensureSellerConfig(pubkey);
 }
