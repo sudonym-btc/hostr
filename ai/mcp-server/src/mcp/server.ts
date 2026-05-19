@@ -347,7 +347,6 @@ const destructiveActionIds = new Set([
   "hostr.reservations.commit",
   "hostr.reservations.cancel",
   "hostr.reservations.review",
-  "hostr.thread.message",
   "hostr.escrow.involve",
   "hostr.escrow.service.edit",
   "hostr.escrow.service.delete",
@@ -359,6 +358,7 @@ const destructiveActionIds = new Set([
 ]);
 
 const openWorldActionIds = new Set([
+  "hostr.listings.search",
   "hostr.listings.create",
   "hostr.listings.edit",
   "hostr.reservations.bookAndPay",
@@ -393,7 +393,7 @@ const toolAnnotations = (action: {
   return {
     readOnlyHint,
     destructiveHint: !readOnlyHint && destructiveActionIds.has(action.id),
-    openWorldHint: !readOnlyHint && openWorldActionIds.has(action.id),
+    openWorldHint: openWorldActionIds.has(action.id),
   };
 };
 
@@ -4457,12 +4457,22 @@ const refreshToolVisibility = async (
   sessionStore: McpSessionStore,
   claims: AccessTokenClaims | null,
 ) => {
+  const activePubkey = activePubkeyForClaims(sessionStore, claims);
+  const effectiveVisibleActionIds = applyClientToolVisibilityPolicy(
+    visibleActionIds,
+    {
+      sessionId: claims?.sessionId,
+      activePubkey,
+      clientId: claims?.clientId,
+      authorizedParty: claims?.authorizedParty,
+    },
+  );
   for (const action of hostrActionCatalog) {
     const handle = toolHandles.get(action.toolName);
     if (!handle) {
       continue;
     }
-    const shouldEnable = visibleActionIds.has(action.id);
+    const shouldEnable = effectiveVisibleActionIds.has(action.id);
     if (shouldEnable && !handle.enabled) {
       handle.enable();
     } else if (!shouldEnable && handle.enabled) {
@@ -7068,6 +7078,45 @@ const defaultDiscoverableActionIds = () =>
 
 const fallbackVisibleActionIds = () => new Set(defaultDiscoverableActionIds());
 
+type ClientToolVisibilityPolicyContext = {
+  sessionId?: string;
+  activePubkey?: string;
+  clientId?: string;
+  authorizedParty?: string;
+};
+
+type ClientToolVisibilityPolicyRule = {
+  matches: (context: ClientToolVisibilityPolicyContext) => boolean;
+  allowedActionIds?: readonly string[];
+  hiddenActionIds?: readonly string[];
+};
+
+const clientToolVisibilityPolicyRules: ClientToolVisibilityPolicyRule[] = [];
+
+const applyClientToolVisibilityPolicy = (
+  visibleActionIds: Set<string>,
+  context: ClientToolVisibilityPolicyContext,
+): Set<string> => {
+  const allowed = new Set(visibleActionIds);
+  for (const rule of clientToolVisibilityPolicyRules) {
+    if (!rule.matches(context)) {
+      continue;
+    }
+    if (rule.allowedActionIds) {
+      const allowedByRule = new Set(rule.allowedActionIds);
+      for (const actionId of allowed) {
+        if (!allowedByRule.has(actionId)) {
+          allowed.delete(actionId);
+        }
+      }
+    }
+    for (const actionId of rule.hiddenActionIds ?? []) {
+      allowed.delete(actionId);
+    }
+  }
+  return allowed;
+};
+
 const visibleActionIdsForPubkey = async (
   daemon: HostrDaemonClient,
   pubkey: string,
@@ -7096,10 +7145,17 @@ const visibleActionIdsForClaims = async (
   traceId?: string,
 ): Promise<Set<string>> => {
   const activePubkey = activePubkeyForClaims(sessionStore, claims);
-  if (!claims || !activePubkey) {
-    return fallbackVisibleActionIds();
-  }
-  return visibleActionIdsForPubkey(daemon, activePubkey, traceId);
+  const visibleActionIds =
+    !claims || !activePubkey
+      ? fallbackVisibleActionIds()
+      : await visibleActionIdsForPubkey(daemon, activePubkey, traceId);
+
+  return applyClientToolVisibilityPolicy(visibleActionIds, {
+    sessionId: claims?.sessionId,
+    activePubkey,
+    clientId: claims?.clientId,
+    authorizedParty: claims?.authorizedParty,
+  });
 };
 
 const jsonRpcIdFromBody = (body: unknown): string | number | null => {
@@ -7218,6 +7274,7 @@ export const __testing = {
   profileCardsFromResult,
   profileCardsMarkdown,
   paymentRequiredWidgetHtml,
+  applyClientToolVisibilityPolicy,
   reservationCardsFromResult,
   reservationCardsMarkdown,
   reservationToolMeta,

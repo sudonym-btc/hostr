@@ -105,6 +105,23 @@ test("Hostr tool annotations mark external Hostr actions as open-world", () => {
   );
 });
 
+test("client tool visibility policy hook is currently non-blocking", () => {
+  const visible = new Set([
+    "hostr.listings.search",
+    "hostr.reservations.bookAndPay",
+  ]);
+
+  const filtered = __testing.applyClientToolVisibilityPolicy(visible, {
+    clientId: "hostr-dcr-chatgpt",
+    authorizedParty: "hostr-dcr-chatgpt",
+    sessionId: "session-id",
+    activePubkey: "pubkey",
+  });
+
+  assert.notEqual(filtered, visible);
+  assert.deepEqual([...filtered].sort(), [...visible].sort());
+});
+
 test("listing links use the Flutter hash route with encoded naddrs", () => {
   const naddr =
     "naddr1qq9xs6tpvyunjaesdfnsyg8mt0ed4ge0ull6wffplfr4leqf7ytzeas9ht67u54avegma27h7upsgqqq04usgezq5w";
