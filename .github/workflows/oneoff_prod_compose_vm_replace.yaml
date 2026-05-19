@@ -1,11 +1,11 @@
-name: One-off Production Compose VM Replace
+name: One-off Production Compose VM Wait
 
 on:
   workflow_dispatch:
 
 jobs:
-  replace:
-    name: Replace production compose VM
+  wait:
+    name: Wait for production compose VM
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -22,17 +22,10 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v3
 
-      - name: Replace production compose VM
+      - name: Wait for production compose VM
         run: |
-          gcloud compute instance-groups managed rolling-action replace hostr-production-compose-mig \
-            --project hostr-production-d3ba05b4 \
-            --zone us-central1-b \
-            --max-surge=0 \
-            --max-unavailable=1 \
-            --replacement-method=recreate
-
           gcloud compute instance-groups managed wait-until hostr-production-compose-mig \
             --project hostr-production-d3ba05b4 \
             --zone us-central1-b \
             --stable \
-            --timeout=20m
+            --timeout=1200
