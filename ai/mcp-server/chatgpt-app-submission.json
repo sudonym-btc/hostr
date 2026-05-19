@@ -1,0 +1,692 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Hostr",
+    "subtitle": "Book Hostr stays",
+    "description": "Hostr helps users find accommodation listings, check availability, connect a Nostr signer, book stays with Lightning and escrow-backed payment flows, manage trips or hosting activity, send Hostr marketplace messages, upload listing images, and leave reviews through ChatGPT.",
+    "category": "TRAVEL"
+  },
+  "tools": {
+    "hostr_bookings_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves reservation, trip, booking, or payment status data without changing reservations.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_badges_award": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Can publish an escrow badge award to a recipient after preview and approval.",
+        "open_world_justification": "Can publish or delete public escrow service or badge events on Hostr/Nostr.",
+        "destructive_justification": "Awards a badge and does not delete, revoke, overwrite an existing award, or settle funds."
+      }
+    },
+    "hostr_escrow_badges_awards_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Awards a badge and does not delete, revoke, overwrite an existing award, or settle funds."
+      }
+    },
+    "hostr_escrow_badges_definitions_delete": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish deletion of an escrow badge definition after preview and approval.",
+        "open_world_justification": "Can publish or delete public escrow service or badge events on Hostr/Nostr.",
+        "destructive_justification": "Publishes deletion of an escrow badge definition after approval."
+      }
+    },
+    "hostr_escrow_badges_definitions_edit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish an escrow badge definition after preview and approval.",
+        "open_world_justification": "Can publish or delete public escrow service or badge events on Hostr/Nostr.",
+        "destructive_justification": "Overwrites an escrow badge definition after approval."
+      }
+    },
+    "hostr_escrow_badges_definitions_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_badges_revoke": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish revocation of an escrow badge award after preview and approval.",
+        "open_world_justification": "Can publish or delete public escrow service or badge events on Hostr/Nostr.",
+        "destructive_justification": "Publishes revocation of an issued escrow badge award after approval."
+      }
+    },
+    "hostr_escrow_involve": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can open or message the shared buyer, seller, and escrow trade thread.",
+        "open_world_justification": "Sends Hostr/Nostr private messages to other marketplace participants.",
+        "destructive_justification": "Sends private messages that cannot be unsent after live execution."
+      }
+    },
+    "hostr_escrow_methods": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_service_delete": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish deletion of an escrow service event after preview and approval.",
+        "open_world_justification": "Can publish or delete public escrow service or badge events on Hostr/Nostr.",
+        "destructive_justification": "Publishes deletion of an escrow service event after approval."
+      }
+    },
+    "hostr_escrow_service_edit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish updated escrow service settings after preview and approval.",
+        "open_world_justification": "Can publish or delete public escrow service or badge events on Hostr/Nostr.",
+        "destructive_justification": "Overwrites escrow service settings after approval."
+      }
+    },
+    "hostr_escrow_service_get": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_service_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_trades_arbitrate": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can submit an on-chain escrow arbitration transaction after preview and approval.",
+        "open_world_justification": "Submits an on-chain arbitration transaction to the configured escrow contract.",
+        "destructive_justification": "Settles an escrow trade by submitting an on-chain arbitration transaction."
+      }
+    },
+    "hostr_escrow_trades_audit": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_trades_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_escrow_trades_view": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves escrow methods, services, trades, audits, or badge records without submitting transactions or publishing events.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_images_upload": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Uploads a user-provided image to Hostr Blossom and returns a durable public image URL.",
+        "open_world_justification": "Uploads the user's image to a public Hostr Blossom media endpoint.",
+        "destructive_justification": "Uploads a new image and does not delete, overwrite, revoke access, or perform transactions."
+      }
+    },
+    "hostr_listings_availability": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_listings_create": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Can stage media and publish a new Hostr listing after user approval.",
+        "open_world_justification": "Can publish Hostr listing events and related listing media to external Hostr/Nostr systems.",
+        "destructive_justification": "Creates or previews a listing and does not delete, revoke access, or settle funds."
+      }
+    },
+    "hostr_listings_edit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish updates to an existing Hostr listing after user approval.",
+        "open_world_justification": "Can publish Hostr listing events and related listing media to external Hostr/Nostr systems.",
+        "destructive_justification": "Overwrites an existing Hostr listing event after approval."
+      }
+    },
+    "hostr_listings_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_listings_reservationGroups": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_listings_reviews": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_listings_search": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_profile_edit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish updated Hostr/Nostr profile metadata after preview and approval.",
+        "open_world_justification": "Publishes Hostr/Nostr profile metadata to the network.",
+        "destructive_justification": "Overwrites Hostr/Nostr profile metadata after approval."
+      }
+    },
+    "hostr_profile_lookup": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves Hostr/Nostr profile metadata without publishing profile changes.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_profile_show": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves Hostr/Nostr profile metadata without publishing profile changes.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_reservations_bookAndPay": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Starts the guest booking and payment handoff flow for a selected Hostr listing.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Starts a booking handoff and payment prompt but does not delete, overwrite, revoke access, or settle funds by itself."
+      }
+    },
+    "hostr_reservations_cancel": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish or send a cancellation for a concrete reservation trade.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Cancels a private negotiation or committed reservation after approval."
+      }
+    },
+    "hostr_reservations_commit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish a committed paid reservation when a swap proof is available.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Publishes a committed paid reservation after a payment proof is available."
+      }
+    },
+    "hostr_reservations_negotiateAccept": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can send acceptance of the latest private reservation offer after user approval.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Sends private reservation negotiation events that cannot be unsent after live execution."
+      }
+    },
+    "hostr_reservations_negotiateOffer": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can send a private reservation offer or counteroffer after user approval.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Sends private reservation negotiation events that cannot be unsent after live execution."
+      }
+    },
+    "hostr_reservations_pay": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can create a manual escrow funding swap for an existing reservation trade.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Creates manual escrow funding state for a reservation trade after approval."
+      }
+    },
+    "hostr_reservations_review": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can publish a Hostr reservation review after preview and approval.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Publishes a reservation review that is externally visible after approval."
+      }
+    },
+    "hostr_session_accounts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists connected Hostr accounts and signer status without changing the active account or external state.",
+        "open_world_justification": "Only changes or reads the private MCP session and does not publish to Hostr, Nostr, Blossom, or EVM systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_session_connect": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates or completes a Nostr Connect signer session for the active MCP session.",
+        "open_world_justification": "Only changes or reads the private MCP session and does not publish to Hostr, Nostr, Blossom, or EVM systems.",
+        "destructive_justification": "Creates a signer connection flow and does not delete data or revoke access."
+      }
+    },
+    "hostr_session_logout": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Logs out one or more connected Hostr accounts from the MCP session.",
+        "open_world_justification": "Only changes or reads the private MCP session and does not publish to Hostr, Nostr, Blossom, or EVM systems.",
+        "destructive_justification": "Logs out connected Hostr accounts, revoking their active MCP session access."
+      }
+    },
+    "hostr_session_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves Hostr session or marketplace state without modifying data.",
+        "open_world_justification": "Only changes or reads the private MCP session and does not publish to Hostr, Nostr, Blossom, or EVM systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_session_switch": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Changes which connected Hostr account is active for subsequent MCP calls.",
+        "open_world_justification": "Only changes or reads the private MCP session and does not publish to Hostr, Nostr, Blossom, or EVM systems.",
+        "destructive_justification": "Switches the active account pointer and does not delete data, revoke access, send messages, or submit transactions."
+      }
+    },
+    "hostr_swaps_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves persisted swap state without recovering or changing payment operations.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_swaps_recoverAll": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can run recovery for persisted Hostr swap operations after preview and approval.",
+        "open_world_justification": "Can resume or recover external payment and swap operations outside ChatGPT.",
+        "destructive_justification": "Can resume or settle pending swap operations during recovery after approval."
+      }
+    },
+    "hostr_swaps_watch": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves persisted swap state without recovering or changing payment operations.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_thread_message": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Can send a private Hostr thread message after preview and approval.",
+        "open_world_justification": "Sends Hostr/Nostr private messages to other marketplace participants.",
+        "destructive_justification": "Sends private messages that cannot be unsent after live execution."
+      }
+    },
+    "hostr_thread_view": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves inbox, thread, update, or message history without sending messages.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_trips_list": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves reservation, trip, booking, or payment status data without changing reservations.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    },
+    "hostr_updates": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves inbox, thread, update, or message history without sending messages.",
+        "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Search public Hostr accommodation listings by destination.",
+      "user_prompt": "Find me a place to stay in San Salvador for two guests.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_listings_search",
+      "expected_output": "Returns matching Hostr listing cards with images, prices, capacity details, and links when available.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Search for a listing and check availability for requested dates.",
+      "user_prompt": "Find Hostr listings in San Salvador for two guests, then check whether the first suitable result is available from August 1 to August 3, 2026.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_listings_search, hostr_listings_availability",
+      "expected_output": "Returns matching listings, selects a suitable result, and reports availability using the exact requested calendar dates.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Confirm the reviewer is signed in and show the active Hostr account.",
+      "user_prompt": "Show me which Hostr account I am using right now.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_session_status",
+      "expected_output": "Reports the signed-in Hostr account state using the OAuth session already established by the reviewer.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create a listing preview using an uploaded image before publishing.",
+      "user_prompt": "Create a Hostr listing preview for my spare room at Calle El Guayabo, San Salvador, El Salvador, with this photo, 50000 sats per night, Wi-Fi, and parking.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_images_upload, hostr_listings_create",
+      "expected_output": "Uploads the image, returns a dry-run listing preview, and waits for explicit approval before publishing.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Show guest-side trips for a clean review account.",
+      "user_prompt": "Show my Hostr trips.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_trips_list",
+      "expected_output": "Returns trip cards when trips exist, or a clear empty state when the review account has no trips yet.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Show Hostr inbox and marketplace updates for a clean review account.",
+      "user_prompt": "Show my Hostr updates and messages.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_updates",
+      "expected_output": "Returns recent Hostr threads, reviews, trips, or bookings when present, or a clear empty state for a clean account.",
+      "expected_output_url": null
+    },
+    {
+      "description": "List listings owned by the active Hostr account.",
+      "user_prompt": "Show my Hostr listings.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_listings_list",
+      "expected_output": "Returns listings authored by the active account, or a clear empty state if the review account has not published listings.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Inspect host-side bookings.",
+      "user_prompt": "Show my current Hostr bookings as a host.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_bookings_list",
+      "expected_output": "Returns hosting cards when bookings exist, or a clear empty state when the review account has no host bookings yet.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Preview a Hostr profile update without publishing.",
+      "user_prompt": "Preview changing my Hostr profile name to Review Guest and my bio to Testing Hostr in ChatGPT.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_profile_show, hostr_profile_edit",
+      "expected_output": "Shows the current profile if present, returns a dry-run profile preview, and waits for explicit approval before publishing.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Inspect saved Hostr swap state without attempting recovery.",
+      "user_prompt": "Show my Hostr payment and swap status.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hostr_swaps_list",
+      "expected_output": "Lists persisted swap states when present, or reports that no saved swap operations are currently stored for the account.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for non-Hostr accommodation marketplaces.",
+      "user_prompt": "Search Airbnb for a hotel in Paris.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the user asked for a different marketplace rather than Hostr listings.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for calendar scheduling.",
+      "user_prompt": "What meetings do I have tomorrow?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because calendar lookup is outside Hostr marketplace workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for flight booking.",
+      "user_prompt": "Book me a flight from San Salvador to Miami next Friday.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because Hostr supports lodging marketplace workflows, not flights.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for unrelated crypto wallet requests.",
+      "user_prompt": "Send bitcoin from my wallet to this address.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because generic wallet transfers are outside Hostr reservation payment and escrow workflows.",
+      "expected_output_url": null
+    }
+  ]
+}
