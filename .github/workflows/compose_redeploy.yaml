@@ -57,8 +57,9 @@ jobs:
           VM_NAME="$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
-            --format='value(instance)' 2>/dev/null | awk -F/ 'NF {print $NF; exit}')"
+            --uri 2>/dev/null | awk -F/ '/\/instances\// {print $NF; exit}')"
           VM_NAME="${VM_NAME:-$LEGACY_VM_NAME}"
+          echo "Redeploying $DEPLOY_ENV on $VM_NAME"
 
           gcloud compute ssh "$VM_NAME" \
             --project "$PROJECT_ID" \
