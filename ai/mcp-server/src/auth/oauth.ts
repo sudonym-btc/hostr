@@ -1301,6 +1301,7 @@ export const createOAuthRouter = (
         config,
         token.sessionId,
         scope,
+        { authorizedParty: token.clientId },
       );
       const rotated = refreshStore.issue({
         clientId: token.clientId,
@@ -1359,6 +1360,7 @@ export const createOAuthRouter = (
       config,
       code.sessionId,
       code.scope,
+      { authorizedParty: code.clientId },
     );
     const refreshToken = clientAllowsGrant(code.clientId, "refresh_token")
       ? new RefreshTokenStore(config.oauthClientStorePath).issue({

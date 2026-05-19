@@ -42,6 +42,7 @@ test("JWT access tokens bind to an MCP session id, not a pubkey", async () => {
     config,
     "session-id-1",
     "hostr:read hostr:write",
+    { authorizedParty: "client-id-1" },
   );
 
   const claims = await verifyAccessToken(config, token);
@@ -52,8 +53,12 @@ test("JWT access tokens bind to an MCP session id, not a pubkey", async () => {
 
   assert.equal(claims.sessionId, "session-id-1");
   assert.equal(claims.sub, "session-id-1");
+  assert.equal(claims.clientId, "client-id-1");
+  assert.equal(claims.authorizedParty, "client-id-1");
   assert.equal(payload.sid, "session-id-1");
   assert.equal(payload.sub, "session-id-1");
+  assert.equal(payload.azp, "client-id-1");
+  assert.equal(payload.client_id, undefined);
   assert.equal(payload.pubkey, undefined);
 });
 
@@ -362,6 +367,8 @@ test("OAuth authorization code exchange issues rotating refresh tokens", async (
     assert.equal(typeof token.body.refresh_token, "string");
     const initialClaims = await verifyAccessToken(config, token.body.access_token);
     assert.equal(initialClaims.sessionId.length > 0, true);
+    assert.equal(initialClaims.clientId, registered.body.client_id);
+    assert.equal(initialClaims.authorizedParty, registered.body.client_id);
 
     const refreshed = await requestJson(server, "/oauth/token", {
       method: "POST",
@@ -380,6 +387,8 @@ test("OAuth authorization code exchange issues rotating refresh tokens", async (
       refreshed.body.access_token,
     );
     assert.equal(refreshedClaims.sessionId, initialClaims.sessionId);
+    assert.equal(refreshedClaims.clientId, registered.body.client_id);
+    assert.equal(refreshedClaims.authorizedParty, registered.body.client_id);
 
     const replay = await requestJson(server, "/oauth/token", {
       method: "POST",
@@ -512,6 +521,8 @@ test("OAuth authorization page can complete login with nsec", async () => {
     });
     assert.equal(token.status, 200);
     const claims = await verifyAccessToken(config, token.body.access_token);
+    assert.equal(claims.clientId, registered.body.client_id);
+    assert.equal(claims.authorizedParty, registered.body.client_id);
     const session = new McpSessionStore(config.oauthClientStorePath).get(
       claims.sessionId,
     );
