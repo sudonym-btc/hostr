@@ -65,4 +65,4 @@ jobs:
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
             --quiet \
-            --command "sudo /usr/local/bin/hostr-deploy '$DEPLOY_ENV'"
+            --command "sudo bash -lc 'cd /opt/hostr && if [[ -n \"\$(git status --porcelain)\" ]]; then echo \"Stashing dirty /opt/hostr state before deploy\"; git stash push --include-untracked -m \"hostr-deploy preflight \$(date -u +%Y%m%dT%H%M%SZ)\"; fi; /usr/local/bin/hostr-deploy \"$DEPLOY_ENV\"'"
