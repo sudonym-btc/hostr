@@ -64,6 +64,8 @@ class AACapability {
     });
   }
 
+  EthereumAddress get entryPointAddress => _entryPointAddress;
+
   /// Send one or more contract calls as a single batched UserOperation.
   ///
   /// For a single call, pass a one-element map. For atomic multi-step flows

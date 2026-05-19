@@ -105,6 +105,12 @@ class EvmChain {
   static const Duration maxPollInterval = Duration(seconds: 60);
   static const Duration _getLogsDebounce = Duration(milliseconds: 16);
   static const int _maxGetLogsTopicValues = 75;
+  static final ContractAbi _entryPointAbi = ContractAbi.fromJson(
+    '[{"type":"function","name":"getNonce","inputs":[{"name":"sender","type":"address"},{"name":"key","type":"uint192"}],"outputs":[{"name":"nonce","type":"uint256"}],"stateMutability":"view"}]',
+    'EntryPoint',
+  );
+  static final ContractFunction _entryPointGetNonce = _entryPointAbi.functions
+      .firstWhere((function) => function.name == 'getNonce');
 
   final Map<String, List<_GetLogsRequest>> _getLogsQueues = {};
   final Map<String, Timer?> _getLogsTimers = {};
@@ -867,6 +873,131 @@ class EvmChain {
           await Future.delayed(const Duration(milliseconds: 300));
         }
       });
+
+  Future<bool> hasAccountActivity(
+    EthPrivateKey signer, {
+    EthereumAddress? eoaAddress,
+  }) => logger.span('hasAccountActivity', () async {
+    final targets = <({EthereumAddress address, bool isSmartAddress})>[
+      (address: eoaAddress ?? signer.address, isSmartAddress: false),
+    ];
+
+    if (aa != null) {
+      final smartAddress = await aa!.getSmartAccountAddress(signer);
+      if (_addressKey(smartAddress) != _addressKey(targets.first.address)) {
+        targets.add((address: smartAddress, isSmartAddress: true));
+      }
+    }
+
+    final addresses = targets.map((target) => target.address).toList();
+    final tokenAddresses = _accountFreshnessTokenAddresses();
+
+    final batch = RpcBatch();
+    final nonces = batch.getTransactionCounts(addresses);
+    final balances = batch.getBalances(addresses, chainId: config.chainId);
+    final tokenHandles = <BatchResult<List<TokenAmount?>>>[
+      for (final tokenAddress in tokenAddresses)
+        batch.getERC20Balances([
+          for (final address in addresses)
+            (owner: address, token: tokenAddress),
+        ], tokenResolver: resolveToken),
+    ];
+    await executeBatch(batch);
+
+    for (var i = 0; i < targets.length; i++) {
+      final address = targets[i].address;
+      final nativeBalance = balances.value[address];
+      if (nonces.value[i] > 0 ||
+          (nativeBalance != null && nativeBalance.value > BigInt.zero)) {
+        logger.d(
+          'Account activity detected on ${address.eip55With0x}: '
+          'nonce=${nonces.value[i]}, native=${nativeBalance?.value ?? BigInt.zero}',
+        );
+        return true;
+      }
+    }
+
+    final codes = await Future.wait(addresses.map(_getCodeUncached));
+    for (var i = 0; i < codes.length; i++) {
+      if (codes[i].isNotEmpty) {
+        logger.d(
+          'Account activity detected on ${addresses[i].eip55With0x}: '
+          'codeLength=${codes[i].length}',
+        );
+        return true;
+      }
+    }
+
+    if (aa != null) {
+      for (final target in targets.where((target) => target.isSmartAddress)) {
+        final entryPointNonce = await _getEntryPointNonce(target.address);
+        if (entryPointNonce > BigInt.zero) {
+          logger.d(
+            'AA account activity detected on ${target.address.eip55With0x}: '
+            'entryPointNonce=$entryPointNonce',
+          );
+          return true;
+        }
+      }
+    }
+
+    for (final handle in tokenHandles) {
+      for (final balance in handle.value) {
+        if (balance != null && balance.value > BigInt.zero) {
+          logger.d(
+            'Token account activity detected: '
+            '${balance.value} ${balance.token.tagId}',
+          );
+          return true;
+        }
+      }
+    }
+
+    return false;
+  });
+
+  List<EthereumAddress> _accountFreshnessTokenAddresses() {
+    final tokensByAddress = <String, EthereumAddress>{};
+
+    void addToken(EthereumAddress address) {
+      tokensByAddress[_addressKey(address)] = address;
+    }
+
+    for (final token in config.tokens.values) {
+      addToken(EthereumAddress.fromHex(token.address));
+    }
+    for (final token
+        in swaps?.chainInfo.tokens.values ??
+            const Iterable<EthereumAddress>.empty()) {
+      addToken(token);
+    }
+
+    return tokensByAddress.values.toList(growable: false);
+  }
+
+  Future<Uint8List> _getCodeUncached(EthereumAddress address) =>
+      _callRpcWithRetry(
+        'getCode(${address.eip55With0x}, uncached)',
+        (client) => client.getCode(address),
+      ).then(Uint8List.fromList);
+
+  Future<BigInt> _getEntryPointNonce(
+    EthereumAddress smartAccountAddress,
+  ) async {
+    final result = await call(
+      _entryPointAbi,
+      aa!.entryPointAddress,
+      _entryPointGetNonce,
+      [smartAccountAddress, BigInt.zero],
+    );
+    final value = result.firstOrNull;
+    if (value is BigInt) return value;
+    if (value is int) return BigInt.from(value);
+    throw StateError('Unexpected EntryPoint getNonce result: $value');
+  }
+
+  String _addressKey(EthereumAddress address) =>
+      address.eip55With0x.toLowerCase();
 
   /// Returns the first HD-derived EVM address that has never been used
   /// on-chain (zero nonce **and** zero balance).
