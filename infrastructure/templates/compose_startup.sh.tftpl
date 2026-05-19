@@ -235,11 +235,6 @@ esac
 
 cd /opt/hostr
 export HOME=/root
-if [[ -n "$(git diff --name-only --diff-filter=ACMRTUXB)" ]]; then
-  echo "Stashing modified /opt/hostr files before deploy"
-  git diff --name-only --diff-filter=ACMRTUXB -z \
-    | xargs -0 -r git stash push -m "hostr-deploy preflight $(date -u +%Y%m%dT%H%M%SZ)" --
-fi
 git fetch --all --prune
 git checkout "${repo_branch}"
 git pull --ff-only origin "${repo_branch}"

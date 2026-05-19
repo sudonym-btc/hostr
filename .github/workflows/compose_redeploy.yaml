@@ -65,4 +65,4 @@ jobs:
             --project "$PROJECT_ID" \
             --zone "$ZONE" \
             --quiet \
-            --command "sudo bash -lc 'set -e; cd /opt/hostr && if [[ -n \"\$(git diff --name-only --diff-filter=ACMRTUXB)\" ]]; then echo \"Stashing modified /opt/hostr files before deploy\"; git diff --name-only --diff-filter=ACMRTUXB -z | xargs -0 -r git stash push -m \"hostr-deploy preflight \$(date -u +%Y%m%dT%H%M%SZ)\" --; fi; /usr/local/bin/hostr-deploy \"$DEPLOY_ENV\"'"
+            --command "sudo /usr/local/bin/hostr-deploy '$DEPLOY_ENV'"
