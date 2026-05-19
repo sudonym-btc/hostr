@@ -235,6 +235,10 @@ esac
 
 cd /opt/hostr
 export HOME=/root
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Stashing dirty /opt/hostr state before deploy"
+  git stash push --include-untracked -m "hostr-deploy preflight $(date -u +%Y%m%dT%H%M%SZ)"
+fi
 git fetch --all --prune
 git checkout "${repo_branch}"
 git pull --ff-only origin "${repo_branch}"
