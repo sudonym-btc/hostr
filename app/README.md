@@ -48,6 +48,8 @@ From VS Code, choose the corresponding launch/entrypoint; from CLI, select the f
 
 - Non‑prod environments allow self‑signed TLS via global `HttpOverrides` for local testing.
 - Generated files (`*.g.dart`, `swagger_generated`) are excluded from analysis in `analysis_options.yaml`.
+- Route visits are emitted as OpenTelemetry spans named `hostr.route.navigation`
+  with `route.name`, `route.event`, and `route.kind` attributes.
 
 ## Troubleshooting
 

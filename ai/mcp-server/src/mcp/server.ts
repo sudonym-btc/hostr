@@ -190,6 +190,59 @@ const sessionLogoutInputSchema = z
   })
   .strict();
 
+const genericHostrActionOutputSchema = z
+  .object({
+    assistantInstructions: z.array(z.string()).optional(),
+    displayMarkdown: z.string().optional(),
+    ok: z.boolean().optional(),
+    command: z.string().optional(),
+    environment: z.string().optional(),
+    dryRun: z.boolean().optional(),
+    traceId: z.string().optional(),
+    status: z.string().optional(),
+    stateName: z.string().optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
+    errors: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .passthrough();
+
+const sessionStatusOutputSchema = z
+  .object({
+    mcpAuthenticated: z.boolean().optional(),
+    sessionId: z.string().optional(),
+    activePubkey: z.string().optional(),
+    accountCount: z.number().optional(),
+    authenticated: z.boolean().optional(),
+    signerOnline: z.boolean().optional(),
+    needsReconnect: z.boolean().optional(),
+    activeAccount: z.record(z.string(), z.unknown()).optional(),
+    storage: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
+
+const sessionAccountsOutputSchema = z
+  .object({
+    ok: z.boolean().optional(),
+    error: z.string().optional(),
+    sessionId: z.string().optional(),
+    activePubkey: z.string().optional(),
+    accounts: z.array(z.record(z.string(), z.unknown())).optional(),
+    assistantInstructions: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const sessionMutationOutputSchema = z
+  .object({
+    ok: z.boolean().optional(),
+    error: z.string().optional(),
+    activePubkey: z.string().optional(),
+    pubkey: z.string().optional(),
+    loggedOutPubkeys: z.array(z.string()).optional(),
+    toolsChanged: z.boolean().optional(),
+    details: z.unknown().optional(),
+  })
+  .passthrough();
+
 const profileCardOutputSchema = z
   .object({
     assistantInstructions: z.array(z.string()).optional(),
@@ -285,12 +338,17 @@ const threadActionIds = new Set([
   "hostr.escrow.involve",
 ]);
 
-const destructiveWriteActionIds = new Set([
+const destructiveActionIds = new Set([
   "hostr.listings.edit",
+  "hostr.reservations.negotiateOffer",
+  "hostr.reservations.negotiateAccept",
   "hostr.profile.edit",
   "hostr.reservations.pay",
   "hostr.reservations.commit",
   "hostr.reservations.cancel",
+  "hostr.reservations.review",
+  "hostr.thread.message",
+  "hostr.escrow.involve",
   "hostr.escrow.service.edit",
   "hostr.escrow.service.delete",
   "hostr.escrow.trades.arbitrate",
@@ -300,8 +358,27 @@ const destructiveWriteActionIds = new Set([
   "hostr.swaps.recoverAll",
 ]);
 
-const localOnlyActionIds = new Set([
-  "hostr.session.status",
+const openWorldActionIds = new Set([
+  "hostr.listings.create",
+  "hostr.listings.edit",
+  "hostr.reservations.bookAndPay",
+  "hostr.reservations.negotiateOffer",
+  "hostr.reservations.negotiateAccept",
+  "hostr.reservations.pay",
+  "hostr.reservations.commit",
+  "hostr.reservations.cancel",
+  "hostr.reservations.review",
+  "hostr.thread.message",
+  "hostr.escrow.involve",
+  "hostr.profile.edit",
+  "hostr.escrow.service.edit",
+  "hostr.escrow.service.delete",
+  "hostr.escrow.trades.arbitrate",
+  "hostr.escrow.badges.definitions.edit",
+  "hostr.escrow.badges.definitions.delete",
+  "hostr.escrow.badges.award",
+  "hostr.escrow.badges.revoke",
+  "hostr.swaps.recoverAll",
 ]);
 
 const toolAnnotations = (action: {
@@ -315,8 +392,8 @@ const toolAnnotations = (action: {
   const readOnlyHint = action.readOnly;
   return {
     readOnlyHint,
-    destructiveHint: !readOnlyHint && destructiveWriteActionIds.has(action.id),
-    openWorldHint: !localOnlyActionIds.has(action.id),
+    destructiveHint: !readOnlyHint && destructiveActionIds.has(action.id),
+    openWorldHint: !readOnlyHint && openWorldActionIds.has(action.id),
   };
 };
 
@@ -449,6 +526,17 @@ const escrowBadgeActionIds = new Set([
   "hostr.escrow.badges.awards.list",
   "hostr.escrow.badges.award",
   "hostr.escrow.badges.revoke",
+]);
+
+const specializedOutputActionIds = new Set([
+  ...listingActionIds,
+  "hostr.session.connect",
+  ...profileActionIds,
+  ...reservationActionIds,
+  ...threadActionIds,
+  ...escrowTradeActionIds,
+  ...escrowServiceActionIds,
+  ...escrowBadgeActionIds,
 ]);
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -6417,6 +6505,7 @@ const createServer = (
         description:
           "List the Hostr/NIP-46 accounts connected to this MCP session, including profile metadata, active account, and signer status. Use when the user says to switch accounts, act as guest/host/escrow, use a guest/host/escrow account, asks who is logged in, or needs the right Hostr role before bookings, hosting, messaging, or escrow work. Do not assume the currently active account satisfies a requested role merely because it is authenticated.",
         inputSchema: sessionAccountsInputSchema,
+        outputSchema: sessionAccountsOutputSchema,
         annotations: {
           readOnlyHint: true,
           destructiveHint: false,
@@ -6451,6 +6540,7 @@ const createServer = (
         description:
           "Make one of this MCP session's connected Hostr accounts the active account. Use after hostr_session_accounts when the user says to switch to their guest account, host account, escrow account, or another connected Hostr profile. If the requested role/account is not clearly connected, use hostr_session_connect instead before doing role-specific work.",
         inputSchema: sessionSwitchInputSchema,
+        outputSchema: sessionMutationOutputSchema,
         annotations: {
           readOnlyHint: false,
           destructiveHint: false,
@@ -6511,9 +6601,10 @@ const createServer = (
         description:
           "Log out one or all Hostr/NIP-46 accounts connected to this MCP session. If no pubkey is supplied, logs out the active account. Hostr refuses to log out an account with non-terminal swaps in progress; inspect or recover swaps before retrying.",
         inputSchema: sessionLogoutInputSchema,
+        outputSchema: sessionMutationOutputSchema,
         annotations: {
           readOnlyHint: false,
-          destructiveHint: false,
+          destructiveHint: true,
           openWorldHint: false,
         },
       },
@@ -6607,6 +6698,14 @@ const createServer = (
         title: action.title,
         description: toolDescription(action),
         inputSchema: action.inputSchema,
+        ...(!specializedOutputActionIds.has(action.id)
+          ? {
+              outputSchema:
+                action.id === "hostr.session.status"
+                  ? sessionStatusOutputSchema
+                  : genericHostrActionOutputSchema,
+            }
+          : {}),
         ...(listingActionIds.has(action.id)
           ? {
               outputSchema: listingCardOutputSchema,
