@@ -693,7 +693,7 @@ packages:
     description:
       path: "packages/ndk"
       ref: "feat/hostr-fixes"
-      resolved-ref: "30ac7f9b3fd4fd11a75cb2d77467d13c444a016b"
+      resolved-ref: "17b906ca610583d82ac92fc86006d5a9440aa67f"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
     version: "0.8.3"
