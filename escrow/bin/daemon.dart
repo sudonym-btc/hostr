@@ -29,7 +29,7 @@ class PermissiveHttpOverrides extends HttpOverrides {
 /// The daemon:
 ///   1. Bootstraps Hostr, authenticates, deploys/publishes the escrow service.
 ///   2. Starts the [EscrowDaemon] to listen for on-chain events, Nostr
-///      thread messages, and reservation auto-confirmation.
+///      thread messages, and order auto-confirmation.
 ///   3. Opens a Unix domain socket and serves JSON-RPC requests from CLI
 ///      clients.
 void main(List<String> arguments) async {

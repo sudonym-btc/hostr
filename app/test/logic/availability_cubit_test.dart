@@ -5,15 +5,15 @@ import 'package:hostr/logic/cubit/availability.cubit.dart';
 import 'package:hostr/logic/cubit/date_range.cubit.dart';
 import 'package:models/main.dart';
 
-ReservationGroup _reservationGroup({
+OrderGroup _reservationGroup({
   required DateTime start,
   required DateTime end,
-  ReservationStage stage = ReservationStage.commit,
+  OrderStage stage = OrderStage.commit,
 }) {
   final hostKey = 'host-pubkey';
-  return ReservationGroup(
-    reservations: [
-      Reservation.create(
+  return OrderGroup(
+    orders: [
+      Order.create(
         pubKey: hostKey,
         dTag: 'test-reservation',
         listingAnchor: '30402:$hostKey:test-listing',
@@ -102,7 +102,7 @@ void main() {
             _reservationGroup(
               start: DateTime(2026, 2, 2),
               end: DateTime(2026, 2, 4),
-              stage: ReservationStage.negotiate,
+              stage: OrderStage.negotiate,
             ),
           ],
         );

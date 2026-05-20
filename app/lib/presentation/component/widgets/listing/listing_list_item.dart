@@ -156,12 +156,11 @@ class ListingListItemWidget extends StatefulWidget {
 class ListingListItemWidgetState extends State<ListingListItemWidget> {
   ListingListItemWidgetState();
 
-  StreamSubscription<List<Validation<ReservationGroup>>>?
-  _verifiedPairsSubscription;
+  StreamSubscription<List<Validation<OrderGroup>>>? _verifiedPairsSubscription;
   late final ListingDependencies _listingDependencies;
   AvailabilityCubit? _availabilityCubit;
   DateRangeCubit? _localDateRangeCubit;
-  List<ReservationGroup> _latestAvailabilityGroups = const [];
+  List<OrderGroup> _latestAvailabilityGroups = const [];
 
   @override
   void initState() {
@@ -175,7 +174,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     _verifiedPairsSubscription = _listingDependencies.reservationGroupItems
         .listen((items) {
           final availabilityGroups = items
-              .whereType<Valid<ReservationGroup>>()
+              .whereType<Valid<OrderGroup>>()
               .map((validated) => validated.event)
               .toList();
 

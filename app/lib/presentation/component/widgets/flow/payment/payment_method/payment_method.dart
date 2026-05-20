@@ -14,7 +14,7 @@ import '../escrow/fund/escrow_fund.dart';
 class PaymentMethodWidget extends StatelessWidget {
   final ProfileMetadata counterparty;
   final String sellerEvmAddress;
-  final Reservation negotiateReservation;
+  final Order negotiateReservation;
   final String? listingName;
   const PaymentMethodWidget({
     super.key,

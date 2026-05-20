@@ -1,7 +1,7 @@
-import 'reservation.dart';
-import 'reservation_transition.dart';
+import 'order.dart';
+import 'order_transition.dart';
 
-/// Result of validating a sequence of [ReservationTransition] events.
+/// Result of validating a sequence of [OrderTransition] events.
 class TransitionValidationResult {
   /// Whether the entire sequence is valid.
   final bool isValid;
@@ -30,7 +30,7 @@ class TransitionValidationResult {
 
 /// A transition chain ordered by `prev` pointers plus its validation result.
 class TransitionChainResolution {
-  final List<ReservationTransition> transitions;
+  final List<OrderTransition> transitions;
   final TransitionValidationResult validation;
 
   const TransitionChainResolution({
@@ -41,7 +41,7 @@ class TransitionChainResolution {
 
 /// Legal state transitions encoded as a set of `(from, to)` pairs.
 ///
-/// The reservation lifecycle state machine is:
+/// The order lifecycle state machine is:
 ///
 /// ```
 ///   negotiate ──→ negotiate   (counter-offer)
@@ -52,30 +52,29 @@ class TransitionChainResolution {
 ///
 /// Everything else is forbidden (e.g. cancel → *, commit → negotiate,
 /// commit → commit).
-const _allowedTransitions = <(ReservationStage, ReservationStage)>{
-  (ReservationStage.negotiate, ReservationStage.negotiate),
-  (ReservationStage.negotiate, ReservationStage.commit),
-  (ReservationStage.negotiate, ReservationStage.cancel),
-  (ReservationStage.commit, ReservationStage.cancel),
-  // Escrow confirm: re-stamps a committed reservation after payment validation.
-  (ReservationStage.commit, ReservationStage.commit),
+const _allowedTransitions = <(OrderStage, OrderStage)>{
+  (OrderStage.negotiate, OrderStage.negotiate),
+  (OrderStage.negotiate, OrderStage.commit),
+  (OrderStage.negotiate, OrderStage.cancel),
+  (OrderStage.commit, OrderStage.cancel),
+  // Escrow confirm: re-stamps a committed order after payment validation.
+  (OrderStage.commit, OrderStage.commit),
 };
 
-/// Maps [ReservationTransitionType] to its expected `(from, to)` stage pair(s).
-const _typeToStages =
-    <ReservationTransitionType, Set<(ReservationStage, ReservationStage)>>{
-  ReservationTransitionType.counterOffer: {
-    (ReservationStage.negotiate, ReservationStage.negotiate),
+/// Maps [OrderTransitionType] to its expected `(from, to)` stage pair(s).
+const _typeToStages = <OrderTransitionType, Set<(OrderStage, OrderStage)>>{
+  OrderTransitionType.counterOffer: {
+    (OrderStage.negotiate, OrderStage.negotiate),
   },
-  ReservationTransitionType.commit: {
-    (ReservationStage.negotiate, ReservationStage.commit),
+  OrderTransitionType.commit: {
+    (OrderStage.negotiate, OrderStage.commit),
   },
-  ReservationTransitionType.cancel: {
-    (ReservationStage.negotiate, ReservationStage.cancel),
-    (ReservationStage.commit, ReservationStage.cancel),
+  OrderTransitionType.cancel: {
+    (OrderStage.negotiate, OrderStage.cancel),
+    (OrderStage.commit, OrderStage.cancel),
   },
-  ReservationTransitionType.confirm: {
-    (ReservationStage.commit, ReservationStage.commit),
+  OrderTransitionType.confirm: {
+    (OrderStage.commit, OrderStage.commit),
   },
 };
 
@@ -97,7 +96,7 @@ const _typeToStages =
 /// The caller is responsible for filtering transitions by pubkey before calling
 /// this function. Event `created_at` is deliberately not used for ordering.
 TransitionChainResolution resolveStateTransitionChain(
-  List<ReservationTransition> transitions,
+  List<OrderTransition> transitions,
 ) {
   if (transitions.isEmpty) {
     return const TransitionChainResolution(
@@ -106,10 +105,10 @@ TransitionChainResolution resolveStateTransitionChain(
     );
   }
 
-  final originalIndex = <ReservationTransition, int>{};
-  final byId = <String, ReservationTransition>{};
-  final genesis = <ReservationTransition>[];
-  final childrenByPrev = <String, List<ReservationTransition>>{};
+  final originalIndex = <OrderTransition, int>{};
+  final byId = <String, OrderTransition>{};
+  final genesis = <OrderTransition>[];
+  final childrenByPrev = <String, List<OrderTransition>>{};
 
   for (var i = 0; i < transitions.length; i++) {
     final t = transitions[i];
@@ -196,7 +195,7 @@ TransitionChainResolution resolveStateTransitionChain(
     }
   }
 
-  final ordered = <ReservationTransition>[];
+  final ordered = <OrderTransition>[];
   final visited = <String>{};
   var current = genesis.first;
 
@@ -214,7 +213,7 @@ TransitionChainResolution resolveStateTransitionChain(
     }
 
     ordered.add(current);
-    final children = childrenByPrev[id] ?? const <ReservationTransition>[];
+    final children = childrenByPrev[id] ?? const <OrderTransition>[];
     if (children.isEmpty) break;
     current = children.single;
   }
@@ -238,10 +237,10 @@ TransitionChainResolution resolveStateTransitionChain(
   );
 }
 
-/// Validate a single participant's [ReservationTransition] events after
+/// Validate a single participant's [OrderTransition] events after
 /// ordering them by `prev` tags.
 TransitionValidationResult validateStateTransitions(
-  List<ReservationTransition> transitions,
+  List<OrderTransition> transitions,
 ) {
   return resolveStateTransitionChain(transitions).validation;
 }
@@ -252,9 +251,9 @@ TransitionValidationResult validateStateTransitions(
 /// funds while staying in commit (`commit -> commit`). But once escrow has
 /// published a committed state, it must not later republish the trade as
 /// cancelled on the relay. Financial resolution must move to payment events
-/// (release / claim / arbitration), not back to mutable reservation state.
+/// (release / claim / arbitration), not back to mutable order state.
 TransitionValidationResult validateEscrowStateTransitions(
-  List<ReservationTransition> transitions,
+  List<OrderTransition> transitions,
 ) {
   final resolution = resolveStateTransitionChain(transitions);
   if (!resolution.validation.isValid) {
@@ -263,8 +262,7 @@ TransitionValidationResult validateEscrowStateTransitions(
 
   for (var i = 0; i < resolution.transitions.length; i++) {
     final t = resolution.transitions[i];
-    if (t.fromStage == ReservationStage.commit &&
-        t.toStage == ReservationStage.cancel) {
+    if (t.fromStage == OrderStage.commit && t.toStage == OrderStage.cancel) {
       return TransitionValidationResult.invalid(
         reason: 'Escrow cannot cancel after commit (index $i)',
         failedIndex: i,
@@ -276,13 +274,13 @@ TransitionValidationResult validateEscrowStateTransitions(
 }
 
 TransitionValidationResult _validateOrderedTransitions(
-  List<ReservationTransition> transitions,
+  List<OrderTransition> transitions,
 ) {
   if (transitions.isEmpty) {
     return const TransitionValidationResult.valid();
   }
 
-  ReservationStage? currentStage;
+  OrderStage? currentStage;
 
   for (var i = 0; i < transitions.length; i++) {
     final t = transitions[i];

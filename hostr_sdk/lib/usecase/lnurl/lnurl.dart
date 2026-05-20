@@ -1,5 +1,5 @@
 import 'package:http/http.dart' as http;
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/data_layer/data_sources/http_request.dart';
 import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart' as ndk;

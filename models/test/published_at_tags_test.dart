@@ -30,10 +30,10 @@ Listing _listing({int createdAt = 1000}) {
   );
 }
 
-Reservation _reservation({int createdAt = 1000}) {
-  return Reservation.create(
+Order _order({int createdAt = 1000}) {
+  return Order.create(
     pubKey: MockKeys.guest.publicKey,
-    dTag: 'test-reservation',
+    dTag: 'test-order',
     listingAnchor: _listingAnchor,
     createdAt: createdAt,
   );
@@ -57,18 +57,18 @@ void main() {
       expect(rebuilt.parsedTags.getTagValue(_publishedAtTag), '1111');
     });
 
-    test('Reservation.create sets published_at from createdAt', () {
-      final reservation = _reservation(createdAt: 3333);
+    test('Order.create sets published_at from createdAt', () {
+      final order = _order(createdAt: 3333);
 
-      expect(reservation.parsedTags.getTagValue(_publishedAtTag), '3333');
+      expect(order.parsedTags.getTagValue(_publishedAtTag), '3333');
     });
 
-    test('Reservation.copy carries published_at into replacement tags', () {
-      final copied = _reservation(createdAt: 3333).copy(
+    test('Order.copy carries published_at into replacement tags', () {
+      final copied = _order(createdAt: 3333).copy(
         createdAt: 4444,
-        tags: ReservationTags([
+        tags: OrderTags([
           [kListingRefTag, _listingAnchor],
-          ['d', 'test-reservation'],
+          ['d', 'test-order'],
         ]),
       );
 

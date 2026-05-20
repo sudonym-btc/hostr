@@ -5,7 +5,7 @@ class ThreadState {
   final String anchor;
 
   /// All non-receipt events in the thread: [Message] (plain text DMs),
-  /// [Reservation], [EscrowServiceSelected]. SeenReceipts are handled
+  /// [Order], [EscrowServiceSelected]. SeenReceipts are handled
   /// separately via [seenUntil].
   final List<Event> events;
 
@@ -21,11 +21,11 @@ class ThreadState {
   // ── Readable events ──
 
   /// Events that contribute to read/unread state: plain-text [TextMessage]s and
-  /// reservation-proposal [JsonMessage]s (child is [Reservation]).
+  /// order-proposal [JsonMessage]s (child is [Order]).
   /// Excludes [EscrowServiceSelected] children and [SeenStatus] events.
   List<Message> get readableEvents => events
       .whereType<Message>()
-      .where((m) => m.child == null || m.child is Reservation)
+      .where((m) => m.child == null || m.child is Order)
       .toList();
 
   // ── Read status ──
@@ -69,30 +69,30 @@ class ThreadState {
     return mapper.values.toList();
   }
 
-  List<Reservation> get reservationRequests => events
+  List<Order> get orderRequests => events
       .whereType<Message>()
       .map((e) => e.child)
-      .whereType<Reservation>()
+      .whereType<Order>()
       .toList();
 
   List<TextMessage> get textMessages =>
       events.whereType<TextMessage>().toList();
 
-  Reservation get lastReservationRequest => reservationRequests.last;
+  Order get lastOrderRequest => orderRequests.last;
 
   Event? get getLatestEvent {
     if (events.isEmpty) return null;
     return events.last;
   }
 
-  Event getLastEventOrReservationRequest() {
+  Event getLastEventOrOrderRequest() {
     final latest = getLatestEvent;
     if (latest != null) return latest;
 
-    final rr = reservationRequests;
+    final rr = orderRequests;
     if (rr.isNotEmpty) return rr.last;
 
-    throw Exception('No events or reservation requests found in thread');
+    throw Exception('No events or order requests found in thread');
   }
 
   DateTime get getLastDateTime {

@@ -107,7 +107,7 @@ Cold Dart starts can be slow in development, so MCP waits up to `HOSTR_DAEMON_TI
 
 All MCP HTTP, daemon-client, daemon stderr, and tool audit logs are structured JSON lines. Keep daemon stdout reserved for newline-delimited JSON responses. Every request gets an `x-trace-id`; the same trace id is propagated through HTTP, MCP tool execution, the stdio daemon request, Hostr SDK trace context, and outbound SDK HTTP calls where supported. `/health` and `/ready` include image provenance (`revision`, `created`, and `source`) when the container was built with provenance build args.
 
-If the MCP daemon request timeout fires, the Node bridge sends a cooperative `cancel` message to the daemon. Dart work checks cancellation before and around long waits such as Nostr Connect waits, book-and-pay handoff, and reservation/swap observation. Work already inside a non-cancellable external SDK call may still finish in the background, but the request path stops waiting and logs the cancellation.
+If the MCP daemon request timeout fires, the Node bridge sends a cooperative `cancel` message to the daemon. Dart work checks cancellation before and around long waits such as Nostr Connect waits, book-and-pay handoff, and order/swap observation. Work already inside a non-cancellable external SDK call may still finish in the background, but the request path stops waiting and logs the cancellation.
 
 ## Auth Model
 
@@ -159,12 +159,12 @@ hostr_listings_create
 hostr_listings_edit
 hostr_listings_availability
 hostr_listings_reviews
-hostr_listings_reservationGroups
-hostr_reservations_negotiateOffer
-hostr_reservations_negotiateAccept
-hostr_reservations_pay
-hostr_reservations_commit
-hostr_reservations_cancel
+hostr_listings_orderGroups
+hostr_orders_negotiateOffer
+hostr_orders_negotiateAccept
+hostr_orders_pay
+hostr_orders_commit
+hostr_orders_cancel
 hostr_updates
 hostr_thread_view
 hostr_thread_message
@@ -261,11 +261,11 @@ Agents should use the workflow docs from `hostr://mcp/action-input-types`, but t
 
 - New listing: call `hostr_profile_edit` if profile details need updating, then `hostr_listings_create` with `dryRun: true`, show the preview, and repeat with `dryRun: false` only after approval. The live listing path ensures seller config is published.
 - Edit listing: call `hostr_listings_edit` with `dryRun: true`, review the returned listing/event preview, then repeat with `dryRun: false`.
-- Search and reserve: call `hostr_listings_search`, then `hostr_listings_availability`, then `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.
-- Negotiation: call `hostr_updates` to inspect thread/trade ids. Use `hostr_reservations_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_reservations_negotiateAccept` to accept the latest offer, or `hostr_reservations_cancel` to cancel the private negotiation or committed reservation.
-- Payment: for normal instant-book payment, call `hostr_reservations_bookAndPay`. After showing the returned QR/invoice, call the read-only `hostr_swaps_watch` with `swapId`, `tradeId`, and `reservationWaitSeconds`; it has no `dryRun` parameter and does not require approval. Use `hostr_swaps_recoverAll` only for explicit manual recovery/debug flows.
+- Search and reserve: call `hostr_listings_search`, then `hostr_listings_availability`, then `hostr_orders_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage order DM.
+- Negotiation: call `hostr_updates` to inspect thread/trade ids. Use `hostr_orders_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_orders_negotiateAccept` to accept the latest offer, or `hostr_orders_cancel` to cancel the private negotiation or committed order.
+- Payment: for normal instant-book payment, call `hostr_orders_bookAndPay`. After showing the returned QR/invoice, call the read-only `hostr_swaps_watch` with `swapId`, `tradeId`, and `orderWaitSeconds`; it has no `dryRun` parameter and does not require approval. Use `hostr_swaps_recoverAll` only for explicit manual recovery/debug flows.
 - Messaging: call `hostr_updates`, choose recipient pubkeys from the thread/trade, call `hostr_thread_message` with `dryRun: true`, then repeat with `dryRun: false`.
-- Listing management/profile/trips/bookings: call `hostr_listings_list` to inspect listing inventory, `hostr_profile_show` to inspect the current profile, `hostr_profile_edit` to preview/publish profile changes, `hostr_trips_list` for guest-side reservations, and `hostr_bookings_list` for reservations on listings authored by the authenticated user.
+- Listing management/profile/trips/bookings: call `hostr_listings_list` to inspect listing inventory, `hostr_profile_show` to inspect the current profile, `hostr_profile_edit` to preview/publish profile changes, `hostr_trips_list` for guest-side orders, and `hostr_bookings_list` for orders on listings authored by the authenticated user.
 - Escrow compatibility: call `hostr_escrow_methods` with a seller pubkey before payment when the agent needs to explain compatible escrow services or ask the user to choose a non-default service.
 - Swaps: call `hostr_swaps_list`, then `hostr_swaps_watch` for a specific swap id, and `hostr_swaps_recoverAll` when stale operations need recovery.
 
@@ -292,8 +292,8 @@ The same optional widget pattern is used for:
 - `ui://widget/payment-required.html`: reads `structuredContent.paymentDisplays` or `structuredContent.display.cards` for external Lightning payment QR prompts.
 - `ui://widget/session-connect.html`: reads `structuredContent.display` for Nostr Connect login QR prompts.
 - `ui://widget/profile-card.html`: reads `structuredContent.profileCards` or `structuredContent.display.cards` for profile show/edit results.
-- `ui://widget/trip.html`: reads `structuredContent.tripCards`, `structuredContent.reservationCards`, or `structuredContent.display.cards` for guest trips. Cancelled trips render a bold `Cancelled` marker.
-- `ui://widget/hosting.html`: reads `structuredContent.hostingCards`, `structuredContent.reservationCards`, or `structuredContent.display.cards` for host-side reservations, including `Hosting {guest} at: {stay}` text.
+- `ui://widget/trip.html`: reads `structuredContent.tripCards`, `structuredContent.orderCards`, or `structuredContent.display.cards` for guest trips. Cancelled trips render a bold `Cancelled` marker.
+- `ui://widget/hosting.html`: reads `structuredContent.hostingCards`, `structuredContent.orderCards`, or `structuredContent.display.cards` for host-side orders, including `Hosting {guest} at: {stay}` text.
 
 All widgets are examples. Generic MCP clients can ignore the UI resources and continue rendering `displayMarkdown` or structured JSON.
 

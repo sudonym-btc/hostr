@@ -30,7 +30,7 @@ import '../../payment_method/escrow_selector/escrow_selector.dart';
 class EscrowFundWidget extends StatefulWidget {
   final ProfileMetadata counterparty;
   final String sellerEvmAddress;
-  final Reservation negotiateReservation;
+  final Order negotiateReservation;
   final String? listingName;
 
   const EscrowFundWidget({
@@ -67,7 +67,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
   void _createPreparer(EscrowService escrow, {EscrowMethod? sellerMethod}) {
     _preparer = getIt<Hostr>().escrow.fund(
       EscrowFundParams(
-        negotiateReservation: widget.negotiateReservation,
+        negotiateOrder: widget.negotiateReservation,
         amount: widget.negotiateReservation.amount!,
         sellerProfile: widget.counterparty,
         sellerEvmAddress: widget.sellerEvmAddress,

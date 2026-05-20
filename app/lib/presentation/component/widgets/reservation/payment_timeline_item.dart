@@ -10,9 +10,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../amount/amount_input.dart';
 
 class PaymentTimelineItem extends StatelessWidget {
-  // Can be either a Reservation or a PaymentEvent, both have different display info
+  // Can be either a Order or a PaymentEvent, both have different display info
   final dynamic event;
-  final ReservationGroup? reservationGroup;
+  final OrderGroup? reservationGroup;
   final DateTime? Function(PaymentEvent event)? paymentEventTimestamp;
 
   const PaymentTimelineItem({
@@ -76,8 +76,8 @@ class PaymentTimelineItem extends StatelessWidget {
       );
     }
 
-    if (event is ReservationTransition) {
-      final transitionEvent = event as ReservationTransition;
+    if (event is OrderTransition) {
+      final transitionEvent = event as OrderTransition;
       final pubKey = transitionEvent.pubKey;
       final sellerPubkey = reservationGroup?.sellerPubkey;
       final escrowPubkey = reservationGroup?.escrowPubkey;
@@ -94,22 +94,22 @@ class PaymentTimelineItem extends StatelessWidget {
 
       var title = 'Guest created reservation';
       switch (transitionEvent.transitionType) {
-        case ReservationTransitionType.cancel:
+        case OrderTransitionType.cancel:
           title = roleLabel(
             host: 'Host cancelled reservation',
             escrow: 'Escrow cancelled reservation',
             guest: 'Guest cancelled reservation',
           );
           break;
-        case ReservationTransitionType.confirm:
-        case ReservationTransitionType.commit:
+        case OrderTransitionType.confirm:
+        case OrderTransitionType.commit:
           title = roleLabel(
             host: 'Host confirmed reservation',
             escrow: 'Escrow confirmed reservation',
             guest: 'Guest created reservation',
           );
           break;
-        case ReservationTransitionType.counterOffer:
+        case OrderTransitionType.counterOffer:
           title = roleLabel(
             host: 'Host counter-offered',
             escrow: 'Escrow updated reservation',

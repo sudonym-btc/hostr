@@ -4,18 +4,15 @@ import 'package:hostr/presentation/component/widgets/ui/padding.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
-class ReservationStatusSections {
-  static bool isUpcoming(Validation<ReservationGroup> item) {
+class OrderStatusSections {
+  static bool isUpcoming(Validation<OrderGroup> item) {
     final now = DateTime.now().toUtc();
     final end = item.event.end;
     if (end == null) return true;
     return !end.toUtc().isBefore(now);
   }
 
-  static int compare(
-    Validation<ReservationGroup> a,
-    Validation<ReservationGroup> b,
-  ) {
+  static int compare(Validation<OrderGroup> a, Validation<OrderGroup> b) {
     final aUpcoming = isUpcoming(a);
     final bUpcoming = isUpcoming(b);
 
@@ -36,8 +33,8 @@ class ReservationStatusSections {
 
   static Widget? buildHeader(
     BuildContext context,
-    Validation<ReservationGroup>? previous,
-    Validation<ReservationGroup> current,
+    Validation<OrderGroup>? previous,
+    Validation<OrderGroup> current,
   ) {
     final currentUpcoming = isUpcoming(current);
     final previousUpcoming = previous != null ? isUpcoming(previous) : null;
@@ -64,16 +61,16 @@ class ReservationStatusSections {
   }
 
   static int compareResolved(
-    ResolvedValidatedReservationGroupParticipants a,
-    ResolvedValidatedReservationGroupParticipants b,
+    ResolvedValidatedOrderGroupParticipants a,
+    ResolvedValidatedOrderGroupParticipants b,
   ) {
     return compare(a.validation, b.validation);
   }
 
   static Widget? buildResolvedHeader(
     BuildContext context,
-    ResolvedValidatedReservationGroupParticipants? previous,
-    ResolvedValidatedReservationGroupParticipants current,
+    ResolvedValidatedOrderGroupParticipants? previous,
+    ResolvedValidatedOrderGroupParticipants current,
   ) {
     return buildHeader(context, previous?.validation, current.validation);
   }

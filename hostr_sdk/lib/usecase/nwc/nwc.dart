@@ -1,6 +1,6 @@
 // ignore_for_file: experimental_member_use
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/domain_layer/usecases/nwc/consts/bitcoin_network.dart';
 import 'package:ndk/domain_layer/usecases/nwc/nostr_wallet_connect_uri.dart'
     as nwc_uri;

@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 import 'package:http/http.dart' as http;
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart';
@@ -1719,7 +1719,7 @@ class EvmChain {
   /// Looks up [EscrowMethod.acceptedTokensFor] for the listing's denomination
   /// (e.g. `"USD"`) and resolves the first EVM `tokenTagId` (format
   /// `"chainId:address"`) with live on-chain decimals.  If the seller has an
-  /// escrow method but does not accept a token for the reservation denomination
+  /// escrow method but does not accept a token for the order denomination
   /// on this chain, funding must fail before any swap is created.
   ///
   /// This is the correct source of truth — the seller declares which ERC-20

@@ -1,7 +1,7 @@
 import 'dart:isolate';
 
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 

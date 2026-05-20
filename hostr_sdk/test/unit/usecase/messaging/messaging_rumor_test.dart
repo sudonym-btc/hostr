@@ -59,7 +59,7 @@ void main() {
 
   test('getJsonRumour creates kind 1327 JSON message rumors', () async {
     final factory = EntityFactory(defaultSigner: MockKeys.guest);
-    final child = await factory.reservation(
+    final child = await factory.order(
       listing: factory.listing(signer: MockKeys.hoster),
     );
 
@@ -69,13 +69,13 @@ void main() {
         [kConversationTag, 'trade-1'],
       ],
       [MockKeys.hoster.publicKey],
-      altText: 'Reservation Proposal',
+      altText: 'Order Proposal',
     );
 
     expect(rumor.kind, kNostrKindJsonMessage);
-    expect(Message.parseChild(rumor), isA<Reservation>());
+    expect(Message.parseChild(rumor), isA<Order>());
     expect(rumor.tags, contains(equals([kConversationTag, 'trade-1'])));
-    expect(rumor.tags, contains(equals(['alt', 'Reservation Proposal'])));
+    expect(rumor.tags, contains(equals(['alt', 'Order Proposal'])));
     expect(rumor.tags, contains(equals(['p', MockKeys.hoster.publicKey])));
   });
 
@@ -87,7 +87,7 @@ void main() {
         ['alt', 'Custom Label'],
       ],
       [MockKeys.hoster.publicKey],
-      altText: 'Reservation Proposal',
+      altText: 'Order Proposal',
     );
 
     expect(rumor.kind, kNostrKindJsonMessage);

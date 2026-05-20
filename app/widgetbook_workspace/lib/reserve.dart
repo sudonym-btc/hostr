@@ -13,8 +13,9 @@ Widget reserve(BuildContext context) {
     alignment: Alignment.center,
     child: Reserve(
       listing: mockListings[0],
-      reservationGroupItemsStream:
-          Stream<List<Validation<ReservationGroup>>>.value(const []),
+      reservationGroupItemsStream: Stream<List<Validation<OrderGroup>>>.value(
+        const [],
+      ),
     ),
   );
 }

@@ -35,13 +35,13 @@ class SeedUser {
   });
 }
 
-/// A thread in "pending" state — reservation request created, but no
+/// A thread in "pending" state — order request created, but no
 /// outcome (escrow/zap) yet. The pipeline's outcome stage operates on these.
 class SeedThread {
   final SeedUser host;
   final SeedUser guest;
   final Listing listing;
-  final Reservation request;
+  final Order request;
   final int guestTradeAccountIndex;
   final KeyPair requestAuthorKeyPair;
 
@@ -54,12 +54,12 @@ class SeedThread {
   final ThreadStageSpec stageSpec;
 
   // ── Mutable: filled in by outcome stage ──
-  Reservation? reservation;
+  Order? order;
   Nip01Event? zapReceipt;
   bool paidViaEscrow;
   EscrowOutcome? escrowOutcome;
   bool selfSigned;
-  String? invalidReservationReason;
+  String? invalidOrderReason;
 
   SeedThread({
     required this.host,
@@ -72,12 +72,12 @@ class SeedThread {
     required this.start,
     required this.end,
     required this.stageSpec,
-    this.reservation,
+    this.order,
     this.zapReceipt,
     this.paidViaEscrow = false,
     this.escrowOutcome,
     this.selfSigned = false,
-    this.invalidReservationReason,
+    this.invalidOrderReason,
   });
 }
 
@@ -123,10 +123,10 @@ class SeedPipelineData {
   final List<EscrowService> escrowServices;
   final List<EscrowMethod> escrowMethods;
   final List<SeedThread> threads;
-  final List<Reservation> reservationRequests;
-  final List<ReservationTransition> reservationTransitions;
+  final List<Order> orderRequests;
+  final List<OrderTransition> orderTransitions;
   final List<Nip01Event> threadMessages;
-  final List<Reservation> reservations;
+  final List<Order> orders;
   final List<Nip01Event> zapReceipts;
   final List<Review> reviews;
   final List<BadgeDefinition> badgeDefinitions;
@@ -140,10 +140,10 @@ class SeedPipelineData {
     required this.escrowServices,
     required this.escrowMethods,
     required this.threads,
-    required this.reservationRequests,
-    required this.reservationTransitions,
+    required this.orderRequests,
+    required this.orderTransitions,
     required this.threadMessages,
-    required this.reservations,
+    required this.orders,
     required this.zapReceipts,
     required this.reviews,
     this.badgeDefinitions = const [],
@@ -156,12 +156,12 @@ class SeedPipelineData {
     ...escrowServices,
     ...escrowMethods,
     ...listings,
-    // reservationRequests are intentionally excluded — negotiate-stage
+    // orderRequests are intentionally excluded — negotiate-stage
     // events must only appear gift-wrapped (present in threadMessages).
-    ...reservationTransitions,
+    ...orderTransitions,
     ...threadMessages,
     ...zapReceipts,
-    ...reservations,
+    ...orders,
     ...reviews,
     ...badgeDefinitions,
     ...badgeAwards,
@@ -169,26 +169,24 @@ class SeedPipelineData {
 
   SeedSummary get summary {
     final hosts = users.where((u) => u.isHost).length;
-    final completedThreads = threads.where((t) => t.reservation != null).length;
-    final pendingThreads = threads.where((t) => t.reservation == null).length;
+    final completedThreads = threads.where((t) => t.order != null).length;
+    final pendingThreads = threads.where((t) => t.order == null).length;
     final selfSignedThreads = threads.where((t) => t.selfSigned).length;
     final escrowThreads = threads.where((t) => t.paidViaEscrow).length;
     final zapThreads = threads
-        .where((t) => t.reservation != null && !t.paidViaEscrow)
+        .where((t) => t.order != null && !t.paidViaEscrow)
         .length;
-    final invalidReservations = threads
-        .where(
-          (t) => t.invalidReservationReason != null && t.reservation != null,
-        )
+    final invalidOrders = threads
+        .where((t) => t.invalidOrderReason != null && t.order != null)
         .map((t) {
-          final reservation = t.reservation!;
+          final order = t.order!;
           final listingAnchor = t.listing.anchor ?? 'unknown';
           final deterministicId =
-              _findTagValue(reservation.parsedTags, 'd') ?? reservation.id;
-          return InvalidReservationInfo(
+              _findTagValue(order.parsedTags, 'd') ?? order.id;
+          return InvalidOrderInfo(
             listingAnchor: listingAnchor,
-            reservationId: deterministicId,
-            reason: t.invalidReservationReason!,
+            orderId: deterministicId,
+            reason: t.invalidOrderReason!,
           );
         })
         .toList(growable: false);
@@ -205,15 +203,15 @@ class SeedPipelineData {
       selfSignedThreads: selfSignedThreads,
       escrowThreads: escrowThreads,
       zapThreads: zapThreads,
-      reservationRequests: reservationRequests.length,
-      reservationTransitions: reservationTransitions.length,
+      orderRequests: orderRequests.length,
+      orderTransitions: orderTransitions.length,
       messages: threadMessages.length,
-      reservations: reservations.length,
+      orders: orders.length,
       zapReceipts: zapReceipts.length,
       reviews: reviews.length,
       escrowServices: escrowServices.length,
       escrowMethods: escrowMethods.length,
-      invalidReservations: invalidReservations,
+      invalidOrders: invalidOrders,
       badgeDefinitions: badgeDefinitions.length,
       badgeAwards: badgeAwards.length,
     );
@@ -234,15 +232,15 @@ class SeedSummary {
   final int selfSignedThreads;
   final int escrowThreads;
   final int zapThreads;
-  final int reservationRequests;
-  final int reservationTransitions;
+  final int orderRequests;
+  final int orderTransitions;
   final int messages;
-  final int reservations;
+  final int orders;
   final int zapReceipts;
   final int reviews;
   final int escrowServices;
   final int escrowMethods;
-  final List<InvalidReservationInfo> invalidReservations;
+  final List<InvalidOrderInfo> invalidOrders;
   final int badgeDefinitions;
   final int badgeAwards;
 
@@ -258,15 +256,15 @@ class SeedSummary {
     required this.selfSignedThreads,
     required this.escrowThreads,
     required this.zapThreads,
-    required this.reservationRequests,
-    required this.reservationTransitions,
+    required this.orderRequests,
+    required this.orderTransitions,
     required this.messages,
-    required this.reservations,
+    required this.orders,
     required this.zapReceipts,
     required this.reviews,
     required this.escrowServices,
     required this.escrowMethods,
-    required this.invalidReservations,
+    required this.invalidOrders,
     this.badgeDefinitions = 0,
     this.badgeAwards = 0,
   });
@@ -283,36 +281,34 @@ class SeedSummary {
     'selfSignedThreads': selfSignedThreads,
     'escrowThreads': escrowThreads,
     'zapThreads': zapThreads,
-    'reservationRequests': reservationRequests,
-    'reservationTransitions': reservationTransitions,
+    'orderRequests': orderRequests,
+    'orderTransitions': orderTransitions,
     'messages': messages,
-    'reservations': reservations,
+    'orders': orders,
     'zapReceipts': zapReceipts,
     'reviews': reviews,
     'escrowServices': escrowServices,
     'escrowMethods': escrowMethods,
-    'invalidReservations': invalidReservations
-        .map((info) => info.toJson())
-        .toList(),
+    'invalidOrders': invalidOrders.map((info) => info.toJson()).toList(),
     'badgeDefinitions': badgeDefinitions,
     'badgeAwards': badgeAwards,
   };
 }
 
-class InvalidReservationInfo {
+class InvalidOrderInfo {
   final String listingAnchor;
-  final String reservationId;
+  final String orderId;
   final String reason;
 
-  const InvalidReservationInfo({
+  const InvalidOrderInfo({
     required this.listingAnchor,
-    required this.reservationId,
+    required this.orderId,
     required this.reason,
   });
 
   Map<String, dynamic> toJson() => {
     'listingAnchor': listingAnchor,
-    'reservationId': reservationId,
+    'orderId': orderId,
     'reason': reason,
   };
 }
@@ -519,20 +515,18 @@ class SeedPipelineOutcome {
   }
 
   List<SeedOutcomePlan> _completedPlans() =>
-      plans.where((p) => p.thread.reservation != null).toList();
+      plans.where((p) => p.thread.order != null).toList();
 
   List<SeedThread> _pendingThreads() =>
-      threads.where((t) => t.reservation == null).toList();
+      threads.where((t) => t.order == null).toList();
 
   Map<String, dynamic> _totalsJson() {
-    final completedPlans = plans
-        .where((p) => p.thread.reservation != null)
-        .toList();
-    final pendingThreads = threads.where((t) => t.reservation == null).toList();
+    final completedPlans = plans.where((p) => p.thread.order != null).toList();
+    final pendingThreads = threads.where((t) => t.order == null).toList();
 
     return {
       'threads_total': threads.length,
-      'threads_with_reservation': completedPlans.length,
+      'threads_with_order': completedPlans.length,
       'threads_pending': pendingThreads.length,
       'escrow_trades_newly_created': completedPlans
           .where((p) => p.createTxHash != null && !p.tradeAlreadyExisted)
@@ -543,8 +537,8 @@ class SeedPipelineOutcome {
       'zap_receipts_built': completedPlans
           .where((p) => !p.useEscrow && p.thread.zapReceipt != null)
           .length,
-      'invalid_reservations': completedPlans
-          .where((p) => p.thread.invalidReservationReason != null)
+      'invalid_orders': completedPlans
+          .where((p) => p.thread.invalidOrderReason != null)
           .length,
     };
   }
@@ -593,8 +587,8 @@ class SeedPipelineOutcome {
 
   static Map<String, dynamic> _threadOutcomeEntry(SeedOutcomePlan plan) {
     final thread = plan.thread;
-    final proof = thread.reservation?.proof;
-    final invalidReason = thread.invalidReservationReason;
+    final proof = thread.order?.proof;
+    final invalidReason = thread.invalidOrderReason;
 
     final Map<String, dynamic> proofEntry;
     if (proof == null) {
@@ -647,7 +641,7 @@ class SeedPipelineOutcome {
       'trade_id': thread.request.getDtag() ?? thread.id,
       'check_in': thread.start.toIso8601String().substring(0, 10),
       'check_out': thread.end.toIso8601String().substring(0, 10),
-      'reservation_stage': thread.reservation?.stage.name,
+      'order_stage': thread.order?.stage.name,
       'self_signed_by_buyer': plan.selfSigned,
       'proof': proofEntry,
     };

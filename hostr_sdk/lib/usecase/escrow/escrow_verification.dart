@@ -1,11 +1,11 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 
 import '../../util/main.dart';
 import '../evm/evm.dart';
 import 'supported_escrow_contract/supported_escrow_contract.dart';
 
-/// Result of on-chain escrow verification for a single reservation.
+/// Result of on-chain escrow verification for a single order.
 class EscrowVerificationResult {
   final bool isValid;
   final String? reason;
@@ -27,15 +27,15 @@ class EscrowVerificationResult {
       : 'EscrowVerificationResult(invalid: $reason)';
 }
 
-/// Verifies that a self-signed reservation with an escrow proof has a
+/// Verifies that a self-signed order with an escrow proof has a
 /// matching on-chain trade with the correct amount.
 ///
 /// This is a stateless utility that can be used by:
-/// - [ReservationGroups] when validating buyer-only groups
+/// - [OrderGroups] when validating buyer-only groups
 /// - [TradeAudit] when auditing a specific trade
 ///
 /// It does NOT validate Nostr-level proof structure (signatures, listing
-/// anchors, etc.) — that is handled by [Reservation.validate]. This class
+/// anchors, etc.) — that is handled by [Order.validate]. This class
 /// only handles the EVM on-chain portion.
 @Singleton()
 class EscrowVerification {
@@ -48,16 +48,16 @@ class EscrowVerification {
     : _evm = evm,
       _logger = logger.scope('escrow-verify');
 
-  /// Verify the on-chain escrow for [reservation] against [listing].
+  /// Verify the on-chain escrow for [order] against [listing].
   ///
   /// Returns [EscrowVerificationResult.valid] when the on-chain trade
-  /// was created, and the escrowed amount covers the reservation cost.
+  /// was created, and the escrowed amount covers the order cost.
   ///
   /// Returns [EscrowVerificationResult.invalid] with a reason string when
   /// any check fails or no escrow proof is present.
-  Future<EscrowVerificationResult> verify({required Reservation reservation}) =>
+  Future<EscrowVerificationResult> verify({required Order order}) =>
       logger.span('verify', () async {
-        final proof = reservation.proof;
+        final proof = order.proof;
         if (proof == null) {
           return const EscrowVerificationResult.invalid(
             'No payment proof attached',
@@ -71,15 +71,15 @@ class EscrowVerification {
           );
         }
 
-        final proofError = _validateEscrowProof(escrowProof, reservation);
+        final proofError = _validateEscrowProof(escrowProof, order);
         if (proofError != null) return proofError;
 
         final contract = _resolveContract(escrowProof);
 
-        final tradeId = reservation.getDtag();
+        final tradeId = order.getDtag();
         if (tradeId == null || tradeId.isEmpty) {
           return const EscrowVerificationResult.invalid(
-            'Reservation has no trade id (d-tag)',
+            'Order has no trade id (d-tag)',
           );
         }
 
@@ -93,7 +93,7 @@ class EscrowVerification {
 
         return _verifyAmount(
           fundedEvent: fundedEvent,
-          reservation: reservation,
+          order: order,
           proof: proof,
           escrowProof: escrowProof,
         );
@@ -105,10 +105,10 @@ class EscrowVerification {
   /// and service inclusion in the host's escrow methods.
   EscrowVerificationResult? _validateEscrowProof(
     EscrowProof escrowProof,
-    Reservation reservation,
+    Order order,
   ) {
     if (escrowProof.hostsEscrowMethods.pubKey !=
-        getPubKeyFromAnchor(reservation.parsedTags.listingAnchor)) {
+        getPubKeyFromAnchor(order.parsedTags.listingAnchor)) {
       return const EscrowVerificationResult.invalid(
         'Escrow proof is for a different listing (pubkey mismatch)',
       );
@@ -179,17 +179,15 @@ class EscrowVerification {
     }
   }
 
-  /// Compares the on-chain funded amount to the expected reservation cost,
+  /// Compares the on-chain funded amount to the expected order cost,
   /// and verifies the security deposit (bond) when the listing requires one.
   EscrowVerificationResult _verifyAmount({
     required EscrowFundedEvent fundedEvent,
-    required Reservation reservation,
+    required Order order,
     required PaymentProof proof,
     required EscrowProof escrowProof,
   }) {
-    final expectedAmount = reservation.resolveExpectedAmount(
-      listing: proof.listing,
-    );
+    final expectedAmount = order.resolveExpectedAmount(listing: proof.listing);
 
     final onChainAmount = fundedEvent.amount;
     final expected = expectedAmount.expectedAmount;
@@ -232,7 +230,7 @@ class EscrowVerification {
       return EscrowVerificationResult.invalid(
         'Onchain escrowed amount (${onChainAmount.value}) is less than expected '
         '$expectedAmountLabel amount (${comparableExpected.value}) for '
-        '${reservation.start} – ${reservation.end}'
+        '${order.start} – ${order.end}'
         '${overrideReason != null ? ' ($overrideReason)' : ''}',
       );
     }
@@ -263,23 +261,23 @@ class EscrowVerification {
     }
 
     // ── Max claim period verification ─────────────────────────────────
-    // Ensure the on-chain unlockAt matches the committed reservation end
+    // Ensure the on-chain unlockAt matches the committed order end
     // date plus the listing's maxDisputePeriod.
-    final reservationEnd = reservation.end;
-    if (reservationEnd != null) {
+    final orderEnd = order.end;
+    if (orderEnd != null) {
       final maxDisputePeriod = proof.listing.maxDisputePeriod;
       final expectedUnlockAt =
-          reservationEnd.millisecondsSinceEpoch ~/ 1000 + maxDisputePeriod;
+          orderEnd.millisecondsSinceEpoch ~/ 1000 + maxDisputePeriod;
       if (fundedEvent.unlockAt != expectedUnlockAt) {
         return EscrowVerificationResult.invalid(
           'Escrow unlockAt (${fundedEvent.unlockAt}) does not match '
-          'reservation end + maxDisputePeriod ($expectedUnlockAt)',
+          'order end + maxDisputePeriod ($expectedUnlockAt)',
         );
       }
     }
 
     logger.d(
-      'Escrow verified for trade ${reservation.getDtag()}: '
+      'Escrow verified for trade ${order.getDtag()}: '
       'funded event ${fundedEvent.transactionHash}, '
       'on-chain=${onChainAmount.value}, expected=${comparableExpected.value}'
       '${fundedEvent.bondAmount != null ? ', bond=${fundedEvent.bondAmount!.value}' : ''}',

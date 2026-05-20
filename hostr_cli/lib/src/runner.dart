@@ -7,7 +7,7 @@ import 'commands/escrow_methods_command.dart';
 import 'commands/inbox_command.dart';
 import 'commands/listings_command.dart';
 import 'commands/profile_command.dart';
-import 'commands/reservations_command.dart';
+import 'commands/orders_command.dart';
 import 'commands/session_command.dart';
 import 'commands/swaps_command.dart';
 
@@ -63,7 +63,7 @@ Future<int> runHostrCli(
         ..addCommand(SessionCommand(stdout: stdout, stderr: stderr))
         ..addCommand(ProfileCommand(stdout: stdout, stderr: stderr))
         ..addCommand(ListingsCommand(stdout: stdout, stderr: stderr))
-        ..addCommand(ReservationsCommand(stdout: stdout, stderr: stderr))
+        ..addCommand(OrdersCommand(stdout: stdout, stderr: stderr))
         ..addCommand(EscrowMethodsCommand(stdout: stdout, stderr: stderr))
         ..addCommand(SwapsCommand(stdout: stdout, stderr: stderr))
         ..addCommand(TripsCommand(stdout: stdout, stderr: stderr))

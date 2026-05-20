@@ -34,8 +34,8 @@ class HostingsScreenState extends State<HostingsScreen> {
     final content = StatusStreamListWidget(
       stream: getIt<Hostr>().userSubscriptions.myResolvedHostingsList$,
       itemKeyBuilder: (item) => ValueKey(item.group.tradeId),
-      sort: ReservationStatusSections.compareResolved,
-      sectionHeaderBuilder: ReservationStatusSections.buildResolvedHeader,
+      sort: OrderStatusSections.compareResolved,
+      sectionHeaderBuilder: OrderStatusSections.buildResolvedHeader,
       emptyBuilder: () => StatusStreamListWidget.empty(
         context,
         leading: Icon(
@@ -80,7 +80,7 @@ class HostingsScreenState extends State<HostingsScreen> {
 /// Stable StatefulWidget so that [_guestFuture] is only created once
 /// per item, not on every parent rebuild.
 class _HostingListItem extends StatefulWidget {
-  final ResolvedValidatedReservationGroupParticipants group;
+  final ResolvedValidatedOrderGroupParticipants group;
 
   const _HostingListItem({required this.group});
 

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart';
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;

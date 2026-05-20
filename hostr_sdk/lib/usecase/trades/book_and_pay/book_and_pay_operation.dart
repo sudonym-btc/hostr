@@ -15,8 +15,8 @@ import '../../listings/listings.dart';
 import '../../messaging/thread.dart';
 import '../../messaging/messaging.dart';
 import '../../metadata/metadata.dart';
-import '../../reservation_requests/reservation_requests.dart';
-import '../../reservations/reservations.dart';
+import '../../order_requests/order_requests.dart';
+import '../../orders/orders.dart';
 import '../../user_subscriptions/user_subscriptions.dart';
 import '../../../util/main.dart';
 import '../payment_proof_orchestrator.dart';
@@ -28,8 +28,8 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     required AccountSeedStore accountSeedStore,
     required Auth auth,
     required Listings listings,
-    required Reservations reservations,
-    required ReservationRequests reservationRequests,
+    required Orders orders,
+    required OrderRequests orderRequests,
     required Messaging messaging,
     required EscrowUseCase escrow,
     required Escrows escrows,
@@ -42,8 +42,8 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
   }) : _accountSeedStore = accountSeedStore,
        _auth = auth,
        _listings = listings,
-       _reservations = reservations,
-       _reservationRequests = reservationRequests,
+       _orders = orders,
+       _orderRequests = orderRequests,
        _messaging = messaging,
        _escrow = escrow,
        _escrows = escrows,
@@ -58,8 +58,8 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
   final AccountSeedStore _accountSeedStore;
   final Auth _auth;
   final Listings _listings;
-  final Reservations _reservations;
-  final ReservationRequests _reservationRequests;
+  final Orders _orders;
+  final OrderRequests _orderRequests;
   final Messaging _messaging;
   final EscrowUseCase _escrow;
   final Escrows _escrows;
@@ -76,7 +76,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
       try {
         emit(BookAndPayValidating(listingAnchor: input.listingAnchor));
 
-        await _userSubscriptions.start(validateReservationGroups: false);
+        await _userSubscriptions.start(validateOrderGroups: false);
         await _paymentProofOrchestrator.start();
         await _accountSeedStore.ensureReady();
         await _evm.init();
@@ -90,30 +90,30 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
         final offerAmount = input.amount ?? requiredAmount;
         _assertAmountCoversListing(offerAmount, requiredAmount);
 
-        final reservation = await _reservationRequests.createReservationRequest(
+        final order = await _orderRequests.createOrderRequest(
           listing: listing,
           startDate: input.start,
           endDate: input.end,
           amount: offerAmount,
         );
-        final tradeId = reservation.getDtag()!;
+        final tradeId = order.getDtag()!;
         _userSubscriptions.trackTradeId(tradeId);
 
-        final offerResponses = await _replyReservationInTradeThread(
-          reservation,
+        final offerResponses = await _replyOrderInTradeThread(
+          order,
           participants: [listing.pubKey],
         );
         emit(
           BookAndPayOfferPublished(
             tradeId: tradeId,
             listing: listing,
-            reservation: reservation,
+            order: order,
             relayResponses: offerResponses,
           ),
         );
 
         final plan = await _buildEscrowFundingPlan(
-          reservation: reservation,
+          order: order,
           listing: listing,
           escrowServiceId: input.escrowServiceId,
         );
@@ -156,7 +156,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
         }
 
         emit(
-          BookAndPayAwaitingReservationProof(
+          BookAndPayAwaitingOrderProof(
             tradeId: tradeId,
             swapId: swapState.data.boltzId,
             claimTxHash: swapState.data.claimTxHash!,
@@ -169,7 +169,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
           escrowService: plan.selectedEscrow,
         );
 
-        final committed = await _waitForMyCommittedReservation(
+        final committed = await _waitForMyCommittedOrder(
           tradeId: tradeId,
           sellerPubkey: listing.pubKey,
           timeout: input.proofTimeout,
@@ -178,7 +178,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
           BookAndPayCompleted(
             tradeId: tradeId,
             swapId: swapState.data.boltzId,
-            reservation: committed,
+            order: committed,
           ),
         );
       } catch (error, stackTrace) {
@@ -189,15 +189,15 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     },
   );
 
-  Future<List<Map<String, Object?>>> _replyReservationInTradeThread(
-    Reservation reservation, {
+  Future<List<Map<String, Object?>>> _replyOrderInTradeThread(
+    Order order, {
     required Iterable<String> participants,
   }) {
     final thread = _ensureTradeThread(
-      tradeId: reservation.getDtag()!,
+      tradeId: order.getDtag()!,
       participants: participants,
     );
-    return _replyOnThread(thread, reservation);
+    return _replyOnThread(thread, order);
   }
 
   Thread _ensureTradeThread({
@@ -258,7 +258,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
   }
 
   Future<void> _assertAvailable(Listing listing, BookAndPayInput input) async {
-    final groups = await _reservations.queryReservationGroups(listing: listing);
+    final groups = await _orders.queryOrderGroups(listing: listing);
     if (!Listing.isAvailable(input.start, input.end, groups.values.toList())) {
       throw StateError('Listing is not available for those dates.');
     }
@@ -282,7 +282,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
   }
 
   Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
-    required Reservation reservation,
+    required Order order,
     required Listing listing,
     String? escrowServiceId,
   }) async {
@@ -327,8 +327,8 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     final selectedEscrow = EscrowServiceSelected(
       pubKey: _auth.getActiveKey().publicKey,
       tags: EscrowServiceSelectedTags([
-        ['d', reservation.getDtag()!],
-        [kListingRefTag, reservation.parsedTags.listingAnchor],
+        ['d', order.getDtag()!],
+        [kListingRefTag, order.parsedTags.listingAnchor],
         ['p', sellerProfile.pubKey],
       ]),
       content: EscrowServiceSelectedContent(
@@ -340,10 +340,10 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     final preparer = _escrow.fund(
       EscrowFundParams(
         escrowService: service,
-        negotiateReservation: reservation,
+        negotiateOrder: order,
         sellerProfile: sellerProfile,
         sellerEvmAddress: sellerEvmAddress,
-        amount: reservation.amount!,
+        amount: order.amount!,
         sellerEscrowMethod: mutual.sellerMethod,
         securityDeposit: listing.securityDeposit,
         listingName: listing.title,
@@ -356,23 +356,22 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     );
   }
 
-  Future<Reservation> _waitForMyCommittedReservation({
+  Future<Order> _waitForMyCommittedOrder({
     required String tradeId,
     required String sellerPubkey,
     required Duration timeout,
   }) async {
-    bool matches(Reservation reservation) {
-      return reservation.getDtag() == tradeId &&
-          reservation.isCommit &&
-          reservation.pubKey != sellerPubkey;
+    bool matches(Order order) {
+      return order.getDtag() == tradeId &&
+          order.isCommit &&
+          order.pubKey != sellerPubkey;
     }
 
-    for (final reservation
-        in _userSubscriptions.allMyReservations$.stream.items) {
-      if (matches(reservation)) return reservation;
+    for (final order in _userSubscriptions.allMyOrders$.stream.items) {
+      if (matches(order)) return order;
     }
 
-    return _userSubscriptions.allMyReservations$.stream.stream
+    return _userSubscriptions.allMyOrders$.stream.stream
         .firstWhere(matches)
         .timeout(timeout);
   }

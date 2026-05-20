@@ -78,7 +78,7 @@ test('permits NIP-59 gift wraps from ephemeral author pubkeys when authenticated
   assert.deepEqual(decision, { decision: Decision.PERMIT });
 });
 
-test('permits reservation events from per-trade participant keys when authenticated', () => {
+test('permits order events from per-trade participant keys when authenticated', () => {
   const decision = decideEventAdmission({
     event: event({ kind: 32122 }),
     authPubkey: Buffer.from(otherPubkey, 'hex'),
@@ -87,7 +87,7 @@ test('permits reservation events from per-trade participant keys when authentica
   assert.deepEqual(decision, { decision: Decision.PERMIT });
 });
 
-test('permits reservation transition events from per-trade participant keys when authenticated', () => {
+test('permits order transition events from per-trade participant keys when authenticated', () => {
   const decision = decideEventAdmission({
     event: event({ kind: 1326 }),
     authPubkey: Buffer.from(otherPubkey, 'hex'),

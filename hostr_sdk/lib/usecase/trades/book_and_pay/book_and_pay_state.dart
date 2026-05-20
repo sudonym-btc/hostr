@@ -42,13 +42,13 @@ class BookAndPayOfferPublished extends BookAndPayState {
   const BookAndPayOfferPublished({
     required this.tradeId,
     required this.listing,
-    required this.reservation,
+    required this.order,
     required this.relayResponses,
   });
 
   final String tradeId;
   final Listing listing;
-  final Reservation reservation;
+  final Order order;
   final List<Map<String, Object?>> relayResponses;
 
   @override
@@ -60,7 +60,7 @@ class BookAndPayOfferPublished extends BookAndPayState {
     'isTerminal': false,
     'tradeId': tradeId,
     'listing': _listingJson(listing),
-    'reservation': _eventJson(reservation),
+    'order': _eventJson(order),
     'relayResponses': relayResponses,
   };
 }
@@ -111,8 +111,8 @@ class BookAndPaySwapState extends BookAndPayState {
   };
 }
 
-class BookAndPayAwaitingReservationProof extends BookAndPayState {
-  const BookAndPayAwaitingReservationProof({
+class BookAndPayAwaitingOrderProof extends BookAndPayState {
+  const BookAndPayAwaitingOrderProof({
     required this.tradeId,
     required this.swapId,
     required this.claimTxHash,
@@ -123,7 +123,7 @@ class BookAndPayAwaitingReservationProof extends BookAndPayState {
   final String claimTxHash;
 
   @override
-  String get stateName => 'awaitingReservationProof';
+  String get stateName => 'awaitingOrderProof';
 
   @override
   Map<String, Object?> toJson() => {
@@ -139,12 +139,12 @@ class BookAndPayCompleted extends BookAndPayState {
   const BookAndPayCompleted({
     required this.tradeId,
     required this.swapId,
-    required this.reservation,
+    required this.order,
   });
 
   final String tradeId;
   final String swapId;
-  final Reservation reservation;
+  final Order order;
 
   @override
   String get stateName => 'completed';
@@ -158,7 +158,7 @@ class BookAndPayCompleted extends BookAndPayState {
     'isTerminal': true,
     'tradeId': tradeId,
     'swapId': swapId,
-    'reservation': _eventJson(reservation),
+    'order': _eventJson(order),
   };
 }
 

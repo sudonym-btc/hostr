@@ -86,9 +86,9 @@ sealed class TradeStage {
 }
 
 class NegotiationPolicy {
-  final Reservation? latestOffer;
-  final Reservation? lastOfferByUs;
-  final Reservation? lastOfferByThem;
+  final Order? latestOffer;
+  final Order? lastOfferByUs;
+  final Order? lastOfferByThem;
   final DenominatedAmount? listingPrice;
   final bool latestOfferSentByUs;
   final bool latestOfferAcceptsPrevious;
@@ -112,24 +112,24 @@ class NegotiationPolicy {
 }
 
 class NegotiationStage extends TradeStage {
-  final List<Reservation> reservationRequests;
+  final List<Order> orderRequests;
   final OverlapLock overlapLock;
   final NegotiationPolicy policy;
 
   const NegotiationStage({
-    required this.reservationRequests,
+    required this.orderRequests,
     required this.overlapLock,
     required this.policy,
   });
 }
 
 class CommitStage extends TradeStage {
-  final ReservationGroup reservationGroup;
+  final OrderGroup orderGroup;
   final List<PaymentEvent> payments;
-  final List<ReservationTransition> transitions;
+  final List<OrderTransition> transitions;
 
   const CommitStage({
-    required this.reservationGroup,
+    required this.orderGroup,
     required this.payments,
     required this.transitions,
   });
@@ -137,13 +137,13 @@ class CommitStage extends TradeStage {
 
 class TradeStreams {
   final StreamWithStatus<PaymentEvent> paymentEvents;
-  final StreamWithStatus<Validation<ReservationGroup>> reservationStream;
-  final StreamWithStatus<ReservationTransition> transitionsStream;
+  final StreamWithStatus<Validation<OrderGroup>> orderStream;
+  final StreamWithStatus<OrderTransition> transitionsStream;
   final ValueStream<bool> subscriptionsLive;
 
   const TradeStreams({
     required this.paymentEvents,
-    required this.reservationStream,
+    required this.orderStream,
     required this.transitionsStream,
     required this.subscriptionsLive,
   });

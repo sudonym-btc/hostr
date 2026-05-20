@@ -41,7 +41,7 @@ class DaemonHandler {
     server.registerMethod(kRpcUpdateProfile, _updateProfile);
     server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
     server.registerMethod(kRpcResolveNames, _resolveNames);
-    server.registerMethod(kRpcListReservationGroups, _listReservationGroups);
+    server.registerMethod(kRpcListOrderGroups, _listOrderGroups);
     server.registerMethod(kRpcListBadgeDefinitions, _listBadgeDefinitions);
     server.registerMethod(kRpcUpsertBadgeDefinition, _upsertBadgeDefinition);
     server.registerMethod(kRpcDeleteBadgeDefinition, _deleteBadgeDefinition);
@@ -184,7 +184,7 @@ class DaemonHandler {
         ? await daemon.context.configuredChain.resolveToken(tokenAddress)
         : null;
 
-    // Resolve trade ID → canonical thread anchor from reservation participant
+    // Resolve trade ID → canonical thread anchor from order participant
     // proofs so hidden trade keys map back to the real conversation ids.
     final threadAnchor = await _resolveTradeThreadAnchor(tradeId);
     final participants = await _resolveTradeParticipants(tradeId);
@@ -261,18 +261,18 @@ class DaemonHandler {
     return thread.anchor;
   }
 
-  Future<ResolvedReservationGroupParticipants?> _resolveTradeParticipantSet(
+  Future<ResolvedOrderGroupParticipants?> _resolveTradeParticipantSet(
     String tradeId, {
     bool cachedOnly = false,
   }) async {
-    final group = await _loadTradeReservationGroup(
+    final group = await _loadTradeOrderGroup(
       tradeId,
       cachedOnly: cachedOnly,
     );
     if (group == null) return null;
 
-    return ReservationGroupParticipantResolver(
-      keyring: DefaultReservationParticipantKeyring(
+    return OrderGroupParticipantResolver(
+      keyring: DefaultOrderParticipantKeyring(
         auth: hostr.auth,
         tradeAccountAllocator: hostr.auth.service<TradeAccountAllocator>(),
         ndk: hostr.auth.service<Ndk>(),
@@ -281,11 +281,11 @@ class DaemonHandler {
     ).resolve(group);
   }
 
-  Future<ReservationGroup?> _loadTradeReservationGroup(
+  Future<OrderGroup?> _loadTradeOrderGroup(
     String tradeId, {
     bool cachedOnly = false,
   }) async {
-    for (final group in daemon.reservationGroups.values) {
+    for (final group in daemon.orderGroups.values) {
       try {
         if (group.tradeId == tradeId) return group;
       } catch (_) {
@@ -295,14 +295,11 @@ class DaemonHandler {
 
     if (cachedOnly) return null;
 
-    final reservations = await hostr.reservations.getByTradeId(tradeId);
-    if (reservations.isEmpty) return null;
+    final orders = await hostr.orders.getByTradeId(tradeId);
+    if (orders.isEmpty) return null;
 
-    final groups = Reservations.toReservationGroups(reservations: reservations)
-        .values
-        .toList();
-    groups
-        .sort((a, b) => b.reservations.length.compareTo(a.reservations.length));
+    final groups = Orders.toOrderGroups(orders: orders).values.toList();
+    groups.sort((a, b) => b.orders.length.compareTo(a.orders.length));
     for (final group in groups) {
       try {
         if (group.tradeId == tradeId) return group;
@@ -960,10 +957,10 @@ class DaemonHandler {
     return {'ok': true};
   }
 
-  // ── Reservation Groups ────────────────────────────────────────────────────
+  // ── Order Groups ────────────────────────────────────────────────────
 
-  Map<String, dynamic> _listReservationGroups(json_rpc.Parameters params) {
-    final groups = daemon.reservationGroups;
+  Map<String, dynamic> _listOrderGroups(json_rpc.Parameters params) {
+    final groups = daemon.orderGroups;
     return {
       'groups': groups.entries.map((e) {
         final g = e.value;
@@ -973,11 +970,11 @@ class DaemonHandler {
           'listingAnchor': g.listingAnchor,
           'stage': g.stage.name,
           'cancelled': g.cancelled,
-          'hasBuyer': g.buyerReservation != null,
-          'hasSeller': g.sellerReservation != null,
-          'hasEscrow': g.escrowReservation != null,
-          'escrowStage': g.escrowReservation?.stage.name,
-          'participants': rawReservationGroupParticipantSet(g).toList(),
+          'hasBuyer': g.buyerOrder != null,
+          'hasSeller': g.sellerOrder != null,
+          'hasEscrow': g.escrowOrder != null,
+          'escrowStage': g.escrowOrder?.stage.name,
+          'participants': rawOrderGroupParticipantSet(g).toList(),
         };
       }).toList(),
     };

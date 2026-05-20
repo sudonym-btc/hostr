@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart' show EthereumAddress;
@@ -52,7 +52,7 @@ class EscrowFundPreparer {
 
   // ── Public API ──────────────────────────────────────────────────────
 
-  String get tradeId => params?.negotiateReservation.getDtag() ?? '';
+  String get tradeId => params?.negotiateOrder.getDtag() ?? '';
 
   /// Description for the swap-in LN invoice.
   String get swapInvoiceDescription => params!.swapInvoiceDescription;
@@ -252,13 +252,13 @@ class EscrowFundPreparer {
       logger.d('bondAmount: $bondAmount');
     }
     return FundArgs(
-      tradeId: params.negotiateReservation.getDtag()!,
+      tradeId: params.negotiateOrder.getDtag()!,
       amount: amount,
       bondAmount: bondAmount,
       sellerEvmAddress: params.sellerEvmAddress,
       arbiterEvmAddress: params.escrowService.evmAddress,
-      unlockAt: params.negotiateReservation.end != null
-          ? params.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000 +
+      unlockAt: params.negotiateOrder.end != null
+          ? params.negotiateOrder.end!.millisecondsSinceEpoch ~/ 1000 +
                 (params.maxDisputePeriod ??
                     ListingTagRead.defaultMaxDisputePeriod)
           : DateTime.now()

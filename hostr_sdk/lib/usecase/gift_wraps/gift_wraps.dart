@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'

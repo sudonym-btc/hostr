@@ -656,13 +656,13 @@ final directories = <_widgetbook.WidgetbookNode>[
                                 name: 'ThreadReservationRequestWidget',
                                 useCases: [
                                   _widgetbook.WidgetbookUseCase(
-                                    name: 'Reservation request - received',
+                                    name: 'Order request - received',
                                     builder:
                                         _widgetbook_workspace_inbox_thread_message
                                             .reservationRequestReceived,
                                   ),
                                   _widgetbook.WidgetbookUseCase(
-                                    name: 'Reservation request - sent',
+                                    name: 'Order request - sent',
                                     builder:
                                         _widgetbook_workspace_inbox_thread_message
                                             .reservationRequestSent,

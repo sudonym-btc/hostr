@@ -50,8 +50,8 @@ const _config = SeedPipelineConfig(
   userCount: 8,
   hostRatio: 0.5, // 4 hosts, 4 guests
   listingsPerHostAvg: 2.0, // ~8 listings
-  reservationRequestsPerGuest: 10, // 8 threads
-  invalidReservationRate: 0,
+  orderRequestsPerGuest: 10, // 8 threads
+  invalidOrderRate: 0,
   fundProfiles: false,
   setupLnbits: true,
   threadStages: ThreadStageSpec(

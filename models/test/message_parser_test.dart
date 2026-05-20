@@ -68,8 +68,8 @@ void main() {
       expect(parsed.kind, kNostrKindDM);
     });
 
-    test('parses reservation child message without generic cast failure', () {
-      final child = Reservation.create(
+    test('parses order child message without generic cast failure', () {
+      final child = Order.create(
         pubKey: 'a' * 64,
         dTag: 'trade-123',
         listingAnchor: '30402:${'b' * 64}:listing-1',
@@ -88,14 +88,14 @@ void main() {
       final parsed = parser<Nip01Event>(event);
 
       expect(parsed, isA<JsonMessage>());
-      expect((parsed as JsonMessage).child, isA<Reservation>());
-      expect((parsed.child as Reservation).getDtag(), 'trade-123');
+      expect((parsed as JsonMessage).child, isA<Order>());
+      expect((parsed.child as Order).getDtag(), 'trade-123');
     });
 
-    test('rejects reservation events without listing anchors', () {
+    test('rejects order events without listing anchors', () {
       final event = Nip01Event(
         pubKey: 'a' * 64,
-        kind: kNostrKindReservation,
+        kind: kNostrKindOrder,
         tags: const [
           ['d', 'trade-123'],
         ],
@@ -104,7 +104,7 @@ void main() {
       );
 
       expect(
-        () => parser<Reservation>(event),
+        () => parser<Order>(event),
         throwsA(
           isA<FormatException>().having(
             (error) => error.message,
@@ -139,7 +139,7 @@ void main() {
     test('rejects JSON child messages with malformed children', () {
       final child = Nip01Event(
         pubKey: 'a' * 64,
-        kind: kNostrKindReservation,
+        kind: kNostrKindOrder,
         tags: const [
           ['d', 'trade-123'],
         ],

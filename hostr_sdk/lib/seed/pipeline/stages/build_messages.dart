@@ -101,7 +101,7 @@ Random _threadRng(String threadAnchor) => Random(threadAnchor.hashCode);
 /// Stage 6: Build NIP-17 gift-wrapped DM messages for threads.
 ///
 /// Each thread gets:
-///   1. The reservation request message
+///   1. The order request message
 ///   2. N filler messages based on [ThreadStageSpec.textMessageCount]
 ///
 /// Escrow-selected messages (which depend on outcome data) are built
@@ -116,7 +116,7 @@ Future<List<Nip01Event>> buildMessages({
   final sw = Stopwatch()..start();
 
   // Each thread produces 2 wraps per message (one per participant):
-  //   1 reservation-request + textMessageCount filler messages.
+  //   1 order-request + textMessageCount filler messages.
   var totalExpected = 0;
   for (final thread in threads) {
     totalExpected += 2 * (1 + thread.stageSpec.textMessageCount);
@@ -143,7 +143,7 @@ Future<List<Nip01Event>> buildMessages({
       final rr = _threadRng(threadAnchor);
       final conversationIndex = rr.nextInt(_conversations.length);
 
-      // 1. Reservation request message.
+      // 1. Order request message.
       final requestMessageWraps = await _giftWrapDmForParticipants(
         ndk: giftWrapNdk,
         sender: thread.guest,
@@ -201,7 +201,7 @@ Future<List<Nip01Event>> buildMessages({
 /// Build escrow-selected DM messages for threads that completed via escrow.
 ///
 /// Must run **after** [buildOutcomes] so that [SeedThread.paidViaEscrow]
-/// and [SeedThread.reservation] are populated.
+/// and [SeedThread.order] are populated.
 Future<List<Nip01Event>> buildEscrowSelectedMessages({
   required SeedContext ctx,
   required List<SeedThread> threads,
@@ -216,8 +216,8 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
   // 2 wraps per qualifying escrow thread.
   var totalExpected = 0;
   for (final thread in threads) {
-    if (!thread.paidViaEscrow || thread.reservation == null) continue;
-    if (thread.reservation!.proof?.escrowProof == null) continue;
+    if (!thread.paidViaEscrow || thread.order == null) continue;
+    if (thread.order!.proof?.escrowProof == null) continue;
     totalExpected += 2;
   }
 
@@ -238,9 +238,9 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
   try {
     for (var i = 0; i < threads.length; i++) {
       final thread = threads[i];
-      if (!thread.paidViaEscrow || thread.reservation == null) continue;
+      if (!thread.paidViaEscrow || thread.order == null) continue;
 
-      final escrowProof = thread.reservation!.proof?.escrowProof;
+      final escrowProof = thread.order!.proof?.escrowProof;
       if (escrowProof == null) continue;
 
       final threadAnchor = thread.request.getDtag()!;

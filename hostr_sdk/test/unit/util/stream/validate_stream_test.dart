@@ -7,12 +7,12 @@ import 'package:hostr_sdk/util/main.dart';
 import 'package:models/main.dart';
 import 'package:test/test.dart';
 
-Reservation _reservation({
+Order _order({
   required String id,
   required String pubkey,
   required String tradeId,
 }) {
-  return Reservation.create(
+  return Order.create(
     id: id,
     pubKey: pubkey,
     dTag: tradeId,
@@ -25,13 +25,13 @@ Reservation _reservation({
 void main() {
   group('validateStream utility', () {
     test('defers Live until in-flight validation completes', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
 
       final validated = validateStream(
         source: source,
         validator: (item) async {
           await Future<void>.delayed(const Duration(milliseconds: 60));
-          return Valid<Reservation>(item);
+          return Valid<Order>(item);
         },
       );
 
@@ -42,9 +42,7 @@ void main() {
 
       // Item arrives first (triggering pending++), then Live arrives while
       // the async validator is still running — asyncMap defers it.
-      source.add(
-        _reservation(id: 'r1', pubkey: 'guest-1', tradeId: 'commit-1'),
-      );
+      source.add(_order(id: 'r1', pubkey: 'guest-1', tradeId: 'commit-1'));
       source.addStatus(StreamStatusLive());
 
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -53,7 +51,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(statuses.any((s) => s is StreamStatusLive), isTrue);
       expect(validated.items.length, 1);
-      expect(validated.items.first, isA<Valid<Reservation>>());
+      expect(validated.items.first, isA<Valid<Order>>());
 
       await statusSub.cancel();
       await validated.close();
@@ -63,31 +61,26 @@ void main() {
     test(
       'emits Invalid results from validator (mock RPC invalid tx details)',
       () async {
-        final source = StreamWithStatus<Reservation>();
+        final source = StreamWithStatus<Order>();
 
         final validated = validateStream(
           source: source,
           validator: (item) async {
-            return Invalid<Reservation>(
+            return Invalid<Order>(
               item,
               'invalid transaction details: recipient mismatch',
             );
           },
         );
 
-        source.add(
-          _reservation(id: 'r2', pubkey: 'guest-2', tradeId: 'commit-2'),
-        );
+        source.add(_order(id: 'r2', pubkey: 'guest-2', tradeId: 'commit-2'));
 
         await Future<void>.delayed(const Duration(milliseconds: 30));
 
         expect(validated.items.length, 1);
         final item = validated.items.single;
-        expect(item, isA<Invalid<Reservation>>());
-        expect(
-          (item as Invalid<Reservation>).reason,
-          contains('recipient mismatch'),
-        );
+        expect(item, isA<Invalid<Order>>());
+        expect((item as Invalid<Order>).reason, contains('recipient mismatch'));
 
         await validated.close();
         await source.close();
@@ -95,7 +88,7 @@ void main() {
     );
 
     test('propagates validator exceptions as StreamStatusError', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
 
       final validated = validateStream(
         source: source,
@@ -109,9 +102,7 @@ void main() {
         }
       });
 
-      source.add(
-        _reservation(id: 'r3', pubkey: 'guest-3', tradeId: 'commit-3'),
-      );
+      source.add(_order(id: 'r3', pubkey: 'guest-3', tradeId: 'commit-3'));
 
       final errorStatus = await errorCompleter.future.timeout(
         const Duration(milliseconds: 300),

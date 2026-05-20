@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:permissionless/permissionless.dart' as permissionless;
 import 'package:wallet/wallet.dart' show EthereumAddress;

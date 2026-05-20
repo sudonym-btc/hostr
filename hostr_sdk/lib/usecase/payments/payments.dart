@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 
 import '../../config.dart';
 import '../../util/custom_logger.dart';

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart' show kNostrKindIdentityClaims;
 import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:ndk/ndk.dart';

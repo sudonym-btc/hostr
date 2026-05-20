@@ -50,12 +50,12 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-Reservation _reservation({
+Order _order({
   required String pubkey,
   required String tradeId,
   required String listingAnchor,
 }) {
-  return Reservation.create(
+  return Order.create(
     pubKey: pubkey,
     dTag: tradeId,
     listingAnchor: listingAnchor,
@@ -67,19 +67,19 @@ Reservation _reservation({
 void main() {
   group('CrudUseCase.findByTag', () {
     late _FakeRequests fakeRequests;
-    late CrudUseCase<Reservation> useCase;
+    late CrudUseCase<Order> useCase;
 
     setUp(() {
       fakeRequests = _FakeRequests();
-      useCase = CrudUseCase<Reservation>(
+      useCase = CrudUseCase<Order>(
         requests: fakeRequests,
-        kind: Reservation.kinds[0],
+        kind: Order.kinds[0],
         logger: CustomLogger(),
       );
     });
 
     test('returns matching events for a single value', () async {
-      final r1 = _reservation(
+      final r1 = _order(
         pubkey: 'pub1',
         tradeId: 'hash-a',
         listingAnchor: '30402:host:listing-1',
@@ -92,7 +92,7 @@ void main() {
     });
 
     test('returns empty list when no events match', () async {
-      final r1 = _reservation(
+      final r1 = _order(
         pubkey: 'pub1',
         tradeId: 'hash-a',
         listingAnchor: '30402:host:listing-1',
@@ -104,12 +104,12 @@ void main() {
     });
 
     test('returns multiple events for the same tag value', () async {
-      final r1 = _reservation(
+      final r1 = _order(
         pubkey: 'guest1',
         tradeId: 'hash-shared',
         listingAnchor: '30402:host:listing-1',
       );
-      final r2 = _reservation(
+      final r2 = _order(
         pubkey: 'host1',
         tradeId: 'hash-shared',
         listingAnchor: '30402:host:listing-1',
@@ -121,17 +121,17 @@ void main() {
     });
 
     test('batches concurrent calls into a single query', () async {
-      final r1 = _reservation(
+      final r1 = _order(
         pubkey: 'pub1',
         tradeId: 'hash-a',
         listingAnchor: '30402:host:listing-1',
       );
-      final r2 = _reservation(
+      final r2 = _order(
         pubkey: 'pub2',
         tradeId: 'hash-b',
         listingAnchor: '30402:host:listing-1',
       );
-      final r3 = _reservation(
+      final r3 = _order(
         pubkey: 'pub3',
         tradeId: 'hash-c',
         listingAnchor: '30402:host:listing-1',
@@ -155,7 +155,7 @@ void main() {
     });
 
     test('deduplicates identical values in the same batch', () async {
-      final r1 = _reservation(
+      final r1 = _order(
         pubkey: 'pub1',
         tradeId: 'hash-dup',
         listingAnchor: '30402:host:listing-1',
@@ -178,9 +178,9 @@ void main() {
     test('propagates query errors to all requesters', () async {
       // Use a custom fake that throws on query.
       final errorRequests = _ErrorOnQueryRequests();
-      final errorUseCase = CrudUseCase<Reservation>(
+      final errorUseCase = CrudUseCase<Order>(
         requests: errorRequests,
-        kind: Reservation.kinds[0],
+        kind: Order.kinds[0],
         logger: CustomLogger(),
       );
 
@@ -196,24 +196,24 @@ void main() {
 
   group('CrudUseCase.getOne', () {
     late _FakeRequests fakeRequests;
-    late CrudUseCase<Reservation> useCase;
+    late CrudUseCase<Order> useCase;
 
     setUp(() {
       fakeRequests = _FakeRequests();
-      useCase = CrudUseCase<Reservation>(
+      useCase = CrudUseCase<Order>(
         requests: fakeRequests,
-        kind: Reservation.kinds[0],
+        kind: Order.kinds[0],
         logger: CustomLogger(),
       );
     });
 
     test('coalesces identical concurrent calls onto one query', () async {
-      final reservation = _reservation(
+      final order = _order(
         pubkey: 'pub1',
         tradeId: 'hash-dup',
         listingAnchor: '30402:host:listing-1',
       );
-      fakeRequests.events.add(reservation);
+      fakeRequests.events.add(order);
 
       final futures = [
         useCase.getOne(Filter(authors: ['pub1'], dTags: ['hash-dup'])),
@@ -230,12 +230,12 @@ void main() {
     });
 
     test('deduplicates merged filter values in batched queries', () async {
-      final first = _reservation(
+      final first = _order(
         pubkey: 'pub1',
         tradeId: 'hash-a',
         listingAnchor: '30402:host:listing-1',
       );
-      final second = _reservation(
+      final second = _order(
         pubkey: 'pub1',
         tradeId: 'hash-b',
         listingAnchor: '30402:host:listing-1',
@@ -258,12 +258,12 @@ void main() {
     });
 
     test('cacheRead false bypasses batching and forwards to query', () async {
-      final reservation = _reservation(
+      final order = _order(
         pubkey: 'pub1',
         tradeId: 'hash-no-cache',
         listingAnchor: '30402:host:listing-1',
       );
-      fakeRequests.events.add(reservation);
+      fakeRequests.events.add(order);
 
       final result = await useCase.getOne(
         Filter(authors: ['pub1'], dTags: ['hash-no-cache']),

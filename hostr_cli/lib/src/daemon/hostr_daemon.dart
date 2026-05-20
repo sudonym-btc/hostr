@@ -284,36 +284,36 @@ class HostrDaemon {
             HostrListingsAnchorsInput.fromJson(input),
           ),
         ),
-        'hostr.listings.reservationGroups' => (
+        'hostr.listings.orderGroups' => (
           dryRun: false,
-          data: await _listingsReservationGroups(
+          data: await _listingsOrderGroups(
             session,
             HostrListingsAnchorsInput.fromJson(input),
           ),
         ),
-        'hostr.reservations.negotiateOffer' => await () async {
-          final offerInput = HostrReservationsOfferInput.fromJson(input);
+        'hostr.orders.negotiateOffer' => await () async {
+          final offerInput = HostrOrdersOfferInput.fromJson(input);
           return (
             dryRun: offerInput.dryRun,
-            data: await _reservationsOffer(tokenPubkey, session, offerInput),
+            data: await _ordersOffer(tokenPubkey, session, offerInput),
           );
         }(),
-        'hostr.reservations.bookAndPay' => (
+        'hostr.orders.bookAndPay' => (
           dryRun: false,
-          data: await _reservationsBookAndPay(
+          data: await _ordersBookAndPay(
             tokenPubkey,
             session,
-            HostrReservationBookAndPayInput.fromJson(input),
+            HostrOrderBookAndPayInput.fromJson(input),
             notificationToken: notificationToken,
             traceId: traceId,
             cancellationToken: cancellationToken,
           ),
         ),
-        'hostr.reservations.negotiateAccept' => await () async {
-          final tradeInput = HostrReservationTradeInput.fromJson(input);
+        'hostr.orders.negotiateAccept' => await () async {
+          final tradeInput = HostrOrderTradeInput.fromJson(input);
           return (
             dryRun: tradeInput.dryRun,
-            data: await _reservationsOfferOrAccept(
+            data: await _ordersOfferOrAccept(
               tokenPubkey,
               session,
               tradeInput,
@@ -321,32 +321,32 @@ class HostrDaemon {
             ),
           );
         }(),
-        'hostr.reservations.pay' => await () async {
-          final payInput = HostrReservationPayInput.fromJson(input);
+        'hostr.orders.pay' => await () async {
+          final payInput = HostrOrderPayInput.fromJson(input);
           return (
             dryRun: payInput.dryRun,
-            data: await _reservationsPay(tokenPubkey, session, payInput),
+            data: await _ordersPay(tokenPubkey, session, payInput),
           );
         }(),
-        'hostr.reservations.commit' => await () async {
-          final commitInput = HostrReservationCommitInput.fromJson(input);
+        'hostr.orders.commit' => await () async {
+          final commitInput = HostrOrderCommitInput.fromJson(input);
           return (
             dryRun: commitInput.dryRun,
-            data: await _reservationsCommit(tokenPubkey, session, commitInput),
+            data: await _ordersCommit(tokenPubkey, session, commitInput),
           );
         }(),
-        'hostr.reservations.cancel' => await () async {
-          final tradeInput = HostrReservationTradeInput.fromJson(input);
+        'hostr.orders.cancel' => await () async {
+          final tradeInput = HostrOrderTradeInput.fromJson(input);
           return (
             dryRun: tradeInput.dryRun,
-            data: await _reservationsCancel(tokenPubkey, session, tradeInput),
+            data: await _ordersCancel(tokenPubkey, session, tradeInput),
           );
         }(),
-        'hostr.reservations.review' => await () async {
-          final reviewInput = HostrReservationReviewInput.fromJson(input);
+        'hostr.orders.review' => await () async {
+          final reviewInput = HostrOrderReviewInput.fromJson(input);
           return (
             dryRun: reviewInput.dryRun,
-            data: await _reservationsReview(tokenPubkey, session, reviewInput),
+            data: await _ordersReview(tokenPubkey, session, reviewInput),
           );
         }(),
         'hostr.updates' => (
@@ -399,19 +399,19 @@ class HostrDaemon {
         }(),
         'hostr.trips.list' => (
           dryRun: false,
-          data: await _reservationCollection(
+          data: await _orderCollection(
             tokenPubkey,
             session,
-            HostrReservationCollectionInput.fromJson(input),
+            HostrOrderCollectionInput.fromJson(input),
             mode: 'trips',
           ),
         ),
         'hostr.bookings.list' => (
           dryRun: false,
-          data: await _reservationCollection(
+          data: await _orderCollection(
             tokenPubkey,
             session,
-            HostrReservationCollectionInput.fromJson(input),
+            HostrOrderCollectionInput.fromJson(input),
             mode: 'bookings',
           ),
         ),
@@ -580,7 +580,7 @@ class HostrDaemon {
       };
 
       keepNotificationOperation =
-          action == 'hostr.reservations.bookAndPay' &&
+          action == 'hostr.orders.bookAndPay' &&
           result.data['continuesInBackground'] == true;
 
       return HostrCliResult(
@@ -1648,9 +1648,7 @@ class HostrDaemon {
         results.add({'anchor': anchor, 'found': false, 'available': false});
         continue;
       }
-      final groups = await session.reservations.queryReservationGroups(
-        listing: listing,
-      );
+      final groups = await session.orders.queryOrderGroups(listing: listing);
       results.add({
         'anchor': anchor,
         'found': true,
@@ -1660,7 +1658,7 @@ class HostrDaemon {
           groups.values.toList(),
         ),
         'listing': listingSummary(listing),
-        'reservationGroupCount': groups.length,
+        'orderGroupCount': groups.length,
       });
     }
     return {'results': results};
@@ -1682,7 +1680,7 @@ class HostrDaemon {
     return {'tag': kListingRefTag, 'results': results};
   }
 
-  Future<Map<String, Object?>> _listingsReservationGroups(
+  Future<Map<String, Object?>> _listingsOrderGroups(
     HostrSession session,
     HostrListingsAnchorsInput input,
   ) async {
@@ -1704,7 +1702,7 @@ class HostrDaemon {
                 : [activePubkey],
             limit: 200,
           ),
-          name: 'hostr-listing-reservation-groups-fallback',
+          name: 'hostr-listing-order-groups-fallback',
         );
         final needle = anchor.toLowerCase();
         listing =
@@ -1724,32 +1722,27 @@ class HostrDaemon {
         });
         continue;
       }
-      final groups = await session.reservations.queryReservationGroups(
-        listing: listing,
-      );
+      final groups = await session.orders.queryOrderGroups(listing: listing);
       results.add({
         'anchor': anchor,
         'found': true,
         'count': groups.length,
-        'groups': groups.values
-            .take(input.limit)
-            .map(_reservationGroupJson)
-            .toList(),
+        'groups': groups.values.take(input.limit).map(_orderGroupJson).toList(),
       });
     }
     return {'results': results};
   }
 
-  Future<Map<String, Object?>> _reservationsOffer(
+  Future<Map<String, Object?>> _ordersOffer(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationsOfferInput input,
+    HostrOrdersOfferInput input,
   ) async {
     if (input.isFollowUpOffer) {
-      return _reservationsOfferOrAccept(
+      return _ordersOfferOrAccept(
         tokenPubkey,
         session,
-        HostrReservationTradeInput(
+        HostrOrderTradeInput(
           tradeId: input.tradeId!,
           amount: input.amount,
           dryRun: input.dryRun,
@@ -1761,7 +1754,7 @@ class HostrDaemon {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Reservation offer',
+      action: 'Order offer',
     );
 
     await session.accountSeedStore.ensureReady();
@@ -1773,9 +1766,7 @@ class HostrDaemon {
         details: {'anchor': input.listingAnchor},
       );
     }
-    final groups = await session.reservations.queryReservationGroups(
-      listing: listing,
-    );
+    final groups = await session.orders.queryOrderGroups(listing: listing);
     if (!Listing.isAvailable(
       input.start!,
       input.end!,
@@ -1792,37 +1783,36 @@ class HostrDaemon {
       );
     }
 
-    final reservation = await session.reservationRequests
-        .createReservationRequest(
-          listing: listing,
-          startDate: input.start!,
-          endDate: input.end!,
-          amount: input.amount == null
-              ? null
-              : parseAmount(input.amount!.toJson(), 'amount'),
-        );
+    final order = await session.orderRequests.createOrderRequest(
+      listing: listing,
+      startDate: input.start!,
+      endDate: input.end!,
+      amount: input.amount == null
+          ? null
+          : parseAmount(input.amount!.toJson(), 'amount'),
+    );
     if (!input.dryRun) {
-      final responses = await _replyReservationInTradeThread(
+      final responses = await _replyOrderInTradeThread(
         session.hostr,
-        reservation,
+        order,
         participants: [listing.pubKey],
       );
       await _persistTradeContext(
         session.hostr,
-        tradeId: reservation.getDtag()!,
+        tradeId: order.getDtag()!,
         listingAnchor: listing.anchor!,
         sellerPubkey: listing.pubKey,
-        reservation: reservation,
+        order: order,
       );
       return {
         'dryRun': false,
         'delivery': 'giftwrap',
-        'event': eventJson(reservation),
-        'tradeId': reservation.getDtag(),
+        'event': eventJson(order),
+        'tradeId': order.getDtag(),
         'tradeContext': _tradeContextJson(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           listing: listing,
-          reservation: reservation,
+          order: order,
         ),
         'relayResponses': responses,
       };
@@ -1831,12 +1821,12 @@ class HostrDaemon {
     return {
       'dryRun': true,
       'delivery': 'giftwrap',
-      'event': eventJson(reservation),
-      'tradeId': reservation.getDtag(),
+      'event': eventJson(order),
+      'tradeId': order.getDtag(),
       'tradeContext': _tradeContextJson(
-        tradeId: reservation.getDtag()!,
+        tradeId: order.getDtag()!,
         listing: listing,
-        reservation: reservation,
+        order: order,
       ),
       'listing': listingSummary(listing),
       if (input.amount != null)
@@ -1844,10 +1834,10 @@ class HostrDaemon {
     };
   }
 
-  Future<Map<String, Object?>> _reservationsBookAndPay(
+  Future<Map<String, Object?>> _ordersBookAndPay(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationBookAndPayInput input, {
+    HostrOrderBookAndPayInput input, {
     String? notificationToken,
     String? traceId,
     HostrCancellationToken? cancellationToken,
@@ -1856,13 +1846,13 @@ class HostrDaemon {
     final activePubkey = await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Book and pay reservation',
+      action: 'Book and pay order',
     );
     final listing = await session.listings.getOneByAnchor(input.listingAnchor);
     if (listing == null) {
       throw HostrCliException(
         'listing_not_found',
-        'Listing for reservation not found.',
+        'Listing for order not found.',
         details: {'anchor': input.listingAnchor},
       );
     }
@@ -1872,7 +1862,7 @@ class HostrDaemon {
         'same_account_as_host',
         'The active Hostr account is the host for this listing, so it cannot book it as a guest.',
         hint:
-            'Switch to a guest account or start a new Hostr login, then try the reservation again.',
+            'Switch to a guest account or start a new Hostr login, then try the order again.',
         details: {
           'activePubkey': activePubkey,
           'sellerPubkey': listing.pubKey,
@@ -1884,8 +1874,8 @@ class HostrDaemon {
       accountSeedStore: session.accountSeedStore,
       auth: session.auth,
       listings: session.listings,
-      reservations: session.reservations,
-      reservationRequests: session.reservationRequests,
+      orders: session.orders,
+      orderRequests: session.orderRequests,
       messaging: session.messaging,
       escrow: session.escrow,
       escrows: session.escrows,
@@ -1899,8 +1889,8 @@ class HostrDaemon {
     final states = <Map<String, Object?>>[];
     final handoff = Completer<Map<String, Object?>>();
     final terminal = Completer<Map<String, Object?>>();
-    final reservationWatchSeconds = input.proofTimeoutSeconds
-        .clamp(0, hostrMaxSwapReservationWaitSeconds)
+    final orderWatchSeconds = input.proofTimeoutSeconds
+        .clamp(0, hostrMaxSwapOrderWaitSeconds)
         .toInt();
     final sub = operation.stream.listen((state) {
       final json = _augmentBookAndPayStateJson(state.toJson());
@@ -2013,11 +2003,11 @@ class HostrDaemon {
                 'arguments': {
                   if (swapId != null && swapId.isNotEmpty) 'swapId': swapId,
                   if (tradeId != null && tradeId.isNotEmpty) 'tradeId': tradeId,
-                  'reservationWaitSeconds': reservationWatchSeconds,
+                  'orderWaitSeconds': orderWatchSeconds,
                 },
               },
               'nextStep':
-                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. The next assistant action after rendering that visible payment prompt must be the read-only hostr_swaps_watch with the returned swapId, tradeId, and reservationWaitSeconds; do not stop after displaying the invoice or wait for the user to say they paid. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed reservation appears, then show a reservation card.',
+                  'CRITICAL: keep only the Lightning invoice QR image and invoice text visible in the user-facing answer. Do not show the internal trade id or swap id in the payment prompt. The next assistant action after rendering that visible payment prompt must be the read-only hostr_swaps_watch with the returned swapId, tradeId, and orderWaitSeconds; do not stop after displaying the invoice or wait for the user to say they paid. If watch completes or cannot find the swap, query hostr_trips_list with the same tradeId until the committed order appears, then show a order card.',
             };
           }),
           terminal.future,
@@ -2067,16 +2057,16 @@ class HostrDaemon {
     };
   }
 
-  Future<Map<String, Object?>> _reservationsOfferOrAccept(
+  Future<Map<String, Object?>> _ordersOfferOrAccept(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationTradeInput input, {
+    HostrOrderTradeInput input, {
     required bool acceptLatest,
   }) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Reservation negotiation',
+      action: 'Order negotiation',
     );
     final hostr = session.hostr;
     final activePubkey = hostr.auth.activePubkey!;
@@ -2085,24 +2075,24 @@ class HostrDaemon {
       tradeId: input.tradeId,
       timeout: Duration(seconds: input.timeoutSeconds),
     );
-    final reservations = thread?.state.value.reservationRequests ?? const [];
-    if (reservations.isEmpty) {
+    final orders = thread?.state.value.orderRequests ?? const [];
+    if (orders.isEmpty) {
       if (input.dryRun) {
         return {
           'dryRun': true,
           'willPublish': false,
           'tradeId': input.tradeId,
           'reason': 'private_negotiation_not_found',
-          'message': 'No private reservation negotiation found for tradeId.',
+          'message': 'No private order negotiation found for tradeId.',
         };
       }
       throw HostrCliException(
         'not_found',
-        'No private reservation negotiation found for tradeId.',
+        'No private order negotiation found for tradeId.',
         details: {'tradeId': input.tradeId},
       );
     }
-    final previous = [...reservations]
+    final previous = [...orders]
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final latest = previous.last;
     final listing = await hostr.listings.getOneByAnchor(
@@ -2115,13 +2105,13 @@ class HostrDaemon {
           'willPublish': false,
           'tradeId': input.tradeId,
           'reason': 'listing_not_found',
-          'message': 'Listing for reservation not found.',
+          'message': 'Listing for order not found.',
           'anchor': latest.parsedTags.listingAnchor,
         };
       }
       throw HostrCliException(
         'listing_not_found',
-        'Listing for reservation not found.',
+        'Listing for order not found.',
         details: {'anchor': latest.parsedTags.listingAnchor},
       );
     }
@@ -2146,11 +2136,11 @@ class HostrDaemon {
       );
     }
 
-    final event = await hostr.reservationRequests.createCounterOffer(
+    final event = await hostr.orderRequests.createCounterOffer(
       listing: listing,
       previousRequest: latest,
       amount: amount,
-      signerKeyPair: await _activeReservationKeyPair(
+      signerKeyPair: await _activeOrderKeyPair(
         hostr,
         sellerPubkey: listing.pubKey,
         tradeId: input.tradeId,
@@ -2174,15 +2164,15 @@ class HostrDaemon {
     };
   }
 
-  Future<Map<String, Object?>> _reservationsPay(
+  Future<Map<String, Object?>> _ordersPay(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationPayInput input,
+    HostrOrderPayInput input,
   ) async {
     final activePubkey = await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Reservation payment',
+      action: 'Order payment',
     );
     final hostr = session.hostr;
     await hostr.evm.init();
@@ -2192,12 +2182,10 @@ class HostrDaemon {
       timeout: Duration(seconds: input.timeoutSeconds),
     );
     final privateRequests =
-        thread?.state.value.reservationRequests
-            .where(
-              (reservation) => reservation.stage != ReservationStage.cancel,
-            )
+        thread?.state.value.orderRequests
+            .where((order) => order.stage != OrderStage.cancel)
             .toList() ??
-        const <Reservation>[];
+        const <Order>[];
     final latestPrivateRequest = privateRequests.lastOrNull;
     final _EscrowFundingPlan plan;
     try {
@@ -2205,7 +2193,7 @@ class HostrDaemon {
         hostr: hostr,
         tradeId: input.tradeId,
         escrowServiceId: input.escrowServiceId,
-        privateReservation: latestPrivateRequest,
+        privateOrder: latestPrivateRequest,
       );
     } on HostrCliException catch (error) {
       if (input.dryRun) {
@@ -2223,9 +2211,9 @@ class HostrDaemon {
 
     final payCheck = _payActionAvailable(
       listing: plan.listing,
-      reservationRequests: privateRequests.isNotEmpty
+      orderRequests: privateRequests.isNotEmpty
           ? privateRequests
-          : [plan.reservation],
+          : [plan.order],
       activePubkey: activePubkey,
     );
     if (!payCheck.available) {
@@ -2252,7 +2240,7 @@ class HostrDaemon {
         'tradeId': input.tradeId,
         'mode': 'create-swap',
         'selectedEscrow': _escrowSelectionJson(plan.selectedEscrow),
-        'reservation': eventJson(plan.reservation),
+        'order': eventJson(plan.order),
         'listing': listingSummary(plan.listing),
         'willCreateSwap': false,
       };
@@ -2303,7 +2291,7 @@ class HostrDaemon {
         swapId: data!.boltzId,
         tradeId: input.tradeId,
         listing: plan.listing,
-        reservation: plan.reservation,
+        order: plan.order,
         selectedEscrow: plan.selectedEscrow,
       );
     }
@@ -2328,19 +2316,19 @@ class HostrDaemon {
     return response;
   }
 
-  Future<Map<String, Object?>> _reservationsCommit(
+  Future<Map<String, Object?>> _ordersCommit(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationCommitInput input,
+    HostrOrderCommitInput input,
   ) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Reservation commit',
+      action: 'Order commit',
     );
     final hostr = session.hostr;
     final paymentContext = await hostr.operationStateStore.read(
-      _reservationPaymentNamespace,
+      _orderPaymentNamespace,
       input.swapId,
     );
     if (paymentContext == null) {
@@ -2350,12 +2338,12 @@ class HostrDaemon {
           'willPublish': false,
           'swapId': input.swapId,
           'reason': 'payment_context_not_found',
-          'message': 'No reservation payment context found for swap id.',
+          'message': 'No order payment context found for swap id.',
         };
       }
       throw HostrCliException(
         'payment_context_not_found',
-        'No reservation payment context found for swap id.',
+        'No order payment context found for swap id.',
         details: {'swapId': input.swapId},
       );
     }
@@ -2408,14 +2396,14 @@ class HostrDaemon {
       tradeId: tradeId,
       timeout: Duration(seconds: input.timeoutSeconds),
     );
-    final latestPrivateRequest = thread?.state.value.reservationRequests
-        .where((reservation) => reservation.stage != ReservationStage.cancel)
+    final latestPrivateRequest = thread?.state.value.orderRequests
+        .where((order) => order.stage != OrderStage.cancel)
         .lastOrNull;
-    final reservation =
+    final order =
         latestPrivateRequest ??
-        Reservation.fromNostrEvent(
+        Order.fromNostrEvent(
           _eventFromJson(
-            Map<String, dynamic>.from(paymentContext['reservation'] as Map),
+            Map<String, dynamic>.from(paymentContext['order'] as Map),
           ),
         );
     final selectedEscrow = EscrowServiceSelected.fromNostrEvent(
@@ -2424,13 +2412,13 @@ class HostrDaemon {
       ),
     );
     final listing = await hostr.listings.getOneByAnchor(
-      reservation.parsedTags.listingAnchor,
+      order.parsedTags.listingAnchor,
     );
     if (listing == null) {
       throw HostrCliException(
         'listing_not_found',
-        'Listing for reservation not found.',
-        details: {'anchor': reservation.parsedTags.listingAnchor},
+        'Listing for order not found.',
+        details: {'anchor': order.parsedTags.listingAnchor},
       );
     }
     final profile = await hostr.metadata.loadMetadata(listing.pubKey);
@@ -2449,19 +2437,19 @@ class HostrDaemon {
         'tradeId': tradeId,
         'swapId': input.swapId,
         'claimTxHash': swapState.data.claimTxHash,
-        'reservation': eventJson(reservation),
+        'order': eventJson(order),
         'selectedEscrow': _escrowSelectionJson(selectedEscrow),
       };
     }
 
-    final activeKeyPair = await _activeReservationKeyPair(
+    final activeKeyPair = await _activeOrderKeyPair(
       hostr,
       sellerPubkey: listing.pubKey,
       tradeId: tradeId,
     );
-    final committed = await hostr.reservations.createSelfSigned(
+    final committed = await hostr.orders.createSelfSigned(
       activeKeyPair: activeKeyPair,
-      negotiateReservation: reservation,
+      negotiateOrder: order,
       proof: PaymentProof(
         listing: listing,
         hoster: profile,
@@ -2478,16 +2466,15 @@ class HostrDaemon {
       swapId: input.swapId,
       tradeId: tradeId,
       listing: listing,
-      reservation: reservation,
+      order: order,
       selectedEscrow: selectedEscrow,
-      committedReservation: committed,
+      committedOrder: committed,
       terminal: true,
     );
-    final readback = await _waitForPublicReservationsByTradeId(
+    final readback = await _waitForPublicOrdersByTradeId(
       hostr,
       tradeId,
-      until: (reservations) =>
-          reservations.any((reservation) => reservation.id == committed.id),
+      until: (orders) => orders.any((order) => order.id == committed.id),
     );
     return {
       'dryRun': false,
@@ -2500,38 +2487,37 @@ class HostrDaemon {
     };
   }
 
-  Future<Map<String, Object?>> _reservationsCancel(
+  Future<Map<String, Object?>> _ordersCancel(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationTradeInput input,
+    HostrOrderTradeInput input,
   ) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Reservation cancel',
+      action: 'Order cancel',
     );
     final hostr = session.hostr;
-    final publicReservations = await _waitForPublicReservationsByTradeId(
+    final publicOrders = await _waitForPublicOrdersByTradeId(
       hostr,
       input.tradeId,
-      until: (reservations) => reservations.any(
-        (reservation) => reservation.stage == ReservationStage.commit,
-      ),
+      until: (orders) =>
+          orders.any((order) => order.stage == OrderStage.commit),
     );
-    final publicGroup = publicReservations.isEmpty
+    final publicGroup = publicOrders.isEmpty
         ? null
-        : ReservationGroup(reservations: publicReservations);
-    final hasPublicCommit = publicReservations.any(
-      (reservation) => reservation.stage == ReservationStage.commit,
+        : OrderGroup(orders: publicOrders);
+    final hasPublicCommit = publicOrders.any(
+      (order) => order.stage == OrderStage.commit,
     );
     if (publicGroup != null && hasPublicCommit) {
       if (publicGroup.cancelled) {
         throw HostrCliException(
           'already_cancelled',
-          'The committed reservation is already cancelled.',
+          'The committed order is already cancelled.',
           details: {
             'tradeId': input.tradeId,
-            'reservationGroup': publicReservations.map(eventJson).toList(),
+            'orderGroup': publicOrders.map(eventJson).toList(),
           },
         );
       }
@@ -2541,12 +2527,12 @@ class HostrDaemon {
           'dryRun': true,
           'willPublish': true,
           'tradeId': input.tradeId,
-          'reservationGroup': publicReservations.map(eventJson).toList(),
+          'orderGroup': publicOrders.map(eventJson).toList(),
         };
       }
-      final cancelled = await hostr.reservations.cancel(
+      final cancelled = await hostr.orders.cancel(
         publicGroup,
-        await _activeReservationKeyPair(
+        await _activeOrderKeyPair(
           hostr,
           sellerPubkey: publicGroup.sellerPubkey,
           tradeId: input.tradeId,
@@ -2565,8 +2551,8 @@ class HostrDaemon {
       tradeId: input.tradeId,
       timeout: Duration(seconds: input.timeoutSeconds),
     );
-    final requests = thread?.state.value.reservationRequests ?? const [];
-    if (requests.lastOrNull?.stage == ReservationStage.cancel) {
+    final requests = thread?.state.value.orderRequests ?? const [];
+    if (requests.lastOrNull?.stage == OrderStage.cancel) {
       throw HostrCliException(
         'already_cancelled',
         'The latest private negotiation event is already cancelled.',
@@ -2574,18 +2560,18 @@ class HostrDaemon {
       );
     }
     final previous = requests.reversed
-        .where((reservation) => reservation.stage != ReservationStage.cancel)
+        .where((order) => order.stage != OrderStage.cancel)
         .firstOrNull;
     if (previous == null || thread == null) {
       throw HostrCliException(
-        'reservation_not_found',
-        'No private negotiation or committed reservation found for tradeId.',
+        'order_not_found',
+        'No private negotiation or committed order found for tradeId.',
         details: {'tradeId': input.tradeId},
       );
     }
-    final event = await hostr.reservationRequests.createCancellation(
+    final event = await hostr.orderRequests.createCancellation(
       previousRequest: previous,
-      signerKeyPair: await _activeReservationKeyPair(
+      signerKeyPair: await _activeOrderKeyPair(
         hostr,
         sellerPubkey: getPubKeyFromAnchor(previous.parsedTags.listingAnchor),
         tradeId: input.tradeId,
@@ -2611,43 +2597,42 @@ class HostrDaemon {
     };
   }
 
-  Future<Map<String, Object?>> _reservationsReview(
+  Future<Map<String, Object?>> _ordersReview(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationReviewInput input,
+    HostrOrderReviewInput input,
   ) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
       session,
-      action: 'Reservation review',
+      action: 'Order review',
     );
     await _ensureAuthenticatedSessionHydrated(session, wait: true);
     final hostr = session.hostr;
-    final lookup = await _reservationLookupByTradeId(
+    final lookup = await _orderLookupByTradeId(
       hostr,
       input.tradeId,
       waitSeconds: input.timeoutSeconds,
     );
-    final reservations = (lookup['reservations'] as List?)
+    final orders = (lookup['orders'] as List?)
         ?.whereType<Map<String, Object?>>()
         .map(
-          (json) => Reservation.fromNostrEvent(
+          (json) => Order.fromNostrEvent(
             _eventFromJson(Map<String, dynamic>.from(json)),
           ),
         )
         .toList();
-    final publicReservations =
-        reservations ??
-        await _waitForPublicReservationsByTradeId(
+    final publicOrders =
+        orders ??
+        await _waitForPublicOrdersByTradeId(
           hostr,
           input.tradeId,
-          until: (items) => items.any(
-            (reservation) => reservation.stage == ReservationStage.commit,
-          ),
+          until: (items) =>
+              items.any((order) => order.stage == OrderStage.commit),
           timeout: Duration(seconds: input.timeoutSeconds),
         );
-    final committed = publicReservations
-        .where((reservation) => reservation.stage == ReservationStage.commit)
+    final committed = publicOrders
+        .where((order) => order.stage == OrderStage.commit)
         .toList();
     if (committed.isEmpty) {
       if (input.dryRun) {
@@ -2655,24 +2640,24 @@ class HostrDaemon {
           'dryRun': true,
           'willPublish': false,
           'tradeId': input.tradeId,
-          'reason': 'reservation_not_reviewable',
+          'reason': 'order_not_reviewable',
           'message':
-              'No committed reservation was found for this trade, so it cannot be reviewed yet.',
-          'reservationLookup': lookup,
+              'No committed order was found for this trade, so it cannot be reviewed yet.',
+          'orderLookup': lookup,
         };
       }
       throw HostrCliException(
-        'reservation_not_reviewable',
-        'No committed reservation was found for this trade, so it cannot be reviewed yet.',
-        details: {'tradeId': input.tradeId, 'reservationLookup': lookup},
+        'order_not_reviewable',
+        'No committed order was found for this trade, so it cannot be reviewed yet.',
+        details: {'tradeId': input.tradeId, 'orderLookup': lookup},
       );
     }
-    final group = ReservationGroup(reservations: publicReservations);
-    final reservation = group.buyerReservation ?? committed.last;
-    final listingAnchor = reservation.parsedTags.listingAnchor;
-    final reservationAnchor = reservation.anchor ?? input.tradeId;
+    final group = OrderGroup(orders: publicOrders);
+    final order = group.buyerOrder ?? committed.last;
+    final listingAnchor = order.parsedTags.listingAnchor;
+    final orderAnchor = order.anchor ?? input.tradeId;
     final signerKeyPair = hostr.auth.getActiveKey();
-    final recipientKeyPair = await _activeReservationKeyPair(
+    final recipientKeyPair = await _activeOrderKeyPair(
       hostr,
       sellerPubkey: group.sellerPubkey,
       tradeId: input.tradeId,
@@ -2681,14 +2666,14 @@ class HostrDaemon {
       pubKey: signerKeyPair.publicKey,
       tags: ReviewTags([
         ['d', input.tradeId],
-        [kReservationRefTag, reservationAnchor],
+        [kOrderRefTag, orderAnchor],
         [kListingRefTag, listingAnchor],
       ]),
       content: ReviewContent(
         rating: input.rating,
         content: input.content,
-        proof: await hostr.reservations.createParticipationProofForReview(
-          reservation: reservation,
+        proof: await hostr.orders.createParticipationProofForReview(
+          order: order,
           role: 'buyer',
           recipientKeyPair: recipientKeyPair,
           identityKeyPair: signerKeyPair,
@@ -2708,7 +2693,7 @@ class HostrDaemon {
           'reason': 'review_invalid',
           'message': verification.reason,
           'event': eventJson(review),
-          'reservationLookup': lookup,
+          'orderLookup': lookup,
         };
       }
       throw HostrCliException(
@@ -2717,7 +2702,7 @@ class HostrDaemon {
         details: {
           'tradeId': input.tradeId,
           'event': eventJson(review),
-          'reservationLookup': lookup,
+          'orderLookup': lookup,
         },
       );
     }
@@ -2729,9 +2714,9 @@ class HostrDaemon {
         'rating': input.rating,
         'content': input.content,
         'listingAnchor': listingAnchor,
-        'reservationAnchor': reservationAnchor,
+        'orderAnchor': orderAnchor,
         'event': eventJson(review),
-        'reservationLookup': lookup,
+        'orderLookup': lookup,
       };
     }
 
@@ -2742,7 +2727,7 @@ class HostrDaemon {
       'rating': input.rating,
       'content': input.content,
       'listingAnchor': listingAnchor,
-      'reservationAnchor': reservationAnchor,
+      'orderAnchor': orderAnchor,
       'event': eventJson(result.event),
       'relayResponses': result.responses.map(relayResponseJson).toList(),
     };
@@ -2784,36 +2769,30 @@ class HostrDaemon {
         'reviews': reviews.take(input.limit).map(eventJson).toList(),
       });
     }
-    final tripSnapshot = await _resolvedReservationGroupSnapshot(
+    final tripSnapshot = await _resolvedOrderGroupSnapshot(
       hostr.userSubscriptions.myResolvedTripsList$,
       timeout: Duration(seconds: input.timeoutSeconds),
     );
-    final bookingSnapshot = await _resolvedReservationGroupSnapshot(
+    final bookingSnapshot = await _resolvedOrderGroupSnapshot(
       hostr.userSubscriptions.myResolvedHostingsList$,
       timeout: Duration(seconds: input.timeoutSeconds),
     );
     final trips = await Future.wait(
       tripSnapshot
-          .where((item) => item.validation is Valid<ReservationGroup>)
+          .where((item) => item.validation is Valid<OrderGroup>)
           .take(input.limit)
           .map(
-            (item) => _resolvedReservationCollectionItemJson(
-              hostr,
-              item,
-              mode: 'trips',
-            ),
+            (item) =>
+                _resolvedOrderCollectionItemJson(hostr, item, mode: 'trips'),
           ),
     );
     final bookings = await Future.wait(
       bookingSnapshot
-          .where((item) => item.validation is Valid<ReservationGroup>)
+          .where((item) => item.validation is Valid<OrderGroup>)
           .take(input.limit)
           .map(
-            (item) => _resolvedReservationCollectionItemJson(
-              hostr,
-              item,
-              mode: 'bookings',
-            ),
+            (item) =>
+                _resolvedOrderCollectionItemJson(hostr, item, mode: 'bookings'),
           ),
     );
     return {
@@ -2913,7 +2892,7 @@ class HostrDaemon {
       if (tradeId == null || tradeId.isEmpty) {
         throw HostrCliException(
           'trade_id_required',
-          'Messaging escrow requires a concrete reservation tradeId so buyer, seller, and escrow are all included in the thread.',
+          'Messaging escrow requires a concrete order tradeId so buyer, seller, and escrow are all included in the thread.',
         );
       }
       thread = await _resolveEscrowTradeThread(
@@ -3003,7 +2982,7 @@ class HostrDaemon {
     if (tradeId.isEmpty) {
       throw HostrCliException(
         'trade_id_required',
-        'Messaging escrow requires a concrete reservation tradeId so buyer, seller, and escrow are all included in the thread.',
+        'Messaging escrow requires a concrete order tradeId so buyer, seller, and escrow are all included in the thread.',
       );
     }
     final escrowThread = await _resolveEscrowTradeThread(
@@ -3145,10 +3124,10 @@ class HostrDaemon {
     };
   }
 
-  Future<Map<String, Object?>> _reservationCollection(
+  Future<Map<String, Object?>> _orderCollection(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationCollectionInput input, {
+    HostrOrderCollectionInput input, {
     required String mode,
   }) async {
     await _requireAuthenticatedPubkey(
@@ -3159,7 +3138,7 @@ class HostrDaemon {
     await _ensureAuthenticatedSessionHydrated(session, wait: true);
     final hostr = session.hostr;
     if (input.tradeId != null) {
-      final lookup = await _reservationLookupByTradeId(
+      final lookup = await _orderLookupByTradeId(
         hostr,
         input.tradeId!,
         waitSeconds: input.waitSeconds,
@@ -3169,18 +3148,17 @@ class HostrDaemon {
     final source = mode == 'bookings'
         ? hostr.userSubscriptions.myResolvedHostingsList$
         : hostr.userSubscriptions.myResolvedTripsList$;
-    final snapshot = await _resolvedReservationGroupSnapshot(
+    final snapshot = await _resolvedOrderGroupSnapshot(
       source,
       timeout: Duration(seconds: input.waitSeconds),
     );
     final valid = snapshot
-        .where((item) => item.validation is Valid<ReservationGroup>)
+        .where((item) => item.validation is Valid<OrderGroup>)
         .take(input.limit)
         .toList();
     final results = await Future.wait(
       valid.map(
-        (item) =>
-            _resolvedReservationCollectionItemJson(hostr, item, mode: mode),
+        (item) => _resolvedOrderCollectionItemJson(hostr, item, mode: mode),
       ),
     );
     return {
@@ -4008,17 +3986,17 @@ class HostrDaemon {
   Map<String, Object?> _partyAuditJson(PartyAudit party) => {
     'role': party.role,
     'pubkey': party.pubkey,
-    'reservationCount': party.reservations.length,
+    'orderCount': party.orders.length,
     'transitionCount': party.transitions.length,
     'currentStage': party.currentStage?.name,
     'chainValid': party.transitionChainResult.isValid,
     if (!party.transitionChainResult.isValid)
       'chainReason': party.transitionChainResult.reason,
-    'reservations': party.validatedReservations
+    'orders': party.validatedOrders
         .map(
           (entry) => {
-            'stage': entry.reservation.stage.name,
-            'cancelled': entry.reservation.cancelled,
+            'stage': entry.order.stage.name,
+            'cancelled': entry.order.cancelled,
             'valid': entry.validation.isValid,
           },
         )
@@ -4092,11 +4070,8 @@ class HostrDaemon {
     return b.updatedAt.compareTo(a.updatedAt);
   }
 
-  ReservationGroup? _cachedEscrowReservationGroup(
-    HostrSession session,
-    String tradeId,
-  ) {
-    for (final group in session.escrowDaemon.reservationGroups.values) {
+  OrderGroup? _cachedEscrowOrderGroup(HostrSession session, String tradeId) {
+    for (final group in session.escrowDaemon.orderGroups.values) {
       try {
         if (group.tradeId == tradeId) return group;
       } catch (_) {
@@ -4106,9 +4081,9 @@ class HostrDaemon {
     return null;
   }
 
-  String _escrowTradeTitle(String tradeId, ReservationGroup? group) {
+  String _escrowTradeTitle(String tradeId, OrderGroup? group) {
     if (group != null) {
-      final listing = _embeddedReservationListing(group);
+      final listing = _embeddedOrderListing(group);
       if (listing != null && listing.title.isNotEmpty) return listing.title;
     }
     return 'Escrow trade ${_shortPubkey(tradeId)}';
@@ -4117,15 +4092,15 @@ class HostrDaemon {
   Future<Map<String, Object?>?> _escrowTradeParticipantsJson(
     HostrSession session,
     String tradeId, {
-    ReservationGroup? group,
+    OrderGroup? group,
   }) async {
-    group ??= _cachedEscrowReservationGroup(session, tradeId);
+    group ??= _cachedEscrowOrderGroup(session, tradeId);
     if (group == null) return null;
 
-    ResolvedReservationGroupParticipants? resolved;
+    ResolvedOrderGroupParticipants? resolved;
     try {
-      resolved = await ReservationGroupParticipantResolver(
-        keyring: DefaultReservationParticipantKeyring(
+      resolved = await OrderGroupParticipantResolver(
+        keyring: DefaultOrderParticipantKeyring(
           auth: session.auth,
           tradeAccountAllocator: session.auth.service<TradeAccountAllocator>(),
           ndk: session.auth.service<Ndk>(),
@@ -4244,8 +4219,8 @@ class HostrDaemon {
     EscrowDaemonContext context,
     TradeSnapshot snapshot,
   ) async {
-    final group = _cachedEscrowReservationGroup(session, snapshot.tradeId);
-    final listing = group == null ? null : _embeddedReservationListing(group);
+    final group = _cachedEscrowOrderGroup(session, snapshot.tradeId);
+    final listing = group == null ? null : _embeddedOrderListing(group);
     final status = snapshot.status.name;
     return {
       'type': 'escrow-trade-card',
@@ -4261,7 +4236,7 @@ class HostrDaemon {
       'updatedAt': snapshot.updatedAt.toIso8601String(),
       if (snapshot.updatedBlockNum != null)
         'updatedBlockNum': snapshot.updatedBlockNum,
-      if (group != null) 'reservationGroup': _reservationGroupJson(group),
+      if (group != null) 'orderGroup': _orderGroupJson(group),
       if (listing != null) 'listing': listingSummary(listing),
       'participants': await _escrowTradeParticipantsJson(
         session,
@@ -4297,12 +4272,12 @@ class HostrDaemon {
       );
     }
 
-    final lookup = await _reservationLookupByTradeId(
+    final lookup = await _orderLookupByTradeId(
       session.hostr,
       tradeId,
       waitSeconds: 0,
     );
-    final group = _cachedEscrowReservationGroup(session, tradeId);
+    final group = _cachedEscrowOrderGroup(session, tradeId);
     final summary = _escrowTradeSummary(tradeId, events);
     final status = summary['status']?.toString() ?? 'unknown';
     return {
@@ -4319,7 +4294,7 @@ class HostrDaemon {
         group: group,
       ),
       'nextActions': _escrowTradeNextActions(tradeId, status),
-      if (lookup['found'] == true) 'reservationLookup': lookup,
+      if (lookup['found'] == true) 'orderLookup': lookup,
     };
   }
 
@@ -4420,13 +4395,13 @@ class HostrDaemon {
       action: 'Swap watch',
     );
     final requestedTradeId = input.tradeId;
-    final reservationWaitSeconds = input.reservationWaitSeconds
-        .clamp(0, hostrMaxSwapReservationWaitSeconds)
+    final orderWaitSeconds = input.orderWaitSeconds
+        .clamp(0, hostrMaxSwapOrderWaitSeconds)
         .toInt();
     if (requestedTradeId != null && requestedTradeId.isNotEmpty) {
       // Avoid spending the full wait budget twice. This fast pre-check catches
-      // already-committed reservations; terminal swap states do the real wait.
-      final lookup = await _reservationLookupByTradeId(
+      // already-committed orders; terminal swap states do the real wait.
+      final lookup = await _orderLookupByTradeId(
         session.hostr,
         requestedTradeId,
         waitSeconds: 0,
@@ -4436,9 +4411,9 @@ class HostrDaemon {
         return {
           'swapId': input.swapId,
           'tradeId': requestedTradeId,
-          'stateName': 'reservation_committed',
+          'stateName': 'order_committed',
           'isTerminal': true,
-          'reservationLookup': lookup,
+          'orderLookup': lookup,
         };
       }
     }
@@ -4461,10 +4436,10 @@ class HostrDaemon {
         'swapNotFound': true,
         'stateName': 'not_found',
         'isTerminal': true,
-        'reservationLookup': await _reservationLookupByTradeId(
+        'orderLookup': await _orderLookupByTradeId(
           session.hostr,
           tradeId,
-          waitSeconds: reservationWaitSeconds,
+          waitSeconds: orderWaitSeconds,
           cancellationToken: cancellationToken,
         ),
       };
@@ -4476,7 +4451,7 @@ class HostrDaemon {
       hostr: session.hostr,
       swapId: input.swapId,
       tradeId: beforeTradeId,
-      reservationWaitSeconds: reservationWaitSeconds,
+      orderWaitSeconds: orderWaitSeconds,
       resolved: 0,
       state: before,
       cancellationToken: cancellationToken,
@@ -4642,12 +4617,12 @@ class SignerRequestNotificationBridge {
       kNostrKindProfile => 'profile metadata',
       kNostrKindRelayAuthentication => 'relay authentication',
       kNostrKindListing => 'listing',
-      kNostrKindReservation => 'reservation update',
+      kNostrKindOrder => 'order update',
       kNostrKindReview => 'review',
       kNostrKindCommitAuthorization => 'payment commit authorization',
       kNostrKindTradeKeyAuthorization => 'trade key authorization',
       kNostrKindHostrSeed => 'account recovery seed',
-      kNostrKindReservationTransition => 'reservation transition',
+      kNostrKindOrderTransition => 'order transition',
       kNostrKindEscrowService => 'escrow service advertisement',
       kNostrKindEscrowMethod => 'escrow payment methods',
       kNostrKindEscrowServiceSelected => 'escrow selection',
@@ -4940,17 +4915,17 @@ bool _containsNotAuthorized(Object? value) {
   return value.toString().toLowerCase().contains('not authorized');
 }
 
-Future<List<Map<String, Object?>>> _replyReservationInTradeThread(
+Future<List<Map<String, Object?>>> _replyOrderInTradeThread(
   Hostr hostr,
-  Reservation reservation, {
+  Order order, {
   required Iterable<String> participants,
 }) {
   final thread = _ensureTradeThread(
     hostr,
-    tradeId: reservation.getDtag()!,
+    tradeId: order.getDtag()!,
     participants: participants,
   );
-  return _replyOnThread(thread, reservation);
+  return _replyOnThread(thread, order);
 }
 
 Thread _ensureTradeThread(
@@ -5019,41 +4994,41 @@ Future<T> _cancelable<T>(
   return completer.future;
 }
 
-Future<List<Reservation>> _waitForPublicReservationsByTradeId(
+Future<List<Order>> _waitForPublicOrdersByTradeId(
   Hostr hostr,
   String tradeId, {
-  bool Function(List<Reservation> reservations)? until,
+  bool Function(List<Order> orders)? until,
   Duration timeout = const Duration(seconds: 15),
   HostrCancellationToken? cancellationToken,
 }) async {
   cancellationToken?.throwIfCancelled();
-  final stream = hostr.userSubscriptions.allMyReservations$.stream;
-  final byParticipant = <String, Reservation>{};
+  final stream = hostr.userSubscriptions.allMyOrders$.stream;
+  final byParticipant = <String, Order>{};
 
-  void addIfMatches(Reservation reservation) {
-    if (reservation.getDtag() != tradeId) return;
-    byParticipant[reservation.pubKey] = reservation;
+  void addIfMatches(Order order) {
+    if (order.getDtag() != tradeId) return;
+    byParticipant[order.pubKey] = order;
   }
 
-  List<Reservation> latest() {
-    final reservations = byParticipant.values.toList()
+  List<Order> latest() {
+    final orders = byParticipant.values.toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return reservations;
+    return orders;
   }
 
   bool isDone() {
-    final reservations = latest();
-    return until?.call(reservations) ?? reservations.isNotEmpty;
+    final orders = latest();
+    return until?.call(orders) ?? orders.isNotEmpty;
   }
 
-  for (final reservation in stream.items) {
-    addIfMatches(reservation);
+  for (final order in stream.items) {
+    addIfMatches(order);
   }
   if (isDone() || timeout <= Duration.zero) return latest();
 
-  final completer = Completer<List<Reservation>>();
+  final completer = Completer<List<Order>>();
   Timer? timer;
-  StreamSubscription<Reservation>? subscription;
+  StreamSubscription<Order>? subscription;
 
   void complete() {
     if (!completer.isCompleted) {
@@ -5068,8 +5043,8 @@ Future<List<Reservation>> _waitForPublicReservationsByTradeId(
   });
 
   subscription = stream.stream.listen(
-    (reservation) {
-      addIfMatches(reservation);
+    (order) {
+      addIfMatches(order);
       if (isDone()) complete();
     },
     onError: (_) {
@@ -5086,27 +5061,25 @@ Future<List<Reservation>> _waitForPublicReservationsByTradeId(
   }
 }
 
-Future<List<ResolvedValidatedReservationGroupParticipants>>
-_resolvedReservationGroupSnapshot(
-  StreamWithStatus<List<ResolvedValidatedReservationGroupParticipants>>
-  source, {
+Future<List<ResolvedValidatedOrderGroupParticipants>>
+_resolvedOrderGroupSnapshot(
+  StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>> source, {
   Duration timeout = const Duration(seconds: 12),
 }) async {
   if (source.items.isNotEmpty || timeout <= Duration.zero) {
     return source.items.isEmpty ? const [] : source.items.last;
   }
 
-  final completer =
-      Completer<List<ResolvedValidatedReservationGroupParticipants>>();
+  final completer = Completer<List<ResolvedValidatedOrderGroupParticipants>>();
   Timer? timer;
-  StreamSubscription<List<ResolvedValidatedReservationGroupParticipants>>?
+  StreamSubscription<List<ResolvedValidatedOrderGroupParticipants>>?
   itemSubscription;
   StreamSubscription<StreamStatus>? statusSubscription;
 
-  List<ResolvedValidatedReservationGroupParticipants> latest() =>
+  List<ResolvedValidatedOrderGroupParticipants> latest() =>
       source.items.isEmpty ? const [] : source.items.last;
 
-  void complete([List<ResolvedValidatedReservationGroupParticipants>? items]) {
+  void complete([List<ResolvedValidatedOrderGroupParticipants>? items]) {
     if (!completer.isCompleted) {
       completer.complete(items ?? latest());
     }
@@ -5132,28 +5105,24 @@ _resolvedReservationGroupSnapshot(
   }
 }
 
-Future<Map<String, Object?>> _reservationLookupByTradeId(
+Future<Map<String, Object?>> _orderLookupByTradeId(
   Hostr hostr,
   String tradeId, {
   int waitSeconds = 15,
   HostrCancellationToken? cancellationToken,
 }) async {
-  final reservations = await _waitForPublicReservationsByTradeId(
+  final orders = await _waitForPublicOrdersByTradeId(
     hostr,
     tradeId,
-    until: (reservations) => reservations.any(
-      (reservation) => reservation.stage == ReservationStage.commit,
-    ),
+    until: (orders) => orders.any((order) => order.stage == OrderStage.commit),
     timeout: Duration(seconds: waitSeconds),
     cancellationToken: cancellationToken,
   );
   cancellationToken?.throwIfCancelled();
-  final committed = reservations
-      .where((reservation) => reservation.stage == ReservationStage.commit)
+  final committed = orders
+      .where((order) => order.stage == OrderStage.commit)
       .toList();
-  final group = reservations.isEmpty
-      ? null
-      : ReservationGroup(reservations: reservations);
+  final group = orders.isEmpty ? null : OrderGroup(orders: orders);
   Listing? listing;
   final listingAnchor = group?.listingAnchor;
   if (listingAnchor != null && listingAnchor.isNotEmpty) {
@@ -5165,13 +5134,13 @@ Future<Map<String, Object?>> _reservationLookupByTradeId(
   }
   return {
     'tradeId': tradeId,
-    'found': reservations.isNotEmpty,
+    'found': orders.isNotEmpty,
     'committed': committed.isNotEmpty,
-    'count': reservations.length,
-    if (group != null) 'group': _reservationGroupJson(group),
+    'count': orders.length,
+    if (group != null) 'group': _orderGroupJson(group),
     if (listing != null) 'listing': listingSummary(listing),
-    if (committed.isNotEmpty) 'committedReservation': eventJson(committed.last),
-    'reservations': reservations.map(eventJson).toList(),
+    if (committed.isNotEmpty) 'committedOrder': eventJson(committed.last),
+    'orders': orders.map(eventJson).toList(),
   };
 }
 
@@ -5282,7 +5251,7 @@ Future<String?> _pubkeyForThreadRole(
   final normalized = role.trim().toLowerCase();
   final state = thread?.state.value;
   if (normalized == 'host' || normalized == 'seller') {
-    final requests = state?.reservationRequests ?? const <Reservation>[];
+    final requests = state?.orderRequests ?? const <Order>[];
     for (final request in requests.reversed) {
       final anchor = request.parsedTags.listingAnchor;
       if (anchor.isNotEmpty) {
@@ -5299,14 +5268,14 @@ Future<String?> _pubkeyForThreadRole(
   }
 
   if (tradeId == null || tradeId.trim().isEmpty) return null;
-  final reservations = await _waitForPublicReservationsByTradeId(
+  final orders = await _waitForPublicOrdersByTradeId(
     hostr,
     tradeId,
     timeout: timeout,
     until: (items) => items.isNotEmpty,
   );
-  if (reservations.isEmpty) return null;
-  final group = ReservationGroup(reservations: reservations);
+  if (orders.isEmpty) return null;
+  final group = OrderGroup(orders: orders);
   return switch (normalized) {
     'host' || 'seller' => group.sellerPubkey,
     'guest' || 'buyer' => group.buyerPubkey,
@@ -5387,9 +5356,9 @@ Future<Map<String, Object?>> _profileSummariesForPubkeys(
   return profiles;
 }
 
-Future<Map<String, Object?>> _resolvedReservationCollectionItemJson(
+Future<Map<String, Object?>> _resolvedOrderCollectionItemJson(
   Hostr hostr,
-  ResolvedValidatedReservationGroupParticipants item, {
+  ResolvedValidatedOrderGroupParticipants item, {
   required String mode,
 }) async {
   final group = item.group;
@@ -5414,13 +5383,13 @@ Future<Map<String, Object?>> _resolvedReservationCollectionItemJson(
       profiles[entry.key] = _profileSummary(entry.value, profile);
     }),
   );
-  final listing = _embeddedReservationListing(group);
+  final listing = _embeddedOrderListing(group);
   return {
     'found': true,
     'mode': mode,
     'tradeId': group.tradeId,
-    'valid': item.validation is Valid<ReservationGroup>,
-    'group': _reservationGroupJson(group),
+    'valid': item.validation is Valid<OrderGroup>,
+    'group': _orderGroupJson(group),
     if (listing != null) 'listing': listingSummary(listing),
     'participants': {
       'rawGroupId': item.participants.rawGroupId,
@@ -5455,7 +5424,7 @@ Map<String, Object?> _profileSummary(String pubkey, ProfileMetadata? profile) {
 String _shortPubkey(String pubkey) =>
     pubkey.length <= 12 ? pubkey : '${pubkey.substring(0, 8)}...';
 
-Future<KeyPair> _activeReservationKeyPair(
+Future<KeyPair> _activeOrderKeyPair(
   Hostr hostr, {
   required String sellerPubkey,
   required String tradeId,
@@ -5468,8 +5437,8 @@ Future<KeyPair> _activeReservationKeyPair(
   return hostr.auth.hd.getTradeKeyPair(accountIndex: accountIndex);
 }
 
-Map<String, Object?> _reservationGroupJson(ReservationGroup group) {
-  final listing = _embeddedReservationListing(group);
+Map<String, Object?> _orderGroupJson(OrderGroup group) {
+  final listing = _embeddedOrderListing(group);
   return {
     'groupId': group.groupId,
     'tradeId': group.tradeId,
@@ -5485,13 +5454,13 @@ Map<String, Object?> _reservationGroupJson(ReservationGroup group) {
     'confirmed': group.isConfirmed,
     'start': group.start?.toUtc().toIso8601String(),
     'end': group.end?.toUtc().toIso8601String(),
-    'reservations': group.reservations.map(eventJson).toList(),
+    'orders': group.orders.map(eventJson).toList(),
   };
 }
 
-Listing? _embeddedReservationListing(ReservationGroup group) {
-  for (final reservation in group.reservations.reversed) {
-    final listing = reservation.proof?.listing;
+Listing? _embeddedOrderListing(OrderGroup group) {
+  for (final order in group.orders.reversed) {
+    final listing = order.proof?.listing;
     if (listing != null) return listing;
   }
   return null;
@@ -5513,7 +5482,7 @@ Map<String, Object?> _threadJson(
     'counterpartyPubkeys': state.counterpartyPubkeys,
     'counterparties': profileList,
     'unreadCount': state.unreadCount(state.ourPubkey),
-    'reservationRequests': state.reservationRequests.map(eventJson).toList(),
+    'orderRequests': state.orderRequests.map(eventJson).toList(),
     'textMessages': state.textMessages.map(eventJson).toList(),
     'events': state.events.map(eventJson).toList(),
   };
@@ -5561,7 +5530,7 @@ Future<Map<String, Object?>> _threadViewJson(
           ),
         )
         .toList(),
-    'reservationRequests': state.reservationRequests.map(eventJson).toList(),
+    'orderRequests': state.orderRequests.map(eventJson).toList(),
   };
 }
 
@@ -5585,7 +5554,7 @@ String _threadTitle(
   Thread thread, {
   required List<Map<String, Object?>> counterparties,
 }) {
-  for (final request in thread.state.value.reservationRequests.reversed) {
+  for (final request in thread.state.value.orderRequests.reversed) {
     final listing = request.proof?.listing;
     final title = listing?.title;
     if (title != null && title.isNotEmpty) return title;
@@ -5649,7 +5618,7 @@ Future<Map<String, Object?>> _swapWatchJson({
   required Hostr hostr,
   required String swapId,
   required String? tradeId,
-  required int reservationWaitSeconds,
+  required int orderWaitSeconds,
   required int resolved,
   required SwapInState state,
   HostrCancellationToken? cancellationToken,
@@ -5662,7 +5631,7 @@ Future<Map<String, Object?>> _swapWatchJson({
     stateJson,
     swapId: swapId,
   );
-  final shouldLookupReservation =
+  final shouldLookupOrder =
       resolvedTradeId != null &&
       resolvedTradeId.isNotEmpty &&
       externalPayment == null &&
@@ -5676,11 +5645,11 @@ Future<Map<String, Object?>> _swapWatchJson({
     'isTerminal': state.isTerminal,
     'escrowProofAvailable': claimTxHash?.isNotEmpty == true,
     if (claimTxHash?.isNotEmpty == true) 'claimTxHash': claimTxHash,
-    if (shouldLookupReservation)
-      'reservationLookup': await _reservationLookupByTradeId(
+    if (shouldLookupOrder)
+      'orderLookup': await _orderLookupByTradeId(
         hostr,
         resolvedTradeId,
-        waitSeconds: reservationWaitSeconds,
+        waitSeconds: orderWaitSeconds,
         cancellationToken: cancellationToken,
       ),
     ...externalPayment == null
@@ -5724,17 +5693,17 @@ Map<String, Object?>? _externalPaymentPromptFromSwapStateJson(
   };
 }
 
-const _reservationTradeNamespace = 'reservation_trade';
-const _reservationPaymentNamespace = 'reservation_payment';
+const _orderTradeNamespace = 'order_trade';
+const _orderPaymentNamespace = 'order_payment';
 
 Future<void> _persistTradeContext(
   Hostr hostr, {
   required String tradeId,
   required String listingAnchor,
   required String sellerPubkey,
-  required Reservation reservation,
+  required Order order,
 }) {
-  return hostr.operationStateStore.write(_reservationTradeNamespace, tradeId, {
+  return hostr.operationStateStore.write(_orderTradeNamespace, tradeId, {
     'id': tradeId,
     'state': 'offered',
     'isTerminal': false,
@@ -5742,19 +5711,19 @@ Future<void> _persistTradeContext(
     'tradeId': tradeId,
     'listingAnchor': listingAnchor,
     'sellerPubkey': sellerPubkey,
-    'reservation': eventJson(reservation),
+    'order': eventJson(order),
   });
 }
 
 Map<String, Object?> _tradeContextJson({
   required String tradeId,
   required Listing listing,
-  required Reservation reservation,
+  required Order order,
 }) => {
   'tradeId': tradeId,
   'listingAnchor': listing.anchor,
   'sellerPubkey': listing.pubKey,
-  'reservation': eventJson(reservation),
+  'order': eventJson(order),
 };
 
 Future<void> _persistPaymentContext(
@@ -5762,12 +5731,12 @@ Future<void> _persistPaymentContext(
   required String swapId,
   required String tradeId,
   required Listing listing,
-  required Reservation reservation,
+  required Order order,
   required EscrowServiceSelected selectedEscrow,
-  Reservation? committedReservation,
+  Order? committedOrder,
   bool terminal = false,
 }) {
-  return hostr.operationStateStore.write(_reservationPaymentNamespace, swapId, {
+  return hostr.operationStateStore.write(_orderPaymentNamespace, swapId, {
     'id': swapId,
     'state': terminal ? 'committed' : 'swap_created',
     'isTerminal': terminal,
@@ -5776,22 +5745,21 @@ Future<void> _persistPaymentContext(
     'tradeId': tradeId,
     'listingAnchor': listing.anchor,
     'sellerPubkey': listing.pubKey,
-    'reservation': eventJson(reservation),
+    'order': eventJson(order),
     'selectedEscrow': eventJson(selectedEscrow),
-    if (committedReservation != null)
-      'committedReservation': eventJson(committedReservation),
+    if (committedOrder != null) 'committedOrder': eventJson(committedOrder),
   });
 }
 
 Nip01Event _eventFromJson(Map<String, dynamic> json) =>
     Nip01EventModel.fromJson(json);
 
-Reservation? _reservationFromTradeContext(Map<String, dynamic> context) {
-  for (final key in const ['reservation', 'event']) {
+Order? _orderFromTradeContext(Map<String, dynamic> context) {
+  for (final key in const ['order', 'event']) {
     final value = context[key];
     if (value is! Map) continue;
     try {
-      return Reservation.fromNostrEvent(
+      return Order.fromNostrEvent(
         _eventFromJson(Map<String, dynamic>.from(value)),
       );
     } catch (_) {
@@ -5802,44 +5770,41 @@ Reservation? _reservationFromTradeContext(Map<String, dynamic> context) {
   return null;
 }
 
-Future<Reservation?> _readPersistedTradeReservation(
-  Hostr hostr,
-  String tradeId,
-) async {
+Future<Order?> _readPersistedTradeOrder(Hostr hostr, String tradeId) async {
   final context = await hostr.operationStateStore.read(
-    _reservationTradeNamespace,
+    _orderTradeNamespace,
     tradeId,
   );
   if (context == null) return null;
-  return _reservationFromTradeContext(context);
+  return _orderFromTradeContext(context);
 }
 
 String _resolveNegotiationPubkey(
-  List<Reservation> reservationRequests,
+  List<Order> orderRequests,
   String sellerPubkey,
   String activePubkey,
 ) {
   if (activePubkey == sellerPubkey) return activePubkey;
-  for (final request in reservationRequests.reversed) {
+  for (final request in orderRequests.reversed) {
     if (request.pubKey != sellerPubkey) return request.pubKey;
   }
-  return reservationRequests.lastOrNull?.recipient ?? activePubkey;
+  return orderRequests.lastOrNull?.recipient ?? activePubkey;
 }
 
 ({bool available, Map<String, Object?> details}) _payActionAvailable({
   required Listing listing,
-  required List<Reservation> reservationRequests,
+  required List<Order> orderRequests,
   required String activePubkey,
 }) {
   final sellerPubkey = listing.pubKey;
   final role = activePubkey == sellerPubkey ? TradeRole.host : TradeRole.guest;
   final ourPubkey = _resolveNegotiationPubkey(
-    reservationRequests,
+    orderRequests,
     sellerPubkey,
     activePubkey,
   );
-  final actions = ReservationRequestActions.resolve(
-    reservationRequests,
+  final actions = OrderRequestActions.resolve(
+    orderRequests,
     listing,
     ourPubkey,
     role,
@@ -5850,9 +5815,9 @@ String _resolveNegotiationPubkey(
       'role': role.name,
       'ourNegotiationPubkey': ourPubkey,
       'actions': actions.map(_publicTradeActionName).toList(),
-      'latestOffer': reservationRequests.lastOrNull == null
+      'latestOffer': orderRequests.lastOrNull == null
           ? null
-          : eventJson(reservationRequests.last),
+          : eventJson(orderRequests.last),
     },
   );
 }
@@ -5864,52 +5829,46 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
   required Hostr hostr,
   required String tradeId,
   String? escrowServiceId,
-  Reservation? privateReservation,
+  Order? privateOrder,
 }) async {
-  final persistedReservation = privateReservation == null
-      ? await _readPersistedTradeReservation(hostr, tradeId)
+  final persistedOrder = privateOrder == null
+      ? await _readPersistedTradeOrder(hostr, tradeId)
       : null;
-  final publicReservations = privateReservation == null
-      ? await hostr.reservations.getByTradeId(tradeId)
-      : const <Reservation>[];
-  final reservations = [
-    ?privateReservation,
-    ?persistedReservation,
-    ...publicReservations,
-  ];
-  final negotiateReservations =
-      reservations
+  final publicOrders = privateOrder == null
+      ? await hostr.orders.getByTradeId(tradeId)
+      : const <Order>[];
+  final orders = [?privateOrder, ?persistedOrder, ...publicOrders];
+  final negotiateOrders =
+      orders
           .where(
-            (reservation) =>
-                reservation.isNegotiation &&
-                reservation.stage != ReservationStage.cancel,
+            (order) => order.isNegotiation && order.stage != OrderStage.cancel,
           )
           .toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-  if (negotiateReservations.isEmpty) {
+  if (negotiateOrders.isEmpty) {
     throw HostrCliException(
-      'reservation_not_found',
-      'No payable private negotiate-stage reservation found for tradeId.',
+      'order_not_found',
+      'No payable private negotiate-stage order found for tradeId.',
       details: {'tradeId': tradeId},
     );
   }
 
-  final reservation = negotiateReservations.last;
-  if (reservation.amount == null) {
+  final order = negotiateOrders.last;
+  if (order.amount == null) {
     throw HostrCliException(
-      'reservation_amount_required',
-      'Payable reservation does not include an amount.',
-      details: {'tradeId': tradeId, 'reservation': eventJson(reservation)},
+      'order_amount_required',
+      'Payable order does not include an amount.',
+      details: {'tradeId': tradeId, 'order': eventJson(order)},
     );
   }
   final listing = await hostr.listings.getOneByAnchor(
-    reservation.parsedTags.listingAnchor,
+    order.parsedTags.listingAnchor,
   );
   if (listing == null) {
     throw HostrCliException(
       'listing_not_found',
-      'Listing for reservation not found.',
-      details: {'anchor': reservation.parsedTags.listingAnchor},
+      'Listing for order not found.',
+      details: {'anchor': order.parsedTags.listingAnchor},
     );
   }
 
@@ -5975,8 +5934,8 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
   final selectedEscrow = EscrowServiceSelected(
     pubKey: hostr.auth.getActiveKey().publicKey,
     tags: EscrowServiceSelectedTags([
-      ['d', reservation.getDtag()!],
-      [kListingRefTag, reservation.parsedTags.listingAnchor],
+      ['d', order.getDtag()!],
+      [kListingRefTag, order.parsedTags.listingAnchor],
       ['p', sellerProfile.pubKey],
     ]),
     content: EscrowServiceSelectedContent(
@@ -5988,10 +5947,10 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
   final preparer = hostr.escrow.fund(
     EscrowFundParams(
       escrowService: service,
-      negotiateReservation: reservation,
+      negotiateOrder: order,
       sellerProfile: sellerProfile,
       sellerEvmAddress: sellerEvmAddress,
-      amount: reservation.amount!,
+      amount: order.amount!,
       sellerEscrowMethod: mutual.sellerMethod,
       securityDeposit: listing.securityDeposit,
       listingName: listing.title,
@@ -5999,7 +5958,7 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
   );
 
   return _EscrowFundingPlan(
-    reservation: reservation,
+    order: order,
     listing: listing,
     selectedEscrow: selectedEscrow,
     preparer: preparer,
@@ -6074,13 +6033,13 @@ bool _tokenFeeHintsEqual(
 
 class _EscrowFundingPlan {
   const _EscrowFundingPlan({
-    required this.reservation,
+    required this.order,
     required this.listing,
     required this.selectedEscrow,
     required this.preparer,
   });
 
-  final Reservation reservation;
+  final Order order;
   final Listing listing;
   final EscrowServiceSelected selectedEscrow;
   final EscrowFundPreparer preparer;

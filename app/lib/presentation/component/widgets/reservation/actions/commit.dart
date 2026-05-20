@@ -111,12 +111,10 @@ class CommitMenu extends StatelessWidget {
             case TradeAction.review:
               final commitStage = tradeState.stage;
               if (commitStage is! CommitStage) return null;
-              final group = commitStage.reservationGroup;
+              final group = commitStage.orderGroup;
               // Use the buyer's reservation as the anchor for the review.
               final reservation =
-                  group.buyerReservation ??
-                  group.sellerReservation ??
-                  group.escrowReservation;
+                  group.buyerOrder ?? group.sellerOrder ?? group.escrowOrder;
               return (
                 key: ValueKey(
                   'trade_live_${tradeState.role.name}_review_menu_item_${trade.tradeId}',
@@ -153,7 +151,7 @@ class CommitMenu extends StatelessWidget {
     final commitStage = tradeState.stage;
     if (commitStage is! CommitStage) return null;
     final escrowPubkey =
-        commitStage.reservationGroup.escrowPubkey ?? trade.getEscrowPubkey();
+        commitStage.orderGroup.escrowPubkey ?? trade.getEscrowPubkey();
     if (escrowPubkey == null || escrowPubkey.isEmpty) return null;
 
     return (

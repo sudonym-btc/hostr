@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';

@@ -7,12 +7,12 @@ import 'package:hostr_sdk/util/main.dart';
 import 'package:models/main.dart';
 import 'package:test/test.dart';
 
-Reservation _reservation({
+Order _order({
   required String id,
   required String pubkey,
   required String tradeId,
 }) {
-  return Reservation.create(
+  return Order.create(
     id: id,
     pubKey: pubkey,
     dTag: tradeId,
@@ -31,9 +31,9 @@ class _TestDeps {
 void main() {
   group('verifyStream', () {
     test('verifies items as they arrive via per-item resolve+verify', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
 
-      final verified = verifyStream<Reservation, _TestDeps>(
+      final verified = verifyStream<Order, _TestDeps>(
         source: source,
         debounce: Duration.zero,
         resolve: (item) async {
@@ -47,8 +47,8 @@ void main() {
       );
 
       source.addStatus(StreamStatusLive());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'good'));
-      source.add(_reservation(id: 'r2', pubkey: 'guest', tradeId: 'bad'));
+      source.add(_order(id: 'r1', pubkey: 'guest', tradeId: 'good'));
+      source.add(_order(id: 'r2', pubkey: 'guest', tradeId: 'bad'));
 
       // Wait for resolve futures to complete.
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -56,8 +56,8 @@ void main() {
       final snapshot = verified.items;
       expect(snapshot, hasLength(2));
 
-      final valid = snapshot.whereType<Valid<Reservation>>().toList();
-      final invalid = snapshot.whereType<Invalid<Reservation>>().toList();
+      final valid = snapshot.whereType<Valid<Order>>().toList();
+      final invalid = snapshot.whereType<Invalid<Order>>().toList();
       expect(valid, hasLength(1));
       expect(valid.first.event.id, 'r1');
       expect(invalid, hasLength(1));
@@ -69,11 +69,11 @@ void main() {
     });
 
     test('defers Live status until all pending verifications drain', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
 
       final resolveCompleter = Completer<void>();
 
-      final verified = verifyStream<Reservation, _TestDeps>(
+      final verified = verifyStream<Order, _TestDeps>(
         source: source,
         debounce: Duration.zero,
         resolve: (item) async {
@@ -90,7 +90,7 @@ void main() {
           .listen(statuses.add);
 
       source.addStatus(StreamStatusQuerying());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
+      source.add(_order(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
       source.addStatus(StreamStatusLive());
 
       // Give the debounce + resolve kickoff time to start.
@@ -114,9 +114,9 @@ void main() {
     });
 
     test('resolve errors result in Invalid, not a crash', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
 
-      final verified = verifyStream<Reservation, _TestDeps>(
+      final verified = verifyStream<Order, _TestDeps>(
         source: source,
         debounce: Duration.zero,
         resolve: (item) async {
@@ -126,15 +126,15 @@ void main() {
       );
 
       source.addStatus(StreamStatusLive());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
+      source.add(_order(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
 
       final snapshot = verified.items;
       expect(snapshot, hasLength(1));
-      expect(snapshot.first, isA<Invalid<Reservation>>());
+      expect(snapshot.first, isA<Invalid<Order>>());
       expect(
-        (snapshot.first as Invalid<Reservation>).reason,
+        (snapshot.first as Invalid<Order>).reason,
         contains('network failure'),
       );
 
@@ -143,10 +143,10 @@ void main() {
     });
 
     test('only processes new items on subsequent snapshot emissions', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
       var resolveCount = 0;
 
-      final verified = verifyStream<Reservation, _TestDeps>(
+      final verified = verifyStream<Order, _TestDeps>(
         source: source,
         debounce: Duration.zero,
         resolve: (item) async {
@@ -157,14 +157,14 @@ void main() {
       );
 
       source.addStatus(StreamStatusLive());
-      source.add(_reservation(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
+      source.add(_order(id: 'r1', pubkey: 'guest', tradeId: 'c1'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(resolveCount, 1);
       expect(verified.items, hasLength(1));
 
       // Add a second item — r1 should not be re-resolved.
-      source.add(_reservation(id: 'r2', pubkey: 'guest', tradeId: 'c2'));
+      source.add(_order(id: 'r2', pubkey: 'guest', tradeId: 'c2'));
 
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(resolveCount, 2); // Only r2 was resolved.
@@ -175,9 +175,9 @@ void main() {
     });
 
     test('propagates source errors', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
 
-      final verified = verifyStream<Reservation, _TestDeps>(
+      final verified = verifyStream<Order, _TestDeps>(
         source: source,
         debounce: Duration.zero,
         resolve: (item) async => _TestDeps('x'),
@@ -206,13 +206,13 @@ void main() {
     });
 
     test('closes source when closeSourceOnClose is true', () async {
-      final source = StreamWithStatus<Reservation>();
+      final source = StreamWithStatus<Order>();
       var sourceClosed = false;
       source.onClose = () async {
         sourceClosed = true;
       };
 
-      final verified = verifyStream<Reservation, _TestDeps>(
+      final verified = verifyStream<Order, _TestDeps>(
         source: source,
         debounce: Duration.zero,
         closeSourceOnClose: true,

@@ -5,9 +5,9 @@ import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class BlockedReservations extends StatelessWidget {
-  final Stream<List<Validation<ReservationGroup>>> reservationGroupItemsStream;
+  final Stream<List<Validation<OrderGroup>>> reservationGroupItemsStream;
   final KeyPair? hostKeyPair;
-  final ValueChanged<Reservation> onCancelBlockedReservation;
+  final ValueChanged<Order> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
 
   const BlockedReservations({
@@ -18,23 +18,21 @@ class BlockedReservations extends StatelessWidget {
     required this.onBlockDates,
   });
 
-  List<Reservation> _buildBlockedReservations(
-    List<Validation<ReservationGroup>> items,
-  ) {
+  List<Order> _buildBlockedReservations(List<Validation<OrderGroup>> items) {
     final hostKey = hostKeyPair;
     if (hostKey == null) {
-      return const <Reservation>[];
+      return const <Order>[];
     }
 
     return [
-          for (final group in items.whereType<Valid<ReservationGroup>>())
-            ...group.event.reservations,
+          for (final group in items.whereType<Valid<OrderGroup>>())
+            ...group.event.orders,
         ]
         .where(
           (reservation) =>
               reservation.isBlockedDate(hostKey) && !reservation.cancelled,
         )
-        .fold<Map<String, Reservation>>({}, (acc, reservation) {
+        .fold<Map<String, Order>>({}, (acc, reservation) {
           acc[reservation.getDtag() ?? reservation.id] = reservation;
           return acc;
         })
@@ -42,10 +40,7 @@ class BlockedReservations extends StatelessWidget {
         .toList(growable: false);
   }
 
-  Widget _buildBlockedReservationTile(
-    BuildContext context,
-    Reservation reservation,
-  ) {
+  Widget _buildBlockedReservationTile(BuildContext context, Order reservation) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 0),
       title: reservation.start != null && reservation.end != null
@@ -65,11 +60,11 @@ class BlockedReservations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Validation<ReservationGroup>>>(
+    return StreamBuilder<List<Validation<OrderGroup>>>(
       stream: reservationGroupItemsStream,
       builder: (context, snapshot) {
         final blockedReservations = _buildBlockedReservations(
-          snapshot.data ?? const <Validation<ReservationGroup>>[],
+          snapshot.data ?? const <Validation<OrderGroup>>[],
         );
 
         return Section(

@@ -1,7 +1,7 @@
 {
   "name": "hostr-staging",
   "version": "0.1.0",
-  "description": "Use Hostr Staging through MCP for finding places to stay, searching lodging/accommodation/rental listings by destination, booking reservations, managing Hostr stays/listings, image uploads, Nostr Connect/NIP-46 sign-in, relays, pubkeys, events, gift wraps, inbox threads, escrow workflows, swap recovery, and confirmed marketplace actions.",
+  "description": "Use Hostr Staging through MCP for finding places to stay, searching lodging/accommodation/rental listings by destination, booking orders, managing Hostr stays/listings, image uploads, Nostr Connect/NIP-46 sign-in, relays, pubkeys, events, gift wraps, inbox threads, escrow workflows, swap recovery, and confirmed marketplace actions.",
   "author": {
     "name": "Hostr",
     "url": "https://github.com/sudonym-btc/hostr"
@@ -43,7 +43,7 @@
     "nostr dm",
     "nostr inbox",
     "marketplace",
-    "reservations",
+    "orders",
     "booking",
     "stays",
     "lodging",
@@ -70,7 +70,7 @@
   "interface": {
     "displayName": "Hostr Staging",
     "shortDescription": "Use Hostr to rent accommodation via the Nostr network. Plan a vacation, trip, or long-term stay, or put up your room for rent and earn sats.",
-    "longDescription": "Connects Codex to this plugin's configured Hostr MCP server (Staging) for finding places to stay, destination-based lodging/accommodation/rental search, listing management, reservations, booking, messaging, profile updates, image uploads, escrow workflows, swap recovery, and Hostr's Nostr network workflows including Nostr Connect/NIP-46 login, NIP events, relays, pubkeys/npubs, gift-wrapped messages, inbox threads, and signer recovery. Use this environment for Hostr work only when the user selects or asks for Staging. If a user asks what happens when they send money, explain that Hostr swaps the payment over Lightning into a smart-contract escrow; the escrow can only forward the payment to the host or reverse it according to the trade outcome, and cannot freely take custody. Hostr write actions should be previewed first and published only after explicit user approval. Operational workflow is defined by the shared Hostr skill; this manifest should differ from the other Hostr environment plugins only by environment identity and MCP URL.",
+    "longDescription": "Connects Codex to this plugin's configured Hostr MCP server (Staging) for finding places to stay, destination-based lodging/accommodation/rental search, listing management, orders, booking, messaging, profile updates, image uploads, escrow workflows, swap recovery, and Hostr's Nostr network workflows including Nostr Connect/NIP-46 login, NIP events, relays, pubkeys/npubs, gift-wrapped messages, inbox threads, and signer recovery. Use this environment for Hostr work only when the user selects or asks for Staging. If a user asks what happens when they send money, explain that Hostr swaps the payment over Lightning into a smart-contract escrow; the escrow can only forward the payment to the host or reverse it according to the trade outcome, and cannot freely take custody. Hostr write actions should be previewed first and published only after explicit user approval. Operational workflow is defined by the shared Hostr skill; this manifest should differ from the other Hostr environment plugins only by environment identity and MCP URL.",
     "developerName": "Hostr",
     "category": "Productivity",
     "capabilities": [

@@ -172,7 +172,7 @@ class _InboxItemState extends State<InboxItem> {
     return _listingFuture!;
   }
 
-  String _reservationDateRange(BuildContext context, Reservation reservation) {
+  String _reservationDateRange(BuildContext context, Order reservation) {
     final start = reservation.start;
     final end = reservation.end;
     if (start == null || end == null) return '';
@@ -185,11 +185,11 @@ class _InboxItemState extends State<InboxItem> {
 
   String _reservationPreview(
     BuildContext context, {
-    required Reservation reservation,
+    required Order reservation,
     required Listing? listing,
   }) {
-    if (reservation.stage == ReservationStage.cancel) {
-      return 'Reservation cancelled';
+    if (reservation.stage == OrderStage.cancel) {
+      return 'Order cancelled';
     }
 
     final listingTitle = (listing ?? reservation.proof?.listing)?.title.trim();
@@ -205,9 +205,7 @@ class _InboxItemState extends State<InboxItem> {
       if (listingTitle != null && listingTitle.isNotEmpty) listingTitle,
     ].join(' ');
 
-    return details.isEmpty
-        ? 'Reservation $action'
-        : 'Reservation $action for $details';
+    return details.isEmpty ? 'Order $action' : 'Order $action for $details';
   }
 
   Widget _buildItem({
@@ -248,10 +246,9 @@ class _InboxItemState extends State<InboxItem> {
         if (lastEvent is Message) {
           subtitleBody = lastEvent.content;
           final reservation = lastEvent.child;
-          if (reservation is Reservation) {
+          if (reservation is Order) {
             final listing = reservation.proof?.listing;
-            if (listing != null ||
-                reservation.stage == ReservationStage.cancel) {
+            if (listing != null || reservation.stage == OrderStage.cancel) {
               subtitleBody = _reservationPreview(
                 context,
                 reservation: reservation,

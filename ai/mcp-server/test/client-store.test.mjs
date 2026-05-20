@@ -108,7 +108,7 @@ test("Hostr tool annotations mark external Hostr actions as open-world", () => {
 test("client tool visibility policy hook is currently non-blocking", () => {
   const visible = new Set([
     "hostr.listings.search",
-    "hostr.reservations.bookAndPay",
+    "hostr.orders.bookAndPay",
   ]);
 
   const filtered = __testing.applyClientToolVisibilityPolicy(visible, {
@@ -171,8 +171,8 @@ test("trip collection lookup items render compact trip cards", () => {
     },
   };
 
-  const cards = __testing.reservationCardsFromResult("hostr.trips.list", result);
-  const markdown = __testing.reservationCardsMarkdown(cards);
+  const cards = __testing.orderCardsFromResult("hostr.trips.list", result);
+  const markdown = __testing.orderCardsMarkdown(cards);
 
   assert.equal(cards.length, 1);
   assert.equal(cards[0].type, "trip-card");
@@ -534,10 +534,10 @@ test("payment responses include a result-bound payment widget", async () => {
       qrImageUrlTemplate:
         "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={data}",
     },
-    "hostr.reservations.bookAndPay",
+    "hostr.orders.bookAndPay",
     {
       ok: true,
-      command: "hostr.reservations.bookAndPay",
+      command: "hostr.orders.bookAndPay",
       environment: "staging",
       dryRun: false,
       traceId: "trace-payment",
@@ -558,7 +558,7 @@ test("payment responses include a result-bound payment widget", async () => {
             id: "swap-123",
             postClaimCalls: [{ data: "0xdeadbeef" }],
           },
-          reservation: { id: "event-123" },
+          order: { id: "event-123" },
         },
         states: [{ state: "validating" }, { state: "swap.paymentProgress" }],
         nextTool: {
@@ -566,7 +566,7 @@ test("payment responses include a result-bound payment widget", async () => {
           arguments: {
             swapId: "swap-123",
             tradeId: "trade-123",
-            reservationWaitSeconds: 300,
+            orderWaitSeconds: 300,
           },
         },
       },
@@ -606,7 +606,7 @@ test("payment responses include a result-bound payment widget", async () => {
     arguments: {
       swapId: "swap-123",
       tradeId: "trade-123",
-      reservationWaitSeconds: 60,
+      orderWaitSeconds: 60,
     },
   });
   assert.equal(response.structuredContent.data.state, undefined);
@@ -621,8 +621,8 @@ test("payment responses include a result-bound payment widget", async () => {
 });
 
 test("book and pay advertises the payment widget at tool registration time", () => {
-  const bookAndPayMeta = __testing.reservationToolMeta(
-    "hostr.reservations.bookAndPay",
+  const bookAndPayMeta = __testing.orderToolMeta(
+    "hostr.orders.bookAndPay",
   );
   assert.equal(
     bookAndPayMeta["openai/outputTemplate"],
@@ -633,7 +633,7 @@ test("book and pay advertises the payment widget at tool registration time", () 
     "payment-external-required",
   );
 
-  const swapWatchMeta = __testing.reservationToolMeta("hostr.swaps.watch");
+  const swapWatchMeta = __testing.orderToolMeta("hostr.swaps.watch");
   assert.equal(swapWatchMeta["openai/outputTemplate"], undefined);
   assert.equal(swapWatchMeta["hostr.preferredRenderer"], "trip-card");
 });
@@ -654,16 +654,16 @@ test("payment widget can read ChatGPT multimodal payment output", () => {
 
 test("tool descriptions omit repeated boilerplate", () => {
   const description = __testing.toolDescription({
-    id: "hostr.reservations.bookAndPay",
+    id: "hostr.orders.bookAndPay",
     description: [
-      "Book and pay for an instant-book reservation.",
+      "Book and pay for an instant-book order.",
       "MCP driving notes: long common notes.",
       "Read-only behavior: common read notes.",
       "Write behavior: common write notes.",
       "Preview rule: common preview notes.",
       "Specific workflow note.",
     ].join("\n\n"),
-    inputTypeName: "HostrReservationsBookAndPayInput",
+    inputTypeName: "HostrOrdersBookAndPayInput",
   });
 
   assert.match(description, /Book and pay/);
@@ -677,7 +677,7 @@ test("tool descriptions omit repeated boilerplate", () => {
 test("book and pay advertises accurate ChatGPT write annotations", () => {
   assert.deepEqual(
     __testing.toolAnnotations({
-      id: "hostr.reservations.bookAndPay",
+      id: "hostr.orders.bookAndPay",
       readOnly: false,
     }),
     {
@@ -703,7 +703,7 @@ test("tool annotations distinguish destructive and non-destructive writes", () =
 
   assert.deepEqual(
     __testing.toolAnnotations({
-      id: "hostr.reservations.cancel",
+      id: "hostr.orders.cancel",
       readOnly: false,
     }),
     {
@@ -757,7 +757,7 @@ test("swap watch timeout preserves retry args and tells the assistant to rewatch
         watchTimedOut: true,
         swapId: "swap-123",
         tradeId: "trade-123",
-        reservationWaitSeconds: 300,
+        orderWaitSeconds: 300,
       },
     },
     false,
@@ -765,7 +765,7 @@ test("swap watch timeout preserves retry args and tells the assistant to rewatch
 
   assert.match(
     response.structuredContent.displayMarkdown,
-    /Payment or reservation confirmation is still pending/,
+    /Payment or order confirmation is still pending/,
   );
   assert.equal(response.structuredContent.status, "payment_awaiting");
   assert.equal(response.structuredContent.paymentAwaiting, true);
@@ -774,7 +774,7 @@ test("swap watch timeout preserves retry args and tells the assistant to rewatch
     arguments: {
       swapId: "swap-123",
       tradeId: "trade-123",
-      reservationWaitSeconds: 60,
+      orderWaitSeconds: 60,
     },
   });
   assert.match(
@@ -783,7 +783,7 @@ test("swap watch timeout preserves retry args and tells the assistant to rewatch
   );
 });
 
-test("completed swap with proof but no reservation is reservation pending", async () => {
+test("completed swap with proof but no order is order pending", async () => {
   const response = await __testing.toolResponse(
     {
       publicAssetBaseUrl: "https://ai.staging.hostr.network",
@@ -805,21 +805,21 @@ test("completed swap with proof but no reservation is reservation pending", asyn
         isTerminal: true,
         escrowProofAvailable: true,
         claimTxHash: "0xabc",
-        reservationLookup: {
+        orderLookup: {
           tradeId: "trade-123",
           found: false,
           committed: false,
           count: 0,
-          reservations: [],
+          orders: [],
         },
       },
     },
     false,
   );
 
-  assert.equal(response.structuredContent.status, "reservation_pending");
+  assert.equal(response.structuredContent.status, "order_pending");
   assert.equal(response.structuredContent.paymentAwaiting, false);
-  assert.equal(response.structuredContent.reservationPending, true);
+  assert.equal(response.structuredContent.orderPending, true);
   assert.match(
     response.structuredContent.assistantInstructions.join("\n"),
     /hostr_trips_list/,

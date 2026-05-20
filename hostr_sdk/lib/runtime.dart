@@ -91,10 +91,9 @@ class HostrSession {
   Listings get listings => hostr.listings;
   LnurlUseCase get lnurl => hostr.lnurl;
   Location get location => hostr.location;
-  Reservations get reservations => hostr.reservations;
-  ReservationGroups get reservationGroups => hostr.reservationGroups;
-  ReservationTransitions get reservationTransitions =>
-      hostr.reservationTransitions;
+  Orders get orders => hostr.orders;
+  OrderGroups get orderGroups => hostr.orderGroups;
+  OrderTransitions get orderTransitions => hostr.orderTransitions;
   GiftWraps get giftWraps => hostr.giftWraps;
   DmRelays get dmRelays => hostr.dmRelays;
   EscrowUseCase get escrow => hostr.escrow;
@@ -103,7 +102,7 @@ class HostrSession {
   BadgeDefinitions get badgeDefinitions => hostr.badgeDefinitions;
   BadgeAwards get badgeAwards => hostr.badgeAwards;
   Messaging get messaging => hostr.messaging;
-  ReservationRequests get reservationRequests => hostr.reservationRequests;
+  OrderRequests get orderRequests => hostr.orderRequests;
   Payments get payments => hostr.payments;
   Reviews get reviews => hostr.reviews;
   TradeAccountAllocator get tradeAccountAllocator =>

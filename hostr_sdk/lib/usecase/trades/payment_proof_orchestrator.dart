@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01EventModel;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -13,25 +13,25 @@ import '../listings/listings.dart';
 import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
-import '../reservations/reservations.dart';
+import '../orders/orders.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 typedef _ProofBuilder =
     PaymentProof Function(Listing listing, ProfileMetadata profile);
 
-/// Long-running singleton that watches the user-level payment and reservation
-/// streams and auto-publishes payment proof (self-signed buyer reservation)
+/// Long-running singleton that watches the user-level payment and order
+/// streams and auto-publishes payment proof (self-signed buyer order)
 /// when a funded payment event is detected for a trade where:
 ///
 /// - The user is the **guest** (not the listing host).
-/// - No buyer reservation has been published yet for that trade.
+/// - No buyer order has been published yet for that trade.
 @Singleton()
 class PaymentProofOrchestrator {
   final UserSubscriptions _userSubs;
   final Threads _threads;
   final Auth _auth;
-  final Reservations _reservations;
+  final Orders _orders;
   final Listings _listings;
   final MetadataUseCase _metadata;
   final HostrConfig? _config;
@@ -48,7 +48,7 @@ class PaymentProofOrchestrator {
     required UserSubscriptions userSubs,
     required Threads threads,
     required Auth auth,
-    required Reservations reservations,
+    required Orders orders,
     required Listings listings,
     required MetadataUseCase metadata,
     required CustomLogger logger,
@@ -57,7 +57,7 @@ class PaymentProofOrchestrator {
   }) : _userSubs = userSubs,
        _threads = threads,
        _auth = auth,
-       _reservations = reservations,
+       _orders = orders,
        _listings = listings,
        _metadata = metadata,
        _config = config,
@@ -69,9 +69,7 @@ class PaymentProofOrchestrator {
     _started = true;
     _logger.d('PaymentProofOrchestrator starting');
 
-    _subscriptions.add(
-      _userSubs.allMyReservations$.stream.stream.listen(_onReservation),
-    );
+    _subscriptions.add(_userSubs.allMyOrders$.stream.stream.listen(_onOrder));
 
     _subscriptions.add(
       _userSubs.paymentEvents$.replayStream
@@ -85,29 +83,28 @@ class PaymentProofOrchestrator {
           ),
     );
 
-    for (final reservation in _userSubs.allMyReservations$.stream.items) {
-      _onReservation(reservation);
+    for (final order in _userSubs.allMyOrders$.stream.items) {
+      _onOrder(order);
     }
   });
 
-  void _checkAndMarkExistingBuyerReservation(Reservation reservation) =>
-      _logger.spanSync('_checkAndMarkExistingBuyerReservation', () {
-        if (!reservation.isCommit) return;
+  void _checkAndMarkExistingBuyerOrder(Order order) =>
+      _logger.spanSync('_checkAndMarkExistingBuyerOrder', () {
+        if (!order.isCommit) return;
 
-        final tradeId = reservation.getDtag();
+        final tradeId = order.getDtag();
         if (tradeId == null || tradeId.isEmpty) return;
 
-        final listingAnchor = reservation.parsedTags.listingAnchor;
+        final listingAnchor = order.parsedTags.listingAnchor;
         final sellerPubkey = getPubKeyFromAnchor(listingAnchor);
-        if (reservation.pubKey != sellerPubkey) {
+        if (order.pubKey != sellerPubkey) {
           _processedTradeIds.add(tradeId);
         }
       });
 
-  void _onReservation(Reservation reservation) =>
-      _logger.spanSync('_onReservation', () {
-        _checkAndMarkExistingBuyerReservation(reservation);
-      });
+  void _onOrder(Order order) => _logger.spanSync('_onOrder', () {
+    _checkAndMarkExistingBuyerOrder(order);
+  });
 
   Future<void> _onPaymentEvent(PaymentEvent event) =>
       _logger.span('_onPaymentEvent', () async {
@@ -198,7 +195,7 @@ class PaymentProofOrchestrator {
       '$tradeId from $source',
     );
 
-    // A funded payment without a uniquely resolved reservation thread is the
+    // A funded payment without a uniquely resolved order thread is the
     // failure mode behind missing self-signed proofs, so keep this visible in
     // e2e logs instead of silently abandoning the publish.
     final thread = _findThreadForTrade(tradeId, participants: participants);
@@ -210,15 +207,15 @@ class PaymentProofOrchestrator {
     }
 
     final state = thread.state.valueOrNull;
-    if (state == null || state.reservationRequests.isEmpty) {
+    if (state == null || state.orderRequests.isEmpty) {
       _logger.w(
-        'PaymentProofOrchestrator: thread ${thread.anchor} has no reservation '
+        'PaymentProofOrchestrator: thread ${thread.anchor} has no order '
         'requests for trade $tradeId',
       );
       return;
     }
 
-    final lastRequest = state.lastReservationRequest;
+    final lastRequest = state.lastOrderRequest;
     final listingAnchor = lastRequest.parsedTags.listingAnchor;
 
     final myPubkey = _auth.getActiveKey().publicKey;
@@ -232,7 +229,7 @@ class PaymentProofOrchestrator {
     _inFlightTradeIds.add(tradeId);
 
     try {
-      if (await _hasBuyerReservation(tradeId, sellerPubkey)) {
+      if (await _hasBuyerOrder(tradeId, sellerPubkey)) {
         _processedTradeIds.add(tradeId);
         return;
       }
@@ -265,9 +262,9 @@ class PaymentProofOrchestrator {
         lastRequest: lastRequest,
       );
 
-      final reservation = await _reservations.createSelfSigned(
+      final order = await _orders.createSelfSigned(
         activeKeyPair: activeKeyPair,
-        negotiateReservation: lastRequest,
+        negotiateOrder: lastRequest,
         proof: proof,
       );
 
@@ -286,7 +283,7 @@ class PaymentProofOrchestrator {
       }
 
       _logger.d(
-        'PaymentProofOrchestrator: published buyer reservation ${reservation.id} for trade $tradeId',
+        'PaymentProofOrchestrator: published buyer order ${order.id} for trade $tradeId',
       );
       _processedTradeIds.add(tradeId);
     } catch (e, st) {
@@ -300,30 +297,24 @@ class PaymentProofOrchestrator {
     }
   });
 
-  Future<bool> _hasBuyerReservation(String tradeId, String sellerPubkey) =>
-      _logger.span('_hasBuyerReservation', () async {
-        final reservations = _userSubs.allMyReservations$.stream.items;
-        if (_containsBuyerReservation(reservations, tradeId, sellerPubkey)) {
+  Future<bool> _hasBuyerOrder(String tradeId, String sellerPubkey) =>
+      _logger.span('_hasBuyerOrder', () async {
+        final orders = _userSubs.allMyOrders$.stream.items;
+        if (_containsBuyerOrder(orders, tradeId, sellerPubkey)) {
           return true;
         }
 
-        final queriedReservations = await _reservations.getByTradeId(tradeId);
-        _logger.d(
-          'existing buyer reservations ${queriedReservations.toString()}',
-        );
-        return _containsBuyerReservation(
-          queriedReservations,
-          tradeId,
-          sellerPubkey,
-        );
+        final queriedOrders = await _orders.getByTradeId(tradeId);
+        _logger.d('existing buyer orders ${queriedOrders.toString()}');
+        return _containsBuyerOrder(queriedOrders, tradeId, sellerPubkey);
       });
 
-  bool _containsBuyerReservation(
-    Iterable<Reservation> reservations,
+  bool _containsBuyerOrder(
+    Iterable<Order> orders,
     String tradeId,
     String sellerPubkey,
   ) {
-    return reservations.any((r) {
+    return orders.any((r) {
       final rTradeId = r.getDtag();
       return rTradeId == tradeId && r.isCommit && r.pubKey != sellerPubkey;
     });
@@ -339,7 +330,7 @@ class PaymentProofOrchestrator {
         participants: participants,
       );
       if (exact != null &&
-          exact.state.value.reservationRequests.any(
+          exact.state.value.orderRequests.any(
             (request) => request.getDtag() == tradeId,
           )) {
         return exact;
@@ -347,14 +338,14 @@ class PaymentProofOrchestrator {
     }
 
     final matches = _threads.threads.values.where((thread) {
-      return thread.state.value.reservationRequests.any(
+      return thread.state.value.orderRequests.any(
         (request) => request.getDtag() == tradeId,
       );
     }).toList();
     if (matches.length == 1) return matches.single;
     final myPubkey = _auth.getActiveKey().publicKey;
     final participantMatches = matches.where((thread) {
-      final request = thread.state.value.reservationRequests.lastWhere(
+      final request = thread.state.value.orderRequests.lastWhere(
         (request) => request.getDtag() == tradeId,
       );
       final sellerPubkey = getPubKeyFromAnchor(
@@ -378,7 +369,7 @@ class PaymentProofOrchestrator {
   Future<KeyPair> _deriveKeyPair({
     required String sellerPubkey,
     required String tradeId,
-    required Reservation lastRequest,
+    required Order lastRequest,
   }) => _logger.span('_deriveKeyPair', () async {
     final myPubkey = _auth.getActiveKey().publicKey;
     if (sellerPubkey == myPubkey) {

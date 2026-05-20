@@ -36,8 +36,8 @@ class _TripsScreenState extends State<TripsScreen> {
     final content = StatusStreamListWidget(
       stream: getIt<Hostr>().userSubscriptions.myResolvedTripsList$,
       itemKeyBuilder: (item) => ValueKey(item.group.tradeId),
-      sort: ReservationStatusSections.compareResolved,
-      sectionHeaderBuilder: ReservationStatusSections.buildResolvedHeader,
+      sort: OrderStatusSections.compareResolved,
+      sectionHeaderBuilder: OrderStatusSections.buildResolvedHeader,
       emptyBuilder: () => StatusStreamListWidget.empty(
         context,
         leading: Icon(

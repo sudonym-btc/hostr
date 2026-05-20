@@ -35,7 +35,7 @@ Future<List<Review>> buildReviews({
 
   for (var i = 0; i < threads.length; i++) {
     final thread = threads[i];
-    if (thread.reservation == null) continue;
+    if (thread.order == null) continue;
 
     // Isolated per-review RNG — all draws below come from here.
     final rr = _reviewRng(ctx.seed, i);
@@ -44,10 +44,10 @@ Future<List<Review>> buildReviews({
 
     final review = await f.review(
       signer: thread.guest.keyPair,
-      reservationAnchor: thread.reservation!.anchor!,
+      orderAnchor: thread.order!.anchor!,
       listingAnchor: thread.listing.anchor!,
-      reservation: thread.reservation!,
-      reservationAuthorKeyPair: _reservationAuthorKeyPair(thread),
+      order: thread.order!,
+      orderAuthorKeyPair: _orderAuthorKeyPair(thread),
       dTag: thread.request.getDtag(),
       paidViaEscrow: thread.paidViaEscrow,
       createdAt: ctx.timestampDaysAfter(90 + i),
@@ -60,26 +60,26 @@ Future<List<Review>> buildReviews({
   return reviews;
 }
 
-KeyPair _reservationAuthorKeyPair(SeedThread thread) {
-  final reservation = thread.reservation;
-  if (reservation == null) {
-    throw StateError('Cannot resolve review proof key without a reservation');
+KeyPair _orderAuthorKeyPair(SeedThread thread) {
+  final order = thread.order;
+  if (order == null) {
+    throw StateError('Cannot resolve review proof key without a order');
   }
 
-  if (reservation.pubKey == thread.host.keyPair.publicKey) {
+  if (order.pubKey == thread.host.keyPair.publicKey) {
     return thread.host.keyPair;
   }
 
-  if (reservation.pubKey == thread.guest.keyPair.publicKey) {
+  if (order.pubKey == thread.guest.keyPair.publicKey) {
     return thread.guest.keyPair;
   }
 
-  if (reservation.pubKey == thread.requestAuthorKeyPair.publicKey) {
+  if (order.pubKey == thread.requestAuthorKeyPair.publicKey) {
     return thread.requestAuthorKeyPair;
   }
 
   throw StateError(
-    'Unable to resolve reservation author key for seeded review: '
-    'reservation pubkey ${reservation.pubKey}',
+    'Unable to resolve order author key for seeded review: '
+    'order pubkey ${order.pubKey}',
   );
 }

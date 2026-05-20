@@ -45,16 +45,16 @@ void main() {
     final escrowService = (await harness.seeds.factory.buildEscrowServices(
       contractAddress: env.evmConfig.chains.first.escrowContractAddress!,
     )).first;
-    final negotiateReservation = trade.negotiateReservation;
+    final negotiateOrder = trade.negotiateOrder;
     final sellerProfile = trade.sellerProfile;
 
     final preparer = hostr.escrow.fund(
       EscrowFundParams(
         escrowService: escrowService,
-        negotiateReservation: negotiateReservation,
+        negotiateOrder: negotiateOrder,
         sellerProfile: sellerProfile,
         sellerEvmAddress: trade.sellerEvmAddress,
-        amount: negotiateReservation.amount!,
+        amount: negotiateOrder.amount!,
         dexInputBuffer: SwapInDexBuffer.zero,
       ),
     );
@@ -95,7 +95,7 @@ void main() {
     final contract = configured.escrow.getSupportedEscrowContract(
       escrowService,
     );
-    final tradeId = negotiateReservation.getDtag()!;
+    final tradeId = negotiateOrder.getDtag()!;
     final onChainTrade = await contract.getTrade(tradeId);
     expect(
       onChainTrade,

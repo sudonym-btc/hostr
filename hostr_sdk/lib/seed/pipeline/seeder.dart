@@ -117,9 +117,7 @@ class Seeder {
       now: resolvedNow,
     );
 
-    final reservationRequests = threads
-        .map((t) => t.request)
-        .toList(growable: false);
+    final orderRequests = threads.map((t) => t.request).toList(growable: false);
 
     // ── 6. Outcome planning (pure, deterministic) ────────────────────────
     final outcomePlans = stage_outcomes.buildOutcomePlans(
@@ -166,12 +164,12 @@ class Seeder {
 
     // ── 8. Post-outcome events ───────────────────────────────────────────
 
-    // Reservations are already set on threads by _executeOutcomes.
-    final reservations = threads
-        .where((t) => t.reservation != null)
-        .map((t) => t.reservation!)
+    // Orders are already set on threads by _executeOutcomes.
+    final orders = threads
+        .where((t) => t.order != null)
+        .map((t) => t.order!)
         .toList(growable: false);
-    for (final r in reservations) {
+    for (final r in orders) {
       await sink.publish(r);
     }
 
@@ -184,9 +182,9 @@ class Seeder {
       await sink.publish(z);
     }
 
-    // Transitions (depends on reservations being set).
-    final reservationTransitions = factory.buildReservationTransitions(threads);
-    for (final t in reservationTransitions) {
+    // Transitions (depends on orders being set).
+    final orderTransitions = factory.buildOrderTransitions(threads);
+    for (final t in orderTransitions) {
       await sink.publish(t);
     }
 
@@ -235,10 +233,10 @@ class Seeder {
       escrowServices: escrowServices,
       escrowMethods: escrowMethods,
       threads: threads,
-      reservationRequests: reservationRequests,
-      reservationTransitions: reservationTransitions,
+      orderRequests: orderRequests,
+      orderTransitions: orderTransitions,
       threadMessages: threadMessages,
-      reservations: reservations,
+      orders: orders,
       zapReceipts: zapReceipts,
       reviews: reviews,
       badgeDefinitions: badges.definitions,
@@ -288,13 +286,13 @@ class Seeder {
       plan.thread.escrowOutcome = plan.escrowOutcome;
     }
 
-    // Phase 4: Build reservation events (pure).
+    // Phase 4: Build order events (pure).
     // Skip escrow plans that never got a createTxHash — they would produce
-    // a commit reservation with proof=null which is invalid.
+    // a commit order with proof=null which is invalid.
     for (final plan in plans.where(
       (p) => !p.useEscrow || p.createTxHash != null,
     )) {
-      await stage_outcomes.buildReservationForPlan(
+      await stage_outcomes.buildOrderForPlan(
         ctx: ctx,
         plan: plan,
         profileByPubkey: profileByPubkey,
@@ -318,7 +316,7 @@ class Seeder {
               createdAt: ctx.timestampDaysAfter(1),
             ),
         methodByPubkey: methodByPubkey,
-        invalidReservationRate: config.invalidReservationRate,
+        invalidOrderRate: config.invalidOrderRate,
         factory: factory.entities,
       );
     }
@@ -359,7 +357,7 @@ class Seeder {
         ? thread.request.amount!.value * BigInt.from(10).pow(decimalDiff)
         : thread.request.amount!.value;
 
-    // For seeding, use the reservation end date as unlockAt WITHOUT the
+    // For seeding, use the order end date as unlockAt WITHOUT the
     // maxDisputePeriod offset.  This allows immediate settlement in the
     // seeder; real funding uses the offset via EscrowFundPreparer.
     final unlockAt = BigInt.from(

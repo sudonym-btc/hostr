@@ -6,10 +6,10 @@ import 'nostr/main.dart';
 T parser<T extends Nip01Event>(Nip01Event event) {
   int eventKind = event.kind;
 
-  if (Reservation.kinds.contains(eventKind)) {
-    return Reservation.fromNostrEvent(event) as T;
-  } else if (ReservationTransition.kinds.contains(eventKind)) {
-    return ReservationTransition.fromNostrEvent(event) as T;
+  if (Order.kinds.contains(eventKind)) {
+    return Order.fromNostrEvent(event) as T;
+  } else if (OrderTransition.kinds.contains(eventKind)) {
+    return OrderTransition.fromNostrEvent(event) as T;
   } else if (Message.kinds.contains(eventKind)) {
     return Message.safeParse(event) as T;
   } else if (ReceivedHeartbeat.kinds.contains(eventKind)) {

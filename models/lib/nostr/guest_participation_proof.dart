@@ -1,8 +1,8 @@
 import 'package:models/main.dart';
 
 /// Proof that reveals the signed participant authorization plaintext used in a
-/// reservation `participant_proof`. Review verification matches this plaintext
-/// against the reservation proof's hash before trusting the authorization.
+/// order `participant_proof`. Review verification matches this plaintext
+/// against the order proof's hash before trusting the authorization.
 class ParticipationProof {
   final String role;
   final String participantPubkey;
@@ -15,10 +15,10 @@ class ParticipationProof {
   });
 
   String get authorizationPayloadHash =>
-      ReservationParticipantProofTag.hashPayload(authorizationPayload);
+      OrderParticipantProofTag.hashPayload(authorizationPayload);
 
-  ReservationParticipantAuthorizationPayload? get authorization =>
-      ReservationParticipantAuthorizationPayload.tryDecode(
+  OrderParticipantAuthorizationPayload? get authorization =>
+      OrderParticipantAuthorizationPayload.tryDecode(
         authorizationPayload,
       );
 

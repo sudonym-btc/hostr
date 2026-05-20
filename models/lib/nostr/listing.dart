@@ -51,8 +51,7 @@ mixin ListingTagRead {
       tagSource.getTagEnum('type', ListingType.values) ?? ListingType.room;
   bool get instantBook =>
       tagSource.getTagBool('instantBook', defaultValue: true);
-  bool get allowSelfSignedReservation =>
-      tagSource.getTagBool('allowSelfSignedReservation');
+  bool get allowSelfSignedOrder => tagSource.getTagBool('allowSelfSignedOrder');
   List<Price> get prices => tagSource.getTagPrices();
   List<CancellationPolicy> get cancellationPolicies =>
       tagSource.getTagCancellationPolicies();
@@ -72,7 +71,7 @@ mixin ListingTagRead {
   DenominatedAmount? get minPaymentAmount =>
       tagSource.getTagDenominatedAmount('minPaymentAmount');
 
-  /// Maximum time in seconds after the reservation end date that the escrow
+  /// Maximum time in seconds after the order end date that the escrow
   /// must unlock at. Stored as `['maxDisputePeriod', '<seconds>']`.
   /// Defaults to 2 weeks (1 209 600 s) when not set.
   static const int defaultMaxDisputePeriod = 14 * 24 * 60 * 60; // 2 weeks
@@ -207,7 +206,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     String checkOut = '11:0',
     int quantity = 1,
     bool instantBook = true,
-    bool allowSelfSignedReservation = false,
+    bool allowSelfSignedOrder = false,
     List<CancellationPolicy> cancellationPolicy = const [],
     DenominatedAmount? securityDeposit,
     DenominatedAmount? minPaymentAmount,
@@ -237,8 +236,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addInt('quantity', quantity)
               ..addEnum('type', type)
               ..addBool('instantBook', instantBook)
-              ..addBool(
-                  'allowSelfSignedReservation', allowSelfSignedReservation)
+              ..addBool('allowSelfSignedOrder', allowSelfSignedOrder)
               ..addPrices(price)
               ..addCancellationPolicies(cancellationPolicy)
               ..addOptionalDenominatedAmount('securityDeposit', securityDeposit)
@@ -277,7 +275,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     int? quantity,
     ListingType? type,
     bool? instantBook,
-    bool? allowSelfSignedReservation,
+    bool? allowSelfSignedOrder,
     List<Price>? prices,
     List<CancellationPolicy>? cancellationPolicy,
     Specifications? specifications,
@@ -316,7 +314,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       'quantity',
       'type',
       'instantBook',
-      'allowSelfSignedReservation',
+      'allowSelfSignedOrder',
       'price',
       'cancellationPolicy',
       'spec',
@@ -354,8 +352,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addInt('quantity', quantity ?? this.quantity)
               ..addEnum('type', type ?? this.listingType)
               ..addBool('instantBook', instantBook ?? this.instantBook)
-              ..addBool('allowSelfSignedReservation',
-                  allowSelfSignedReservation ?? this.allowSelfSignedReservation)
+              ..addBool('allowSelfSignedOrder',
+                  allowSelfSignedOrder ?? this.allowSelfSignedOrder)
               ..addPrices(prices ?? this.prices)
               ..addCancellationPolicies(
                   cancellationPolicy ?? this.cancellationPolicy)
@@ -462,11 +460,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   static bool isAvailable(
     DateTime start,
     DateTime end,
-    List<ReservationGroup> reservationGroups,
+    List<OrderGroup> orderGroups,
   ) {
-    for (final group in reservationGroups) {
+    for (final group in orderGroups) {
       if (group.cancelled) continue;
-      if (group.stage != ReservationStage.commit) continue;
+      if (group.stage != OrderStage.commit) continue;
 
       final pairStart = group.start;
       final pairEnd = group.end;

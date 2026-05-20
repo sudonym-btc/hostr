@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:sqlite3/common.dart';
 
 import '../../config.dart';

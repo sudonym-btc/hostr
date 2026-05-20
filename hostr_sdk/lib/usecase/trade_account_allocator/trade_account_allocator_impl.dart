@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:wallet/wallet.dart' as bip;
 
 import '../../util/main.dart';
@@ -8,7 +8,7 @@ import '../auth/auth.dart';
 import '../deterministic_keys/deterministic_keys.dart';
 import '../evm/evm.dart';
 import '../messaging/threads.dart';
-import '../reservations/reservations.dart';
+import '../orders/orders.dart';
 import 'trade_account_allocator.dart';
 import 'trade_account_cache.dart';
 
@@ -17,7 +17,7 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   final Auth _auth;
   final DeterministicKeys _hd;
   final Evm _evm;
-  final Reservations _reservations;
+  final Orders _orders;
   final Threads _threads;
   final TradeAccountCache _cache;
   final CustomLogger _logger;
@@ -26,14 +26,14 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
     required Auth auth,
     required DeterministicKeys hd,
     required Evm evm,
-    required Reservations reservations,
+    required Orders orders,
     required Threads threads,
     required TradeAccountCache cache,
     required CustomLogger logger,
   }) : _auth = auth,
        _hd = hd,
        _evm = evm,
-       _reservations = reservations,
+       _orders = orders,
        _threads = threads,
        _cache = cache,
        _logger = logger.scope('trade_account_allocator');
@@ -158,10 +158,10 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
 
   Future<bool> _tradeExists(String tradeId) async {
     // Check in-memory threads first — covers negotiate-only trades that have
-    // never progressed to a committed reservation on the relay.
+    // never progressed to a committed order on the relay.
     if (_threads.findByConversationTag(tradeId).isNotEmpty) return true;
-    final reservations = await _reservations.getByTradeId(tradeId);
-    return reservations.isNotEmpty;
+    final orders = await _orders.getByTradeId(tradeId);
+    return orders.isNotEmpty;
   }
 
   Future<void> _waitForThreadHydration() async {

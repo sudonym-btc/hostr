@@ -44,7 +44,7 @@ Widget threadMessageReceived(BuildContext context) {
 }
 
 @widgetbook.UseCase(
-  name: 'Reservation request - sent',
+  name: 'Order request - sent',
   type: ThreadReservationRequestWidget,
 )
 Widget reservationRequestSent(BuildContext context) {
@@ -59,7 +59,7 @@ Widget reservationRequestSent(BuildContext context) {
 }
 
 @widgetbook.UseCase(
-  name: 'Reservation request - received',
+  name: 'Order request - received',
   type: ThreadReservationRequestWidget,
 )
 Widget reservationRequestReceived(BuildContext context) {

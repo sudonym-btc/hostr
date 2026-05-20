@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
@@ -117,12 +117,12 @@ class Threads {
   );
 
   static List<String> normalizeParticipants(Iterable<String> participants) =>
-      ReservationGroup.normalizeParticipants(participants);
+      OrderGroup.normalizeParticipants(participants);
 
   static String conversationIdentifier(
     Iterable<String> participants, {
     String conversationTag = '',
-  }) => ReservationGroup.groupIdForParticipants(
+  }) => OrderGroup.groupIdForParticipants(
     tradeId: conversationTag,
     participants: participants,
   );
@@ -187,12 +187,12 @@ class Threads {
   /// DM routing tags via [threadIdentifierFor].
   ///
   /// For [Message] events, children are unwrapped here:
-  /// - [Reservation] child → stored as [Reservation] in the thread
+  /// - [Order] child → stored as [Order] in the thread
   /// - [EscrowServiceSelected] child → stored as [EscrowServiceSelected]
   /// - No child / plain text → stored as [Message]
   ///
   /// Unwrapped events are emitted on [_processedEvents$] for downstream
-  /// consumers (reservations, background worker, inbox list).
+  /// consumers (orders, background worker, inbox list).
   void processEvent(Nip01Event raw) => _logger.spanSync('processEvent', () {
     // Ignore duplicate events — the relay or subscription layer may deliver
     // the same event more than once (e.g. stored + live).

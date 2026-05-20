@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:equatable/equatable.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 
 import '../../util/custom_logger.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
+import '../order_groups/order_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 abstract class CalendarPort {
@@ -141,10 +141,10 @@ class Calendar {
     _publishedEntries.clear();
   });
 
-  Future<void> _onHosting(ResolvedValidatedReservationGroupParticipants item) =>
+  Future<void> _onHosting(ResolvedValidatedOrderGroupParticipants item) =>
       _logger.span('_onHosting', () async {
         final validation = item.validation;
-        if (validation is! Valid<ReservationGroup>) return;
+        if (validation is! Valid<OrderGroup>) return;
         final group = item.group;
         if (!_isFuture(group)) return;
 
@@ -172,9 +172,9 @@ class Calendar {
         }
       });
 
-  Future<void> _onTrip(Validation<ReservationGroup> validation) =>
+  Future<void> _onTrip(Validation<OrderGroup> validation) =>
       _logger.span('_onTrip', () async {
-        if (validation is! Valid<ReservationGroup>) return;
+        if (validation is! Valid<OrderGroup>) return;
         final group = validation.event;
         if (!_isFuture(group)) return;
 
@@ -200,20 +200,19 @@ class Calendar {
       });
 
   Future<void> _onHostingSnapshot(
-    List<ResolvedValidatedReservationGroupParticipants> items,
+    List<ResolvedValidatedOrderGroupParticipants> items,
   ) => _logger.span('_onHostingSnapshot', () async {
     for (final item in items) {
       await _onHosting(item);
     }
   });
 
-  Future<void> _onTripSnapshot(
-    List<Validation<ReservationGroup>> validations,
-  ) => _logger.span('_onTripSnapshot', () async {
-    for (final validation in validations) {
-      await _onTrip(validation);
-    }
-  });
+  Future<void> _onTripSnapshot(List<Validation<OrderGroup>> validations) =>
+      _logger.span('_onTripSnapshot', () async {
+        for (final validation in validations) {
+          await _onTrip(validation);
+        }
+      });
 
   Future<void> _publishEntry(CalendarEntry entry) =>
       _logger.span('_publishEntry', () async {
@@ -228,7 +227,7 @@ class Calendar {
 
   CalendarEntry _buildEntry({
     required String tradeId,
-    required ReservationGroup group,
+    required OrderGroup group,
     required String baseTitle,
   }) {
     final start = group.start;
@@ -258,9 +257,7 @@ class Calendar {
         }
       });
 
-  String? _resolveGuestPubkey(
-    ResolvedValidatedReservationGroupParticipants item,
-  ) {
+  String? _resolveGuestPubkey(ResolvedValidatedOrderGroupParticipants item) {
     final resolved = item.participants.resolvedParticipantPubkeyForRole(
       'buyer',
     );
@@ -268,7 +265,7 @@ class Calendar {
     return item.participants.rawParticipantPubkeyForRole('buyer');
   }
 
-  bool _isFuture(ReservationGroup group) {
+  bool _isFuture(OrderGroup group) {
     final start = group.start;
     final end = group.end;
     if (start == null || end == null) return false;
@@ -276,10 +273,7 @@ class Calendar {
     return start.isAfter(DateTime.now().toUtc());
   }
 
-  String _buildTitle({
-    required ReservationGroup group,
-    required String baseTitle,
-  }) {
+  String _buildTitle({required OrderGroup group, required String baseTitle}) {
     if (group.cancelled) {
       return 'CANCELLED: $baseTitle';
     }

@@ -9,7 +9,7 @@ import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/requests/expandable_subscription.dart';
-import 'package:hostr_sdk/usecase/reservations/reservations.dart';
+import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -36,10 +36,10 @@ class _FakeExpandableSubscription<T extends Event> extends Fake
 }
 
 class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
-  final _reservations = _FakeExpandableSubscription<Reservation>();
+  final _orders = _FakeExpandableSubscription<Order>();
 
   @override
-  ExpandableSubscription<Reservation> get allMyReservations$ => _reservations;
+  ExpandableSubscription<Order> get allMyOrders$ => _orders;
 
   @override
   final StreamWithStatus<PaymentEvent> paymentEvents$ =
@@ -64,8 +64,8 @@ class _FakeThreads extends Fake implements Threads {
   _FakeThreads(this.threads);
 }
 
-class _FakeReservations extends Fake implements Reservations {
-  final List<Reservation> queriedReservations;
+class _FakeOrders extends Fake implements Orders {
+  final List<Order> queriedOrders;
   final Duration getByTradeIdDelay;
   int getByTradeIdCount = 0;
   int createSelfSignedCount = 0;
@@ -73,13 +73,10 @@ class _FakeReservations extends Fake implements Reservations {
   int maxActiveGetByTradeIdCount = 0;
   final List<String> queriedTradeIds = [];
 
-  _FakeReservations(
-    this.queriedReservations, {
-    this.getByTradeIdDelay = Duration.zero,
-  });
+  _FakeOrders(this.queriedOrders, {this.getByTradeIdDelay = Duration.zero});
 
   @override
-  Future<List<Reservation>> getByTradeId(String tradeId) async {
+  Future<List<Order>> getByTradeId(String tradeId) async {
     getByTradeIdCount++;
     queriedTradeIds.add(tradeId);
     activeGetByTradeIdCount++;
@@ -90,8 +87,8 @@ class _FakeReservations extends Fake implements Reservations {
       if (getByTradeIdDelay > Duration.zero) {
         await Future<void>.delayed(getByTradeIdDelay);
       }
-      return queriedReservations
-          .where((reservation) => reservation.getDtag() == tradeId)
+      return queriedOrders
+          .where((order) => order.getDtag() == tradeId)
           .toList();
     } finally {
       activeGetByTradeIdCount--;
@@ -99,13 +96,13 @@ class _FakeReservations extends Fake implements Reservations {
   }
 
   @override
-  Future<Reservation> createSelfSigned({
+  Future<Order> createSelfSigned({
     required KeyPair activeKeyPair,
-    required Reservation negotiateReservation,
+    required Order negotiateOrder,
     required PaymentProof proof,
   }) async {
     createSelfSignedCount++;
-    return negotiateReservation;
+    return negotiateOrder;
   }
 }
 
@@ -113,14 +110,14 @@ class _FakeListings extends Fake implements Listings {}
 
 class _FakeMetadataUseCase extends Fake implements MetadataUseCase {}
 
-Reservation _reservation({
+Order _order({
   required String tradeId,
   required String listingAnchor,
   required String pubkey,
-  required ReservationStage stage,
+  required OrderStage stage,
   int createdAt = 100,
 }) {
-  return Reservation.create(
+  return Order.create(
     id: '$tradeId-$pubkey-${stage.name}',
     pubKey: pubkey,
     dTag: tradeId,
@@ -136,15 +133,12 @@ Reservation _reservation({
   );
 }
 
-Message _reservationMessage({
-  required String tradeId,
-  required Reservation reservation,
-}) {
+Message _orderMessage({required String tradeId, required Order order}) {
   return Message(
     id: 'message-$tradeId',
     pubKey: MockKeys.guest.publicKey,
-    child: reservation,
-    createdAt: reservation.createdAt,
+    child: order,
+    createdAt: order.createdAt,
     tags: MessageTags([
       ['p', MockKeys.hoster.publicKey],
       [kConversationTag, tradeId],
@@ -180,13 +174,13 @@ EscrowFundedEvent _fundedEvent(String tradeId) {
   );
 }
 
-Thread _threadFor({required String tradeId, required Reservation negotiate}) {
+Thread _threadFor({required String tradeId, required Order negotiate}) {
   return _FakeThread(
     anchor: 'thread-$tradeId',
     state: ThreadState(
       ourPubkey: MockKeys.guest.publicKey,
       anchor: 'thread-$tradeId',
-      events: [_reservationMessage(tradeId: tradeId, reservation: negotiate)],
+      events: [_orderMessage(tradeId: tradeId, order: negotiate)],
       counterpartyPubkeys: [MockKeys.hoster.publicKey],
       participantPubkeys: [MockKeys.guest.publicKey, MockKeys.hoster.publicKey],
     ),
@@ -202,78 +196,75 @@ Future<void> _waitUntil(bool Function() test) async {
 }
 
 void main() {
-  test(
-    'does not republish self-signed reservation found by one-off trade query '
-    'after restart',
-    () async {
-      const tradeId = 'trade-already-booked';
-      final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
-      final negotiate = _reservation(
-        tradeId: tradeId,
-        listingAnchor: listingAnchor,
-        pubkey: MockKeys.guest.publicKey,
-        stage: ReservationStage.negotiate,
-      );
-      final existingCommit = _reservation(
-        tradeId: tradeId,
-        listingAnchor: listingAnchor,
-        pubkey: MockKeys.guest.publicKey,
-        stage: ReservationStage.commit,
-        createdAt: 200,
-      );
-      final thread = _threadFor(tradeId: tradeId, negotiate: negotiate);
-      final userSubscriptions = _FakeUserSubscriptions()
-        ..paymentEvents$.add(_fundedEvent(tradeId));
-      final reservations = _FakeReservations([existingCommit]);
-      final orchestrator = PaymentProofOrchestrator(
-        userSubs: userSubscriptions,
-        threads: _FakeThreads({'thread-$tradeId': thread}),
-        auth: _FakeAuth(),
-        reservations: reservations,
-        listings: _FakeListings(),
-        metadata: _FakeMetadataUseCase(),
-        logger: CustomLogger(),
-      );
+  test('does not republish self-signed order found by one-off trade query '
+      'after restart', () async {
+    const tradeId = 'trade-already-booked';
+    final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
+    final negotiate = _order(
+      tradeId: tradeId,
+      listingAnchor: listingAnchor,
+      pubkey: MockKeys.guest.publicKey,
+      stage: OrderStage.negotiate,
+    );
+    final existingCommit = _order(
+      tradeId: tradeId,
+      listingAnchor: listingAnchor,
+      pubkey: MockKeys.guest.publicKey,
+      stage: OrderStage.commit,
+      createdAt: 200,
+    );
+    final thread = _threadFor(tradeId: tradeId, negotiate: negotiate);
+    final userSubscriptions = _FakeUserSubscriptions()
+      ..paymentEvents$.add(_fundedEvent(tradeId));
+    final orders = _FakeOrders([existingCommit]);
+    final orchestrator = PaymentProofOrchestrator(
+      userSubs: userSubscriptions,
+      threads: _FakeThreads({'thread-$tradeId': thread}),
+      auth: _FakeAuth(),
+      orders: orders,
+      listings: _FakeListings(),
+      metadata: _FakeMetadataUseCase(),
+      logger: CustomLogger(),
+    );
 
-      await orchestrator.start();
-      await _waitUntil(() => reservations.getByTradeIdCount == 1);
-      await orchestrator.reset();
-      await orchestrator.start();
-      await _waitUntil(() => reservations.getByTradeIdCount == 2);
+    await orchestrator.start();
+    await _waitUntil(() => orders.getByTradeIdCount == 1);
+    await orchestrator.reset();
+    await orchestrator.start();
+    await _waitUntil(() => orders.getByTradeIdCount == 2);
 
-      expect(reservations.getByTradeIdCount, 2);
-      expect(reservations.createSelfSignedCount, 0);
+    expect(orders.getByTradeIdCount, 2);
+    expect(orders.createSelfSignedCount, 0);
 
-      await orchestrator.dispose();
-      await thread.state.close();
-      await userSubscriptions._reservations.stream.close();
-      await userSubscriptions.paymentEvents$.close();
-    },
-  );
+    await orchestrator.dispose();
+    await thread.state.close();
+    await userSubscriptions._orders.stream.close();
+    await userSubscriptions.paymentEvents$.close();
+  });
 
   test('processes replayed payment events one at a time', () async {
     const tradeIds = ['trade-1', 'trade-2', 'trade-3'];
     final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
 
     final threads = <String, Thread>{};
-    final existingCommits = <Reservation>[];
+    final existingCommits = <Order>[];
     for (final tradeId in tradeIds) {
-      final negotiate = _reservation(
+      final negotiate = _order(
         tradeId: tradeId,
         listingAnchor: listingAnchor,
         pubkey: MockKeys.guest.publicKey,
-        stage: ReservationStage.negotiate,
+        stage: OrderStage.negotiate,
       );
       threads['thread-$tradeId'] = _threadFor(
         tradeId: tradeId,
         negotiate: negotiate,
       );
       existingCommits.add(
-        _reservation(
+        _order(
           tradeId: tradeId,
           listingAnchor: listingAnchor,
           pubkey: MockKeys.guest.publicKey,
-          stage: ReservationStage.commit,
+          stage: OrderStage.commit,
           createdAt: 200,
         ),
       );
@@ -284,7 +275,7 @@ void main() {
       userSubscriptions.paymentEvents$.add(_fundedEvent(tradeId));
     }
 
-    final reservations = _FakeReservations(
+    final orders = _FakeOrders(
       existingCommits,
       getByTradeIdDelay: const Duration(milliseconds: 25),
     );
@@ -292,24 +283,24 @@ void main() {
       userSubs: userSubscriptions,
       threads: _FakeThreads(threads),
       auth: _FakeAuth(),
-      reservations: reservations,
+      orders: orders,
       listings: _FakeListings(),
       metadata: _FakeMetadataUseCase(),
       logger: CustomLogger(),
     );
 
     await orchestrator.start();
-    await _waitUntil(() => reservations.getByTradeIdCount == tradeIds.length);
+    await _waitUntil(() => orders.getByTradeIdCount == tradeIds.length);
 
-    expect(reservations.maxActiveGetByTradeIdCount, 1);
-    expect(reservations.queriedTradeIds, tradeIds);
-    expect(reservations.createSelfSignedCount, 0);
+    expect(orders.maxActiveGetByTradeIdCount, 1);
+    expect(orders.queriedTradeIds, tradeIds);
+    expect(orders.createSelfSignedCount, 0);
 
     await orchestrator.dispose();
     for (final thread in threads.values) {
       await thread.state.close();
     }
-    await userSubscriptions._reservations.stream.close();
+    await userSubscriptions._orders.stream.close();
     await userSubscriptions.paymentEvents$.close();
   });
 }

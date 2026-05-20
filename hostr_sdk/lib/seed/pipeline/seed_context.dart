@@ -20,21 +20,21 @@ class SeedContext {
     required this.seed,
     this.contractAddress = '0x0000000000000000000000000000000000000000',
     int? userCount,
-    int? reservationRequestsPerGuest,
+    int? orderRequestsPerGuest,
   }) : random = Random(seed),
        baseDate = _computePastBaseDate(
          userCount ?? 50,
-         reservationRequestsPerGuest ?? 10,
+         orderRequestsPerGuest ?? 10,
        );
 
   // ── Deterministic timestamp helpers ──
 
   static DateTime _computePastBaseDate(
     int userCount,
-    int reservationRequestsPerGuest,
+    int orderRequestsPerGuest,
   ) {
     final now = DateTime.now().toUtc();
-    final maxThreads = userCount * reservationRequestsPerGuest;
+    final maxThreads = userCount * orderRequestsPerGuest;
     const safetyDays = 30;
     final totalBackDays = 90 + maxThreads + safetyDays;
     const maxBackfillDays = 120;

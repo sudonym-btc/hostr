@@ -12,8 +12,8 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
-import '../../usecase/reservations/reservation_participant_tags.dart';
-import '../../usecase/reservations/reservation_participant_authorization.dart';
+import '../../usecase/orders/order_participant_tags.dart';
+import '../../usecase/orders/order_participant_authorization.dart';
 import 'seed_context.dart';
 
 // ─── Seed identity data ────────────────────────────────────────────────────
@@ -658,7 +658,7 @@ Specifications _buildListingSpecifications(Random r) {
 /// final f = EntityFactory();
 /// final listing = f.listing(title: 'Beach House', instantBook: true);
 /// final profile = await f.profile(displayName: 'Alice');
-/// final reservation = f.reservation(listing: listing);
+/// final order = f.order(listing: listing);
 /// ```
 ///
 /// The seed pipeline batch stages (`build_listings.dart`, etc.) delegate
@@ -711,7 +711,7 @@ class EntityFactory {
     List<String>? images,
     Specifications? specifications,
     bool? instantBook,
-    bool? allowSelfSignedReservation,
+    bool? allowSelfSignedOrder,
     bool? negotiable,
     int? minStay,
     String? checkIn,
@@ -821,7 +821,7 @@ class EntityFactory {
           ['https://picsum.photos/seed/$resolvedDTag/1200/800'],
       specifications: specifications ?? seedAmenities ?? Specifications(),
       instantBook: instantBook ?? true,
-      allowSelfSignedReservation: allowSelfSignedReservation ?? false,
+      allowSelfSignedOrder: allowSelfSignedOrder ?? false,
       negotiable: negotiable ?? false,
       minStay: minStay ?? 1,
       checkIn: checkIn ?? '15:0',
@@ -1093,13 +1093,13 @@ class EntityFactory {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Reservation
+  // Order
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<String> _signParticipantAuthorization({
     required String listingAnchor,
     required KeyPair identityKeyPair,
-    required ReservationParticipantAuthorizationDraft draft,
+    required OrderParticipantAuthorizationDraft draft,
   }) async {
     if (draft.identityPubkey != identityKeyPair.publicKey) {
       throw StateError(
@@ -1114,22 +1114,22 @@ class EntityFactory {
       participantPubkey: draft.participantPubkey,
       role: draft.role,
     ).signAs(identityKeyPair, TradeKeyAuthorization.fromNostrEvent);
-    return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+    return OrderParticipantAuthorizationPayload.fromAuthorizationEvent(
       authorization,
     ).encode();
   }
 
-  Future<ReservationParticipantTagPlan> _reservationParticipantTagPlan({
+  Future<OrderParticipantTagPlan> _orderParticipantTagPlan({
     required String tradeId,
     required Listing listing,
-    required KeyPair reservationAuthorKey,
+    required KeyPair orderAuthorKey,
     required KeyPair buyerIdentityKey,
     required String buyerParticipantPubkey,
     required Iterable<PTag> pTags,
     required PaymentProof? proof,
   }) async {
     final hintsByPubkey = <String, String>{};
-    final participantsByRole = <String, ReservationParticipant>{};
+    final participantsByRole = <String, OrderParticipant>{};
 
     void addPTagParticipant(PTag tag) {
       if (tag.pubkey.isEmpty) return;
@@ -1137,7 +1137,7 @@ class EntityFactory {
         hintsByPubkey[tag.pubkey] = tag.relayHint;
       }
 
-      final role = tag.role ?? _inferReservationParticipantRole(tag, listing);
+      final role = tag.role ?? _inferOrderParticipantRole(tag, listing);
       if (role == null || role.isEmpty) return;
 
       participantsByRole[role] = _participantForRole(
@@ -1153,11 +1153,11 @@ class EntityFactory {
 
     participantsByRole.putIfAbsent(
       'seller',
-      () => ReservationParticipant.real(role: 'seller', pubkey: listing.pubKey),
+      () => OrderParticipant.real(role: 'seller', pubkey: listing.pubKey),
     );
     participantsByRole.putIfAbsent(
       'buyer',
-      () => ReservationParticipant(
+      () => OrderParticipant(
         role: 'buyer',
         participantPubkey: buyerParticipantPubkey,
         identityPubkey: buyerIdentityKey.publicKey,
@@ -1168,20 +1168,20 @@ class EntityFactory {
     if (escrowPubkey != null && escrowPubkey.isNotEmpty) {
       participantsByRole.putIfAbsent(
         'escrow',
-        () => ReservationParticipant.real(role: 'escrow', pubkey: escrowPubkey),
+        () => OrderParticipant.real(role: 'escrow', pubkey: escrowPubkey),
       );
     }
 
-    return buildReservationParticipantTagPlan(
+    return buildOrderParticipantTagPlan(
       tradeId: tradeId,
-      reservationAuthorKey: reservationAuthorKey,
+      orderAuthorKey: orderAuthorKey,
       participants: participantsByRole.values,
       relayHintFor: (pubkey) async => hintsByPubkey[pubkey] ?? '',
       signAuthorization: (draft) => _signParticipantAuthorization(
         listingAnchor: listing.anchor!,
         identityKeyPair: draft.role == 'buyer'
             ? buyerIdentityKey
-            : reservationAuthorKey,
+            : orderAuthorKey,
         draft: draft,
       ),
       encryptAuthorization:
@@ -1194,24 +1194,24 @@ class EntityFactory {
     );
   }
 
-  String? _inferReservationParticipantRole(PTag tag, Listing listing) {
+  String? _inferOrderParticipantRole(PTag tag, Listing listing) {
     if (tag.pubkey == listing.pubKey) return 'seller';
     return 'buyer';
   }
 
-  ReservationParticipant _participantForRole({
+  OrderParticipant _participantForRole({
     required String role,
     required String pubkey,
     required KeyPair buyerIdentityKey,
   }) {
     if (role == 'buyer') {
-      return ReservationParticipant(
+      return OrderParticipant(
         role: role,
         participantPubkey: pubkey,
         identityPubkey: buyerIdentityKey.publicKey,
       );
     }
-    return ReservationParticipant.real(role: role, pubkey: pubkey);
+    return OrderParticipant.real(role: role, pubkey: pubkey);
   }
 
   String _buyerParticipantPubkey({
@@ -1221,30 +1221,30 @@ class EntityFactory {
     required KeyPair fallback,
   }) {
     for (final tag in pTags) {
-      final role = tag.role ?? _inferReservationParticipantRole(tag, listing);
+      final role = tag.role ?? _inferOrderParticipantRole(tag, listing);
       if (role == 'buyer' && tag.pubkey.isNotEmpty) return tag.pubkey;
     }
     if (recipient != null && recipient.isNotEmpty) return recipient;
     return fallback.publicKey;
   }
 
-  /// Build a single signed [Reservation].
+  /// Build a single signed [Order].
   ///
   /// Derives a deterministic trade key pair from [guestKeyPair] when [stage]
-  /// is [ReservationStage.negotiate] (matching production behaviour).
+  /// is [OrderStage.negotiate] (matching production behaviour).
   ///
-  /// For commit-stage reservations, pass [signerOverride] to control
+  /// For commit-stage orders, pass [signerOverride] to control
   /// whether the host or guest signs.  When both [dTag] *and*
   /// [signerOverride] are supplied the expensive key-derivation step is
   /// skipped entirely — useful when the caller already
   /// knows the trade ID and signer (e.g. the outcome stage).
-  Future<Reservation> reservation({
+  Future<Order> order({
     KeyPair? guestKeyPair,
     String? dTag,
     required Listing listing,
     DateTime? start,
     DateTime? end,
-    ReservationStage stage = ReservationStage.negotiate,
+    OrderStage stage = OrderStage.negotiate,
     int? quantity,
     DenominatedAmount? amount,
     String? recipient,
@@ -1267,19 +1267,19 @@ class EntityFactory {
     // No key derivation needed — the caller supplies everything.
     if (dTag != null && signerOverride != null) {
       // Auto-compute pTags when not provided:
-      // Always include the host and buyer participant so reservation groups
+      // Always include the host and buyer participant so order groups
       // created by the seeder use the same raw participant set as live app
-      // reservations, even when the host publishes the commit.
+      // orders, even when the host publishes the commit.
       final isSeller = signerOverride.publicKey == listing.pubKey;
       final defaultBuyerPubkey =
           recipient ?? (isSeller ? guest.publicKey : signerOverride.publicKey);
       final resolvedPTags =
           pTags ??
           <PTag>[PTag.seller(listing.pubKey), PTag.buyer(defaultBuyerPubkey)];
-      final participantPlan = await _reservationParticipantTagPlan(
+      final participantPlan = await _orderParticipantTagPlan(
         tradeId: dTag,
         listing: listing,
-        reservationAuthorKey: signerOverride,
+        orderAuthorKey: signerOverride,
         buyerIdentityKey: guest,
         buyerParticipantPubkey: _buyerParticipantPubkey(
           pTags: resolvedPTags,
@@ -1290,7 +1290,7 @@ class EntityFactory {
         pTags: resolvedPTags,
         proof: proof,
       );
-      var reservation = Reservation.create(
+      var order = Order.create(
         pubKey: signerOverride.publicKey,
         dTag: dTag,
         listingAnchor: listing.anchor!,
@@ -1305,7 +1305,7 @@ class EntityFactory {
         extraTags: [...participantPlan.tags, ...extraTags],
         createdAt: createdAt ?? _defaultCreatedAt(),
       );
-      return reservation.signAs(signerOverride, Reservation.fromNostrEvent);
+      return order.signAs(signerOverride, Order.fromNostrEvent);
     }
 
     // ── Standard path: derive trade keys ──────────────────────────────
@@ -1317,37 +1317,34 @@ class EntityFactory {
     );
 
     final resolvedSigner =
-        signerOverride ??
-        (stage == ReservationStage.negotiate ? tradeKey : guest);
+        signerOverride ?? (stage == OrderStage.negotiate ? tradeKey : guest);
     final resolvedPTags =
         pTags ??
         [
           PTag.seller(listing.pubKey),
           PTag.buyer(
-            stage == ReservationStage.negotiate
+            stage == OrderStage.negotiate
                 ? tradeKey.publicKey
                 : resolvedSigner.publicKey,
           ),
         ];
-    final participantPlan = await _reservationParticipantTagPlan(
+    final participantPlan = await _orderParticipantTagPlan(
       tradeId: tradeId,
       listing: listing,
-      reservationAuthorKey: resolvedSigner,
+      orderAuthorKey: resolvedSigner,
       buyerIdentityKey: guest,
       buyerParticipantPubkey: _buyerParticipantPubkey(
         pTags: resolvedPTags,
         listing: listing,
         recipient: recipient,
-        fallback: stage == ReservationStage.negotiate
-            ? tradeKey
-            : resolvedSigner,
+        fallback: stage == OrderStage.negotiate ? tradeKey : resolvedSigner,
       ),
       pTags: resolvedPTags,
       proof: proof,
     );
 
-    var reservation = Reservation.create(
-      pubKey: stage == ReservationStage.negotiate
+    var order = Order.create(
+      pubKey: stage == OrderStage.negotiate
           ? tradeKey.publicKey
           : resolvedSigner.publicKey,
       dTag: tradeId,
@@ -1363,7 +1360,7 @@ class EntityFactory {
       extraTags: [...participantPlan.tags, ...extraTags],
       createdAt: createdAt ?? _defaultCreatedAt(),
     );
-    return reservation.signAs(resolvedSigner, Reservation.fromNostrEvent);
+    return order.signAs(resolvedSigner, Order.fromNostrEvent);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1372,7 +1369,7 @@ class EntityFactory {
 
   /// Build a single signed [Review].
   Future<ParticipationProof> _participationProofForReview({
-    required Reservation reservation,
+    required Order order,
     required KeyPair recipientKeyPair,
     required String identityPubkey,
     required String role,
@@ -1381,31 +1378,29 @@ class EntityFactory {
     if (recipientPrivateKey == null || recipientPrivateKey.isEmpty) {
       throw StateError('Review proof recipient key requires a private key');
     }
-    final tradeId = reservation.getDtag();
+    final tradeId = order.getDtag();
     if (tradeId == null || tradeId.isEmpty) {
-      throw StateError('Reservation trade id is required for review proof');
+      throw StateError('Order trade id is required for review proof');
     }
-    final participantPubkey = reservation.participantPubkeyForRole(role);
+    final participantPubkey = order.participantPubkeyForRole(role);
 
-    final proofMap = reservationParticipantProofsByPubkey(reservation);
+    final proofMap = orderParticipantProofsByPubkey(order);
     for (final proof in proofMap[participantPubkey] ?? const []) {
       if (proof.role != role) continue;
       if (proof.recipientPubkey != recipientKeyPair.publicKey) continue;
-      if (proof.scheme != kReservationParticipantProofSchemeNip44) continue;
+      if (proof.scheme != kOrderParticipantProofSchemeNip44) continue;
 
       final plaintext = await coinlibDecryptNip44(
         proof.payload,
         recipientPrivateKey,
-        reservation.pubKey,
+        order.pubKey,
       );
       if (!proof.matchesPayload(plaintext)) continue;
-      final payload = ReservationParticipantAuthorizationPayload.tryDecode(
-        plaintext,
-      );
+      final payload = OrderParticipantAuthorizationPayload.tryDecode(plaintext);
       if (payload == null || payload.pubkey != identityPubkey) continue;
-      if (!payload.verifiesForReservation(
+      if (!payload.verifiesForOrder(
         tradeId: tradeId,
-        listingAnchor: reservation.parsedTags.listingAnchor,
+        listingAnchor: order.parsedTags.listingAnchor,
         participantPubkey: participantPubkey,
         role: role,
       )) {
@@ -1424,10 +1419,10 @@ class EntityFactory {
 
   Future<Review> review({
     KeyPair? signer,
-    required String reservationAnchor,
+    required String orderAnchor,
     required String listingAnchor,
-    required Reservation reservation,
-    required KeyPair reservationAuthorKeyPair,
+    required Order order,
+    required KeyPair orderAuthorKeyPair,
     String? dTag,
     int? rating,
     String? content,
@@ -1449,8 +1444,8 @@ class EntityFactory {
     return Review(
       pubKey: kp.publicKey,
       tags: ReviewTags([
-        ['d', dTag ?? reservation.getDtag() ?? _nextDTag('review')],
-        [kReservationRefTag, reservationAnchor],
+        ['d', dTag ?? order.getDtag() ?? _nextDTag('review')],
+        [kOrderRefTag, orderAnchor],
         [kListingRefTag, listingAnchor],
       ]),
       createdAt: createdAt ?? _defaultCreatedAt(),
@@ -1458,8 +1453,8 @@ class EntityFactory {
         rating: resolvedRating,
         content: resolvedContent,
         proof: await _participationProofForReview(
-          reservation: reservation,
-          recipientKeyPair: reservationAuthorKeyPair,
+          order: order,
+          recipientKeyPair: orderAuthorKeyPair,
           identityPubkey: kp.publicKey,
           role: 'buyer',
         ),
@@ -1468,40 +1463,40 @@ class EntityFactory {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Reservation Transition
+  // Order Transition
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Build a single signed [ReservationTransition].
-  ReservationTransition reservationTransition({
+  /// Build a single signed [OrderTransition].
+  OrderTransition orderTransition({
     required KeyPair signer,
     required String tradeId,
     required String eventId,
     required String listingAnchor,
-    required ReservationTransitionType transitionType,
-    required ReservationStage fromStage,
-    required ReservationStage toStage,
+    required OrderTransitionType transitionType,
+    required OrderStage fromStage,
+    required OrderStage toStage,
     String? commitTermsHash,
     String? previousTransitionId,
     String? reason,
     int? createdAt,
   }) {
-    return ReservationTransition(
+    return OrderTransition(
       pubKey: signer.publicKey,
       createdAt: createdAt ?? _defaultCreatedAt(),
-      tags: ReservationTransitionTags([
+      tags: OrderTransitionTags([
         ['d', tradeId],
         ['e', eventId],
         if (previousTransitionId != null) ['prev', previousTransitionId],
         [kListingRefTag, listingAnchor],
       ]),
-      content: ReservationTransitionContent(
+      content: OrderTransitionContent(
         transitionType: transitionType,
         fromStage: fromStage,
         toStage: toStage,
         commitTermsHash: commitTermsHash,
         reason: reason,
       ),
-    ).signAs(signer, ReservationTransition.fromNostrEvent);
+    ).signAs(signer, OrderTransition.fromNostrEvent);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1542,7 +1537,7 @@ class EntityFactory {
   Nip01Event zapReceipt({
     required KeyPair hostSigner,
     required KeyPair guestSigner,
-    required Reservation request,
+    required Order request,
     required Listing listing,
     String? lnurl,
     int? threadIndex,

@@ -546,7 +546,7 @@ class EvmSwapInOperation extends SwapInOperation {
     final claimAddress =
         (params.claimAddress ?? await chain.getAccountAddress(params.evmKey))
             .eip55With0x;
-    final description = params.invoiceDescription ?? 'Hostr Reservation';
+    final description = params.invoiceDescription ?? 'Hostr Order';
     final amountSats = params.amount.getInSats.toDouble();
     logger.i(
       'Using swap claim address: $claimAddress, $amountSats sats '

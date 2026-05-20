@@ -5,7 +5,7 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
 class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
-  final Reservation negotiateReservation;
+  final Order negotiateReservation;
   final ProfileMetadata counterparty;
   EscrowSelectorCubit({
     required this.negotiateReservation,
@@ -108,7 +108,7 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
     if (matches.isEmpty) return null;
 
     for (final thread in matches) {
-      final requests = thread.state.value.reservationRequests;
+      final requests = thread.state.value.orderRequests;
       if (requests.any((request) => request.id == negotiateReservation.id)) {
         return thread;
       }
@@ -116,7 +116,7 @@ class EscrowSelectorCubit extends Cubit<EscrowSelectorState> {
 
     final reservationMatches = matches
         .where(
-          (thread) => thread.state.value.reservationRequests.any(
+          (thread) => thread.state.value.orderRequests.any(
             (request) => request.getDtag() == tradeId,
           ),
         )

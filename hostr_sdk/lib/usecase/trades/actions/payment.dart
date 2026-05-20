@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 
 import '../../../util/stream_status.dart';
 import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';

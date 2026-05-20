@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart'
     show Filter, Ndk, Nip01Event, Nip01EventModel, ZapReceipt;
@@ -14,11 +14,11 @@ import '../gift_wraps/gift_wraps.dart';
 import '../heartbeat/heartbeat.dart';
 import '../messaging/threads.dart';
 import '../requests/requests.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
-import '../reservation_groups/reservation_groups.dart';
-import '../reservation_transitions/reservation_transitions.dart';
-import '../reservations/reservation_participant_keyring.dart';
-import '../reservations/reservations.dart';
+import '../order_groups/order_group_participant_resolver.dart';
+import '../order_groups/order_groups.dart';
+import '../order_transitions/order_transitions.dart';
+import '../orders/order_participant_keyring.dart';
+import '../orders/orders.dart';
 import '../reviews/reviews.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 import '../zaps/zaps.dart';
@@ -43,8 +43,8 @@ import '../zaps/zaps.dart';
 ///
 /// | Stream | Filter pattern | Expandable? |
 /// |---|---|---|
-/// | [allMyReservations$] | `kinds=[32122], #d=[known tradeIds]` | Yes |
-/// | [allTransitions$]    | reservation transitions, `#d=[known tradeIds]` | Yes |
+/// | [allMyOrders$] | `kinds=[32122], #d=[known tradeIds]` | Yes |
+/// | [allTransitions$]    | order transitions, `#d=[known tradeIds]` | Yes |
 /// | [myReviews$]       | `kinds=[32124], authors=[myPubkey]`  | No (static) |
 /// | [paymentEvents$]   | kind 9735 + EVM contract queries     | Dynamic (combine) |
 @Singleton()
@@ -52,9 +52,9 @@ class UserSubscriptions {
   final Auth _auth;
   final GiftWraps _giftWraps;
   final Heartbeats _heartbeats;
-  final Reservations _reservations;
-  final ReservationTransitions _transitions;
-  final ReservationGroups _reservationGroups;
+  final Orders _orders;
+  final OrderTransitions _transitions;
+  final OrderGroups _orderGroups;
 
   final Reviews _reviews;
   final Zaps _zaps;
@@ -65,9 +65,9 @@ class UserSubscriptions {
     required Auth auth,
     required GiftWraps giftWraps,
     required Heartbeats heartbeats,
-    required Reservations reservations,
-    required ReservationTransitions transitions,
-    required ReservationGroups reservationGroups,
+    required Orders orders,
+    required OrderTransitions transitions,
+    required OrderGroups orderGroups,
     required Reviews reviews,
     required Zaps zaps,
     required EscrowUseCase escrow,
@@ -75,9 +75,9 @@ class UserSubscriptions {
   }) : _auth = auth,
        _giftWraps = giftWraps,
        _heartbeats = heartbeats,
-       _reservations = reservations,
+       _orders = orders,
        _transitions = transitions,
-       _reservationGroups = reservationGroups,
+       _orderGroups = orderGroups,
        _reviews = reviews,
        _zaps = zaps,
        _escrow = escrow,
@@ -90,62 +90,61 @@ class UserSubscriptions {
   // identity stable so downstream listeners (widgets, background workers)
   // never need to re-subscribe after a logout → login cycle.
 
-  /// All reservations for trades the user is involved in (by trade ID / d-tag).
-  late final ExpandableSubscription<Reservation> allMyReservations$ =
-      _reservations.createExpandable(name: 'user-reservations');
+  /// All orders for trades the user is involved in (by trade ID / d-tag).
+  late final ExpandableSubscription<Order> allMyOrders$ = _orders
+      .createExpandable(name: 'user-orders');
 
-  /// Validated reservation groups derived from [allMyReservations$].
+  /// Validated order groups derived from [allMyOrders$].
   /// Each group is grouped by trade ID and validated (proof-checked) via
-  /// [ReservationGroups.verifyFromSource]. Per-item stream — each emission
-  /// is a single [Validation<ReservationGroup>] (upserted by group ID).
-  final StreamWithStatus<Validation<ReservationGroup>> allMyReservationGroups$ =
+  /// [OrderGroups.verifyFromSource]. Per-item stream — each emission
+  /// is a single [Validation<OrderGroup>] (upserted by group ID).
+  final StreamWithStatus<Validation<OrderGroup>> allMyOrderGroups$ =
       StreamWithStatus();
 
-  /// Reservation groups plus participant-set resolution metadata. This stream
+  /// Order groups plus participant-set resolution metadata. This stream
   /// keeps the original validated group intact while exposing the raw/resolved
   /// group ids used to match private trade keys back to real conversation
   /// participants.
-  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
-  allMyResolvedReservationGroups$ = StreamWithStatus();
+  final StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
+  allMyResolvedOrderGroups$ = StreamWithStatus();
 
-  /// Reservation groups where the current user is the **guest** (not the host).
-  final StreamWithStatus<Validation<ReservationGroup>> myTrips$ =
-      StreamWithStatus();
+  /// Order groups where the current user is the **guest** (not the host).
+  final StreamWithStatus<Validation<OrderGroup>> myTrips$ = StreamWithStatus();
 
-  /// Resolved reservation groups where the current user is the **guest**.
-  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  /// Resolved order groups where the current user is the **guest**.
+  final StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
   myResolvedTrips$ = StreamWithStatus();
 
   /// Accumulated deduplicated list of trips, keyed by trade ID.
   /// Long-lived stable reference; re-piped from a fresh accumulator each
   /// login session via [_myTripsListSource].
-  final StreamWithStatus<List<Validation<ReservationGroup>>> myTripsList$ =
+  final StreamWithStatus<List<Validation<OrderGroup>>> myTripsList$ =
       StreamWithStatus();
 
   /// Accumulated deduplicated resolved list of trips.
-  final StreamWithStatus<List<ResolvedValidatedReservationGroupParticipants>>
+  final StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>>
   myResolvedTripsList$ = StreamWithStatus();
 
-  /// Reservation groups where the current user is the **host**.
-  final StreamWithStatus<Validation<ReservationGroup>> myHostings$ =
+  /// Order groups where the current user is the **host**.
+  final StreamWithStatus<Validation<OrderGroup>> myHostings$ =
       StreamWithStatus();
 
-  /// Resolved reservation groups where the current user is the **host**.
-  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  /// Resolved order groups where the current user is the **host**.
+  final StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
   myResolvedHostings$ = StreamWithStatus();
 
   /// Accumulated deduplicated list of hostings, keyed by trade ID.
   /// Long-lived stable reference; re-piped from a fresh accumulator each
   /// login session via [_myHostingsListSource].
-  final StreamWithStatus<List<Validation<ReservationGroup>>> myHostingsList$ =
+  final StreamWithStatus<List<Validation<OrderGroup>>> myHostingsList$ =
       StreamWithStatus();
 
   /// Accumulated deduplicated resolved list of hostings.
-  final StreamWithStatus<List<ResolvedValidatedReservationGroupParticipants>>
+  final StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>>
   myResolvedHostingsList$ = StreamWithStatus();
 
-  /// All reservation transitions across every trade the user is in.
-  late final ExpandableSubscription<ReservationTransition> allTransitions$ =
+  /// All order transitions across every trade the user is in.
+  late final ExpandableSubscription<OrderTransition> allTransitions$ =
       _transitions.createExpandable(name: 'user-transitions');
 
   /// All heartbeat events discovered for counterparties in known threads.
@@ -169,20 +168,20 @@ class UserSubscriptions {
       StreamWithStatus<PaymentEvent>();
 
   // Intermediate derived sources created in start(), held for cleanup.
-  StreamWithStatus<Validation<ReservationGroup>>? _reservationGroupsSource;
-  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>?
-  _resolvedReservationGroupsSource;
-  StreamWithStatus<Validation<ReservationGroup>>? _tripsSource;
-  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>?
+  StreamWithStatus<Validation<OrderGroup>>? _orderGroupsSource;
+  StreamWithStatus<ResolvedValidatedOrderGroupParticipants>?
+  _resolvedOrderGroupsSource;
+  StreamWithStatus<Validation<OrderGroup>>? _tripsSource;
+  StreamWithStatus<ResolvedValidatedOrderGroupParticipants>?
   _resolvedTripsSource;
-  StreamWithStatus<List<Validation<ReservationGroup>>>? _myTripsListSource;
-  StreamWithStatus<List<ResolvedValidatedReservationGroupParticipants>>?
+  StreamWithStatus<List<Validation<OrderGroup>>>? _myTripsListSource;
+  StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>>?
   _myResolvedTripsListSource;
-  StreamWithStatus<Validation<ReservationGroup>>? _hostingsSource;
-  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>?
+  StreamWithStatus<Validation<OrderGroup>>? _hostingsSource;
+  StreamWithStatus<ResolvedValidatedOrderGroupParticipants>?
   _resolvedHostingsSource;
-  StreamWithStatus<List<Validation<ReservationGroup>>>? _myHostingsListSource;
-  StreamWithStatus<List<ResolvedValidatedReservationGroupParticipants>>?
+  StreamWithStatus<List<Validation<OrderGroup>>>? _myHostingsListSource;
+  StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>>?
   _myResolvedHostingsListSource;
   StreamWithStatus<Review>? _reviewsSource;
 
@@ -203,7 +202,7 @@ class UserSubscriptions {
   bool _started = false;
   bool get started => _started;
 
-  StreamWithStatus<Filter>? _reservationFilterSource;
+  StreamWithStatus<Filter>? _orderFilterSource;
   StreamWithStatus<Filter>? _transitionFilterSource;
   StreamWithStatus<Filter>? _heartbeatFilterSource;
 
@@ -211,12 +210,12 @@ class UserSubscriptions {
     if (tradeId.isEmpty) return;
     if (!_knownTradeIds.add(tradeId)) return;
 
-    _emitReservationFilter();
+    _emitOrderFilter();
     _emitTransitionFilter();
   }
 
   Future<void> start({
-    bool validateReservationGroups = true,
+    bool validateOrderGroups = true,
   }) => _logger.span('start', () async {
     if (_started) return;
     _started = true;
@@ -237,32 +236,30 @@ class UserSubscriptions {
     );
     myReviews$.pipeFrom(_reviewsSource!);
 
-    _reservationFilterSource = StreamWithStatus<Filter>();
+    _orderFilterSource = StreamWithStatus<Filter>();
     _transitionFilterSource = StreamWithStatus<Filter>();
     _heartbeatFilterSource = StreamWithStatus<Filter>();
 
-    await _reservations.startExpandable(
-      allMyReservations$,
-      _reservationFilterSource!,
-    );
+    await _orders.startExpandable(allMyOrders$, _orderFilterSource!);
 
-    _reservationGroupsSource = _reservationGroups.verifyFromSource(
-      source: allMyReservations$.stream,
-      validate: validateReservationGroups,
+    _orderGroupsSource = _orderGroups.verifyFromSource(
+      source: allMyOrders$.stream,
+      validate: validateOrderGroups,
     );
-    allMyReservationGroups$.pipeFrom(_reservationGroupsSource!);
-    _resolvedReservationGroupsSource = _reservationGroupsSource!
-        .resolveParticipantSets(resolver: _buildParticipantResolver());
-    allMyResolvedReservationGroups$.pipeFrom(_resolvedReservationGroupsSource!);
+    allMyOrderGroups$.pipeFrom(_orderGroupsSource!);
+    _resolvedOrderGroupsSource = _orderGroupsSource!.resolveParticipantSets(
+      resolver: _buildParticipantResolver(),
+    );
+    allMyResolvedOrderGroups$.pipeFrom(_resolvedOrderGroupsSource!);
 
-    _tripsSource = allMyReservationGroups$.where(
+    _tripsSource = allMyOrderGroups$.where(
       (item) => item.event.sellerPubkey != myPubkey,
     );
     myTrips$.pipeFrom(_tripsSource!);
     _myTripsListSource = myTrips$.accumulateByKey((v) => v.event.tradeId);
     myTripsList$.pipeFrom(_myTripsListSource!);
 
-    _resolvedTripsSource = allMyResolvedReservationGroups$.where(
+    _resolvedTripsSource = allMyResolvedOrderGroups$.where(
       (item) => item.group.sellerPubkey != myPubkey,
     );
     myResolvedTrips$.pipeFrom(_resolvedTripsSource!);
@@ -271,14 +268,14 @@ class UserSubscriptions {
     );
     myResolvedTripsList$.pipeFrom(_myResolvedTripsListSource!);
 
-    _hostingsSource = allMyReservationGroups$.where(
+    _hostingsSource = allMyOrderGroups$.where(
       (item) => item.event.sellerPubkey == myPubkey,
     );
     myHostings$.pipeFrom(_hostingsSource!);
     _myHostingsListSource = myHostings$.accumulateByKey((v) => v.event.tradeId);
     myHostingsList$.pipeFrom(_myHostingsListSource!);
 
-    _resolvedHostingsSource = allMyResolvedReservationGroups$.where(
+    _resolvedHostingsSource = allMyResolvedOrderGroups$.where(
       (item) => item.group.sellerPubkey == myPubkey,
     );
     myResolvedHostings$.pipeFrom(_resolvedHostingsSource!);
@@ -312,9 +309,9 @@ class UserSubscriptions {
     _startDiscoveryEngine();
   });
 
-  ReservationGroupParticipantResolver _buildParticipantResolver() {
-    return ReservationGroupParticipantResolver(
-      keyring: DefaultReservationParticipantKeyring(
+  OrderGroupParticipantResolver _buildParticipantResolver() {
+    return OrderGroupParticipantResolver(
+      keyring: DefaultOrderParticipantKeyring(
         auth: _auth,
         tradeAccountAllocator: _auth.service<TradeAccountAllocator>(),
         ndk: _auth.service<Ndk>(),
@@ -351,10 +348,10 @@ class UserSubscriptions {
     _resolvedTripsSource = null;
     await _tripsSource?.close();
     _tripsSource = null;
-    await _resolvedReservationGroupsSource?.close();
-    _resolvedReservationGroupsSource = null;
-    await _reservationGroupsSource?.close();
-    _reservationGroupsSource = null;
+    await _resolvedOrderGroupsSource?.close();
+    _resolvedOrderGroupsSource = null;
+    await _orderGroupsSource?.close();
+    _orderGroupsSource = null;
     await _reviewsSource?.close();
     _reviewsSource = null;
 
@@ -369,9 +366,9 @@ class UserSubscriptions {
     await myResolvedTrips$.reset();
     await myTripsList$.reset();
     await myTrips$.reset();
-    await allMyResolvedReservationGroups$.reset();
-    await allMyReservationGroups$.reset();
-    await allMyReservations$.reset();
+    await allMyResolvedOrderGroups$.reset();
+    await allMyOrderGroups$.reset();
+    await allMyOrders$.reset();
     await allTransitions$.reset();
     await allHeartbeats$.reset();
     await myReviews$.reset();
@@ -383,8 +380,8 @@ class UserSubscriptions {
     }
     _paymentSources.clear();
 
-    await _reservationFilterSource?.close();
-    _reservationFilterSource = null;
+    await _orderFilterSource?.close();
+    _orderFilterSource = null;
     await _transitionFilterSource?.close();
     _transitionFilterSource = null;
     await _heartbeatFilterSource?.close();
@@ -403,7 +400,7 @@ class UserSubscriptions {
 
   Future<void> dispose() => _logger.span('dispose', () async {
     await reset();
-    await allMyReservations$.close();
+    await allMyOrders$.close();
     await allTransitions$.close();
     await allHeartbeats$.close();
     await myReviews$.close();
@@ -415,8 +412,8 @@ class UserSubscriptions {
     await myResolvedHostings$.close();
     await myHostingsList$.close();
     await myHostings$.close();
-    await allMyResolvedReservationGroups$.close();
-    await allMyReservationGroups$.close();
+    await allMyResolvedOrderGroups$.close();
+    await allMyOrderGroups$.close();
     await paymentEvents$.close();
     await latestHeartbeats$.close();
     await giftwraps$.close();
@@ -431,8 +428,8 @@ class UserSubscriptions {
         if (event is Message) {
           _maybeExpandHeartbeatsForThread(event);
           final child = event.child;
-          if (child is Reservation) {
-            _processReservationRequest(child);
+          if (child is Order) {
+            _processOrderRequest(child);
           } else if (child is EscrowServiceSelected) {
             final tradeId = _tradeIdForMessage(event);
             if (tradeId != null && tradeId.isNotEmpty) {
@@ -463,7 +460,7 @@ class UserSubscriptions {
     _discoverySubscriptions.add(
       giftwraps$.status.whereType<StreamStatusLive>().take(1).listen((_) {
         _logger.d('Threads live — marking filter sources live');
-        _reservationFilterSource?.addStatus(StreamStatusLive());
+        _orderFilterSource?.addStatus(StreamStatusLive());
         _transitionFilterSource?.addStatus(StreamStatusLive());
         _heartbeatFilterSource?.addStatus(StreamStatusLive());
       }),
@@ -491,32 +488,31 @@ class UserSubscriptions {
         }
       });
 
-  void _processReservationRequest(Reservation reservation) =>
-      _logger.spanSync('_processReservationRequest', () {
-        _logger.d('handling reservation message $reservation');
+  void _processOrderRequest(Order order) =>
+      _logger.spanSync('_processOrderRequest', () {
+        _logger.d('handling order message $order');
 
-        final tradeId = reservation.getDtag();
+        final tradeId = order.getDtag();
         if (tradeId != null && tradeId.isNotEmpty) {
           trackTradeId(tradeId);
         }
 
-        final anchor = reservation.parsedTags.listingAnchor;
+        final anchor = order.parsedTags.listingAnchor;
         final sellerPubkey = getPubKeyFromAnchor(anchor);
         if (sellerPubkey.isNotEmpty && _knownSellerPubkeys.add(sellerPubkey)) {
-          final tradeId = reservation.getDtag();
+          final tradeId = order.getDtag();
           if (tradeId != null && _knownZapTradeIds.add(tradeId)) {
             _addZapReceiptStream(sellerPubkey: sellerPubkey, tradeId: tradeId);
           }
         }
       });
 
-  void _emitReservationFilter() =>
-      _logger.spanSync('_emitReservationFilter', () {
-        if (_knownTradeIds.isEmpty) return;
-        final filter = Filter(dTags: _knownTradeIds.toList());
-        _logger.d('emitting reservation filter dTags=${filter.dTags}');
-        _reservationFilterSource?.add(filter);
-      });
+  void _emitOrderFilter() => _logger.spanSync('_emitOrderFilter', () {
+    if (_knownTradeIds.isEmpty) return;
+    final filter = Filter(dTags: _knownTradeIds.toList());
+    _logger.d('emitting order filter dTags=${filter.dTags}');
+    _orderFilterSource?.add(filter);
+  });
 
   void _emitTransitionFilter() => _logger.spanSync('_emitTransitionFilter', () {
     if (_knownTradeIds.isEmpty) return;
@@ -550,7 +546,7 @@ class UserSubscriptions {
       return conversationTag;
     }
     final child = message.child;
-    if (child is Reservation) {
+    if (child is Order) {
       return child.getDtag();
     }
     return null;
@@ -612,7 +608,7 @@ class UserSubscriptions {
     final streams = <Stream<StreamStatus>>[
       giftwraps$.status,
       myReviews$.status,
-      allMyReservations$.stream.status,
+      allMyOrders$.stream.status,
       allTransitions$.stream.status,
       allHeartbeats$.stream.status,
     ];

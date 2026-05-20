@@ -318,24 +318,24 @@ class RelaySeeder {
       'host': {'escrow': <String>{}, 'zap': <String>{}},
     };
 
-    for (final reservation in data.reservations) {
-      final tradeId = reservation.getDtag() ?? reservation.id;
-      final proof = reservation.proof;
+    for (final order in data.orders) {
+      final tradeId = order.getDtag() ?? order.id;
+      final proof = order.proof;
       if (proof == null) continue;
 
       final usesEscrow = proof.escrowProof != null;
       final usesZap = proof.zapProof != null;
-      final guest = userByPubkey[reservation.pubKey];
+      final guest = userByPubkey[order.pubKey];
       final host = userByPubkey[proof.listing.pubKey];
 
       void addToRole(SeedUser? user, String role) {
         if (user == null) return;
-        final reservations = usage[role]!;
+        final orders = usage[role]!;
         if (usesEscrow) {
-          reservations['escrow']!.add(tradeId);
+          orders['escrow']!.add(tradeId);
         }
         if (usesZap) {
-          reservations['zap']!.add(tradeId);
+          orders['zap']!.add(tradeId);
         }
       }
 
@@ -346,7 +346,7 @@ class RelaySeeder {
     final hosts = users.where((u) => u.isHost).toList();
     final guests = users.where((u) => !u.isHost).toList();
 
-    print('Seed users by role with reservation proof usage:');
+    print('Seed users by role with order proof usage:');
     print(
       const JsonEncoder.withIndent('  ').convert({
         'guest': {
@@ -355,8 +355,8 @@ class RelaySeeder {
               .where((u) => u.keyPair.privateKey != null)
               .length,
           'with_evm': guests.where((u) => u.hasEvm).length,
-          'escrow_reservations': usage['guest']!['escrow']!.length,
-          'zap_reservations': usage['guest']!['zap']!.length,
+          'escrow_orders': usage['guest']!['escrow']!.length,
+          'zap_orders': usage['guest']!['zap']!.length,
         },
         'host': {
           'users': hosts.length,
@@ -364,8 +364,8 @@ class RelaySeeder {
               .where((u) => u.keyPair.privateKey != null)
               .length,
           'with_evm': hosts.where((u) => u.hasEvm).length,
-          'escrow_reservations': usage['host']!['escrow']!.length,
-          'zap_reservations': usage['host']!['zap']!.length,
+          'escrow_orders': usage['host']!['escrow']!.length,
+          'zap_orders': usage['host']!['zap']!.length,
         },
       }),
     );

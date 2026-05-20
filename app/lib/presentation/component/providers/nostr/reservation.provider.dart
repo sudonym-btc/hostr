@@ -3,7 +3,7 @@ import 'package:hostr/presentation/component/providers/nostr/default_entity.prov
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
 
-class ReservationProvider extends DefaultEntityProvider<Reservation> {
+class ReservationProvider extends DefaultEntityProvider<Order> {
   ReservationProvider({super.key, super.e, super.a, super.builder, super.child})
-    : super(kinds: Reservation.kinds, crud: getIt<Hostr>().reservations);
+    : super(kinds: Order.kinds, crud: getIt<Hostr>().orders);
 }

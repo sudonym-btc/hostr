@@ -114,15 +114,15 @@ const listingCardOutputSchema = z
   })
   .passthrough();
 
-const reservationCardOutputSchema = z
+const orderCardOutputSchema = z
   .object({
     assistantInstructions: z.array(z.string()).optional(),
     displayMarkdown: z.string(),
     display: z
       .object({
         type: z.enum([
-          "reservation-card",
-          "reservation-card-list",
+          "order-card",
+          "order-card-list",
           "trip-card",
           "trip-card-list",
           "hosting-card",
@@ -132,7 +132,7 @@ const reservationCardOutputSchema = z
         cards: z.array(z.record(z.string(), z.unknown())),
       })
       .optional(),
-    reservationCards: z.array(z.record(z.string(), z.unknown())).optional(),
+    orderCards: z.array(z.record(z.string(), z.unknown())).optional(),
     paymentDisplays: z.array(z.record(z.string(), z.unknown())).optional(),
   })
   .passthrough();
@@ -323,9 +323,9 @@ const escrowBadgeOutputSchema = z
   })
   .passthrough();
 
-const reservationActionIds = new Set([
-  "hostr.reservations.bookAndPay",
-  "hostr.reservations.review",
+const orderActionIds = new Set([
+  "hostr.orders.bookAndPay",
+  "hostr.orders.review",
   "hostr.swaps.watch",
   "hostr.trips.list",
   "hostr.bookings.list",
@@ -340,13 +340,13 @@ const threadActionIds = new Set([
 
 const destructiveActionIds = new Set([
   "hostr.listings.edit",
-  "hostr.reservations.negotiateOffer",
-  "hostr.reservations.negotiateAccept",
+  "hostr.orders.negotiateOffer",
+  "hostr.orders.negotiateAccept",
   "hostr.profile.edit",
-  "hostr.reservations.pay",
-  "hostr.reservations.commit",
-  "hostr.reservations.cancel",
-  "hostr.reservations.review",
+  "hostr.orders.pay",
+  "hostr.orders.commit",
+  "hostr.orders.cancel",
+  "hostr.orders.review",
   "hostr.escrow.involve",
   "hostr.escrow.service.edit",
   "hostr.escrow.service.delete",
@@ -361,13 +361,13 @@ const openWorldActionIds = new Set([
   "hostr.listings.search",
   "hostr.listings.create",
   "hostr.listings.edit",
-  "hostr.reservations.bookAndPay",
-  "hostr.reservations.negotiateOffer",
-  "hostr.reservations.negotiateAccept",
-  "hostr.reservations.pay",
-  "hostr.reservations.commit",
-  "hostr.reservations.cancel",
-  "hostr.reservations.review",
+  "hostr.orders.bookAndPay",
+  "hostr.orders.negotiateOffer",
+  "hostr.orders.negotiateAccept",
+  "hostr.orders.pay",
+  "hostr.orders.commit",
+  "hostr.orders.cancel",
+  "hostr.orders.review",
   "hostr.thread.message",
   "hostr.escrow.involve",
   "hostr.profile.edit",
@@ -397,8 +397,8 @@ const toolAnnotations = (action: {
   };
 };
 
-const reservationToolMeta = (actionId: string): Record<string, unknown> => {
-  if (actionId === "hostr.reservations.bookAndPay") {
+const orderToolMeta = (actionId: string): Record<string, unknown> => {
+  if (actionId === "hostr.orders.bookAndPay") {
     return {
       ...widgetTemplateMeta(paymentRequiredWidgetUri),
       "hostr.preferredRenderer": "payment-external-required",
@@ -450,13 +450,13 @@ const conciseActionDescription = (
 
 const presentationContract = (actionId: string): string | null => {
   if (actionId === "hostr.swaps.watch") {
-    return "If watchTimedOut is true or the reservation is still pending, call hostr_swaps_watch again with the returned retry arguments. If payment is merely awaiting and no timeout occurred, ask whether the user paid; if they answer yes, call hostr_swaps_watch again with the retry arguments. If the swap failed, report the failure and stop polling.";
+    return "If watchTimedOut is true or the order is still pending, call hostr_swaps_watch again with the returned retry arguments. If payment is merely awaiting and no timeout occurred, ask whether the user paid; if they answer yes, call hostr_swaps_watch again with the retry arguments. If the swap failed, report the failure and stop polling.";
   }
   if (listingActionIds.has(actionId)) {
     return "Returns listing-card output; render structuredContent.displayMarkdown and preserve image Markdown.";
   }
-  if (reservationActionIds.has(actionId)) {
-    return actionId === "hostr.reservations.bookAndPay"
+  if (orderActionIds.has(actionId)) {
+    return actionId === "hostr.orders.bookAndPay"
       ? "May return a payment QR widget. If payment is required, render the QR/invoice and make the next assistant action a hostr_swaps_watch tool call with structuredContent.requiredNextTool.arguments. Do not stop after displaying the invoice."
       : "May return trip-card or hosting-card output; render structuredContent.displayMarkdown instead of raw JSON.";
   }
@@ -481,13 +481,13 @@ const presentationContract = (actionId: string): string | null => {
 const discoveryHint = (actionId: string): string | null => {
   switch (actionId) {
     case "hostr.profile.lookup":
-      return "Use this when the user asks to open, look up, inspect, or view another guest, host, seller, buyer, escrow, or participant profile from a reservation, listing, trade, or thread. It accepts npubs and 64-character hex pubkeys returned by Hostr cards.";
+      return "Use this when the user asks to open, look up, inspect, or view another guest, host, seller, buyer, escrow, or participant profile from a order, listing, trade, or thread. It accepts npubs and 64-character hex pubkeys returned by Hostr cards.";
     case "hostr.swaps.list":
       return "Use this before recovery when the user asks about saved payments, payment operations, swap operations, stuck payments, pending payments, refunds, or whether payment got stuck.";
-    case "hostr.reservations.negotiateOffer":
-      return "Use this for previewing or sending a new reservation offer/counteroffer. If the user asks what an offer would look like and gives a total price or says to use the same trip total, include that amount.";
-    case "hostr.reservations.negotiateAccept":
-      return "Use this when the user asks to accept, preview accepting, or show what accepting the latest reservation offer would look like.";
+    case "hostr.orders.negotiateOffer":
+      return "Use this for previewing or sending a new order offer/counteroffer. If the user asks what an offer would look like and gives a total price or says to use the same trip total, include that amount.";
+    case "hostr.orders.negotiateAccept":
+      return "Use this when the user asks to accept, preview accepting, or show what accepting the latest order offer would look like.";
     case "hostr.escrow.methods":
       return "Use this when escrow asks how the buyer or host/seller can be paid, refunded, released, reversed, or settled for a trade.";
     default:
@@ -532,7 +532,7 @@ const specializedOutputActionIds = new Set([
   ...listingActionIds,
   "hostr.session.connect",
   ...profileActionIds,
-  ...reservationActionIds,
+  ...orderActionIds,
   ...threadActionIds,
   ...escrowTradeActionIds,
   ...escrowServiceActionIds,
@@ -565,12 +565,12 @@ const numberValue = (value: unknown): number | null => {
   return Number.isFinite(number) ? number : null;
 };
 
-const maxSwapReservationWaitSeconds = 60;
+const maxSwapOrderWaitSeconds = 60;
 
-const reservationWatchSeconds = (value: unknown, fallback = 20): number => {
+const orderWatchSeconds = (value: unknown, fallback = 20): number => {
   const number = numberValue(value) ?? fallback;
   return Math.min(
-    maxSwapReservationWaitSeconds,
+    maxSwapOrderWaitSeconds,
     Math.max(0, Math.trunc(number)),
   );
 };
@@ -892,10 +892,10 @@ const formatPrices = (listing: Record<string, unknown>): string => {
     .join(", ");
 };
 
-type ReservationCardData = {
+type OrderCardData = {
   type: "trip-card" | "hosting-card";
   tradeId?: string;
-  reservationId?: string;
+  orderId?: string;
   title: string;
   guestName?: string;
   start?: string;
@@ -908,10 +908,10 @@ type ReservationCardData = {
 const isCancelledStage = (stage: string | null): boolean =>
   stage !== null && stage.toLowerCase().includes("cancel");
 
-const reservationCardData = (
+const orderCardData = (
   lookup: Record<string, unknown> | null,
   fallbackType: "trip-card" | "hosting-card" = "trip-card",
-): ReservationCardData | null => {
+): OrderCardData | null => {
   if (!lookup || lookup.found !== true) {
     return null;
   }
@@ -932,7 +932,7 @@ const reservationCardData = (
   const title =
     stringValue(listing?.title) ??
     stringValue(group?.listingTitle) ??
-    "Hostr reservation";
+    "Hostr order";
   const start = formatDateTime(group?.start);
   const end = formatDateTime(group?.end);
   const stage = stringValue(group?.stage);
@@ -947,8 +947,8 @@ const reservationCardData = (
       stringValue(lookup.tradeId) ??
       stringValue(group?.id) ??
       undefined,
-    reservationId:
-      stringValue(group?.reservationId) ??
+    orderId:
+      stringValue(group?.orderId) ??
       stringValue(group?.eventId) ??
       stringValue(group?.id) ??
       undefined,
@@ -962,7 +962,7 @@ const reservationCardData = (
   };
 };
 
-const reservationCard = (card: ReservationCardData): string => {
+const orderCard = (card: OrderCardData): string => {
   if (card.type === "hosting-card") {
     return [
       card.mode === "cancelled" ? "### Hosting Cancelled" : "### Hosting",
@@ -1801,12 +1801,12 @@ const profileCardResponseText = (displayMarkdown: string): string =>
     displayMarkdown,
   ].join("\n\n");
 
-const reservationCardResponseText = (
+const orderCardResponseText = (
   displayMarkdown: string,
-  reservationCards: ReservationCardData[],
+  orderCards: OrderCardData[],
 ): string => {
-  const count = reservationCards.length;
-  const hasHosting = reservationCards.some((card) => card.type === "hosting-card");
+  const count = orderCards.length;
+  const hasHosting = orderCards.some((card) => card.type === "hosting-card");
   const label = hasHosting ? "hosting" : "trip";
   return [
     `Hostr ${label}-card response: the assistant's final answer must include the Markdown ${label} card${count === 1 ? "" : "s"} below exactly as rendered. Do not replace this with raw JSON or expose swap state internals.`,
@@ -1814,13 +1814,13 @@ const reservationCardResponseText = (
   ].join("\n\n");
 };
 
-const reservationCardsMarkdown = (cards: ReservationCardData[]): string =>
-  cards.map(reservationCard).join("\n\n---\n\n");
+const orderCardsMarkdown = (cards: OrderCardData[]): string =>
+  cards.map(orderCard).join("\n\n---\n\n");
 
-const reservationCardsFromResult = (
+const orderCardsFromResult = (
   actionId: string,
   result: Record<string, unknown>,
-): ReservationCardData[] => {
+): OrderCardData[] => {
   if (result.ok === false) {
     return [];
   }
@@ -1831,18 +1831,18 @@ const reservationCardsFromResult = (
 
   if (actionId === "hostr.swaps.watch") {
     return [
-      reservationCardData(record(data.reservationLookup), "trip-card"),
-      reservationCardData(
-        record(record(data.state)?.reservationLookup),
+      orderCardData(record(data.orderLookup), "trip-card"),
+      orderCardData(
+        record(record(data.state)?.orderLookup),
         "trip-card",
       ),
-    ].filter((card): card is ReservationCardData => card !== null);
+    ].filter((card): card is OrderCardData => card !== null);
   }
 
   if (
     actionId === "hostr.trips.list" ||
     actionId === "hostr.bookings.list" ||
-    actionId === "hostr.reservations.bookAndPay"
+    actionId === "hostr.orders.bookAndPay"
   ) {
     const fallbackType =
       actionId === "hostr.bookings.list" ? "hosting-card" : "trip-card";
@@ -1850,24 +1850,24 @@ const reservationCardsFromResult = (
       ? data.results
           .map(record)
           .flatMap((item) => [
-            reservationCardData(item, fallbackType),
-            reservationCardData(record(item?.reservationLookup), fallbackType),
-            reservationCardData(
-              record(record(item?.state)?.reservationLookup),
+            orderCardData(item, fallbackType),
+            orderCardData(record(item?.orderLookup), fallbackType),
+            orderCardData(
+              record(record(item?.state)?.orderLookup),
               fallbackType,
             ),
           ])
-          .filter((card): card is ReservationCardData => card !== null)
+          .filter((card): card is OrderCardData => card !== null)
       : [];
     return [
       ...collectionCards,
-      reservationCardData(data, fallbackType),
-      reservationCardData(record(data.reservationLookup), fallbackType),
-      reservationCardData(
-        record(record(data.state)?.reservationLookup),
+      orderCardData(data, fallbackType),
+      orderCardData(record(data.orderLookup), fallbackType),
+      orderCardData(
+        record(record(data.state)?.orderLookup),
         fallbackType,
       ),
-    ].filter((card): card is ReservationCardData => card !== null);
+    ].filter((card): card is OrderCardData => card !== null);
   }
 
   return [];
@@ -1940,7 +1940,7 @@ const listingTitleFromEvent = (
   return tagValue(tags, "title") ?? stringValue(listing?.title);
 };
 
-const threadReservationDetails = (
+const threadOrderDetails = (
   thread: Record<string, unknown>,
 ): {
   title?: string;
@@ -1952,7 +1952,7 @@ const threadReservationDetails = (
   updatedAtMs?: number;
   subtitle?: string;
 } => {
-  const requests = arrayValue(thread.reservationRequests)
+  const requests = arrayValue(thread.orderRequests)
     .map(record)
     .filter(isRecord);
   const latest = [...requests]
@@ -1969,9 +1969,9 @@ const threadReservationDetails = (
   const start = formatDateTime(content?.start) ?? undefined;
   const end = formatDateTime(content?.end) ?? undefined;
   const stage = stringValue(content?.stage) ?? undefined;
-  const reservationLabel = stage?.toLowerCase().includes("cancel")
-    ? "Reservation cancelled"
-    : "Reservation offer";
+  const orderLabel = stage?.toLowerCase().includes("cancel")
+    ? "Order cancelled"
+    : "Order offer";
   const subtitleParts = [
     amount === "price unavailable" ? null : amount,
     start && end ? `${start} to ${end}` : null,
@@ -1984,7 +1984,7 @@ const threadReservationDetails = (
     stage,
     updatedAt: formatDateTime(latest.created_at) ?? undefined,
     updatedAtMs: timestampMs(latest.created_at) ?? undefined,
-    subtitle: `${reservationLabel}${
+    subtitle: `${orderLabel}${
       subtitleParts.length > 0 ? `: ${subtitleParts.join(" · ")}` : ""
     }`,
   };
@@ -2018,18 +2018,18 @@ const threadCardData = (
     .filter(isRecord)
     .map(profileDisplayName)
     .filter((name): name is string => name !== null);
-  const reservation = threadReservationDetails(thread);
+  const order = threadOrderDetails(thread);
   const textDetails = threadLatestTextDetails(thread);
-  const latestIsReservation =
-    (reservation.updatedAtMs ?? 0) >= (textDetails.updatedAtMs ?? 0);
-  const subtitle = latestIsReservation
-    ? reservation.subtitle
+  const latestIsOrder =
+    (order.updatedAtMs ?? 0) >= (textDetails.updatedAtMs ?? 0);
+  const subtitle = latestIsOrder
+    ? order.subtitle
     : textDetails.preview;
-  const updatedAt = latestIsReservation
-    ? reservation.updatedAt
+  const updatedAt = latestIsOrder
+    ? order.updatedAt
     : textDetails.updatedAt;
-  const updatedAtMs = latestIsReservation
-    ? reservation.updatedAtMs
+  const updatedAtMs = latestIsOrder
+    ? order.updatedAtMs
     : textDetails.updatedAtMs;
   const conversation = stringValue(thread.conversation);
   const title =
@@ -2052,10 +2052,10 @@ const threadCardData = (
     counterparties,
     conversation: conversation ?? undefined,
     tradeId: conversation ?? undefined,
-    start: reservation.start,
-    end: reservation.end,
-    amount: reservation.amount,
-    stage: reservation.stage,
+    start: order.start,
+    end: order.end,
+    amount: order.amount,
+    stage: order.stage,
     unread,
     unreadCount: normalizedUnreadCount,
     preview: textDetails.preview,
@@ -2295,7 +2295,7 @@ const escrowTradeCardData = (
 ): EscrowTradeCardData | null => {
   const tradeId = stringValue(card.tradeId);
   if (!tradeId) return null;
-  const lookup = record(card.reservationLookup);
+  const lookup = record(card.orderLookup);
   const group = record(lookup?.group);
   const listing = record(lookup?.listing);
   const title =
@@ -2728,16 +2728,16 @@ const compactPaymentRequiredResult = (
     stringValue(safeState?.swapId) ??
     stringValue(swapState?.id) ??
     stringValue(nextToolArguments?.swapId);
-  const reservationWaitSeconds =
-    reservationWatchSeconds(
-      nextToolArguments?.reservationWaitSeconds ??
-        resultData.reservationWaitSeconds ??
-        safeResultData.reservationWaitSeconds,
+  const orderWaitSeconds =
+    orderWatchSeconds(
+      nextToolArguments?.orderWaitSeconds ??
+        resultData.orderWaitSeconds ??
+        safeResultData.orderWaitSeconds,
     );
   const watchArguments = {
     ...(swapId ? { swapId } : {}),
     ...(tradeId ? { tradeId } : {}),
-    reservationWaitSeconds,
+    orderWaitSeconds,
   };
   const nextTool =
     swapId || tradeId
@@ -2797,14 +2797,14 @@ const retryWatchArguments = (
     stringValue(data.tradeId) ??
     stringValue(state?.tradeId) ??
     stringValue(retryArguments?.tradeId);
-  const reservationWaitSeconds =
-    reservationWatchSeconds(
-      data.reservationWaitSeconds ?? retryArguments?.reservationWaitSeconds,
+  const orderWaitSeconds =
+    orderWatchSeconds(
+      data.orderWaitSeconds ?? retryArguments?.orderWaitSeconds,
     );
   return {
     ...(swapId ? { swapId } : {}),
     ...(tradeId ? { tradeId } : {}),
-    reservationWaitSeconds,
+    orderWaitSeconds,
   };
 };
 
@@ -2817,8 +2817,8 @@ const swapWatchInfo = (
   }
   const state = record(data.state);
   const swapState = record(data.swapState) ?? record(state?.swapState);
-  const reservationLookup =
-    record(data.reservationLookup) ?? record(state?.reservationLookup);
+  const orderLookup =
+    record(data.orderLookup) ?? record(state?.orderLookup);
   const stateName =
     stringValue(data.stateName) ??
     stringValue(state?.state) ??
@@ -2849,7 +2849,7 @@ const swapWatchInfo = (
       /\b(fail|failed|failure|error|expired|cancelled|canceled|refund)\b/i.test(
         stateName,
       ));
-  const foundReservation = reservationLookup?.found === true;
+  const foundOrder = orderLookup?.found === true;
   const proofAvailable =
     data.escrowProofAvailable === true ||
     stringValue(data.claimTxHash) !== null ||
@@ -2858,17 +2858,17 @@ const swapWatchInfo = (
   const completedLike =
     /\b(complet|settled|claimed|paid|proof)\b/i.test(stateName) ||
     proofAvailable;
-  const reservationPending =
-    !foundReservation &&
+  const orderPending =
+    !foundOrder &&
     !failed &&
     (isTerminal || proofAvailable) &&
     completedLike;
   const paymentAwaiting =
-    !foundReservation && !failed && !reservationPending;
+    !foundOrder && !failed && !orderPending;
   const status = failed
     ? "swap_failed"
-    : reservationPending
-      ? "reservation_pending"
+    : orderPending
+      ? "order_pending"
       : paymentAwaiting
         ? "payment_awaiting"
         : "completed";
@@ -2878,7 +2878,7 @@ const swapWatchInfo = (
     stateName,
     isTerminal,
     paymentAwaiting,
-    reservationPending,
+    orderPending,
     swapFailed: failed,
     watchTimedOut: timedOut,
     ...(failureReason ? { failureReason } : {}),
@@ -2898,7 +2898,7 @@ const compactSwapWatchResult = (
   status: info.status,
   stateName: info.stateName,
   paymentAwaiting: info.paymentAwaiting,
-  reservationPending: info.reservationPending,
+  orderPending: info.orderPending,
   swapFailed: info.swapFailed,
   watchTimedOut: info.watchTimedOut,
   retry: info.retry,
@@ -2907,7 +2907,7 @@ const compactSwapWatchResult = (
     status: info.status,
     stateName: info.stateName,
     paymentAwaiting: info.paymentAwaiting,
-    reservationPending: info.reservationPending,
+    orderPending: info.orderPending,
     swapFailed: info.swapFailed,
     watchTimedOut: info.watchTimedOut,
     retry: info.retry,
@@ -2928,13 +2928,13 @@ const swapWatchTimeoutResult = (
     paymentAwaiting: true,
     watchTimedOut: true,
     message:
-      "Payment or reservation confirmation is still pending. Keep checking with the retry arguments.",
+      "Payment or order confirmation is still pending. Keep checking with the retry arguments.",
     retry: {
       name: "hostr_swaps_watch",
       arguments: retryWatchArguments({
         swapId: args.swapId,
         tradeId: args.tradeId,
-        reservationWaitSeconds: args.reservationWaitSeconds,
+        orderWaitSeconds: args.orderWaitSeconds,
       }),
     },
     warning:
@@ -3046,7 +3046,7 @@ const errorAssistantInstructions = (
     }
     if (code === "same_account_as_host") {
       instructions.push(
-        "The active Hostr account is the listing host. Call hostr_session_accounts to inspect connected accounts; if no guest account is clearly connected, call hostr_session_connect with wait=false, render the login prompt, then call hostr_session_connect with wait=true before retrying the reservation.",
+        "The active Hostr account is the listing host. Call hostr_session_accounts to inspect connected accounts; if no guest account is clearly connected, call hostr_session_connect with wait=false, render the login prompt, then call hostr_session_connect with wait=true before retrying the order.",
       );
     }
     if (code === "profile_required") {
@@ -3068,7 +3068,7 @@ const formatToolContent = (
     const info = swapWatchInfo(result);
     if (info?.status === "payment_awaiting") {
       if (info.watchTimedOut) {
-        return "Payment or reservation confirmation is still pending. I'll keep checking.";
+        return "Payment or order confirmation is still pending. I'll keep checking.";
       }
       return "Payment is still being awaited. Did you pay the invoice?";
     }
@@ -3083,8 +3083,8 @@ const formatToolContent = (
         .filter(Boolean)
         .join("\n\n");
     }
-    if (info?.status === "reservation_pending") {
-      return "Payment has been detected, but the reservation is still being finalized. I'll check for the reservation again.";
+    if (info?.status === "order_pending") {
+      return "Payment has been detected, but the order is still being finalized. I'll check for the order again.";
     }
   }
 
@@ -3134,12 +3134,12 @@ const formatToolContent = (
     }
   }
 
-  if (actionId === "hostr.reservations.negotiateOffer") {
+  if (actionId === "hostr.orders.negotiateOffer") {
     const listing = record(data.listing);
     const tradeId = stringValue(data.tradeId);
     const mode = result.dryRun === true ? "Preview" : "Broadcast";
     return [
-      `### Reservation ${mode}`,
+      `### Order ${mode}`,
       listing
         ? `**Listing:** ${stringValue(listing.title) ?? "Untitled listing"}`
         : null,
@@ -3150,13 +3150,13 @@ const formatToolContent = (
       .join("\n\n");
   }
 
-  if (actionId === "hostr.reservations.bookAndPay") {
+  if (actionId === "hostr.orders.bookAndPay") {
     const state = record(data.state);
     const stateName = stringValue(state?.state) ?? stringValue(data.stateName);
     const externalPayment =
       record(data.externalPayment) ?? record(state?.externalPayment);
-    const reservation = record(state?.reservation);
-    const eventId = stringValue(reservation?.id);
+    const order = record(state?.order);
+    const eventId = stringValue(order?.id);
     const continuesInBackground = data.continuesInBackground === true;
     const paymentPrompt = paymentPromptMarkdown(config, externalPayment);
     if (paymentPrompt) {
@@ -3167,10 +3167,10 @@ const formatToolContent = (
     }
     return [
       stateName === "completed"
-        ? "### Reservation Booked And Paid"
-        : "### Reservation Book And Pay",
+        ? "### Order Booked And Paid"
+        : "### Order Book And Pay",
       stateName ? `**State:** ${stateName}` : null,
-      eventId ? `**Reservation Event:** ${eventId}` : null,
+      eventId ? `**Order Event:** ${eventId}` : null,
       continuesInBackground
         ? "**Background:** Hostr daemon is continuing book-and-pay."
         : null,
@@ -3179,12 +3179,12 @@ const formatToolContent = (
       .join("\n\n");
   }
 
-  if (actionId === "hostr.reservations.review") {
+  if (actionId === "hostr.orders.review") {
     const mode = result.dryRun === true ? "Preview" : "Published";
     const rating = Number(data.rating);
     const content = stringValue(data.content);
     return [
-      `### Reservation Review ${mode}`,
+      `### Order Review ${mode}`,
       Number.isFinite(rating) ? `**Rating:** ${rating}/5` : null,
       content ? `**Review:** ${content}` : null,
       stringValue(data.tradeId) ? `**Trade:** ${stringValue(data.tradeId)}` : null,
@@ -3194,10 +3194,10 @@ const formatToolContent = (
   }
 
   if (actionId === "hostr.swaps.watch") {
-    const lookup = record(data.reservationLookup);
-    const confirmed = reservationCardData(lookup);
+    const lookup = record(data.orderLookup);
+    const confirmed = orderCardData(lookup);
     if (confirmed) {
-      return reservationCard(confirmed);
+      return orderCard(confirmed);
     }
     const externalPayment = record(data.externalPayment);
     const state = record(data.state);
@@ -3228,7 +3228,7 @@ const formatToolContent = (
       stateName ? `**State:** ${stateName}` : null,
       `**Terminal:** ${data.isTerminal === true ? "yes" : "no"}`,
       lookup && lookup.found !== true
-        ? "Reservation is still being finalized."
+        ? "Order is still being finalized."
         : null,
     ]
       .filter(Boolean)
@@ -3236,12 +3236,12 @@ const formatToolContent = (
   }
 
   if (actionId === "hostr.trips.list" || actionId === "hostr.bookings.list") {
-    const confirmed = reservationCardData(data);
+    const confirmed = orderCardData(data);
     if (confirmed) {
-      return reservationCard(confirmed);
+      return orderCard(confirmed);
     }
     if (stringValue(data.tradeId)) {
-      return "Reservation is still being finalized.";
+      return "Order is still being finalized.";
     }
   }
 
@@ -3252,12 +3252,12 @@ const formatToolContent = (
       .filter(isRecord);
     const tripCards = arrayValue(data.trips)
       .map(record)
-      .map((item) => reservationCardData(item, "trip-card"))
-      .filter((card): card is ReservationCardData => card !== null);
+      .map((item) => orderCardData(item, "trip-card"))
+      .filter((card): card is OrderCardData => card !== null);
     const bookingCards = arrayValue(data.bookings)
       .map(record)
-      .map((item) => reservationCardData(item, "hosting-card"))
-      .filter((card): card is ReservationCardData => card !== null);
+      .map((item) => orderCardData(item, "hosting-card"))
+      .filter((card): card is OrderCardData => card !== null);
     if (
       threadCards.length === 0 &&
       listingReviews.length === 0 &&
@@ -3284,11 +3284,11 @@ const formatToolContent = (
         : null,
       tripCards.length > 0 ? "**Trips You Booked**" : null,
       tripCards.length > 0
-        ? tripCards.map(reservationCard).join("\n\n---\n\n")
+        ? tripCards.map(orderCard).join("\n\n---\n\n")
         : null,
-      bookingCards.length > 0 ? "**Hosting Reservations**" : null,
+      bookingCards.length > 0 ? "**Hosting Orders**" : null,
       bookingCards.length > 0
-        ? bookingCards.map(reservationCard).join("\n\n---\n\n")
+        ? bookingCards.map(orderCard).join("\n\n---\n\n")
         : null,
     ]
       .filter(Boolean)
@@ -3416,19 +3416,19 @@ const toolResponse = async (
           cards: listingCards,
         }
       : undefined;
-  const reservationCards = reservationCardsFromResult(actionId, result);
-  const reservationCardDisplay =
-    reservationCards.length > 0
+  const orderCards = orderCardsFromResult(actionId, result);
+  const orderCardDisplay =
+    orderCards.length > 0
       ? {
           type:
-            reservationCards[0]?.type === "hosting-card"
-              ? reservationCards.length === 1
+            orderCards[0]?.type === "hosting-card"
+              ? orderCards.length === 1
                 ? "hosting-card"
                 : "hosting-card-list"
-              : reservationCards.length === 1
+              : orderCards.length === 1
                 ? "trip-card"
                 : "trip-card-list",
-          cards: reservationCards,
+          cards: orderCards,
         }
       : undefined;
   const profileCards = profileCardsFromResult(actionId, result);
@@ -3504,7 +3504,7 @@ const toolResponse = async (
   const paymentDisplay =
     paymentDisplays.length > 0 &&
     !listingCardDisplay &&
-    !reservationCardDisplay &&
+    !orderCardDisplay &&
     !threadCardDisplay &&
     !threadViewDisplay
       ? {
@@ -3546,15 +3546,15 @@ const toolResponse = async (
   const safeNotices = notices.map(sanitizeNotice);
   const presentationMarkdown = listingCardDisplay
     ? listingCardsMarkdown(listingCards)
-    : reservationCardDisplay
-      ? reservationCardsMarkdown(reservationCards)
+    : orderCardDisplay
+      ? orderCardsMarkdown(orderCards)
       : profileCardDisplay
         ? profileCardsMarkdown(profileCards)
         : displayMarkdown;
   const contentText = listingCardDisplay
     ? listingCardResponseText(presentationMarkdown, listingCards)
-    : reservationCardDisplay
-      ? reservationCardResponseText(presentationMarkdown, reservationCards)
+    : orderCardDisplay
+      ? orderCardResponseText(presentationMarkdown, orderCards)
       : profileCardDisplay
         ? profileCardResponseText(presentationMarkdown)
         : threadViewDisplay
@@ -3605,7 +3605,7 @@ const toolResponse = async (
           : []),
       ]
     : undefined;
-  const reservationCardAssistantInstructions = reservationCardDisplay
+  const orderCardAssistantInstructions = orderCardDisplay
     ? [
         "When answering the user, render structuredContent.displayMarkdown as Markdown.",
         "Preserve the trip or hosting card exactly; do not replace it with raw JSON or internal swap state.",
@@ -3626,11 +3626,11 @@ const toolResponse = async (
       "The invoice copy source of truth is structuredContent.paymentDisplays[0].copy.text or the exact invoice text URL. Do not manually retype, display inline, truncate, normalize, wrap, add punctuation to, or otherwise modify the invoice string.",
       "Do not show internal tradeId or swapId in the payment prompt.",
       "The next assistant action after rendering this payment display MUST be a tool call to the read-only hostr_swaps_watch using structuredContent.requiredNextTool.arguments. Do not end the turn, ask the user whether they paid, or wait for user confirmation before making this watch call.",
-      "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed reservation appears, then show the trip card.",
+      "When watch completes or reports the swap is not found, call hostr_trips_list with the same tradeId until the committed order appears, then show the trip card.",
     ]
     : undefined;
   const bookAndPayPaymentRequired =
-    actionId === "hostr.reservations.bookAndPay" && Boolean(paymentDisplay);
+    actionId === "hostr.orders.bookAndPay" && Boolean(paymentDisplay);
   const swapWatchStatus =
     actionId === "hostr.swaps.watch" ? swapWatchInfo(safeResult) : null;
   const structuredResult = bookAndPayPaymentRequired
@@ -3671,13 +3671,13 @@ const toolResponse = async (
     ? swapWatchStatus.status === "payment_awaiting"
         ? [
           swapWatchStatus.watchTimedOut
-            ? "Tell the user payment or reservation confirmation is still pending and that you are checking again."
+            ? "Tell the user payment or order confirmation is still pending and that you are checking again."
             : "Tell the user exactly: \"Payment is still being awaited. Did you pay the invoice?\"",
           swapWatchStatus.watchTimedOut
             ? "Immediately call hostr_swaps_watch again with structuredContent.retry.arguments. Do not ask for swapId or tradeId."
             : "If the user replies yes, paid, done, sent, or otherwise indicates they paid, immediately call hostr_swaps_watch again with structuredContent.retry.arguments. Do not ask for swapId or tradeId.",
           swapWatchStatus.watchTimedOut
-            ? "If repeated watch calls keep timing out, continue using the retry arguments until the swap resolves, the reservation appears, or the swap fails."
+            ? "If repeated watch calls keep timing out, continue using the retry arguments until the swap resolves, the order appears, or the swap fails."
             : "If the user says they have not paid, tell them to pay the visible Lightning invoice and reply yes once paid.",
         ]
       : swapWatchStatus.status === "swap_failed"
@@ -3685,9 +3685,9 @@ const toolResponse = async (
             "Tell the user the swap failed, using structuredContent.data.failureReason when present.",
             "Do not keep polling a failed swap automatically. Offer to inspect swaps or run the explicit recovery workflow if the user wants debugging or recovery.",
           ]
-        : swapWatchStatus.status === "reservation_pending"
+        : swapWatchStatus.status === "order_pending"
           ? [
-              "Tell the user payment has been detected but the reservation is still being finalized.",
+              "Tell the user payment has been detected but the order is still being finalized.",
               "Call hostr_trips_list with the same tradeId if available, or call hostr_swaps_watch again with structuredContent.retry.arguments.",
             ]
           : undefined
@@ -3700,8 +3700,8 @@ const toolResponse = async (
         ? listingCardWidgetUri
         : profileCardDisplay
           ? profileCardWidgetUri
-          : reservationCardDisplay
-            ? reservationCardDisplay.type.startsWith("hosting")
+          : orderCardDisplay
+            ? orderCardDisplay.type.startsWith("hosting")
               ? hostingWidgetUri
               : tripWidgetUri
             : undefined;
@@ -3710,7 +3710,7 @@ const toolResponse = async (
     sessionConnectDisplay ??
     listingCardDisplay ??
     profileCardDisplay ??
-    reservationCardDisplay;
+    orderCardDisplay;
   const responseDisplayType = stringValue(record(responseDisplay)?.type);
   const responseWidgetMeta = responseWidgetUri
     ? widgetResultMeta(responseWidgetUri, {
@@ -3795,14 +3795,14 @@ const toolResponse = async (
             listingCards,
           }
         : {}),
-      ...(reservationCardDisplay
+      ...(orderCardDisplay
         ? {
-            assistantInstructions: reservationCardAssistantInstructions,
-            display: reservationCardDisplay,
-            reservationCards,
-            ...(reservationCardDisplay.type.startsWith("hosting")
-              ? { hostingCards: reservationCards }
-              : { tripCards: reservationCards }),
+            assistantInstructions: orderCardAssistantInstructions,
+            display: orderCardDisplay,
+            orderCards,
+            ...(orderCardDisplay.type.startsWith("hosting")
+              ? { hostingCards: orderCards }
+              : { tripCards: orderCards }),
           }
         : {}),
       ...(profileCardDisplay
@@ -3856,7 +3856,7 @@ const toolResponse = async (
         : {}),
     },
     ...(listingCardDisplay ||
-    reservationCardDisplay ||
+    orderCardDisplay ||
     profileCardDisplay ||
     threadCardDisplay ||
     threadViewDisplay ||
@@ -3882,20 +3882,20 @@ const toolResponse = async (
                     listingCardAssistantInstructions,
                 }
               : {}),
-            ...(reservationCardDisplay
+            ...(orderCardDisplay
               ? {
-                  "hostr.contentType": reservationCardDisplay.type,
-                  "hostr.display": reservationCardDisplay,
-                  "hostr.reservationCards": reservationCards,
-                  ...(reservationCardDisplay.type.startsWith("hosting")
-                    ? { "hostr.hostingCards": reservationCards }
-                    : { "hostr.tripCards": reservationCards }),
+                  "hostr.contentType": orderCardDisplay.type,
+                  "hostr.display": orderCardDisplay,
+                  "hostr.orderCards": orderCards,
+                  ...(orderCardDisplay.type.startsWith("hosting")
+                    ? { "hostr.hostingCards": orderCards }
+                    : { "hostr.tripCards": orderCards }),
                   "hostr.preferredRenderer":
-                    reservationCardDisplay.type.startsWith("hosting")
+                    orderCardDisplay.type.startsWith("hosting")
                       ? "hosting-card"
                       : "trip-card",
                   "hostr.assistantInstructions":
-                    reservationCardAssistantInstructions,
+                    orderCardAssistantInstructions,
                 }
               : {}),
             ...(profileCardDisplay
@@ -4019,7 +4019,7 @@ const toolResponse = async (
           priority: 1,
         },
         ...(listingCardDisplay ||
-        reservationCardDisplay ||
+        orderCardDisplay ||
         profileCardDisplay ||
         threadViewDisplay ||
         escrowTradeDisplay ||
@@ -4030,7 +4030,7 @@ const toolResponse = async (
               _meta: {
                 "hostr.display":
                   listingCardDisplay ??
-                  reservationCardDisplay ??
+                  orderCardDisplay ??
                   profileCardDisplay ??
                   threadViewDisplay ??
                   escrowTradeDisplay ??
@@ -4256,7 +4256,7 @@ const bookAndPayTimeoutMs = (args: Record<string, unknown>): number => {
 };
 
 const swapWatchTimeoutMs = (args: Record<string, unknown>): number =>
-  (reservationWatchSeconds(args.reservationWaitSeconds) + 15) * 1000;
+  (orderWatchSeconds(args.orderWaitSeconds) + 15) * 1000;
 
 const sendHostrElicitation = async (
   server: McpServer,
@@ -4327,7 +4327,7 @@ const sendHostrElicitation = async (
         "USER ACTION REQUIRED: pay the Lightning invoice shown in the Hostr payment display.",
         notice.message,
         "Use the QR, wallet link, copy affordance, or exact invoice text link from the payment display.",
-        "Keep this Hostr request running while Hostr watches for payment, swap settlement, and the committed reservation.",
+        "Keep this Hostr request running while Hostr watches for payment, swap settlement, and the committed order.",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -4338,7 +4338,7 @@ const sendHostrElicitation = async (
             type: "boolean",
             title: "I have paid the invoice",
             description:
-              "Confirm after paying the Lightning invoice. Hostr still verifies the payment and reservation automatically.",
+              "Confirm after paying the Lightning invoice. Hostr still verifies the payment and order automatically.",
             default: false,
           },
         },
@@ -4587,7 +4587,7 @@ const sessionAccountsPayload = async (
         ? "No Hostr accounts are connected to this MCP session. Call hostr_session_connect with wait=false, render the returned login prompt, then immediately call hostr_session_connect with wait=true and continue the user's Hostr request."
         : "If the user requested a guest, host, or escrow account and no connected account clearly satisfies that role, do not ask the user to connect it out of band. Call hostr_session_connect with wait=false, render the returned login prompt, then immediately call hostr_session_connect with wait=true and continue the user's Hostr request.",
       "If a connected account clearly satisfies the requested role, call hostr_session_switch for that account before role-specific Hostr actions.",
-      "For a Hostr reservation request with a destination and dates but no listing link, do not ask the user for a listing first; call hostr_listings_search for the destination, then continue with availability and booking on a suitable active listing.",
+      "For a Hostr order request with a destination and dates but no listing link, do not ask the user for a listing first; call hostr_listings_search for the destination, then continue with availability and booking on a suitable active listing.",
     ],
   };
 };
@@ -6095,7 +6095,7 @@ ${sharedWidgetCss}
           if (!output || typeof output !== "object") return [];
           if (variant === "hosting" && Array.isArray(output.hostingCards)) return output.hostingCards;
           if (variant === "trip" && Array.isArray(output.tripCards)) return output.tripCards;
-          if (Array.isArray(output.reservationCards)) return output.reservationCards;
+          if (Array.isArray(output.orderCards)) return output.orderCards;
           if (output.display && Array.isArray(output.display.cards)) return output.display.cards;
           return [];
         }
@@ -6143,7 +6143,7 @@ ${sharedWidgetCss}
           var cards = cardsFrom(toolData(output)).filter(Boolean);
           root.replaceChildren();
           if (cards.length === 0) {
-            appendText(root, "div", "empty hostr-empty", variant === "hosting" ? "No hosting reservations found." : "No trips found.");
+            appendText(root, "div", "empty hostr-empty", variant === "hosting" ? "No hosting orders found." : "No trips found.");
             return;
           }
           cards.forEach(function (card) {
@@ -6752,19 +6752,19 @@ const createServer = (
         ...(!listingActionIds.has(action.id) &&
         action.id !== "hostr.session.connect" &&
         !profileActionIds.has(action.id) &&
-        reservationActionIds.has(action.id)
+        orderActionIds.has(action.id)
           ? {
               outputSchema:
-                action.id === "hostr.reservations.bookAndPay"
+                action.id === "hostr.orders.bookAndPay"
                   ? paymentRequiredOutputSchema
-                  : reservationCardOutputSchema,
-              _meta: reservationToolMeta(action.id),
+                  : orderCardOutputSchema,
+              _meta: orderToolMeta(action.id),
             }
           : {}),
         ...(!listingActionIds.has(action.id) &&
         action.id !== "hostr.session.connect" &&
         !profileActionIds.has(action.id) &&
-        !reservationActionIds.has(action.id) &&
+        !orderActionIds.has(action.id) &&
         threadActionIds.has(action.id)
           ? {
               outputSchema: threadCardOutputSchema,
@@ -6781,7 +6781,7 @@ const createServer = (
         ...(!listingActionIds.has(action.id) &&
         action.id !== "hostr.session.connect" &&
         !profileActionIds.has(action.id) &&
-        !reservationActionIds.has(action.id) &&
+        !orderActionIds.has(action.id) &&
         !threadActionIds.has(action.id) &&
         escrowTradeActionIds.has(action.id)
           ? {
@@ -6795,7 +6795,7 @@ const createServer = (
         ...(!listingActionIds.has(action.id) &&
         action.id !== "hostr.session.connect" &&
         !profileActionIds.has(action.id) &&
-        !reservationActionIds.has(action.id) &&
+        !orderActionIds.has(action.id) &&
         !threadActionIds.has(action.id) &&
         !escrowTradeActionIds.has(action.id) &&
         escrowServiceActionIds.has(action.id)
@@ -6810,7 +6810,7 @@ const createServer = (
         ...(!listingActionIds.has(action.id) &&
         action.id !== "hostr.session.connect" &&
         !profileActionIds.has(action.id) &&
-        !reservationActionIds.has(action.id) &&
+        !orderActionIds.has(action.id) &&
         !threadActionIds.has(action.id) &&
         !escrowTradeActionIds.has(action.id) &&
         !escrowServiceActionIds.has(action.id) &&
@@ -6934,7 +6934,7 @@ const createServer = (
             action: action.id,
             input: args,
             notificationToken,
-            ...(action.id === "hostr.reservations.bookAndPay"
+            ...(action.id === "hostr.orders.bookAndPay"
               ? { timeoutMs: bookAndPayTimeoutMs(args) }
               : {}),
             ...(action.id === "hostr.swaps.watch"
@@ -7275,9 +7275,9 @@ export const __testing = {
   profileCardsMarkdown,
   paymentRequiredWidgetHtml,
   applyClientToolVisibilityPolicy,
-  reservationCardsFromResult,
-  reservationCardsMarkdown,
-  reservationToolMeta,
+  orderCardsFromResult,
+  orderCardsMarkdown,
+  orderToolMeta,
   sessionConnectWidgetHtml,
   toolResponse,
   toolAnnotations,

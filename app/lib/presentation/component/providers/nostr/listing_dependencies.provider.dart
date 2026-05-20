@@ -11,11 +11,9 @@ import 'package:rxdart/rxdart.dart';
 class ListingDependencies {
   Listing listing;
   final StreamWithStatus<Validation<Review>> verifiedReviews;
-  final StreamWithStatus<Validation<ReservationGroup>>
-  verifiedReservationGroups;
+  final StreamWithStatus<Validation<OrderGroup>> verifiedReservationGroups;
   StreamWithStatus<List<Validation<Review>>>? _reviewItemsSource;
-  StreamWithStatus<List<Validation<ReservationGroup>>>?
-  _reservationGroupItemsSource;
+  StreamWithStatus<List<Validation<OrderGroup>>>? _reservationGroupItemsSource;
 
   factory ListingDependencies.forListing(Listing listing) {
     final anchor = listing.anchor;
@@ -33,7 +31,7 @@ class ListingDependencies {
           },
         ),
       ),
-      verifiedReservationGroups: getIt<Hostr>().reservationGroups.queryVerified(
+      verifiedReservationGroups: getIt<Hostr>().orderGroups.queryVerified(
         listingAnchor: anchor,
       ),
     );
@@ -48,15 +46,15 @@ class ListingDependencies {
   StreamWithStatus<List<Validation<Review>>> get _reviewItems =>
       _reviewItemsSource ??= verifiedReviews.accumulateByKey((r) => r.event.id);
 
-  StreamWithStatus<List<Validation<ReservationGroup>>>
-  get _reservationGroupItems => _reservationGroupItemsSource ??=
-      verifiedReservationGroups.accumulateByKey((g) => g.event.groupId);
+  StreamWithStatus<List<Validation<OrderGroup>>> get _reservationGroupItems =>
+      _reservationGroupItemsSource ??= verifiedReservationGroups
+          .accumulateByKey((g) => g.event.groupId);
 
   late final Stream<List<Validation<Review>>> reviewItems = _reviewItems
       .replayStream
       .shareReplay(maxSize: 1);
 
-  late final Stream<List<Validation<ReservationGroup>>> reservationGroupItems =
+  late final Stream<List<Validation<OrderGroup>>> reservationGroupItems =
       _reservationGroupItems.replayStream.shareReplay(maxSize: 1);
 
   late final Stream<int> reviewCount = reviewItems
@@ -82,7 +80,7 @@ class ListingDependencies {
       .shareReplay(maxSize: 1);
 
   late final Stream<int> reservationCount = reservationGroupItems
-      .map((items) => items.whereType<Valid<ReservationGroup>>().length)
+      .map((items) => items.whereType<Valid<OrderGroup>>().length)
       .shareReplay(maxSize: 1);
 
   Future<void> close() async {

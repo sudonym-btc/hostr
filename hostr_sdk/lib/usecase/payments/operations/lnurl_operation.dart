@@ -1,5 +1,5 @@
 import 'package:bolt11_decoder/bolt11_decoder.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 
 import '../../../injection.dart';

@@ -52,7 +52,7 @@ enum E2eSuite {
   bunkerPopups,
   searchFilters,
   loginRouting,
-  reservations,
+  orders,
   guestCancellations,
   hostBookings,
   listings,
@@ -233,15 +233,14 @@ void runE2eTests({
         });
       }
 
-      if (has(E2eSuite.reservations)) {
+      if (has(E2eSuite.orders)) {
         for (final reservationCase in activeReservationCases) {
           await _withSignedInUser(
             tester: tester,
             harness: harness,
             signet: signet!,
             loginMode: loginMode,
-            profileName:
-                'God Reservation ${reservationCase.name} ${loginMode.label}',
+            profileName: 'God Order ${reservationCase.name} ${loginMode.label}',
             body: (session) async {
               await _runReservationCase(session, reservationCase);
             },
@@ -465,7 +464,7 @@ void runE2eTests({
       }, timeout: _timeout);
     }
 
-    if (has(E2eSuite.reservations)) {
+    if (has(E2eSuite.orders)) {
       for (final reservationCase in activeReservationCases) {
         testWidgets(
           'reservation ${reservationCase.name} and trips (${loginMode.label})',
@@ -476,7 +475,7 @@ void runE2eTests({
               signet: signet!,
               loginMode: loginMode,
               profileName:
-                  'God Reservation ${reservationCase.name} ${loginMode.label}',
+                  'God Order ${reservationCase.name} ${loginMode.label}',
               body: (session) async {
                 await _runReservationCase(session, reservationCase);
               },
@@ -721,7 +720,7 @@ class _E2eSession {
 class _ArbitrationTrade {
   final String title;
   final KeyPair hostKeyPair;
-  final Reservation negotiateReservation;
+  final Order negotiateReservation;
 
   const _ArbitrationTrade({
     required this.title,
@@ -1735,8 +1734,8 @@ Map<String, int> _expectedSubscriptionCountsAfterUsdReservation(
   // not page-owned route subscriptions, so the lifecycle assertion allows
   // exactly one expansion for this single USD reservation journey.
   for (final name in const [
-    'Reservation-user-reservations-live',
-    'ReservationTransition-user-transitions-live',
+    'Order-user-reservations-live',
+    'OrderTransition-user-transitions-live',
     'ReceivedHeartbeat-user-heartbeats-live',
     'ZapReceipts-sub',
   ]) {
@@ -2432,7 +2431,7 @@ Future<void> _stopUserSession(Hostr hostr) async {
   await hostr.userSubscriptions.reset();
   await hostr.messaging.threads.reset();
   await hostr.nwc.reset();
-  await hostr.reservations.reset();
+  await hostr.orders.reset();
   await _closeAllNostrSubscriptions(hostr, 'after-stop');
 }
 
@@ -2540,7 +2539,7 @@ bool _threadHasReservationForListing(Thread thread, Listing listing) {
   if (listingAnchor == null) {
     return false;
   }
-  return thread.state.value.reservationRequests.any(
+  return thread.state.value.orderRequests.any(
     (request) => request.parsedTags.listingAnchor == listingAnchor,
   );
 }
@@ -2858,19 +2857,19 @@ void _debugTradeHeaders(
     try {
       final trade = BlocProvider.of<Trade>(element, listen: false);
       final state = trade.state;
-      final groups = trade.resolvedReservationGroup$.items
+      final groups = trade.resolvedOrderGroup$.items
           .map((item) {
             final group = item.group;
             final validation = item.validation;
-            final stages = group.reservations
+            final stages = group.orders
                 .map(
                   (r) =>
                       '${r.pubKey.substring(0, 8)}:${r.stage.name}:created=${r.createdAt}',
                 )
                 .join(',');
-            final validity = validation is Valid<ReservationGroup>
+            final validity = validation is Valid<OrderGroup>
                 ? 'valid'
-                : validation is Invalid<ReservationGroup>
+                : validation is Invalid<OrderGroup>
                 ? 'invalid:${validation.reason}'
                 : validation.runtimeType.toString();
             return '${group.tradeId}:$validity:cancelled=${group.cancelled}:raw=${item.participants.rawGroupId}:resolved=${item.participants.resolvedGroupId}:stages=$stages';
@@ -3014,8 +3013,8 @@ Future<void> _assertTripsPageContainsReservations(
       () =>
           find.byKey(ValueKey(reservation.tradeId)).evaluate().isNotEmpty &&
           (getIt<Hostr>().userSubscriptions.myTripsList$.items.lastOrNull ??
-                  const <Validation<ReservationGroup>>[])
-              .whereType<Valid<ReservationGroup>>()
+                  const <Validation<OrderGroup>>[])
+              .whereType<Valid<OrderGroup>>()
               .any((item) => item.event.tradeId == reservation.tradeId),
       timeout: const Duration(seconds: 60),
       reasonBuilder: () => _reservationGroupsSnapshot(
@@ -3084,11 +3083,11 @@ Finder _appShellRouteExpectedKey(PageRouteInfo route) {
 }
 
 String _reservationGroupsSnapshot(WidgetTester tester, String prefix) {
-  String describe(Validation<ReservationGroup> item) {
+  String describe(Validation<OrderGroup> item) {
     final group = item.event;
     final type = item.runtimeType;
-    final reason = item is Invalid<ReservationGroup> ? ': ${item.reason}' : '';
-    final reservations = group.reservations
+    final reason = item is Invalid<OrderGroup> ? ': ${item.reason}' : '';
+    final reservations = group.orders
         .map(
           (reservation) =>
               '${reservation.pubKey.substring(0, 8)}'
@@ -3102,10 +3101,10 @@ String _reservationGroupsSnapshot(WidgetTester tester, String prefix) {
 
   final trips =
       (getIt<Hostr>().userSubscriptions.myTripsList$.items.lastOrNull ??
-              const <Validation<ReservationGroup>>[])
+              const <Validation<OrderGroup>>[])
           .map(describe)
           .join(' | ');
-  final all = getIt<Hostr>().userSubscriptions.allMyReservationGroups$.items
+  final all = getIt<Hostr>().userSubscriptions.allMyOrderGroups$.items
       .map(describe)
       .join(' | ');
   final keys = tester
@@ -3128,7 +3127,7 @@ Future<void> _exerciseCounterNegotiation({
   required _ReservationJourneyResult reservation,
 }) async {
   final thread = _threadForReservation(hostr, reservation);
-  final guestOffer = thread?.state.value.reservationRequests.lastOrNull;
+  final guestOffer = thread?.state.value.orderRequests.lastOrNull;
   if (thread == null || guestOffer?.amount == null) {
     throw StateError('No guest negotiation offer for ${reservation.tradeId}');
   }
@@ -3153,8 +3152,8 @@ Future<void> _exerciseCounterNegotiation({
   );
   final currentThread = _threadForReservation(hostr, reservation);
   final beforeGuestCounterCount =
-      currentThread?.state.value.reservationRequests.length ??
-      thread.state.value.reservationRequests.length;
+      currentThread?.state.value.orderRequests.length ??
+      thread.state.value.orderRequests.length;
   final counterButton = find.byKey(
     ValueKey('trade_action_counter_${reservation.tradeId}'),
   );
@@ -3222,7 +3221,7 @@ Future<void> _exerciseCounterNegotiation({
     tester,
     () {
       final thread = hostr.messaging.threads.threads[reservation.threadAnchor];
-      final requests = thread?.state.value.reservationRequests ?? const [];
+      final requests = thread?.state.value.orderRequests ?? const [];
       return requests.length > beforeGuestCounterCount &&
           requests.last.pubKey != hostKeyPair.publicKey;
     },
@@ -3259,7 +3258,7 @@ Thread? _threadForReservation(
   _ReservationJourneyResult reservation,
 ) => hostr.messaging.threads.threads[reservation.threadAnchor];
 
-List<Reservation> _latestReservationRequestsForTrade(
+List<Order> _latestReservationRequestsForTrade(
   Hostr hostr,
   _ReservationJourneyResult reservation,
 ) {
@@ -3269,11 +3268,11 @@ List<Reservation> _latestReservationRequestsForTrade(
           .threads[reservation.threadAnchor]
           ?.state
           .value
-          .reservationRequests ??
-      const <Reservation>[];
+          .orderRequests ??
+      const <Order>[];
 }
 
-Reservation _latestReservationRequestForTrade(
+Order _latestReservationRequestForTrade(
   Hostr hostr,
   _ReservationJourneyResult reservation,
 ) {
@@ -3321,12 +3320,12 @@ Future<void> _sendHostNegotiationEvent({
   required DenominatedAmount amount,
 }) async {
   final thread = _threadForReservation(hostr, reservation);
-  final latestRequest = thread?.state.value.reservationRequests.lastOrNull;
+  final latestRequest = thread?.state.value.orderRequests.lastOrNull;
   if (thread == null || latestRequest == null) {
     throw StateError('No negotiation thread for ${reservation.tradeId}');
   }
 
-  final event = await hostr.reservationRequests.createCounterOffer(
+  final event = await hostr.orderRequests.createCounterOffer(
     listing: reservation.listing,
     previousRequest: latestRequest,
     amount: amount,
@@ -3397,7 +3396,7 @@ Future<void> _payReservationWithExternalAlby({
     tester,
     payKey,
     timeout: const Duration(seconds: 90),
-    reason: 'Reservation ${reservation.tradeId} should expose Pay',
+    reason: 'Order ${reservation.tradeId} should expose Pay',
   );
   await _tapKeyUntilKeyAppears(
     tester,
@@ -3621,24 +3620,23 @@ Future<Key> _waitForPaidReservationGroupAndTripBookedDoneButton(
 }
 
 bool _hasPaidReservationGroup(Hostr hostr, String tradeId) {
-  return hostr.userSubscriptions.allMyReservationGroups$.items.any((item) {
+  return hostr.userSubscriptions.allMyOrderGroups$.items.any((item) {
     if (item.event.tradeId != tradeId) return false;
     final group = item.event;
-    return group.reservations.any(
+    return group.orders.any(
       (reservation) =>
-          reservation.stage == ReservationStage.commit &&
-          reservation.proof != null,
+          reservation.stage == OrderStage.commit && reservation.proof != null,
     );
   });
 }
 
 String _paidReservationGroupSnapshot(Hostr hostr, String tradeId) {
-  final groups = hostr.userSubscriptions.allMyReservationGroups$.items
+  final groups = hostr.userSubscriptions.allMyOrderGroups$.items
       .where((item) => item.event.tradeId == tradeId)
       .map(
         (item) =>
             '${item.runtimeType}:'
-            '${item.event.reservations.map((reservation) => '${reservation.pubKey.substring(0, 8)}:${reservation.stage.name}:proof=${reservation.proof != null}').join(',')}',
+            '${item.event.orders.map((reservation) => '${reservation.pubKey.substring(0, 8)}:${reservation.stage.name}:proof=${reservation.proof != null}').join(',')}',
       )
       .join(' | ');
   return groups.isEmpty ? 'groups=[]' : 'groups=[$groups]';
@@ -3860,14 +3858,14 @@ Future<_ArbitrationTrade> _createArbitrationTrade({
   final start = DateTime.now().toUtc().add(const Duration(days: 84));
   final end = start.add(const Duration(days: 2));
   final tradeId = Bip340.generatePrivateKey().privateKey!;
-  final reservation = await harness.seeds.entities.reservation(
+  final reservation = await harness.seeds.entities.order(
     guestKeyPair: guestKeyPair,
     dTag: tradeId,
     listing: listing,
     start: start,
     end: end,
     amount: amount,
-    stage: ReservationStage.negotiate,
+    stage: OrderStage.negotiate,
   );
   _assertDriveReservationUsesParticipantProofs(
     reservation: reservation,
@@ -4377,7 +4375,7 @@ Future<void> _editListing(
 }
 
 void _assertDriveReservationUsesParticipantProofs({
-  required Reservation reservation,
+  required Order reservation,
   required String buyerParticipantPubkey,
   required String hostPubkey,
   required String label,
@@ -4432,7 +4430,7 @@ Future<void> _createBackendPendingRequestAndCancelAsHost({
   final start = DateTime.now().toUtc().add(const Duration(days: 63));
   final end = start.add(const Duration(days: 2));
   final amount = listing.cost(start: start, end: end);
-  final guestRequest = await harness.seeds.entities.reservation(
+  final guestRequest = await harness.seeds.entities.order(
     guestKeyPair: guest,
     dTag: tradeId,
     listing: listing,
@@ -4440,7 +4438,7 @@ Future<void> _createBackendPendingRequestAndCancelAsHost({
     end: end,
     accountIndex: accountIndex,
     amount: amount,
-    stage: ReservationStage.negotiate,
+    stage: OrderStage.negotiate,
   );
   _assertDriveReservationUsesParticipantProofs(
     reservation: guestRequest,
@@ -4605,7 +4603,7 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
   final start = DateTime.now().toUtc().add(const Duration(days: 70));
   final end = start.add(const Duration(days: 2));
   final amount = listing.cost(start: start, end: end);
-  final guestRequest = await harness.seeds.entities.reservation(
+  final guestRequest = await harness.seeds.entities.order(
     guestKeyPair: guest,
     dTag: tradeId,
     listing: listing,
@@ -4613,7 +4611,7 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     end: end,
     accountIndex: accountIndex,
     amount: amount,
-    stage: ReservationStage.negotiate,
+    stage: OrderStage.negotiate,
   );
   final guestTradeKeyPair = await deriveTradeKeyPair(
     guest.privateKey!,
@@ -4659,7 +4657,7 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     PTag.buyer(guestTradeKeyPair.publicKey),
     PTag.escrow(fixtures.escrowService.escrowPubkey),
   ];
-  final buyerCommit = await harness.seeds.entities.reservation(
+  final buyerCommit = await harness.seeds.entities.order(
     guestKeyPair: guest,
     dTag: tradeId,
     listing: listing,
@@ -4668,19 +4666,19 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     accountIndex: accountIndex,
     amount: amount,
     recipient: guestTradeKeyPair.publicKey,
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     signerOverride: guestTradeKeyPair,
     pTags: reservationParticipants,
     proof: proof,
   );
-  final hostCommit = await harness.seeds.entities.reservation(
+  final hostCommit = await harness.seeds.entities.order(
     guestKeyPair: guest,
     dTag: tradeId,
     listing: listing,
     start: start,
     end: end,
     amount: amount,
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     signerOverride: hostKeyPair,
     pTags: reservationParticipants,
   );
@@ -4697,10 +4695,10 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     label: 'backend live booking host commit',
   );
 
-  await hostr.reservations.upsert(buyerCommit);
-  await hostr.reservations.upsert(hostCommit);
-  hostr.userSubscriptions.allMyReservations$.stream.add(buyerCommit);
-  hostr.userSubscriptions.allMyReservations$.stream.add(hostCommit);
+  await hostr.orders.upsert(buyerCommit);
+  await hostr.orders.upsert(hostCommit);
+  hostr.userSubscriptions.allMyOrders$.stream.add(buyerCommit);
+  hostr.userSubscriptions.allMyOrders$.stream.add(hostCommit);
   await _waitForResolvedReservationGroup(
     hostr: hostr,
     tradeId: tradeId,
@@ -4738,7 +4736,7 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
   return _BackendLiveBooking(tradeId: tradeId, threadAnchor: thread.anchor);
 }
 
-Future<ResolvedValidatedReservationGroupParticipants>
+Future<ResolvedValidatedOrderGroupParticipants>
 _waitForResolvedReservationGroup({
   required Hostr hostr,
   required String tradeId,
@@ -4747,10 +4745,7 @@ _waitForResolvedReservationGroup({
 }) async {
   final deadline = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(deadline)) {
-    final matches = hostr
-        .userSubscriptions
-        .allMyResolvedReservationGroups$
-        .items
+    final matches = hostr.userSubscriptions.allMyResolvedOrderGroups$.items
         .where((item) => item.group.tradeId == tradeId)
         .toList(growable: false);
     if (matches.isNotEmpty) {
@@ -4762,26 +4757,22 @@ _waitForResolvedReservationGroup({
         'resolvedGroup=${item.participants.resolvedGroupId} '
         'raw=${item.participants.rawParticipantSet.join(",")} '
         'resolved=${item.participants.resolvedParticipantSet.join(",")} '
-        'seller=${item.group.sellerReservation?.pubKey} '
-        'buyer=${item.group.buyerReservation?.pubKey} '
+        'seller=${item.group.sellerOrder?.pubKey} '
+        'buyer=${item.group.buyerOrder?.pubKey} '
         'escrowPubkey=${item.group.escrowPubkey} '
-        'escrowReservation=${item.group.escrowReservation?.pubKey} '
-        'stages=${item.group.reservations.map((r) => '${r.pubKey}:${r.stage.name}:proof=${r.proof != null}:participantProofs=${r.parsedTags.participantProofs.length}').join("|")}',
+        'escrowReservation=${item.group.escrowOrder?.pubKey} '
+        'stages=${item.group.orders.map((r) => '${r.pubKey}:${r.stage.name}:proof=${r.proof != null}:participantProofs=${r.parsedTags.participantProofs.length}').join("|")}',
       );
       return item;
     }
     await Future<void>.delayed(const Duration(milliseconds: 200));
   }
 
-  final unresolved = hostr.userSubscriptions.allMyReservationGroups$.items
+  final unresolved = hostr.userSubscriptions.allMyOrderGroups$.items
       .where((item) => item.event.tradeId == tradeId)
       .map(_describeReservationGroupValidation)
       .join(' || ');
-  final rawReservations = hostr
-      .userSubscriptions
-      .allMyReservations$
-      .stream
-      .items
+  final rawReservations = hostr.userSubscriptions.allMyOrders$.stream.items
       .where((reservation) => reservation.getDtag() == tradeId)
       .map(
         (reservation) =>
@@ -4795,20 +4786,18 @@ _waitForResolvedReservationGroup({
   );
 }
 
-String _describeReservationGroupValidation(
-  Validation<ReservationGroup> validation,
-) {
+String _describeReservationGroupValidation(Validation<OrderGroup> validation) {
   final group = validation.event;
-  final status = validation is Invalid<ReservationGroup>
+  final status = validation is Invalid<OrderGroup>
       ? 'Invalid:${validation.reason}'
       : validation.runtimeType.toString();
   return '$status rawGroup=${group.groupId} '
       'participants=${group.participantSet.join(",")} '
-      'seller=${group.sellerReservation?.pubKey} '
-      'buyer=${group.buyerReservation?.pubKey} '
+      'seller=${group.sellerOrder?.pubKey} '
+      'buyer=${group.buyerOrder?.pubKey} '
       'escrowPubkey=${group.escrowPubkey} '
-      'escrowReservation=${group.escrowReservation?.pubKey} '
-      'stages=${group.reservations.map((r) => '${r.pubKey}:${r.stage.name}:proof=${r.proof != null}:participantProofs=${r.parsedTags.participantProofs.length}').join("|")}';
+      'escrowReservation=${group.escrowOrder?.pubKey} '
+      'stages=${group.orders.map((r) => '${r.pubKey}:${r.stage.name}:proof=${r.proof != null}:participantProofs=${r.parsedTags.participantProofs.length}').join("|")}';
 }
 
 Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
@@ -4828,7 +4817,7 @@ Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
   final end = DateTime.now().toUtc().subtract(const Duration(days: 2));
   final start = end.subtract(const Duration(days: 2));
   final amount = listing.cost(start: start, end: end);
-  final buyerCommit = await harness.seeds.entities.reservation(
+  final buyerCommit = await harness.seeds.entities.order(
     guestKeyPair: guestIdentityKeyPair,
     dTag: tradeId,
     listing: listing,
@@ -4837,14 +4826,14 @@ Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
     accountIndex: accountIndex,
     amount: amount,
     recipient: guestTradeKeyPair.publicKey,
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     signerOverride: guestTradeKeyPair,
     pTags: [
       PTag.seller(listing.pubKey),
       PTag.buyer(guestTradeKeyPair.publicKey),
     ],
   );
-  final hostCommit = await harness.seeds.entities.reservation(
+  final hostCommit = await harness.seeds.entities.order(
     guestKeyPair: guestIdentityKeyPair,
     dTag: tradeId,
     listing: listing,
@@ -4853,7 +4842,7 @@ Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
     accountIndex: accountIndex,
     amount: amount,
     recipient: guestTradeKeyPair.publicKey,
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     signerOverride: hostKeyPair,
     pTags: [
       PTag.seller(listing.pubKey),
@@ -4873,16 +4862,14 @@ Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
     label: 'backend completed review host commit $label',
   );
 
-  await hostr.reservations.upsert(buyerCommit);
-  await hostr.reservations.upsert(hostCommit);
-  hostr.userSubscriptions.allMyReservations$.stream.add(buyerCommit);
-  hostr.userSubscriptions.allMyReservations$.stream.add(hostCommit);
-  hostr.userSubscriptions.allMyReservations$.stream.addStatus(
+  await hostr.orders.upsert(buyerCommit);
+  await hostr.orders.upsert(hostCommit);
+  hostr.userSubscriptions.allMyOrders$.stream.add(buyerCommit);
+  hostr.userSubscriptions.allMyOrders$.stream.add(hostCommit);
+  hostr.userSubscriptions.allMyOrders$.stream.addStatus(
     StreamStatusQueryComplete(),
   );
-  hostr.userSubscriptions.allMyReservations$.stream.addStatus(
-    StreamStatusLive(),
-  );
+  hostr.userSubscriptions.allMyOrders$.stream.addStatus(StreamStatusLive());
 
   final thread = hostr.messaging.threads.ensureConversation(
     participants: {hostKeyPair.publicKey, guestIdentityKeyPair.publicKey},
@@ -5825,7 +5812,7 @@ String _describeResolvedHostings(Hostr hostr) {
       .map(
         (item) =>
             '${item.group.tradeId}:seller=${item.group.sellerPubkey}:'
-            'stages=${item.group.reservations.map((r) => '${r.pubKey}:${r.stage.name}').join(",")}:'
+            'stages=${item.group.orders.map((r) => '${r.pubKey}:${r.stage.name}').join(",")}:'
             'raw=${item.participants.rawGroupId}:'
             'resolved=${item.participants.resolvedGroupId}',
       )

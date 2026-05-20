@@ -15,7 +15,7 @@ import 'package:rxdart/rxdart.dart';
 
 class Reserve extends StatefulWidget {
   final Listing listing;
-  final Stream<List<Validation<ReservationGroup>>> reservationGroupItemsStream;
+  final Stream<List<Validation<OrderGroup>>> reservationGroupItemsStream;
 
   /// Status stream from the underlying [StreamWithStatus].
   /// When provided, the reserve button is disabled until the status
@@ -111,13 +111,12 @@ class _ReserveState extends State<Reserve> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Validation<ReservationGroup>>>(
+    return StreamBuilder<List<Validation<OrderGroup>>>(
       stream: widget.reservationGroupItemsStream,
       builder: (context, reservationGroupsSnapshot) {
         final reservationGroups =
-            (reservationGroupsSnapshot.data ??
-                    const <Validation<ReservationGroup>>[])
-                .whereType<Valid<ReservationGroup>>()
+            (reservationGroupsSnapshot.data ?? const <Validation<OrderGroup>>[])
+                .whereType<Valid<OrderGroup>>()
                 .map((validated) => validated.event)
                 .toList(growable: false);
 
@@ -218,7 +217,7 @@ class _ReserveState extends State<Reserve> {
                                   action: () async {
                                     await context
                                         .read<ReservationCubit>()
-                                        .createReservationRequest(
+                                        .createOrderRequest(
                                           listing: widget.listing,
                                           startDate: dateRange.start,
                                           endDate: dateRange.end,
@@ -265,7 +264,7 @@ class _ReserveState extends State<Reserve> {
 Future<void> selectDates(
   BuildContext context,
   DateRangeCubit dateRangeCubit,
-  List<ReservationGroup> reservationGroups, {
+  List<OrderGroup> reservationGroups, {
   bool enforceContiguousAvailability = true,
 }) async {
   bool selectableDayPredicate(

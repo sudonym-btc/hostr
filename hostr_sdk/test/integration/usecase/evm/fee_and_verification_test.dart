@@ -5,7 +5,7 @@
 /// sanity: gas fees > 0, swap fees > 0 where applicable, and escrow fees > 0
 /// for escrow operations.
 ///
-/// The escrow-fund test additionally broadcasts a self-signed reservation
+/// The escrow-fund test additionally broadcasts a self-signed order
 /// with a real on-chain escrow deposit and verifies it via
 /// [EscrowVerification.verify].
 ///
@@ -37,7 +37,7 @@ import '../../../support/evm_test_helpers.dart';
 import '../../../support/integration_test_harness.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Escrow proof builders (for self-signed reservation)
+//  Escrow proof builders (for self-signed order)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Builds a signed [EscrowMethod] event published by [host], containing:
@@ -91,25 +91,25 @@ Nip01Event _buildSignedProfile({required KeyPair key}) {
   );
 }
 
-/// Builds a self-signed commit reservation with a [PaymentProof].
-Reservation _buildSelfSignedCommit({
-  required Reservation negotiate,
+/// Builds a self-signed commit order with a [PaymentProof].
+Order _buildSelfSignedCommit({
+  required Order negotiate,
   required Listing listing,
   required KeyPair buyer,
   required PaymentProof proof,
 }) {
-  return Reservation.create(
+  return Order.create(
     pubKey: buyer.publicKey,
     dTag: negotiate.getDtag()!,
     listingAnchor: listing.anchor!,
     start: negotiate.start,
     end: negotiate.end,
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     quantity: negotiate.quantity,
     amount: negotiate.amount,
     proof: proof,
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
-  ).signAs(buyer, Reservation.fromNostrEvent);
+  ).signAs(buyer, Order.fromNostrEvent);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -444,7 +444,7 @@ void main() {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  //  5) Escrow Fund — ERC-20 (tBTC) + Self-signed Reservation + Verification
+  //  5) Escrow Fund — ERC-20 (tBTC) + Self-signed Order + Verification
   // ─────────────────────────────────────────────────────────────────────────
   group('escrow fund ERC-20 (tBTC) with fee sanity + verification', () {
     late IntegrationTestHarness harness;
@@ -499,7 +499,7 @@ void main() {
           multiEscrowBytecodeHash: realBytecodeHash,
         )).first;
 
-        final negotiateReservation = trade.negotiateReservation;
+        final negotiateOrder = trade.negotiateOrder;
         final sellerProfile = trade.sellerProfile;
 
         // ── 3. Estimate fees before executing ──
@@ -508,10 +508,10 @@ void main() {
         final preparer = hostr.escrow.fund(
           EscrowFundParams(
             escrowService: escrowService,
-            negotiateReservation: negotiateReservation,
+            negotiateOrder: negotiateOrder,
             sellerProfile: sellerProfile,
             sellerEvmAddress: trade.sellerEvmAddress,
-            amount: negotiateReservation.amount!,
+            amount: negotiateOrder.amount!,
             dexInputBuffer: SwapInDexBuffer.zero,
           ),
         );
@@ -545,7 +545,7 @@ void main() {
         final txHash = completed.data.claimTxHash;
         expect(txHash, isNotNull);
 
-        // ── 6. Build self-signed reservation with escrow proof ──
+        // ── 6. Build self-signed order with escrow proof ──
         final hostKeyPair = trade.host.keyPair;
         final listing = trade.listing;
         final hosterProfile = _buildSignedProfile(key: hostKeyPair);
@@ -566,9 +566,9 @@ void main() {
           acceptedPaymentForms: acceptedPaymentForms,
         );
 
-        // Use the actual trade's negotiate reservation for the commit —
+        // Use the actual trade's negotiate order for the commit —
         // its dTag is the trade ID that was funded on-chain. Building a
-        // new reservation with a different dTag would not match.
+        // new order with a different dTag would not match.
         final proof = PaymentProof(
           hoster: hosterProfile,
           listing: listing,
@@ -581,7 +581,7 @@ void main() {
         );
 
         final commit = _buildSelfSignedCommit(
-          negotiate: negotiateReservation,
+          negotiate: negotiateOrder,
           listing: listing,
           buyer: trade.guest.keyPair,
           proof: proof,
@@ -592,14 +592,14 @@ void main() {
           evm: hostr.evm,
           logger: CustomLogger(),
         );
-        final result = await verification.verify(reservation: commit);
+        final result = await verification.verify(order: commit);
 
         print('  EscrowVerification result: $result');
         expect(
           result.isValid,
           isTrue,
           reason:
-              'Self-signed reservation with real on-chain escrow deposit '
+              'Self-signed order with real on-chain escrow deposit '
               'should pass verification. Got: ${result.reason}',
         );
         expect(result.fundedEvent, isNotNull);

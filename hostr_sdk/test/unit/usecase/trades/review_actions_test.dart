@@ -13,16 +13,16 @@ import 'package:test/test.dart';
 
 final _f = EntityFactory();
 
-Future<Reservation> _reservation({
+Future<Order> _order({
   required Listing listing,
   required String tradeId,
   required DateTime start,
   required DateTime end,
-  required ReservationStage stage,
+  required OrderStage stage,
   required bool seller,
 }) {
   final signer = seller ? MockKeys.hoster : MockKeys.guest;
-  return _f.reservation(
+  return _f.order(
     listing: listing,
     dTag: tradeId,
     signerOverride: signer,
@@ -54,29 +54,29 @@ void main() {
     test(
       'shows review when group is confirmedCommitted and stay ended',
       () async {
-        final sellerCommit = await _reservation(
+        final sellerCommit = await _order(
           listing: listing,
           tradeId: 'trade-review-ended',
           start: DateTime(2026, 1, 1),
           end: DateTime(2026, 1, 2),
-          stage: ReservationStage.commit,
+          stage: OrderStage.commit,
           seller: true,
         );
-        final buyerCancel = await _reservation(
+        final buyerCancel = await _order(
           listing: listing,
           tradeId: 'trade-review-ended',
           start: DateTime(2026, 1, 1),
           end: DateTime(2026, 1, 2),
-          stage: ReservationStage.cancel,
+          stage: OrderStage.cancel,
           seller: false,
         );
 
         final actions = ReviewActions.resolve(
-          reservationGroup: ReservationGroup(
-            reservations: [sellerCommit, buyerCancel],
+          orderGroup: OrderGroup(
+            orders: [sellerCommit, buyerCancel],
             confirmedCommitted: true,
           ),
-          reservationStreamStatus: StreamStatusLive(),
+          orderStreamStatus: StreamStatusLive(),
           payments: const [],
           role: TradeRole.guest,
         );
@@ -88,21 +88,21 @@ void main() {
     test(
       'does not show review when group was never confirmed committed',
       () async {
-        final buyerNegotiate = await _reservation(
+        final buyerNegotiate = await _order(
           listing: listing,
           tradeId: 'trade-review-unconfirmed',
           start: DateTime(2026, 1, 1),
           end: DateTime(2026, 1, 2),
-          stage: ReservationStage.negotiate,
+          stage: OrderStage.negotiate,
           seller: false,
         );
 
         final actions = ReviewActions.resolve(
-          reservationGroup: ReservationGroup(
-            reservations: [buyerNegotiate],
+          orderGroup: OrderGroup(
+            orders: [buyerNegotiate],
             confirmedCommitted: false,
           ),
-          reservationStreamStatus: StreamStatusLive(),
+          orderStreamStatus: StreamStatusLive(),
           payments: const [],
           role: TradeRole.guest,
         );
@@ -112,21 +112,21 @@ void main() {
     );
 
     test('shows review when terminal payment exists before end date', () async {
-      final sellerCommit = await _reservation(
+      final sellerCommit = await _order(
         listing: listing,
         tradeId: 'trade-review-terminal',
         start: DateTime(2026, 12, 1),
         end: DateTime(2026, 12, 5),
-        stage: ReservationStage.commit,
+        stage: OrderStage.commit,
         seller: true,
       );
 
       final actions = ReviewActions.resolve(
-        reservationGroup: ReservationGroup(
-          reservations: [sellerCommit],
+        orderGroup: OrderGroup(
+          orders: [sellerCommit],
           confirmedCommitted: true,
         ),
-        reservationStreamStatus: StreamStatusLive(),
+        orderStreamStatus: StreamStatusLive(),
         payments: [PaymentReleasedEvent(tradeId: 'trade-review-terminal')],
         role: TradeRole.guest,
       );

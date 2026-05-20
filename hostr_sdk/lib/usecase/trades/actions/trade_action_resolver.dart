@@ -5,8 +5,8 @@ import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../messaging/thread/state.dart';
 import '../trade.dart';
 import 'payment.dart';
-import 'reservation.dart';
-import 'reservation_request.dart';
+import 'order.dart';
+import 'order_request.dart';
 
 enum TradeAction {
   cancel,
@@ -24,7 +24,7 @@ enum TradeAvailability {
   available,
   unavailable,
   cancelled,
-  invalidReservation,
+  invalidOrder,
   invalidTransitions,
 }
 
@@ -56,47 +56,46 @@ class TradeActionResolver {
     required DateTime? end,
     required TokenAmount? amount,
     required String ourPubkey,
-    required List<Validation<ReservationGroup>> allReservations,
-    required StreamStatus allReservationsStatus,
-    required List<Validation<ReservationGroup>> ownReservations,
-    required StreamStatus ownReservationsStatus,
+    required List<Validation<OrderGroup>> allOrders,
+    required StreamStatus allOrdersStatus,
+    required List<Validation<OrderGroup>> ownOrders,
+    required StreamStatus ownOrdersStatus,
     required List<PaymentEvent> payments,
     required StreamStatus paymentsStatus,
     List<String> addedParticipants = const [],
   }) {
-    final validAllListingPairs = allReservations
-        .whereType<Valid<ReservationGroup>>()
+    final validAllListingPairs = allOrders
+        .whereType<Valid<OrderGroup>>()
         .map((v) => v.event)
         .where((p) => !p.cancelled)
         .toList();
 
-    final allTradeReservations = ownReservations
-        .expand((validation) => validation.event.reservations)
+    final allTradeOrders = ownOrders
+        .expand((validation) => validation.event.orders)
         .toList();
 
-    final validTradeReservations = ownReservations
-        .whereType<Valid<ReservationGroup>>()
+    final validTradeOrders = ownOrders
+        .whereType<Valid<OrderGroup>>()
         .where((v) => !v.event.cancelled)
-        .expand((v) => v.event.reservations)
+        .expand((v) => v.event.orders)
         .toList();
 
-    final allReservationsLoaded =
-        allReservationsStatus is StreamStatusQueryComplete ||
-        allReservationsStatus is StreamStatusLive;
-    final overlapLock = allReservationsLoaded
+    final allOrdersLoaded =
+        allOrdersStatus is StreamStatusQueryComplete ||
+        allOrdersStatus is StreamStatusLive;
+    final overlapLock = allOrdersLoaded
         ? resolveOverlapLock(
-            ourReservationDTag: tradeId,
-            allListingReservationGroups: validAllListingPairs,
+            ourOrderDTag: tradeId,
+            allListingOrderGroups: validAllListingPairs,
             startDate: start,
             endDate: end,
           )
         : (isLoading: true, isBlocked: false, reason: null);
     final hasPayment = payments.isNotEmpty;
-    final latestRequest = threadState.reservationRequests.isNotEmpty
-        ? threadState.reservationRequests.last
+    final latestRequest = threadState.orderRequests.isNotEmpty
+        ? threadState.orderRequests.last
         : null;
-    final latestRequestCancelled =
-        latestRequest?.stage == ReservationStage.cancel;
+    final latestRequestCancelled = latestRequest?.stage == OrderStage.cancel;
 
     final resolvedActions = <TradeAction>[];
 
@@ -105,21 +104,21 @@ class TradeActionResolver {
     );
 
     resolvedActions.addAll(
-      ReservationActions.resolve(
-        validTradeReservations,
-        ownReservationsStatus,
+      OrderActions.resolve(
+        validTradeOrders,
+        ownOrdersStatus,
         role,
-        allReservations: allTradeReservations,
+        allOrders: allTradeOrders,
       ),
     );
 
-    if (ownReservationsStatus is StreamStatusLive &&
-        ownReservations.isEmpty &&
+    if (ownOrdersStatus is StreamStatusLive &&
+        ownOrders.isEmpty &&
         !hasPayment &&
         !latestRequestCancelled) {
       resolvedActions.addAll(
-        ReservationRequestActions.resolve(
-          threadState.reservationRequests,
+        OrderRequestActions.resolve(
+          threadState.orderRequests,
           listing,
           ourPubkey,
           role,
@@ -128,9 +127,9 @@ class TradeActionResolver {
     }
 
     final availability = _resolveAvailability(
-      ownReservations: ownReservations,
+      ownOrders: ownOrders,
       overlapLock: overlapLock,
-      negotiationCancelled: ownReservations.isEmpty && latestRequestCancelled,
+      negotiationCancelled: ownOrders.isEmpty && latestRequestCancelled,
     );
 
     return TradeResolution(
@@ -146,19 +145,17 @@ class TradeActionResolver {
 }
 
 TradeAvailability _resolveAvailability({
-  required List<Validation<ReservationGroup>> ownReservations,
+  required List<Validation<OrderGroup>> ownOrders,
   required OverlapLock overlapLock,
   bool negotiationCancelled = false,
 }) {
   if (negotiationCancelled) {
     return TradeAvailability.cancelled;
   }
-  if (ownReservations.any((v) => v is Invalid)) {
-    return TradeAvailability.invalidReservation;
+  if (ownOrders.any((v) => v is Invalid)) {
+    return TradeAvailability.invalidOrder;
   }
-  if (ownReservations.whereType<Valid<ReservationGroup>>().any(
-    (v) => v.event.cancelled,
-  )) {
+  if (ownOrders.whereType<Valid<OrderGroup>>().any((v) => v.event.cancelled)) {
     return TradeAvailability.cancelled;
   }
   if (overlapLock.isLoading) return TradeAvailability.loading;
@@ -167,17 +164,17 @@ TradeAvailability _resolveAvailability({
 }
 
 OverlapLock resolveOverlapLock({
-  required List<ReservationGroup> allListingReservationGroups,
+  required List<OrderGroup> allListingOrderGroups,
   required DateTime? startDate,
   required DateTime? endDate,
-  required String ourReservationDTag,
+  required String ourOrderDTag,
 }) {
   // No date range – overlap check is not applicable.
   if (startDate == null || endDate == null) {
     return (isLoading: false, isBlocked: false, reason: null);
   }
 
-  final overlapsOtherCommitment = allListingReservationGroups.any((group) {
+  final overlapsOtherCommitment = allListingOrderGroups.any((group) {
     if (group.cancelled) {
       return false;
     }
@@ -189,8 +186,8 @@ OverlapLock resolveOverlapLock({
     }
 
     final groupTradeId =
-        group.sellerReservation?.getDtag() ?? group.buyerReservation?.getDtag();
-    if (groupTradeId == null || groupTradeId == ourReservationDTag) {
+        group.sellerOrder?.getDtag() ?? group.buyerOrder?.getDtag();
+    if (groupTradeId == null || groupTradeId == ourOrderDTag) {
       return false;
     }
 

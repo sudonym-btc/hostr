@@ -4,7 +4,7 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/message/messag
 import 'package:models/main.dart';
 
 class ThreadReservationRequestWidget extends ThreadMessageWidget {
-  Reservation get negotiateReservation => item.child as Reservation;
+  Order get negotiateReservation => item.child as Order;
 
   const ThreadReservationRequestWidget({
     super.key,

@@ -105,7 +105,7 @@ void main() {
         final backgroundWorker = _FakeBackgroundWorker();
         final calendar = _FakeCalendar();
         final messaging = usecase_mocks.MockMessaging();
-        final reservations = usecase_mocks.MockReservations();
+        final orders = usecase_mocks.MockOrders();
         final listings = _FakeListings();
         final identityClaims = _FakeIdentityClaims();
 
@@ -143,7 +143,7 @@ void main() {
           backgroundWorker: backgroundWorker,
           calendar: calendar,
           messaging: messaging,
-          reservations: reservations,
+          orders: orders,
         );
 
         final result = await profile.launch(
@@ -188,7 +188,7 @@ void main() {
       final backgroundWorker = _FakeBackgroundWorker();
       final calendar = _FakeCalendar();
       final messaging = usecase_mocks.MockMessaging();
-      final reservations = usecase_mocks.MockReservations();
+      final orders = usecase_mocks.MockOrders();
       final listings = _FakeListings();
       final identityClaims = _FakeIdentityClaims();
       final snapshots = <StartupSnapshot>[];
@@ -220,7 +220,7 @@ void main() {
         backgroundWorker: backgroundWorker,
         calendar: calendar,
         messaging: messaging,
-        reservations: reservations,
+        orders: orders,
       );
 
       await expectLater(
@@ -261,7 +261,7 @@ void main() {
       final backgroundWorker = _FakeBackgroundWorker();
       final calendar = _FakeCalendar();
       final messaging = usecase_mocks.MockMessaging();
-      final reservations = usecase_mocks.MockReservations();
+      final orders = usecase_mocks.MockOrders();
       final listings = _FakeListings()..events = [_listing('user-pubkey')];
       final identityClaims = _FakeIdentityClaims();
       final refreshed = _profile('user-pubkey');
@@ -302,7 +302,7 @@ void main() {
         backgroundWorker: backgroundWorker,
         calendar: calendar,
         messaging: messaging,
-        reservations: reservations,
+        orders: orders,
       );
 
       final result = await profile.launch(
@@ -424,7 +424,7 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   ValueStream<bool> get isLive => _isLive;
 
   @override
-  Future<void> start({bool validateReservationGroups = true}) async {
+  Future<void> start({bool validateOrderGroups = true}) async {
     starts += 1;
   }
 }

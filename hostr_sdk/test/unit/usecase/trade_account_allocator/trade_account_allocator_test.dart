@@ -9,7 +9,7 @@ import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
-import 'package:hostr_sdk/usecase/reservations/reservations.dart';
+import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator_impl.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.dart';
 import 'package:hostr_sdk/util/custom_logger.dart';
@@ -159,25 +159,25 @@ class _FakeEvm extends Fake implements Evm {
   _FakeEvm(this.configuredChains);
 }
 
-class _FakeReservations extends Fake implements Reservations {
+class _FakeOrders extends Fake implements Orders {
   /// tradeIds that "exist" — will return a non-empty list.
   final Set<String> existingTradeIds;
 
-  _FakeReservations({this.existingTradeIds = const {}});
+  _FakeOrders({this.existingTradeIds = const {}});
 
   @override
-  Future<List<Reservation>> getByTradeId(String tradeId) async {
+  Future<List<Order>> getByTradeId(String tradeId) async {
     if (existingTradeIds.contains(tradeId)) {
       // Return a non-empty list to signal "trade exists".
-      return [_dummyReservation];
+      return [_dummyOrder];
     }
     return [];
   }
 }
 
-class _FakeReservation extends Fake implements Reservation {}
+class _FakeOrder extends Fake implements Order {}
 
-final _dummyReservation = _FakeReservation();
+final _dummyOrder = _FakeOrder();
 
 class _FakeThreads extends Fake implements Threads {
   final Set<String> existingTradeIds;
@@ -201,7 +201,7 @@ void main() {
   late _FakeDeterministicKeys hd;
   late _FakeWeb3Client web3;
   late _FakeEvm evm;
-  late _FakeReservations reservations;
+  late _FakeOrders orders;
   late CustomLogger logger;
   late TradeAccountCache cache;
   late TradeAccountAllocatorImpl allocator;
@@ -211,14 +211,14 @@ void main() {
     hd = _FakeDeterministicKeys();
     web3 = _FakeWeb3Client();
     evm = _FakeEvm([_FakeEvmChain(web3)]);
-    reservations = _FakeReservations();
+    orders = _FakeOrders();
     logger = CustomLogger();
     cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
     allocator = TradeAccountAllocatorImpl(
       auth: auth,
       hd: hd,
       evm: evm,
-      reservations: reservations,
+      orders: orders,
       threads: _FakeThreads(),
       cache: cache,
       logger: logger,
@@ -242,7 +242,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -255,13 +255,13 @@ void main() {
     test('skips indices with existing trades', () async {
       // Index 1 has an existing trade.
       hd = _FakeDeterministicKeys(tradeIds: {1: 'taken-trade'});
-      reservations = _FakeReservations(existingTradeIds: {'taken-trade'});
+      orders = _FakeOrders(existingTradeIds: {'taken-trade'});
       cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
       allocator = TradeAccountAllocatorImpl(
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -279,7 +279,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: threads,
         cache: cache,
         logger: logger,
@@ -301,7 +301,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -323,7 +323,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -354,7 +354,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -378,7 +378,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -404,7 +404,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -416,30 +416,27 @@ void main() {
       expect(index, 7);
     });
 
-    test(
-      'finds owned reservation trade outside the first scanned batch',
-      () async {
-        hd = _FakeDeterministicKeys(tradeIds: {42: 'old-reservation'});
-        cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
-        allocator = TradeAccountAllocatorImpl(
-          auth: auth,
-          hd: hd,
-          evm: evm,
-          reservations: reservations,
-          threads: _FakeThreads(),
-          cache: cache,
-          logger: logger,
-        );
+    test('finds owned order trade outside the first scanned batch', () async {
+      hd = _FakeDeterministicKeys(tradeIds: {42: 'old-order'});
+      cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
+      allocator = TradeAccountAllocatorImpl(
+        auth: auth,
+        hd: hd,
+        evm: evm,
+        orders: orders,
+        threads: _FakeThreads(),
+        cache: cache,
+        logger: logger,
+      );
 
-        final index = await allocator.tryFindTradeAccountIndexByTradeId(
-          'old-reservation',
-        );
+      final index = await allocator.tryFindTradeAccountIndexByTradeId(
+        'old-order',
+      );
 
-        expect(index, 42);
-        expect(auth.storedMaxAccountIndex, 42);
-        expect(hd.tradeIdLookups, contains(42));
-      },
-    );
+      expect(index, 42);
+      expect(auth.storedMaxAccountIndex, 42);
+      expect(hd.tradeIdLookups, contains(42));
+    });
 
     test(
       'extends tradeId cache after persisted maxAccountIndex grows',
@@ -448,13 +445,13 @@ void main() {
           keyPair: KeyPair('ccdd' * 8, 'aabb' * 8, null, null),
           maxAccountIndex: 1,
         );
-        hd = _FakeDeterministicKeys(tradeIds: {3: 'later-reservation'});
+        hd = _FakeDeterministicKeys(tradeIds: {3: 'later-order'});
         cache = TradeAccountCache(auth: auth, hd: hd, logger: logger);
         allocator = TradeAccountAllocatorImpl(
           auth: auth,
           hd: hd,
           evm: evm,
-          reservations: reservations,
+          orders: orders,
           threads: _FakeThreads(),
           cache: cache,
           logger: logger,
@@ -471,7 +468,7 @@ void main() {
         await auth.updateMaxAccountIndex(3);
 
         final index = await allocator.tryFindTradeAccountIndexByTradeId(
-          'later-reservation',
+          'later-order',
           maxScan: 1,
         );
 
@@ -495,7 +492,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -537,7 +534,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,
@@ -560,7 +557,7 @@ void main() {
         auth: auth,
         hd: hd,
         evm: evm,
-        reservations: reservations,
+        orders: orders,
         threads: _FakeThreads(),
         cache: cache,
         logger: logger,

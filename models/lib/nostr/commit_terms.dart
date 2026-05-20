@@ -11,7 +11,7 @@ import 'serializable.dart';
 /// their types.
 ///
 /// ```dart
-/// class ReservationContent extends EventContent with CommitTerms {
+/// class OrderContent extends EventContent with CommitTerms {
 ///   @override
 ///   Set<String> get committedFields => {'start', 'end', 'quantity', 'amount', 'recipient'};
 ///   ...

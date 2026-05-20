@@ -213,9 +213,8 @@ class NegotiationWidget extends StatelessWidget {
               builder: (_) => EscrowFundWidget(
                 counterparty: tradeState.sellerProfile!,
                 sellerEvmAddress: tradeState.sellerEvmAddress!,
-                negotiateReservation: (tradeState.stage as NegotiationStage)
-                    .reservationRequests
-                    .last,
+                negotiateReservation:
+                    (tradeState.stage as NegotiationStage).orderRequests.last,
                 listingName: tradeState.listing.title,
               ),
             ),

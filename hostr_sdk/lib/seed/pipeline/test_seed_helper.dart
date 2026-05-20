@@ -55,7 +55,7 @@ class TestSeedHelper {
   ///
   /// ```dart
   /// final listing = await helper.entities.listing(signer: host.keyPair);
-  /// final reservation = await helper.entities.reservation(
+  /// final order = await helper.entities.order(
   ///   guestKeyPair: guest.keyPair,
   ///   listing: listing,
   /// );
@@ -121,7 +121,7 @@ class TestSeedHelper {
   /// Build a single pending thread for an explicit [host]/[guest]/[listing].
   ///
   /// This is the recommended API for tests that need a realistic negotiate
-  /// reservation without manually constructing tags/content/signatures.
+  /// order without manually constructing tags/content/signatures.
   Future<SeedThread> freshThread({
     required TestHost host,
     required TestGuest guest,
@@ -155,12 +155,12 @@ class TestSeedHelper {
       start: t.start,
       end: t.end,
       stageSpec: threadStages,
-      reservation: t.reservation,
+      order: t.order,
       zapReceipt: t.zapReceipt,
       paidViaEscrow: t.paidViaEscrow,
       escrowOutcome: t.escrowOutcome,
       selfSigned: t.selfSigned,
-      invalidReservationReason: t.invalidReservationReason,
+      invalidOrderReason: t.invalidOrderReason,
     );
   }
 
@@ -189,7 +189,7 @@ class TestSeedHelper {
     int listingCount = 1,
     bool hasEvm = true,
     bool setupLnbits = false,
-    int completedReservations = 0,
+    int completedOrders = 0,
   }) async {
     final index = _nextUserIndex++;
     final keyPair = context.deriveKeyPair(index);
@@ -274,7 +274,7 @@ class TestTrade {
   });
 
   Listing get listing => thread.listing;
-  Reservation get negotiateReservation => thread.request;
+  Order get negotiateOrder => thread.request;
   ProfileMetadata get sellerProfile => host.profile;
   String get sellerEvmAddress => host.evmAddress!;
 }

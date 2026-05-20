@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
@@ -17,15 +17,15 @@ import '../messaging/thread/state.dart';
 import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
-import '../reservation_groups/reservation_groups.dart';
-import '../reservation_requests/reservation_requests.dart';
-import '../reservations/reservations.dart';
+import '../order_groups/order_group_participant_resolver.dart';
+import '../order_groups/order_groups.dart';
+import '../order_requests/order_requests.dart';
+import '../orders/orders.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'actions/payment.dart';
-import 'actions/reservation.dart';
-import 'actions/reservation_request.dart';
+import 'actions/order.dart';
+import 'actions/order_request.dart';
 import 'actions/review.dart';
 import 'actions/trade_action_resolver.dart';
 import 'trade_state.dart';
@@ -70,7 +70,7 @@ class TradeContext {
 /// A short-lived, reactive view-model for a single trade.
 ///
 /// Instantiated by the UI with a [tradeId] (and optionally a [Thread] for
-/// negotiation-stage access to reservation requests). Derives everything
+/// negotiation-stage access to order requests). Derives everything
 /// reactively from the long-lived [UserSubscriptions] streams.
 ///
 /// Extends [Cubit] so it can be provided directly via `BlocProvider<Trade>`
@@ -83,17 +83,17 @@ class Trade extends Cubit<TradeState> {
   final MetadataUseCase _metadata;
   final IdentityClaimsUseCase _identityClaims;
   final UserSubscriptions _userSubscriptions;
-  final ReservationGroups _reservationGroups;
+  final OrderGroups _orderGroups;
   final Threads _threads;
   final TradeAccountAllocator _tradeAccountAllocator;
-  final ReservationRequests _reservationRequests;
-  final Reservations _reservations;
+  final OrderRequests _orderRequests;
+  final Orders _orders;
 
   /// Resolved lazily in [start()] from the [Threads] map.
   /// Available when opened from a thread context (negotiation-stage access).
   Thread? thread;
 
-  /// The trade ID (d-tag of the reservation).
+  /// The trade ID (d-tag of the order).
   String get tradeId => context.tradeId;
 
   final TradeContext context;
@@ -117,28 +117,27 @@ class Trade extends Cubit<TradeState> {
 
   // ── Filtered streams (from UserSubscriptions) ──────────────────────
 
-  late final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
-  resolvedReservationGroup$;
-  late final StreamWithStatus<Validation<ReservationGroup>> reservationGroup$;
+  late final StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
+  resolvedOrderGroup$;
+  late final StreamWithStatus<Validation<OrderGroup>> orderGroup$;
   final StreamWithStatus<PaymentEvent> payments$;
-  final StreamWithStatus<ReservationTransition> transitions$;
+  final StreamWithStatus<OrderTransition> transitions$;
   final StreamWithStatus<Review> myReviews$;
 
   final BehaviorSubject<bool> subscriptionsLive$ = BehaviorSubject.seeded(
     false,
   );
 
-  /// Listing-level reservation stream — only started during negotiation.
-  StreamWithStatus<Validation<ReservationGroup>>? allListingReservations$;
+  /// Listing-level order stream — only started during negotiation.
+  StreamWithStatus<Validation<OrderGroup>>? allListingOrders$;
 
   // ── Internal bookkeeping ───────────────────────────────────────────
 
   final List<StreamSubscription> _subscriptions = [];
   StreamSubscription? _combineSubscription;
   // accumulateByKey children — stored so they can be closed in close().
-  StreamWithStatus<List<Validation<ReservationGroup>>>? _ownReservationsList$;
-  StreamWithStatus<List<Validation<ReservationGroup>>>?
-  _allListingReservationsList$;
+  StreamWithStatus<List<Validation<OrderGroup>>>? _ownOrdersList$;
+  StreamWithStatus<List<Validation<OrderGroup>>>? _allListingOrdersList$;
   Listing? _listing;
   String? _listingAnchor;
   ProfileMetadata? _hostProfile;
@@ -153,22 +152,22 @@ class Trade extends Cubit<TradeState> {
     required MetadataUseCase metadata,
     required IdentityClaimsUseCase identityClaims,
     required UserSubscriptions userSubscriptions,
-    required ReservationGroups reservationGroups,
+    required OrderGroups orderGroups,
     required Threads threads,
     required TradeAccountAllocator tradeAccountAllocator,
-    required ReservationRequests reservationRequests,
-    required Reservations reservations,
+    required OrderRequests orderRequests,
+    required Orders orders,
   }) : _logger = logger.scope('trade'),
        _auth = auth,
        _listings = listings,
        _metadata = metadata,
        _identityClaims = identityClaims,
        _userSubscriptions = userSubscriptions,
-       _reservationGroups = reservationGroups,
+       _orderGroups = orderGroups,
        _threads = threads,
        _tradeAccountAllocator = tradeAccountAllocator,
-       _reservationRequests = reservationRequests,
-       _reservations = reservations,
+       _orderRequests = orderRequests,
+       _orders = orders,
        thread = threads.findTradeThread(
          tradeId: context.tradeId,
          participants: context.participants,
@@ -181,26 +180,24 @@ class Trade extends Cubit<TradeState> {
        ),
        myReviews$ = userSubscriptions.myReviews$,
        super(const TradeInitialising()) {
-    resolvedReservationGroup$ = userSubscriptions
-        .allMyResolvedReservationGroups$
-        .where(_matchesResolvedReservationGroup);
-    reservationGroup$ = resolvedReservationGroup$.map(
-      (item) => item.validation,
+    resolvedOrderGroup$ = userSubscriptions.allMyResolvedOrderGroups$.where(
+      _matchesResolvedOrderGroup,
     );
+    orderGroup$ = resolvedOrderGroup$.map((item) => item.validation);
     _subscriptions.add(
       Rx.combineLatest3(
-        reservationGroup$.status,
+        orderGroup$.status,
         payments$.status,
         transitions$.status,
         (a, b, c) => [a, b, c],
       ).listen((statuses) {
         logger.d(
-          'ReservationGroup status: ${reservationGroup$.status.value}, '
+          'OrderGroup status: ${orderGroup$.status.value}, '
           'Payments status: ${payments$.status.value}, '
           'Transitions status: ${transitions$.status.value}; '
-          'ReservationGroup seller: ${reservationGroup$.items.lastOrNull?.event.sellerReservation}, '
-          'ReservationGroup buyer: ${reservationGroup$.items.lastOrNull?.event.buyerReservation}, '
-          'ReservationGroup escrow: ${reservationGroup$.items.lastOrNull?.event.escrowReservation}, ',
+          'OrderGroup seller: ${orderGroup$.items.lastOrNull?.event.sellerOrder}, '
+          'OrderGroup buyer: ${orderGroup$.items.lastOrNull?.event.buyerOrder}, '
+          'OrderGroup escrow: ${orderGroup$.items.lastOrNull?.event.escrowOrder}, ',
         );
         final allLive = statuses.every((s) => s is StreamStatusLive);
         if (allLive && !(subscriptionsLive$.value)) {
@@ -210,8 +207,8 @@ class Trade extends Cubit<TradeState> {
     );
   }
 
-  bool _matchesResolvedReservationGroup(
-    ResolvedValidatedReservationGroupParticipants item,
+  bool _matchesResolvedOrderGroup(
+    ResolvedValidatedOrderGroupParticipants item,
   ) {
     if (item.group.tradeId != context.tradeId) return false;
     final escrowPubkey = item.group.escrowPubkey;
@@ -238,7 +235,7 @@ class Trade extends Cubit<TradeState> {
   }
 
   bool _matchesLocalParticipantAlias(
-    ResolvedValidatedReservationGroupParticipants item,
+    ResolvedValidatedOrderGroupParticipants item,
   ) {
     final activePubkey = _auth.activePubkey ?? _auth.getActiveKey().publicKey;
     if (activePubkey.isEmpty || !context.participants.contains(activePubkey)) {
@@ -269,14 +266,14 @@ class Trade extends Cubit<TradeState> {
 
   Future<String?> resolveGuestPubkey() =>
       _logger.span('resolveGuestPubkey', () async {
-        for (final item in resolvedReservationGroup$.items.reversed) {
+        for (final item in resolvedOrderGroup$.items.reversed) {
           final resolved = item.participants.resolvedParticipantPubkeyForRole(
             'buyer',
           );
           if (resolved != null && resolved.isNotEmpty) return resolved;
         }
 
-        final request = thread?.state.value.reservationRequests.lastOrNull;
+        final request = thread?.state.value.orderRequests.lastOrNull;
         if (request == null) return null;
         return request.parsedTags.getTagValueByMarker('p', 'buyer') ??
             request.recipient;
@@ -333,7 +330,7 @@ class Trade extends Cubit<TradeState> {
       );
     }
 
-    final groupMatch = reservationGroup$.replayStream
+    final groupMatch = orderGroup$.replayStream
         .map((validation) {
           try {
             return validation.event.listingAnchor;
@@ -344,14 +341,11 @@ class Trade extends Cubit<TradeState> {
         .where((anchor) => anchor.isNotEmpty);
     anchorStreams.add(groupMatch);
 
-    final reservationMatch = _userSubscriptions
-        .allMyReservations$
-        .stream
-        .replayStream
-        .where(_matchesReservation)
-        .map((reservation) => reservation.parsedTags.listingAnchor)
+    final orderMatch = _userSubscriptions.allMyOrders$.stream.replayStream
+        .where(_matchesOrder)
+        .map((order) => order.parsedTags.listingAnchor)
         .where((anchor) => anchor.isNotEmpty);
-    anchorStreams.add(reservationMatch);
+    anchorStreams.add(orderMatch);
 
     try {
       return await Rx.merge(anchorStreams).first;
@@ -365,14 +359,14 @@ class Trade extends Cubit<TradeState> {
   }
 
   String? _listingAnchorFromThreadState(ThreadState? state) {
-    return state?.reservationRequests
+    return state?.orderRequests
         .map((request) => request.parsedTags.listingAnchor)
         .where((anchor) => anchor.isNotEmpty)
         .firstOrNull;
   }
 
   String? _listingAnchorFromLoadedItems() {
-    for (final validation in reservationGroup$.items) {
+    for (final validation in orderGroup$.items) {
       try {
         final anchor = validation.event.listingAnchor;
         if (anchor.isNotEmpty) return anchor;
@@ -381,15 +375,15 @@ class Trade extends Cubit<TradeState> {
       }
     }
 
-    return _userSubscriptions.allMyReservations$.stream.items
-        .where(_matchesReservation)
-        .map((reservation) => reservation.parsedTags.listingAnchor)
+    return _userSubscriptions.allMyOrders$.stream.items
+        .where(_matchesOrder)
+        .map((order) => order.parsedTags.listingAnchor)
         .where((anchor) => anchor.isNotEmpty)
         .firstOrNull;
   }
 
-  bool _matchesReservation(Reservation reservation) {
-    if (reservation.getDtag() != tradeId) return false;
+  bool _matchesOrder(Order order) {
+    if (order.getDtag() != tradeId) return false;
     return true;
   }
 
@@ -398,7 +392,7 @@ class Trade extends Cubit<TradeState> {
     final hostProfile = _hostProfile;
     final sellerEvmAddress = _sellerEvmAddress;
 
-    allListingReservations$ = _reservationGroups.queryVerified(
+    allListingOrders$ = _orderGroups.queryVerified(
       listingAnchor: listingAnchor,
       forceValidatePredicate: (group) => group.tradeId == tradeId,
     );
@@ -409,23 +403,23 @@ class Trade extends Cubit<TradeState> {
 
     _combineSubscription =
         Rx.combineLatest7(
-          (_ownReservationsList$ = reservationGroup$.accumulateByKey(
+          (_ownOrdersList$ = orderGroup$.accumulateByKey(
             (g) => g.event.groupId,
           )).replayStream,
           payments$.itemsStream,
           transitions$.itemsStream,
-          (_allListingReservationsList$ = allListingReservations$!
-                  .accumulateByKey((g) => g.event.groupId))
-              .replayStream,
-          allListingReservations$!.status,
+          (_allListingOrdersList$ = allListingOrders$!.accumulateByKey(
+            (g) => g.event.groupId,
+          )).replayStream,
+          allListingOrders$!.status,
           threadState$,
           myReviews$.itemsStream,
           (
-            List<Validation<ReservationGroup>> ownReservations,
+            List<Validation<OrderGroup>> ownOrders,
             List<PaymentEvent> payments,
-            List<ReservationTransition> transitions,
-            List<Validation<ReservationGroup>> allListingReservations,
-            StreamStatus allListingReservationsStatus,
+            List<OrderTransition> transitions,
+            List<Validation<OrderGroup>> allListingOrders,
+            StreamStatus allListingOrdersStatus,
             ThreadState? threadState,
             List<Review> myReviews,
           ) {
@@ -438,13 +432,13 @@ class Trade extends Cubit<TradeState> {
               listing: listing,
               hostProfile: hostProfile,
               sellerEvmAddress: sellerEvmAddress,
-              ownReservations: ownReservations,
-              ownReservationsStatus: reservationGroup$.status.value,
+              ownOrders: ownOrders,
+              ownOrdersStatus: orderGroup$.status.value,
               payments: payments,
               paymentsStatus: payments$.status.value,
               transitions: transitions,
-              allListingReservations: allListingReservations,
-              allListingReservationsStatus: allListingReservationsStatus,
+              allListingOrders: allListingOrders,
+              allListingOrdersStatus: allListingOrdersStatus,
               threadState: threadState,
               myReviews: listingReviews,
             );
@@ -465,13 +459,13 @@ class Trade extends Cubit<TradeState> {
     required Listing listing,
     required ProfileMetadata? hostProfile,
     required String? sellerEvmAddress,
-    required List<Validation<ReservationGroup>> ownReservations,
-    required StreamStatus ownReservationsStatus,
+    required List<Validation<OrderGroup>> ownOrders,
+    required StreamStatus ownOrdersStatus,
     required List<PaymentEvent> payments,
     required StreamStatus paymentsStatus,
-    required List<ReservationTransition> transitions,
-    required List<Validation<ReservationGroup>> allListingReservations,
-    required StreamStatus allListingReservationsStatus,
+    required List<OrderTransition> transitions,
+    required List<Validation<OrderGroup>> allListingOrders,
+    required StreamStatus allListingOrdersStatus,
     required ThreadState? threadState,
     List<Review> myReviews = const [],
   }) => _logger.spanSync('_resolve', () {
@@ -482,48 +476,43 @@ class Trade extends Cubit<TradeState> {
         ) ??
         _findThreadForTrade();
 
-    // Derive last reservation request from thread (if available).
-    final reservationRequests = threadState?.reservationRequests ?? const [];
-    final lastRequest = reservationRequests.isNotEmpty
-        ? reservationRequests.last
-        : null;
+    // Derive last order request from thread (if available).
+    final orderRequests = threadState?.orderRequests ?? const [];
+    final lastRequest = orderRequests.isNotEmpty ? orderRequests.last : null;
 
-    // Trade dates should remain available even when the reservation request
+    // Trade dates should remain available even when the order request
     // did not travel via DMs (or the thread cannot be resolved).
-    final validReservationGroup = ownReservations
-        .whereType<Valid<ReservationGroup>>()
+    final validOrderGroup = ownOrders
+        .whereType<Valid<OrderGroup>>()
         .map((v) => v.event)
         .where((g) => !g.cancelled)
         .firstOrNull;
-    final anyReservationGroup = ownReservations
-        .whereType<Valid<ReservationGroup>>()
+    final anyOrderGroup = ownOrders
+        .whereType<Valid<OrderGroup>>()
         .map((v) => v.event)
         .firstOrNull;
-    final reservationGroupForSummary =
-        validReservationGroup ?? anyReservationGroup;
+    final orderGroupForSummary = validOrderGroup ?? anyOrderGroup;
 
-    final start = lastRequest?.start ?? reservationGroupForSummary?.start;
-    final end = lastRequest?.end ?? reservationGroupForSummary?.end;
+    final start = lastRequest?.start ?? orderGroupForSummary?.start;
+    final end = lastRequest?.end ?? orderGroupForSummary?.end;
     final amount =
-        lastRequest?.amount ??
-        reservationGroupForSummary?.buyerReservation?.amount;
-    final ourPubkey = _resolveNegotiationPubkey(reservationRequests);
-    final latestRequestCancelled =
-        lastRequest?.stage == ReservationStage.cancel;
+        lastRequest?.amount ?? orderGroupForSummary?.buyerOrder?.amount;
+    final ourPubkey = _resolveNegotiationPubkey(orderRequests);
+    final latestRequestCancelled = lastRequest?.stage == OrderStage.cancel;
 
-    // Compute overlap lock from listing-level reservations.
-    final validAllListingPairs = allListingReservations
-        .whereType<Valid<ReservationGroup>>()
+    // Compute overlap lock from listing-level orders.
+    final validAllListingPairs = allListingOrders
+        .whereType<Valid<OrderGroup>>()
         .map((v) => v.event)
         .where((p) => !p.cancelled)
         .toList();
-    final allListingReservationsLoaded =
-        allListingReservationsStatus is StreamStatusQueryComplete ||
-        allListingReservationsStatus is StreamStatusLive;
-    final overlapLock = allListingReservationsLoaded
+    final allListingOrdersLoaded =
+        allListingOrdersStatus is StreamStatusQueryComplete ||
+        allListingOrdersStatus is StreamStatusLive;
+    final overlapLock = allListingOrdersLoaded
         ? resolveOverlapLock(
-            ourReservationDTag: tradeId,
-            allListingReservationGroups: validAllListingPairs,
+            ourOrderDTag: tradeId,
+            allListingOrderGroups: validAllListingPairs,
             startDate: start,
             endDate: end,
           )
@@ -532,20 +521,20 @@ class Trade extends Cubit<TradeState> {
 
     // Determine stage + resolve actions.
     final bool isNegotiation =
-        ownReservationsStatus is StreamStatusLive && ownReservations.isEmpty;
+        ownOrdersStatus is StreamStatusLive && ownOrders.isEmpty;
 
     late final TradeStage stage;
     final resolvedActions = <TradeAction>[];
 
     if (isNegotiation) {
-      final policy = ReservationRequestActions.resolvePolicy(
-        reservationRequests,
+      final policy = OrderRequestActions.resolvePolicy(
+        orderRequests,
         listing,
         ourPubkey,
         role,
       );
       stage = NegotiationStage(
-        reservationRequests: reservationRequests,
+        orderRequests: orderRequests,
         overlapLock: overlapLock,
         policy: policy,
       );
@@ -553,46 +542,41 @@ class Trade extends Cubit<TradeState> {
       // Negotiation actions: pay / counter / accept.
       if (threadState != null && !hasPayment && !latestRequestCancelled) {
         resolvedActions.addAll(
-          ReservationRequestActions.resolve(
-            reservationRequests,
-            listing,
-            ourPubkey,
-            role,
-          ),
+          OrderRequestActions.resolve(orderRequests, listing, ourPubkey, role),
         );
       }
     } else {
-      // Extract the reservation pair for commit stage.
-      final validGroup = ownReservations
-          .whereType<Valid<ReservationGroup>>()
+      // Extract the order pair for commit stage.
+      final validGroup = ownOrders
+          .whereType<Valid<OrderGroup>>()
           .map((v) => v.event)
           .where((p) => !p.cancelled)
           .firstOrNull;
-      final anyValidGroup = ownReservations
-          .whereType<Valid<ReservationGroup>>()
+      final anyValidGroup = ownOrders
+          .whereType<Valid<OrderGroup>>()
           .map((v) => v.event)
           .firstOrNull;
-      final anyObservedGroup = ownReservations
+      final anyObservedGroup = ownOrders
           .map((validation) => validation.event)
           .firstOrNull;
-      final commitReservationGroup =
-          validGroup ?? anyValidGroup ?? anyObservedGroup ?? ReservationGroup();
+      final commitOrderGroup =
+          validGroup ?? anyValidGroup ?? anyObservedGroup ?? OrderGroup();
 
       stage = CommitStage(
-        reservationGroup: commitReservationGroup,
+        orderGroup: commitOrderGroup,
         payments: payments,
         transitions: transitions,
       );
 
       // Commit actions: cancel, refund, claim, messageEscrow.
-      final allTradeReservations = ownReservations
-          .expand((validation) => validation.event.reservations)
+      final allTradeOrders = ownOrders
+          .expand((validation) => validation.event.orders)
           .toList();
 
-      final validTradeReservations = ownReservations
-          .whereType<Valid<ReservationGroup>>()
+      final validTradeOrders = ownOrders
+          .whereType<Valid<OrderGroup>>()
           .where((v) => !v.event.cancelled)
-          .expand((v) => v.event.reservations)
+          .expand((v) => v.event.orders)
           .toList();
 
       resolvedActions.addAll(
@@ -600,18 +584,18 @@ class Trade extends Cubit<TradeState> {
       );
 
       resolvedActions.addAll(
-        ReservationActions.resolve(
-          validTradeReservations,
-          ownReservationsStatus,
+        OrderActions.resolve(
+          validTradeOrders,
+          ownOrdersStatus,
           role,
-          allReservations: allTradeReservations,
+          allOrders: allTradeOrders,
         ),
       );
 
       resolvedActions.addAll(
         ReviewActions.resolve(
-          reservationGroup: validGroup ?? anyValidGroup ?? ReservationGroup(),
-          reservationStreamStatus: ownReservationsStatus,
+          orderGroup: validGroup ?? anyValidGroup ?? OrderGroup(),
+          orderStreamStatus: ownOrdersStatus,
           payments: payments,
           role: role,
           myReviews: myReviews,
@@ -621,7 +605,7 @@ class Trade extends Cubit<TradeState> {
 
     // Availability.
     final availability = _resolveAvailability(
-      ownReservations: ownReservations,
+      ownOrders: ownOrders,
       overlapLock: overlapLock,
       negotiationCancelled: isNegotiation && latestRequestCancelled,
     );
@@ -646,7 +630,7 @@ class Trade extends Cubit<TradeState> {
       },
       streams: TradeStreams(
         paymentEvents: payments$,
-        reservationStream: reservationGroup$,
+        orderStream: orderGroup$,
         transitionsStream: transitions$,
         subscriptionsLive: subscriptionsLive$,
       ),
@@ -663,7 +647,7 @@ class Trade extends Cubit<TradeState> {
     final matches = _threads.findByConversationTag(tradeId);
     if (matches.length == 1) return matches.single;
     for (final thread in matches) {
-      if (thread.state.value.reservationRequests.any(
+      if (thread.state.value.orderRequests.any(
         (request) => request.getDtag() == tradeId,
       )) {
         return thread;
@@ -673,17 +657,17 @@ class Trade extends Cubit<TradeState> {
   }
 
   static TradeAvailability _resolveAvailability({
-    required List<Validation<ReservationGroup>> ownReservations,
+    required List<Validation<OrderGroup>> ownOrders,
     required OverlapLock overlapLock,
     bool negotiationCancelled = false,
   }) {
     if (negotiationCancelled) {
       return TradeAvailability.cancelled;
     }
-    if (ownReservations.any((v) => v is Invalid)) {
-      return TradeAvailability.invalidReservation;
+    if (ownOrders.any((v) => v is Invalid)) {
+      return TradeAvailability.invalidOrder;
     }
-    if (ownReservations.whereType<Valid<ReservationGroup>>().any(
+    if (ownOrders.whereType<Valid<OrderGroup>>().any(
       (v) => v.event.cancelled,
     )) {
       return TradeAvailability.cancelled;
@@ -695,9 +679,9 @@ class Trade extends Cubit<TradeState> {
 
   // ── Public API ─────────────────────────────────────────────────────
 
-  /// Current reservation pair status list (for action execution).
-  List<Validation<ReservationGroup>> get currentReservationGroups =>
-      _bootstrapped ? reservationGroup$.items : const [];
+  /// Current order pair status list (for action execution).
+  List<Validation<OrderGroup>> get currentOrderGroups =>
+      _bootstrapped ? orderGroup$.items : const [];
 
   Future<KeyPair> activeKeyPair() => _logger.span('activeKeyPair', () async {
     if (role == TradeRole.host) {
@@ -714,7 +698,7 @@ class Trade extends Cubit<TradeState> {
   }) {
     return EscrowTradeThreadResolver(
       auth: _auth,
-      reservations: _reservations,
+      orders: _orders,
       userSubscriptions: _userSubscriptions,
       threads: _threads,
       tradeAccountAllocator: _tradeAccountAllocator,
@@ -722,18 +706,18 @@ class Trade extends Cubit<TradeState> {
     ).resolve(tradeId: tradeId, timeout: timeout);
   }
 
-  String _resolveNegotiationPubkey(List<Reservation> reservationRequests) {
+  String _resolveNegotiationPubkey(List<Order> orderRequests) {
     if (role == TradeRole.host) {
       return _auth.getActiveKey().publicKey;
     }
 
-    return _firstGuestNegotiationPubkey(reservationRequests) ??
-        reservationRequests.lastOrNull?.recipient ??
+    return _firstGuestNegotiationPubkey(orderRequests) ??
+        orderRequests.lastOrNull?.recipient ??
         _auth.getActiveKey().publicKey;
   }
 
-  String? _firstGuestNegotiationPubkey(List<Reservation> reservationRequests) {
-    for (final request in reservationRequests.reversed) {
+  String? _firstGuestNegotiationPubkey(List<Order> orderRequests) {
+    for (final request in orderRequests.reversed) {
       if (request.pubKey != sellerPubkey) {
         return request.pubKey;
       }
@@ -750,9 +734,9 @@ class Trade extends Cubit<TradeState> {
 
         final negotiationStage = current.stage as NegotiationStage;
         final policy = negotiationStage.policy;
-        final lastRequest = negotiationStage.reservationRequests.lastOrNull;
+        final lastRequest = negotiationStage.orderRequests.lastOrNull;
         if (lastRequest == null) {
-          throw StateError('No reservation request available to counter');
+          throw StateError('No order request available to counter');
         }
         if (!policy.canCounter) {
           throw StateError('Counter offer is not available for this trade');
@@ -771,7 +755,7 @@ class Trade extends Cubit<TradeState> {
           throw StateError('Counter amount is above the allowed maximum');
         }
 
-        final event = await _reservationRequests.createCounterOffer(
+        final event = await _orderRequests.createCounterOffer(
           listing: current.listing,
           previousRequest: lastRequest,
           amount: amount,
@@ -781,41 +765,39 @@ class Trade extends Cubit<TradeState> {
         await thread!.replyEventAndWait(event);
       });
 
-  Future<void> acceptLatestOffer() => _logger.span(
-    'acceptLatestOffer',
-    () async {
-      final current = state;
-      if (current is! TradeReady || current.stage is! NegotiationStage) {
-        throw StateError('Trade is not in negotiation stage');
-      }
-      if (role != TradeRole.host) {
-        throw StateError('Only the host can accept reservation requests');
-      }
+  Future<void> acceptLatestOffer() =>
+      _logger.span('acceptLatestOffer', () async {
+        final current = state;
+        if (current is! TradeReady || current.stage is! NegotiationStage) {
+          throw StateError('Trade is not in negotiation stage');
+        }
+        if (role != TradeRole.host) {
+          throw StateError('Only the host can accept order requests');
+        }
 
-      final negotiationStage = current.stage as NegotiationStage;
-      final lastRequest = negotiationStage.reservationRequests.lastOrNull;
-      if (lastRequest == null) {
-        throw StateError('No reservation request available to accept');
-      }
-      if (!current.actions.contains(TradeAction.accept)) {
-        throw StateError('Accept action is not available for this trade');
-      }
+        final negotiationStage = current.stage as NegotiationStage;
+        final lastRequest = negotiationStage.orderRequests.lastOrNull;
+        if (lastRequest == null) {
+          throw StateError('No order request available to accept');
+        }
+        if (!current.actions.contains(TradeAction.accept)) {
+          throw StateError('Accept action is not available for this trade');
+        }
 
-      final acceptedAmount = lastRequest.amount;
-      if (acceptedAmount == null) {
-        throw StateError('Cannot accept a reservation request without amount');
-      }
+        final acceptedAmount = lastRequest.amount;
+        if (acceptedAmount == null) {
+          throw StateError('Cannot accept a order request without amount');
+        }
 
-      final event = await _reservationRequests.createCounterOffer(
-        listing: current.listing,
-        previousRequest: lastRequest,
-        amount: acceptedAmount,
-        signerKeyPair: await activeKeyPair(),
-      );
+        final event = await _orderRequests.createCounterOffer(
+          listing: current.listing,
+          previousRequest: lastRequest,
+          amount: acceptedAmount,
+          signerKeyPair: await activeKeyPair(),
+        );
 
-      await thread!.replyEventAndWait(event);
-    },
-  );
+        await thread!.replyEventAndWait(event);
+      });
 
   Future<void> cancelNegotiation() =>
       _logger.span('cancelNegotiation', () async {
@@ -825,12 +807,12 @@ class Trade extends Cubit<TradeState> {
         }
 
         final negotiationStage = current.stage as NegotiationStage;
-        final lastRequest = negotiationStage.reservationRequests.lastOrNull;
+        final lastRequest = negotiationStage.orderRequests.lastOrNull;
         if (lastRequest == null) {
-          throw StateError('No reservation request available to cancel');
+          throw StateError('No order request available to cancel');
         }
-        if (lastRequest.stage == ReservationStage.cancel) {
-          throw StateError('Reservation request is already cancelled');
+        if (lastRequest.stage == OrderStage.cancel) {
+          throw StateError('Order request is already cancelled');
         }
         if (!current.actions.contains(TradeAction.cancel)) {
           throw StateError('Cancel action is not available for this trade');
@@ -839,7 +821,7 @@ class Trade extends Cubit<TradeState> {
           throw StateError('Cannot cancel negotiation without a thread');
         }
 
-        final event = await _reservationRequests.createCancellation(
+        final event = await _orderRequests.createCancellation(
           previousRequest: lastRequest,
           signerKeyPair: await activeKeyPair(),
         );
@@ -851,12 +833,12 @@ class Trade extends Cubit<TradeState> {
   String? getEscrowPubkey() => _logger.spanSync('getEscrowPubkey', () {
     final current = state;
     if (current is TradeReady && current.stage is CommitStage) {
-      final group = (current.stage as CommitStage).reservationGroup;
+      final group = (current.stage as CommitStage).orderGroup;
       final pubkey = group.escrowPubkey;
       if (pubkey != null && pubkey.isNotEmpty) return pubkey;
     }
 
-    final groups = reservationGroup$.items;
+    final groups = orderGroup$.items;
     for (final validation in groups) {
       final group = validation.event;
       final pubkey = group.escrowPubkey;
@@ -877,10 +859,7 @@ class Trade extends Cubit<TradeState> {
           await cancelNegotiation();
           return;
         }
-        await ReservationActions(
-          trade: this,
-          reservations: _reservations,
-        ).cancel();
+        await OrderActions(trade: this, orders: _orders).cancel();
         return;
       case TradeAction.claim:
         throw UnimplementedError('Trade claim is not implemented yet.');
@@ -909,10 +888,10 @@ class Trade extends Cubit<TradeState> {
       await sub.cancel();
     }
     if (_bootstrapped) {
-      await _ownReservationsList$?.close();
-      await _allListingReservationsList$?.close();
-      await allListingReservations$?.close();
-      await reservationGroup$.close();
+      await _ownOrdersList$?.close();
+      await _allListingOrdersList$?.close();
+      await allListingOrders$?.close();
+      await orderGroup$.close();
       await payments$.close();
       await transitions$.close();
     }

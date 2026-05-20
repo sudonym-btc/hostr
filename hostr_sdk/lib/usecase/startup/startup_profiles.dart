@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 
 import '../../config.dart';
 import '../auth/auth.dart';
@@ -14,7 +14,7 @@ import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
 import '../nwc/nwc.dart';
 import '../relays/relays.dart';
-import '../reservations/reservations.dart';
+import '../orders/orders.dart';
 import '../trades/payment_proof_orchestrator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'startup_core.dart';
@@ -148,7 +148,7 @@ class UserStartupProfile implements StartupProfile {
   final BackgroundWorker _backgroundWorker;
   final Calendar _calendar;
   final Messaging _messaging;
-  final Reservations _reservations;
+  final Orders _orders;
   late final UserStartupProfileBootstrapper _profileBootstrapper;
 
   UserStartupProfile({
@@ -167,7 +167,7 @@ class UserStartupProfile implements StartupProfile {
     required BackgroundWorker backgroundWorker,
     required Calendar calendar,
     required Messaging messaging,
-    required Reservations reservations,
+    required Orders orders,
   }) : _core = core,
        _auth = auth,
        _config = config,
@@ -182,7 +182,7 @@ class UserStartupProfile implements StartupProfile {
        _backgroundWorker = backgroundWorker,
        _calendar = calendar,
        _messaging = messaging,
-       _reservations = reservations {
+       _orders = orders {
     _profileBootstrapper = UserStartupProfileBootstrapper(
       metadata: _metadata,
       listings: _listings,
@@ -301,7 +301,7 @@ class UserStartupProfile implements StartupProfile {
     await _userSubscriptions.reset();
     await _messaging.threads.reset();
     await _nwc.reset();
-    await _reservations.reset();
+    await _orders.reset();
   }
 
   OnBackgroundProgress? _onProgressFromConfig() {

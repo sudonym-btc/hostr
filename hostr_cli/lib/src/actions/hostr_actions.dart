@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-const int hostrMaxSwapReservationWaitSeconds = 60;
+const int hostrMaxSwapOrderWaitSeconds = 60;
 
 class HostrSessionStatusInput {
   const HostrSessionStatusInput({this.includeStorageDetails = false});
@@ -407,8 +407,8 @@ class HostrListingsAvailabilityInput {
   }
 }
 
-class HostrReservationsOfferInput {
-  const HostrReservationsOfferInput({
+class HostrOrdersOfferInput {
+  const HostrOrdersOfferInput({
     this.listingAnchor,
     this.start,
     this.end,
@@ -428,13 +428,13 @@ class HostrReservationsOfferInput {
 
   bool get isFollowUpOffer => tradeId != null;
 
-  factory HostrReservationsOfferInput.fromJson(Map<String, dynamic> json) {
+  factory HostrOrdersOfferInput.fromJson(Map<String, dynamic> json) {
     final tradeId = _optionalString(json['tradeId']);
     final listingAnchor = _optionalString(
       json['listingAnchor'] ?? json['anchor'],
     );
     if (tradeId != null) {
-      return HostrReservationsOfferInput(
+      return HostrOrdersOfferInput(
         tradeId: tradeId,
         amount: json['amount'] is Map
             ? HostrAmountInput.fromJson(
@@ -450,7 +450,7 @@ class HostrReservationsOfferInput {
     if (listingAnchor == null) {
       throw const FormatException('Missing required listingAnchor or tradeId.');
     }
-    return HostrReservationsOfferInput(
+    return HostrOrdersOfferInput(
       listingAnchor: listingAnchor,
       start: DateTime.parse(_requiredString(json, 'start')),
       end: DateTime.parse(_requiredString(json, 'end')),
@@ -475,8 +475,8 @@ class HostrReservationsOfferInput {
   };
 }
 
-class HostrReservationBookAndPayInput {
-  const HostrReservationBookAndPayInput({
+class HostrOrderBookAndPayInput {
+  const HostrOrderBookAndPayInput({
     required this.listingAnchor,
     required this.start,
     required this.end,
@@ -492,8 +492,8 @@ class HostrReservationBookAndPayInput {
   final String? escrowServiceId;
   final int proofTimeoutSeconds;
 
-  factory HostrReservationBookAndPayInput.fromJson(Map<String, dynamic> json) {
-    return HostrReservationBookAndPayInput(
+  factory HostrOrderBookAndPayInput.fromJson(Map<String, dynamic> json) {
+    return HostrOrderBookAndPayInput(
       listingAnchor: _requiredString(json, 'listingAnchor'),
       start: DateTime.parse(_requiredString(json, 'start')),
       end: DateTime.parse(_requiredString(json, 'end')),
@@ -517,8 +517,8 @@ class HostrReservationBookAndPayInput {
   };
 }
 
-class HostrReservationTradeInput {
-  const HostrReservationTradeInput({
+class HostrOrderTradeInput {
+  const HostrOrderTradeInput({
     required this.tradeId,
     this.amount,
     this.reason,
@@ -532,8 +532,8 @@ class HostrReservationTradeInput {
   final bool dryRun;
   final int timeoutSeconds;
 
-  factory HostrReservationTradeInput.fromJson(Map<String, dynamic> json) {
-    return HostrReservationTradeInput(
+  factory HostrOrderTradeInput.fromJson(Map<String, dynamic> json) {
+    return HostrOrderTradeInput(
       tradeId: _requiredString(json, 'tradeId'),
       amount: json['amount'] is Map
           ? HostrAmountInput.fromJson(Map<String, dynamic>.from(json['amount']))
@@ -547,8 +547,8 @@ class HostrReservationTradeInput {
   }
 }
 
-class HostrReservationReviewInput {
-  const HostrReservationReviewInput({
+class HostrOrderReviewInput {
+  const HostrOrderReviewInput({
     required this.tradeId,
     required this.rating,
     required this.content,
@@ -562,9 +562,9 @@ class HostrReservationReviewInput {
   final bool dryRun;
   final int timeoutSeconds;
 
-  factory HostrReservationReviewInput.fromJson(Map<String, dynamic> json) {
+  factory HostrOrderReviewInput.fromJson(Map<String, dynamic> json) {
     final rating = (_optionalInt(json['rating']) ?? 0).clamp(1, 5).toInt();
-    return HostrReservationReviewInput(
+    return HostrOrderReviewInput(
       tradeId: _requiredString(json, 'tradeId'),
       rating: rating,
       content: _requiredString(json, 'content'),
@@ -576,8 +576,8 @@ class HostrReservationReviewInput {
   }
 }
 
-class HostrReservationPayInput {
-  const HostrReservationPayInput({
+class HostrOrderPayInput {
+  const HostrOrderPayInput({
     required this.tradeId,
     this.escrowServiceId,
     this.dryRun = true,
@@ -589,8 +589,8 @@ class HostrReservationPayInput {
   final bool dryRun;
   final int timeoutSeconds;
 
-  factory HostrReservationPayInput.fromJson(Map<String, dynamic> json) {
-    return HostrReservationPayInput(
+  factory HostrOrderPayInput.fromJson(Map<String, dynamic> json) {
+    return HostrOrderPayInput(
       tradeId: _requiredString(json, 'tradeId'),
       escrowServiceId: _optionalString(json['escrowServiceId']),
       dryRun: _optionalBool(json['dryRun']) ?? true,
@@ -601,8 +601,8 @@ class HostrReservationPayInput {
   }
 }
 
-class HostrReservationCommitInput {
-  const HostrReservationCommitInput({
+class HostrOrderCommitInput {
+  const HostrOrderCommitInput({
     required this.swapId,
     this.dryRun = true,
     this.timeoutSeconds = 12,
@@ -612,8 +612,8 @@ class HostrReservationCommitInput {
   final bool dryRun;
   final int timeoutSeconds;
 
-  factory HostrReservationCommitInput.fromJson(Map<String, dynamic> json) {
-    return HostrReservationCommitInput(
+  factory HostrOrderCommitInput.fromJson(Map<String, dynamic> json) {
+    return HostrOrderCommitInput(
       swapId: _requiredString(json, 'swapId'),
       dryRun: _optionalBool(json['dryRun']) ?? true,
       timeoutSeconds: (_optionalInt(json['timeoutSeconds']) ?? 12)
@@ -775,8 +775,8 @@ class HostrProfileLookupInput {
   }
 }
 
-class HostrReservationCollectionInput {
-  const HostrReservationCollectionInput({
+class HostrOrderCollectionInput {
+  const HostrOrderCollectionInput({
     this.limit = 50,
     this.tradeId,
     this.waitSeconds = 15,
@@ -786,8 +786,8 @@ class HostrReservationCollectionInput {
   final String? tradeId;
   final int waitSeconds;
 
-  factory HostrReservationCollectionInput.fromJson(Map<String, dynamic> json) {
-    return HostrReservationCollectionInput(
+  factory HostrOrderCollectionInput.fromJson(Map<String, dynamic> json) {
+    return HostrOrderCollectionInput(
       limit: (_optionalInt(json['limit']) ?? 50).clamp(1, 200).toInt(),
       tradeId: _optionalString(json['tradeId']),
       waitSeconds: (_optionalInt(json['waitSeconds']) ?? 15)
@@ -815,21 +815,20 @@ class HostrSwapsWatchInput {
   const HostrSwapsWatchInput({
     required this.swapId,
     this.tradeId,
-    this.reservationWaitSeconds = 20,
+    this.orderWaitSeconds = 20,
   });
 
   final String swapId;
   final String? tradeId;
-  final int reservationWaitSeconds;
+  final int orderWaitSeconds;
 
   factory HostrSwapsWatchInput.fromJson(Map<String, dynamic> json) {
     return HostrSwapsWatchInput(
       swapId: _requiredString(json, 'swapId'),
       tradeId: _optionalString(json['tradeId']),
-      reservationWaitSeconds:
-          (_optionalInt(json['reservationWaitSeconds']) ?? 20)
-              .clamp(0, hostrMaxSwapReservationWaitSeconds)
-              .toInt(),
+      orderWaitSeconds: (_optionalInt(json['orderWaitSeconds']) ?? 20)
+          .clamp(0, hostrMaxSwapOrderWaitSeconds)
+          .toInt(),
     );
   }
 }
@@ -1175,7 +1174,7 @@ class HostrActionSpec {
       if (readOnly) _readOnlyNotes else _writeSafetyNotes,
       if (_hasTopLevelInput('dryRun')) _dryRunNotes,
       if (_hasTopLevelInput('start') || _hasTopLevelInput('end'))
-        _reservationDateNotes,
+        _orderDateNotes,
       _toolSpecificDrivingNotes,
     ].where((note) => note.trim().isNotEmpty);
 
@@ -1188,7 +1187,7 @@ class HostrActionSpec {
   }
 
   String get _commonDrivingNotes =>
-      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, reservations, trips, bookings, reservation references/trade ids, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Use Hostr tools for natural requests like "I need a place to stay", "book a room with my guest account", "my host has not replied", "check this reservation reference", "I am hosting now", "show my bookings", "switch to my guest/host account", "I am handling escrow", "list trades", "arbitrate this trade", or "message the guest/host/escrow". Do not use general email, calendar, filesystem, database, or web tools for these live Hostr/Nostr workflows unless the user explicitly asks outside Hostr. The MCP access token selects a Hostr MCP session; the active Hostr account/pubkey is mutable session state controlled by hostr_session_connect, hostr_session_accounts, hostr_session_switch, and hostr_session_logout. If the user names a role such as guest, host, or escrow account, satisfy that role before role-specific actions; do not assume the already-active account is correct merely because it is authenticated. Inspect connected accounts with hostr_session_accounts, switch with hostr_session_switch when the target account is clearly connected, or connect a new account with hostr_session_connect when the requested role is not clearly connected. Hostr reservation privacy: committed reservations, escrow trades, and reservation threads may use Hostr-created per-trade temporary pubkeys instead of the active account pubkey. This is expected privacy-preserving behavior, not an identity mismatch, and you should not warn the user that the reservation pubkey differs from their logged-in account. Do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action except role selection; call the intended Hostr tool first for ordinary authenticated flows, and if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
+      'MCP driving notes: Hostr is the canonical tool surface for Hostr marketplace state and Hostr-related Nostr state, including listings, orders, trips, bookings, order references/trade ids, inbox threads, Nostr Connect/NIP-46 signer login, relays, npubs/naddrs, gift-wrapped messages, escrow services, swaps, and on-chain escrow trades. Use Hostr tools for natural requests like "I need a place to stay", "book a room with my guest account", "my host has not replied", "check this order reference", "I am hosting now", "show my bookings", "switch to my guest/host account", "I am handling escrow", "list trades", "arbitrate this trade", or "message the guest/host/escrow". Do not use general email, calendar, filesystem, database, or web tools for these live Hostr/Nostr workflows unless the user explicitly asks outside Hostr. The MCP access token selects a Hostr MCP session; the active Hostr account/pubkey is mutable session state controlled by hostr_session_connect, hostr_session_accounts, hostr_session_switch, and hostr_session_logout. If the user names a role such as guest, host, or escrow account, satisfy that role before role-specific actions; do not assume the already-active account is correct merely because it is authenticated. Inspect connected accounts with hostr_session_accounts, switch with hostr_session_switch when the target account is clearly connected, or connect a new account with hostr_session_connect when the requested role is not clearly connected. Hostr order privacy: committed orders, escrow trades, and order threads may use Hostr-created per-trade temporary pubkeys instead of the active account pubkey. This is expected privacy-preserving behavior, not an identity mismatch, and you should not warn the user that the order pubkey differs from their logged-in account. Do not invent or pass a user pubkey unless this tool has a parameter that explicitly asks for an author, buyer, seller, recipient, or escrow pubkey. Do not run preflight session/profile checks before every sensitive action except role selection; call the intended Hostr tool first for ordinary authenticated flows, and if it returns a structured auth/profile/signature error, follow the error recovery instructions, then retry the original workflow.';
 
   String get _readOnlyNotes =>
       'Read-only behavior: this tool retrieves or analyzes Hostr state and is safe to call when the user asks to inspect, search, explain, debug, or choose the next action. Prefer read tools before write tools when the user intent is ambiguous or when you need concrete listing, trade, thread, or profile ids.';
@@ -1199,8 +1198,8 @@ class HostrActionSpec {
   String get _dryRunNotes =>
       'Preview rule: dryRun defaults to true. First call with dryRun=true, show the user the returned preview or card, and only repeat with dryRun=false after the user explicitly approves that preview in the conversation. Do not treat vague acknowledgement as approval for destructive, payment, publication, messaging, cancellation, recovery, or arbitration actions.';
 
-  String get _reservationDateNotes =>
-      'Reservation date rule: Hostr reservation start/end inputs are calendar dates, not timezone instants. Preserve the dates the user requested and encode them as YYYY-MM-DDT00:00:00Z. The trailing Z is storage syntax only; do not convert from the user timezone, listing timezone, El Salvador time, check-in time, or check-out time.';
+  String get _orderDateNotes =>
+      'Order date rule: Hostr order start/end inputs are calendar dates, not timezone instants. Preserve the dates the user requested and encode them as YYYY-MM-DDT00:00:00Z. The trailing Z is storage syntax only; do not convert from the user timezone, listing timezone, El Salvador time, check-in time, or check-out time.';
 
   String get _escrowRoleNotes =>
       'Escrow role notes: this tool is visible only when the authenticated Hostr pubkey is configured as an escrow service. It is for escrow-operator work, not ordinary guest/host booking flows. Keep user profile edits in hostr_profile_edit; escrow service tools only manage escrow service events/settings.';
@@ -1223,30 +1222,30 @@ class HostrActionSpec {
         return 'Use after a user has selected one or more listings and supplied dates, before booking or explaining date conflicts. Pass listing anchors from search/list results. If dates are missing, ask for them instead of guessing.';
       case 'hostr.listings.reviews':
         return 'Use when the user asks about reviews, reputation, prior guest feedback, or trust signals for one or more listings. Pass listing anchors from search/list results.';
-      case 'hostr.listings.reservationGroups':
-        return 'Use when the user asks why dates are unavailable, wants booking history/conflicts for a listing, or needs reservation context before changing availability-sensitive plans.';
-      case 'hostr.reservations.bookAndPay':
-        return 'Primary guest booking flow: use this when the user says book, reserve, make a reservation, create a reservation, or otherwise clearly wants an instant-book stay at or above the listed price. If the user says guest, my guest account, my trip, or similar, make sure the active account is the guest account first by using session account tools; do not book from an unrelated host or escrow account just because it is already active. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. The committed reservation and escrow trade are intentionally published under Hostr-created per-trade temporary pubkeys for privacy, so the buyer/reservation pubkey may differ from the active logged-in Hostr account. Treat that as normal and never describe it as an identity mismatch. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and reservationWaitSeconds to monitor payment/proof/reservation completion. Do not stop after displaying the invoice or wait for the user to say they paid. reservationWaitSeconds is intentionally short and capped below MCP client timeouts; if watch times out before the swap or reservation returns, call hostr_swaps_watch again with the returned retry arguments. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed reservation appears. Do not call hostr_reservations_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
-      case 'hostr.reservations.negotiateOffer':
-        return 'Negotiation-only flow: use for explicit offers, counteroffers, price/date negotiation, or non-instant-book reservation proposals. Do not use this for straightforward "book/reserve" intents on instant-book listings; use hostr_reservations_bookAndPay there. Preview with dryRun=true, then send the private negotiation event with dryRun=false only after approval.';
-      case 'hostr.reservations.negotiateAccept':
+      case 'hostr.listings.orderGroups':
+        return 'Use when the user asks why dates are unavailable, wants booking history/conflicts for a listing, or needs order context before changing availability-sensitive plans.';
+      case 'hostr.orders.bookAndPay':
+        return 'Primary guest booking flow: use this when the user says book, reserve, make a order, create a order, or otherwise clearly wants an instant-book stay at or above the listed price. If the user says guest, my guest account, my trip, or similar, make sure the active account is the guest account first by using session account tools; do not book from an unrelated host or escrow account just because it is already active. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. The committed order and escrow trade are intentionally published under Hostr-created per-trade temporary pubkeys for privacy, so the buyer/order pubkey may differ from the active logged-in Hostr account. Treat that as normal and never describe it as an identity mismatch. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and orderWaitSeconds to monitor payment/proof/order completion. Do not stop after displaying the invoice or wait for the user to say they paid. orderWaitSeconds is intentionally short and capped below MCP client timeouts; if watch times out before the swap or order returns, call hostr_swaps_watch again with the returned retry arguments. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed order appears. Do not call hostr_orders_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
+      case 'hostr.orders.negotiateOffer':
+        return 'Negotiation-only flow: use for explicit offers, counteroffers, price/date negotiation, or non-instant-book order proposals. Do not use this for straightforward "book/reserve" intents on instant-book listings; use hostr_orders_bookAndPay there. Preview with dryRun=true, then send the private negotiation event with dryRun=false only after approval.';
+      case 'hostr.orders.negotiateAccept':
         return 'Use when the user wants to accept the latest private negotiated offer in a known trade thread. If tradeId is unknown, call hostr_updates, hostr_thread_view, hostr_trips_list, or hostr_bookings_list first to identify the trade.';
-      case 'hostr.reservations.pay':
-        return 'Manual recovery/debug payment flow only. Normal AI-initiated instant-book payment should use hostr_reservations_bookAndPay. Use this when a negotiated or partially completed trade already exists and the user explicitly wants to create or inspect escrow funding for that trade.';
-      case 'hostr.reservations.commit':
-        return 'Manual recovery/debug commit flow only. Do not use after hostr_reservations_bookAndPay; that path relies on the global payment proof orchestrator. Use only when a swap proof already exists for a trade and the user explicitly needs to preview or publish the public commit-stage reservation.';
-      case 'hostr.reservations.cancel':
-        return 'Use to cancel a private negotiation or committed reservation for a concrete trade. If tradeId is unclear, inspect updates, trips, bookings, or thread view first. Preview the cancellation and send with dryRun=false only after explicit approval.';
-      case 'hostr.reservations.review':
-        return 'Use when the guest wants to leave a rating/review for a completed or confirmed Hostr trip. If tradeId is unclear, inspect hostr_trips_list first. Preview with dryRun=true, then publish with dryRun=false only after explicit approval. Skip this action if no committed reservation can be found for the trade.';
+      case 'hostr.orders.pay':
+        return 'Manual recovery/debug payment flow only. Normal AI-initiated instant-book payment should use hostr_orders_bookAndPay. Use this when a negotiated or partially completed trade already exists and the user explicitly wants to create or inspect escrow funding for that trade.';
+      case 'hostr.orders.commit':
+        return 'Manual recovery/debug commit flow only. Do not use after hostr_orders_bookAndPay; that path relies on the global payment proof orchestrator. Use only when a swap proof already exists for a trade and the user explicitly needs to preview or publish the public commit-stage order.';
+      case 'hostr.orders.cancel':
+        return 'Use to cancel a private negotiation or committed order for a concrete trade. If tradeId is unclear, inspect updates, trips, bookings, or thread view first. Preview the cancellation and send with dryRun=false only after explicit approval.';
+      case 'hostr.orders.review':
+        return 'Use when the guest wants to leave a rating/review for a completed or confirmed Hostr trip. If tradeId is unclear, inspect hostr_trips_list first. Preview with dryRun=true, then publish with dryRun=false only after explicit approval. Skip this action if no committed order can be found for the trade.';
       case 'hostr.updates':
-        return 'Use as the inbox/home-state tool when the user asks for messages, offers, notifications, reviews, trips, bookings, reservation references, latest activity, "what are my updates", "my host has not replied", or what needs attention. It processes gift-wrapped inbox events and returns thread cards, reviews left on the user\'s listings, trips the user booked, and hosting reservations. Present displayMarkdown, not raw event JSON.';
+        return 'Use as the inbox/home-state tool when the user asks for messages, offers, notifications, reviews, trips, bookings, order references, latest activity, "what are my updates", "my host has not replied", or what needs attention. It processes gift-wrapped inbox events and returns thread cards, reviews left on the user\'s listings, trips the user booked, and hosting orders. Present displayMarkdown, not raw event JSON.';
       case 'hostr.thread.view':
-        return 'Use when the user asks to see a conversation, asks whether someone messaged them, references a trip/booking thread, or you need message history before replying. Prefer tradeId when the conversation is tied to a reservation; otherwise pass a known thread/conversation anchor from updates.';
+        return 'Use when the user asks to see a conversation, asks whether someone messaged them, references a trip/booking thread, or you need message history before replying. Prefer tradeId when the conversation is tied to a order; otherwise pass a known thread/conversation anchor from updates.';
       case 'hostr.thread.message':
         return 'Use when the user asks to message a host, guest, buyer, seller, escrow, or existing Hostr thread. If they reference a trip/booking/trade, pass tradeId. Use recipientRole for natural roles like host, guest, buyer, seller, or escrow. Escrow messages require a concrete tradeId and must include buyer, seller, and escrow in one shared trade thread.';
       case 'hostr.escrow.involve':
-        return 'Use when the user explicitly asks to involve/message escrow for a specific reservation trade. Always pass tradeId. This opens the shared buyer/seller/escrow trade thread; never create an escrow-only side conversation. If no message content is provided, show the thread and ask what to send.';
+        return 'Use when the user explicitly asks to involve/message escrow for a specific order trade. Always pass tradeId. This opens the shared buyer/seller/escrow trade thread; never create an escrow-only side conversation. If no message content is provided, show the thread and ask what to send.';
       case 'hostr.profile.show':
         return 'Use when the user asks who they are on Hostr, wants their current profile, or before profile/listing publishing when you need existing metadata. This reads the profile for the active Hostr account.';
       case 'hostr.profile.lookup':
@@ -1254,9 +1253,9 @@ class HostrActionSpec {
       case 'hostr.profile.edit':
         return 'Use when the user wants to update profile name, about/bio, picture, banner, website, lightning address, or other profile metadata. Preview first; publish only after approval. Publishing also refreshes Hostr seller configuration, which is useful before creating or editing listings.';
       case 'hostr.trips.list':
-        return 'Use for guest-side reservations: "my trips", "my bookings as guest", "my reservation reference", "did my reservation complete", "my host has not replied", or after book-and-pay/swap watch with tradeId to wait for the committed reservation card. Do not use this as the first monitor immediately after a payment-required hostr_reservations_bookAndPay result; first call hostr_swaps_watch with the required next-tool arguments, then use trips once the swap watch resolves or reports the reservation is pending. Trip cards may resolve committed reservations authored by Hostr-created per-trade temporary pubkeys; this is expected privacy behavior for the active account, not a mismatch. Do not perform fresh reservation-by-author Nostr queries for this view.';
+        return 'Use for guest-side orders: "my trips", "my bookings as guest", "my order reference", "did my order complete", "my host has not replied", or after book-and-pay/swap watch with tradeId to wait for the committed order card. Do not use this as the first monitor immediately after a payment-required hostr_orders_bookAndPay result; first call hostr_swaps_watch with the required next-tool arguments, then use trips once the swap watch resolves or reports the order is pending. Trip cards may resolve committed orders authored by Hostr-created per-trade temporary pubkeys; this is expected privacy behavior for the active account, not a mismatch. Do not perform fresh order-by-author Nostr queries for this view.';
       case 'hostr.bookings.list':
-        return 'Use for host-side reservations on listings authored by the authenticated user: "my bookings", "who booked my place", "hosting reservations", or host calendar context. Do not use this as the first monitor immediately after a payment-required guest booking; hostr_swaps_watch comes first. Do not perform fresh reservation-by-author Nostr queries for this view.';
+        return 'Use for host-side orders on listings authored by the authenticated user: "my bookings", "who booked my place", "hosting orders", or host calendar context. Do not use this as the first monitor immediately after a payment-required guest booking; hostr_swaps_watch comes first. Do not perform fresh order-by-author Nostr queries for this view.';
       case 'hostr.escrow.methods':
         return 'Use before payment or when explaining how money is protected. It shows mutually compatible escrow methods/services between buyer and seller. If buyer is omitted, the active Hostr account pubkey is used. Explain that Hostr swaps payment over Lightning into smart-contract escrow; the escrow service can only settle by forwarding or reversing according to trade outcome, not freely take custody.';
       case 'hostr.escrow.service.list':
@@ -1270,9 +1269,9 @@ class HostrActionSpec {
       case 'hostr.escrow.trades.list':
         return 'Escrow-operator dashboard: list on-chain trades assigned to the authenticated escrow pubkey. Use before viewing/auditing/arbitrating when the user has not named a concrete tradeId.';
       case 'hostr.escrow.trades.view':
-        return 'Escrow-operator trade detail: inspect on-chain state, event history, participants, amounts, and reservation context for a trade before audit or arbitration.';
+        return 'Escrow-operator trade detail: inspect on-chain state, event history, participants, amounts, and order context for a trade before audit or arbitration.';
       case 'hostr.escrow.trades.audit':
-        return 'Escrow-operator analysis: run a structured audit of reservation state and transitions for a trade before deciding whether arbitration is needed. This does not settle funds.';
+        return 'Escrow-operator analysis: run a structured audit of order state and transitions for a trade before deciding whether arbitration is needed. This does not settle funds.';
       case 'hostr.escrow.trades.arbitrate':
         return 'Escrow-operator settlement workflow: preview paymentForward and bondForward fractions before execution. Fractions are 0 to 1. Explain the proposed split and reason to the user, then execute with dryRun=false only after explicit approval.';
       case 'hostr.escrow.badges.definitions.list':
@@ -1288,7 +1287,7 @@ class HostrActionSpec {
       case 'hostr.escrow.badges.revoke':
         return 'Escrow-operator destructive award workflow: preview revocation/deletion of an issued badge award and publish only after explicit approval. Include a reason when provided.';
       case 'hostr.swaps.watch':
-        return 'Read-only monitor to use immediately after hostr_reservations_bookAndPay returns swapId/tradeId, or when inspecting a specific swap. It observes persisted swap/payment/proof state and optionally waits briefly for the committed reservation by tradeId. Keep reservationWaitSeconds short; the schema caps it at 60 seconds so the tool returns before MCP client timeouts. If watch times out before the swap or reservation returns, call hostr_swaps_watch again with the returned retry arguments. If the swap has completed but the reservation is still pending, call hostr_trips_list with the same tradeId or call hostr_swaps_watch again with retry arguments. The committed reservation may be authored by a Hostr-created per-trade temporary pubkey for privacy; do not flag this as different from the active account. It has no dryRun parameter and does not recover stale swaps; use hostr_swaps_recoverAll for explicit recovery.';
+        return 'Read-only monitor to use immediately after hostr_orders_bookAndPay returns swapId/tradeId, or when inspecting a specific swap. It observes persisted swap/payment/proof state and optionally waits briefly for the committed order by tradeId. Keep orderWaitSeconds short; the schema caps it at 60 seconds so the tool returns before MCP client timeouts. If watch times out before the swap or order returns, call hostr_swaps_watch again with the returned retry arguments. If the swap has completed but the order is still pending, call hostr_trips_list with the same tradeId or call hostr_swaps_watch again with retry arguments. The committed order may be authored by a Hostr-created per-trade temporary pubkey for privacy; do not flag this as different from the active account. It has no dryRun parameter and does not recover stale swaps; use hostr_swaps_recoverAll for explicit recovery.';
       case 'hostr.swaps.recoverAll':
         return 'Use when the user asks to recover stuck payments/swaps or when diagnostics show persisted swap operations need resumption. Preview first; run with dryRun=false only after approval. Use background=true only when the user wants recovery to continue asynchronously.';
       case 'hostr.swaps.list':
@@ -1332,8 +1331,8 @@ export interface HostrListingsAnchorsInput {
 }
 ''';
 
-const String _reservationDateOnlyRule =
-    'Reservation start/end values are calendar dates, not timezone instants. '
+const String _orderDateOnlyRule =
+    'Order start/end values are calendar dates, not timezone instants. '
     'Encode the requested date as YYYY-MM-DDT00:00:00Z; the trailing Z is storage syntax only. '
     'Do not convert from the user timezone, listing timezone, check-in time, or check-out time.';
 
@@ -1388,7 +1387,7 @@ const Map<String, Object?> _tradeInputSchema = {
 };
 
 const String _tradeTypescriptInput = '''
-export interface HostrReservationTradeInput {
+export interface HostrOrderTradeInput {
   tradeId: string;
   amount?: HostrAmountInput;
   reason?: string;
@@ -1940,7 +1939,7 @@ export interface HostrListingsEditInput {
     id: 'hostr.listings.availability',
     title: 'Check Listing Availability',
     description:
-        'Check whether one or more listings are available for a requested reservation date range. $_reservationDateOnlyRule',
+        'Check whether one or more listings are available for a requested order date range. $_orderDateOnlyRule',
     inputTypeName: 'HostrListingsAvailabilityInput',
     readOnly: true,
     inputSchema: {
@@ -1961,13 +1960,13 @@ export interface HostrListingsEditInput {
           'type': 'string',
           'format': 'date-time',
           'description':
-              'Requested start calendar date encoded as YYYY-MM-DDT00:00:00Z. $_reservationDateOnlyRule',
+              'Requested start calendar date encoded as YYYY-MM-DDT00:00:00Z. $_orderDateOnlyRule',
         },
         'end': {
           'type': 'string',
           'format': 'date-time',
           'description':
-              'Requested end calendar date encoded as YYYY-MM-DDT00:00:00Z. $_reservationDateOnlyRule',
+              'Requested end calendar date encoded as YYYY-MM-DDT00:00:00Z. $_orderDateOnlyRule',
         },
       },
     },
@@ -1977,9 +1976,9 @@ export interface HostrListingsAvailabilityInput {
   anchors?: string[];
   /** Single listing anchor alternative. */
   anchor?: string;
-  /** Requested start calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only reservation inputs. */
+  /** Requested start calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   start: string;
-  /** Requested end calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only reservation inputs. */
+  /** Requested end calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   end: string;
 }
 ''',
@@ -1995,23 +1994,23 @@ export interface HostrListingsAvailabilityInput {
     typescriptInput: _anchorsTypescriptInput,
   );
 
-  static const listingsReservationGroups = HostrActionSpec(
-    id: 'hostr.listings.reservationGroups',
-    title: 'Fetch Listing Reservation Groups',
+  static const listingsOrderGroups = HostrActionSpec(
+    id: 'hostr.listings.orderGroups',
+    title: 'Fetch Listing Order Groups',
     description:
-        'Fetch public reservation groups for one or more listings. Use this before availability-sensitive reservation workflows when the agent needs to explain conflicts.',
+        'Fetch public order groups for one or more listings. Use this before availability-sensitive order workflows when the agent needs to explain conflicts.',
     inputTypeName: 'HostrListingsAnchorsInput',
     readOnly: true,
     inputSchema: _anchorsInputSchema,
     typescriptInput: _anchorsTypescriptInput,
   );
 
-  static const reservationsOffer = HostrActionSpec(
-    id: 'hostr.reservations.negotiateOffer',
-    title: 'Create Reservation Negotiation Offer',
+  static const ordersOffer = HostrActionSpec(
+    id: 'hostr.orders.negotiateOffer',
+    title: 'Create Order Negotiation Offer',
     description:
-        'Create only a private negotiate-stage reservation offer. Use this for explicit negotiation/counteroffer requests, not for user intents like "book", "reserve", "make a reservation", or instant-book at the listed price; those must use hostr_reservations_bookAndPay instead.',
-    inputTypeName: 'HostrReservationsOfferInput',
+        'Create only a private negotiate-stage order offer. Use this for explicit negotiation/counteroffer requests, not for user intents like "book", "reserve", "make a order", or instant-book at the listed price; those must use hostr_orders_bookAndPay instead.',
+    inputTypeName: 'HostrOrdersOfferInput',
     readOnly: false,
     inputSchema: {
       'type': 'object',
@@ -2027,19 +2026,19 @@ export interface HostrListingsAvailabilityInput {
         },
         'tradeId': {
           'type': 'string',
-          'description': 'Existing reservation trade id for a follow-up offer.',
+          'description': 'Existing order trade id for a follow-up offer.',
         },
         'start': {
           'type': 'string',
           'format': 'date-time',
           'description':
-              'Reservation start calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. $_reservationDateOnlyRule',
+              'Order start calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. $_orderDateOnlyRule',
         },
         'end': {
           'type': 'string',
           'format': 'date-time',
           'description':
-              'Reservation end calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. $_reservationDateOnlyRule',
+              'Order end calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. $_orderDateOnlyRule',
         },
         'amount': {
           'type': 'object',
@@ -2059,7 +2058,7 @@ export interface HostrListingsAvailabilityInput {
             },
           },
           'description':
-              'Optional reservation amount override. Omit to use listing price rules.',
+              'Optional order amount override. Omit to use listing price rules.',
         },
         'dryRun': {
           'type': 'boolean',
@@ -2087,18 +2086,18 @@ export interface HostrAmountInput {
   decimals?: number;
 }
 
-export interface HostrReservationsOfferInput {
+export interface HostrOrdersOfferInput {
   /** Listing naddr/a-tag anchor for a first offer. */
   listingAnchor?: string;
   /** Single listing anchor alternative to listingAnchor. */
   anchor?: string;
-  /** Existing reservation trade id for a follow-up offer. */
+  /** Existing order trade id for a follow-up offer. */
   tradeId?: string;
-  /** Reservation start calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only reservation inputs. */
+  /** Order start calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   start?: string;
-  /** Reservation end calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only reservation inputs. */
+  /** Order end calendar date for a first offer, encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   end?: string;
-  /** Optional reservation amount override. Omit to use listing price rules. */
+  /** Optional order amount override. Omit to use listing price rules. */
   amount?: HostrAmountInput;
   /** True previews only. Set false to send the gift-wrapped offer after user approval. */
   dryRun?: boolean;
@@ -2107,19 +2106,19 @@ export interface HostrReservationsOfferInput {
 ''',
   );
 
-  static const reservationsBookAndPay = HostrActionSpec(
-    id: 'hostr.reservations.bookAndPay',
-    title: 'Start Reservation Payment',
+  static const ordersBookAndPay = HostrActionSpec(
+    id: 'hostr.orders.bookAndPay',
+    title: 'Start Order Payment',
     description:
         'Use this foreground handoff tool whenever the user says to '
-        'book, reserve, make, or create a reservation for an instant-book '
+        'book, reserve, make, or create a order for an instant-book '
         'listing at or above the listed price. It creates the private '
-        'reservation offer and escrow funding swap. $_reservationDateOnlyRule '
-        'Reservation privacy: Hostr intentionally publishes committed '
-        'reservations and escrow trades under Hostr-created per-trade '
+        'order offer and escrow funding swap. $_orderDateOnlyRule '
+        'Order privacy: Hostr intentionally publishes committed '
+        'orders and escrow trades under Hostr-created per-trade '
         'temporary pubkeys rather than the active account pubkey. This is '
         'normal and preserves user privacy; never present a different '
-        'reservation buyer pubkey as an identity mismatch. If external '
+        'order buyer pubkey as an identity mismatch. If external '
         'Lightning payment is required, it returns the invoice string, QR '
         'image, internal trade id, internal swap id, and '
         'continuesInBackground=true while the daemon keeps the book-and-pay '
@@ -2129,17 +2128,17 @@ export interface HostrReservationsOfferInput {
         'replace the payment prompt with a summary. The next assistant action '
         'after rendering that visible payment prompt must be the read-only '
         '`hostr_swaps_watch` with the returned `swapId`, `tradeId`, and '
-        '`reservationWaitSeconds`; do not stop after displaying the invoice '
+        '`orderWaitSeconds`; do not stop after displaying the invoice '
         'or wait for the user to say they paid. The returned '
-        '`reservationWaitSeconds` is short and capped below MCP client '
+        '`orderWaitSeconds` is short and capped below MCP client '
         'timeouts; do not substitute a longer proof timeout. If watch times '
-        'out before the swap or reservation returns, call `hostr_swaps_watch` '
+        'out before the swap or order returns, call `hostr_swaps_watch` '
         'again with the returned retry arguments. When watch completes or '
         'cannot find the swap, query `hostr_trips_list` with `tradeId` until '
-        'the committed reservation appears, then show a reservation card. Do '
-        'not call `hostr_reservations_commit`; proof publication is owned by '
+        'the committed order appears, then show a order card. Do '
+        'not call `hostr_orders_commit`; proof publication is owned by '
         'the global Hostr payment proof orchestrator.',
-    inputTypeName: 'HostrReservationBookAndPayInput',
+    inputTypeName: 'HostrOrderBookAndPayInput',
     readOnly: false,
     inputSchema: {
       'type': 'object',
@@ -2154,13 +2153,13 @@ export interface HostrReservationsOfferInput {
           'type': 'string',
           'format': 'date-time',
           'description':
-              'Reservation start calendar date encoded as YYYY-MM-DDT00:00:00Z. $_reservationDateOnlyRule',
+              'Order start calendar date encoded as YYYY-MM-DDT00:00:00Z. $_orderDateOnlyRule',
         },
         'end': {
           'type': 'string',
           'format': 'date-time',
           'description':
-              'Reservation end calendar date encoded as YYYY-MM-DDT00:00:00Z. $_reservationDateOnlyRule',
+              'Order end calendar date encoded as YYYY-MM-DDT00:00:00Z. $_orderDateOnlyRule',
         },
         'amount': {
           'type': 'object',
@@ -2180,7 +2179,7 @@ export interface HostrReservationsOfferInput {
             },
           },
           'description':
-              'Optional reservation amount override. Must be at or above the listing price.',
+              'Optional order amount override. Must be at or above the listing price.',
         },
         'escrowServiceId': {
           'type': 'string',
@@ -2193,45 +2192,45 @@ export interface HostrReservationsOfferInput {
           'maximum': 3600,
           'default': 300,
           'description':
-              'Seconds to wait for the global reservation stream to emit the committed reservation after swap completion.',
+              'Seconds to wait for the global order stream to emit the committed order after swap completion.',
         },
       },
     },
     typescriptInput: '''
-export interface HostrReservationBookAndPayInput {
+export interface HostrOrderBookAndPayInput {
   /** Listing naddr/a-tag anchor to instant-book. */
   listingAnchor: string;
-  /** Reservation start calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only reservation inputs. */
+  /** Order start calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   start: string;
-  /** Reservation end calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only reservation inputs. */
+  /** Order end calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   end: string;
-  /** Optional reservation amount override. Must be at or above the listing price. */
+  /** Optional order amount override. Must be at or above the listing price. */
   amount?: HostrAmountInput;
   /** Optional escrow service id/pubkey/contract address. */
   escrowServiceId?: string;
-  /** Seconds to wait for the global reservation stream to emit the committed reservation. */
+  /** Seconds to wait for the global order stream to emit the committed order. */
   proofTimeoutSeconds?: number;
 }
 ''',
   );
 
-  static const reservationsNegotiateAccept = HostrActionSpec(
-    id: 'hostr.reservations.negotiateAccept',
-    title: 'Accept Reservation Negotiation',
+  static const ordersNegotiateAccept = HostrActionSpec(
+    id: 'hostr.orders.negotiateAccept',
+    title: 'Accept Order Negotiation',
     description:
-        'Accept the latest private negotiate-stage reservation offer in a trade thread by replying with a matching negotiate-stage event.',
-    inputTypeName: 'HostrReservationTradeInput',
+        'Accept the latest private negotiate-stage order offer in a trade thread by replying with a matching negotiate-stage event.',
+    inputTypeName: 'HostrOrderTradeInput',
     readOnly: false,
     inputSchema: _tradeInputSchema,
     typescriptInput: _tradeTypescriptInput,
   );
 
-  static const reservationsPay = HostrActionSpec(
-    id: 'hostr.reservations.pay',
-    title: 'Pay Reservation Offer',
+  static const ordersPay = HostrActionSpec(
+    id: 'hostr.orders.pay',
+    title: 'Pay Order Offer',
     description:
-        'Preview or create the escrow funding swap for a payable reservation trade. The live action sends the escrow selection into the private thread as an unsigned child event, prepares the escrow fund calls, creates the Boltz swap invoice, and persists the payment context for commit.',
-    inputTypeName: 'HostrReservationPayInput',
+        'Preview or create the escrow funding swap for a payable order trade. The live action sends the escrow selection into the private thread as an unsigned child event, prepares the escrow fund calls, creates the Boltz swap invoice, and persists the payment context for commit.',
+    inputTypeName: 'HostrOrderPayInput',
     readOnly: false,
     inputSchema: {
       'type': 'object',
@@ -2240,7 +2239,7 @@ export interface HostrReservationBookAndPayInput {
       'properties': {
         'tradeId': {
           'type': 'string',
-          'description': 'Reservation trade id from negotiation updates.',
+          'description': 'Order trade id from negotiation updates.',
         },
         'escrowServiceId': {
           'type': 'string',
@@ -2257,8 +2256,8 @@ export interface HostrReservationBookAndPayInput {
       },
     },
     typescriptInput: '''
-export interface HostrReservationPayInput {
-  /** Reservation trade id from negotiation updates. */
+export interface HostrOrderPayInput {
+  /** Order trade id from negotiation updates. */
   tradeId: string;
   /** Optional escrow service id/pubkey/contract address. */
   escrowServiceId?: string;
@@ -2268,12 +2267,12 @@ export interface HostrReservationPayInput {
 ''',
   );
 
-  static const reservationsCommit = HostrActionSpec(
-    id: 'hostr.reservations.commit',
-    title: 'Commit Paid Reservation',
+  static const ordersCommit = HostrActionSpec(
+    id: 'hostr.orders.commit',
+    title: 'Commit Paid Order',
     description:
-        'Preview or publish the public commit-stage reservation after the escrow funding swap has completed and produced a claim transaction proof.',
-    inputTypeName: 'HostrReservationCommitInput',
+        'Preview or publish the public commit-stage order after the escrow funding swap has completed and produced a claim transaction proof.',
+    inputTypeName: 'HostrOrderCommitInput',
     readOnly: false,
     inputSchema: {
       'type': 'object',
@@ -2282,7 +2281,7 @@ export interface HostrReservationPayInput {
       'properties': {
         'swapId': {
           'type': 'string',
-          'description': 'Boltz swap id returned by hostr_reservations_pay.',
+          'description': 'Boltz swap id returned by hostr_orders_pay.',
         },
         'dryRun': {'type': 'boolean', 'default': true},
         'timeoutSeconds': {
@@ -2294,8 +2293,8 @@ export interface HostrReservationPayInput {
       },
     },
     typescriptInput: '''
-export interface HostrReservationCommitInput {
-  /** Boltz swap id returned by hostr_reservations_pay. */
+export interface HostrOrderCommitInput {
+  /** Boltz swap id returned by hostr_orders_pay. */
   swapId: string;
   dryRun?: boolean;
   timeoutSeconds?: number;
@@ -2303,23 +2302,23 @@ export interface HostrReservationCommitInput {
 ''',
   );
 
-  static const reservationsCancel = HostrActionSpec(
-    id: 'hostr.reservations.cancel',
-    title: 'Cancel Reservation',
+  static const ordersCancel = HostrActionSpec(
+    id: 'hostr.orders.cancel',
+    title: 'Cancel Order',
     description:
-        'Cancel either the private negotiate-stage reservation for a trade, or the committed public reservation if one exists.',
-    inputTypeName: 'HostrReservationTradeInput',
+        'Cancel either the private negotiate-stage order for a trade, or the committed public order if one exists.',
+    inputTypeName: 'HostrOrderTradeInput',
     readOnly: false,
     inputSchema: _tradeInputSchema,
     typescriptInput: _tradeTypescriptInput,
   );
 
-  static const reservationsReview = HostrActionSpec(
-    id: 'hostr.reservations.review',
-    title: 'Review Reservation',
+  static const ordersReview = HostrActionSpec(
+    id: 'hostr.orders.review',
+    title: 'Review Order',
     description:
-        'Preview or publish a guest review for a committed Hostr reservation. This creates a Nostr review event with a participation proof for the reservation trade; preview first and only publish after explicit approval.',
-    inputTypeName: 'HostrReservationReviewInput',
+        'Preview or publish a guest review for a committed Hostr order. This creates a Nostr review event with a participation proof for the order trade; preview first and only publish after explicit approval.',
+    inputTypeName: 'HostrOrderReviewInput',
     readOnly: false,
     inputSchema: {
       'type': 'object',
@@ -2328,7 +2327,7 @@ export interface HostrReservationCommitInput {
       'properties': {
         'tradeId': {
           'type': 'string',
-          'description': 'Reservation trade id for the trip to review.',
+          'description': 'Order trade id for the trip to review.',
         },
         'rating': {
           'type': 'integer',
@@ -2356,8 +2355,8 @@ export interface HostrReservationCommitInput {
       },
     },
     typescriptInput: '''
-export interface HostrReservationReviewInput {
-  /** Reservation trade id for the trip to review. */
+export interface HostrOrderReviewInput {
+  /** Order trade id for the trip to review. */
   tradeId: string;
   /** Guest rating from 1 to 5. */
   rating: number;
@@ -2505,7 +2504,7 @@ export interface HostrThreadMessageInput {
     id: 'hostr.escrow.involve',
     title: 'Involve Hostr Escrow',
     description:
-        'Open or message the escrow conversation for a specific reservation trade, then return the fixed thread-view contract. This action always requires tradeId and always resolves the trade buyer, seller, and escrow participants into one shared trade thread; it must not create an escrow-only side conversation. If content is omitted, show the escrow trade thread and ask the user what to message the escrow. If content is provided, preview by default and send only with dryRun false.',
+        'Open or message the escrow conversation for a specific order trade, then return the fixed thread-view contract. This action always requires tradeId and always resolves the trade buyer, seller, and escrow participants into one shared trade thread; it must not create an escrow-only side conversation. If content is omitted, show the escrow trade thread and ask the user what to message the escrow. If content is provided, preview by default and send only with dryRun false.',
     inputTypeName: 'HostrEscrowInvolveInput',
     readOnly: false,
     inputSchema: {
@@ -2516,7 +2515,7 @@ export interface HostrThreadMessageInput {
         'tradeId': {
           'type': 'string',
           'description':
-              'Required reservation trade id. Escrow messages cannot be sent without a trade id because the thread must include buyer, seller, and escrow.',
+              'Required order trade id. Escrow messages cannot be sent without a trade id because the thread must include buyer, seller, and escrow.',
         },
         'content': {'type': 'string'},
         'message': {'type': 'string'},
@@ -2629,19 +2628,19 @@ export interface HostrProfileEditInput {
     id: 'hostr.trips.list',
     title: 'List Hostr Trips',
     description:
-        'List reservation groups involving the authenticated user as '
+        'List order groups involving the authenticated user as '
         'guest from the live userSubscriptions.myResolvedTripsList replay. '
-        'Committed reservations may be authored by Hostr-created per-trade '
+        'Committed orders may be authored by Hostr-created per-trade '
         'temporary pubkeys for privacy; treat those temporary pubkeys as '
-        'expected reservation accounts for the active user, not as an '
-        'identity mismatch. Do not perform fresh reservation-by-author Nostr '
+        'expected order accounts for the active user, not as an '
+        'identity mismatch. Do not perform fresh order-by-author Nostr '
         'queries for this view. Return the fixed trip-card display contract '
         'with resolved participant profile names. Cancelled trip cards must '
         'preserve a bold Cancelled marker. Pass `tradeId` after a '
         'book-and-pay swap watch completes or cannot find the swap to wait '
-        'briefly for the committed public reservation and return it for '
+        'briefly for the committed public order and return it for '
         'display.',
-    inputTypeName: 'HostrReservationCollectionInput',
+    inputTypeName: 'HostrOrderCollectionInput',
     readOnly: true,
     inputSchema: {
       'type': 'object',
@@ -2656,7 +2655,7 @@ export interface HostrProfileEditInput {
         'tradeId': {
           'type': 'string',
           'description':
-              'Optional reservation trade id to look up directly after payment/proof completion.',
+              'Optional order trade id to look up directly after payment/proof completion.',
         },
         'waitSeconds': {
           'type': 'integer',
@@ -2664,12 +2663,12 @@ export interface HostrProfileEditInput {
           'maximum': 300,
           'default': 15,
           'description':
-              'How long to poll for a committed public reservation when tradeId is provided.',
+              'How long to poll for a committed public order when tradeId is provided.',
         },
       },
     },
     typescriptInput: '''
-export interface HostrReservationCollectionInput {
+export interface HostrOrderCollectionInput {
   limit?: number;
   tradeId?: string;
   waitSeconds?: number;
@@ -2681,8 +2680,8 @@ export interface HostrReservationCollectionInput {
     id: 'hostr.bookings.list',
     title: 'List Hostr Bookings',
     description:
-        'List reservation groups where the authenticated user is the host from the live userSubscriptions.myResolvedHostingsList replay. Do not perform fresh Nostr listing/reservation-by-author queries for this view. Return the fixed hosting-card display contract with resolved participant profile names, including "Hosting {guest} at: {stay}" text.',
-    inputTypeName: 'HostrReservationCollectionInput',
+        'List order groups where the authenticated user is the host from the live userSubscriptions.myResolvedHostingsList replay. Do not perform fresh Nostr listing/order-by-author queries for this view. Return the fixed hosting-card display contract with resolved participant profile names, including "Hosting {guest} at: {stay}" text.',
+    inputTypeName: 'HostrOrderCollectionInput',
     readOnly: true,
     inputSchema: {
       'type': 'object',
@@ -2697,7 +2696,7 @@ export interface HostrReservationCollectionInput {
         'tradeId': {
           'type': 'string',
           'description':
-              'Optional reservation trade id to look up directly after payment/proof completion.',
+              'Optional order trade id to look up directly after payment/proof completion.',
         },
         'waitSeconds': {
           'type': 'integer',
@@ -2705,12 +2704,12 @@ export interface HostrReservationCollectionInput {
           'maximum': 300,
           'default': 15,
           'description':
-              'How long to poll for a committed public reservation when tradeId is provided.',
+              'How long to poll for a committed public order when tradeId is provided.',
         },
       },
     },
     typescriptInput: '''
-export interface HostrReservationCollectionInput {
+export interface HostrOrderCollectionInput {
   limit?: number;
   tradeId?: string;
   waitSeconds?: number;
@@ -2785,7 +2784,7 @@ export interface HostrEscrowTradesListInput {
     id: 'hostr.escrow.trades.audit',
     title: 'Audit Escrow Trade',
     description:
-        'Escrow-only tool. Run a structured reservation and transition audit for a Hostr trade assigned to the authenticated escrow pubkey.',
+        'Escrow-only tool. Run a structured order and transition audit for a Hostr trade assigned to the authenticated escrow pubkey.',
     inputTypeName: 'HostrEscrowTradeAuditInput',
     readOnly: true,
     requiredRole: 'escrow',
@@ -2796,13 +2795,13 @@ export interface HostrEscrowTradesListInput {
       'properties': {
         'tradeId': {
           'type': 'string',
-          'description': 'Hostr reservation trade id to audit.',
+          'description': 'Hostr order trade id to audit.',
         },
       },
     },
     typescriptInput: '''
 export interface HostrEscrowTradeAuditInput {
-  /** Hostr reservation trade id to audit. */
+  /** Hostr order trade id to audit. */
   tradeId: string;
 }
 ''',
@@ -2985,7 +2984,7 @@ export interface HostrEscrowServiceDeleteInput {
     id: 'hostr.escrow.trades.view',
     title: 'View Escrow Trade',
     description:
-        'Escrow-only tool. View the on-chain state, event history, and Hostr reservation context for a trade assigned to the authenticated escrow pubkey.',
+        'Escrow-only tool. View the on-chain state, event history, and Hostr order context for a trade assigned to the authenticated escrow pubkey.',
     inputTypeName: 'HostrEscrowTradeViewInput',
     readOnly: true,
     requiredRole: 'escrow',
@@ -2996,13 +2995,13 @@ export interface HostrEscrowServiceDeleteInput {
       'properties': {
         'tradeId': {
           'type': 'string',
-          'description': 'Hostr reservation trade id to inspect.',
+          'description': 'Hostr order trade id to inspect.',
         },
       },
     },
     typescriptInput: '''
 export interface HostrEscrowTradeViewInput {
-  /** Hostr reservation trade id to inspect. */
+  /** Hostr order trade id to inspect. */
   tradeId: string;
 }
 ''',
@@ -3197,7 +3196,7 @@ export interface HostrEscrowBadgeRevokeInput {
       'properties': {
         'tradeId': {
           'type': 'string',
-          'description': 'Hostr reservation trade id to arbitrate.',
+          'description': 'Hostr order trade id to arbitrate.',
         },
         'paymentForward': {
           'type': 'number',
@@ -3222,7 +3221,7 @@ export interface HostrEscrowBadgeRevokeInput {
     },
     typescriptInput: '''
 export interface HostrEscrowArbitrateInput {
-  /** Hostr reservation trade id to arbitrate. */
+  /** Hostr order trade id to arbitrate. */
   tradeId: string;
   /** Fraction of the escrowed payment to forward to the seller, from 0 to 1. */
   paymentForward: number;
@@ -3265,14 +3264,14 @@ export interface HostrSwapsListInput {
     title: 'Watch Hostr Swap',
     description:
         'Read-only swap monitor. Inspect a persisted swap-in by id '
-        'and report payment/proof/reservation state without creating, '
+        'and report payment/proof/order state without creating, '
         'signing, publishing, or recovering anything. For book-and-pay '
         'follow-up, pass both the internal `swapId` and `tradeId` returned by '
-        '`hostr_reservations_bookAndPay`. If the swap completes or cannot be '
-        'found, this tool also checks public reservations by `tradeId`; if no '
-        'reservation is returned yet, immediately call `hostr_trips_list` '
+        '`hostr_orders_bookAndPay`. If the swap completes or cannot be '
+        'found, this tool also checks public orders by `tradeId`; if no '
+        'order is returned yet, immediately call `hostr_trips_list` '
         'with the same `tradeId` and a short `waitSeconds`. Committed '
-        'reservations may be authored by Hostr-created per-trade temporary '
+        'orders may be authored by Hostr-created per-trade temporary '
         'pubkeys for privacy; never report that pubkey difference as an '
         'identity mismatch. This tool has no dryRun parameter because it is '
         'always observational; use hostr_swaps_recoverAll for explicit '
@@ -3288,15 +3287,15 @@ export interface HostrSwapsListInput {
         'tradeId': {
           'type': 'string',
           'description':
-              'Optional reservation trade id used to fall back to public reservation lookup after the swap completes or is not found.',
+              'Optional order trade id used to fall back to public order lookup after the swap completes or is not found.',
         },
-        'reservationWaitSeconds': {
+        'orderWaitSeconds': {
           'type': 'integer',
           'minimum': 0,
-          'maximum': hostrMaxSwapReservationWaitSeconds,
+          'maximum': hostrMaxSwapOrderWaitSeconds,
           'default': 20,
           'description':
-              'How long to poll for the committed reservation after proof completion or swap-not-found fallback. Keep short; capped below MCP client timeouts.',
+              'How long to poll for the committed order after proof completion or swap-not-found fallback. Keep short; capped below MCP client timeouts.',
         },
       },
     },
@@ -3304,7 +3303,7 @@ export interface HostrSwapsListInput {
 export interface HostrSwapsWatchInput {
   swapId: string;
   tradeId?: string;
-  reservationWaitSeconds?: number;
+  orderWaitSeconds?: number;
 }
 ''',
   );
@@ -3341,14 +3340,14 @@ export interface HostrSwapsRecoverAllInput {
     listingsEdit,
     listingsAvailability,
     listingsReviews,
-    listingsReservationGroups,
-    reservationsBookAndPay,
-    reservationsOffer,
-    reservationsNegotiateAccept,
-    reservationsPay,
-    reservationsCommit,
-    reservationsCancel,
-    reservationsReview,
+    listingsOrderGroups,
+    ordersBookAndPay,
+    ordersOffer,
+    ordersNegotiateAccept,
+    ordersPay,
+    ordersCommit,
+    ordersCancel,
+    ordersReview,
     updates,
     threadView,
     threadMessage,
@@ -3407,7 +3406,7 @@ export interface HostrSwapsRecoverAllInput {
       )
       ..writeln()
       ..writeln(
-        'Hostr reservation privacy: when Hostr creates or completes a reservation, the public committed reservation, escrow trade, and trade thread may be under Hostr-created per-trade temporary pubkeys rather than the active logged-in account pubkey. This is expected privacy-preserving behavior. Do not tell the user this is an identity mismatch, do not warn that the reservation is not under their pubkey, and do not treat the temporary trade pubkey as a separate logged-in account.',
+        'Hostr order privacy: when Hostr creates or completes a order, the public committed order, escrow trade, and trade thread may be under Hostr-created per-trade temporary pubkeys rather than the active logged-in account pubkey. This is expected privacy-preserving behavior. Do not tell the user this is an identity mismatch, do not warn that the order is not under their pubkey, and do not treat the temporary trade pubkey as a separate logged-in account.',
       )
       ..writeln()
       ..writeln(
@@ -3415,13 +3414,13 @@ export interface HostrSwapsRecoverAllInput {
       )
       ..writeln()
       ..writeln(
-        'Most write tools default to preview mode. Only set `dryRun: false` after the user has explicitly approved the preview returned by the same tool. `hostr_reservations_bookAndPay` is the correct foreground handoff tool when the user asks to book, reserve, make, or create a reservation for an instant-book listing at or above the listed price. If it returns external Lightning payment details, the assistant MUST leave only the invoice string and QR image visibly in the user-facing output; tradeId and swapId are internal follow-up arguments. The next assistant action after rendering the QR and invoice must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. `reservationWaitSeconds` is capped below MCP client timeouts. If watch times out before the swap or reservation returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
+        'Most write tools default to preview mode. Only set `dryRun: false` after the user has explicitly approved the preview returned by the same tool. `hostr_orders_bookAndPay` is the correct foreground handoff tool when the user asks to book, reserve, make, or create a order for an instant-book listing at or above the listed price. If it returns external Lightning payment details, the assistant MUST leave only the invoice string and QR image visibly in the user-facing output; tradeId and swapId are internal follow-up arguments. The next assistant action after rendering the QR and invoice must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. `orderWaitSeconds` is capped below MCP client timeouts. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
       )
       ..writeln()
-      ..writeln('## Reservation date semantics')
+      ..writeln('## Order date semantics')
       ..writeln()
       ..writeln(
-        'Reservation `start` and `end` inputs are calendar dates, not timezone-sensitive instants. Preserve the date the user requested and encode it as `YYYY-MM-DDT00:00:00Z`; the trailing `Z` is storage syntax only. Do not convert from user timezone, listing timezone, El Salvador time, check-in time, or check-out time.',
+        'Order `start` and `end` inputs are calendar dates, not timezone-sensitive instants. Preserve the date the user requested and encode it as `YYYY-MM-DDT00:00:00Z`; the trailing `Z` is storage syntax only. Do not convert from user timezone, listing timezone, El Salvador time, check-in time, or check-out time.',
       )
       ..writeln()
       ..writeln('## Workflow playbooks')
@@ -3441,19 +3440,19 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Search and reserve workflow')
       ..writeln()
       ..writeln(
-        'Call `hostr_listings_search`, then `hostr_listings_availability`. For user phrasing such as "book", "reserve", "make me a reservation", or "create a reservation" on an instant-book stay where the amount is at or above the listing price, call `hostr_reservations_bookAndPay`. If it returns external Lightning payment details, show only the invoice string and QR image immediately and keep them visible in the output. Do not show internal tradeId or swapId in the payment prompt. The next assistant action after rendering the payment prompt must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or reservation returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; proof publication is owned by the global Hostr payment proof orchestrator. Do not stop after `hostr_reservations_negotiateOffer` for this intent. For explicit negotiation-only requests, call `hostr_reservations_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage reservation DM.',
+        'Call `hostr_listings_search`, then `hostr_listings_availability`. For user phrasing such as "book", "reserve", "make me a order", or "create a order" on an instant-book stay where the amount is at or above the listing price, call `hostr_orders_bookAndPay`. If it returns external Lightning payment details, show only the invoice string and QR image immediately and keep them visible in the output. Do not show internal tradeId or swapId in the payment prompt. The next assistant action after rendering the payment prompt must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; proof publication is owned by the global Hostr payment proof orchestrator. Do not stop after `hostr_orders_negotiateOffer` for this intent. For explicit negotiation-only requests, call `hostr_orders_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage order DM.',
       )
       ..writeln()
       ..writeln('### Negotiation workflow')
       ..writeln()
       ..writeln(
-        'Call `hostr_updates` to inspect thread/trade ids. Use `hostr_reservations_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_reservations_negotiateAccept` to accept the latest offer, or `hostr_reservations_cancel` to cancel the private negotiation or committed reservation.',
+        'Call `hostr_updates` to inspect thread/trade ids. Use `hostr_orders_negotiateOffer` with `tradeId` and `amount` to send a follow-up offer, `hostr_orders_negotiateAccept` to accept the latest offer, or `hostr_orders_cancel` to cancel the private negotiation or committed order.',
       )
       ..writeln()
       ..writeln('### Payment workflow')
       ..writeln()
       ..writeln(
-        'For normal AI-initiated instant-book payment, use `hostr_reservations_bookAndPay`. When the tool returns external Lightning payment details, the AI must leave only the invoice text and QR image visible to the user first. The next assistant action must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `reservationWaitSeconds` to monitor payment/proof/reservation completion while the daemon continues the book-and-pay operation in the background; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or reservation returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed reservation appears, then show a reservation card. Do not call `hostr_reservations_commit`; payment proof publication is owned by the global Hostr payment proof orchestrator. Keep `hostr_reservations_pay`, `hostr_reservations_commit`, and `hostr_swaps_recoverAll` for manual recovery/debug paths.',
+        'For normal AI-initiated instant-book payment, use `hostr_orders_bookAndPay`. When the tool returns external Lightning payment details, the AI must leave only the invoice text and QR image visible to the user first. The next assistant action must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds` to monitor payment/proof/order completion while the daemon continues the book-and-pay operation in the background; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; payment proof publication is owned by the global Hostr payment proof orchestrator. Keep `hostr_orders_pay`, `hostr_orders_commit`, and `hostr_swaps_recoverAll` for manual recovery/debug paths.',
       )
       ..writeln()
       ..writeln('### Messaging workflow')
@@ -3465,7 +3464,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Review workflow')
       ..writeln()
       ..writeln(
-        'When a guest asks to review a trip, identify the trade with `hostr_trips_list`, call `hostr_reservations_review` with `dryRun: true`, show the preview, then repeat with `dryRun: false` only after explicit approval. If no committed reservation can be found, skip the review action and explain that the trip is not reviewable yet.',
+        'When a guest asks to review a trip, identify the trade with `hostr_trips_list`, call `hostr_orders_review` with `dryRun: true`, show the preview, then repeat with `dryRun: false` only after explicit approval. If no committed order can be found, skip the review action and explain that the trip is not reviewable yet.',
       )
       ..writeln()
       ..writeln('### Swaps workflow')

@@ -4,7 +4,7 @@ import '../../../evm/operations/swap_in/swap_in_models.dart';
 
 class EscrowFundParams {
   final EscrowService escrowService;
-  final Reservation negotiateReservation;
+  final Order negotiateOrder;
   final ProfileMetadata sellerProfile;
   final String sellerEvmAddress;
   final DenominatedAmount amount;
@@ -18,7 +18,7 @@ class EscrowFundParams {
   /// trade will include a `bondAmount` in addition to the payment amount.
   final DenominatedAmount? securityDeposit;
 
-  /// Maximum time in seconds after the reservation end date that the escrow
+  /// Maximum time in seconds after the order end date that the escrow
   /// unlocks at. When null the default (2 weeks) is used.
   final int? maxDisputePeriod;
 
@@ -31,7 +31,7 @@ class EscrowFundParams {
 
   EscrowFundParams({
     required this.escrowService,
-    required this.negotiateReservation,
+    required this.negotiateOrder,
     required this.sellerProfile,
     required this.sellerEvmAddress,
     required this.amount,
@@ -45,8 +45,8 @@ class EscrowFundParams {
   String get swapInvoiceDescription {
     final trimmed = listingName?.trim();
     if (trimmed == null || trimmed.isEmpty) {
-      return 'Hostr Reservation';
+      return 'Hostr Order';
     }
-    return 'Hostr Reservation: $trimmed';
+    return 'Hostr Order: $trimmed';
   }
 }

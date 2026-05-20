@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/entities.dart' show UserRelayList;
@@ -224,10 +224,7 @@ class Messaging {
   /// relays and NIP-65 relay list when available. Escrow legacy NIP-04 copies
   /// use this so they are sent to relays the recipient is likely to monitor.
   Future<List<String>> recipientMessageRelays(String recipientPubkey) {
-    return _giftWrapBroadcastRelays(
-      recipientPubkey,
-      allowExternalRelays: true,
-    );
+    return _giftWrapBroadcastRelays(recipientPubkey, allowExternalRelays: true);
   }
 
   Future<Nip01Event> broadcastTextAndAwait({
@@ -302,7 +299,7 @@ class Messaging {
 
   String? _altTextForJsonEvent(Nip01Event event) {
     return switch (event.kind) {
-      kNostrKindReservation => 'Reservation Proposal',
+      kNostrKindOrder => 'Order Proposal',
       kNostrKindEscrowServiceSelected => 'Escrow Service Selected',
       _ => null,
     };

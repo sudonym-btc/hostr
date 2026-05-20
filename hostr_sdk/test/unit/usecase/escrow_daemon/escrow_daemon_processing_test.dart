@@ -21,7 +21,7 @@ import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
-import 'package:hostr_sdk/usecase/reservations/reservations.dart';
+import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:http/http.dart' as http;
@@ -262,35 +262,35 @@ RelayBroadcastResponse _successfulBroadcastResponse() {
   );
 }
 
-class _FakeReservations extends Fake implements Reservations {
-  final StreamWithStatus<Reservation> source = StreamWithStatus<Reservation>();
-  final Map<String, List<Reservation>> _byTradeId = {};
-  final confirmed = <Reservation>[];
-  final cancelled = <Reservation>[];
+class _FakeOrders extends Fake implements Orders {
+  final StreamWithStatus<Order> source = StreamWithStatus<Order>();
+  final Map<String, List<Order>> _byTradeId = {};
+  final confirmed = <Order>[];
+  final cancelled = <Order>[];
   final queriedTradeIds = <String>[];
   final Duration queryDelay;
 
-  _FakeReservations({this.queryDelay = Duration.zero});
+  _FakeOrders({this.queryDelay = Duration.zero});
 
-  void seed(Iterable<Reservation> reservations) {
-    for (final reservation in reservations) {
-      add(reservation, emit: false);
+  void seed(Iterable<Order> orders) {
+    for (final order in orders) {
+      add(order, emit: false);
     }
   }
 
-  void add(Reservation reservation, {bool emit = true}) {
-    final tradeId = reservation.getDtag()!;
+  void add(Order order, {bool emit = true}) {
+    final tradeId = order.getDtag()!;
     _byTradeId.putIfAbsent(tradeId, () => []);
-    _byTradeId[tradeId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
-    _byTradeId[tradeId]!.add(reservation);
-    if (emit) source.add(reservation);
+    _byTradeId[tradeId]!.removeWhere((r) => r.pubKey == order.pubKey);
+    _byTradeId[tradeId]!.add(order);
+    if (emit) source.add(order);
   }
 
   @override
-  StreamWithStatus<Reservation> subscribe(Filter f, {String? name}) => source;
+  StreamWithStatus<Order> subscribe(Filter f, {String? name}) => source;
 
   @override
-  Future<List<Reservation>> getByTradeId(String tradeId) async {
+  Future<List<Order>> getByTradeId(String tradeId) async {
     queriedTradeIds.add(tradeId);
     if (queryDelay > Duration.zero) {
       await Future<void>.delayed(queryDelay);
@@ -299,33 +299,27 @@ class _FakeReservations extends Fake implements Reservations {
   }
 
   @override
-  Future<Reservation> confirm(
-    ReservationGroup reservationGroup,
-    KeyPair keyPair,
-  ) async {
-    final reservation = _escrowReservation(
-      tradeId: reservationGroup.tradeId,
-      stage: ReservationStage.commit,
-      createdAt: reservationGroup.reservations.length + 1000,
+  Future<Order> confirm(OrderGroup orderGroup, KeyPair keyPair) async {
+    final order = _escrowOrder(
+      tradeId: orderGroup.tradeId,
+      stage: OrderStage.commit,
+      createdAt: orderGroup.orders.length + 1000,
     );
-    confirmed.add(reservation);
-    add(reservation, emit: false);
-    return reservation;
+    confirmed.add(order);
+    add(order, emit: false);
+    return order;
   }
 
   @override
-  Future<Reservation> cancel(
-    ReservationGroup reservationGroup,
-    KeyPair keyPair,
-  ) async {
-    final reservation = _escrowReservation(
-      tradeId: reservationGroup.tradeId,
-      stage: ReservationStage.cancel,
-      createdAt: reservationGroup.reservations.length + 2000,
+  Future<Order> cancel(OrderGroup orderGroup, KeyPair keyPair) async {
+    final order = _escrowOrder(
+      tradeId: orderGroup.tradeId,
+      stage: OrderStage.cancel,
+      createdAt: orderGroup.orders.length + 2000,
     );
-    cancelled.add(reservation);
-    add(reservation, emit: false);
-    return reservation;
+    cancelled.add(order);
+    add(order, emit: false);
+    return order;
   }
 
   Future<void> close() => source.close();
@@ -336,10 +330,9 @@ class _Harness {
   final _FakeMessaging messaging;
   final _FakeRequests requests;
   final _FakeEscrows escrows;
-  final _FakeReservations reservations;
+  final _FakeOrders orders;
   final EscrowDaemon daemon;
-  FutureOr<Validation<ReservationGroup>> Function(ReservationGroup group)
-  verifier;
+  FutureOr<Validation<OrderGroup>> Function(OrderGroup group) verifier;
   final verifiedTradeIds = <String>[];
 
   _Harness._({
@@ -347,15 +340,14 @@ class _Harness {
     required this.messaging,
     required this.requests,
     required this.escrows,
-    required this.reservations,
+    required this.orders,
     required this.daemon,
     required this.verifier,
   });
 
   factory _Harness({
-    _FakeReservations? reservations,
-    FutureOr<Validation<ReservationGroup>> Function(ReservationGroup group)?
-    verifier,
+    _FakeOrders? orders,
+    FutureOr<Validation<OrderGroup>> Function(OrderGroup group)? verifier,
     DateTime Function()? clock,
   }) {
     final threads = _FakeThreads();
@@ -367,13 +359,13 @@ class _Harness {
     final requests = _FakeRequests();
     final escrows = _FakeEscrows();
     late _Harness harness;
-    final fakeReservations = reservations ?? _FakeReservations();
+    final fakeOrders = orders ?? _FakeOrders();
     harness = _Harness._(
       threads: threads,
       messaging: messaging,
       requests: requests,
       escrows: escrows,
-      reservations: fakeReservations,
+      orders: fakeOrders,
       verifier: verifier ?? ((group) => Valid(group)),
       daemon: EscrowDaemon(
         auth: _FakeAuth(),
@@ -383,12 +375,12 @@ class _Harness {
         messaging: messaging,
         requests: requests,
         escrows: escrows,
-        reservations: fakeReservations,
+        orders: fakeOrders,
         userSubscriptions: _FakeUserSubscriptions(),
         escrowVerification: _FakeEscrowVerification(),
         logger: CustomLogger(),
         clock: clock ?? (() => DateTime.utc(2026, 5, 1)),
-        verifyReservationGroup:
+        verifyOrderGroup:
             (
               group, {
               required forceValidateSelfSigned,
@@ -404,7 +396,7 @@ class _Harness {
 
   Future<void> close() async {
     await daemon.stop();
-    await reservations.close();
+    await orders.close();
     await threads.close();
   }
 }
@@ -481,31 +473,31 @@ List<PTag> _participants() => [
   PTag.escrow(MockKeys.escrow.publicKey),
 ];
 
-Reservation _buyerReservation({
+Order _buyerOrder({
   required String tradeId,
   int createdAt = 100,
   DateTime? start,
   DateTime? end,
-}) => Reservation.create(
+}) => Order.create(
   id: '$tradeId-buyer',
   pubKey: MockKeys.guest.publicKey,
   dTag: tradeId,
   listingAnchor: _listingAnchor,
   pTags: _participants(),
-  stage: ReservationStage.commit,
+  stage: OrderStage.commit,
   start: start ?? DateTime.utc(2026, 6, 1),
   end: end ?? DateTime.utc(2026, 6, 3),
   proof: _paymentProof(),
   createdAt: createdAt,
 );
 
-Reservation _escrowReservation({
+Order _escrowOrder({
   required String tradeId,
-  required ReservationStage stage,
+  required OrderStage stage,
   int createdAt = 200,
   DateTime? start,
   DateTime? end,
-}) => Reservation.create(
+}) => Order.create(
   id: '$tradeId-escrow-${stage.name}-$createdAt',
   pubKey: MockKeys.escrow.publicKey,
   dTag: tradeId,
@@ -539,7 +531,7 @@ String _recipientPubkey(_BroadcastCall call) {
 }
 
 void main() {
-  group('EscrowDaemon reservation processing', () {
+  group('EscrowDaemon order processing', () {
     late _Harness harness;
 
     tearDown(() async {
@@ -567,30 +559,27 @@ void main() {
     });
 
     test(
-      'confirms a valid buyer reservation and notifies buyer and seller',
+      'confirms a valid buyer order and notifies buyer and seller',
       () async {
         harness = _Harness();
-        final buyer = _buyerReservation(tradeId: 'trade-valid');
-        harness.reservations.seed([buyer]);
+        final buyer = _buyerOrder(tradeId: 'trade-valid');
+        harness.orders.seed([buyer]);
 
-        harness.daemon.startReservationListenerForTesting();
-        harness.reservations.source.add(buyer);
+        harness.daemon.startOrderListenerForTesting();
+        harness.orders.source.add(buyer);
 
         await _waitUntil(
-          () => harness.reservations.confirmed.length == 1,
+          () => harness.orders.confirmed.length == 1,
           reason: 'daemon did not publish escrow confirmation',
         );
         await _waitUntil(
-          () => _noticesOf(harness, 'reservation_placed').length == 2,
-          reason: 'daemon did not send reservation placed notices',
+          () => _noticesOf(harness, 'order_placed').length == 2,
+          reason: 'daemon did not send order placed notices',
         );
 
-        expect(harness.reservations.cancelled, isEmpty);
+        expect(harness.orders.cancelled, isEmpty);
         expect(harness.verifiedTradeIds, ['trade-valid']);
-        final placedNotices = _noticesOf(
-          harness,
-          'reservation_placed',
-        ).toList();
+        final placedNotices = _noticesOf(harness, 'order_placed').toList();
         expect(
           placedNotices.map((notice) => notice.recipientPubkeys.single).toSet(),
           {MockKeys.guest.publicKey, MockKeys.hoster.publicKey},
@@ -627,15 +616,15 @@ void main() {
           'wss://relay.primal.net',
           'wss://bootstrap.test',
         ]);
-        final buyer = _buyerReservation(tradeId: 'trade-legacy-relays');
-        harness.reservations.seed([buyer]);
+        final buyer = _buyerOrder(tradeId: 'trade-legacy-relays');
+        harness.orders.seed([buyer]);
 
-        harness.daemon.startReservationListenerForTesting();
-        harness.reservations.source.add(buyer);
+        harness.daemon.startOrderListenerForTesting();
+        harness.orders.source.add(buyer);
 
         await _waitUntil(
-          () => _noticesOf(harness, 'reservation_placed').length == 2,
-          reason: 'daemon did not send reservation placed notices',
+          () => _noticesOf(harness, 'order_placed').length == 2,
+          reason: 'daemon did not send order placed notices',
         );
 
         final legacyCalls = harness.requests.broadcastCalls
@@ -652,53 +641,47 @@ void main() {
       },
     );
 
-    test(
-      'includes years in reservation notices outside the current year',
-      () async {
-        harness = _Harness(clock: () => DateTime.utc(2026, 5, 1));
-        final buyer = _buyerReservation(
-          tradeId: 'trade-next-year',
-          start: DateTime.utc(2027, 4, 30),
-          end: DateTime.utc(2027, 5, 2),
-        );
-        harness.reservations.seed([buyer]);
+    test('includes years in order notices outside the current year', () async {
+      harness = _Harness(clock: () => DateTime.utc(2026, 5, 1));
+      final buyer = _buyerOrder(
+        tradeId: 'trade-next-year',
+        start: DateTime.utc(2027, 4, 30),
+        end: DateTime.utc(2027, 5, 2),
+      );
+      harness.orders.seed([buyer]);
 
-        harness.daemon.startReservationListenerForTesting();
-        harness.reservations.source.add(buyer);
+      harness.daemon.startOrderListenerForTesting();
+      harness.orders.source.add(buyer);
 
-        await _waitUntil(
-          () => _noticesOf(harness, 'reservation_placed').length == 2,
-          reason: 'daemon did not send reservation placed notices',
-        );
+      await _waitUntil(
+        () => _noticesOf(harness, 'order_placed').length == 2,
+        reason: 'daemon did not send order placed notices',
+      );
 
-        expect(
-          _noticesOf(
-            harness,
-            'reservation_placed',
-          ).map((notice) => notice.content),
-          everyElement(contains('Lake House 30 Apr 2027 - 2 May 2027')),
-        );
-      },
-    );
+      expect(
+        _noticesOf(harness, 'order_placed').map((notice) => notice.content),
+        everyElement(contains('Lake House 30 Apr 2027 - 2 May 2027')),
+      );
+    });
 
     test(
-      'does not fail reservation processing when legacy notice broadcast fails',
+      'does not fail order processing when legacy notice broadcast fails',
       () async {
         harness = _Harness();
         harness.requests.failLegacyBroadcasts = true;
-        final buyer = _buyerReservation(tradeId: 'trade-legacy-failure');
-        harness.reservations.seed([buyer]);
+        final buyer = _buyerOrder(tradeId: 'trade-legacy-failure');
+        harness.orders.seed([buyer]);
 
-        harness.daemon.startReservationListenerForTesting();
-        harness.reservations.source.add(buyer);
+        harness.daemon.startOrderListenerForTesting();
+        harness.orders.source.add(buyer);
 
         await _waitUntil(
-          () => harness.reservations.confirmed.length == 1,
+          () => harness.orders.confirmed.length == 1,
           reason: 'daemon did not publish escrow confirmation',
         );
         await _waitUntil(
-          () => _noticesOf(harness, 'reservation_placed').length == 2,
-          reason: 'daemon did not send modern reservation notices',
+          () => _noticesOf(harness, 'order_placed').length == 2,
+          reason: 'daemon did not send modern order notices',
         );
 
         expect(harness.verifiedTradeIds, ['trade-legacy-failure']);
@@ -712,33 +695,32 @@ void main() {
     );
 
     test(
-      'cancels an invalid buyer reservation and notifies only the buyer',
+      'cancels an invalid buyer order and notifies only the buyer',
       () async {
         harness = _Harness(
           verifier: (group) => Invalid(group, 'mock invalid escrow proof'),
         );
-        final buyer = _buyerReservation(tradeId: 'trade-invalid');
-        harness.reservations.seed([buyer]);
+        final buyer = _buyerOrder(tradeId: 'trade-invalid');
+        harness.orders.seed([buyer]);
 
-        harness.daemon.startReservationListenerForTesting();
-        harness.reservations.source.add(buyer);
+        harness.daemon.startOrderListenerForTesting();
+        harness.orders.source.add(buyer);
 
         await _waitUntil(
-          () => harness.reservations.cancelled.length == 1,
+          () => harness.orders.cancelled.length == 1,
           reason: 'daemon did not publish escrow cancellation',
         );
         await _waitUntil(
-          () => _noticesOf(harness, 'reservation_cancelled').length == 1,
+          () => _noticesOf(harness, 'order_cancelled').length == 1,
           reason: 'daemon did not send cancellation notice',
         );
 
-        expect(harness.reservations.confirmed, isEmpty);
+        expect(harness.orders.confirmed, isEmpty);
         expect(harness.verifiedTradeIds, ['trade-invalid']);
-        expect(
-          _noticesOf(harness, 'reservation_cancelled').single.recipientPubkeys,
-          [MockKeys.guest.publicKey],
-        );
-        expect(_noticesOf(harness, 'reservation_placed'), isEmpty);
+        expect(_noticesOf(harness, 'order_cancelled').single.recipientPubkeys, [
+          MockKeys.guest.publicKey,
+        ]);
+        expect(_noticesOf(harness, 'order_placed'), isEmpty);
         expect(
           harness.requests.broadcasts.where(
             (e) => e.kind == kNostrKindLegacyDM,
@@ -756,115 +738,102 @@ void main() {
       },
     );
 
-    test('drains queued startup reservations sequentially', () async {
-      final reservations = _FakeReservations(
-        queryDelay: const Duration(milliseconds: 20),
-      );
-      harness = _Harness(reservations: reservations);
+    test('drains queued startup orders sequentially', () async {
+      final orders = _FakeOrders(queryDelay: const Duration(milliseconds: 20));
+      harness = _Harness(orders: orders);
       final queued = [
-        _buyerReservation(tradeId: 'trade-startup-1', createdAt: 101),
-        _buyerReservation(tradeId: 'trade-startup-2', createdAt: 102),
-        _buyerReservation(tradeId: 'trade-startup-3', createdAt: 103),
-        _buyerReservation(tradeId: 'trade-startup-4', createdAt: 104),
+        _buyerOrder(tradeId: 'trade-startup-1', createdAt: 101),
+        _buyerOrder(tradeId: 'trade-startup-2', createdAt: 102),
+        _buyerOrder(tradeId: 'trade-startup-3', createdAt: 103),
+        _buyerOrder(tradeId: 'trade-startup-4', createdAt: 104),
       ];
-      reservations.seed(queued);
-      for (final reservation in queued) {
-        reservations.source.add(reservation);
+      orders.seed(queued);
+      for (final order in queued) {
+        orders.source.add(order);
       }
 
-      harness.daemon.startReservationListenerForTesting();
+      harness.daemon.startOrderListenerForTesting();
 
       await _waitUntil(
-        () => reservations.confirmed.length == queued.length,
-        reason: 'daemon did not drain queued startup reservations',
+        () => orders.confirmed.length == queued.length,
+        reason: 'daemon did not drain queued startup orders',
       );
 
-      expect(
-        reservations.confirmed.map((reservation) => reservation.getDtag()),
-        [
-          'trade-startup-1',
-          'trade-startup-2',
-          'trade-startup-3',
-          'trade-startup-4',
-        ],
-      );
-      expect(
-        _noticesOf(harness, 'reservation_placed'),
-        hasLength(queued.length * 2),
-      );
+      expect(orders.confirmed.map((order) => order.getDtag()), [
+        'trade-startup-1',
+        'trade-startup-2',
+        'trade-startup-3',
+        'trade-startup-4',
+      ]);
+      expect(_noticesOf(harness, 'order_placed'), hasLength(queued.length * 2));
     });
 
     test(
       'sends queued startup cancellation notices without re-verifying',
       () async {
         harness = _Harness();
-        final buyer = _buyerReservation(tradeId: 'trade-startup-cancel');
-        final escrowCancel = _escrowReservation(
+        final buyer = _buyerOrder(tradeId: 'trade-startup-cancel');
+        final escrowCancel = _escrowOrder(
           tradeId: 'trade-startup-cancel',
-          stage: ReservationStage.cancel,
+          stage: OrderStage.cancel,
         );
-        harness.reservations.seed([buyer, escrowCancel]);
-        harness.reservations.source.add(escrowCancel);
+        harness.orders.seed([buyer, escrowCancel]);
+        harness.orders.source.add(escrowCancel);
 
-        harness.daemon.startReservationListenerForTesting();
+        harness.daemon.startOrderListenerForTesting();
 
         await _waitUntil(
-          () => _noticesOf(harness, 'reservation_cancelled').length == 1,
+          () => _noticesOf(harness, 'order_cancelled').length == 1,
           reason: 'daemon did not send queued startup cancellation notice',
         );
 
         expect(harness.verifiedTradeIds, isEmpty);
-        expect(harness.reservations.confirmed, isEmpty);
-        expect(harness.reservations.cancelled, isEmpty);
-        expect(
-          _noticesOf(harness, 'reservation_cancelled').single.recipientPubkeys,
-          [MockKeys.guest.publicKey],
-        );
+        expect(harness.orders.confirmed, isEmpty);
+        expect(harness.orders.cancelled, isEmpty);
+        expect(_noticesOf(harness, 'order_cancelled').single.recipientPubkeys, [
+          MockKeys.guest.publicKey,
+        ]);
       },
     );
 
-    test(
-      'processes in-flight cancellation after current reservation work',
-      () async {
-        final verificationStarted = Completer<void>();
-        final releaseVerification = Completer<void>();
-        harness = _Harness(
-          verifier: (group) async {
-            if (!verificationStarted.isCompleted) {
-              verificationStarted.complete();
-              await releaseVerification.future;
-            }
-            return Valid(group);
-          },
-        );
-        final buyer = _buyerReservation(tradeId: 'trade-inflight-cancel');
-        harness.reservations.seed([buyer]);
+    test('processes in-flight cancellation after current order work', () async {
+      final verificationStarted = Completer<void>();
+      final releaseVerification = Completer<void>();
+      harness = _Harness(
+        verifier: (group) async {
+          if (!verificationStarted.isCompleted) {
+            verificationStarted.complete();
+            await releaseVerification.future;
+          }
+          return Valid(group);
+        },
+      );
+      final buyer = _buyerOrder(tradeId: 'trade-inflight-cancel');
+      harness.orders.seed([buyer]);
 
-        harness.daemon.startReservationListenerForTesting();
-        harness.reservations.source.add(buyer);
-        await verificationStarted.future;
+      harness.daemon.startOrderListenerForTesting();
+      harness.orders.source.add(buyer);
+      await verificationStarted.future;
 
-        final escrowCancel = _escrowReservation(
-          tradeId: 'trade-inflight-cancel',
-          stage: ReservationStage.cancel,
-          createdAt: 500,
-        );
-        harness.reservations.add(escrowCancel);
-        releaseVerification.complete();
+      final escrowCancel = _escrowOrder(
+        tradeId: 'trade-inflight-cancel',
+        stage: OrderStage.cancel,
+        createdAt: 500,
+      );
+      harness.orders.add(escrowCancel);
+      releaseVerification.complete();
 
-        await _waitUntil(
-          () => _noticesOf(harness, 'reservation_cancelled').length == 1,
-          reason: 'daemon did not process queued cancellation',
-        );
+      await _waitUntil(
+        () => _noticesOf(harness, 'order_cancelled').length == 1,
+        reason: 'daemon did not process queued cancellation',
+      );
 
-        expect(harness.verifiedTradeIds, ['trade-inflight-cancel']);
-        expect(harness.reservations.confirmed, isEmpty);
-        expect(_noticesOf(harness, 'reservation_placed'), isEmpty);
-        expect(
-          _noticesOf(harness, 'reservation_cancelled').single.recipientPubkeys,
-          [MockKeys.guest.publicKey],
-        );
-      },
-    );
+      expect(harness.verifiedTradeIds, ['trade-inflight-cancel']);
+      expect(harness.orders.confirmed, isEmpty);
+      expect(_noticesOf(harness, 'order_placed'), isEmpty);
+      expect(_noticesOf(harness, 'order_cancelled').single.recipientPubkeys, [
+        MockKeys.guest.publicKey,
+      ]);
+    });
   });
 }

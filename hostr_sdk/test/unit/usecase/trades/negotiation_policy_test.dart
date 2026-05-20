@@ -2,7 +2,7 @@
 library;
 
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/trades/actions/reservation_request.dart';
+import 'package:hostr_sdk/usecase/trades/actions/order_request.dart';
 import 'package:hostr_sdk/usecase/trades/actions/trade_action_resolver.dart';
 import 'package:hostr_sdk/usecase/trades/trade.dart';
 import 'package:models/main.dart';
@@ -25,15 +25,15 @@ Listing _listing({int pricePerNightSats = 100000, bool negotiable = true}) =>
       negotiable: negotiable,
     );
 
-Reservation _request({
+Order _request({
   required String pubKey,
   required int amountSats,
   required DateTime start,
   required DateTime end,
   int createdAt = 0,
-  ReservationStage stage = ReservationStage.negotiate,
+  OrderStage stage = OrderStage.negotiate,
 }) {
-  return Reservation.create(
+  return Order.create(
     pubKey: pubKey,
     dTag: 'trade-1',
     listingAnchor: _listing().anchor!,
@@ -50,7 +50,7 @@ Reservation _request({
 }
 
 void main() {
-  group('ReservationRequestActions.resolve', () {
+  group('OrderRequestActions.resolve', () {
     final start = DateTime.utc(2026, 1, 1);
     final end = DateTime.utc(2026, 1, 2);
     final listing = _listing();
@@ -58,7 +58,7 @@ void main() {
     final guestPubkey = MockKeys.guest.publicKey;
 
     test('host gets accept and counter when guest sent latest offer', () {
-      final actions = ReservationRequestActions.resolve(
+      final actions = OrderRequestActions.resolve(
         [
           _request(
             pubKey: guestPubkey,
@@ -79,7 +79,7 @@ void main() {
     });
 
     test('host does not get accept when guest latest offer meets listing', () {
-      final actions = ReservationRequestActions.resolve(
+      final actions = OrderRequestActions.resolve(
         [
           _request(
             pubKey: guestPubkey,
@@ -99,7 +99,7 @@ void main() {
     });
 
     test('no actions are available after latest offer is cancelled', () {
-      final actions = ReservationRequestActions.resolve(
+      final actions = OrderRequestActions.resolve(
         [
           _request(
             pubKey: guestPubkey,
@@ -107,7 +107,7 @@ void main() {
             start: start,
             end: end,
             createdAt: 1,
-            stage: ReservationStage.cancel,
+            stage: OrderStage.cancel,
           ),
         ],
         listing,
@@ -119,7 +119,7 @@ void main() {
     });
   });
 
-  group('ReservationRequestActions.resolvePolicy', () {
+  group('OrderRequestActions.resolvePolicy', () {
     final start = DateTime.utc(2026, 1, 1);
     final end = DateTime.utc(2026, 1, 2);
     final listing = _listing();
@@ -127,7 +127,7 @@ void main() {
     final guestPubkey = MockKeys.guest.publicKey;
 
     test('guest can pay when host sent latest offer at listing price', () {
-      final policy = ReservationRequestActions.resolvePolicy(
+      final policy = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -159,7 +159,7 @@ void main() {
     });
 
     test('cancelled latest offer is terminal', () {
-      final policy = ReservationRequestActions.resolvePolicy(
+      final policy = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -167,7 +167,7 @@ void main() {
             start: start,
             end: end,
             createdAt: 1,
-            stage: ReservationStage.cancel,
+            stage: OrderStage.cancel,
           ),
         ],
         listing,
@@ -177,11 +177,11 @@ void main() {
 
       expect(policy.canPay, isFalse);
       expect(policy.canCounter, isFalse);
-      expect(policy.latestOffer?.stage, ReservationStage.cancel);
+      expect(policy.latestOffer?.stage, OrderStage.cancel);
     });
 
     test('guest can pay when latest host offer is below listing price', () {
-      final policy = ReservationRequestActions.resolvePolicy(
+      final policy = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -210,7 +210,7 @@ void main() {
     });
 
     test('guest cannot counter when host accepts their last offer', () {
-      final policy = ReservationRequestActions.resolvePolicy(
+      final policy = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -238,7 +238,7 @@ void main() {
     });
 
     test('host can counter only when guest sent latest offer', () {
-      final canCounter = ReservationRequestActions.resolvePolicy(
+      final canCounter = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -253,7 +253,7 @@ void main() {
         TradeRole.host,
       );
 
-      final cannotCounter = ReservationRequestActions.resolvePolicy(
+      final cannotCounter = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -285,7 +285,7 @@ void main() {
     test(
       'guest counter must be above their last offer and under host/list max',
       () {
-        final policy = ReservationRequestActions.resolvePolicy(
+        final policy = OrderRequestActions.resolvePolicy(
           [
             _request(
               pubKey: guestPubkey,
@@ -314,7 +314,7 @@ void main() {
     );
 
     test('guest can pay when their own latest offer meets listing price', () {
-      final policy = ReservationRequestActions.resolvePolicy(
+      final policy = OrderRequestActions.resolvePolicy(
         [
           _request(
             pubKey: guestPubkey,
@@ -336,7 +336,7 @@ void main() {
     test(
       'guest actions are cancel and pay when host mirrors their latest offer',
       () {
-        final actions = ReservationRequestActions.resolve(
+        final actions = OrderRequestActions.resolve(
           [
             _request(
               pubKey: guestPubkey,

@@ -26,7 +26,7 @@ class ReservationPublishedPopupListener extends StatefulWidget {
 class _ReservationPublishedPopupListenerState
     extends State<ReservationPublishedPopupListener> {
   final Set<String> _shownReservationIds = {};
-  StreamSubscription<Reservation>? _subscription;
+  StreamSubscription<Order>? _subscription;
   bool _popupVisible = false;
 
   @override
@@ -35,13 +35,13 @@ class _ReservationPublishedPopupListenerState
     // CrudUseCase only emits updates after relay broadcast succeeds. Listening
     // here keeps the popup tied to a real reservation publish instead of relay
     // replays or pre-broadcast optimistic state.
-    _subscription = getIt<Hostr>().reservations.updates
+    _subscription = getIt<Hostr>().orders.updates
         .where((reservation) => reservation.isCommit)
         .where((reservation) => reservation.proof != null)
         .listen(_showTripBookedPopup);
   }
 
-  void _showTripBookedPopup(Reservation reservation) {
+  void _showTripBookedPopup(Order reservation) {
     final id = reservation.id;
     final tradeId = reservation.getDtag();
     if (id.isEmpty ||

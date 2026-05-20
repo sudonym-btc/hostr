@@ -475,7 +475,7 @@ setup_channels() {
     # Local regtest tests spend from Alby/hostr to Boltz. Use the largest
     # channel size accepted by the unmodified Boltz LND peers, and keep
     # Boltz→hostr channels small because we do not need meaningful inbound
-    # liquidity for these reservation payment tests.
+    # liquidity for these order payment tests.
     HOSTR_OUTBOUND_CHANNEL_SIZE="${HOSTR_OUTBOUND_CHANNEL_SIZE_SATS:-1000000000}"
     BOLTZ_INBOUND_CHANNEL_SIZE="${BOLTZ_INBOUND_CHANNEL_SIZE_SATS:-${CHANNEL_SIZE:-10000000}}"
     CHANNEL_SIZE="$HOSTR_OUTBOUND_CHANNEL_SIZE"

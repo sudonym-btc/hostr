@@ -74,7 +74,7 @@ Widget awaitingBunkerTradeKeyConfirmation(BuildContext context) {
 )
 Widget awaitingBunkerReservationConfirmation(BuildContext context) {
   return SignerRequestPopupPage(
-    kind: kNostrKindReservation,
+    kind: kNostrKindOrder,
     method: 'sign_event',
     createdAt: _waitingSince(),
     onKeepWaiting: () {},
@@ -106,7 +106,7 @@ TradeReady _mockBookedTrade() {
     end: end,
     amount: listing.prices.first.amount,
     stage: const NegotiationStage(
-      reservationRequests: [],
+      orderRequests: [],
       overlapLock: (isLoading: false, isBlocked: false, reason: null),
       policy: NegotiationPolicy(
         latestOffer: null,
@@ -126,8 +126,8 @@ TradeReady _mockBookedTrade() {
     availabilityReason: null,
     streams: TradeStreams(
       paymentEvents: StreamWithStatus<PaymentEvent>(),
-      reservationStream: StreamWithStatus<Validation<ReservationGroup>>(),
-      transitionsStream: StreamWithStatus<ReservationTransition>(),
+      orderStream: StreamWithStatus<Validation<OrderGroup>>(),
+      transitionsStream: StreamWithStatus<OrderTransition>(),
       subscriptionsLive: BehaviorSubject<bool>.seeded(true),
     ),
   );

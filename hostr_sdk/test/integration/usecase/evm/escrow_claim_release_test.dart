@@ -47,7 +47,7 @@ void main() {
       await hostr.auth.signin(trade.guest.privateKey);
 
       final escrowService = await _resolveEscrowService(harness);
-      final tradeId = trade.negotiateReservation.getDtag()!;
+      final tradeId = trade.negotiateOrder.getDtag()!;
       await _fundTradeWithoutSwap(
         harness: harness,
         hostr: hostr,
@@ -109,7 +109,7 @@ void main() {
       await hostr.auth.signin(trade.guest.privateKey);
 
       final escrowService = await _resolveEscrowService(harness);
-      final tradeId = trade.negotiateReservation.getDtag()!;
+      final tradeId = trade.negotiateOrder.getDtag()!;
       await _fundTradeWithoutSwap(
         harness: harness,
         hostr: hostr,
@@ -176,7 +176,7 @@ Future<void> _fundTradeWithoutSwap({
   );
 
   final amount = await configuredChain.resolveAmountInFundingToken(
-    trade.negotiateReservation.amount!,
+    trade.negotiateOrder.amount!,
   );
   const zeroAddress = '0x0000000000000000000000000000000000000000';
   final feeValue = escrowService.escrowFee(
@@ -192,7 +192,7 @@ Future<void> _fundTradeWithoutSwap({
 
   final txHash = await multiEscrow.createTrade(
     (
-      tradeId: getBytes32(trade.negotiateReservation.getDtag()!),
+      tradeId: getBytes32(trade.negotiateOrder.getDtag()!),
       buyer: buyerAddress,
       seller: sellerAddress,
       arbiter: EthereumAddress.fromHex(escrowService.evmAddress),
@@ -200,7 +200,7 @@ Future<void> _fundTradeWithoutSwap({
       paymentAmount: amount.value,
       bondAmount: BigInt.zero,
       unlockAt: BigInt.from(
-        trade.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000,
+        trade.negotiateOrder.end!.millisecondsSinceEpoch ~/ 1000,
       ),
       escrowFee: feeValue,
     ),

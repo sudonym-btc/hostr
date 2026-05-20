@@ -36,7 +36,7 @@ Widget inboxItemReceivedNormal(BuildContext context) {
 Widget inboxItemSentReservationRequest(BuildContext context) {
   return InboxItemView(
     counterparties: [_hostProfile.pubKey],
-    subtitle: 'You: Reservation Request',
+    subtitle: 'You: Order Request',
     lastDateTime: DateTime.now().subtract(const Duration(days: 1)),
     onTap: () {},
   );
@@ -46,7 +46,7 @@ Widget inboxItemSentReservationRequest(BuildContext context) {
 Widget inboxItemReceivedReservationRequest(BuildContext context) {
   return InboxItemView(
     counterparties: [_guestProfile.pubKey],
-    subtitle: 'Reservation Request',
+    subtitle: 'Order Request',
     lastDateTime: DateTime.now().subtract(const Duration(minutes: 45)),
     onTap: () {},
   );
@@ -56,7 +56,7 @@ Widget inboxItemReceivedReservationRequest(BuildContext context) {
 Widget inboxItemMissingCounterparty(BuildContext context) {
   return InboxItemView(
     counterparties: const [],
-    subtitle: 'Reservation Request',
+    subtitle: 'Order Request',
     lastDateTime: DateTime.now().subtract(const Duration(days: 2)),
     onTap: () {},
   );

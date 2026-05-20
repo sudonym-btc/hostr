@@ -138,7 +138,7 @@ void main() {
       await waitForReceipt(web3, approveTxHash);
 
       // ── 9. Build FundArgs and get ContractCallIntent ──────────────────
-      final negotiation = trade.negotiateReservation;
+      final negotiation = trade.negotiateOrder;
 
       final fundArgs = FundArgs(
         tradeId: negotiation.getDtag()!,

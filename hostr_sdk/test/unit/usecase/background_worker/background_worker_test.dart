@@ -12,7 +12,7 @@ import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
-import 'package:hostr_sdk/usecase/reservation_groups/reservation_group_participant_resolver.dart';
+import 'package:hostr_sdk/usecase/order_groups/order_group_participant_resolver.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -41,49 +41,48 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   final StreamWithStatus<Nip01Event> _giftwraps =
       StreamWithStatus<Nip01Event>();
 
-  final StreamWithStatus<Validation<ReservationGroup>> _hostings =
-      StreamWithStatus<Validation<ReservationGroup>>();
-  final StreamWithStatus<Validation<ReservationGroup>> _trips =
-      StreamWithStatus<Validation<ReservationGroup>>();
-  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  final StreamWithStatus<Validation<OrderGroup>> _hostings =
+      StreamWithStatus<Validation<OrderGroup>>();
+  final StreamWithStatus<Validation<OrderGroup>> _trips =
+      StreamWithStatus<Validation<OrderGroup>>();
+  final StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
   _resolvedHostings =
-      StreamWithStatus<ResolvedValidatedReservationGroupParticipants>();
-  final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
-  _resolvedTrips =
-      StreamWithStatus<ResolvedValidatedReservationGroupParticipants>();
+      StreamWithStatus<ResolvedValidatedOrderGroupParticipants>();
+  final StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
+  _resolvedTrips = StreamWithStatus<ResolvedValidatedOrderGroupParticipants>();
 
   @override
-  StreamWithStatus<Validation<ReservationGroup>> get myHostings$ => _hostings;
+  StreamWithStatus<Validation<OrderGroup>> get myHostings$ => _hostings;
 
   @override
-  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
   get myResolvedHostings$ => _resolvedHostings;
 
   @override
-  StreamWithStatus<Validation<ReservationGroup>> get myTrips$ => _trips;
+  StreamWithStatus<Validation<OrderGroup>> get myTrips$ => _trips;
 
   @override
-  StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
+  StreamWithStatus<ResolvedValidatedOrderGroupParticipants>
   get myResolvedTrips$ => _resolvedTrips;
 
-  void addHosting(Validation<ReservationGroup> validation) {
+  void addHosting(Validation<OrderGroup> validation) {
     _hostings.add(validation);
     _resolvedHostings.add(_resolve(validation));
   }
 
-  void addTrip(Validation<ReservationGroup> validation) {
+  void addTrip(Validation<OrderGroup> validation) {
     _trips.add(validation);
     _resolvedTrips.add(_resolve(validation));
   }
 
-  ResolvedValidatedReservationGroupParticipants _resolve(
-    Validation<ReservationGroup> validation,
+  ResolvedValidatedOrderGroupParticipants _resolve(
+    Validation<OrderGroup> validation,
   ) {
     final group = validation.event;
     final participants = group.participantSet;
-    return ResolvedValidatedReservationGroupParticipants(
+    return ResolvedValidatedOrderGroupParticipants(
       validation: validation,
-      participants: ResolvedReservationGroupParticipants(
+      participants: ResolvedOrderGroupParticipants(
         group: group,
         rawGroupId: group.groupId,
         resolvedGroupId: group.groupId,
@@ -95,7 +94,7 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   }
 
   @override
-  Future<void> start({bool validateReservationGroups = true}) async {
+  Future<void> start({bool validateOrderGroups = true}) async {
     startCount++;
   }
 }
@@ -200,14 +199,14 @@ class _FakeNotificationLog extends Fake implements NotificationLog {
   }
 }
 
-Reservation _reservation({
+Order _order({
   required String pubkey,
   required String dTag,
   required String listingAnchor,
   required int createdAt,
-  ReservationStage stage = ReservationStage.negotiate,
+  OrderStage stage = OrderStage.negotiate,
 }) {
-  return Reservation.create(
+  return Order.create(
     pubKey: pubkey,
     dTag: dTag,
     listingAnchor: listingAnchor,
@@ -280,16 +279,14 @@ void main() {
     'run emits hosting notifications and upserts heartbeat once ready',
     () async {
       final listingAnchor = '30402:${MockKeys.hoster.publicKey}:listing';
-      final guestReservation = _reservation(
+      final guestOrder = _order(
         pubkey: MockKeys.guest.publicKey,
         dTag: 'trade-1',
         listingAnchor: listingAnchor,
         createdAt: 100,
       );
 
-      userSubscriptions.addHosting(
-        Valid(ReservationGroup(reservations: [guestReservation])),
-      );
+      userSubscriptions.addHosting(Valid(OrderGroup(orders: [guestOrder])));
       userSubscriptions._giftwraps.addStatus(StreamStatusLive());
       userSubscriptions.myResolvedHostings$.addStatus(StreamStatusLive());
       userSubscriptions.myResolvedTrips$.addStatus(StreamStatusLive());

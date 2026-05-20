@@ -5,7 +5,7 @@ import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/nip_01_event.dart';
 
 class ReviewTags extends EventTags
-    with ReferencesListing<ReviewTags>, ReferencesReservation<ReviewTags> {
+    with ReferencesListing<ReviewTags>, ReferencesOrder<ReviewTags> {
   ReviewTags(super.tags);
 }
 
@@ -44,7 +44,7 @@ class Review extends JsonContentNostrEvent<ReviewContent, ReviewTags> {
         );
 }
 
-/// Content of a review event, which includes proof of reservation participation.
+/// Content of a review event, which includes proof of order participation.
 class ReviewContent extends EventContent {
   /// Rating from 1-5
   final int rating;
@@ -52,7 +52,7 @@ class ReviewContent extends EventContent {
   /// Review text
   final String content;
 
-  /// Proof that reveals the private key needed to decrypt the reservation's
+  /// Proof that reveals the private key needed to decrypt the order's
   /// identity authorization capsule for this review.
   final ParticipationProof proof;
 

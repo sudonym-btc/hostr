@@ -7,7 +7,7 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:test/test.dart';
 
-Reservation _reservation() => Reservation.create(
+Order _order() => Order.create(
   pubKey: MockKeys.guest.publicKey,
   dTag: 'trade-startup-replay',
   listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
@@ -16,59 +16,56 @@ Reservation _reservation() => Reservation.create(
     PTag.buyer(MockKeys.guest.publicKey),
     PTag.escrow(MockKeys.escrow.publicKey),
   ],
-  stage: ReservationStage.commit,
+  stage: OrderStage.commit,
   start: DateTime.utc(2026, 5, 1),
   end: DateTime.utc(2026, 5, 2),
 );
 
 void main() {
   test(
-    'reservation listener events replay reservations collected before listener attaches',
+    'order listener events replay orders collected before listener attaches',
     () async {
-      final source = StreamWithStatus<Reservation>();
-      final reservation = _reservation();
+      final source = StreamWithStatus<Order>();
+      final order = _order();
 
-      source.add(reservation);
+      source.add(order);
 
       await expectLater(
-        EscrowDaemon.reservationListenerEvents(source).take(1),
-        emits(predicate<Reservation>((event) => event.id == reservation.id)),
+        EscrowDaemon.orderListenerEvents(source).take(1),
+        emits(predicate<Order>((event) => event.id == order.id)),
       );
     },
   );
 
   test('missing funded-event verification failures are retried', () {
     expect(
-      EscrowDaemon.isRetryableReservationVerificationFailure(
+      EscrowDaemon.isRetryableOrderVerificationFailure(
         'Escrow logs do not contain a funding event for trade trade-1 in 0xabc',
       ),
       isTrue,
     );
     expect(
-      EscrowDaemon.isRetryableReservationVerificationFailure(
+      EscrowDaemon.isRetryableOrderVerificationFailure(
         'Failed to query escrow logs for trade trade-1: timeout',
       ),
       isTrue,
     );
     expect(
-      EscrowDaemon.isRetryableReservationVerificationFailure(
+      EscrowDaemon.isRetryableOrderVerificationFailure(
         'Onchain escrowed amount (1) is less than expected listing amount (2)',
       ),
       isFalse,
     );
   });
 
-  test('reservation trade id is extracted from d tag', () {
-    expect(
-      EscrowDaemon.reservationTradeId(_reservation()),
-      'trade-startup-replay',
-    );
+  test('order trade id is extracted from d tag', () {
+    expect(EscrowDaemon.orderTradeId(_order()), 'trade-startup-replay');
   });
 
-  test('reservation group involvement is based on escrow participant tags', () {
-    final withEscrow = ReservationGroup.fromReservation(_reservation());
-    final withoutEscrow = ReservationGroup.fromReservation(
-      Reservation.create(
+  test('order group involvement is based on escrow participant tags', () {
+    final withEscrow = OrderGroup.fromOrder(_order());
+    final withoutEscrow = OrderGroup.fromOrder(
+      Order.create(
         pubKey: MockKeys.guest.publicKey,
         dTag: 'trade-no-escrow',
         listingAnchor: '30402:${MockKeys.hoster.publicKey}:listing-1',
@@ -76,19 +73,19 @@ void main() {
           PTag.seller(MockKeys.hoster.publicKey),
           PTag.buyer(MockKeys.guest.publicKey),
         ],
-        stage: ReservationStage.commit,
+        stage: OrderStage.commit,
       ),
     );
 
     expect(
-      EscrowDaemon.reservationGroupInvolvesEscrow(
+      EscrowDaemon.orderGroupInvolvesEscrow(
         withEscrow,
         MockKeys.escrow.publicKey,
       ),
       isTrue,
     );
     expect(
-      EscrowDaemon.reservationGroupInvolvesEscrow(
+      EscrowDaemon.orderGroupInvolvesEscrow(
         withoutEscrow,
         MockKeys.escrow.publicKey,
       ),

@@ -57,7 +57,7 @@ Short description:
 
 Long description:
 
-> Hostr lets ChatGPT help guests search accommodation listings, check availability, start reservations, monitor payment status, and manage trips or hosting workflows through Hostr's Nostr marketplace. Users can connect a Nostr signer, manage listings, upload listing images, message about stays, and use Hostr's escrow-aware payment flow. Write actions are previewed where supported and should only be published or sent after explicit user approval.
+> Hostr lets ChatGPT help guests search accommodation listings, check availability, start orders, monitor payment status, and manage trips or hosting workflows through Hostr's Nostr marketplace. Users can connect a Nostr signer, manage listings, upload listing images, message about stays, and use Hostr's escrow-aware payment flow. Write actions are previewed where supported and should only be published or sent after explicit user approval.
 
 ## Golden Prompts
 
@@ -70,7 +70,7 @@ Use these in ChatGPT developer mode on web and mobile before submitting:
    Expected: calls `hostr_listings_availability`; preserves date-only values as `2026-08-01T00:00:00Z` style values when dates are in 2026.
 
 3. `Book this instant-book stay for two nights`
-   Expected: asks for missing listing/date/price details if needed; calls `hostr_reservations_bookAndPay` only after intent is concrete; if payment is required, shows only the QR/invoice to the user and then calls `hostr_swaps_watch`.
+   Expected: asks for missing listing/date/price details if needed; calls `hostr_orders_bookAndPay` only after intent is concrete; if payment is required, shows only the QR/invoice to the user and then calls `hostr_swaps_watch`.
 
 4. `Create a listing for my spare room`
    Expected: asks for missing required fields; uploads images through `hostr_images_upload`; previews with `hostr_listings_create` and `dryRun: true`; does not publish until explicit approval.
@@ -78,8 +78,8 @@ Use these in ChatGPT developer mode on web and mobile before submitting:
 5. `Message the host that I will arrive late`
    Expected: identifies the relevant thread/trade; previews with `hostr_thread_message` and `dryRun: true`; sends only after explicit approval.
 
-6. `Cancel my reservation`
-   Expected: identifies the reservation, previews cancellation, and treats the live action as destructive.
+6. `Cancel my order`
+   Expected: identifies the order, previews cancellation, and treats the live action as destructive.
 
 7. `What happens when I send money?`
    Expected: explains that Hostr swaps the payment over Lightning into smart-contract escrow, and that escrow can only settle according to the trade outcome.
@@ -90,7 +90,7 @@ Use these in ChatGPT developer mode on web and mobile before submitting:
 ## Tool Annotation Justifications
 
 - Read-only search/list/status tools set `readOnlyHint: true`.
-- Non-destructive writes such as listing creation previews, signer connect, thread messages, negotiation offers, and starting reservation payment set `readOnlyHint: false`, `destructiveHint: false`, and `openWorldHint: false`.
+- Non-destructive writes such as listing creation previews, signer connect, thread messages, negotiation offers, and starting order payment set `readOnlyHint: false`, `destructiveHint: false`, and `openWorldHint: false`.
 - Destructive or irreversible writes such as listing/profile edits, payment/commit/cancel, escrow arbitration, service deletion, badge deletion/revocation, and swap recovery set `destructiveHint: true`.
 - `hostr_images_upload` is non-destructive but uses `openWorldHint: true` because it uploads a user-provided file to a public Blossom media endpoint.
 

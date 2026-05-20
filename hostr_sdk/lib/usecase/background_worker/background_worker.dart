@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
@@ -14,7 +14,7 @@ import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
+import '../order_groups/order_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 /// A single notification to show or update in the OS notification tray.
@@ -368,7 +368,7 @@ class BackgroundWorker {
   }
 
   Future<_BackgroundSignal?> _signalFromTripReview(
-    Validation<ReservationGroup> validation,
+    Validation<OrderGroup> validation,
   ) async {
     final group = validation.event;
     if (group.cancelled) return null;
@@ -456,9 +456,7 @@ class BackgroundWorker {
     if (!_notificationLog.tryMarkDisplayed(notificationId)) return null;
 
     final senderName = await _resolveDisplayName(message.pubKey);
-    final label = message.child is Reservation
-        ? 'reservation proposal'
-        : 'message';
+    final label = message.child is Order ? 'order proposal' : 'message';
     return _BackgroundSignal(
       id: notificationId,
       body: '$senderName sent you a $label',
@@ -474,14 +472,14 @@ class BackgroundWorker {
   }
 
   Future<_BackgroundSignal?> _signalFromHosting(
-    ResolvedValidatedReservationGroupParticipants item,
+    ResolvedValidatedOrderGroupParticipants item,
   ) async {
     final myPubkey = _auth.getActiveKey().publicKey;
     final group = item.group;
-    final guestReservation = group.buyerReservation;
-    if (guestReservation == null) return null;
-    if (guestReservation.pubKey == myPubkey) return null;
-    if (!_isAfterHeartbeatBoundary(guestReservation.createdAt)) return null;
+    final guestOrder = group.buyerOrder;
+    if (guestOrder == null) return null;
+    if (guestOrder.pubKey == myPubkey) return null;
+    if (!_isAfterHeartbeatBoundary(guestOrder.createdAt)) return null;
 
     final guestPubkey = _resolveHostingGuestPubkey(item);
     final guestName = await _resolveDisplayName(guestPubkey);
@@ -490,25 +488,25 @@ class BackgroundWorker {
       fallback: 'your listing',
     );
 
-    if (guestReservation.cancelled) {
+    if (guestOrder.cancelled) {
       return _BackgroundSignal(
-        id: 'hosting-cancel:${guestReservation.id}',
-        body: '$guestName cancelled a reservation',
-        createdAt: guestReservation.createdAt,
+        id: 'hosting-cancel:${guestOrder.id}',
+        body: '$guestName cancelled a order',
+        createdAt: guestOrder.createdAt,
         payload: _threadPayload(group.tradeId),
       );
     }
 
     return _BackgroundSignal(
-      id: 'hosting-reservation:${guestReservation.id}',
+      id: 'hosting-order:${guestOrder.id}',
       body: '$guestName reserved $title',
-      createdAt: guestReservation.createdAt,
+      createdAt: guestOrder.createdAt,
       payload: _threadPayload(group.tradeId),
     );
   }
 
   String _resolveHostingGuestPubkey(
-    ResolvedValidatedReservationGroupParticipants item,
+    ResolvedValidatedOrderGroupParticipants item,
   ) {
     final resolved = item.participants.resolvedParticipantPubkeyForRole(
       'buyer',
@@ -527,41 +525,41 @@ class BackgroundWorker {
   }
 
   Future<_BackgroundSignal?> _signalFromTrip(
-    ResolvedValidatedReservationGroupParticipants item,
+    ResolvedValidatedOrderGroupParticipants item,
   ) async {
     final myPubkey = _auth.getActiveKey().publicKey;
     final group = item.group;
-    final sellerReservation = group.sellerReservation;
-    if (sellerReservation == null) return null;
-    if (sellerReservation.pubKey == myPubkey) return null;
-    if (!_isAfterHeartbeatBoundary(sellerReservation.createdAt)) return null;
+    final sellerOrder = group.sellerOrder;
+    if (sellerOrder == null) return null;
+    if (sellerOrder.pubKey == myPubkey) return null;
+    if (!_isAfterHeartbeatBoundary(sellerOrder.createdAt)) return null;
 
-    if (!sellerReservation.cancelled && !sellerReservation.isCommit) {
+    if (!sellerOrder.cancelled && !sellerOrder.isCommit) {
       return null;
     }
 
     final hostPubkey =
         item.participants.resolvedParticipantPubkeyForRole('seller') ??
-        sellerReservation.pubKey;
+        sellerOrder.pubKey;
     final hostName = await _resolveDisplayName(hostPubkey);
     final title = await _resolveListingTitle(
       group.listingAnchor,
       fallback: 'your stay',
     );
 
-    if (sellerReservation.cancelled) {
+    if (sellerOrder.cancelled) {
       return _BackgroundSignal(
-        id: 'trip-cancel:${sellerReservation.id}',
-        body: '$hostName cancelled a reservation',
-        createdAt: sellerReservation.createdAt,
+        id: 'trip-cancel:${sellerOrder.id}',
+        body: '$hostName cancelled a order',
+        createdAt: sellerOrder.createdAt,
         payload: _threadPayload(group.tradeId),
       );
     }
 
     return _BackgroundSignal(
-      id: 'trip-confirm:${sellerReservation.id}',
+      id: 'trip-confirm:${sellerOrder.id}',
       body: '$hostName confirmed your stay at $title',
-      createdAt: sellerReservation.createdAt,
+      createdAt: sellerOrder.createdAt,
       payload: _threadPayload(group.tradeId),
     );
   }

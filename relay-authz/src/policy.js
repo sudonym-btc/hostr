@@ -6,8 +6,8 @@ export const Decision = Object.freeze({
 
 export const DEFAULT_AUTHOR_MISMATCH_KINDS = Object.freeze([
   1059, // NIP-59 gift wrap: signed by an ephemeral wrapper key.
-  32122, // Hostr reservation: may be signed by a per-trade participant key.
-  1326, // Hostr reservation transition: follows the reservation signer key.
+  32122, // Hostr order: may be signed by a per-trade participant key.
+  1326, // Hostr order transition: follows the order signer key.
 ]);
 
 export const DEFAULT_ALLOWED_KINDS = Object.freeze([
@@ -20,7 +20,7 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   14, // NIP-17 private DM rumor.
   16, // Hostr read receipt rumor.
   1059, // NIP-59 gift wrap.
-  1326, // Hostr reservation transition.
+  1326, // Hostr order transition.
   1327, // Hostr custom JSON message rumor.
   1328, // Hostr commit authorization.
   1329, // Hostr trade-key authorization.
@@ -44,7 +44,7 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   30302, // Hostr escrow service selection.
   30303, // Hostr escrow service advertisement.
   30402, // NIP-99 Hostr accommodation listing.
-  32122, // Hostr reservation.
+  32122, // Hostr order.
   32124, // Hostr review.
 ]);
 

@@ -7,17 +7,17 @@ import '../seed_context.dart';
 import '../seed_pipeline_config.dart';
 import '../seed_pipeline_models.dart';
 
-/// Stage 4: Build threads in "pending" state — reservation requests created,
+/// Stage 4: Build threads in "pending" state — order requests created,
 /// but no outcomes (escrow/zap) yet.
 ///
-/// Each guest generates [SeedPipelineConfig.reservationRequestsPerGuest]
+/// Each guest generates [SeedPipelineConfig.orderRequestsPerGuest]
 /// threads (or the per-user override [SeedUserSpec.threadCount]).
 ///
 /// The returned [SeedThread] objects carry their resolved [ThreadStageSpec]
 /// so the outcome stage knows how far to progress each one.
 ///
 /// When [now] is provided it is used as the reference timestamp for
-/// reservation date calculations.
+/// order date calculations.
 Future<List<SeedThread>> buildThreads({
   required SeedContext ctx,
   required SeedPipelineConfig config,
@@ -34,8 +34,7 @@ Future<List<SeedThread>> buildThreads({
   final chainNow = now;
 
   for (final guest in guests) {
-    final threadCount =
-        guest.spec?.threadCount ?? config.reservationRequestsPerGuest;
+    final threadCount = guest.spec?.threadCount ?? config.orderRequestsPerGuest;
     final stageSpec = guest.spec?.threadStages ?? config.threadStages;
     var guestTradeIndex = 0;
 
@@ -56,11 +55,11 @@ Future<List<SeedThread>> buildThreads({
         continue;
       }
 
-      final isFutureReservation = ctx.pickByRatio(0.5);
+      final isFutureOrder = ctx.pickByRatio(0.5);
       final stayDays = 1 + ctx.random.nextInt(6);
       late final DateTime start;
       late final DateTime end;
-      if (isFutureReservation) {
+      if (isFutureOrder) {
         final rawStart = chainNow.add(
           Duration(days: 3 + ctx.random.nextInt(180)),
         );
@@ -78,12 +77,12 @@ Future<List<SeedThread>> buildThreads({
         guest.keyPair.privateKey!,
         accountIndex: guestTradeIndex,
       );
-      final request = await f.reservation(
+      final request = await f.order(
         guestKeyPair: guest.keyPair,
         listing: listing,
         start: start,
         end: end,
-        stage: ReservationStage.negotiate,
+        stage: OrderStage.negotiate,
         accountIndex: guestTradeIndex,
         createdAt: ctx.timestampDaysAfter(30 + threadIndex),
       );

@@ -9,9 +9,9 @@ import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/usecase/reservations/reservation_participant_authorization.dart';
-import 'package:hostr_sdk/usecase/reservations/reservation_participant_tags.dart';
-import 'package:hostr_sdk/usecase/reservations/reservations.dart';
+import 'package:hostr_sdk/usecase/orders/order_participant_authorization.dart';
+import 'package:hostr_sdk/usecase/orders/order_participant_tags.dart';
+import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/reviews/reviews.dart';
 import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -114,10 +114,8 @@ class _StubEscrowVerification extends Fake implements EscrowVerification {
   _StubEscrowVerification({this.validTradeIds = const {}});
 
   @override
-  Future<EscrowVerificationResult> verify({
-    required Reservation reservation,
-  }) async {
-    final tradeId = reservation.getDtag();
+  Future<EscrowVerificationResult> verify({required Order order}) async {
+    final tradeId = order.getDtag();
     if (tradeId != null && validTradeIds.contains(tradeId)) {
       return const EscrowVerificationResult.valid();
     }
@@ -125,18 +123,18 @@ class _StubEscrowVerification extends Fake implements EscrowVerification {
   }
 }
 
-Future<Reservation> _reservation({
+Future<Order> _order({
   required Listing listing,
   required KeyPair signer,
   required String tradeId,
   required DateTime start,
   required DateTime end,
   PaymentProof? proof,
-  ReservationStage stage = ReservationStage.negotiate,
+  OrderStage stage = OrderStage.negotiate,
   int createdAtOffsetSeconds = 0,
   String? recipient,
   List<PTag>? pTags,
-}) => _f.reservation(
+}) => _f.order(
   listing: listing,
   dTag: tradeId,
   signerOverride: signer,
@@ -151,45 +149,40 @@ Future<Reservation> _reservation({
       createdAtOffsetSeconds,
 );
 
-Future<Reservation> _withBuyerProof({
-  required Reservation reservation,
+Future<Order> _withBuyerProof({
+  required Order order,
   required KeyPair identityKeyPair,
-  required KeyPair reservationAuthorKeyPair,
+  required KeyPair orderAuthorKeyPair,
 }) async {
-  final tradeId = reservation.getDtag();
+  final tradeId = order.getDtag();
   if (tradeId == null || tradeId.isEmpty) {
-    throw StateError('Reservation trade id is required');
+    throw StateError('Order trade id is required');
   }
-  final sellerPubkey = getPubKeyFromAnchor(
-    reservation.parsedTags.listingAnchor,
-  );
-  final buyerPubkey = reservation.participantPubkeyForRole('buyer');
-  final escrowPubkey = reservation.parsedTags.getTagValueByMarker(
-    'p',
-    'escrow',
-  );
-  final plan = await buildReservationParticipantTagPlan(
+  final sellerPubkey = getPubKeyFromAnchor(order.parsedTags.listingAnchor);
+  final buyerPubkey = order.participantPubkeyForRole('buyer');
+  final escrowPubkey = order.parsedTags.getTagValueByMarker('p', 'escrow');
+  final plan = await buildOrderParticipantTagPlan(
     tradeId: tradeId,
-    reservationAuthorKey: reservationAuthorKeyPair,
+    orderAuthorKey: orderAuthorKeyPair,
     participants: [
-      ReservationParticipant.real(role: 'seller', pubkey: sellerPubkey),
-      ReservationParticipant(
+      OrderParticipant.real(role: 'seller', pubkey: sellerPubkey),
+      OrderParticipant(
         role: 'buyer',
         participantPubkey: buyerPubkey,
         identityPubkey: identityKeyPair.publicKey,
       ),
       if (escrowPubkey != null)
-        ReservationParticipant.real(role: 'escrow', pubkey: escrowPubkey),
+        OrderParticipant.real(role: 'escrow', pubkey: escrowPubkey),
     ],
     signAuthorization: (draft) async {
       final authorization = TradeKeyAuthorization.create(
         identityPubkey: draft.identityPubkey,
-        listingAnchor: reservation.parsedTags.listingAnchor,
+        listingAnchor: order.parsedTags.listingAnchor,
         tradeId: draft.tradeId,
         participantPubkey: draft.participantPubkey,
         role: draft.role,
       ).signAs(identityKeyPair, TradeKeyAuthorization.fromNostrEvent);
-      return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+      return OrderParticipantAuthorizationPayload.fromAuthorizationEvent(
         authorization,
       ).encode();
     },
@@ -201,62 +194,60 @@ Future<Reservation> _withBuyerProof({
         }) => coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
   );
 
-  final retainedTags = reservation.parsedTags.tags.where((tag) {
+  final retainedTags = order.parsedTags.tags.where((tag) {
     if (tag.isEmpty) return true;
-    return tag.first != 'p' && tag.first != kReservationParticipantProofTag;
+    return tag.first != 'p' && tag.first != kOrderParticipantProofTag;
   });
-  return reservation
+  return order
       .copy(
         id: null,
         sig: null,
-        tags: ReservationTags([...retainedTags, ...plan.tags]),
+        tags: OrderTags([...retainedTags, ...plan.tags]),
       )
-      .signAs(reservationAuthorKeyPair, Reservation.fromNostrEvent);
+      .signAs(orderAuthorKeyPair, Order.fromNostrEvent);
 }
 
 String _signedAuthorizationPayload({
   required KeyPair signer,
-  required Reservation reservation,
+  required Order order,
   required String role,
 }) {
-  final tradeId = reservation.getDtag();
+  final tradeId = order.getDtag();
   if (tradeId == null || tradeId.isEmpty) {
-    throw StateError('Reservation trade id is required');
+    throw StateError('Order trade id is required');
   }
   final authorization = TradeKeyAuthorization.create(
     identityPubkey: signer.publicKey,
-    listingAnchor: reservation.parsedTags.listingAnchor,
+    listingAnchor: order.parsedTags.listingAnchor,
     tradeId: tradeId,
-    participantPubkey: reservation.participantPubkeyForRole(role),
+    participantPubkey: order.participantPubkeyForRole(role),
     role: role,
   ).signAs(signer, TradeKeyAuthorization.fromNostrEvent);
-  return ReservationParticipantAuthorizationPayload.fromAuthorizationEvent(
+  return OrderParticipantAuthorizationPayload.fromAuthorizationEvent(
     authorization,
   ).encode();
 }
 
 Future<ParticipationProof> _proofForReview({
   required KeyPair signer,
-  required Reservation reservation,
+  required Order order,
   required KeyPair proofRecipientKeyPair,
   String role = 'buyer',
 }) async {
   final privateKey = proofRecipientKeyPair.privateKey;
-  final participantPubkey = reservation.participantPubkeyForRole(role);
+  final participantPubkey = order.participantPubkeyForRole(role);
   if (privateKey != null && privateKey.isNotEmpty) {
-    for (final proof in reservation.parsedTags.participantProofs) {
+    for (final proof in order.parsedTags.participantProofs) {
       if (proof.role != role) continue;
       if (proof.participantPubkey != participantPubkey) continue;
       if (proof.recipientPubkey != proofRecipientKeyPair.publicKey) continue;
       final plaintext = await coinlibDecryptNip44(
         proof.payload,
         privateKey,
-        reservation.pubKey,
+        order.pubKey,
       );
       if (!proof.matchesPayload(plaintext)) continue;
-      final payload = ReservationParticipantAuthorizationPayload.tryDecode(
-        plaintext,
-      );
+      final payload = OrderParticipantAuthorizationPayload.tryDecode(plaintext);
       if (payload?.pubkey != signer.publicKey) continue;
       return ParticipationProof(
         role: role,
@@ -271,7 +262,7 @@ Future<ParticipationProof> _proofForReview({
     participantPubkey: participantPubkey,
     authorizationPayload: _signedAuthorizationPayload(
       signer: signer,
-      reservation: reservation,
+      order: order,
       role: role,
     ),
   );
@@ -280,25 +271,25 @@ Future<ParticipationProof> _proofForReview({
 Future<Review> _review({
   required KeyPair signer,
   required Listing listing,
-  required Reservation proofReservation,
-  required KeyPair proofReservationAuthorKeyPair,
-  String? reservationAnchor,
+  required Order proofOrder,
+  required KeyPair proofOrderAuthorKeyPair,
+  String? orderAnchor,
 }) async {
   return Review(
     pubKey: signer.publicKey,
     createdAt: DateTime(2026, 6, 1).millisecondsSinceEpoch ~/ 1000,
     tags: ReviewTags([
-      ['d', proofReservation.getDtag() ?? 'review-trade'],
+      ['d', proofOrder.getDtag() ?? 'review-trade'],
       [kListingRefTag, listing.anchor!],
-      if (reservationAnchor != null) [kReservationRefTag, reservationAnchor],
+      if (orderAnchor != null) [kOrderRefTag, orderAnchor],
     ]),
     content: ReviewContent(
       rating: 5,
       content: 'Great stay!',
       proof: await _proofForReview(
         signer: signer,
-        reservation: proofReservation,
-        proofRecipientKeyPair: proofReservationAuthorKeyPair,
+        order: proofOrder,
+        proofRecipientKeyPair: proofOrderAuthorKeyPair,
       ),
     ),
   ).signAs(signer, Review.fromNostrEvent);
@@ -358,7 +349,7 @@ void main() {
     late _FakeRequests fakeRequests;
     late _StubEscrowVerification escrowVerification;
     late Reviews reviews;
-    late Reservations reservations;
+    late Orders orders;
     late Listings listings;
     late Listing listing;
 
@@ -372,7 +363,7 @@ void main() {
         logger: logger,
         metadata: _FakeMetadata(),
       );
-      reservations = Reservations(
+      orders = Orders(
         requests: fakeRequests,
         logger: logger,
         messaging: FakeMessaging(),
@@ -384,7 +375,7 @@ void main() {
       reviews = Reviews(
         requests: fakeRequests,
         logger: logger,
-        reservations: reservations,
+        orders: orders,
         listings: listings,
         escrowVerification: escrowVerification,
       );
@@ -398,12 +389,12 @@ void main() {
     });
 
     test(
-      'host-confirmed reservation validates a review via trade-group proof',
+      'host-confirmed order validates a review via trade-group proof',
       () async {
         final buyerAlias = MockKeys.reviewer;
 
         final negotiate = await _withBuyerProof(
-          reservation: await _reservation(
+          order: await _order(
             listing: listing,
             signer: buyerAlias,
             tradeId: 'trade-host-confirmed',
@@ -416,15 +407,15 @@ void main() {
             ],
           ),
           identityKeyPair: MockKeys.guest,
-          reservationAuthorKeyPair: buyerAlias,
+          orderAuthorKeyPair: buyerAlias,
         );
-        final hostCommit = await _reservation(
+        final hostCommit = await _order(
           listing: listing,
           signer: MockKeys.hoster,
           tradeId: 'trade-host-confirmed',
           start: DateTime(2026, 2, 1),
           end: DateTime(2026, 2, 3),
-          stage: ReservationStage.commit,
+          stage: OrderStage.commit,
           recipient: buyerAlias.publicKey,
           pTags: [
             PTag.seller(listing.pubKey),
@@ -434,8 +425,8 @@ void main() {
         final review = await _review(
           signer: MockKeys.guest,
           listing: listing,
-          proofReservation: negotiate,
-          proofReservationAuthorKeyPair: buyerAlias,
+          proofOrder: negotiate,
+          proofOrderAuthorKeyPair: buyerAlias,
         );
 
         fakeRequests.events.addAll([negotiate, hostCommit, review]);
@@ -459,8 +450,8 @@ void main() {
       },
     );
 
-    test('invalid review when no reservation exists', () async {
-      final proofReservation = Reservation.create(
+    test('invalid review when no order exists', () async {
+      final proofOrder = Order.create(
         pubKey: MockKeys.guest.publicKey,
         dTag: 'trade-missing',
         listingAnchor: listing.anchor!,
@@ -470,8 +461,8 @@ void main() {
       final review = await _review(
         signer: MockKeys.guest,
         listing: listing,
-        proofReservation: proofReservation,
-        proofReservationAuthorKeyPair: MockKeys.guest,
+        proofOrder: proofOrder,
+        proofOrderAuthorKeyPair: MockKeys.guest,
       );
       fakeRequests.events.add(review);
 
@@ -491,18 +482,18 @@ void main() {
       expect(snapshot.first, isA<Invalid<Review>>());
       expect(
         (snapshot.first as Invalid<Review>).reason,
-        contains('No matching reservation'),
+        contains('No matching order'),
       );
 
       await verified.close();
     });
 
     test(
-      'invalid review when authorization payload does not match a reservation proof',
+      'invalid review when authorization payload does not match a order proof',
       () async {
         final buyerAlias = MockKeys.reviewer;
-        final seededReservation = await _withBuyerProof(
-          reservation: await _reservation(
+        final seededOrder = await _withBuyerProof(
+          order: await _order(
             listing: listing,
             signer: buyerAlias,
             tradeId: 'trade-correct',
@@ -515,10 +506,10 @@ void main() {
             ],
           ),
           identityKeyPair: MockKeys.guest,
-          reservationAuthorKeyPair: buyerAlias,
+          orderAuthorKeyPair: buyerAlias,
         );
         final wrongAlias = MockKeys.escrow;
-        final wrongReservation = Reservation.create(
+        final wrongOrder = Order.create(
           pubKey: wrongAlias.publicKey,
           dTag: 'trade-wrong',
           listingAnchor: listing.anchor!,
@@ -528,11 +519,11 @@ void main() {
         final review = await _review(
           signer: MockKeys.guest,
           listing: listing,
-          proofReservation: wrongReservation,
-          proofReservationAuthorKeyPair: wrongAlias,
+          proofOrder: wrongOrder,
+          proofOrderAuthorKeyPair: wrongAlias,
         );
 
-        fakeRequests.events.addAll([seededReservation, review]);
+        fakeRequests.events.addAll([seededOrder, review]);
 
         final verified = reviews.subscribeVerified(
           filter: Filter(
@@ -565,20 +556,20 @@ void main() {
       reviews = Reviews(
         requests: fakeRequests,
         logger: CustomLogger(),
-        reservations: reservations,
+        orders: orders,
         listings: listings,
         escrowVerification: escrowVerification,
       );
 
       for (final tradeId in tradeIds) {
         final commit = await _withBuyerProof(
-          reservation: await _reservation(
+          order: await _order(
             listing: listing,
             signer: MockKeys.guest,
             tradeId: tradeId,
             start: DateTime(2026, 3, 1),
             end: DateTime(2026, 3, 5),
-            stage: ReservationStage.commit,
+            stage: OrderStage.commit,
             recipient: MockKeys.guest.publicKey,
             proof: _escrowPaymentProof(listing: listing),
             pTags: [
@@ -588,15 +579,15 @@ void main() {
             ],
           ),
           identityKeyPair: MockKeys.guest,
-          reservationAuthorKeyPair: MockKeys.guest,
+          orderAuthorKeyPair: MockKeys.guest,
         );
         fakeRequests.events.add(commit);
         fakeRequests.events.add(
           await _review(
             signer: MockKeys.guest,
             listing: listing,
-            proofReservation: commit,
-            proofReservationAuthorKeyPair: MockKeys.guest,
+            proofOrder: commit,
+            proofOrderAuthorKeyPair: MockKeys.guest,
           ),
         );
       }
@@ -620,17 +611,17 @@ void main() {
     });
 
     test(
-      'escrow-backed buyer reservation validates review when confirmed committed',
+      'escrow-backed buyer order validates review when confirmed committed',
       () async {
         const tradeId = 'trade-escrow-valid';
         final commit = await _withBuyerProof(
-          reservation: await _reservation(
+          order: await _order(
             listing: listing,
             signer: MockKeys.guest,
             tradeId: tradeId,
             start: DateTime(2026, 4, 1),
             end: DateTime(2026, 4, 3),
-            stage: ReservationStage.commit,
+            stage: OrderStage.commit,
             recipient: MockKeys.guest.publicKey,
             proof: _escrowPaymentProof(listing: listing),
             pTags: [
@@ -640,13 +631,13 @@ void main() {
             ],
           ),
           identityKeyPair: MockKeys.guest,
-          reservationAuthorKeyPair: MockKeys.guest,
+          orderAuthorKeyPair: MockKeys.guest,
         );
         escrowVerification = _StubEscrowVerification(validTradeIds: {tradeId});
         reviews = Reviews(
           requests: fakeRequests,
           logger: CustomLogger(),
-          reservations: reservations,
+          orders: orders,
           listings: listings,
           escrowVerification: escrowVerification,
         );
@@ -656,8 +647,8 @@ void main() {
           await _review(
             signer: MockKeys.guest,
             listing: listing,
-            proofReservation: commit,
-            proofReservationAuthorKeyPair: MockKeys.guest,
+            proofOrder: commit,
+            proofOrderAuthorKeyPair: MockKeys.guest,
           ),
         );
 
@@ -685,13 +676,13 @@ void main() {
       () async {
         const tradeId = 'trade-escrow-cancelled';
         final commit = await _withBuyerProof(
-          reservation: await _reservation(
+          order: await _order(
             listing: listing,
             signer: MockKeys.guest,
             tradeId: tradeId,
             start: DateTime(2026, 4, 1),
             end: DateTime(2026, 4, 3),
-            stage: ReservationStage.commit,
+            stage: OrderStage.commit,
             recipient: MockKeys.guest.publicKey,
             proof: _escrowPaymentProof(listing: listing),
             pTags: [
@@ -701,23 +692,21 @@ void main() {
             ],
           ),
           identityKeyPair: MockKeys.guest,
-          reservationAuthorKeyPair: MockKeys.guest,
+          orderAuthorKeyPair: MockKeys.guest,
         );
         final cancel = commit
             .copy(
               createdAt: commit.createdAt + 1,
               id: null,
-              content: commit.parsedContent.copyWith(
-                stage: ReservationStage.cancel,
-              ),
+              content: commit.parsedContent.copyWith(stage: OrderStage.cancel),
             )
-            .signAs(MockKeys.guest, Reservation.fromNostrEvent);
+            .signAs(MockKeys.guest, Order.fromNostrEvent);
 
         escrowVerification = _StubEscrowVerification(validTradeIds: {tradeId});
         reviews = Reviews(
           requests: fakeRequests,
           logger: CustomLogger(),
-          reservations: reservations,
+          orders: orders,
           listings: listings,
           escrowVerification: escrowVerification,
         );
@@ -728,8 +717,8 @@ void main() {
           await _review(
             signer: MockKeys.guest,
             listing: listing,
-            proofReservation: commit,
-            proofReservationAuthorKeyPair: MockKeys.guest,
+            proofOrder: commit,
+            proofOrderAuthorKeyPair: MockKeys.guest,
           ),
         ]);
 

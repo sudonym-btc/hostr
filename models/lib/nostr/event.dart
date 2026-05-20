@@ -16,8 +16,7 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
     Nip01Event e, {
     EventTagsParser<TagsType>? tagParser,
     List<List<String>> requiredTags = const [],
-  })
-      : tagParser = tagParser ?? ((tags) => EventTags(tags) as TagsType),
+  })  : tagParser = tagParser ?? ((tags) => EventTags(tags) as TagsType),
         parsedTags = (tagParser ?? ((tags) => EventTags(tags) as TagsType))(
           requireRequiredTags(e, requiredTags).tags,
         ),
@@ -345,14 +344,14 @@ mixin ReferencesListing<T extends ReferencesListing<T>> on EventTags {
   }
 }
 
-mixin ReferencesReservation<T extends ReferencesReservation<T>> on EventTags {
-  String get reservationAnchor {
-    return getTags(kReservationRefTag).first;
+mixin ReferencesOrder<T extends ReferencesOrder<T>> on EventTags {
+  String get orderAnchor {
+    return getTags(kOrderRefTag).first;
   }
 
-  T setReservationAnchor(String? anchor) {
+  T setOrderAnchor(String? anchor) {
     if (anchor != null) {
-      tags.add([kReservationRefTag, anchor]);
+      tags.add([kOrderRefTag, anchor]);
     }
     return this as T;
   }

@@ -7,34 +7,31 @@ import 'package:test/test.dart';
 
 void main() {
   group('TradeContext participant matching', () {
-    test(
-      'matches raw reservation participants with escrow as optional extra',
-      () {
-        final context = TradeContext(
+    test('matches raw order participants with escrow as optional extra', () {
+      final context = TradeContext(
+        tradeId: 'trade-raw-buyer',
+        participants: const ['seller-pubkey', 'temp-buyer-pubkey'],
+      );
+
+      expect(
+        context.matchesParticipantSet(const {
+          'seller-pubkey',
+          'temp-buyer-pubkey',
+          'escrow-pubkey',
+        }, optionalEscrowPubkey: 'escrow-pubkey'),
+        isTrue,
+      );
+      expect(
+        context.conversationId,
+        OrderGroup.groupIdForParticipants(
           tradeId: 'trade-raw-buyer',
           participants: const ['seller-pubkey', 'temp-buyer-pubkey'],
-        );
-
-        expect(
-          context.matchesParticipantSet(const {
-            'seller-pubkey',
-            'temp-buyer-pubkey',
-            'escrow-pubkey',
-          }, optionalEscrowPubkey: 'escrow-pubkey'),
-          isTrue,
-        );
-        expect(
-          context.conversationId,
-          ReservationGroup.groupIdForParticipants(
-            tradeId: 'trade-raw-buyer',
-            participants: const ['seller-pubkey', 'temp-buyer-pubkey'],
-          ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     test(
-      'matches resolved reservation participants with escrow as optional extra',
+      'matches resolved order participants with escrow as optional extra',
       () {
         final context = TradeContext(
           tradeId: 'trade-resolved-buyer',

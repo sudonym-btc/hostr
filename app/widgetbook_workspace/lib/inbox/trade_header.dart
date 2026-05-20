@@ -40,7 +40,7 @@ Widget tradeHeaderKnobs(BuildContext context) {
           end: end,
           amount: listing.prices.first.amount,
           stage: const NegotiationStage(
-            reservationRequests: [],
+            orderRequests: [],
             overlapLock: (isLoading: false, isBlocked: false, reason: null),
             policy: NegotiationPolicy(
               latestOffer: null,
@@ -62,8 +62,8 @@ Widget tradeHeaderKnobs(BuildContext context) {
               : null,
           streams: TradeStreams(
             paymentEvents: StreamWithStatus<PaymentEvent>(),
-            reservationStream: StreamWithStatus<Validation<ReservationGroup>>(),
-            transitionsStream: StreamWithStatus<ReservationTransition>(),
+            orderStream: StreamWithStatus<Validation<OrderGroup>>(),
+            transitionsStream: StreamWithStatus<OrderTransition>(),
             subscriptionsLive: BehaviorSubject<bool>.seeded(false),
           ),
         ),

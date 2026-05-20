@@ -43,16 +43,16 @@ class TradeHeaderView extends StatelessWidget {
   String get sellerPubkey => tradeState.sellerPubkey;
   StreamWithStatus<PaymentEvent> get paymentEventsStream =>
       tradeState.streams.paymentEvents;
-  StreamWithStatus<Validation<ReservationGroup>>? get reservationStream =>
-      tradeState.streams.reservationStream;
-  StreamWithStatus<ReservationTransition>? get transitionsStream =>
+  StreamWithStatus<Validation<OrderGroup>>? get reservationStream =>
+      tradeState.streams.orderStream;
+  StreamWithStatus<OrderTransition>? get transitionsStream =>
       tradeState.streams.transitionsStream;
   ValueStream<bool>? get subscriptionsLive =>
       tradeState.streams.subscriptionsLive;
 
   bool get _hasNegotiationRequest =>
       tradeState.stage is NegotiationStage &&
-      (tradeState.stage as NegotiationStage).reservationRequests.isNotEmpty;
+      (tradeState.stage as NegotiationStage).orderRequests.isNotEmpty;
 
   void _openListing(BuildContext context) {
     final anchor = listing.naddr();
@@ -90,10 +90,10 @@ class TradeHeaderView extends StatelessWidget {
       TradeAvailability.unavailable => AppChip.error.xs(
         label: Text('Unavailable'),
       ),
-      TradeAvailability.invalidReservation => Padding(
+      TradeAvailability.invalidOrder => Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Text(
-          availabilityReason ?? 'Reservation is invalid.',
+          availabilityReason ?? 'Order is invalid.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.error,
           ),
@@ -112,10 +112,8 @@ class TradeHeaderView extends StatelessWidget {
   }
 
   Color _containerColor(BuildContext context) => switch (availability) {
-    TradeAvailability.invalidReservation ||
-    TradeAvailability.invalidTransitions => Theme.of(
-      context,
-    ).colorScheme.errorContainer,
+    TradeAvailability.invalidOrder || TradeAvailability.invalidTransitions =>
+      Theme.of(context).colorScheme.errorContainer,
     _ => Colors.transparent,
   };
 

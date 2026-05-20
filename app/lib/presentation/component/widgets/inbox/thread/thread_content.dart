@@ -76,9 +76,9 @@ class _ThreadContentState extends State<ThreadContent> {
   }
 
   bool _isVisibleReservationRequest(Event event) {
-    if (event is! Message || event.child is! Reservation) return false;
-    final reservation = event.child as Reservation;
-    return reservation.stage != ReservationStage.cancel;
+    if (event is! Message || event.child is! Order) return false;
+    final reservation = event.child as Order;
+    return reservation.stage != OrderStage.cancel;
   }
 
   bool _isCurrentThreadVisible(BuildContext context, Thread thread) {

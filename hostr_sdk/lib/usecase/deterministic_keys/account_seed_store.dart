@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:convert/convert.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 import 'package:ndk/shared/nips/nip01/helpers.dart';

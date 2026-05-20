@@ -41,13 +41,13 @@ void main() {
 
   group('ReferencesListing', () {
     test('listingAnchorOrNull returns null when missing', () {
-      final tags = ReservationTags([]);
+      final tags = OrderTags([]);
 
       expect(tags.listingAnchorOrNull, isNull);
     });
 
     test('listingAnchor throws a clear error when missing', () {
-      final tags = ReservationTags([]);
+      final tags = OrderTags([]);
 
       expect(
         () => tags.listingAnchor,

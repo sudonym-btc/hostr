@@ -4,8 +4,8 @@
 /// allows per-user overrides for integration tests or surgical scenarios.
 ///
 /// Thread stage articulation is controlled via [ThreadStageSpec] which lets
-/// callers specify exactly how many messages, reservation requests,
-/// self-signed reservations, host-approved reservations, etc. to generate
+/// callers specify exactly how many messages, order requests,
+/// self-signed orders, host-approved orders, etc. to generate
 /// per thread.
 library;
 
@@ -14,11 +14,11 @@ library;
 /// Controls what stage each thread reaches in the conversation flow.
 ///
 /// The pipeline generates threads in order:
-///   1. reservationRequest  — always created
+///   1. orderRequest  — always created
 ///   2. textMessages        — filler DMs in the thread
 ///   3. escrowSelected      — guest picks an escrow service (if escrow path)
-///   4. selfSignedReservation — guest publishes reservation with self-signed proof
-///   5. hostApprovedReservation — host co-signs / approves the reservation
+///   4. selfSignedOrder — guest publishes order with self-signed proof
+///   5. hostApprovedOrder — host co-signs / approves the order
 ///   6. outcome             — on-chain escrow settlement or zap receipt
 ///   7. review              — guest leaves a review
 ///
@@ -27,14 +27,14 @@ class ThreadStageSpec {
   /// Average number of text messages per thread (both directions).
   final int textMessageCount;
 
-  /// Whether a reservation request is generated. Always true in practice
+  /// Whether a order request is generated. Always true in practice
   /// (a thread without a request is just DMs), but included for completeness.
-  final bool withReservationRequest;
+  final bool withOrderRequest;
 
-  /// Fraction of threads where the guest publishes a self-signed reservation
-  /// (i.e. reservation with payment proof but no host approval).
+  /// Fraction of threads where the guest publishes a self-signed order
+  /// (i.e. order with payment proof but no host approval).
   /// Only meaningful when [withOutcome] is true.
-  final double selfSignedReservationRatio;
+  final double selfSignedOrderRatio;
 
   /// Fraction of threads that reach a completed outcome (escrow settlement
   /// or zap payment). Set to 0.0 for integration tests that need to drive
@@ -55,8 +55,8 @@ class ThreadStageSpec {
 
   const ThreadStageSpec({
     this.textMessageCount = 3,
-    this.withReservationRequest = true,
-    this.selfSignedReservationRatio = 0.0,
+    this.withOrderRequest = true,
+    this.selfSignedOrderRatio = 0.0,
     this.completedRatio = 0.5,
     this.paidViaEscrowRatio = 1.0,
     this.paidViaEscrowArbitrateRatio = 0.15,
@@ -67,8 +67,8 @@ class ThreadStageSpec {
   /// All threads complete with outcomes resolved.
   const ThreadStageSpec.allCompleted({
     this.textMessageCount = 3,
-    this.withReservationRequest = true,
-    this.selfSignedReservationRatio = 0.0,
+    this.withOrderRequest = true,
+    this.selfSignedOrderRatio = 0.0,
     this.completedRatio = 1.0,
     this.paidViaEscrowRatio = 1.0,
     this.paidViaEscrowArbitrateRatio = 0.15,
@@ -76,12 +76,12 @@ class ThreadStageSpec {
     this.reviewRatio = 0.5,
   });
 
-  /// Threads stop at reservation request — no outcomes. For integration tests
+  /// Threads stop at order request — no outcomes. For integration tests
   /// that need to drive the payment/escrow flow themselves.
   const ThreadStageSpec.pendingOnly({
     this.textMessageCount = 1,
-    this.withReservationRequest = true,
-    this.selfSignedReservationRatio = 0.0,
+    this.withOrderRequest = true,
+    this.selfSignedOrderRatio = 0.0,
     this.completedRatio = 0.0,
     this.paidViaEscrowRatio = 0.0,
     this.paidViaEscrowArbitrateRatio = 0.0,
@@ -177,15 +177,15 @@ class SeedPipelineConfig {
   final double hostRatio;
   final double hostHasEvmRatio;
   final double listingsPerHostAvg;
-  final int reservationRequestsPerGuest;
+  final int orderRequestsPerGuest;
 
   // ── Thread stage defaults ──
   final ThreadStageSpec threadStages;
 
-  /// Probability that a generated reservation is intentionally corrupted.
-  /// When triggered, the reservation either omits a payment proof entirely
+  /// Probability that a generated order is intentionally corrupted.
+  /// When triggered, the order either omits a payment proof entirely
   /// or references a bogus transaction hash/chain combination.
-  final double invalidReservationRate;
+  final double invalidOrderRate;
 
   // ── Per-user overrides (sparse) ──
   final List<SeedUserSpec> userOverrides;
@@ -216,9 +216,9 @@ class SeedPipelineConfig {
     this.hostRatio = 0.5,
     this.hostHasEvmRatio = 1,
     this.listingsPerHostAvg = 1.6,
-    this.reservationRequestsPerGuest = 10,
+    this.orderRequestsPerGuest = 10,
     this.threadStages = const ThreadStageSpec(),
-    this.invalidReservationRate = 0,
+    this.invalidOrderRate = 0,
     this.userOverrides = const [],
   });
 
@@ -253,11 +253,8 @@ class SeedPipelineConfig {
       hostRatio: _dbl(json['hostRatio'], 0.25),
       hostHasEvmRatio: _dbl(json['hostHasEvmRatio'], 0.8),
       listingsPerHostAvg: _dbl(json['listingsPerHostAvg'], 1.6),
-      reservationRequestsPerGuest: _int(
-        json['reservationRequestsPerGuest'],
-        10,
-      ),
-      invalidReservationRate: _dbl(json['invalidReservationRate'], 0.0),
+      orderRequestsPerGuest: _int(json['orderRequestsPerGuest'], 10),
+      invalidOrderRate: _dbl(json['invalidOrderRate'], 0.0),
       threadStages: ThreadStageSpec(
         textMessageCount: _int(json['messagesPerThreadAvg'], 3),
         completedRatio: _dbl(json['completedRatio'], 0.5),
@@ -300,8 +297,8 @@ class SeedPipelineConfig {
     'hostRatio': hostRatio,
     'hostHasEvmRatio': hostHasEvmRatio,
     'listingsPerHostAvg': listingsPerHostAvg,
-    'reservationRequestsPerGuest': reservationRequestsPerGuest,
-    'invalidReservationRate': invalidReservationRate,
+    'orderRequestsPerGuest': orderRequestsPerGuest,
+    'invalidOrderRate': invalidOrderRate,
     'threadStages': {
       'textMessageCount': threadStages.textMessageCount,
       'completedRatio': threadStages.completedRatio,
@@ -340,9 +337,9 @@ class SeedPipelineConfig {
     double? hostRatio,
     double? hostHasEvmRatio,
     double? listingsPerHostAvg,
-    int? reservationRequestsPerGuest,
+    int? orderRequestsPerGuest,
     ThreadStageSpec? threadStages,
-    double? invalidReservationRate,
+    double? invalidOrderRate,
     List<SeedUserSpec>? userOverrides,
   }) => SeedPipelineConfig(
     relayUrl: relayUrl ?? this.relayUrl,
@@ -372,11 +369,9 @@ class SeedPipelineConfig {
     hostRatio: hostRatio ?? this.hostRatio,
     hostHasEvmRatio: hostHasEvmRatio ?? this.hostHasEvmRatio,
     listingsPerHostAvg: listingsPerHostAvg ?? this.listingsPerHostAvg,
-    reservationRequestsPerGuest:
-        reservationRequestsPerGuest ?? this.reservationRequestsPerGuest,
+    orderRequestsPerGuest: orderRequestsPerGuest ?? this.orderRequestsPerGuest,
     threadStages: threadStages ?? this.threadStages,
-    invalidReservationRate:
-        invalidReservationRate ?? this.invalidReservationRate,
+    invalidOrderRate: invalidOrderRate ?? this.invalidOrderRate,
     userOverrides: userOverrides ?? this.userOverrides,
   );
 

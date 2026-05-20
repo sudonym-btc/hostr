@@ -17,13 +17,13 @@ void showTradeDetailsSheet(BuildContext context, TradeReady tradeState) {
       stream: Rx.merge([
         trade.transitions$.stream.map((_) => null),
         trade.payments$.stream.map((_) => null),
-        trade.reservationGroup$.stream.map((_) => null),
+        trade.orderGroup$.stream.map((_) => null),
       ]),
       initialData: null,
       builder: (context, _) {
         final transitions = trade.transitions$.items;
         final paymentEvents = trade.payments$.items;
-        final reservationValidation = trade.reservationGroup$.items.lastOrNull;
+        final reservationValidation = trade.orderGroup$.items.lastOrNull;
         final reservationGroup = reservationValidation?.event;
 
         return ModalBottomSheet(
@@ -39,7 +39,7 @@ void showTradeDetailsSheet(BuildContext context, TradeReady tradeState) {
                     paymentEvents: paymentEvents,
                     reservationGroup: reservationGroup,
                   ),
-                  if (reservationValidation is Invalid<ReservationGroup>) ...[
+                  if (reservationValidation is Invalid<OrderGroup>) ...[
                     Gap.vertical.lg(),
                     _ReservationRecords(
                       validatedReservationGroup: reservationValidation,
@@ -58,9 +58,9 @@ void showTradeDetailsSheet(BuildContext context, TradeReady tradeState) {
 }
 
 class _HydratedTradeTimeline extends StatefulWidget {
-  final List<ReservationTransition> transitions;
+  final List<OrderTransition> transitions;
   final List<PaymentEvent> paymentEvents;
-  final ReservationGroup? reservationGroup;
+  final OrderGroup? reservationGroup;
 
   const _HydratedTradeTimeline({
     required this.transitions,
@@ -197,7 +197,7 @@ String _escrowEventKey(EscrowEvent event) {
 }
 
 class _ReservationRecords extends StatelessWidget {
-  final Validation<ReservationGroup> validatedReservationGroup;
+  final Validation<OrderGroup> validatedReservationGroup;
   final Listing listing;
   final String sellerPubkey;
 
@@ -210,16 +210,13 @@ class _ReservationRecords extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pair = validatedReservationGroup;
-    if (pair is Invalid<ReservationGroup>) {
+    if (pair is Invalid<OrderGroup>) {
       final reason = pair.reason;
       return Column(
         mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Reservation errors',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
+          Text('Order errors', style: Theme.of(context).textTheme.titleSmall),
           Gap.vertical.xs(),
           Text(reason),
         ],

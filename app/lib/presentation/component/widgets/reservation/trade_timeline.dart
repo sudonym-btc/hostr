@@ -7,9 +7,9 @@ import 'package:timelines_plus/timelines_plus.dart';
 import 'payment_timeline_item.dart';
 
 class TradeTimeline extends StatelessWidget {
-  final List<ReservationTransition> transitions;
+  final List<OrderTransition> transitions;
   final List<PaymentEvent> paymentEvents;
-  final ReservationGroup? reservationGroup;
+  final OrderGroup? reservationGroup;
   final DateTime? Function(PaymentEvent event)? paymentEventTimestamp;
 
   const TradeTimeline({
@@ -71,7 +71,7 @@ class TradeTimeline extends StatelessWidget {
   }
 
   DateTime _timestampFor(dynamic event) {
-    if (event is ReservationTransition) {
+    if (event is OrderTransition) {
       return DateTime.fromMillisecondsSinceEpoch(event.createdAt * 1000);
     }
     if (event is PaymentEvent) {

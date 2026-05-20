@@ -29,17 +29,17 @@ class ReservationCubit extends Cubit<ReservationCubitState> {
   ReservationCubit()
     : super(ReservationCubitState(status: ReservationCubitStatus.initial));
 
-  Future<Reservation?> createReservationRequest({
+  Future<Order?> createOrderRequest({
     required Listing listing,
     required DateTime startDate,
     required DateTime endDate,
     DenominatedAmount? amount,
-    required Function(Reservation reservation) onSuccess,
+    required Function(Order reservation) onSuccess,
   }) async {
     emit(ReservationCubitState(status: ReservationCubitStatus.loading));
 
     try {
-      final result = await hostr.reservationRequests.createReservationRequest(
+      final result = await hostr.orderRequests.createOrderRequest(
         listing: listing,
         startDate: startDate,
         endDate: endDate,

@@ -84,9 +84,9 @@ void main() {
   group('kHostrOnlyKinds completeness', () {
     const allHostrSpecificKinds = <int>{
       kNostrKindListing,
-      kNostrKindReservation,
+      kNostrKindOrder,
       kNostrKindReview,
-      kNostrKindReservationTransition,
+      kNostrKindOrderTransition,
       kNostrKindEscrowService,
       kNostrKindEscrowMethod,
       kNostrKindEscrowServiceSelected,

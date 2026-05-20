@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
@@ -39,8 +39,7 @@ class Thread {
   bool _seenReceiptsArmed = false;
 
   bool _isTradeCandidate(ThreadState current) =>
-      current.reservationRequests.isNotEmpty ||
-      current.events.any((e) => e is Reservation);
+      current.orderRequests.isNotEmpty || current.events.any((e) => e is Order);
 
   bool get isTradeCandidate =>
       conversationTag.isNotEmpty || _isTradeCandidate(state.value);
@@ -227,7 +226,7 @@ class Thread {
   String? get tradeId {
     if (conversationTag.isNotEmpty) return conversationTag;
     for (final e in state.value.events.reversed) {
-      if (e is Reservation) {
+      if (e is Order) {
         final id = e.getDtag();
         if (id != null && id.isNotEmpty) return id;
       }

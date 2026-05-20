@@ -1,24 +1,24 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 
 import '../can_verify.dart';
 import '../crud.usecase.dart';
 import '../escrow/escrow_verification.dart';
 import '../listings/listings.dart';
-import '../reservation_groups/reservation_groups.dart';
-import '../reservations/reservation_participant_tags.dart';
-import '../reservations/reservations.dart';
+import '../order_groups/order_groups.dart';
+import '../orders/order_participant_tags.dart';
+import '../orders/orders.dart';
 
 /// Dependencies resolved for a single review verification.
 class ReviewDeps {
-  final List<Reservation> reservations;
-  final List<Reservation> proofMatchedReservations;
+  final List<Order> orders;
+  final List<Order> proofMatchedOrders;
   final Listing? listing;
-  final Validation<ReservationGroup>? validatedGroup;
+  final Validation<OrderGroup>? validatedGroup;
 
   const ReviewDeps({
-    required this.reservations,
-    required this.proofMatchedReservations,
+    required this.orders,
+    required this.proofMatchedOrders,
     this.listing,
     this.validatedGroup,
   });
@@ -26,26 +26,23 @@ class ReviewDeps {
 
 @Singleton()
 class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
-  final Reservations _reservations;
+  final Orders _orders;
   final Listings _listings;
   final EscrowVerification _escrowVerification;
 
   Reviews({
     required super.requests,
     required super.logger,
-    required Reservations reservations,
+    required Orders orders,
     required Listings listings,
     required EscrowVerification escrowVerification,
-  }) : _reservations = reservations,
+  }) : _orders = orders,
        _listings = listings,
        _escrowVerification = escrowVerification,
        super(kind: Review.kinds[0]);
 
-  bool _proofMatchesReservation({
-    required Review review,
-    required Reservation reservation,
-  }) {
-    final tradeId = reservation.getDtag();
+  bool _proofMatchesOrder({required Review review, required Order order}) {
+    final tradeId = order.getDtag();
     if (tradeId == null || tradeId.isEmpty) return false;
 
     final reviewProof = review.proof;
@@ -55,10 +52,9 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
 
     final rawParticipantMatches =
         reviewProof.participantPubkey == review.pubKey &&
-        reservation.parsedTags.getTagValueByMarker('p', reviewProof.role) ==
+        order.parsedTags.getTagValueByMarker('p', reviewProof.role) ==
             reviewProof.participantPubkey;
-    final matchingHashExists = reservationParticipantProofsByPubkey(reservation)
-        .values
+    final matchingHashExists = orderParticipantProofsByPubkey(order).values
         .expand((proofs) => proofs)
         .any(
           (proof) =>
@@ -68,9 +64,9 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
         );
     if (!matchingHashExists && !rawParticipantMatches) return false;
 
-    return authorization.verifiesForReservation(
+    return authorization.verifiesForOrder(
       tradeId: tradeId,
-      listingAnchor: reservation.parsedTags.listingAnchor,
+      listingAnchor: order.parsedTags.listingAnchor,
       participantPubkey: reviewProof.participantPubkey,
       role: reviewProof.role,
     );
@@ -82,66 +78,54 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
     // reviews resolve concurrently, these merge into 1 findByTag query +
     // 1 getOne batch query.
     final results = await Future.wait([
-      _reservations.getListingReservations(
-        listingAnchor: review.parsedTags.listingAnchor,
-      ),
+      _orders.getListingOrders(listingAnchor: review.parsedTags.listingAnchor),
       _listings.getOneByAnchor(review.parsedTags.listingAnchor),
     ]);
 
-    var candidateReservations = results[0] as List<Reservation>;
-    final reservationAnchor = review.getFirstTag(kReservationRefTag);
-    if (reservationAnchor != null && reservationAnchor.isNotEmpty) {
-      final anchorMatched = candidateReservations
-          .where((reservation) => reservation.anchor == reservationAnchor)
+    var candidateOrders = results[0] as List<Order>;
+    final orderAnchor = review.getFirstTag(kOrderRefTag);
+    if (orderAnchor != null && orderAnchor.isNotEmpty) {
+      final anchorMatched = candidateOrders
+          .where((order) => order.anchor == orderAnchor)
           .toList();
       if (anchorMatched.isNotEmpty) {
         final tradeIds = anchorMatched
             .map((r) => r.getDtag())
             .whereType<String>();
-        candidateReservations = candidateReservations
-            .where((reservation) => tradeIds.contains(reservation.getDtag()))
+        candidateOrders = candidateOrders
+            .where((order) => tradeIds.contains(order.getDtag()))
             .toList();
       } else {
-        candidateReservations = const [];
+        candidateOrders = const [];
       }
     }
 
     final proofMatches = await Future.wait(
-      candidateReservations.map((reservation) async {
-        return _proofMatchesReservation(
-              review: review,
-              reservation: reservation,
-            )
-            ? reservation
-            : null;
+      candidateOrders.map((order) async {
+        return _proofMatchesOrder(review: review, order: order) ? order : null;
       }),
     );
-    final proofMatchedReservations = proofMatches
-        .whereType<Reservation>()
-        .toList();
-    final proofMatchedTradeIds = proofMatchedReservations
-        .map((reservation) => reservation.getDtag())
+    final proofMatchedOrders = proofMatches.whereType<Order>().toList();
+    final proofMatchedTradeIds = proofMatchedOrders
+        .map((order) => order.getDtag())
         .whereType<String>()
         .toSet();
-    final groupReservations = proofMatchedTradeIds.isEmpty
-        ? const <Reservation>[]
-        : candidateReservations
-              .where(
-                (reservation) =>
-                    proofMatchedTradeIds.contains(reservation.getDtag()),
-              )
+    final groupOrders = proofMatchedTradeIds.isEmpty
+        ? const <Order>[]
+        : candidateOrders
+              .where((order) => proofMatchedTradeIds.contains(order.getDtag()))
               .toList();
 
-    final validatedGroup = groupReservations.isEmpty
+    final validatedGroup = groupOrders.isEmpty
         ? null
-        : await ReservationGroups.verifyGroupOnChain(
-            ReservationGroup(reservations: groupReservations),
+        : await OrderGroups.verifyGroupOnChain(
+            OrderGroup(orders: groupOrders),
             escrowVerification: _escrowVerification,
           );
 
     return ReviewDeps(
-      reservations: candidateReservations,
-      proofMatchedReservations: proofMatchedReservations,
+      orders: candidateOrders,
+      proofMatchedOrders: proofMatchedOrders,
       listing: results[1] as Listing?,
       validatedGroup: validatedGroup,
     );
@@ -151,11 +135,11 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
   Validation<Review> verify(Review review, ReviewDeps deps) =>
       logger.spanSync('verify', () {
         logger.d(
-          "Verifying review ${review.id} with ${deps.reservations.length} "
-          "matching reservations and listing ${deps.listing?.id}",
+          "Verifying review ${review.id} with ${deps.orders.length} "
+          "matching orders and listing ${deps.listing?.id}",
         );
-        if (deps.reservations.isEmpty) {
-          return Invalid(review, 'No matching reservation found');
+        if (deps.orders.isEmpty) {
+          return Invalid(review, 'No matching order found');
         }
 
         final listing = deps.listing;
@@ -163,24 +147,24 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
           return Invalid(review, 'Listing not found');
         }
 
-        final proofMatchedReservations = deps.proofMatchedReservations;
-        if (proofMatchedReservations.isEmpty) {
+        final proofMatchedOrders = deps.proofMatchedOrders;
+        if (proofMatchedOrders.isEmpty) {
           return Invalid(review, 'Participation proof does not match');
         }
 
         // @todo: potentially include block time to prove that a comment was
         // written after the trade was completed?
         final validatedGroup = deps.validatedGroup;
-        if (validatedGroup is Valid<ReservationGroup> &&
+        if (validatedGroup is Valid<OrderGroup> &&
             validatedGroup.event.confirmedCommitted) {
           return Valid(review);
         }
-        if (validatedGroup is Invalid<ReservationGroup>) {
+        if (validatedGroup is Invalid<OrderGroup>) {
           return Invalid(review, validatedGroup.reason);
         }
-        if (validatedGroup is Valid<ReservationGroup>) {
-          return Invalid(review, 'Reservation was never confirmed committed');
+        if (validatedGroup is Valid<OrderGroup>) {
+          return Invalid(review, 'Order was never confirmed committed');
         }
-        return Invalid(review, 'No valid reservation in group');
+        return Invalid(review, 'No valid order in group');
       });
 }

@@ -15,7 +15,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves reservation, trip, booking, or payment status data without changing reservations.",
+        "read_only_justification": "Only retrieves order, trip, booking, or payment status data without changing orders.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
@@ -231,7 +231,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "read_only_justification": "Only retrieves listing, availability, review, or order-group data without modifying marketplace state.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
@@ -267,19 +267,19 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "read_only_justification": "Only retrieves listing, availability, review, or order-group data without modifying marketplace state.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
     },
-    "hostr_listings_reservationGroups": {
+    "hostr_listings_orderGroups": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "read_only_justification": "Only retrieves listing, availability, review, or order-group data without modifying marketplace state.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
@@ -291,7 +291,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "read_only_justification": "Only retrieves listing, availability, review, or order-group data without modifying marketplace state.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
@@ -303,7 +303,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves listing, availability, review, or reservation-group data without modifying marketplace state.",
+        "read_only_justification": "Only retrieves listing, availability, review, or order-group data without modifying marketplace state.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
@@ -344,7 +344,7 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
     },
-    "hostr_reservations_bookAndPay": {
+    "hostr_orders_bookAndPay": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -352,80 +352,80 @@
       },
       "justifications": {
         "read_only_justification": "Starts the guest booking and payment handoff flow for a selected Hostr listing.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
         "destructive_justification": "Starts a booking handoff and payment prompt but does not delete, overwrite, revoke access, or settle funds by itself."
       }
     },
-    "hostr_reservations_cancel": {
+    "hostr_orders_cancel": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Can publish or send a cancellation for a concrete reservation trade.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
-        "destructive_justification": "Cancels a private negotiation or committed reservation after approval."
+        "read_only_justification": "Can publish or send a cancellation for a concrete order trade.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Cancels a private negotiation or committed order after approval."
       }
     },
-    "hostr_reservations_commit": {
+    "hostr_orders_commit": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Can publish a committed paid reservation when a swap proof is available.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
-        "destructive_justification": "Publishes a committed paid reservation after a payment proof is available."
+        "read_only_justification": "Can publish a committed paid order when a swap proof is available.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Publishes a committed paid order after a payment proof is available."
       }
     },
-    "hostr_reservations_negotiateAccept": {
+    "hostr_orders_negotiateAccept": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Can send acceptance of the latest private reservation offer after user approval.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
-        "destructive_justification": "Sends private reservation negotiation events that cannot be unsent after live execution."
+        "read_only_justification": "Can send acceptance of the latest private order offer after user approval.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Sends private order negotiation events that cannot be unsent after live execution."
       }
     },
-    "hostr_reservations_negotiateOffer": {
+    "hostr_orders_negotiateOffer": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Can send a private reservation offer or counteroffer after user approval.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
-        "destructive_justification": "Sends private reservation negotiation events that cannot be unsent after live execution."
+        "read_only_justification": "Can send a private order offer or counteroffer after user approval.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Sends private order negotiation events that cannot be unsent after live execution."
       }
     },
-    "hostr_reservations_pay": {
+    "hostr_orders_pay": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Can create a manual escrow funding swap for an existing reservation trade.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
-        "destructive_justification": "Creates manual escrow funding state for a reservation trade after approval."
+        "read_only_justification": "Can create a manual escrow funding swap for an existing order trade.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Creates manual escrow funding state for a order trade after approval."
       }
     },
-    "hostr_reservations_review": {
+    "hostr_orders_review": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Can publish a Hostr reservation review after preview and approval.",
-        "open_world_justification": "Can send, publish, cancel, review, or fund reservation state through Hostr/Nostr and payment systems.",
-        "destructive_justification": "Publishes a reservation review that is externally visible after approval."
+        "read_only_justification": "Can publish a Hostr order review after preview and approval.",
+        "open_world_justification": "Can send, publish, cancel, review, or fund order state through Hostr/Nostr and payment systems.",
+        "destructive_justification": "Publishes a order review that is externally visible after approval."
       }
     },
     "hostr_session_accounts": {
@@ -555,7 +555,7 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Only retrieves reservation, trip, booking, or payment status data without changing reservations.",
+        "read_only_justification": "Only retrieves order, trip, booking, or payment status data without changing orders.",
         "open_world_justification": "Does not publish content, send messages, upload files, submit transactions, or otherwise change external systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
@@ -685,7 +685,7 @@
       "user_prompt": "Send bitcoin from my wallet to this address.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because generic wallet transfers are outside Hostr reservation payment and escrow workflows.",
+      "expected_output": "The app should not be invoked because generic wallet transfers are outside Hostr order payment and escrow workflows.",
       "expected_output_url": null
     }
   ]

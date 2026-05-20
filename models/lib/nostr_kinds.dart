@@ -2,9 +2,9 @@
 /// https://nips.nostr.com/99
 const kNostrKindListing = 30402;
 
-/// Hostr reservation, custom addressable event using NIP-01 kind ranges:
+/// Hostr order, custom addressable event using NIP-01 kind ranges:
 /// https://nips.nostr.com/01
-const kNostrKindReservation = 32122;
+const kNostrKindOrder = 32122;
 
 /// Hostr review, custom addressable event using NIP-01 kind ranges:
 /// https://nips.nostr.com/01
@@ -22,10 +22,10 @@ const kNostrKindTradeKeyAuthorization = 1329;
 /// https://nips.nostr.com/01
 const kNostrKindHostrSeed = 17389;
 
-/// Reservation transitions are append-only audit events, so this kind must
+/// Order transitions are append-only audit events, so this kind must
 /// stay outside NIP-01 replaceable ranges:
 /// https://nips.nostr.com/01
-const kNostrKindReservationTransition = 1326;
+const kNostrKindOrderTransition = 1326;
 
 /// Escrow service advertisement. Moved from 40021 (ephemeral range, not stored
 /// by relays) to 30303 (parameterized replaceable) so relays persist it.
@@ -149,12 +149,12 @@ const kNostrKindProfileBadges = 10008;
 const kHostrOnlyKinds = <int>{
   kNostrKindSeenStatus,
   kNostrKindListing,
-  kNostrKindReservation,
+  kNostrKindOrder,
   kNostrKindReview,
   kNostrKindCommitAuthorization,
   kNostrKindTradeKeyAuthorization,
   kNostrKindHostrSeed,
-  kNostrKindReservationTransition,
+  kNostrKindOrderTransition,
   kNostrKindEscrowService,
   kNostrKindEscrowMethod,
   kNostrKindEscrowServiceSelected,
@@ -169,6 +169,6 @@ const kHostrOnlyKinds = <int>{
   kNostrKindBadgeDefinition,
 };
 
-const kReservationRefTag = "r";
+const kOrderRefTag = "r";
 const kListingRefTag = "a";
 const kConversationTag = "conversation";

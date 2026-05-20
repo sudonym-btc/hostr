@@ -6,12 +6,12 @@ import 'package:test/test.dart';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-/// Build a [ReservationTransition] with the given transition parameters,
+/// Build a [OrderTransition] with the given transition parameters,
 /// properly signed by [signer].
-ReservationTransition _transition({
-  required ReservationTransitionType type,
-  required ReservationStage from,
-  required ReservationStage to,
+OrderTransition _transition({
+  required OrderTransitionType type,
+  required OrderStage from,
+  required OrderStage to,
   KeyPair? signer,
   String? reason,
   Map<String, dynamic>? updatedFields,
@@ -19,7 +19,7 @@ ReservationTransition _transition({
 }) {
   final key = signer ?? MockKeys.guest;
 
-  final content = ReservationTransitionContent(
+  final content = OrderTransitionContent(
     transitionType: type,
     fromStage: from,
     toStage: to,
@@ -28,7 +28,7 @@ ReservationTransition _transition({
   );
 
   final unsigned = Nip01Event(
-    kind: kNostrKindReservationTransition,
+    kind: kNostrKindOrderTransition,
     pubKey: key.publicKey,
     tags: [
       ['d', 'trade-1'],
@@ -42,7 +42,7 @@ ReservationTransition _transition({
     privateKey: key.privateKey!,
   );
 
-  return ReservationTransition.fromNostrEvent(signed);
+  return OrderTransition.fromNostrEvent(signed);
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────
@@ -62,9 +62,9 @@ void main() {
       test('negotiate → negotiate (counterOffer)', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.counterOffer,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.negotiate,
+            type: OrderTransitionType.counterOffer,
+            from: OrderStage.negotiate,
+            to: OrderStage.negotiate,
           ),
         ]);
         expect(result.isValid, isTrue);
@@ -73,9 +73,9 @@ void main() {
       test('negotiate → commit (commit)', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
+            type: OrderTransitionType.commit,
+            from: OrderStage.negotiate,
+            to: OrderStage.commit,
           ),
         ]);
         expect(result.isValid, isTrue);
@@ -84,9 +84,9 @@ void main() {
       test('negotiate → cancel', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.cancel,
+            from: OrderStage.negotiate,
+            to: OrderStage.cancel,
           ),
         ]);
         expect(result.isValid, isTrue);
@@ -95,9 +95,9 @@ void main() {
       test('commit → cancel', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.commit,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.cancel,
+            from: OrderStage.commit,
+            to: OrderStage.cancel,
           ),
         ]);
         expect(result.isValid, isTrue);
@@ -110,9 +110,9 @@ void main() {
       test('commit → negotiate is illegal', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.counterOffer,
-            from: ReservationStage.commit,
-            to: ReservationStage.negotiate,
+            type: OrderTransitionType.counterOffer,
+            from: OrderStage.commit,
+            to: OrderStage.negotiate,
           ),
         ]);
         expect(result.isValid, isFalse);
@@ -123,9 +123,9 @@ void main() {
       test('cancel → negotiate is illegal', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.counterOffer,
-            from: ReservationStage.cancel,
-            to: ReservationStage.negotiate,
+            type: OrderTransitionType.counterOffer,
+            from: OrderStage.cancel,
+            to: OrderStage.negotiate,
           ),
         ]);
         expect(result.isValid, isFalse);
@@ -135,9 +135,9 @@ void main() {
       test('cancel → commit is illegal', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.cancel,
-            to: ReservationStage.commit,
+            type: OrderTransitionType.commit,
+            from: OrderStage.cancel,
+            to: OrderStage.commit,
           ),
         ]);
         expect(result.isValid, isFalse);
@@ -147,9 +147,9 @@ void main() {
       test('cancel → cancel is illegal', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.cancel,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.cancel,
+            from: OrderStage.cancel,
+            to: OrderStage.cancel,
           ),
         ]);
         expect(result.isValid, isFalse);
@@ -159,9 +159,9 @@ void main() {
       test('commit → commit is illegal', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.commit,
-            to: ReservationStage.commit,
+            type: OrderTransitionType.commit,
+            from: OrderStage.commit,
+            to: OrderStage.commit,
           ),
         ]);
         expect(result.isValid, isFalse);
@@ -175,9 +175,9 @@ void main() {
       test('counterOffer with negotiate → commit', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.counterOffer,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
+            type: OrderTransitionType.counterOffer,
+            from: OrderStage.negotiate,
+            to: OrderStage.commit,
           ),
         ]);
         expect(result.isValid, isFalse);
@@ -187,9 +187,9 @@ void main() {
       test('commit type with commit → cancel', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.commit,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.commit,
+            from: OrderStage.commit,
+            to: OrderStage.cancel,
           ),
         ]);
         // commit → cancel is a legal edge, but commit TYPE only allows
@@ -204,20 +204,20 @@ void main() {
     group('valid chains', () {
       test('negotiate → negotiate → negotiate → commit', () {
         final first = _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
+          type: OrderTransitionType.counterOffer,
+          from: OrderStage.negotiate,
+          to: OrderStage.negotiate,
         );
         final second = _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
+          type: OrderTransitionType.counterOffer,
+          from: OrderStage.negotiate,
+          to: OrderStage.negotiate,
           prevTransitionId: first.id,
         );
         final third = _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
+          type: OrderTransitionType.commit,
+          from: OrderStage.negotiate,
+          to: OrderStage.commit,
           prevTransitionId: second.id,
         );
         final result = validateStateTransitions([
@@ -230,14 +230,14 @@ void main() {
 
       test('negotiate → commit → cancel', () {
         final first = _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
+          type: OrderTransitionType.commit,
+          from: OrderStage.negotiate,
+          to: OrderStage.commit,
         );
         final second = _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.commit,
-          to: ReservationStage.cancel,
+          type: OrderTransitionType.cancel,
+          from: OrderStage.commit,
+          to: OrderStage.cancel,
           prevTransitionId: first.id,
         );
         final result = validateStateTransitions([
@@ -250,9 +250,9 @@ void main() {
       test('negotiate → cancel (direct)', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.cancel,
+            from: OrderStage.negotiate,
+            to: OrderStage.cancel,
           ),
         ]);
         expect(result.isValid, isTrue);
@@ -262,14 +262,14 @@ void main() {
     group('invalid chains (chain break)', () {
       test('negotiate → commit then negotiate → commit (gap)', () {
         final first = _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
+          type: OrderTransitionType.commit,
+          from: OrderStage.negotiate,
+          to: OrderStage.commit,
         );
         final second = _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
+          type: OrderTransitionType.commit,
+          from: OrderStage.negotiate,
+          to: OrderStage.commit,
           prevTransitionId: first.id,
         );
         final result = validateStateTransitions([
@@ -285,14 +285,14 @@ void main() {
       test('negotiate → cancel then commit → cancel (continues after cancel)',
           () {
         final first = _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.cancel,
+          type: OrderTransitionType.cancel,
+          from: OrderStage.negotiate,
+          to: OrderStage.cancel,
         );
         final second = _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.commit,
-          to: ReservationStage.cancel,
+          type: OrderTransitionType.cancel,
+          from: OrderStage.commit,
+          to: OrderStage.cancel,
           prevTransitionId: first.id,
         );
         final result = validateStateTransitions([
@@ -307,14 +307,14 @@ void main() {
       test('multiple genesis transitions are invalid', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.commit,
-            from: ReservationStage.negotiate,
-            to: ReservationStage.commit,
+            type: OrderTransitionType.commit,
+            from: OrderStage.negotiate,
+            to: OrderStage.commit,
           ),
           _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.commit,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.cancel,
+            from: OrderStage.commit,
+            to: OrderStage.cancel,
           ),
         ]);
 
@@ -325,9 +325,9 @@ void main() {
       test('missing previous transition is invalid', () {
         final result = validateStateTransitions([
           _transition(
-            type: ReservationTransitionType.cancel,
-            from: ReservationStage.commit,
-            to: ReservationStage.cancel,
+            type: OrderTransitionType.cancel,
+            from: OrderStage.commit,
+            to: OrderStage.cancel,
             prevTransitionId: 'missing',
           ),
         ]);
@@ -338,20 +338,20 @@ void main() {
 
       test('forked previous transition is invalid', () {
         final first = _transition(
-          type: ReservationTransitionType.counterOffer,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.negotiate,
+          type: OrderTransitionType.counterOffer,
+          from: OrderStage.negotiate,
+          to: OrderStage.negotiate,
         );
         final second = _transition(
-          type: ReservationTransitionType.commit,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.commit,
+          type: OrderTransitionType.commit,
+          from: OrderStage.negotiate,
+          to: OrderStage.commit,
           prevTransitionId: first.id,
         );
         final fork = _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.cancel,
+          type: OrderTransitionType.cancel,
+          from: OrderStage.negotiate,
+          to: OrderStage.cancel,
           prevTransitionId: first.id,
         );
 
@@ -385,15 +385,15 @@ void main() {
   group('validateEscrowStateTransitions', () {
     test('escrow may not cancel after commit', () {
       final first = _transition(
-        type: ReservationTransitionType.confirm,
-        from: ReservationStage.commit,
-        to: ReservationStage.commit,
+        type: OrderTransitionType.confirm,
+        from: OrderStage.commit,
+        to: OrderStage.commit,
         signer: MockKeys.escrow,
       );
       final second = _transition(
-        type: ReservationTransitionType.cancel,
-        from: ReservationStage.commit,
-        to: ReservationStage.cancel,
+        type: OrderTransitionType.cancel,
+        from: OrderStage.commit,
+        to: OrderStage.cancel,
         signer: MockKeys.escrow,
         prevTransitionId: first.id,
       );
@@ -406,9 +406,9 @@ void main() {
     test('escrow may reject before commit', () {
       final result = validateEscrowStateTransitions([
         _transition(
-          type: ReservationTransitionType.cancel,
-          from: ReservationStage.negotiate,
-          to: ReservationStage.cancel,
+          type: OrderTransitionType.cancel,
+          from: OrderStage.negotiate,
+          to: OrderStage.cancel,
           signer: MockKeys.escrow,
         ),
       ]);

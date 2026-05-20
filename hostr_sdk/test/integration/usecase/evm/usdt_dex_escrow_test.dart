@@ -78,7 +78,7 @@ void main() {
       final preparer = hostr.escrow.fund(
         EscrowFundParams(
           escrowService: escrowService,
-          negotiateReservation: trade.negotiateReservation,
+          negotiateOrder: trade.negotiateOrder,
           sellerProfile: trade.sellerProfile,
           sellerEvmAddress: trade.sellerEvmAddress,
           amount: amount,
@@ -145,7 +145,7 @@ void main() {
         final preparer = hostr.escrow.fund(
           EscrowFundParams(
             escrowService: escrowService,
-            negotiateReservation: trade.negotiateReservation,
+            negotiateOrder: trade.negotiateOrder,
             sellerProfile: trade.sellerProfile,
             sellerEvmAddress: trade.sellerEvmAddress,
             amount: amount,
@@ -171,7 +171,7 @@ void main() {
         final contract = configured.escrow.getSupportedEscrowContract(
           escrowService,
         );
-        final tradeId = trade.negotiateReservation.getDtag()!;
+        final tradeId = trade.negotiateOrder.getDtag()!;
         final onChainTrade = await contract.getTrade(tradeId);
 
         expect(
@@ -256,7 +256,7 @@ void main() {
       await hostr.auth.signin(trade.guest.privateKey);
 
       final escrowService = await _resolveEscrowService(harness);
-      final tradeId = trade.negotiateReservation.getDtag()!;
+      final tradeId = trade.negotiateOrder.getDtag()!;
 
       // Fund the escrow directly with the Boltz USDT token so we bypass
       // the swap-in and focus on the release path.
@@ -575,7 +575,7 @@ Future<void> _fundUsdtEscrowDirectly({
   final multiEscrow = MultiEscrow(address: escrowAddress, client: web3);
   final txHash = await multiEscrow.createTrade(
     (
-      tradeId: getBytes32(trade.negotiateReservation.getDtag()!),
+      tradeId: getBytes32(trade.negotiateOrder.getDtag()!),
       buyer: buyerAddress,
       seller: sellerAddress,
       arbiter: EthereumAddress.fromHex(escrowService.evmAddress),
@@ -583,7 +583,7 @@ Future<void> _fundUsdtEscrowDirectly({
       paymentAmount: paymentValue,
       bondAmount: BigInt.zero,
       unlockAt: BigInt.from(
-        trade.negotiateReservation.end!.millisecondsSinceEpoch ~/ 1000,
+        trade.negotiateOrder.end!.millisecondsSinceEpoch ~/ 1000,
       ),
       escrowFee: feeValue,
     ),

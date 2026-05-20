@@ -16,8 +16,8 @@ class CommitAuthorizationTags extends EventTags
 class CommitAuthorization extends JsonContentNostrEvent<
     CommitAuthorizationContent, CommitAuthorizationTags> {
   static const List<int> kinds = [kNostrKindCommitAuthorization];
-  static const String reservationCommitHashAlg = 'sha256';
-  static const List<String> reservationCommittedFields = [
+  static const String orderCommitHashAlg = 'sha256';
+  static const List<String> orderCommittedFields = [
     'amount',
     'end',
     'quantity',
@@ -73,20 +73,20 @@ class CommitAuthorization extends JsonContentNostrEvent<
       content: CommitAuthorizationContent(
         commitHash: commitHash,
         role: role,
-        hashAlg: reservationCommitHashAlg,
-        committedFields: reservationCommittedFields,
+        hashAlg: orderCommitHashAlg,
+        committedFields: orderCommittedFields,
       ),
       createdAt: createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
   }
 
-  bool authorizesReservation({
+  bool authorizesOrder({
     required String authorPubkey,
     required String listingAnchor,
     required String tradeId,
     required String commitHash,
-    Iterable<String> committedFields = reservationCommittedFields,
-    String hashAlg = reservationCommitHashAlg,
+    Iterable<String> committedFields = orderCommittedFields,
+    String hashAlg = orderCommitHashAlg,
     String role = 'seller',
   }) {
     if (pubKey != authorPubkey) return false;
@@ -127,9 +127,8 @@ class CommitAuthorizationContent extends EventContent {
     this.version = 1,
     required this.commitHash,
     required this.role,
-    this.hashAlg = CommitAuthorization.reservationCommitHashAlg,
-    Iterable<String> committedFields =
-        CommitAuthorization.reservationCommittedFields,
+    this.hashAlg = CommitAuthorization.orderCommitHashAlg,
+    Iterable<String> committedFields = CommitAuthorization.orderCommittedFields,
   }) : committedFields = (committedFields.toSet().toList()..sort());
 
   @override
@@ -148,11 +147,11 @@ class CommitAuthorizationContent extends EventContent {
       version: json['version'] as int? ?? 1,
       commitHash: json['commitHash'] as String,
       role: json['role'] as String? ?? 'seller',
-      hashAlg: json['hashAlg'] as String? ??
-          CommitAuthorization.reservationCommitHashAlg,
+      hashAlg:
+          json['hashAlg'] as String? ?? CommitAuthorization.orderCommitHashAlg,
       committedFields: (json['committedFields'] as List<dynamic>?)
               ?.map((e) => e.toString()) ??
-          CommitAuthorization.reservationCommittedFields,
+          CommitAuthorization.orderCommittedFields,
     );
   }
 }

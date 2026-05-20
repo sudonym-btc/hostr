@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 
 import '../../injection.dart' show HostrScope, getIt;
@@ -47,7 +47,7 @@ class EscrowUseCase {
     EscrowServiceSelected selectedEscrow,
     String tradeId,
   ) => _logger.spanSync('checkEscrowStatus', () {
-    _logger.i('Checking escrow status for reservation: $tradeId');
+    _logger.i('Checking escrow status for order: $tradeId');
 
     final contract = _evm
         .getChainForEscrowService(selectedEscrow.service)

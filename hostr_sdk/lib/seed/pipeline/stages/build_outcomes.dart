@@ -30,7 +30,7 @@ List<SeedOutcomePlan> buildOutcomePlans({
     final thread = threads[i];
     final spec = thread.stageSpec;
 
-    final reservationEndedInPast = !thread.end.isAfter(chainNow);
+    final orderEndedInPast = !thread.end.isAfter(chainNow);
 
     final isCompleted = ctx.pickByRatio(spec.completedRatio);
     if (!isCompleted) continue;
@@ -43,11 +43,11 @@ List<SeedOutcomePlan> buildOutcomePlans({
       escrowOutcome = _pickEscrowOutcome(
         ctx: ctx,
         spec: spec,
-        allowClaimedByHost: reservationEndedInPast,
+        allowClaimedByHost: orderEndedInPast,
       );
     }
 
-    final isSelfSigned = ctx.pickByRatio(spec.selfSignedReservationRatio);
+    final isSelfSigned = ctx.pickByRatio(spec.selfSignedOrderRatio);
 
     plans.add(
       SeedOutcomePlan(
@@ -74,7 +74,7 @@ Nip01Event buildZapReceipt({
   required SeedContext ctx,
   required int threadIndex,
   required String tradeId,
-  required Reservation request,
+  required Order request,
   required Listing listing,
   required SeedUser host,
   required SeedUser guest,
@@ -97,20 +97,20 @@ Nip01Event buildZapReceipt({
   );
 }
 
-// ─── Reservation construction ───────────────────────────────────────────────
+// ─── Order construction ───────────────────────────────────────────────
 
-/// Build a signed reservation event for a completed outcome plan.
+/// Build a signed order event for a completed outcome plan.
 ///
 /// Call after `SeedSink.submitTrade()` / `SeedSink.settleTrade()` have
 /// populated [SeedOutcomePlan.createTxHash].  This function is pure —
 /// it never touches the chain.
-Future<Reservation> buildReservationForPlan({
+Future<Order> buildOrderForPlan({
   required SeedContext ctx,
   required SeedOutcomePlan plan,
   required Map<String, ProfileMetadata> profileByPubkey,
   required EscrowService escrowService,
   required Map<String, EscrowMethod> methodByPubkey,
-  required double invalidReservationRate,
+  required double invalidOrderRate,
   EntityFactory? factory,
 }) async {
   final f = factory ?? EntityFactory(ctx: ctx);
@@ -153,30 +153,28 @@ Future<Reservation> buildReservationForPlan({
   thread.selfSigned = plan.selfSigned;
 
   final buyerSigningKey = thread.requestAuthorKeyPair;
-  final reservationSigner = plan.selfSigned
-      ? buyerSigningKey
-      : thread.host.keyPair;
+  final orderSigner = plan.selfSigned ? buyerSigningKey : thread.host.keyPair;
 
   String? invalidReason;
   final mutatedProof = _maybeCorruptPaymentProof(
     ctx: ctx,
-    invalidReservationRate: invalidReservationRate,
+    invalidOrderRate: invalidOrderRate,
     proof: proof,
     onInvalid: (reason) => invalidReason = reason,
   );
 
-  final reservation = await f.reservation(
+  final order = await f.order(
     guestKeyPair: thread.guest.keyPair,
     dTag: thread.request.getDtag()!,
     listing: thread.listing,
     start: thread.start,
     end: thread.end,
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     quantity: thread.request.quantity,
     amount: thread.request.amount,
     recipient: thread.request.recipient,
     proof: mutatedProof,
-    signerOverride: reservationSigner,
+    signerOverride: orderSigner,
     extraTags: [
       if (plan.escrowOutcome != null)
         ['escrowOutcome', plan.escrowOutcome!.name],
@@ -185,21 +183,21 @@ Future<Reservation> buildReservationForPlan({
     createdAt: ctx.timestampDaysAfter(31 + plan.index + 1),
   );
 
-  thread.reservation = reservation;
-  thread.invalidReservationReason = invalidReason;
-  return reservation;
+  thread.order = order;
+  thread.invalidOrderReason = invalidReason;
+  return order;
 }
 
 // ─── Proof corruption ───────────────────────────────────────────────────────
 
 PaymentProof? _maybeCorruptPaymentProof({
   required SeedContext ctx,
-  required double invalidReservationRate,
+  required double invalidOrderRate,
   required PaymentProof? proof,
   void Function(String reason)? onInvalid,
 }) {
-  if (invalidReservationRate <= 0) return proof;
-  if (!ctx.pickByRatio(invalidReservationRate)) return proof;
+  if (invalidOrderRate <= 0) return proof;
+  if (!ctx.pickByRatio(invalidOrderRate)) return proof;
   if (proof == null) {
     onInvalid?.call('missing_payment_proof');
     return null;

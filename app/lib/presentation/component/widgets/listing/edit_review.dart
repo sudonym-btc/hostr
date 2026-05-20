@@ -15,7 +15,7 @@ class EditReviewController extends UpsertFormController {
   final TextFieldController reviewField = TextFieldController();
   final EditReviewSubmit? onUpsert;
   final Listing listing;
-  final Reservation? reservation;
+  final Order? reservation;
 
   int _rating = 5;
   int _originalRating = 5;
@@ -83,11 +83,11 @@ class EditReviewController extends UpsertFormController {
     final activeKeyPair = getIt<Hostr>().auth.activeKeyPair!;
     final reservationContext = reservation;
     if (reservationContext == null) {
-      throw StateError('Reservation context is required to publish a review');
+      throw StateError('Order context is required to publish a review');
     }
     final tradeId = reservationContext.getDtag();
     if (tradeId == null || tradeId.isEmpty) {
-      throw StateError('Reservation trade id is required to publish a review');
+      throw StateError('Order trade id is required to publish a review');
     }
     debugPrint('REVIEW_SAVE upsert:tradeId=$tradeId');
     final tradeAccountIndex = await getIt<Hostr>().tradeAccountAllocator
@@ -98,13 +98,12 @@ class EditReviewController extends UpsertFormController {
     debugPrint(
       'REVIEW_SAVE upsert:reservationAuthor=${reservationAuthorKeyPair.publicKey}',
     );
-    final proof = await getIt<Hostr>().reservations
-        .createParticipationProofForReview(
-          reservation: reservationContext,
-          role: 'buyer',
-          recipientKeyPair: reservationAuthorKeyPair,
-          identityKeyPair: activeKeyPair,
-        );
+    final proof = await getIt<Hostr>().orders.createParticipationProofForReview(
+      order: reservationContext,
+      role: 'buyer',
+      recipientKeyPair: reservationAuthorKeyPair,
+      identityKeyPair: activeKeyPair,
+    );
     debugPrint(
       'REVIEW_SAVE upsert:proof participant=${proof.participantPubkey} hash=${proof.authorizationPayloadHash}',
     );
@@ -119,7 +118,7 @@ class EditReviewController extends UpsertFormController {
         tags: ReviewTags([
           ['d', tradeId],
           [kListingRefTag, listing.anchor!],
-          [kReservationRefTag, reservation?.anchor ?? ''],
+          [kOrderRefTag, reservation?.anchor ?? ''],
           ['p', listing.pubKey],
         ]),
       ),
@@ -137,7 +136,7 @@ class EditReviewController extends UpsertFormController {
 class EditReview extends StatefulWidget {
   final Review? existingReview;
   final Listing listing;
-  final Reservation? reservation;
+  final Order? reservation;
   final VoidCallback? onSaved;
 
   const EditReview({

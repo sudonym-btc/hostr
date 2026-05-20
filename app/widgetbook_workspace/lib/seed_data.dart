@@ -28,7 +28,7 @@ Future<void> initSeedData() async {
       hostHasEvmRatio: 0,
       setupLnbits: false,
       listingsPerHostAvg: 1.0,
-      reservationRequestsPerGuest: 1,
+      orderRequestsPerGuest: 1,
       threadStages: const ThreadStageSpec.pendingOnly(textMessageCount: 1),
     ),
   );
@@ -47,9 +47,9 @@ Future<void> initSeedData() async {
   _threadScenarios = await Future.wait(
     _data.threads.map((thread) async {
       final hostProfile = hostProfileByPubkey[thread.host.keyPair.publicKey];
-      Reservation? reservation;
+      Order? reservation;
       if (hostProfile != null) {
-        reservation = await _factory.buildMockReservation(
+        reservation = await _factory.buildMockOrder(
           thread,
           hostProfile: hostProfile,
         );
@@ -78,7 +78,7 @@ List<Listing> get mockListings => _data.listings;
 List<ProfileMetadata> get mockProfiles => _data.profiles;
 
 /// Deterministic reservations (one per thread, mock-signed).
-List<Reservation> get mockReservations => _threadScenarios
+List<Order> get mockReservations => _threadScenarios
     .where((s) => s.reservation != null)
     .map((s) => s.reservation!)
     .toList();
@@ -99,7 +99,7 @@ List<ThreadScenario> get mockThreadScenarios => _threadScenarios;
 class ThreadScenario {
   final String id;
   final SeedThread thread;
-  final Reservation? reservation;
+  final Order? reservation;
 
   const ThreadScenario({
     required this.id,
@@ -114,8 +114,7 @@ class ThreadScenario {
 
   Listing get listing => thread.listing;
 
-  Reservation get reservationRequest => thread.request;
+  Order get reservationRequest => thread.request;
 
-  List<Reservation> get reservations =>
-      reservation != null ? [reservation!] : [];
+  List<Order> get reservations => reservation != null ? [reservation!] : [];
 }

@@ -3,7 +3,7 @@ import 'src/decimal_math.dart';
 /// A monetary value expressed in a named denomination (e.g. "BTC", "USD"),
 /// without any chain-specific binding.
 ///
-/// Use this for listing prices, reservation negotiation amounts, and
+/// Use this for listing prices, order negotiation amounts, and
 /// any context where the *denomination* matters but not the concrete
 /// on-chain token. Chain-specific [Token]/[TokenAmount] should only
 /// appear at the on-chain execution boundary (funding, verification).

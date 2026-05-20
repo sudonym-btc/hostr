@@ -1,5 +1,5 @@
 import 'package:get_it/get_it.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/ndk.dart';
 import 'package:sqlite3/common.dart';
 

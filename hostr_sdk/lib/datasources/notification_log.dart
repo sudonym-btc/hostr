@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:sqlite3/common.dart';
 
 /// Persistent log of notification IDs that have already been displayed.

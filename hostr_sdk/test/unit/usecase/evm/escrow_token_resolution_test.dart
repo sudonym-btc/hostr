@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('EvmChain escrow token resolution', () {
-    test('uses a host-accepted token for the reservation denomination', () {
+    test('uses a host-accepted token for the order denomination', () {
       final method = _escrowMethod([
         [
           kAcceptedPaymentFormTag,

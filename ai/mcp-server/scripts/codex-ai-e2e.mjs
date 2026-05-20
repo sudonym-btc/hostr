@@ -470,8 +470,8 @@ function buildPhases(runMode) {
       prompt: () => buildPostBookingFollowupPrompt(requireLatestTradeId(), version),
     })),
     ...versions.map((version) => ({
-      label: `Reservation concern (${version})`,
-      prompt: () => buildReservationConcernPrompt(requireLatestTradeId(), version),
+      label: `Order concern (${version})`,
+      prompt: () => buildOrderConcernPrompt(requireLatestTradeId(), version),
     })),
     {
       label: "Guest tool coverage",
@@ -498,13 +498,13 @@ function buildPhases(runMode) {
         {
           prompt:
             "Please draft that five-star Hostr trip review now and show me the preview. If it cannot be published yet, the preview is enough.",
-          when: missingTool("hostr_reservations_review"),
+          when: missingTool("hostr_orders_review"),
         },
       ],
     },
     {
-      label: "Manual reservation coverage",
-      prompt: () => buildManualReservationCoveragePrompt(requireLatestTradeId()),
+      label: "Manual order coverage",
+      prompt: () => buildManualOrderCoveragePrompt(requireLatestTradeId()),
       followups: [
         {
           prompt:
@@ -523,36 +523,36 @@ function buildPhases(runMode) {
         },
         {
           prompt:
-            "For the reservation offer examples, use the same $20 stay total. Preview sending that counteroffer and preview accepting the latest offer; don't send or pay anything.",
+            "For the order offer examples, use the same $20 stay total. Preview sending that counteroffer and preview accepting the latest offer; don't send or pay anything.",
           when: missingAnyTool(
-            "hostr_reservations_negotiateOffer",
-            "hostr_reservations_negotiateAccept",
+            "hostr_orders_negotiateOffer",
+            "hostr_orders_negotiateAccept",
           ),
         },
         {
           prompt:
-            "Please retry the reservation offer preview with the same $20 total; don't send it.",
-          when: failedTool("hostr_reservations_negotiateOffer"),
+            "Please retry the order offer preview with the same $20 total; don't send it.",
+          when: failedTool("hostr_orders_negotiateOffer"),
         },
         {
           prompt:
             "Please retry the latest-offer acceptance preview; don't accept it live.",
-          when: failedTool("hostr_reservations_negotiateAccept"),
+          when: failedTool("hostr_orders_negotiateAccept"),
         },
         {
           prompt:
-            "Please switch back to my guest account and preview the negotiated payment check for this reservation; don't pay anything.",
-          when: failedTool("hostr_reservations_pay"),
+            "Please switch back to my guest account and preview the negotiated payment check for this order; don't pay anything.",
+          when: failedTool("hostr_orders_pay"),
         },
         {
           prompt:
-            "Please also preview the final reservation publication check from a saved paid proof or payment record; don't publish anything.",
-          when: missingTool("hostr_reservations_commit"),
+            "Please also preview the final order publication check from a saved paid proof or payment record; don't publish anything.",
+          when: missingTool("hostr_orders_commit"),
         },
         {
           prompt:
-            "Please try the final reservation publication preview anyway; if the proof is missing, let Hostr return that as the preview result. Don't publish anything.",
-          when: missingTool("hostr_reservations_commit"),
+            "Please try the final order publication preview anyway; if the proof is missing, let Hostr return that as the preview result. Don't publish anything.",
+          when: missingTool("hostr_orders_commit"),
         },
       ],
     },
@@ -563,17 +563,17 @@ function buildPhases(runMode) {
       followups: [
         {
           prompt:
-            "Please use my host-side bookings or hosting reservations view for that stay, not my guest trips.",
+            "Please use my host-side bookings or hosting orders view for that stay, not my guest trips.",
           when: missingTool("hostr_bookings_list"),
         },
         {
           prompt:
-            "Please also send the guest a normal Hostr reservation-thread check-in message, separate from the escrow help request.",
+            "Please also send the guest a normal Hostr order-thread check-in message, separate from the escrow help request.",
           when: missingTool("hostr_thread_message"),
         },
         {
           prompt:
-            "Please involve Hostr escrow through the reservation's escrow/help flow for this stay, not only by sending an ordinary thread message.",
+            "Please involve Hostr escrow through the order's escrow/help flow for this stay, not only by sending an ordinary thread message.",
           when: missingTool("hostr_escrow_involve"),
         },
       ],
@@ -584,7 +584,7 @@ function buildPhases(runMode) {
       followups: [
         {
           prompt:
-            "Please show my host-side bookings or hosting reservations too, especially that reservation.",
+            "Please show my host-side bookings or hosting orders too, especially that order.",
           when: missingTool("hostr_bookings_list"),
         },
         {
@@ -594,8 +594,8 @@ function buildPhases(runMode) {
         },
         {
           prompt:
-            "Please open the reservation groups view for the newest City Center Spare Room listing itself.",
-          when: missingTool("hostr_listings_reservationGroups"),
+            "Please open the order groups view for the newest City Center Spare Room listing itself.",
+          when: missingTool("hostr_listings_orderGroups"),
         },
       ],
     },
@@ -678,39 +678,39 @@ function buildHostListingSetupPrompt() {
 function buildFullGuestPrompt(version = "canonical") {
   return version === "natural"
     ? `I want to book a place to stay with my guest account via Hostr in San Salvador for Aug 1-3, 2027. If I'm on the wrong account, help me sign into the guest one.`
-    : `I want to make a Hostr reservation with my guest account for a place to stay in San Salvador from Aug 1 to Aug 3, 2027. If I'm on the wrong account, help me sign into the guest one.`;
+    : `I want to make a Hostr order with my guest account for a place to stay in San Salvador from Aug 1 to Aug 3, 2027. If I'm on the wrong account, help me sign into the guest one.`;
 }
 
 function buildPostBookingFollowupPrompt(tradeId, version = "canonical") {
   const ask =
     version === "natural"
       ? "Hostr, I finished booking. Please check my trip and tell me anything useful I should do next."
-      : "My reservation is booked. Check my Hostr trip if needed and tell me the next useful follow-up, including whether I should message the host now.";
-  return `${ask} My reservation reference is ${tradeId}. Don't message anyone yet.`;
+      : "My order is booked. Check my Hostr trip if needed and tell me the next useful follow-up, including whether I should message the host now.";
+  return `${ask} My order reference is ${tradeId}. Don't message anyone yet.`;
 }
 
-function buildReservationConcernPrompt(tradeId, version = "canonical") {
+function buildOrderConcernPrompt(tradeId, version = "canonical") {
   const ask =
     version === "natural"
-      ? "Hostr, I'm uneasy about my stay. Please check my Hostr reservation thread first. The host seems quiet and I want to know what I can say or do. If I may need to involve escrow later, tell me how to ask for that without doing it now."
-      : "Hostr, please check my reservation thread. The host has not replied and I may need help, but do not involve escrow yet. If I may need to involve escrow later, tell me how to ask for that without doing it now.";
-  return `${ask} My reservation reference is ${tradeId}. Don't send anything yet; just tell me what I can do and what I could say.`;
+      ? "Hostr, I'm uneasy about my stay. Please check my Hostr order thread first. The host seems quiet and I want to know what I can say or do. If I may need to involve escrow later, tell me how to ask for that without doing it now."
+      : "Hostr, please check my order thread. The host has not replied and I may need help, but do not involve escrow yet. If I may need to involve escrow later, tell me how to ask for that without doing it now.";
+  return `${ask} My order reference is ${tradeId}. Don't send anything yet; just tell me what I can do and what I could say.`;
 }
 
 function buildGuestCoveragePrompt(tradeId, version = "canonical") {
   return `Hostr, what are my updates? Also show me my account, my profile, and my trip ${tradeId}. Open the host's full profile record too. I want to see the place I booked. Please use Hostr's listing reviews and listing availability views for that place, explicitly check whether those Aug 1-3 dates still look available, and tell me whether payment looks okay. Don't change anything unless I already said yes. If I can review this trip, leave 5 stars and say "Great stay, smooth check-in, and helpful communication." If it isn't ready for a live review yet, just show me a review preview instead. Also upload this image to Hostr media so I can use it later: ${fixtureImagePath}.`;
 }
 
-function buildManualReservationCoveragePrompt(tradeId) {
-  return `Hostr, in the Hostr app, something seems off with reservation ${tradeId}. Use my guest account if needed. Can you check my trip, see whether payment got stuck, list my saved payment or swap operations, and preview what recovery would do? Also show me what it would look like to send a new offer, accept the latest offer, pay a negotiated reservation, and preview publishing the final reservation record from a paid proof. Don't actually send, pay, recover, or publish anything.`;
+function buildManualOrderCoveragePrompt(tradeId) {
+  return `Hostr, in the Hostr app, something seems off with order ${tradeId}. Use my guest account if needed. Can you check my trip, see whether payment got stuck, list my saved payment or swap operations, and preview what recovery would do? Also show me what it would look like to send a new offer, accept the latest offer, pay a negotiated order, and preview publishing the final order record from a paid proof. Don't actually send, pay, recover, or publish anything.`;
 }
 
 function buildFullHostPrompt(tradeId, version = "canonical") {
-  return `Hostr, use my host account now; switch accounts if needed. Show my recent bookings, especially ${tradeId}. Open the conversation and tell the guest: "Hi, just checking in on your stay details." Then ask escrow to help with it. After that, cancel the reservation if it looks like I can.`;
+  return `Hostr, use my host account now; switch accounts if needed. Show my recent bookings, especially ${tradeId}. Open the conversation and tell the guest: "Hi, just checking in on your stay details." Then ask escrow to help with it. After that, cancel the order if it looks like I can.`;
 }
 
 function buildHostCoveragePrompt(tradeId, version = "canonical") {
-  return `Hostr, as host, show my profile and my listings. Look up the guest profile for reservation ${tradeId}. I might want to change my about text to "I enjoy hosting travelers and sharing local recommendations" and tweak the newest City Center Spare Room listing description to "Updated preview description for a clean, comfortable stay." Show the reservation groups for that listing too. Also sketch out a new San Salvador listing called "Preview City Stay" for 10 USD a night using one of my existing photos. Don't publish those changes yet. Then tell me my latest updates.`;
+  return `Hostr, as host, show my profile and my listings. Look up the guest profile for order ${tradeId}. I might want to change my about text to "I enjoy hosting travelers and sharing local recommendations" and tweak the newest City Center Spare Room listing description to "Updated preview description for a clean, comfortable stay." Show the order groups for that listing too. Also sketch out a new San Salvador listing called "Preview City Stay" for 10 USD a night using one of my existing photos. Don't publish those changes yet. Then tell me my latest updates.`;
 }
 
 function buildEscrowLoginPrompt() {
@@ -878,7 +878,7 @@ async function handleCodexLine(line) {
   const observedTradeId = findStringByKey(item.result, "tradeId");
   if (
     observedTradeId &&
-    ["hostr_reservations_bookAndPay", "hostr_swaps_watch"].includes(item.tool)
+    ["hostr_orders_bookAndPay", "hostr_swaps_watch"].includes(item.tool)
   ) {
     latestTradeId = observedTradeId;
   }
@@ -1238,7 +1238,7 @@ function noHostrToolCalls(phaseStart) {
 function missingSwapWatchAfterBooking(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   return (
-    calls.some((call) => call.tool === "hostr_reservations_bookAndPay") &&
+    calls.some((call) => call.tool === "hostr_orders_bookAndPay") &&
     calls.every((call) => call.tool !== "hostr_swaps_watch")
   );
 }
@@ -1286,13 +1286,13 @@ function validatePhase(label, phase, phaseStart, result) {
 
 function roleActionWasSatisfied(role, calls) {
   if (role === "guest") {
-    return calls.some((call) => call.tool === "hostr_reservations_bookAndPay");
+    return calls.some((call) => call.tool === "hostr_orders_bookAndPay");
   }
   if (role === "host") {
     return (
       calls.some((call) => call.tool === "hostr_bookings_list") &&
       calls.some((call) =>
-        ["hostr_thread_message", "hostr_reservations_cancel"].includes(call.tool),
+        ["hostr_thread_message", "hostr_orders_cancel"].includes(call.tool),
       )
     );
   }
@@ -1304,7 +1304,7 @@ function roleActionWasSatisfied(role, calls) {
 
 function needsBookingConfirmation(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
-  if (calls.some((call) => call.tool === "hostr_reservations_bookAndPay")) {
+  if (calls.some((call) => call.tool === "hostr_orders_bookAndPay")) {
     return false;
   }
   const lastMessage = phaseAgentMessages(phaseStart).at(-1) ?? "";
@@ -1315,7 +1315,7 @@ function needsBookingConfirmation(phaseStart) {
 
 function needsGuestLogin(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
-  if (calls.some((call) => call.tool === "hostr_reservations_bookAndPay")) {
+  if (calls.some((call) => call.tool === "hostr_orders_bookAndPay")) {
     return false;
   }
   const connectedGuest = calls.some(
@@ -1332,7 +1332,7 @@ function needsStayClarification(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   if (
     calls.some((call) =>
-      ["hostr_listings_search", "hostr_reservations_bookAndPay"].includes(
+      ["hostr_listings_search", "hostr_orders_bookAndPay"].includes(
         call.tool,
       ),
     )
@@ -1349,7 +1349,7 @@ function needsGuestPreferences(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   if (
     calls.some((call) =>
-      ["hostr_listings_search", "hostr_reservations_bookAndPay"].includes(
+      ["hostr_listings_search", "hostr_orders_bookAndPay"].includes(
         call.tool,
       ),
     )
@@ -1374,7 +1374,7 @@ function needsAddressClarification(phaseStart) {
 function needsPaymentConfirmation(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   const hasInvoice = calls.some((call) => {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       return false;
     }
     return Boolean(
@@ -1430,13 +1430,13 @@ function evaluate({ exitCode }) {
           "hostr_listings_edit",
           "hostr_listings_availability",
           "hostr_listings_reviews",
-          "hostr_listings_reservationGroups",
-          "hostr_reservations_bookAndPay",
-          "hostr_reservations_negotiateOffer",
-          "hostr_reservations_negotiateAccept",
-          "hostr_reservations_pay",
-          "hostr_reservations_commit",
-          "hostr_reservations_review",
+          "hostr_listings_orderGroups",
+          "hostr_orders_bookAndPay",
+          "hostr_orders_negotiateOffer",
+          "hostr_orders_negotiateAccept",
+          "hostr_orders_pay",
+          "hostr_orders_commit",
+          "hostr_orders_review",
           "hostr_swaps_watch",
           "hostr_swaps_list",
           "hostr_swaps_recoverAll",
@@ -1446,7 +1446,7 @@ function evaluate({ exitCode }) {
           "hostr_bookings_list",
           "hostr_thread_message",
           "hostr_escrow_involve",
-          "hostr_reservations_cancel",
+          "hostr_orders_cancel",
           "hostr_profile_show",
           "hostr_profile_lookup",
           "hostr_profile_edit",
@@ -1506,7 +1506,7 @@ function evaluate({ exitCode }) {
     !finalMessages.some((message) => /involve\s+(the\s+)?escrow/i.test(message))
   ) {
     checkFailures.push(
-      'Missing expected reservation concern suggestion to involve escrow',
+      'Missing expected order concern suggestion to involve escrow',
     );
   }
   if (mode !== "smoke" && !finalMessages.some((message) => /you could say|suggested message|say:/i.test(message))) {
@@ -1563,7 +1563,7 @@ function toolFailureWasRecovered(index, failedCall) {
 
 function observedBookAndPayInvoice() {
   for (const call of toolCalls) {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       continue;
     }
     const invoice = findString(call.result, (value) =>
@@ -1591,7 +1591,7 @@ function aiDisplayedPaymentQr(messages) {
 
 function toolDisplayedLightningInvoice(invoice) {
   return toolCalls.some((call) => {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       return false;
     }
     const text = summarizeToolResult(call.result);
@@ -1601,7 +1601,7 @@ function toolDisplayedLightningInvoice(invoice) {
 
 function toolDisplayedPaymentQr() {
   return toolCalls.some((call) => {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       return false;
     }
     return /!\[[^\]]*(qr|payment|invoice|lightning)[^\]]*\]\([^)]+\)|payment-qr|qr code|scan|create-qr-code/i.test(

@@ -86,13 +86,11 @@ import 'package:hostr_sdk/usecase/payments/payments.dart' as _i226;
 import 'package:hostr_sdk/usecase/relays/relays.dart' as _i883;
 import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart' as _i286;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i1014;
-import 'package:hostr_sdk/usecase/reservation_groups/reservation_groups.dart'
-    as _i533;
-import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
-    as _i49;
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart'
+import 'package:hostr_sdk/usecase/order_groups/order_groups.dart' as _i533;
+import 'package:hostr_sdk/usecase/order_requests/order_requests.dart' as _i49;
+import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart'
     as _i826;
-import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i326;
+import 'package:hostr_sdk/usecase/orders/orders.dart' as _i326;
 import 'package:hostr_sdk/usecase/reviews/reviews.dart' as _i660;
 import 'package:hostr_sdk/usecase/startup/startup_coordinator.dart' as _i145;
 import 'package:hostr_sdk/usecase/startup/startup_core.dart' as _i716;
@@ -106,9 +104,8 @@ import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.da
     as _i202;
 import 'package:hostr_sdk/usecase/trade_audit/trade_audit.dart' as _i179;
 import 'package:hostr_sdk/usecase/trades/actions/payment.dart' as _i395;
-import 'package:hostr_sdk/usecase/trades/actions/reservation.dart' as _i949;
-import 'package:hostr_sdk/usecase/trades/actions/reservation_request.dart'
-    as _i814;
+import 'package:hostr_sdk/usecase/trades/actions/order.dart' as _i949;
+import 'package:hostr_sdk/usecase/trades/actions/order_request.dart' as _i814;
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart'
     as _i850;
 import 'package:hostr_sdk/usecase/trades/trade.dart' as _i981;
@@ -256,8 +253,8 @@ extension GetItInjectableX on _i174.GetIt {
       ),
       registerFor: {_test, _mock},
     );
-    gh.singleton<_i826.ReservationTransitions>(
-      () => _i826.ReservationTransitions(
+    gh.singleton<_i826.OrderTransitions>(
+      () => _i826.OrderTransitions(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
         ndk: gh<_i857.Ndk>(),
@@ -498,13 +495,13 @@ extension GetItInjectableX on _i174.GetIt {
         config: gh<_i910.HostrConfig>(),
       ),
     );
-    gh.singleton<_i326.Reservations>(
-      () => _i326.Reservations(
+    gh.singleton<_i326.Orders>(
+      () => _i326.Orders(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
         messaging: gh<_i1019.Messaging>(),
         auth: gh<_i1000.Auth>(),
-        transitions: gh<_i826.ReservationTransitions>(),
+        transitions: gh<_i826.OrderTransitions>(),
         listings: gh<_i906.Listings>(),
         relays: gh<_i883.Relays>(),
       ),
@@ -520,23 +517,23 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i660.Reviews(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
-        reservations: gh<_i326.Reservations>(),
+        orders: gh<_i326.Orders>(),
         listings: gh<_i906.Listings>(),
         escrowVerification: gh<_i647.EscrowVerification>(),
       ),
     );
     gh.singleton<_i179.TradeAudit>(
       () => _i179.TradeAudit(
-        reservations: gh<_i326.Reservations>(),
-        transitions: gh<_i826.ReservationTransitions>(),
+        orders: gh<_i326.Orders>(),
+        transitions: gh<_i826.OrderTransitions>(),
         listings: gh<_i906.Listings>(),
         logger: gh<_i372.CustomLogger>(),
         evm: gh<_i305.Evm>(),
       ),
     );
-    gh.singleton<_i533.ReservationGroups>(
-      () => _i533.ReservationGroups(
-        reservations: gh<_i326.Reservations>(),
+    gh.singleton<_i533.OrderGroups>(
+      () => _i533.OrderGroups(
+        orders: gh<_i326.Orders>(),
         logger: gh<_i372.CustomLogger>(),
         evm: gh<_i305.Evm>(),
       ),
@@ -557,9 +554,9 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         giftWraps: gh<_i308.GiftWraps>(),
         heartbeats: gh<_i175.Heartbeats>(),
-        reservations: gh<_i326.Reservations>(),
-        transitions: gh<_i826.ReservationTransitions>(),
-        reservationGroups: gh<_i533.ReservationGroups>(),
+        orders: gh<_i326.Orders>(),
+        transitions: gh<_i826.OrderTransitions>(),
+        orderGroups: gh<_i533.OrderGroups>(),
         reviews: gh<_i660.Reviews>(),
         zaps: gh<_i1045.Zaps>(),
         escrow: gh<_i376.EscrowUseCase>(),
@@ -588,7 +585,7 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         hd: gh<_i149.DeterministicKeys>(),
         evm: gh<_i305.Evm>(),
-        reservations: gh<_i326.Reservations>(),
+        orders: gh<_i326.Orders>(),
         threads: gh<_i768.Threads>(),
         cache: gh<_i202.TradeAccountCache>(),
         logger: gh<_i331.CustomLogger>(),
@@ -603,7 +600,7 @@ extension GetItInjectableX on _i174.GetIt {
         messaging: gh<_i1019.Messaging>(),
         requests: gh<_i1014.Requests>(),
         escrows: gh<_i303.Escrows>(),
-        reservations: gh<_i326.Reservations>(),
+        orders: gh<_i326.Orders>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         escrowVerification: gh<_i647.EscrowVerification>(),
         logger: gh<_i372.CustomLogger>(),
@@ -646,7 +643,7 @@ extension GetItInjectableX on _i174.GetIt {
         userSubs: gh<_i576.UserSubscriptions>(),
         threads: gh<_i768.Threads>(),
         auth: gh<_i1000.Auth>(),
-        reservations: gh<_i326.Reservations>(),
+        orders: gh<_i326.Orders>(),
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
         logger: gh<_i372.CustomLogger>(),
@@ -654,8 +651,8 @@ extension GetItInjectableX on _i174.GetIt {
         tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
       ),
     );
-    gh.singleton<_i49.ReservationRequests>(
-      () => _i49.ReservationRequests(
+    gh.singleton<_i49.OrderRequests>(
+      () => _i49.OrderRequests(
         requests: gh<_i1014.Requests>(),
         logger: gh<_i372.CustomLogger>(),
         auth: gh<_i1000.Auth>(),
@@ -685,11 +682,11 @@ extension GetItInjectableX on _i174.GetIt {
         metadata: gh<_i149.MetadataUseCase>(),
         identityClaims: gh<_i950.IdentityClaimsUseCase>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
-        reservationGroups: gh<_i533.ReservationGroups>(),
+        orderGroups: gh<_i533.OrderGroups>(),
         threads: gh<_i768.Threads>(),
         tradeAccountAllocator: gh<_i1068.TradeAccountAllocator>(),
-        reservationRequests: gh<_i49.ReservationRequests>(),
-        reservations: gh<_i326.Reservations>(),
+        orderRequests: gh<_i49.OrderRequests>(),
+        orders: gh<_i326.Orders>(),
       ),
     );
     gh.factoryParam<
@@ -708,13 +705,13 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i395.PaymentActions>(
       () => _i395.PaymentActions(trade: gh<_i981.Trade>()),
     );
-    gh.factory<_i814.ReservationRequestActions>(
-      () => _i814.ReservationRequestActions(trade: gh<_i981.Trade>()),
+    gh.factory<_i814.OrderRequestActions>(
+      () => _i814.OrderRequestActions(trade: gh<_i981.Trade>()),
     );
-    gh.factory<_i949.ReservationActions>(
-      () => _i949.ReservationActions(
+    gh.factory<_i949.OrderActions>(
+      () => _i949.OrderActions(
         trade: gh<_i981.Trade>(),
-        reservations: gh<_i326.Reservations>(),
+        orders: gh<_i326.Orders>(),
       ),
     );
     gh.singleton<_i843.BackgroundWorker>(
@@ -748,7 +745,7 @@ extension GetItInjectableX on _i174.GetIt {
         backgroundWorker: gh<_i843.BackgroundWorker>(),
         calendar: gh<_i733.Calendar>(),
         messaging: gh<_i1019.Messaging>(),
-        reservations: gh<_i326.Reservations>(),
+        orders: gh<_i326.Orders>(),
       ),
     );
     gh.singleton<_i145.StartupCoordinator>(

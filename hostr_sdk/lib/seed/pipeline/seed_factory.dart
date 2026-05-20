@@ -11,7 +11,7 @@ import 'stages/build_badges.dart' as stage_badges;
 import 'stages/build_listings.dart' as stage_listings;
 import 'stages/build_messages.dart' as stage_messages;
 import 'stages/build_profiles.dart' as stage_profiles;
-import 'stages/build_reservation_transitions.dart' as stage_transitions;
+import 'stages/build_order_transitions.dart' as stage_transitions;
 import 'stages/build_reviews.dart' as stage_reviews;
 import 'stages/build_threads.dart' as stage_threads;
 import 'stages/build_users.dart' as stage_users;
@@ -48,7 +48,7 @@ class SeedFactory {
          seed: config.seed,
          contractAddress: contractAddress,
          userCount: config.userCount + config.userOverrides.length,
-         reservationRequestsPerGuest: config.reservationRequestsPerGuest,
+         orderRequestsPerGuest: config.orderRequestsPerGuest,
        ) {
     _entities = EntityFactory(ctx: _ctx);
   }
@@ -109,7 +109,7 @@ class SeedFactory {
         factory: _entities,
       );
 
-  /// Build threads in "pending" state (reservation request, no outcome).
+  /// Build threads in "pending" state (order request, no outcome).
   ///
   /// [now] is the reference timestamp for date calculations.  Defaults to
   /// `DateTime.now().toUtc()` so no chain connection is required.
@@ -139,12 +139,11 @@ class SeedFactory {
     factory: _entities,
   );
 
-  List<ReservationTransition> buildReservationTransitions(
-    List<SeedThread> threads,
-  ) => stage_transitions.buildReservationTransitions(
-    threads: threads,
-    factory: _entities,
-  );
+  List<OrderTransition> buildOrderTransitions(List<SeedThread> threads) =>
+      stage_transitions.buildOrderTransitions(
+        threads: threads,
+        factory: _entities,
+      );
 
   Future<List<Review>> buildReviews(List<SeedThread> threads) => stage_reviews
       .buildReviews(ctx: _ctx, threads: threads, factory: _entities);
@@ -168,7 +167,7 @@ class SeedFactory {
   ///
   /// Does **not** run outcomes (which require on-chain interaction) —
   /// all threads remain in "pending" state.  For completed-looking
-  /// reservations without a real chain, see [buildMockReservation].
+  /// orders without a real chain, see [buildMockOrder].
   ///
   /// [now] controls the reference timestamp for thread date generation.
   Future<SeedPipelineData> buildAll({DateTime? now}) async {
@@ -195,10 +194,8 @@ class SeedFactory {
       now: now,
     );
 
-    final reservationRequests = threads
-        .map((t) => t.request)
-        .toList(growable: false);
-    final reservationTransitions = buildReservationTransitions(threads);
+    final orderRequests = threads.map((t) => t.request).toList(growable: false);
+    final orderTransitions = buildOrderTransitions(threads);
 
     final messages = await buildMessages(threads);
     final escrowSelectedMessages = await buildEscrowSelectedMessages(threads);
@@ -213,10 +210,10 @@ class SeedFactory {
       escrowServices: escrowServices,
       escrowMethods: escrowMethods,
       threads: threads,
-      reservationRequests: reservationRequests,
-      reservationTransitions: reservationTransitions,
+      orderRequests: orderRequests,
+      orderTransitions: orderTransitions,
       threadMessages: [...messages, ...escrowSelectedMessages],
-      reservations: const [], // no outcomes — all pending
+      orders: const [], // no outcomes — all pending
       zapReceipts: const [],
       reviews: reviews,
       badgeDefinitions: badges.definitions,
@@ -224,7 +221,7 @@ class SeedFactory {
     );
   }
 
-  /// Build a mock reservation for a thread **without** any chain
+  /// Build a mock order for a thread **without** any chain
   /// interaction.
   ///
   /// Useful for UI tests that need a completed-looking thread.
@@ -234,7 +231,7 @@ class SeedFactory {
   /// Set [withEscrowProof] to `true` and provide [escrowService],
   /// [escrowMethod] for an escrow-styled proof.
   /// Otherwise a zap-receipt-based proof (with null zap receipt) is used.
-  Future<Reservation> buildMockReservation(
+  Future<Order> buildMockOrder(
     SeedThread thread, {
     required ProfileMetadata hostProfile,
     bool withEscrowProof = false,
@@ -263,9 +260,9 @@ class SeedFactory {
       );
     }
 
-    return _entities.reservation(
+    return _entities.order(
       guestKeyPair: thread.guest.keyPair,
-      dTag: 'mock-reservation-${thread.id}',
+      dTag: 'mock-order-${thread.id}',
       listing: thread.listing,
       pTags: [
         PTag.seller(thread.listing.pubKey),
@@ -275,7 +272,7 @@ class SeedFactory {
       ],
       start: thread.start,
       end: thread.end,
-      stage: ReservationStage.commit,
+      stage: OrderStage.commit,
       quantity: thread.request.quantity,
       amount: thread.request.amount,
       recipient: thread.request.recipient,

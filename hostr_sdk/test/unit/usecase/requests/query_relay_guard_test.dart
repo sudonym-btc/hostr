@@ -75,7 +75,7 @@ void main() {
 
   group('applyQueryRelayGuardForFilter', () {
     test('filter with only hostr kinds → forced to hostr relay', () {
-      final filter = Filter(kinds: [kNostrKindListing, kNostrKindReservation]);
+      final filter = Filter(kinds: [kNostrKindListing, kNostrKindOrder]);
       final result = applyQueryRelayGuardForFilter(
         filter: filter,
         hostrRelay: _hostrRelay,

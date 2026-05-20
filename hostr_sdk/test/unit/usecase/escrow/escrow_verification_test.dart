@@ -101,7 +101,7 @@ Listing _listing({
   type: ListingType.house,
   specifications: Specifications(),
   negotiable: negotiable,
-  allowSelfSignedReservation: true,
+  allowSelfSignedOrder: true,
   instantBook: true,
   securityDeposit: securityDeposit,
   maxDisputePeriod: maxDisputePeriod,
@@ -180,19 +180,19 @@ PaymentProof _paymentProof({
   );
 }
 
-Reservation _reservation({
+Order _order({
   required Listing listing,
   required DenominatedAmount? amount,
   required PaymentProof proof,
   bool includeSellerSignature = false,
 }) {
-  var reservation = Reservation.create(
+  var order = Order.create(
     pubKey: MockKeys.guest.publicKey,
     dTag: 'trade-escrow-verify',
     listingAnchor: listing.anchor!,
     start: DateTime(2026, 3, 1),
     end: DateTime(2026, 3, 2),
-    stage: ReservationStage.commit,
+    stage: OrderStage.commit,
     quantity: 1,
     amount: amount,
     proof: proof,
@@ -202,17 +202,15 @@ Reservation _reservation({
     final authorization = CommitAuthorization.create(
       pubKey: MockKeys.hoster.publicKey,
       listingAnchor: listing.anchor!,
-      tradeId: reservation.getDtag()!,
-      commitHash: reservation.commitHash(),
+      tradeId: order.getDtag()!,
+      commitHash: order.commitHash(),
     ).signAs(MockKeys.hoster, CommitAuthorization.fromNostrEvent);
-    reservation = reservation.copy(
-      content: reservation.parsedContent.copyWith(
-        commitAuthorization: authorization,
-      ),
+    order = order.copy(
+      content: order.parsedContent.copyWith(commitAuthorization: authorization),
     );
   }
 
-  return reservation.signAs(MockKeys.guest, Reservation.fromNostrEvent);
+  return order.signAs(MockKeys.guest, Order.fromNostrEvent);
 }
 
 EscrowFundedEvent _fundedEvent({
@@ -267,7 +265,7 @@ void main() {
       final listing = _listing();
       const txHash = '0xnegotiated';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
+      final order = _order(
         listing: listing,
         amount: DenominatedAmount(
           value: BigInt.from(80000),
@@ -280,7 +278,7 @@ void main() {
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 80000,
         ),
@@ -290,7 +288,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isTrue);
       expect(result.fundedEvent, isNotNull);
@@ -316,7 +314,7 @@ void main() {
       );
       const txHash = '0xcross-denomination';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
+      final order = _order(
         listing: listing,
         amount: DenominatedAmount(
           value: BigInt.from(5003),
@@ -329,7 +327,7 @@ void main() {
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 5003,
         ),
@@ -339,7 +337,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isTrue);
       expect(result.fundedEvent, isNotNull);
@@ -352,7 +350,7 @@ void main() {
       final listing = _listing();
       const txHash = '0xlisting';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
+      final order = _order(
         listing: listing,
         amount: DenominatedAmount(
           value: BigInt.from(80000),
@@ -364,7 +362,7 @@ void main() {
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 80000,
         ),
@@ -374,7 +372,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isFalse);
       expect(result.reason, contains('listing amount'));
@@ -392,7 +390,7 @@ void main() {
         txHash: txHash,
         includeAcceptedToken: false,
       );
-      final reservation = _reservation(
+      final order = _order(
         listing: listing,
         amount: DenominatedAmount(
           value: BigInt.from(100000),
@@ -405,7 +403,7 @@ void main() {
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
         ),
@@ -415,7 +413,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isFalse);
       expect(result.reason, contains('does not accept token'));
@@ -436,15 +434,11 @@ void main() {
       );
       const txHash = '0xbond-valid';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+      final order = _order(listing: listing, amount: null, proof: proof);
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           bondAmountSats: 50000,
@@ -455,7 +449,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isTrue);
       expect(result.fundedEvent, isNotNull);
@@ -475,15 +469,11 @@ void main() {
       );
       const txHash = '0xbond-missing';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+      final order = _order(listing: listing, amount: null, proof: proof);
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           // no bondAmountSats → null bond
@@ -494,7 +484,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isFalse);
       expect(result.reason, contains('security deposit'));
@@ -512,15 +502,11 @@ void main() {
     );
     const txHash = '0xbond-insufficient';
     final proof = _paymentProof(listing: listing, txHash: txHash);
-    final reservation = _reservation(
-      listing: listing,
-      amount: null,
-      proof: proof,
-    );
+    final order = _order(listing: listing, amount: null, proof: proof);
 
     final contract = _FakeSupportedEscrowContract(
       _fundedEvent(
-        tradeId: reservation.getDtag()!,
+        tradeId: order.getDtag()!,
         txHash: txHash,
         amountSats: 100000,
         bondAmountSats: 25000, // less than required 50000
@@ -531,7 +517,7 @@ void main() {
       logger: CustomLogger(),
     );
 
-    final result = await verification.verify(reservation: reservation);
+    final result = await verification.verify(order: order);
 
     expect(result.isValid, isFalse);
     expect(result.reason, contains('bond'));
@@ -544,15 +530,11 @@ void main() {
       final listing = _listing(); // no securityDeposit
       const txHash = '0xno-deposit';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+      final order = _order(listing: listing, amount: null, proof: proof);
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           // no bond — fine since listing doesn't require one
@@ -563,7 +545,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isTrue);
     },
@@ -579,15 +561,11 @@ void main() {
     );
     const txHash = '0xbond-excess';
     final proof = _paymentProof(listing: listing, txHash: txHash);
-    final reservation = _reservation(
-      listing: listing,
-      amount: null,
-      proof: proof,
-    );
+    final order = _order(listing: listing, amount: null, proof: proof);
 
     final contract = _FakeSupportedEscrowContract(
       _fundedEvent(
-        tradeId: reservation.getDtag()!,
+        tradeId: order.getDtag()!,
         txHash: txHash,
         amountSats: 100000,
         bondAmountSats: 75000, // more than required 50000
@@ -598,7 +576,7 @@ void main() {
       logger: CustomLogger(),
     );
 
-    final result = await verification.verify(reservation: reservation);
+    final result = await verification.verify(order: order);
 
     expect(result.isValid, isTrue);
     expect(result.fundedEvent!.bondAmount!.value, greaterThan(BigInt.zero));
@@ -606,44 +584,36 @@ void main() {
 
   // ── Max claim period verification ─────────────────────────────────
 
-  test(
-    'valid when unlockAt is within maxDisputePeriod of reservation end',
-    () async {
-      // Reservation end: DateTime(2026, 3, 2) — use same value for endUnix.
-      final endUnix =
-          DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
-      const oneWeek = 7 * 24 * 60 * 60;
+  test('valid when unlockAt is within maxDisputePeriod of order end', () async {
+    // Order end: DateTime(2026, 3, 2) — use same value for endUnix.
+    final endUnix = DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
+    const oneWeek = 7 * 24 * 60 * 60;
 
-      final listing = _listing(maxDisputePeriod: oneWeek);
-      const txHash = '0xclaim-period-ok';
-      final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+    final listing = _listing(maxDisputePeriod: oneWeek);
+    const txHash = '0xclaim-period-ok';
+    final proof = _paymentProof(listing: listing, txHash: txHash);
+    final order = _order(listing: listing, amount: null, proof: proof);
 
-      final contract = _FakeSupportedEscrowContract(
-        _fundedEvent(
-          tradeId: reservation.getDtag()!,
-          txHash: txHash,
-          amountSats: 100000,
-          unlockAt: endUnix + oneWeek, // exactly at the limit
-        ),
-      );
-      final verification = EscrowVerification(
-        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
-        logger: CustomLogger(),
-      );
+    final contract = _FakeSupportedEscrowContract(
+      _fundedEvent(
+        tradeId: order.getDtag()!,
+        txHash: txHash,
+        amountSats: 100000,
+        unlockAt: endUnix + oneWeek, // exactly at the limit
+      ),
+    );
+    final verification = EscrowVerification(
+      evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+      logger: CustomLogger(),
+    );
 
-      final result = await verification.verify(reservation: reservation);
+    final result = await verification.verify(order: order);
 
-      expect(result.isValid, isTrue);
-    },
-  );
+    expect(result.isValid, isTrue);
+  });
 
   test(
-    'invalid when unlockAt exceeds maxDisputePeriod after reservation end',
+    'invalid when unlockAt exceeds maxDisputePeriod after order end',
     () async {
       final endUnix =
           DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
@@ -652,15 +622,11 @@ void main() {
       final listing = _listing(maxDisputePeriod: oneWeek);
       const txHash = '0xclaim-period-exceeded';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+      final order = _order(listing: listing, amount: null, proof: proof);
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           unlockAt: endUnix + oneWeek + 1, // 1 second over the limit
@@ -671,7 +637,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isFalse);
       expect(result.reason, contains('unlockAt'));
@@ -689,16 +655,12 @@ void main() {
       final listing = _listing(); // no explicit maxDisputePeriod → default
       const txHash = '0xclaim-period-default';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+      final order = _order(listing: listing, amount: null, proof: proof);
 
       // Exactly at 2-week limit → valid
       final contractOk = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           unlockAt: endUnix + twoWeeks,
@@ -710,13 +672,13 @@ void main() {
         ),
         logger: CustomLogger(),
       );
-      final resultOk = await verificationOk.verify(reservation: reservation);
+      final resultOk = await verificationOk.verify(order: order);
       expect(resultOk.isValid, isTrue);
 
       // 1 second over → invalid
       final contractBad = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           unlockAt: endUnix + twoWeeks + 1,
@@ -728,14 +690,14 @@ void main() {
         ),
         logger: CustomLogger(),
       );
-      final resultBad = await verificationBad.verify(reservation: reservation);
+      final resultBad = await verificationBad.verify(order: order);
       expect(resultBad.isValid, isFalse);
       expect(resultBad.reason, contains('maxDisputePeriod'));
     },
   );
 
   test(
-    'invalid when unlockAt is before reservation end plus dispute period',
+    'invalid when unlockAt is before order end plus dispute period',
     () async {
       final endUnix =
           DateTime(2026, 3, 2).toUtc().millisecondsSinceEpoch ~/ 1000;
@@ -743,15 +705,11 @@ void main() {
       final listing = _listing(maxDisputePeriod: 86400); // 1 day
       const txHash = '0xclaim-period-early';
       final proof = _paymentProof(listing: listing, txHash: txHash);
-      final reservation = _reservation(
-        listing: listing,
-        amount: null,
-        proof: proof,
-      );
+      final order = _order(listing: listing, amount: null, proof: proof);
 
       final contract = _FakeSupportedEscrowContract(
         _fundedEvent(
-          tradeId: reservation.getDtag()!,
+          tradeId: order.getDtag()!,
           txHash: txHash,
           amountSats: 100000,
           unlockAt: endUnix - 3600, // before end date
@@ -762,7 +720,7 @@ void main() {
         logger: CustomLogger(),
       );
 
-      final result = await verification.verify(reservation: reservation);
+      final result = await verification.verify(order: order);
 
       expect(result.isValid, isFalse);
       expect(result.reason, contains('unlockAt'));

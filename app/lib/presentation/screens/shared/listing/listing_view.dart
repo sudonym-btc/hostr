@@ -129,8 +129,8 @@ class _ListingViewContent extends StatelessWidget {
         verifiedGroupsStream: dependencies.verifiedReservationGroups,
         hostKeyPair: activeKeyPair,
         onCancelBlockedReservation: (reservation) async {
-          await getIt<Hostr>().reservations.cancel(
-            ReservationGroup.fromReservation(reservation),
+          await getIt<Hostr>().orders.cancel(
+            OrderGroup.fromOrder(reservation),
             getIt<Hostr>().auth.getActiveKey(),
           );
         },
@@ -156,9 +156,9 @@ class ListingViewBody extends StatelessWidget {
   final Widget reviewsSummaryWidget;
   final Widget reviewsListWidget;
   final Widget? reserveBottomBar;
-  final StreamWithStatus<Validation<ReservationGroup>> verifiedGroupsStream;
+  final StreamWithStatus<Validation<OrderGroup>> verifiedGroupsStream;
   final KeyPair? hostKeyPair;
-  final ValueChanged<Reservation> onCancelBlockedReservation;
+  final ValueChanged<Order> onCancelBlockedReservation;
   final VoidCallback onBlockDates;
 
   const ListingViewBody({
@@ -311,7 +311,7 @@ class ListingViewBody extends StatelessWidget {
         //   BlockedReservations(
         //     reservationGroupItemsStream: ListingDependenciesProvider.of(
         //       context,
-        //     ).reservationGroupItems,
+        //     ).orderGroupItems,
         //     hostKeyPair: hostKeyPair,
         //     onCancelBlockedReservation: onCancelBlockedReservation,
         //     onBlockDates: onBlockDates,

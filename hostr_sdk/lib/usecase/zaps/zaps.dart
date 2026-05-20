@@ -1,4 +1,4 @@
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/ndk.dart' hide Nwc, Requests;
 
 import '../../config.dart';

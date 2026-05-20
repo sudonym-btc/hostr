@@ -51,7 +51,7 @@ void main() {
               end: null,
               amount: null,
               stage: const NegotiationStage(
-                reservationRequests: [],
+                orderRequests: [],
                 overlapLock: (isLoading: false, isBlocked: false, reason: null),
                 policy: NegotiationPolicy(
                   latestOffer: null,
@@ -70,9 +70,8 @@ void main() {
               availability: TradeAvailability.available,
               streams: TradeStreams(
                 paymentEvents: StreamWithStatus<PaymentEvent>(),
-                reservationStream:
-                    StreamWithStatus<Validation<ReservationGroup>>(),
-                transitionsStream: StreamWithStatus<ReservationTransition>(),
+                orderStream: StreamWithStatus<Validation<OrderGroup>>(),
+                transitionsStream: StreamWithStatus<OrderTransition>(),
                 subscriptionsLive: subscriptionsLive,
               ),
             ),
@@ -111,7 +110,7 @@ void main() {
         specifications: Specifications(),
         negotiable: true,
       );
-      final reservation = Reservation.create(
+      final reservation = Order.create(
         pubKey: MockKeys.guest.publicKey,
         dTag: 'trade-paid-negotiation',
         listingAnchor: listing.anchor!,
@@ -141,8 +140,12 @@ void main() {
                 end: null,
                 amount: null,
                 stage: NegotiationStage(
-                  reservationRequests: [reservation],
-                  overlapLock: (isLoading: false, isBlocked: false, reason: null),
+                  orderRequests: [reservation],
+                  overlapLock: (
+                    isLoading: false,
+                    isBlocked: false,
+                    reason: null,
+                  ),
                   policy: const NegotiationPolicy(
                     latestOffer: null,
                     lastOfferByUs: null,
@@ -160,9 +163,8 @@ void main() {
                 availability: TradeAvailability.available,
                 streams: TradeStreams(
                   paymentEvents: paymentEvents,
-                  reservationStream:
-                      StreamWithStatus<Validation<ReservationGroup>>(),
-                  transitionsStream: StreamWithStatus<ReservationTransition>(),
+                  orderStream: StreamWithStatus<Validation<OrderGroup>>(),
+                  transitionsStream: StreamWithStatus<OrderTransition>(),
                   subscriptionsLive: subscriptionsLive,
                 ),
               ),

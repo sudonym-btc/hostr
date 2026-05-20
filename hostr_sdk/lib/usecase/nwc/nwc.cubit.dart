@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:injectable/injectable.dart';
+import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/ndk.dart' hide Nwc;
 
 import '../../util/custom_logger.dart';

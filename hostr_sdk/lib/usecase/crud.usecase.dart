@@ -155,7 +155,7 @@ class CrudUseCase<T extends Nip01Event> {
         await beforeUpsert(draft);
         // `updates` is consumed by UI flows that treat an event as published.
         // Emit only after relay broadcast completes so failed writes cannot
-        // appear locally as successful reservations/listings/etc.
+        // appear locally as successful orders/listings/etc.
         final result = await requests.broadcastEvent(
           event: draft,
           signer: signer,

@@ -53,7 +53,7 @@ void main() {
       );
       final reservation = _request(
         id: 'reservation',
-        kind: kNostrKindReservation,
+        kind: kNostrKindOrder,
         createdAt: now.subtract(kSignerApprovalDelay * 2),
       );
 
@@ -71,7 +71,7 @@ void main() {
       final now = DateTime(2026, 1, 1, 12);
       final reservation = _request(
         id: 'reservation',
-        kind: kNostrKindReservation,
+        kind: kNostrKindOrder,
         createdAt: now.subtract(const Duration(seconds: 1)),
       );
 
@@ -91,7 +91,7 @@ void main() {
         'heartbeat',
       );
       expect(
-        signerRequestEventKindDescription(kNostrKindReservation),
+        signerRequestEventKindDescription(kNostrKindOrder),
         'reservation update',
       );
       expect(

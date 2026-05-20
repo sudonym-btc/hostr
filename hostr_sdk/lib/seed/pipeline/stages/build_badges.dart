@@ -31,7 +31,7 @@ const _kBadgeCatalogue = [
   (
     'instant_book',
     'Instant Book',
-    'Reservations are confirmed automatically without host approval.',
+    'Orders are confirmed automatically without host approval.',
   ),
   (
     'long_stay_friendly',

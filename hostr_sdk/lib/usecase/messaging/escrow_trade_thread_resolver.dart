@@ -4,9 +4,9 @@ import 'package:models/main.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
-import '../reservations/reservation_participant_keyring.dart';
-import '../reservations/reservations.dart';
+import '../order_groups/order_group_participant_resolver.dart';
+import '../orders/order_participant_keyring.dart';
+import '../orders/orders.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'thread.dart';
@@ -15,20 +15,20 @@ import 'threads.dart';
 class EscrowTradeThreadResolver {
   EscrowTradeThreadResolver({
     required Auth auth,
-    required Reservations reservations,
+    required Orders orders,
     required UserSubscriptions userSubscriptions,
     required Threads threads,
     required TradeAccountAllocator tradeAccountAllocator,
     required CustomLogger logger,
   }) : _auth = auth,
-       _reservations = reservations,
+       _orders = orders,
        _userSubscriptions = userSubscriptions,
        _threads = threads,
        _tradeAccountAllocator = tradeAccountAllocator,
        _logger = logger.scope('escrow-trade-thread-resolver');
 
   final Auth _auth;
-  final Reservations _reservations;
+  final Orders _orders;
   final UserSubscriptions _userSubscriptions;
   final Threads _threads;
   final TradeAccountAllocator _tradeAccountAllocator;
@@ -40,31 +40,29 @@ class EscrowTradeThreadResolver {
   }) async {
     final normalizedTradeId = tradeId.trim();
     if (normalizedTradeId.isEmpty) {
-      throw StateError(
-        'Messaging escrow requires a concrete reservation tradeId',
-      );
+      throw StateError('Messaging escrow requires a concrete order tradeId');
     }
 
     final activePubkey = _auth.getActiveKey().publicKey;
-    var resolvedParticipants = (await _resolvedReservationGroupForTradeId(
+    var resolvedParticipants = (await _resolvedOrderGroupForTradeId(
       normalizedTradeId,
       timeout: timeout,
     ))?.participants;
     if (resolvedParticipants == null) {
-      final reservations = await _reservations.getByTradeId(normalizedTradeId);
-      if (reservations.isNotEmpty) {
-        resolvedParticipants = await ReservationGroupParticipantResolver(
-          keyring: DefaultReservationParticipantKeyring(
+      final orders = await _orders.getByTradeId(normalizedTradeId);
+      if (orders.isNotEmpty) {
+        resolvedParticipants = await OrderGroupParticipantResolver(
+          keyring: DefaultOrderParticipantKeyring(
             auth: _auth,
             tradeAccountAllocator: _tradeAccountAllocator,
             logger: _logger,
           ),
-        ).resolve(ReservationGroup(reservations: reservations));
+        ).resolve(OrderGroup(orders: orders));
       }
     }
     if (resolvedParticipants == null) {
       throw StateError(
-        'Cannot message escrow until the tradeId resolves to a reservation group',
+        'Cannot message escrow until the tradeId resolves to a order group',
       );
     }
 
@@ -107,17 +105,17 @@ class EscrowTradeThreadResolver {
     return thread;
   }
 
-  Future<ResolvedValidatedReservationGroupParticipants?>
-  _resolvedReservationGroupForTradeId(
+  Future<ResolvedValidatedOrderGroupParticipants?>
+  _resolvedOrderGroupForTradeId(
     String tradeId, {
     required Duration timeout,
   }) async {
     final snapshots = await Future.wait([
-      _resolvedReservationGroupSnapshot(
+      _resolvedOrderGroupSnapshot(
         _userSubscriptions.myResolvedTripsList$,
         timeout: timeout,
       ),
-      _resolvedReservationGroupSnapshot(
+      _resolvedOrderGroupSnapshot(
         _userSubscriptions.myResolvedHostingsList$,
         timeout: timeout,
       ),
@@ -131,10 +129,9 @@ class EscrowTradeThreadResolver {
     return valid.isNotEmpty ? valid.last : matches.last;
   }
 
-  Future<List<ResolvedValidatedReservationGroupParticipants>>
-  _resolvedReservationGroupSnapshot(
-    StreamWithStatus<List<ResolvedValidatedReservationGroupParticipants>>
-    source, {
+  Future<List<ResolvedValidatedOrderGroupParticipants>>
+  _resolvedOrderGroupSnapshot(
+    StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>> source, {
     required Duration timeout,
   }) async {
     if (source.items.isNotEmpty || timeout <= Duration.zero) {
@@ -142,18 +139,16 @@ class EscrowTradeThreadResolver {
     }
 
     final completer =
-        Completer<List<ResolvedValidatedReservationGroupParticipants>>();
+        Completer<List<ResolvedValidatedOrderGroupParticipants>>();
     Timer? timer;
-    StreamSubscription<List<ResolvedValidatedReservationGroupParticipants>>?
+    StreamSubscription<List<ResolvedValidatedOrderGroupParticipants>>?
     itemSubscription;
     StreamSubscription<StreamStatus>? statusSubscription;
 
-    List<ResolvedValidatedReservationGroupParticipants> latest() =>
+    List<ResolvedValidatedOrderGroupParticipants> latest() =>
         source.items.isEmpty ? const [] : source.items.last;
 
-    void complete([
-      List<ResolvedValidatedReservationGroupParticipants>? items,
-    ]) {
+    void complete([List<ResolvedValidatedOrderGroupParticipants>? items]) {
       if (!completer.isCompleted) {
         completer.complete(items ?? latest());
       }
