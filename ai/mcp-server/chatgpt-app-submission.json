@@ -344,7 +344,7 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, send irreversible messages, or perform irreversible transactions."
       }
     },
-    "hostr_reservations_bookAndPay": {
+    "hostr_orders_bookAndPay": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -356,7 +356,7 @@
         "destructive_justification": "Starts a booking handoff and payment prompt but does not delete, overwrite, revoke access, or settle funds by itself."
       }
     },
-    "hostr_reservations_cancel": {
+    "hostr_orders_cancel": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -368,7 +368,7 @@
         "destructive_justification": "Cancels a private negotiation or committed reservation after approval."
       }
     },
-    "hostr_reservations_commit": {
+    "hostr_orders_commit": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -380,7 +380,7 @@
         "destructive_justification": "Publishes a committed paid reservation after a payment proof is available."
       }
     },
-    "hostr_reservations_negotiateAccept": {
+    "hostr_orders_negotiateAccept": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -392,7 +392,7 @@
         "destructive_justification": "Sends private reservation negotiation events that cannot be unsent after live execution."
       }
     },
-    "hostr_reservations_negotiateOffer": {
+    "hostr_orders_negotiateOffer": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -404,7 +404,7 @@
         "destructive_justification": "Sends private reservation negotiation events that cannot be unsent after live execution."
       }
     },
-    "hostr_reservations_pay": {
+    "hostr_orders_pay": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -416,7 +416,7 @@
         "destructive_justification": "Creates manual escrow funding state for a reservation trade after approval."
       }
     },
-    "hostr_reservations_review": {
+    "hostr_orders_review": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,

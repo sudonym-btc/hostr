@@ -108,7 +108,7 @@ test("Hostr tool annotations mark external Hostr actions as open-world", () => {
 test("client tool visibility policy hook is currently non-blocking", () => {
   const visible = new Set([
     "hostr.listings.search",
-    "hostr.reservations.bookAndPay",
+    "hostr.orders.bookAndPay",
   ]);
 
   const filtered = __testing.applyClientToolVisibilityPolicy(visible, {
@@ -534,10 +534,10 @@ test("payment responses include a result-bound payment widget", async () => {
       qrImageUrlTemplate:
         "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={data}",
     },
-    "hostr.reservations.bookAndPay",
+    "hostr.orders.bookAndPay",
     {
       ok: true,
-      command: "hostr.reservations.bookAndPay",
+      command: "hostr.orders.bookAndPay",
       environment: "staging",
       dryRun: false,
       traceId: "trace-payment",
@@ -622,7 +622,7 @@ test("payment responses include a result-bound payment widget", async () => {
 
 test("book and pay advertises the payment widget at tool registration time", () => {
   const bookAndPayMeta = __testing.reservationToolMeta(
-    "hostr.reservations.bookAndPay",
+    "hostr.orders.bookAndPay",
   );
   assert.equal(
     bookAndPayMeta["openai/outputTemplate"],
@@ -654,7 +654,7 @@ test("payment widget can read ChatGPT multimodal payment output", () => {
 
 test("tool descriptions omit repeated boilerplate", () => {
   const description = __testing.toolDescription({
-    id: "hostr.reservations.bookAndPay",
+    id: "hostr.orders.bookAndPay",
     description: [
       "Book and pay for an instant-book reservation.",
       "MCP driving notes: long common notes.",
@@ -663,7 +663,7 @@ test("tool descriptions omit repeated boilerplate", () => {
       "Preview rule: common preview notes.",
       "Specific workflow note.",
     ].join("\n\n"),
-    inputTypeName: "HostrReservationsBookAndPayInput",
+    inputTypeName: "HostrOrderBookAndPayInput",
   });
 
   assert.match(description, /Book and pay/);
@@ -677,7 +677,7 @@ test("tool descriptions omit repeated boilerplate", () => {
 test("book and pay advertises accurate ChatGPT write annotations", () => {
   assert.deepEqual(
     __testing.toolAnnotations({
-      id: "hostr.reservations.bookAndPay",
+      id: "hostr.orders.bookAndPay",
       readOnly: false,
     }),
     {
@@ -703,7 +703,7 @@ test("tool annotations distinguish destructive and non-destructive writes", () =
 
   assert.deepEqual(
     __testing.toolAnnotations({
-      id: "hostr.reservations.cancel",
+      id: "hostr.orders.cancel",
       readOnly: false,
     }),
     {

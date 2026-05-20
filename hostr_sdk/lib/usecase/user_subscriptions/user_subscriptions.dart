@@ -15,8 +15,7 @@ import '../heartbeat/heartbeat.dart';
 import '../messaging/threads.dart';
 import '../requests/requests.dart';
 import '../order_groups/order_group_participant_resolver.dart';
-import '../order_groups/order_groups.dart';
-import '../order_transitions/order_transitions.dart';
+import '../order_groups/order_group_verification.dart';
 import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservations.dart';
 import '../reviews/reviews.dart';
@@ -53,8 +52,7 @@ class UserSubscriptions {
   final GiftWraps _giftWraps;
   final Heartbeats _heartbeats;
   final Reservations _reservations;
-  final OrderTransitions _transitions;
-  final OrderGroups _orderGroups;
+  final OrderGroupVerification _orderGroupVerification;
 
   final Reviews _reviews;
   final Zaps _zaps;
@@ -66,8 +64,7 @@ class UserSubscriptions {
     required GiftWraps giftWraps,
     required Heartbeats heartbeats,
     required Reservations reservations,
-    required OrderTransitions transitions,
-    required OrderGroups orderGroups,
+    required OrderGroupVerification orderGroupVerification,
     required Reviews reviews,
     required Zaps zaps,
     required EscrowUseCase escrow,
@@ -76,8 +73,7 @@ class UserSubscriptions {
        _giftWraps = giftWraps,
        _heartbeats = heartbeats,
        _reservations = reservations,
-       _transitions = transitions,
-       _orderGroups = orderGroups,
+       _orderGroupVerification = orderGroupVerification,
        _reviews = reviews,
        _zaps = zaps,
        _escrow = escrow,
@@ -96,7 +92,7 @@ class UserSubscriptions {
 
   /// Validated reservation groups derived from [allMyReservations$].
   /// Each group is grouped by trade ID and validated (proof-checked) via
-  /// [OrderGroups.verifyFromSource]. Per-item stream — each emission
+  /// [OrderGroupVerification.verifyFromSource]. Per-item stream — each emission
   /// is a single [Validation<ReservationGroup>] (upserted by group ID).
   final StreamWithStatus<Validation<ReservationGroup>> allMyOrderGroups$ =
       StreamWithStatus();
@@ -146,7 +142,11 @@ class UserSubscriptions {
 
   /// All reservation transitions across every trade the user is in.
   late final ExpandableSubscription<ReservationTransition> allTransitions$ =
-      _transitions.createExpandable(name: 'user-transitions');
+      ExpandableSubscription<ReservationTransition>.idle(
+        requests: _reservations.requests,
+        logger: _logger,
+        name: 'ReservationTransition-user-transitions',
+      );
 
   /// All heartbeat events discovered for counterparties in known threads.
   late final ExpandableSubscription<ReceivedHeartbeat> allHeartbeats$ =
@@ -246,7 +246,7 @@ class UserSubscriptions {
       _reservationFilterSource!,
     );
 
-    _orderGroupsSource = _orderGroups.verifyFromSource(
+    _orderGroupsSource = _orderGroupVerification.verifyFromSource(
       source: allMyReservations$.stream,
       validate: validateOrderGroups,
     );
@@ -288,10 +288,7 @@ class UserSubscriptions {
     );
     myResolvedHostingsList$.pipeFrom(_myResolvedHostingsListSource!);
 
-    await _transitions.startExpandable(
-      allTransitions$,
-      _transitionFilterSource!,
-    );
+    await allTransitions$.restart(_transitionFilterSource!);
 
     await _heartbeats.startExpandable(allHeartbeats$, _heartbeatFilterSource!);
 
@@ -521,7 +518,10 @@ class UserSubscriptions {
 
   void _emitTransitionFilter() => _logger.spanSync('_emitTransitionFilter', () {
     if (_knownTradeIds.isEmpty) return;
-    final filter = Filter(dTags: _knownTradeIds.toList());
+    final filter = Filter(
+      kinds: ReservationTransition.kinds,
+      dTags: _knownTradeIds.toList(),
+    );
     _logger.d('emitting transition filter #d=$_knownTradeIds');
     _transitionFilterSource?.add(filter);
   });

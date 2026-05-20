@@ -58,7 +58,7 @@ class _BlockDatesWidgetState extends State<BlockDatesWidget> {
                   ? null
                   : () async {
                       final range = dateRangeController.dateRange!;
-                      await getIt<Hostr>().reservations.createBlocked(
+                      await getIt<Hostr>().orderWorkflows.createBlocked(
                         listingAnchor: widget.listingAnchor,
                         start: range.start,
                         end: range.end,

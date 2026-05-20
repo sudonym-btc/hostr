@@ -324,8 +324,8 @@ const escrowBadgeOutputSchema = z
   .passthrough();
 
 const reservationActionIds = new Set([
-  "hostr.reservations.bookAndPay",
-  "hostr.reservations.review",
+  "hostr.orders.bookAndPay",
+  "hostr.orders.review",
   "hostr.swaps.watch",
   "hostr.trips.list",
   "hostr.bookings.list",
@@ -340,13 +340,13 @@ const threadActionIds = new Set([
 
 const destructiveActionIds = new Set([
   "hostr.listings.edit",
-  "hostr.reservations.negotiateOffer",
-  "hostr.reservations.negotiateAccept",
+  "hostr.orders.negotiateOffer",
+  "hostr.orders.negotiateAccept",
   "hostr.profile.edit",
-  "hostr.reservations.pay",
-  "hostr.reservations.commit",
-  "hostr.reservations.cancel",
-  "hostr.reservations.review",
+  "hostr.orders.pay",
+  "hostr.orders.commit",
+  "hostr.orders.cancel",
+  "hostr.orders.review",
   "hostr.escrow.involve",
   "hostr.escrow.service.edit",
   "hostr.escrow.service.delete",
@@ -361,13 +361,13 @@ const openWorldActionIds = new Set([
   "hostr.listings.search",
   "hostr.listings.create",
   "hostr.listings.edit",
-  "hostr.reservations.bookAndPay",
-  "hostr.reservations.negotiateOffer",
-  "hostr.reservations.negotiateAccept",
-  "hostr.reservations.pay",
-  "hostr.reservations.commit",
-  "hostr.reservations.cancel",
-  "hostr.reservations.review",
+  "hostr.orders.bookAndPay",
+  "hostr.orders.negotiateOffer",
+  "hostr.orders.negotiateAccept",
+  "hostr.orders.pay",
+  "hostr.orders.commit",
+  "hostr.orders.cancel",
+  "hostr.orders.review",
   "hostr.thread.message",
   "hostr.escrow.involve",
   "hostr.profile.edit",
@@ -398,7 +398,7 @@ const toolAnnotations = (action: {
 };
 
 const reservationToolMeta = (actionId: string): Record<string, unknown> => {
-  if (actionId === "hostr.reservations.bookAndPay") {
+  if (actionId === "hostr.orders.bookAndPay") {
     return {
       ...widgetTemplateMeta(paymentRequiredWidgetUri),
       "hostr.preferredRenderer": "payment-external-required",
@@ -456,7 +456,7 @@ const presentationContract = (actionId: string): string | null => {
     return "Returns listing-card output; render structuredContent.displayMarkdown and preserve image Markdown.";
   }
   if (reservationActionIds.has(actionId)) {
-    return actionId === "hostr.reservations.bookAndPay"
+    return actionId === "hostr.orders.bookAndPay"
       ? "May return a payment QR widget. If payment is required, render the QR/invoice and make the next assistant action a hostr_swaps_watch tool call with structuredContent.requiredNextTool.arguments. Do not stop after displaying the invoice."
       : "May return trip-card or hosting-card output; render structuredContent.displayMarkdown instead of raw JSON.";
   }
@@ -484,9 +484,9 @@ const discoveryHint = (actionId: string): string | null => {
       return "Use this when the user asks to open, look up, inspect, or view another guest, host, seller, buyer, escrow, or participant profile from a reservation, listing, trade, or thread. It accepts npubs and 64-character hex pubkeys returned by Hostr cards.";
     case "hostr.swaps.list":
       return "Use this before recovery when the user asks about saved payments, payment operations, swap operations, stuck payments, pending payments, refunds, or whether payment got stuck.";
-    case "hostr.reservations.negotiateOffer":
+    case "hostr.orders.negotiateOffer":
       return "Use this for previewing or sending a new reservation offer/counteroffer. If the user asks what an offer would look like and gives a total price or says to use the same trip total, include that amount.";
-    case "hostr.reservations.negotiateAccept":
+    case "hostr.orders.negotiateAccept":
       return "Use this when the user asks to accept, preview accepting, or show what accepting the latest reservation offer would look like.";
     case "hostr.escrow.methods":
       return "Use this when escrow asks how the buyer or host/seller can be paid, refunded, released, reversed, or settled for a trade.";
@@ -1842,7 +1842,7 @@ const reservationCardsFromResult = (
   if (
     actionId === "hostr.trips.list" ||
     actionId === "hostr.bookings.list" ||
-    actionId === "hostr.reservations.bookAndPay"
+    actionId === "hostr.orders.bookAndPay"
   ) {
     const fallbackType =
       actionId === "hostr.bookings.list" ? "hosting-card" : "trip-card";
@@ -3134,7 +3134,7 @@ const formatToolContent = (
     }
   }
 
-  if (actionId === "hostr.reservations.negotiateOffer") {
+  if (actionId === "hostr.orders.negotiateOffer") {
     const listing = record(data.listing);
     const tradeId = stringValue(data.tradeId);
     const mode = result.dryRun === true ? "Preview" : "Broadcast";
@@ -3150,7 +3150,7 @@ const formatToolContent = (
       .join("\n\n");
   }
 
-  if (actionId === "hostr.reservations.bookAndPay") {
+  if (actionId === "hostr.orders.bookAndPay") {
     const state = record(data.state);
     const stateName = stringValue(state?.state) ?? stringValue(data.stateName);
     const externalPayment =
@@ -3179,7 +3179,7 @@ const formatToolContent = (
       .join("\n\n");
   }
 
-  if (actionId === "hostr.reservations.review") {
+  if (actionId === "hostr.orders.review") {
     const mode = result.dryRun === true ? "Preview" : "Published";
     const rating = Number(data.rating);
     const content = stringValue(data.content);
@@ -3630,7 +3630,7 @@ const toolResponse = async (
     ]
     : undefined;
   const bookAndPayPaymentRequired =
-    actionId === "hostr.reservations.bookAndPay" && Boolean(paymentDisplay);
+    actionId === "hostr.orders.bookAndPay" && Boolean(paymentDisplay);
   const swapWatchStatus =
     actionId === "hostr.swaps.watch" ? swapWatchInfo(safeResult) : null;
   const structuredResult = bookAndPayPaymentRequired
@@ -6755,7 +6755,7 @@ const createServer = (
         reservationActionIds.has(action.id)
           ? {
               outputSchema:
-                action.id === "hostr.reservations.bookAndPay"
+                action.id === "hostr.orders.bookAndPay"
                   ? paymentRequiredOutputSchema
                   : reservationCardOutputSchema,
               _meta: reservationToolMeta(action.id),
@@ -6934,7 +6934,7 @@ const createServer = (
             action: action.id,
             input: args,
             notificationToken,
-            ...(action.id === "hostr.reservations.bookAndPay"
+            ...(action.id === "hostr.orders.bookAndPay"
               ? { timeoutMs: bookAndPayTimeoutMs(args) }
               : {}),
             ...(action.id === "hostr.swaps.watch"

@@ -8,7 +8,6 @@ import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart';
-import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -17,7 +16,23 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
-    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
+    show
+        Accounts,
+        Bip340EventSigner,
+        EventSigner,
+        Filter,
+        Marketplace,
+        MarketplaceOrder,
+        MarketplaceOrderStage,
+        MarketplaceOrderTransition,
+        MarketplaceOrderTransitionContent,
+        MarketplaceOrderTransitionPublishResult,
+        MarketplaceOrderTransitionType,
+        MarketplaceOrderTransitionsUsecase,
+        Ndk,
+        NdkBroadcastResponse,
+        Nip01Event,
+        Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -33,7 +48,10 @@ class _FakeRequests extends Fake implements Requests {
       );
 
   final List<Nip01Event> broadcastedEvents = [];
-  final Ndk _ndk;
+  final _FakeNdk _ndk;
+
+  _FakeMarketplaceOrderTransitions get recordedTransitions =>
+      _ndk.recordedTransitions;
 
   @override
   Ndk get ndk => _ndk;
@@ -104,12 +122,29 @@ class _FakeNdk extends Fake implements Ndk {
 
   final String? activePubkey;
   final String? signingPrivateKey;
+  late final _FakeMarketplace _marketplace = _FakeMarketplace();
+
+  _FakeMarketplaceOrderTransitions get recordedTransitions =>
+      _marketplace.recordedTransitions;
 
   @override
   Accounts get accounts => _FakeAccounts(
     activePubkey: activePubkey,
     signingPrivateKey: signingPrivateKey,
   );
+
+  @override
+  Marketplace get marketplace => _marketplace;
+}
+
+class _FakeMarketplace extends Fake implements Marketplace {
+  final _FakeMarketplaceOrderTransitions _orderTransitions =
+      _FakeMarketplaceOrderTransitions();
+
+  _FakeMarketplaceOrderTransitions get recordedTransitions => _orderTransitions;
+
+  @override
+  MarketplaceOrderTransitionsUsecase get orderTransitions => _orderTransitions;
 }
 
 class _FakeAuth extends Fake implements Auth {
@@ -142,42 +177,51 @@ class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
   Future<int> reserveNextTradeIndex() async => 7;
 }
 
-class _FakeOrderTransitions extends Fake implements OrderTransitions {
+class _FakeMarketplaceOrderTransitions extends Fake
+    implements MarketplaceOrderTransitionsUsecase {
   int recordCalls = 0;
 
   @override
-  Future<ReservationTransition> record({
-    required Reservation reservation,
-    required ReservationTransitionType transitionType,
-    required ReservationStage fromStage,
-    required ReservationStage toStage,
-    KeyPair? signerKeyPair,
+  Future<MarketplaceOrderTransitionPublishResult> record({
+    required MarketplaceOrder order,
+    required MarketplaceOrderTransitionType transitionType,
+    required MarketplaceOrderStage fromStage,
+    required MarketplaceOrderStage toStage,
+    EventSigner? customSigner,
+    Iterable<String>? specificRelays,
     String? commitTermsHash,
     String? reason,
     Map<String, dynamic>? updatedFields,
     String? prevTransitionId,
   }) async {
     recordCalls += 1;
-    final unsigned = Nip01Event(
-      kind: kNostrKindReservationTransition,
-      pubKey: reservation.pubKey,
-      tags: [
-        ['d', reservation.getDtag() ?? ''],
-      ],
-      content: ReservationTransitionContent(
+    final signer =
+        customSigner ??
+        Bip340EventSigner(
+          privateKey: MockKeys.guest.privateKey!,
+          publicKey: MockKeys.guest.publicKey,
+        );
+    final unsigned = MarketplaceOrderTransition.create(
+      pubKey: signer.getPublicKey(),
+      order: order,
+      prevTransitionId: prevTransitionId,
+      content: MarketplaceOrderTransitionContent(
         transitionType: transitionType,
         fromStage: fromStage,
         toStage: toStage,
         commitTermsHash: commitTermsHash,
         reason: reason,
         updatedFields: updatedFields,
-      ).toString(),
+      ),
     );
-
-    return ReservationTransition.fromNostrEvent(
-      Nip01Utils.signWithPrivateKey(
-        event: unsigned,
-        privateKey: MockKeys.hoster.privateKey!,
+    final signed = MarketplaceOrderTransition.fromEvent(
+      await signer.sign(unsigned),
+    );
+    return MarketplaceOrderTransitionPublishResult(
+      transition: signed,
+      broadcast: NdkBroadcastResponse(
+        publishEvent: signed,
+        broadcastDoneStream: Stream.value([_successfulBroadcastResponse()]),
       ),
     );
   }
@@ -202,13 +246,13 @@ void main() {
   late _FakeAuth auth;
   late ReservationRequests reservationRequests;
   late Reservations reservations;
-  late _FakeOrderTransitions transitions;
+  late _FakeMarketplaceOrderTransitions transitions;
   late _FakeTradeAccountAllocator tradeAccountAllocator;
 
   setUp(() {
     requests = _FakeRequests();
     auth = _FakeAuth(MockKeys.guest);
-    transitions = _FakeOrderTransitions();
+    transitions = requests.recordedTransitions;
     tradeAccountAllocator = _FakeTradeAccountAllocator();
 
     reservationRequests = ReservationRequests(
@@ -224,7 +268,6 @@ void main() {
       logger: CustomLogger(),
       messaging: FakeMessaging(),
       auth: auth,
-      transitions: transitions,
       listings: FakeListings(),
       relays: FakeRelays(),
     );

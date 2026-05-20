@@ -70,7 +70,6 @@ void main() {
         logger: CustomLogger(),
         messaging: FakeMessaging(),
         auth: FakeAuth(),
-        transitions: FakeTransitions(),
         listings: Listings(
           requests: relay,
           logger: CustomLogger(),

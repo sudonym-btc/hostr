@@ -498,7 +498,7 @@ function buildPhases(runMode) {
         {
           prompt:
             "Please draft that five-star Hostr trip review now and show me the preview. If it cannot be published yet, the preview is enough.",
-          when: missingTool("hostr_reservations_review"),
+          when: missingTool("hostr_orders_review"),
         },
       ],
     },
@@ -525,34 +525,34 @@ function buildPhases(runMode) {
           prompt:
             "For the reservation offer examples, use the same $20 stay total. Preview sending that counteroffer and preview accepting the latest offer; don't send or pay anything.",
           when: missingAnyTool(
-            "hostr_reservations_negotiateOffer",
-            "hostr_reservations_negotiateAccept",
+            "hostr_orders_negotiateOffer",
+            "hostr_orders_negotiateAccept",
           ),
         },
         {
           prompt:
             "Please retry the reservation offer preview with the same $20 total; don't send it.",
-          when: failedTool("hostr_reservations_negotiateOffer"),
+          when: failedTool("hostr_orders_negotiateOffer"),
         },
         {
           prompt:
             "Please retry the latest-offer acceptance preview; don't accept it live.",
-          when: failedTool("hostr_reservations_negotiateAccept"),
+          when: failedTool("hostr_orders_negotiateAccept"),
         },
         {
           prompt:
             "Please switch back to my guest account and preview the negotiated payment check for this reservation; don't pay anything.",
-          when: failedTool("hostr_reservations_pay"),
+          when: failedTool("hostr_orders_pay"),
         },
         {
           prompt:
             "Please also preview the final reservation publication check from a saved paid proof or payment record; don't publish anything.",
-          when: missingTool("hostr_reservations_commit"),
+          when: missingTool("hostr_orders_commit"),
         },
         {
           prompt:
             "Please try the final reservation publication preview anyway; if the proof is missing, let Hostr return that as the preview result. Don't publish anything.",
-          when: missingTool("hostr_reservations_commit"),
+          when: missingTool("hostr_orders_commit"),
         },
       ],
     },
@@ -878,7 +878,7 @@ async function handleCodexLine(line) {
   const observedTradeId = findStringByKey(item.result, "tradeId");
   if (
     observedTradeId &&
-    ["hostr_reservations_bookAndPay", "hostr_swaps_watch"].includes(item.tool)
+    ["hostr_orders_bookAndPay", "hostr_swaps_watch"].includes(item.tool)
   ) {
     latestTradeId = observedTradeId;
   }
@@ -1238,7 +1238,7 @@ function noHostrToolCalls(phaseStart) {
 function missingSwapWatchAfterBooking(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   return (
-    calls.some((call) => call.tool === "hostr_reservations_bookAndPay") &&
+    calls.some((call) => call.tool === "hostr_orders_bookAndPay") &&
     calls.every((call) => call.tool !== "hostr_swaps_watch")
   );
 }
@@ -1286,13 +1286,13 @@ function validatePhase(label, phase, phaseStart, result) {
 
 function roleActionWasSatisfied(role, calls) {
   if (role === "guest") {
-    return calls.some((call) => call.tool === "hostr_reservations_bookAndPay");
+    return calls.some((call) => call.tool === "hostr_orders_bookAndPay");
   }
   if (role === "host") {
     return (
       calls.some((call) => call.tool === "hostr_bookings_list") &&
       calls.some((call) =>
-        ["hostr_thread_message", "hostr_reservations_cancel"].includes(call.tool),
+        ["hostr_thread_message", "hostr_orders_cancel"].includes(call.tool),
       )
     );
   }
@@ -1304,7 +1304,7 @@ function roleActionWasSatisfied(role, calls) {
 
 function needsBookingConfirmation(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
-  if (calls.some((call) => call.tool === "hostr_reservations_bookAndPay")) {
+  if (calls.some((call) => call.tool === "hostr_orders_bookAndPay")) {
     return false;
   }
   const lastMessage = phaseAgentMessages(phaseStart).at(-1) ?? "";
@@ -1315,7 +1315,7 @@ function needsBookingConfirmation(phaseStart) {
 
 function needsGuestLogin(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
-  if (calls.some((call) => call.tool === "hostr_reservations_bookAndPay")) {
+  if (calls.some((call) => call.tool === "hostr_orders_bookAndPay")) {
     return false;
   }
   const connectedGuest = calls.some(
@@ -1332,7 +1332,7 @@ function needsStayClarification(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   if (
     calls.some((call) =>
-      ["hostr_listings_search", "hostr_reservations_bookAndPay"].includes(
+      ["hostr_listings_search", "hostr_orders_bookAndPay"].includes(
         call.tool,
       ),
     )
@@ -1349,7 +1349,7 @@ function needsGuestPreferences(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   if (
     calls.some((call) =>
-      ["hostr_listings_search", "hostr_reservations_bookAndPay"].includes(
+      ["hostr_listings_search", "hostr_orders_bookAndPay"].includes(
         call.tool,
       ),
     )
@@ -1374,7 +1374,7 @@ function needsAddressClarification(phaseStart) {
 function needsPaymentConfirmation(phaseStart) {
   const calls = phaseToolCalls(phaseStart);
   const hasInvoice = calls.some((call) => {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       return false;
     }
     return Boolean(
@@ -1431,12 +1431,12 @@ function evaluate({ exitCode }) {
           "hostr_listings_availability",
           "hostr_listings_reviews",
           "hostr_listings_reservationGroups",
-          "hostr_reservations_bookAndPay",
-          "hostr_reservations_negotiateOffer",
-          "hostr_reservations_negotiateAccept",
-          "hostr_reservations_pay",
-          "hostr_reservations_commit",
-          "hostr_reservations_review",
+          "hostr_orders_bookAndPay",
+          "hostr_orders_negotiateOffer",
+          "hostr_orders_negotiateAccept",
+          "hostr_orders_pay",
+          "hostr_orders_commit",
+          "hostr_orders_review",
           "hostr_swaps_watch",
           "hostr_swaps_list",
           "hostr_swaps_recoverAll",
@@ -1446,7 +1446,7 @@ function evaluate({ exitCode }) {
           "hostr_bookings_list",
           "hostr_thread_message",
           "hostr_escrow_involve",
-          "hostr_reservations_cancel",
+          "hostr_orders_cancel",
           "hostr_profile_show",
           "hostr_profile_lookup",
           "hostr_profile_edit",
@@ -1563,7 +1563,7 @@ function toolFailureWasRecovered(index, failedCall) {
 
 function observedBookAndPayInvoice() {
   for (const call of toolCalls) {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       continue;
     }
     const invoice = findString(call.result, (value) =>
@@ -1591,7 +1591,7 @@ function aiDisplayedPaymentQr(messages) {
 
 function toolDisplayedLightningInvoice(invoice) {
   return toolCalls.some((call) => {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       return false;
     }
     const text = summarizeToolResult(call.result);
@@ -1601,7 +1601,7 @@ function toolDisplayedLightningInvoice(invoice) {
 
 function toolDisplayedPaymentQr() {
   return toolCalls.some((call) => {
-    if (call.tool !== "hostr_reservations_bookAndPay" || call.status !== "completed") {
+    if (call.tool !== "hostr_orders_bookAndPay" || call.status !== "completed") {
       return false;
     }
     return /!\[[^\]]*(qr|payment|invoice|lightning)[^\]]*\]\([^)]+\)|payment-qr|qr code|scan|create-qr-code/i.test(

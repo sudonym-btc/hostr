@@ -1,4 +1,4 @@
-/// Integration tests for [OrderGroups] verification against a real
+/// Integration tests for [OrderGroupVerification] verification against a real
 /// Anvil (Foundry) chain and Nostr relay.
 ///
 /// These tests exercise:
@@ -365,7 +365,7 @@ void main() {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
       final pair = ReservationGroup(reservations: [nego]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
     });
 
@@ -379,7 +379,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -396,7 +396,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [ack]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -410,7 +410,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [cancelled]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
@@ -430,7 +430,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [cancelled, nego]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
@@ -452,7 +452,7 @@ void main() {
         reservations: [sellerCancelled, buyerCancelled],
       );
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
       expect((result as Valid).event.buyerCancelled, isTrue);
@@ -474,7 +474,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [ack, cancelledBuyer]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
@@ -495,7 +495,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [cancelledSeller, nego]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
@@ -503,7 +503,7 @@ void main() {
     test('empty pair (both null) → Invalid', () {
       final pair = ReservationGroup();
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
@@ -673,7 +673,7 @@ void main() {
         );
 
         final pair = ReservationGroup(reservations: [commit]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroupVerification.verifyGroup(pair);
         expect(result, isA<Valid<ReservationGroup>>());
       });
 
@@ -818,7 +818,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -845,7 +845,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -868,7 +868,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('Amount insufficient'));
     });
@@ -905,7 +905,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('recipient does not match'));
     });
@@ -936,7 +936,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('profile does not match'));
     });
@@ -964,7 +964,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('LNURL does not match'));
     });
@@ -987,7 +987,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect(
         (result as Invalid).reason,
@@ -1030,7 +1030,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -1045,7 +1045,7 @@ void main() {
 
         // No proof attached — should definitely be invalid
         final pair = ReservationGroup(reservations: [nego]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroupVerification.verifyGroup(pair);
         expect(result, isA<Invalid<ReservationGroup>>());
       },
     );
@@ -1087,7 +1087,7 @@ void main() {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       // Documenting current behavior: proof validation passes regardless
       // of allowSelfSignedReservation flag.
       expect(result, isA<Valid<ReservationGroup>>());
@@ -1111,7 +1111,7 @@ void main() {
 
         // No seller ack, no proof
         final pair = ReservationGroup(reservations: [nego]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroupVerification.verifyGroup(pair);
         expect(result, isA<Invalid<ReservationGroup>>());
       },
     );
@@ -1134,7 +1134,7 @@ void main() {
 
       final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroupVerification.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -1173,7 +1173,7 @@ void main() {
         );
 
         final pair = ReservationGroup(reservations: [commit]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroupVerification.verifyGroup(pair);
         expect(result, isA<Valid<ReservationGroup>>());
       },
     );
@@ -1230,7 +1230,7 @@ void main() {
       );
 
       final results = pairs.values
-          .map((pair) => OrderGroups.verifyGroup(pair))
+          .map((pair) => OrderGroupVerification.verifyGroup(pair))
           .toList();
 
       final validCount = results.whereType<Valid<ReservationGroup>>().length;
@@ -1291,7 +1291,7 @@ void main() {
       );
 
       final results = pairs.values
-          .map((pair) => OrderGroups.verifyGroup(pair))
+          .map((pair) => OrderGroupVerification.verifyGroup(pair))
           .toList();
 
       final validCount = results.whereType<Valid<ReservationGroup>>().length;
@@ -1351,7 +1351,7 @@ void main() {
       );
 
       final results = pairs.values
-          .map((pair) => OrderGroups.verifyGroup(pair))
+          .map((pair) => OrderGroupVerification.verifyGroup(pair))
           .toList();
 
       final activeCount = results

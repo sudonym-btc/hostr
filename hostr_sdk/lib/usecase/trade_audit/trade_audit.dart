@@ -1,11 +1,11 @@
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show Ndk;
 
 import '../../util/main.dart';
 import '../escrow/escrow_verification.dart';
 import '../evm/evm.dart';
 import '../listings/listings.dart';
-import '../order_transitions/order_transitions.dart';
 import '../reservations/reservations.dart';
 
 /// Audit result for one side of a trade (buyer or seller).
@@ -138,12 +138,12 @@ class TradeAuditResult {
 @Singleton()
 class TradeAudit {
   final Reservations _reservations;
-  final OrderTransitions _transitions;
+  final Ndk _ndk;
   final Listings _listings;
   final CustomLogger _logger;
   final Evm _evm;
   Reservations get reservations => _reservations;
-  OrderTransitions get transitions => _transitions;
+  Ndk get ndk => _ndk;
   Listings get listings => _listings;
   CustomLogger get logger => _logger;
   Evm get evm => _evm;
@@ -156,12 +156,12 @@ class TradeAudit {
 
   TradeAudit({
     required Reservations reservations,
-    required OrderTransitions transitions,
+    required Ndk ndk,
     required Listings listings,
     required CustomLogger logger,
     required Evm evm,
   }) : _reservations = reservations,
-       _transitions = transitions,
+       _ndk = ndk,
        _listings = listings,
        _logger = logger,
        _evm = evm;
@@ -173,7 +173,13 @@ class TradeAudit {
     // 1. Fetch reservation snapshots and transitions in parallel.
     final results = await Future.wait([
       reservations.getByTradeId(tradeId),
-      transitions.getForReservation(tradeId),
+      ndk.marketplace.orderTransitions
+          .queryByTradeId(tradeId)
+          .future
+          .then(
+            (transitions) =>
+                transitions.map(ReservationTransition.fromNostrEvent).toList(),
+          ),
     ]);
     final allReservations = results[0] as List<Reservation>;
     final allTransitions = results[1] as List<ReservationTransition>;

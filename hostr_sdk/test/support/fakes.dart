@@ -11,7 +11,6 @@ import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
@@ -26,9 +25,6 @@ class FakeMessaging extends Fake implements Messaging {
 
 /// No-op fake for [Auth].
 class FakeAuth extends Fake implements Auth {}
-
-/// No-op fake for [OrderTransitions].
-class FakeTransitions extends Fake implements OrderTransitions {}
 
 /// In-memory fake relay source for reservation / event subscriptions.
 ///

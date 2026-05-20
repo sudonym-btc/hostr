@@ -13,7 +13,7 @@ class ListingsCommand extends Command<int> {
     addSubcommand(ListingsEditCommand(stdout: stdout, stderr: stderr));
     addSubcommand(ListingsAvailableCommand(stdout: stdout, stderr: stderr));
     addSubcommand(ListingsReviewsCommand(stdout: stdout, stderr: stderr));
-    addSubcommand(ListingsReservationsCommand(stdout: stdout, stderr: stderr));
+    addSubcommand(ListingsOrdersCommand(stdout: stdout, stderr: stderr));
   }
 
   @override
@@ -218,17 +218,17 @@ class ListingsReviewsCommand extends HostrCliCommand {
   );
 }
 
-class ListingsReservationsCommand extends HostrCliCommand {
-  ListingsReservationsCommand({required super.stdout, required super.stderr}) {
+class ListingsOrdersCommand extends HostrCliCommand {
+  ListingsOrdersCommand({required super.stdout, required super.stderr}) {
     argParser.addOption('input', help: 'JSON input with anchors.');
     argParser.addMultiOption('anchor', help: 'Listing anchor.');
   }
 
   @override
-  final String name = 'reservations';
+  final String name = 'orders';
 
   @override
-  final String description = 'Fetch reservation groups for listings.';
+  final String description = 'Fetch order groups for listings.';
 
   @override
   Future<HostrCliResult> runCommand() => runSharedAction(

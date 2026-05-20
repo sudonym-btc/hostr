@@ -377,7 +377,6 @@ void main() {
         logger: logger,
         messaging: FakeMessaging(),
         auth: FakeAuth(),
-        transitions: FakeTransitions(),
         listings: listings,
         relays: FakeRelays(),
       );

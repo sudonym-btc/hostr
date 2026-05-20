@@ -25,9 +25,9 @@ class Hostr {
   Listings get listings => scope<Listings>();
   LnurlUseCase get lnurl => scope<LnurlUseCase>();
   Location get location => scope<Location>();
-  Reservations get reservations => scope<Reservations>();
-  OrderGroups get orderGroups => scope<OrderGroups>();
-  OrderTransitions get orderTransitions => scope<OrderTransitions>();
+  Reservations get orderWorkflows => scope<Reservations>();
+  OrderGroupVerification get orderGroupVerification =>
+      scope<OrderGroupVerification>();
   GiftWraps get giftWraps => scope<GiftWraps>();
   DmRelays get dmRelays => scope<DmRelays>();
   EscrowUseCase get escrow => scope<EscrowUseCase>();
@@ -94,7 +94,7 @@ class Hostr {
     await paymentProofOrchestrator.reset();
     await userSubscriptions.reset();
     await messaging.threads.close();
-    await reservations.dispose();
+    await orderWorkflows.dispose();
     await nwc.dispose();
     await evm.dispose();
     await auth.dispose();

@@ -32,7 +32,7 @@ class ListingDependencies {
           },
         ),
       ),
-      verifiedOrderGroups: getIt<Hostr>().orderGroups.queryVerified(
+      verifiedOrderGroups: getIt<Hostr>().orderGroupVerification.queryVerified(
         listingAnchor: anchor,
       ),
     );

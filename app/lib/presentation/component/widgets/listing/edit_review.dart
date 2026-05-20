@@ -98,7 +98,7 @@ class EditReviewController extends UpsertFormController {
     debugPrint(
       'REVIEW_SAVE upsert:reservationAuthor=${reservationAuthorKeyPair.publicKey}',
     );
-    final proof = await getIt<Hostr>().reservations
+    final proof = await getIt<Hostr>().orderWorkflows
         .createParticipationProofForReview(
           reservation: reservationContext,
           role: 'buyer',

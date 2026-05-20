@@ -35,7 +35,7 @@ class _ReservationPublishedPopupListenerState
     // CrudUseCase only emits updates after relay broadcast succeeds. Listening
     // here keeps the popup tied to a real reservation publish instead of relay
     // replays or pre-broadcast optimistic state.
-    _subscription = getIt<Hostr>().reservations.updates
+    _subscription = getIt<Hostr>().orderWorkflows.updates
         .where((reservation) => reservation.isCommit)
         .where((reservation) => reservation.proof != null)
         .listen(_showTripBookedPopup);

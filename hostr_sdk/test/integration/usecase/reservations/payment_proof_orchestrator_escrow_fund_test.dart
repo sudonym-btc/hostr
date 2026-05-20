@@ -184,7 +184,7 @@ Future<void> _runSignedInPaymentProofCase({
 
   final proofCompleter = Completer<Reservation>();
   final proofPublishCompleter = Completer<void>();
-  final updatesSub = hostr.reservations.updates.listen((reservation) {
+  final updatesSub = hostr.orderWorkflows.updates.listen((reservation) {
     if (_isBuyerEscrowProofReservation(
       reservation: reservation,
       tradeId: prepared.tradeId,
@@ -831,7 +831,7 @@ Future<void> _expectProofReadableFromRelay({
   final deadline = DateTime.now().add(const Duration(seconds: 45));
   var lastSeen = const <Reservation>[];
   while (DateTime.now().isBefore(deadline)) {
-    lastSeen = await hostr.reservations.getByTradeId(tradeId);
+    lastSeen = await hostr.orderWorkflows.getByTradeId(tradeId);
     if (lastSeen.any(
       (reservation) =>
           _isBuyerEscrowProofReservation(
@@ -922,7 +922,7 @@ Future<void> _resetSession(Hostr hostr) async {
   await hostr.userSubscriptions.reset();
   await hostr.messaging.threads.reset();
   await hostr.nwc.reset();
-  await hostr.reservations.reset();
+  await hostr.orderWorkflows.reset();
   await hostr.auth.logout();
   await hostr.ndk.relays.closeAllTransports();
 }

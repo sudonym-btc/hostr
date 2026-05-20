@@ -32,7 +32,7 @@ class OrderGroupDeps {
 /// 3. Buyer-only (self-signed) → validate payment proof via
 ///    [Reservation.validate].
 @Singleton()
-class OrderGroups {
+class OrderGroupVerification {
   final Reservations _reservations;
   final CustomLogger _logger;
   final Evm _evm;
@@ -43,7 +43,7 @@ class OrderGroups {
     logger: _logger,
   );
 
-  OrderGroups({
+  OrderGroupVerification({
     required Reservations reservations,
     required CustomLogger logger,
     required Evm evm,
@@ -93,7 +93,7 @@ class OrderGroups {
           kListingRefTag: [listingAnchor],
         },
       ),
-      name: 'OrderGroups-verified',
+      name: 'OrderGroupVerification-verified',
     );
     return _buildValidatedStream(
       source: source,
@@ -121,7 +121,7 @@ class OrderGroups {
           kListingRefTag: [listingAnchor],
         },
       ),
-      name: 'OrderGroups-query',
+      name: 'OrderGroupVerification-query',
     );
     return _buildValidatedStream(
       source: source,

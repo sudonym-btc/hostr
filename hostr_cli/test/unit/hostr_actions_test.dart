@@ -18,11 +18,11 @@ void main() {
         'hostr_listings_availability',
         'hostr_listings_reviews',
         'hostr_listings_orderGroups',
-        'hostr_reservations_negotiateOffer',
-        'hostr_reservations_negotiateAccept',
-        'hostr_reservations_pay',
-        'hostr_reservations_commit',
-        'hostr_reservations_cancel',
+        'hostr_orders_negotiateOffer',
+        'hostr_orders_negotiateAccept',
+        'hostr_orders_pay',
+        'hostr_orders_commit',
+        'hostr_orders_cancel',
         'hostr_updates',
         'hostr_thread_view',
         'hostr_thread_message',
@@ -40,7 +40,7 @@ void main() {
 
     expect(
       HostrActionCatalog.all.map((spec) => spec.id),
-      isNot(contains('hostr.reservations.offer')),
+      isNot(contains('hostr.orders.offer')),
     );
     expect(
       HostrActionCatalog.all.map((spec) => spec.id),
@@ -63,15 +63,10 @@ void main() {
       isNot(contains('counter')),
     );
 
-    final reservation = HostrActionCatalog.byId(
-      'hostr.reservations.negotiateOffer',
-    );
-    expect(reservation.inputTypeName, 'HostrReservationsOfferInput');
+    final reservation = HostrActionCatalog.byId('hostr.orders.negotiateOffer');
+    expect(reservation.inputTypeName, 'HostrOrdersOfferInput');
     expect(reservation.inputSchema, isNot(contains('required')));
-    expect(
-      reservation.typescriptInput,
-      contains('HostrReservationsOfferInput'),
-    );
+    expect(reservation.typescriptInput, contains('HostrOrdersOfferInput'));
   });
 
   test('listings search input normalizes optional fields safely', () {
@@ -121,7 +116,7 @@ void main() {
     expect(liveCreate.dTag, 'draft-listing-1');
     expect(liveCreate.toListingJson(), containsPair('dTag', 'draft-listing-1'));
 
-    final reservation = HostrReservationsOfferInput.fromJson({
+    final reservation = HostrOrdersOfferInput.fromJson({
       'listingAnchor': 'naddr1...',
       'start': '2026-05-04T12:00:00Z',
       'end': '2026-05-05T12:00:00Z',
@@ -129,7 +124,7 @@ void main() {
     expect(reservation.dryRun, isTrue);
     expect(reservation.isFollowUpOffer, isFalse);
 
-    final followUpOffer = HostrReservationsOfferInput.fromJson({
+    final followUpOffer = HostrOrdersOfferInput.fromJson({
       'tradeId': 'trade-1',
       'amount': {'value': '1.50', 'currency': 'USD'},
     });
@@ -138,10 +133,10 @@ void main() {
     expect(followUpOffer.dryRun, isTrue);
     expect(followUpOffer.isFollowUpOffer, isTrue);
 
-    final pay = HostrReservationPayInput.fromJson({'tradeId': 'trade-1'});
+    final pay = HostrOrderPayInput.fromJson({'tradeId': 'trade-1'});
     expect(pay.dryRun, isTrue);
 
-    final commit = HostrReservationCommitInput.fromJson({'swapId': 'swap-1'});
+    final commit = HostrOrderCommitInput.fromJson({'swapId': 'swap-1'});
     expect(commit.dryRun, isTrue);
 
     final createSchema = HostrActionCatalog.byId(
@@ -152,15 +147,13 @@ void main() {
     expect(createProperties, isNot(contains('publish')));
 
     final offerSchema = HostrActionCatalog.byId(
-      'hostr.reservations.negotiateOffer',
+      'hostr.orders.negotiateOffer',
     ).inputSchema;
     final offerProperties = offerSchema['properties'] as Map<String, Object?>;
     expect(offerProperties, contains('dryRun'));
     expect(offerProperties, isNot(contains('broadcast')));
 
-    final paySchema = HostrActionCatalog.byId(
-      'hostr.reservations.pay',
-    ).inputSchema;
+    final paySchema = HostrActionCatalog.byId('hostr.orders.pay').inputSchema;
     final payProperties = paySchema['properties'] as Map<String, Object?>;
     expect(payProperties, contains('dryRun'));
     expect(payProperties, isNot(contains('broadcast')));
@@ -239,9 +232,9 @@ void main() {
     expect(docs, contains('Edit listing workflow'));
     expect(docs, contains('Negotiation workflow'));
     expect(docs, contains('Payment workflow'));
-    expect(docs, contains('hostr_reservations_negotiateOffer'));
-    expect(docs, contains('hostr_reservations_pay'));
-    expect(docs, contains('hostr_reservations_commit'));
+    expect(docs, contains('hostr_orders_negotiateOffer'));
+    expect(docs, contains('hostr_orders_pay'));
+    expect(docs, contains('hostr_orders_commit'));
     expect(docs, contains('hostr_profile_show'));
     expect(docs, contains('hostr_trips_list'));
     expect(docs, contains('hostr_bookings_list'));
@@ -254,7 +247,7 @@ void main() {
   test(
     'reservation privacy descriptions do not frame temp pubkeys as mismatches',
     () {
-      final booking = HostrActionCatalog.byId('hostr.reservations.bookAndPay');
+      final booking = HostrActionCatalog.byId('hostr.orders.bookAndPay');
       final trips = HostrActionCatalog.byId('hostr.trips.list');
       final swaps = HostrActionCatalog.byId('hostr.swaps.watch');
 

@@ -128,7 +128,7 @@ class _ListingViewContent extends StatelessWidget {
         verifiedGroupsStream: dependencies.verifiedOrderGroups,
         hostKeyPair: activeKeyPair,
         onCancelBlockedReservation: (reservation) async {
-          await getIt<Hostr>().reservations.cancel(
+          await getIt<Hostr>().orderWorkflows.cancel(
             ReservationGroup.fromReservation(reservation),
             getIt<Hostr>().auth.getActiveKey(),
           );

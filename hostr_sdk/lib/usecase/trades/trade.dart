@@ -18,7 +18,7 @@ import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../order_groups/order_group_participant_resolver.dart';
-import '../order_groups/order_groups.dart';
+import '../order_groups/order_group_verification.dart';
 import '../reservation_requests/reservation_requests.dart';
 import '../reservations/reservations.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
@@ -83,7 +83,7 @@ class Trade extends Cubit<TradeState> {
   final MetadataUseCase _metadata;
   final IdentityClaimsUseCase _identityClaims;
   final UserSubscriptions _userSubscriptions;
-  final OrderGroups _orderGroups;
+  final OrderGroupVerification _orderGroupVerification;
   final Threads _threads;
   final TradeAccountAllocator _tradeAccountAllocator;
   final ReservationRequests _reservationRequests;
@@ -153,7 +153,7 @@ class Trade extends Cubit<TradeState> {
     required MetadataUseCase metadata,
     required IdentityClaimsUseCase identityClaims,
     required UserSubscriptions userSubscriptions,
-    required OrderGroups orderGroups,
+    required OrderGroupVerification orderGroupVerification,
     required Threads threads,
     required TradeAccountAllocator tradeAccountAllocator,
     required ReservationRequests reservationRequests,
@@ -164,7 +164,7 @@ class Trade extends Cubit<TradeState> {
        _metadata = metadata,
        _identityClaims = identityClaims,
        _userSubscriptions = userSubscriptions,
-       _orderGroups = orderGroups,
+       _orderGroupVerification = orderGroupVerification,
        _threads = threads,
        _tradeAccountAllocator = tradeAccountAllocator,
        _reservationRequests = reservationRequests,
@@ -397,7 +397,7 @@ class Trade extends Cubit<TradeState> {
     final hostProfile = _hostProfile;
     final sellerEvmAddress = _sellerEvmAddress;
 
-    allListingReservations$ = _orderGroups.queryVerified(
+    allListingReservations$ = _orderGroupVerification.queryVerified(
       listingAnchor: listingAnchor,
       forceValidatePredicate: (group) => group.tradeId == tradeId,
     );

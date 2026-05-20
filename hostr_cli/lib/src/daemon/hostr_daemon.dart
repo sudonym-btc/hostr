@@ -294,26 +294,26 @@ class HostrDaemon {
             HostrListingsAnchorsInput.fromJson(input),
           ),
         ),
-        'hostr.reservations.negotiateOffer' => await () async {
-          final offerInput = HostrReservationsOfferInput.fromJson(input);
+        'hostr.orders.negotiateOffer' => await () async {
+          final offerInput = HostrOrdersOfferInput.fromJson(input);
           return (
             dryRun: offerInput.dryRun,
             data: await _reservationsOffer(tokenPubkey, session, offerInput),
           );
         }(),
-        'hostr.reservations.bookAndPay' => (
+        'hostr.orders.bookAndPay' => (
           dryRun: false,
           data: await _reservationsBookAndPay(
             tokenPubkey,
             session,
-            HostrReservationBookAndPayInput.fromJson(input),
+            HostrOrderBookAndPayInput.fromJson(input),
             notificationToken: notificationToken,
             traceId: traceId,
             cancellationToken: cancellationToken,
           ),
         ),
-        'hostr.reservations.negotiateAccept' => await () async {
-          final tradeInput = HostrReservationTradeInput.fromJson(input);
+        'hostr.orders.negotiateAccept' => await () async {
+          final tradeInput = HostrOrderTradeInput.fromJson(input);
           return (
             dryRun: tradeInput.dryRun,
             data: await _reservationsOfferOrAccept(
@@ -324,29 +324,29 @@ class HostrDaemon {
             ),
           );
         }(),
-        'hostr.reservations.pay' => await () async {
-          final payInput = HostrReservationPayInput.fromJson(input);
+        'hostr.orders.pay' => await () async {
+          final payInput = HostrOrderPayInput.fromJson(input);
           return (
             dryRun: payInput.dryRun,
             data: await _reservationsPay(tokenPubkey, session, payInput),
           );
         }(),
-        'hostr.reservations.commit' => await () async {
-          final commitInput = HostrReservationCommitInput.fromJson(input);
+        'hostr.orders.commit' => await () async {
+          final commitInput = HostrOrderCommitInput.fromJson(input);
           return (
             dryRun: commitInput.dryRun,
             data: await _reservationsCommit(tokenPubkey, session, commitInput),
           );
         }(),
-        'hostr.reservations.cancel' => await () async {
-          final tradeInput = HostrReservationTradeInput.fromJson(input);
+        'hostr.orders.cancel' => await () async {
+          final tradeInput = HostrOrderTradeInput.fromJson(input);
           return (
             dryRun: tradeInput.dryRun,
             data: await _reservationsCancel(tokenPubkey, session, tradeInput),
           );
         }(),
-        'hostr.reservations.review' => await () async {
-          final reviewInput = HostrReservationReviewInput.fromJson(input);
+        'hostr.orders.review' => await () async {
+          final reviewInput = HostrOrderReviewInput.fromJson(input);
           return (
             dryRun: reviewInput.dryRun,
             data: await _reservationsReview(tokenPubkey, session, reviewInput),
@@ -405,7 +405,7 @@ class HostrDaemon {
           data: await _reservationCollection(
             tokenPubkey,
             session,
-            HostrReservationCollectionInput.fromJson(input),
+            HostrOrderCollectionInput.fromJson(input),
             mode: 'trips',
           ),
         ),
@@ -414,7 +414,7 @@ class HostrDaemon {
           data: await _reservationCollection(
             tokenPubkey,
             session,
-            HostrReservationCollectionInput.fromJson(input),
+            HostrOrderCollectionInput.fromJson(input),
             mode: 'bookings',
           ),
         ),
@@ -583,7 +583,7 @@ class HostrDaemon {
       };
 
       keepNotificationOperation =
-          action == 'hostr.reservations.bookAndPay' &&
+          action == 'hostr.orders.bookAndPay' &&
           result.data['continuesInBackground'] == true;
 
       return HostrCliResult(
@@ -1651,7 +1651,7 @@ class HostrDaemon {
         results.add({'anchor': anchor, 'found': false, 'available': false});
         continue;
       }
-      final groups = await session.reservations.queryOrderGroups(
+      final groups = await session.orderWorkflows.queryOrderGroups(
         listing: listing,
       );
       results.add({
@@ -1727,7 +1727,7 @@ class HostrDaemon {
         });
         continue;
       }
-      final groups = await session.reservations.queryOrderGroups(
+      final groups = await session.orderWorkflows.queryOrderGroups(
         listing: listing,
       );
       results.add({
@@ -1746,13 +1746,13 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsOffer(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationsOfferInput input,
+    HostrOrdersOfferInput input,
   ) async {
     if (input.isFollowUpOffer) {
       return _reservationsOfferOrAccept(
         tokenPubkey,
         session,
-        HostrReservationTradeInput(
+        HostrOrderTradeInput(
           tradeId: input.tradeId!,
           amount: input.amount,
           dryRun: input.dryRun,
@@ -1776,7 +1776,7 @@ class HostrDaemon {
         details: {'anchor': input.listingAnchor},
       );
     }
-    final groups = await session.reservations.queryOrderGroups(
+    final groups = await session.orderWorkflows.queryOrderGroups(
       listing: listing,
     );
     if (!Listing.isAvailable(
@@ -1850,7 +1850,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsBookAndPay(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationBookAndPayInput input, {
+    HostrOrderBookAndPayInput input, {
     String? notificationToken,
     String? traceId,
     HostrCancellationToken? cancellationToken,
@@ -1887,7 +1887,7 @@ class HostrDaemon {
       accountSeedStore: session.accountSeedStore,
       auth: session.auth,
       listings: session.listings,
-      reservations: session.reservations,
+      reservations: session.orderWorkflows,
       reservationRequests: session.reservationRequests,
       messaging: session.messaging,
       escrow: session.escrow,
@@ -2073,7 +2073,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsOfferOrAccept(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationTradeInput input, {
+    HostrOrderTradeInput input, {
     required bool acceptLatest,
   }) async {
     await _requireAuthenticatedPubkey(
@@ -2180,7 +2180,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsPay(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationPayInput input,
+    HostrOrderPayInput input,
   ) async {
     final activePubkey = await _requireAuthenticatedPubkey(
       tokenPubkey,
@@ -2334,7 +2334,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsCommit(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationCommitInput input,
+    HostrOrderCommitInput input,
   ) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
@@ -2462,7 +2462,7 @@ class HostrDaemon {
       sellerPubkey: listing.pubKey,
       tradeId: tradeId,
     );
-    final committed = await hostr.reservations.createSelfSigned(
+    final committed = await hostr.orderWorkflows.createSelfSigned(
       activeKeyPair: activeKeyPair,
       negotiateReservation: reservation,
       proof: PaymentProof(
@@ -2506,7 +2506,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsCancel(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationTradeInput input,
+    HostrOrderTradeInput input,
   ) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
@@ -2547,7 +2547,7 @@ class HostrDaemon {
           'reservationGroup': publicReservations.map(eventJson).toList(),
         };
       }
-      final cancelled = await hostr.reservations.cancel(
+      final cancelled = await hostr.orderWorkflows.cancel(
         publicGroup,
         await _activeReservationKeyPair(
           hostr,
@@ -2617,7 +2617,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationsReview(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationReviewInput input,
+    HostrOrderReviewInput input,
   ) async {
     await _requireAuthenticatedPubkey(
       tokenPubkey,
@@ -2690,7 +2690,7 @@ class HostrDaemon {
       content: ReviewContent(
         rating: input.rating,
         content: input.content,
-        proof: await hostr.reservations.createParticipationProofForReview(
+        proof: await hostr.orderWorkflows.createParticipationProofForReview(
           reservation: reservation,
           role: 'buyer',
           recipientKeyPair: recipientKeyPair,
@@ -3151,7 +3151,7 @@ class HostrDaemon {
   Future<Map<String, Object?>> _reservationCollection(
     String tokenPubkey,
     HostrSession session,
-    HostrReservationCollectionInput input, {
+    HostrOrderCollectionInput input, {
     required String mode,
   }) async {
     await _requireAuthenticatedPubkey(
@@ -5873,7 +5873,7 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
       ? await _readPersistedTradeReservation(hostr, tradeId)
       : null;
   final publicReservations = privateReservation == null
-      ? await hostr.reservations.getByTradeId(tradeId)
+      ? await hostr.orderWorkflows.getByTradeId(tradeId)
       : const <Reservation>[];
   final reservations = [
     ?privateReservation,

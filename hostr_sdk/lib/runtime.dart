@@ -91,9 +91,9 @@ class HostrSession {
   Listings get listings => hostr.listings;
   LnurlUseCase get lnurl => hostr.lnurl;
   Location get location => hostr.location;
-  Reservations get reservations => hostr.reservations;
-  OrderGroups get orderGroups => hostr.orderGroups;
-  OrderTransitions get orderTransitions => hostr.orderTransitions;
+  Reservations get orderWorkflows => hostr.orderWorkflows;
+  OrderGroupVerification get orderGroupVerification =>
+      hostr.orderGroupVerification;
   GiftWraps get giftWraps => hostr.giftWraps;
   DmRelays get dmRelays => hostr.dmRelays;
   EscrowUseCase get escrow => hostr.escrow;

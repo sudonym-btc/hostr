@@ -6,33 +6,31 @@ import 'package:args/command_runner.dart';
 import 'action_bridge.dart';
 import 'base.dart';
 
-class ReservationsCommand extends Command<int> {
-  ReservationsCommand({required IOSink stdout, required IOSink stderr}) {
-    addSubcommand(ReservationOfferCommand(stdout: stdout, stderr: stderr));
-    addSubcommand(ReservationPayCommand(stdout: stdout, stderr: stderr));
-    addSubcommand(ReservationCommitCommand(stdout: stdout, stderr: stderr));
-    addSubcommand(ReservationCancelCommand(stdout: stdout, stderr: stderr));
-    addSubcommand(
-      ReservationNegotiationCommand(stdout: stdout, stderr: stderr),
-    );
+class OrdersCommand extends Command<int> {
+  OrdersCommand({required IOSink stdout, required IOSink stderr}) {
+    addSubcommand(OrderOfferCommand(stdout: stdout, stderr: stderr));
+    addSubcommand(OrderPayCommand(stdout: stdout, stderr: stderr));
+    addSubcommand(OrderCommitCommand(stdout: stdout, stderr: stderr));
+    addSubcommand(OrderCancelCommand(stdout: stdout, stderr: stderr));
+    addSubcommand(OrderNegotiationCommand(stdout: stdout, stderr: stderr));
     addSubcommand(TripsListCommand(stdout: stdout, stderr: stderr));
     addSubcommand(BookingsListCommand(stdout: stdout, stderr: stderr));
   }
 
   @override
-  final String name = 'reservations';
+  final String name = 'orders';
 
   @override
-  final String description = 'Create and manage Hostr reservations.';
+  final String description = 'Create and manage Hostr marketplace orders.';
 }
 
-class ReservationOfferCommand extends HostrCliCommand {
-  ReservationOfferCommand({required super.stdout, required super.stderr}) {
+class OrderOfferCommand extends HostrCliCommand {
+  OrderOfferCommand({required super.stdout, required super.stderr}) {
     argParser
       ..addOption(
         'input',
         mandatory: true,
-        help: 'Reservation JSON input file, inline object, or "-".',
+        help: 'Order JSON input file, inline object, or "-".',
       )
       ..addFlag(
         'yes',
@@ -47,22 +45,22 @@ class ReservationOfferCommand extends HostrCliCommand {
 
   @override
   final String description =
-      'Send a private gift-wrapped negotiate-stage reservation offer.';
+      'Send a private gift-wrapped negotiate-stage order offer.';
 
   @override
   Future<HostrCliResult> runCommand() async {
     final input = readInputObject();
     return runSharedAction(
       this,
-      action: 'hostr.reservations.negotiateOffer',
+      action: 'hostr.orders.negotiateOffer',
       input: input,
       requireYesForLive: true,
     );
   }
 }
 
-class ReservationPayCommand extends HostrCliCommand {
-  ReservationPayCommand({required super.stdout, required super.stderr}) {
+class OrderPayCommand extends HostrCliCommand {
+  OrderPayCommand({required super.stdout, required super.stderr}) {
     argParser
       ..addOption(
         'trade-context',
@@ -82,29 +80,29 @@ class ReservationPayCommand extends HostrCliCommand {
 
   @override
   final String description =
-      'Create the Boltz swap invoice for a payable reservation trade.';
+      'Create the Boltz swap invoice for a payable order trade.';
 
   @override
   Future<HostrCliResult> runCommand() async {
     final input = _readTradeContextArg(this);
     return runSharedAction(
       this,
-      action: 'hostr.reservations.pay',
+      action: 'hostr.orders.pay',
       input: input,
       requireYesForLive: true,
     );
   }
 }
 
-class ReservationCommitCommand extends HostrCliCommand {
-  ReservationCommitCommand({required super.stdout, required super.stderr}) {
+class OrderCommitCommand extends HostrCliCommand {
+  OrderCommitCommand({required super.stdout, required super.stderr}) {
     argParser
       ..addOption('swap-id', mandatory: true, help: 'Boltz swap id.')
       ..addFlag(
         'yes',
         abbr: 'y',
         negatable: false,
-        help: 'Publish the committed reservation without prompting.',
+        help: 'Publish the committed order without prompting.',
       );
   }
 
@@ -113,22 +111,22 @@ class ReservationCommitCommand extends HostrCliCommand {
 
   @override
   final String description =
-      'Publish a public commit-stage reservation with escrow proof.';
+      'Publish a public commit-stage order with escrow proof.';
 
   @override
   Future<HostrCliResult> runCommand() async {
     final swapId = (argResults?['swap-id'] as String).trim();
     return runSharedAction(
       this,
-      action: 'hostr.reservations.commit',
+      action: 'hostr.orders.commit',
       input: {'swapId': swapId},
       requireYesForLive: true,
     );
   }
 }
 
-class ReservationCancelCommand extends HostrCliCommand {
-  ReservationCancelCommand({required super.stdout, required super.stderr}) {
+class OrderCancelCommand extends HostrCliCommand {
+  OrderCancelCommand({required super.stdout, required super.stderr}) {
     argParser
       ..addOption(
         'input',
@@ -147,31 +145,25 @@ class ReservationCancelCommand extends HostrCliCommand {
   final String name = 'cancel';
 
   @override
-  final String description =
-      'Cancel a private negotiation or a committed reservation.';
+  final String description = 'Cancel a private negotiation or committed order.';
 
   @override
   Future<HostrCliResult> runCommand() async {
     final input = readInputObject();
     return runSharedAction(
       this,
-      action: 'hostr.reservations.cancel',
+      action: 'hostr.orders.cancel',
       input: input,
       requireYesForLive: true,
     );
   }
 }
 
-class ReservationNegotiationCommand extends Command<int> {
-  ReservationNegotiationCommand({
-    required IOSink stdout,
-    required IOSink stderr,
-  }) {
+class OrderNegotiationCommand extends Command<int> {
+  OrderNegotiationCommand({required IOSink stdout, required IOSink stderr}) {
+    addSubcommand(OrderNegotiationOfferCommand(stdout: stdout, stderr: stderr));
     addSubcommand(
-      ReservationNegotiationOfferCommand(stdout: stdout, stderr: stderr),
-    );
-    addSubcommand(
-      ReservationNegotiationAcceptCommand(stdout: stdout, stderr: stderr),
+      OrderNegotiationAcceptCommand(stdout: stdout, stderr: stderr),
     );
   }
 
@@ -179,14 +171,11 @@ class ReservationNegotiationCommand extends Command<int> {
   final String name = 'negotiation';
 
   @override
-  final String description = 'Manage reservation negotiation events.';
+  final String description = 'Manage order negotiation events.';
 }
 
-class ReservationNegotiationOfferCommand extends HostrCliCommand {
-  ReservationNegotiationOfferCommand({
-    required super.stdout,
-    required super.stderr,
-  }) {
+class OrderNegotiationOfferCommand extends HostrCliCommand {
+  OrderNegotiationOfferCommand({required super.stdout, required super.stderr}) {
     argParser
       ..addOption(
         'input',
@@ -205,22 +194,22 @@ class ReservationNegotiationOfferCommand extends HostrCliCommand {
   final String name = 'offer';
 
   @override
-  final String description = 'Send a reservation negotiation offer.';
+  final String description = 'Send an order negotiation offer.';
 
   @override
   Future<HostrCliResult> runCommand() async {
     final input = readInputObject();
     return runSharedAction(
       this,
-      action: 'hostr.reservations.negotiateOffer',
+      action: 'hostr.orders.negotiateOffer',
       input: input,
       requireYesForLive: true,
     );
   }
 }
 
-class ReservationNegotiationAcceptCommand extends HostrCliCommand {
-  ReservationNegotiationAcceptCommand({
+class OrderNegotiationAcceptCommand extends HostrCliCommand {
+  OrderNegotiationAcceptCommand({
     required super.stdout,
     required super.stderr,
   }) {
@@ -242,14 +231,14 @@ class ReservationNegotiationAcceptCommand extends HostrCliCommand {
   final String name = 'accept';
 
   @override
-  final String description = 'Accept the latest reservation negotiation offer.';
+  final String description = 'Accept the latest order negotiation offer.';
 
   @override
   Future<HostrCliResult> runCommand() async {
     final input = readInputObject();
     return runSharedAction(
       this,
-      action: 'hostr.reservations.negotiateAccept',
+      action: 'hostr.orders.negotiateAccept',
       input: input,
       requireYesForLive: true,
     );
@@ -266,7 +255,7 @@ class TripsListCommand extends HostrCliCommand {
 
   @override
   final String description =
-      'List reservation events involving the active user as guest.';
+      'List order events involving the active user as guest.';
 
   @override
   Future<HostrCliResult> runCommand() =>
@@ -283,7 +272,7 @@ class BookingsListCommand extends HostrCliCommand {
 
   @override
   final String description =
-      'List reservation events for listings authored by the active user.';
+      'List order events for listings authored by the active user.';
 
   @override
   Future<HostrCliResult> runCommand() =>

@@ -15,7 +15,6 @@ import '../crud.usecase.dart';
 import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../relays/relays.dart';
-import '../order_transitions/order_transitions.dart';
 import 'reservation_participant_authorization_resolver.dart';
 import 'reservation_participant_tags.dart';
 
@@ -37,7 +36,6 @@ class Reservations extends CrudUseCase<Reservation>
     implements CanVerify<Reservation, ReservationDeps> {
   final Messaging _messaging;
   final Auth _auth;
-  final OrderTransitions _transitions;
   final Listings _listings;
   final Relays _relays;
   late final ReservationParticipantAuthorizationResolver
@@ -45,7 +43,6 @@ class Reservations extends CrudUseCase<Reservation>
       ReservationParticipantAuthorizationResolver(logger: logger);
   Messaging get messaging => _messaging;
   Auth get auth => _auth;
-  OrderTransitions get transitions => _transitions;
   Listings get listings => _listings;
   StreamWithStatus<Reservation>? _myReservations;
   StreamSubscription<Reservation>? _myReservationsSubscription;
@@ -54,12 +51,10 @@ class Reservations extends CrudUseCase<Reservation>
     required super.logger,
     required Messaging messaging,
     required Auth auth,
-    required OrderTransitions transitions,
     required Listings listings,
     required Relays relays,
   }) : _messaging = messaging,
        _auth = auth,
-       _transitions = transitions,
        _listings = listings,
        _relays = relays,
        super(kind: Reservation.kinds[0]);
@@ -93,6 +88,31 @@ class Reservations extends CrudUseCase<Reservation>
     }
 
     return reservation.signAs(signerKeyPair, Reservation.fromNostrEvent);
+  }
+
+  EventSigner? _transitionSignerFor(KeyPair? signerKeyPair) {
+    final keyPair = signerKeyPair;
+    if (keyPair == null) return null;
+    final privateKey = keyPair.privateKey;
+    if (privateKey == null || privateKey.isEmpty) return null;
+    return Bip340EventSigner(
+      privateKey: privateKey,
+      publicKey: keyPair.publicKey,
+    );
+  }
+
+  MarketplaceOrderStage _marketplaceStage(ReservationStage stage) {
+    return MarketplaceOrderStage.values.firstWhere(
+      (value) => value.name == stage.name,
+    );
+  }
+
+  MarketplaceOrderTransitionType _marketplaceTransitionType(
+    ReservationTransitionType type,
+  ) {
+    return MarketplaceOrderTransitionType.values.firstWhere(
+      (value) => value.name == type.name,
+    );
   }
 
   /// Query all reservations for a given trade id (d-tag).
@@ -223,19 +243,18 @@ class Reservations extends CrudUseCase<Reservation>
   static Map<String, ReservationGroup> toOrderGroups({
     required List<Reservation> reservations,
   }) {
-    final Map<String, List<Reservation>> grouped = {};
+    final groups = groupMarketplaceOrders(
+      orders: reservations.map(MarketplaceOrder.fromEvent),
+    );
 
-    for (final reservation in reservations) {
-      final groupId = rawReservationGroupId(reservation);
-      grouped.putIfAbsent(groupId, () => []);
-      // Replace any existing reservation from the same pubkey
-      grouped[groupId]!.removeWhere((r) => r.pubKey == reservation.pubKey);
-      grouped[groupId]!.add(reservation);
-    }
-
-    return grouped.map(
-      (groupId, list) =>
-          MapEntry(groupId, ReservationGroup(reservations: list)),
+    return groups.map(
+      (groupId, group) => MapEntry(
+        groupId,
+        ReservationGroup(
+          reservations: group.orders.map(Reservation.fromNostrEvent).toList(),
+          confirmedCommitted: group.confirmedCommitted,
+        ),
+      ),
     );
   }
 
@@ -244,9 +263,10 @@ class Reservations extends CrudUseCase<Reservation>
   Future<Map<String, ReservationGroup>> queryOrderGroups({
     required Listing listing,
   }) async {
-    final reservations = await getListingReservations(
-      listingAnchor: listing.anchor!,
-    );
+    final orders = await requests.ndk.marketplace.orders
+        .queryByListing(listingAnchor: listing.anchor!)
+        .future;
+    final reservations = orders.map(Reservation.fromNostrEvent).toList();
     return toOrderGroups(reservations: reservations);
   }
 
@@ -566,7 +586,7 @@ class Reservations extends CrudUseCase<Reservation>
   ///
   /// All public mutation methods that advance a reservation through its
   /// lifecycle ([accept], [createSelfSigned], [cancel], [createBlocked]) MUST
-  /// use this instead of calling [upsert] + [transitions.record] separately,
+  /// use this instead of calling [upsert] + transition recording separately,
   /// enforcing the invariant that no reservation is broadcast without a
   /// transition record.
   Future<List<RelayBroadcastResponse>> _upsertWithTransition({
@@ -579,12 +599,12 @@ class Reservations extends CrudUseCase<Reservation>
     String? reason,
   }) async {
     final result = await upsert(reservation);
-    await transitions.record(
-      reservation: reservation,
-      transitionType: transitionType,
-      fromStage: fromStage,
-      toStage: toStage,
-      signerKeyPair: signerKeyPair,
+    await requests.ndk.marketplace.orderTransitions.record(
+      order: MarketplaceOrder.fromEvent(reservation),
+      transitionType: _marketplaceTransitionType(transitionType),
+      fromStage: _marketplaceStage(fromStage),
+      toStage: _marketplaceStage(toStage),
+      customSigner: _transitionSignerFor(signerKeyPair),
       commitTermsHash: commitTermsHash,
       reason: reason,
     );

@@ -14,10 +14,11 @@
 @Tags(['unit'])
 library;
 
+import 'dart:async';
+
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
-import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -25,7 +26,22 @@ import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
-    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
+    show
+        Accounts,
+        Bip340EventSigner,
+        EventSigner,
+        Filter,
+        Marketplace,
+        MarketplaceOrder,
+        MarketplaceOrderStage,
+        MarketplaceOrderTransition,
+        MarketplaceOrderTransitionContent,
+        MarketplaceOrderTransitionPublishResult,
+        MarketplaceOrderTransitionType,
+        MarketplaceOrderTransitionsUsecase,
+        Ndk,
+        NdkBroadcastResponse,
+        Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -37,7 +53,10 @@ final _f = EntityFactory();
 
 class _FakeRequests extends Fake implements Requests {
   final List<Nip01Event> broadcastedEvents = [];
-  final Ndk _ndk = _FakeNdk();
+  final _FakeNdk _ndk = _FakeNdk();
+
+  _RecordingMarketplaceTransitions get recordedTransitions =>
+      _ndk.recordedTransitions;
 
   @override
   Ndk get ndk => _ndk;
@@ -111,9 +130,26 @@ class _FakeAccounts extends Fake implements Accounts {
 
 class _FakeNdk extends Fake implements Ndk {
   final Accounts _accounts = _FakeAccounts();
+  final _FakeMarketplace _marketplace = _FakeMarketplace();
+
+  _RecordingMarketplaceTransitions get recordedTransitions =>
+      _marketplace.recordedTransitions;
 
   @override
   Accounts get accounts => _accounts;
+
+  @override
+  Marketplace get marketplace => _marketplace;
+}
+
+class _FakeMarketplace extends Fake implements Marketplace {
+  final _RecordingMarketplaceTransitions _orderTransitions =
+      _RecordingMarketplaceTransitions();
+
+  _RecordingMarketplaceTransitions get recordedTransitions => _orderTransitions;
+
+  @override
+  MarketplaceOrderTransitionsUsecase get orderTransitions => _orderTransitions;
 }
 
 // ─── Fake Auth ───────────────────────────────────────────────────────────────
@@ -126,59 +162,70 @@ class _FakeAuth extends Fake implements Auth {
   KeyPair getActiveKey() => _key;
 }
 
-// ─── Fake Transitions ────────────────────────────────────────────────────────
+// ─── Fake NDK Marketplace Transitions ────────────────────────────────────────
 
-class _RecordingTransitions extends Fake implements OrderTransitions {
+class _RecordingMarketplaceTransitions extends Fake
+    implements MarketplaceOrderTransitionsUsecase {
   final List<
     ({
-      ReservationTransitionType type,
-      ReservationStage from,
-      ReservationStage to,
+      MarketplaceOrderTransitionType type,
+      MarketplaceOrderStage from,
+      MarketplaceOrderStage to,
       String? commitTermsHash,
       String? reason,
-      KeyPair? signerKeyPair,
+      String signerPubkey,
     })
   >
   recorded = [];
 
   @override
-  Future<ReservationTransition> record({
-    required Reservation reservation,
-    required ReservationTransitionType transitionType,
-    required ReservationStage fromStage,
-    required ReservationStage toStage,
-    KeyPair? signerKeyPair,
+  Future<MarketplaceOrderTransitionPublishResult> record({
+    required MarketplaceOrder order,
+    required MarketplaceOrderTransitionType transitionType,
+    required MarketplaceOrderStage fromStage,
+    required MarketplaceOrderStage toStage,
+    EventSigner? customSigner,
+    Iterable<String>? specificRelays,
     String? commitTermsHash,
     String? reason,
     Map<String, dynamic>? updatedFields,
     String? prevTransitionId,
   }) async {
+    final signer =
+        customSigner ??
+        Bip340EventSigner(
+          privateKey: MockKeys.hoster.privateKey!,
+          publicKey: MockKeys.hoster.publicKey,
+        );
     recorded.add((
       type: transitionType,
       from: fromStage,
       to: toStage,
       commitTermsHash: commitTermsHash,
       reason: reason,
-      signerKeyPair: signerKeyPair,
+      signerPubkey: signer.getPublicKey(),
     ));
-    final unsigned = Nip01Event(
-      kind: kNostrKindReservationTransition,
-      pubKey: reservation.pubKey,
-      tags: [
-        ['d', reservation.getDtag() ?? ''],
-      ],
-      content: ReservationTransitionContent(
+    final unsigned = MarketplaceOrderTransition.create(
+      pubKey: signer.getPublicKey(),
+      order: order,
+      prevTransitionId: prevTransitionId,
+      content: MarketplaceOrderTransitionContent(
         transitionType: transitionType,
         fromStage: fromStage,
         toStage: toStage,
         commitTermsHash: commitTermsHash,
         reason: reason,
-      ).toString(),
+        updatedFields: updatedFields,
+      ),
     );
-    return ReservationTransition.fromNostrEvent(
-      Nip01Utils.signWithPrivateKey(
-        event: unsigned,
-        privateKey: MockKeys.hoster.privateKey!,
+    final signed = MarketplaceOrderTransition.fromEvent(
+      await signer.sign(unsigned),
+    );
+    return MarketplaceOrderTransitionPublishResult(
+      transition: signed,
+      broadcast: NdkBroadcastResponse(
+        publishEvent: signed,
+        broadcastDoneStream: Stream.value([_successfulBroadcastResponse()]),
       ),
     );
   }
@@ -289,18 +336,17 @@ ReservationGroup _buildNegotiateGroup({required String tradeId}) {
 
 void main() {
   late _FakeRequests requests;
-  late _RecordingTransitions transitions;
+  late _RecordingMarketplaceTransitions transitions;
   late Reservations reservations;
 
   setUp(() {
     requests = _FakeRequests();
-    transitions = _RecordingTransitions();
+    transitions = requests.recordedTransitions;
     reservations = Reservations(
       requests: requests as dynamic,
       logger: CustomLogger(),
       messaging: FakeMessaging(),
       auth: _FakeAuth(MockKeys.hoster),
-      transitions: transitions,
       listings: FakeListings(),
       relays: FakeRelays(),
     );
@@ -373,8 +419,8 @@ void main() {
 
         expect(transitions.recorded, hasLength(1));
         final t = transitions.recorded.first;
-        expect(t.type, ReservationTransitionType.cancel);
-        expect(t.to, ReservationStage.cancel);
+        expect(t.type, MarketplaceOrderTransitionType.cancel);
+        expect(t.to, MarketplaceOrderStage.cancel);
       },
     );
 
@@ -386,7 +432,10 @@ void main() {
         await reservations.cancel(group, MockKeys.hoster);
 
         expect(transitions.recorded, hasLength(1));
-        expect(transitions.recorded.first.signerKeyPair, MockKeys.hoster);
+        expect(
+          transitions.recorded.first.signerPubkey,
+          MockKeys.hoster.publicKey,
+        );
       },
     );
 
@@ -397,9 +446,9 @@ void main() {
 
       expect(transitions.recorded, hasLength(1));
       final t = transitions.recorded.first;
-      expect(t.type, ReservationTransitionType.cancel);
-      expect(t.from, ReservationStage.negotiate);
-      expect(t.to, ReservationStage.cancel);
+      expect(t.type, MarketplaceOrderTransitionType.cancel);
+      expect(t.from, MarketplaceOrderStage.negotiate);
+      expect(t.to, MarketplaceOrderStage.cancel);
     });
 
     test('throws if group is already cancelled', () async {
@@ -515,9 +564,9 @@ void main() {
 
         expect(transitions.recorded, hasLength(1));
         final t = transitions.recorded.first;
-        expect(t.type, ReservationTransitionType.confirm);
-        expect(t.from, ReservationStage.commit);
-        expect(t.to, ReservationStage.commit);
+        expect(t.type, MarketplaceOrderTransitionType.confirm);
+        expect(t.from, MarketplaceOrderStage.commit);
+        expect(t.to, MarketplaceOrderStage.commit);
       },
     );
 

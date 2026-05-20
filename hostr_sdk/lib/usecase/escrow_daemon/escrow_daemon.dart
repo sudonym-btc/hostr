@@ -23,7 +23,7 @@ import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
 import '../requests/requests.dart';
 import '../order_groups/order_group_participant_resolver.dart';
-import '../order_groups/order_groups.dart';
+import '../order_groups/order_group_verification.dart';
 import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
@@ -737,7 +737,7 @@ class EscrowDaemon {
     required bool forceValidateSelfSigned,
     required EscrowVerification escrowVerification,
   }) {
-    return OrderGroups.verifyGroupOnChain(
+    return OrderGroupVerification.verifyGroupOnChain(
       group,
       forceValidateSelfSigned: forceValidateSelfSigned,
       escrowVerification: escrowVerification,

@@ -2432,7 +2432,7 @@ Future<void> _stopUserSession(Hostr hostr) async {
   await hostr.userSubscriptions.reset();
   await hostr.messaging.threads.reset();
   await hostr.nwc.reset();
-  await hostr.reservations.reset();
+  await hostr.orderWorkflows.reset();
   await _closeAllNostrSubscriptions(hostr, 'after-stop');
 }
 
@@ -4697,8 +4697,8 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     label: 'backend live booking host commit',
   );
 
-  await hostr.reservations.upsert(buyerCommit);
-  await hostr.reservations.upsert(hostCommit);
+  await hostr.orderWorkflows.upsert(buyerCommit);
+  await hostr.orderWorkflows.upsert(hostCommit);
   hostr.userSubscriptions.allMyReservations$.stream.add(buyerCommit);
   hostr.userSubscriptions.allMyReservations$.stream.add(hostCommit);
   await _waitForResolvedReservationGroup(
@@ -4747,10 +4747,7 @@ _waitForResolvedReservationGroup({
 }) async {
   final deadline = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(deadline)) {
-    final matches = hostr
-        .userSubscriptions
-        .allMyResolvedOrderGroups$
-        .items
+    final matches = hostr.userSubscriptions.allMyResolvedOrderGroups$.items
         .where((item) => item.group.tradeId == tradeId)
         .toList(growable: false);
     if (matches.isNotEmpty) {
@@ -4873,8 +4870,8 @@ Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
     label: 'backend completed review host commit $label',
   );
 
-  await hostr.reservations.upsert(buyerCommit);
-  await hostr.reservations.upsert(hostCommit);
+  await hostr.orderWorkflows.upsert(buyerCommit);
+  await hostr.orderWorkflows.upsert(hostCommit);
   hostr.userSubscriptions.allMyReservations$.stream.add(buyerCommit);
   hostr.userSubscriptions.allMyReservations$.stream.add(hostCommit);
   hostr.userSubscriptions.allMyReservations$.stream.addStatus(

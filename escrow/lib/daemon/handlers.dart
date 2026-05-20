@@ -295,7 +295,7 @@ class DaemonHandler {
 
     if (cachedOnly) return null;
 
-    final reservations = await hostr.reservations.getByTradeId(tradeId);
+    final reservations = await hostr.orderWorkflows.getByTradeId(tradeId);
     if (reservations.isEmpty) return null;
 
     final groups =

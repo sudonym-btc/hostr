@@ -70,7 +70,7 @@ Use these in ChatGPT developer mode on web and mobile before submitting:
    Expected: calls `hostr_listings_availability`; preserves date-only values as `2026-08-01T00:00:00Z` style values when dates are in 2026.
 
 3. `Book this instant-book stay for two nights`
-   Expected: asks for missing listing/date/price details if needed; calls `hostr_reservations_bookAndPay` only after intent is concrete; if payment is required, shows only the QR/invoice to the user and then calls `hostr_swaps_watch`.
+   Expected: asks for missing listing/date/price details if needed; calls `hostr_orders_bookAndPay` only after intent is concrete; if payment is required, shows only the QR/invoice to the user and then calls `hostr_swaps_watch`.
 
 4. `Create a listing for my spare room`
    Expected: asks for missing required fields; uploads images through `hostr_images_upload`; previews with `hostr_listings_create` and `dryRun: true`; does not publish until explicit approval.

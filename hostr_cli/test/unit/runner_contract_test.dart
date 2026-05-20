@@ -65,56 +65,46 @@ void main() {
       expectPngDataUri(invoiceQr);
     });
 
-    test(
-      'reservation flow commands fail fast without an active session',
-      () async {
-        final stateDir = await Directory.systemTemp.createTemp(
-          'hostr-cli-test-',
-        );
-        Future<_RunResult> runIsolated(List<String> args) {
-          return _run([
-            '--env',
-            'development',
-            '--json',
-            '--state-dir',
-            stateDir.path,
-            '--allow-insecure-file-secrets',
-            ...args,
-          ]);
-        }
+    test('order flow commands fail fast without an active session', () async {
+      final stateDir = await Directory.systemTemp.createTemp('hostr-cli-test-');
+      Future<_RunResult> runIsolated(List<String> args) {
+        return _run([
+          '--env',
+          'development',
+          '--json',
+          '--state-dir',
+          stateDir.path,
+          '--allow-insecure-file-secrets',
+          ...args,
+        ]);
+      }
 
-        _expectAuthRequired(
-          await runIsolated([
-            'reservations',
-            'pay',
-            '--trade-context',
-            'trade-123',
-          ]),
-          'reservations pay',
-        );
-        _expectAuthRequired(
-          await runIsolated(['swaps', 'watch', '--swap-id', 'swap-123']),
-          'swaps watch',
-        );
-        _expectAuthRequired(
-          await runIsolated([
-            'reservations',
-            'cancel',
-            '--input',
-            jsonEncode({'tradeId': 'trade-123'}),
-          ]),
-          'reservations cancel',
-        );
-        _expectAuthRequired(
-          await runIsolated([
-            'escrow-methods',
-            '--user',
-            List.filled(64, '0').join(),
-          ]),
+      _expectAuthRequired(
+        await runIsolated(['orders', 'pay', '--trade-context', 'trade-123']),
+        'orders pay',
+      );
+      _expectAuthRequired(
+        await runIsolated(['swaps', 'watch', '--swap-id', 'swap-123']),
+        'swaps watch',
+      );
+      _expectAuthRequired(
+        await runIsolated([
+          'orders',
+          'cancel',
+          '--input',
+          jsonEncode({'tradeId': 'trade-123'}),
+        ]),
+        'orders cancel',
+      );
+      _expectAuthRequired(
+        await runIsolated([
           'escrow-methods',
-        );
-      },
-    );
+          '--user',
+          List.filled(64, '0').join(),
+        ]),
+        'escrow-methods',
+      );
+    });
 
     test(
       'listing create dry-run works after local mnemonic session',

@@ -17,7 +17,7 @@ void main() {
   final runIntegration = Platform.environment['HOSTR_CLI_RUN_DEV_IT'] == '1';
 
   group(
-    'development reservation CLI flow',
+    'development order CLI flow',
     () {
       late _CliSession host;
       late _CliSession guest;
@@ -36,8 +36,7 @@ void main() {
         await host.ensure(ensureSellerConfig: true);
 
         listingAnchor = await host.createListing(
-          title:
-              'CLI reservation flow ${DateTime.now().microsecondsSinceEpoch}',
+          title: 'CLI order flow ${DateTime.now().microsecondsSinceEpoch}',
         );
       });
 
@@ -56,7 +55,7 @@ void main() {
             amount: _usd('1.00'),
           );
           final cancel = await guest.runOk([
-            'reservations',
+            'orders',
             'cancel',
             '--input',
             jsonEncode({'tradeId': cancelTrade}),
@@ -73,7 +72,7 @@ void main() {
             amount: _usd('1.00'),
           );
           final followUp = await host.runOk([
-            'reservations',
+            'orders',
             'negotiation',
             'offer',
             '--input',
@@ -86,7 +85,7 @@ void main() {
 
           final followUpPay = await guest.runOk([
             '--dry-run',
-            'reservations',
+            'orders',
             'pay',
             '--trade-context',
             followUpTrade,
@@ -101,7 +100,7 @@ void main() {
             amount: _usd('1.00'),
           );
           final accept = await host.runOk([
-            'reservations',
+            'orders',
             'negotiation',
             'accept',
             '--input',
@@ -114,7 +113,7 @@ void main() {
 
           final acceptedPay = await guest.runOk([
             '--dry-run',
-            'reservations',
+            'orders',
             'pay',
             '--trade-context',
             acceptTrade,
@@ -137,7 +136,7 @@ void main() {
           expect(tradeContext, isNotNull);
 
           final payment = await guest.runOk([
-            'reservations',
+            'orders',
             'pay',
             '--trade-context',
             jsonEncode(tradeContext),
@@ -171,7 +170,7 @@ void main() {
           }
 
           final commit = await guest.runOk([
-            'reservations',
+            'orders',
             'commit',
             '--swap-id',
             swapId,
@@ -183,7 +182,7 @@ void main() {
           expect(commit['readbackCount'], greaterThanOrEqualTo(1));
 
           final cancel = await guest.runOk([
-            'reservations',
+            'orders',
             'cancel',
             '--input',
             jsonEncode({'tradeId': tradeId}),
@@ -295,7 +294,7 @@ class _CliSession {
     };
     if (amount != null) input['amount'] = amount;
     final data = await runOk([
-      'reservations',
+      'orders',
       'offer',
       '--input',
       jsonEncode(input),
