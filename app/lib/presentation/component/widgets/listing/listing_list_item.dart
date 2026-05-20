@@ -47,6 +47,10 @@ class ListingListItemView extends StatelessWidget {
   }
 
   Widget _buildDetails(BuildContext context) {
+    final price = listing.prices.isEmpty ? null : listing.prices[0];
+    final hasPrice = showPrice && price != null;
+    final showSummaryRow = hasPrice || showFeedback;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -75,29 +79,29 @@ class ListingListItemView extends StatelessWidget {
               availabilityWidget!,
             if (showAvailability && availabilityWidget != null)
               Gap.vertical.xs(),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              mainAxisSize: MainAxisSize.max,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                if (showPrice) ...[
-                  PriceTagWidget(price: listing.prices[0]),
-                  Text(
-                    AppLocalizations.of(context)!.perDayLabel,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+            if (listing.negotiable) ...[
+              const ListingNegotiableTag(),
+              const SizedBox(height: kSpace1),
+            ],
+            if (showSummaryRow)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  if (hasPrice)
+                    Expanded(child: ListingPriceMetadataWidget(price: price))
+                  else if (showFeedback)
+                    const Spacer(),
+                  if (showFeedback) ...[
+                    if (hasPrice) Gap.horizontal.md(),
+                    ReviewsReservationsWidget(
+                      reservationCount: dependencies.reservationCount,
+                      averageReviewRating: dependencies.averageReviewRating,
+                      reviewCount: dependencies.reviewCount,
+                    ),
+                  ],
                 ],
-                if (showFeedback) ...[
-                  const Spacer(),
-                  if (showPrice) Gap.horizontal.md(),
-                  ReviewsReservationsWidget(
-                    reservationCount: dependencies.reservationCount,
-                    averageReviewRating: dependencies.averageReviewRating,
-                    reviewCount: dependencies.reviewCount,
-                  ),
-                ],
-              ],
-            ),
+              ),
             if (bottom != null) bottom!(context),
           ],
         ),
@@ -127,6 +131,65 @@ class ListingListItemView extends StatelessWidget {
                 ],
               ),
       ),
+    );
+  }
+}
+
+class ListingNegotiableTag extends StatelessWidget {
+  const ListingNegotiableTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textStyle =
+        Theme.of(context).textTheme.labelSmall ??
+        DefaultTextStyle.of(context).style;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.64),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: colorScheme.secondary.withValues(alpha: 0.24),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Text(
+          AppLocalizations.of(context)!.negotiable,
+          key: const ValueKey('listing_negotiable_tag'),
+          style: textStyle.copyWith(
+            color: colorScheme.onSecondaryContainer,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            height: 1,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ListingPriceMetadataWidget extends StatelessWidget {
+  final Price price;
+
+  const ListingPriceMetadataWidget({super.key, required this.price});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        PriceTagWidget(price: price),
+        Text(
+          AppLocalizations.of(context)!.perDayLabel,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 }

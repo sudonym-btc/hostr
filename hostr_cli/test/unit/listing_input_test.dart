@@ -14,6 +14,7 @@ void main() {
             'title': 'Garden room',
             'description': 'A quiet room',
             'type': 'room',
+            'negotiable': true,
             'guests': 2,
             'beds': 1,
             'bathrooms': 1,
@@ -48,6 +49,8 @@ void main() {
         expect(listing.prices.single.frequency, Frequency.daily);
         expect(listing.rentOrBuy, RentOrBuy.rent);
         expect(listing.parsedTags.getTags('M'), ['rent']);
+        expect(listing.negotiable, isTrue);
+        expect(listingSummary(listing), containsPair('negotiable', true));
       },
     );
 

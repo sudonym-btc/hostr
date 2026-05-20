@@ -221,6 +221,43 @@ test("listing cards turn Blossom hashes into visible absolute image URLs", () =>
   );
 });
 
+test("listing cards tag negotiable listings only", () => {
+  const result = {
+    ok: true,
+    data: {
+      listings: [
+        {
+          title: "Flexible Private Room",
+          type: "room",
+          active: true,
+          negotiable: true,
+        },
+        {
+          title: "Fixed Private Room",
+          type: "room",
+          active: true,
+          negotiable: false,
+        },
+      ],
+    },
+  };
+
+  const cards = __testing.listingCardsFromResult(
+    {
+      blossomUploadUrl: "https://blossom.staging.hostr.network/upload",
+      publicAppBaseUrl: "https://staging.hostr.network",
+    },
+    "hostr.listings.list",
+    result,
+  );
+  const markdown = __testing.listingCardsMarkdown(cards);
+
+  assert.deepEqual(cards[0].flags, ["negotiable"]);
+  assert.deepEqual(cards[1].flags, []);
+  assert.match(markdown, /\*\*Flags:\*\* negotiable/);
+  assert.doesNotMatch(markdown, /not negotiable/);
+});
+
 test("listing cards upgrade configured Blossom image URLs to HTTPS", () => {
   const hash = "dc518f2abcd1cdce61fbc1fb95e3c12f3ee1a31457916b87e08a467e8b0f53e8";
   const result = {

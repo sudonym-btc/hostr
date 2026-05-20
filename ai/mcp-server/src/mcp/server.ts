@@ -1552,8 +1552,6 @@ const listingFlags = (listing: Record<string, unknown>): string[] => {
   const negotiable = boolValue(listing.negotiable);
   if (negotiable === true) {
     flags.push("negotiable");
-  } else if (negotiable === false) {
-    flags.push("not negotiable");
   }
   return flags;
 };

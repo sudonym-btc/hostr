@@ -18,6 +18,7 @@ Map<String, Object?> listingSummary(Listing listing) => {
   'title': listing.title,
   'description': listing.description,
   'active': listing.active,
+  'negotiable': listing.negotiable,
   'type': listing.listingType.name,
   'rentOrBuy': listing.rentOrBuy.name,
   'images': listing.images,

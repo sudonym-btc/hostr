@@ -294,7 +294,10 @@ class ListingViewBody extends StatelessWidget {
           ],
         ),
         Gap.vertical.sm(),
-        reviewsSummaryWidget,
+        ListingDetailsReviewsSummary(
+          reviewsSummaryWidget: reviewsSummaryWidget,
+          negotiable: listing.negotiable,
+        ),
         Gap.vertical.sm(),
         BadgesWidget(pubKey: listing.pubKey, listingAnchor: listing.anchor),
         Gap.vertical.sm(),
@@ -356,6 +359,30 @@ class ListingViewBody extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class ListingDetailsReviewsSummary extends StatelessWidget {
+  final Widget reviewsSummaryWidget;
+  final bool negotiable;
+
+  const ListingDetailsReviewsSummary({
+    super.key,
+    required this.reviewsSummaryWidget,
+    required this.negotiable,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: kSpace2,
+      runSpacing: kSpace1,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        reviewsSummaryWidget,
+        if (negotiable) const ListingNegotiableTag(),
+      ],
     );
   }
 }
