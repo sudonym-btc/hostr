@@ -16,8 +16,7 @@ abstract class Event<TagsType extends EventTags> extends Nip01Event {
     Nip01Event e, {
     EventTagsParser<TagsType>? tagParser,
     List<List<String>> requiredTags = const [],
-  })
-      : tagParser = tagParser ?? ((tags) => EventTags(tags) as TagsType),
+  })  : tagParser = tagParser ?? ((tags) => EventTags(tags) as TagsType),
         parsedTags = (tagParser ?? ((tags) => EventTags(tags) as TagsType))(
           requireRequiredTags(e, requiredTags).tags,
         ),

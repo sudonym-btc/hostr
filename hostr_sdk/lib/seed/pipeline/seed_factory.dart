@@ -11,7 +11,7 @@ import 'stages/build_badges.dart' as stage_badges;
 import 'stages/build_listings.dart' as stage_listings;
 import 'stages/build_messages.dart' as stage_messages;
 import 'stages/build_profiles.dart' as stage_profiles;
-import 'stages/build_reservation_transitions.dart' as stage_transitions;
+import 'stages/build_order_transitions.dart' as stage_transitions;
 import 'stages/build_reviews.dart' as stage_reviews;
 import 'stages/build_threads.dart' as stage_threads;
 import 'stages/build_users.dart' as stage_users;
@@ -139,12 +139,11 @@ class SeedFactory {
     factory: _entities,
   );
 
-  List<ReservationTransition> buildReservationTransitions(
-    List<SeedThread> threads,
-  ) => stage_transitions.buildReservationTransitions(
-    threads: threads,
-    factory: _entities,
-  );
+  List<ReservationTransition> buildOrderTransitions(List<SeedThread> threads) =>
+      stage_transitions.buildOrderTransitions(
+        threads: threads,
+        factory: _entities,
+      );
 
   Future<List<Review>> buildReviews(List<SeedThread> threads) => stage_reviews
       .buildReviews(ctx: _ctx, threads: threads, factory: _entities);
@@ -198,7 +197,7 @@ class SeedFactory {
     final reservationRequests = threads
         .map((t) => t.request)
         .toList(growable: false);
-    final reservationTransitions = buildReservationTransitions(threads);
+    final orderTransitions = buildOrderTransitions(threads);
 
     final messages = await buildMessages(threads);
     final escrowSelectedMessages = await buildEscrowSelectedMessages(threads);
@@ -214,7 +213,7 @@ class SeedFactory {
       escrowMethods: escrowMethods,
       threads: threads,
       reservationRequests: reservationRequests,
-      reservationTransitions: reservationTransitions,
+      orderTransitions: orderTransitions,
       threadMessages: [...messages, ...escrowSelectedMessages],
       reservations: const [], // no outcomes — all pending
       zapReceipts: const [],

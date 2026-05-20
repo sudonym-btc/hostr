@@ -5,7 +5,7 @@ import '../../util/main.dart';
 import '../escrow/escrow_verification.dart';
 import '../evm/evm.dart';
 import '../listings/listings.dart';
-import '../reservation_transitions/reservation_transitions.dart';
+import '../order_transitions/order_transitions.dart';
 import '../reservations/reservations.dart';
 
 /// Audit result for one side of a trade (buyer or seller).
@@ -138,12 +138,12 @@ class TradeAuditResult {
 @Singleton()
 class TradeAudit {
   final Reservations _reservations;
-  final ReservationTransitions _transitions;
+  final OrderTransitions _transitions;
   final Listings _listings;
   final CustomLogger _logger;
   final Evm _evm;
   Reservations get reservations => _reservations;
-  ReservationTransitions get transitions => _transitions;
+  OrderTransitions get transitions => _transitions;
   Listings get listings => _listings;
   CustomLogger get logger => _logger;
   Evm get evm => _evm;
@@ -156,7 +156,7 @@ class TradeAudit {
 
   TradeAudit({
     required Reservations reservations,
-    required ReservationTransitions transitions,
+    required OrderTransitions transitions,
     required Listings listings,
     required CustomLogger logger,
     required Evm evm,

@@ -4,7 +4,7 @@ import 'package:models/main.dart';
 
 import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
+import '../order_groups/order_group_participant_resolver.dart';
 import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservations.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';

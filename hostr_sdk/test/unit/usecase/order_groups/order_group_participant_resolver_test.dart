@@ -2,7 +2,7 @@
 library;
 
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
-import 'package:hostr_sdk/usecase/reservation_groups/reservation_group_participant_resolver.dart';
+import 'package:hostr_sdk/usecase/order_groups/order_group_participant_resolver.dart';
 import 'package:hostr_sdk/usecase/reservations/reservation_participant_keyring.dart';
 import 'package:hostr_sdk/usecase/reservations/reservation_participant_tags.dart';
 import 'package:hostr_sdk/util/main.dart';

@@ -462,9 +462,9 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   static bool isAvailable(
     DateTime start,
     DateTime end,
-    List<ReservationGroup> reservationGroups,
+    List<ReservationGroup> orderGroups,
   ) {
-    for (final group in reservationGroups) {
+    for (final group in orderGroups) {
       if (group.cancelled) continue;
       if (group.stage != ReservationStage.commit) continue;
 

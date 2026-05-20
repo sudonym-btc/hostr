@@ -22,8 +22,8 @@ import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
 import '../requests/requests.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
-import '../reservation_groups/reservation_groups.dart';
+import '../order_groups/order_group_participant_resolver.dart';
+import '../order_groups/order_groups.dart';
 import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
@@ -438,7 +438,7 @@ class EscrowDaemon {
 
   // ── Reservation auto-confirmation state ─────────────────────────────────
   late final EscrowReservationNotifier _reservationNotifier;
-  final Map<String, ReservationGroup> _reservationGroups = {};
+  final Map<String, ReservationGroup> _orderGroups = {};
   final Map<String, Timer> _reservationRetryTimers = {};
   PublishSubject<String>? _reservationRetryTradeIds;
   List<String> _legacyDmBootstrapRelays = const [];
@@ -721,8 +721,8 @@ class EscrowDaemon {
   }
 
   /// All reservation groups the escrow is involved in.
-  Map<String, ReservationGroup> get reservationGroups =>
-      Map.unmodifiable(_reservationGroups);
+  Map<String, ReservationGroup> get orderGroups =>
+      Map.unmodifiable(_orderGroups);
 
   @visibleForTesting
   static Stream<Reservation> reservationListenerEvents(
@@ -737,7 +737,7 @@ class EscrowDaemon {
     required bool forceValidateSelfSigned,
     required EscrowVerification escrowVerification,
   }) {
-    return ReservationGroups.verifyGroupOnChain(
+    return OrderGroups.verifyGroupOnChain(
       group,
       forceValidateSelfSigned: forceValidateSelfSigned,
       escrowVerification: escrowVerification,
@@ -983,7 +983,7 @@ class EscrowDaemon {
 
   Future<void> _processReservationTradeId(String tradeId) async {
     try {
-      final groups = await _queryReservationGroupsForTrade(tradeId);
+      final groups = await _queryOrderGroupsForTrade(tradeId);
       for (final group in groups) {
         await _processGroup(group);
       }
@@ -993,13 +993,13 @@ class EscrowDaemon {
     }
   }
 
-  Future<List<ReservationGroup>> _queryReservationGroupsForTrade(
+  Future<List<ReservationGroup>> _queryOrderGroupsForTrade(
     String tradeId,
   ) async {
     final escrowPubkey = _auth.activeKeyPair!.publicKey;
     final reservations = await _reservations.getByTradeId(tradeId);
     final groups =
-        Reservations.toReservationGroups(reservations: reservations).values
+        Reservations.toOrderGroups(reservations: reservations).values
             .where(
               (group) => reservationGroupInvolvesEscrow(group, escrowPubkey),
             )
@@ -1007,7 +1007,7 @@ class EscrowDaemon {
           ..sort((a, b) => a.groupId.compareTo(b.groupId));
 
     for (final group in groups) {
-      _reservationGroups[group.groupId] = group;
+      _orderGroups[group.groupId] = group;
     }
     return groups;
   }
@@ -1056,7 +1056,7 @@ class EscrowDaemon {
         if (latest != null) {
           final latestEscrowReservation = latest.escrowReservation;
           if (latestEscrowReservation != null) {
-            _reservationGroups[latest.groupId] = latest;
+            _orderGroups[latest.groupId] = latest;
             if (latestEscrowReservation.stage == ReservationStage.cancel) {
               await _reservationNotifier.notifyCancellation(latest);
             } else if (latestEscrowReservation.stage ==
@@ -1099,8 +1099,9 @@ class EscrowDaemon {
 
     // Update local group so we don't re-process.
     final groupId = rawReservationGroupId(reservation);
-    _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
-        .addReservation(reservation);
+    _orderGroups[groupId] = (_orderGroups[groupId] ?? group).addReservation(
+      reservation,
+    );
 
     _logger.i('✓ Published escrow CONFIRM for trade=${group.tradeId}');
   }
@@ -1109,7 +1110,7 @@ class EscrowDaemon {
     ReservationGroup group,
   ) async {
     final reservations = await _reservations.getByTradeId(group.tradeId);
-    final groups = Reservations.toReservationGroups(reservations: reservations);
+    final groups = Reservations.toOrderGroups(reservations: reservations);
     final escrowPubkey = _auth.activeKeyPair!.publicKey;
     final latest =
         groups[group.groupId] ??
@@ -1117,7 +1118,7 @@ class EscrowDaemon {
           return reservationGroupInvolvesEscrow(candidate, escrowPubkey);
         }).firstOrNull;
     if (latest != null) {
-      _reservationGroups[latest.groupId] = latest;
+      _orderGroups[latest.groupId] = latest;
     }
     return latest;
   }
@@ -1132,8 +1133,9 @@ class EscrowDaemon {
 
     // Update local group so we don't re-process.
     final groupId = rawReservationGroupId(reservation);
-    _reservationGroups[groupId] = (_reservationGroups[groupId] ?? group)
-        .addReservation(reservation);
+    _orderGroups[groupId] = (_orderGroups[groupId] ?? group).addReservation(
+      reservation,
+    );
 
     _logger.i('✗ Published escrow CANCEL for trade=${group.tradeId}');
   }

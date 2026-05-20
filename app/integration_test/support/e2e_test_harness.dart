@@ -3018,7 +3018,7 @@ Future<void> _assertTripsPageContainsReservations(
               .whereType<Valid<ReservationGroup>>()
               .any((item) => item.event.tradeId == reservation.tradeId),
       timeout: const Duration(seconds: 60),
-      reasonBuilder: () => _reservationGroupsSnapshot(
+      reasonBuilder: () => _orderGroupsSnapshot(
         tester,
         'Trips should include valid paid reservation ${reservation.tradeId}',
       ),
@@ -3083,7 +3083,7 @@ Finder _appShellRouteExpectedKey(PageRouteInfo route) {
   return find.byType(Scaffold);
 }
 
-String _reservationGroupsSnapshot(WidgetTester tester, String prefix) {
+String _orderGroupsSnapshot(WidgetTester tester, String prefix) {
   String describe(Validation<ReservationGroup> item) {
     final group = item.event;
     final type = item.runtimeType;
@@ -3105,7 +3105,7 @@ String _reservationGroupsSnapshot(WidgetTester tester, String prefix) {
               const <Validation<ReservationGroup>>[])
           .map(describe)
           .join(' | ');
-  final all = getIt<Hostr>().userSubscriptions.allMyReservationGroups$.items
+  final all = getIt<Hostr>().userSubscriptions.allMyOrderGroups$.items
       .map(describe)
       .join(' | ');
   final keys = tester
@@ -3621,7 +3621,7 @@ Future<Key> _waitForPaidReservationGroupAndTripBookedDoneButton(
 }
 
 bool _hasPaidReservationGroup(Hostr hostr, String tradeId) {
-  return hostr.userSubscriptions.allMyReservationGroups$.items.any((item) {
+  return hostr.userSubscriptions.allMyOrderGroups$.items.any((item) {
     if (item.event.tradeId != tradeId) return false;
     final group = item.event;
     return group.reservations.any(
@@ -3633,7 +3633,7 @@ bool _hasPaidReservationGroup(Hostr hostr, String tradeId) {
 }
 
 String _paidReservationGroupSnapshot(Hostr hostr, String tradeId) {
-  final groups = hostr.userSubscriptions.allMyReservationGroups$.items
+  final groups = hostr.userSubscriptions.allMyOrderGroups$.items
       .where((item) => item.event.tradeId == tradeId)
       .map(
         (item) =>
@@ -4749,7 +4749,7 @@ _waitForResolvedReservationGroup({
   while (DateTime.now().isBefore(deadline)) {
     final matches = hostr
         .userSubscriptions
-        .allMyResolvedReservationGroups$
+        .allMyResolvedOrderGroups$
         .items
         .where((item) => item.group.tradeId == tradeId)
         .toList(growable: false);
@@ -4773,7 +4773,7 @@ _waitForResolvedReservationGroup({
     await Future<void>.delayed(const Duration(milliseconds: 200));
   }
 
-  final unresolved = hostr.userSubscriptions.allMyReservationGroups$.items
+  final unresolved = hostr.userSubscriptions.allMyOrderGroups$.items
       .where((item) => item.event.tradeId == tradeId)
       .map(_describeReservationGroupValidation)
       .join(' || ');

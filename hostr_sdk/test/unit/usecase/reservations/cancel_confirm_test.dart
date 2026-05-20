@@ -17,7 +17,7 @@ library;
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
+import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -128,7 +128,7 @@ class _FakeAuth extends Fake implements Auth {
 
 // ─── Fake Transitions ────────────────────────────────────────────────────────
 
-class _RecordingTransitions extends Fake implements ReservationTransitions {
+class _RecordingTransitions extends Fake implements OrderTransitions {
   final List<
     ({
       ReservationTransitionType type,

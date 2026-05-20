@@ -86,7 +86,7 @@ class TradeActionResolver {
     final overlapLock = allReservationsLoaded
         ? resolveOverlapLock(
             ourReservationDTag: tradeId,
-            allListingReservationGroups: validAllListingPairs,
+            allListingOrderGroups: validAllListingPairs,
             startDate: start,
             endDate: end,
           )
@@ -167,7 +167,7 @@ TradeAvailability _resolveAvailability({
 }
 
 OverlapLock resolveOverlapLock({
-  required List<ReservationGroup> allListingReservationGroups,
+  required List<ReservationGroup> allListingOrderGroups,
   required DateTime? startDate,
   required DateTime? endDate,
   required String ourReservationDTag,
@@ -177,7 +177,7 @@ OverlapLock resolveOverlapLock({
     return (isLoading: false, isBlocked: false, reason: null);
   }
 
-  final overlapsOtherCommitment = allListingReservationGroups.any((group) {
+  final overlapsOtherCommitment = allListingOrderGroups.any((group) {
     if (group.cancelled) {
       return false;
     }

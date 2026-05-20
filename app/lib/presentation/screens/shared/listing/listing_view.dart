@@ -103,8 +103,7 @@ class _ListingViewContent extends StatelessWidget {
                     listing: listing,
                     reservationGroupItemsStream:
                         dependencies.reservationGroupItems,
-                    reservationsStatus:
-                        dependencies.verifiedReservationGroups.status,
+                    reservationsStatus: dependencies.verifiedOrderGroups.status,
                   ),
                 ),
               ),
@@ -126,7 +125,7 @@ class _ListingViewContent extends StatelessWidget {
         ),
         reviewsListWidget: reviewsListWidget,
         reserveBottomBar: reserveBottomBar,
-        verifiedGroupsStream: dependencies.verifiedReservationGroups,
+        verifiedGroupsStream: dependencies.verifiedOrderGroups,
         hostKeyPair: activeKeyPair,
         onCancelBlockedReservation: (reservation) async {
           await getIt<Hostr>().reservations.cancel(

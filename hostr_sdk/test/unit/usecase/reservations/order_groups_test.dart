@@ -1,6 +1,6 @@
-/// Tests for the [ReservationGroups] usecase — specifically the static
-/// [ReservationGroups.verifyGroup] function and the
-/// [Reservations.toReservationGroups] grouping.
+/// Tests for the [OrderGroups] usecase — specifically the static
+/// [OrderGroups.verifyGroup] function and the
+/// [Reservations.toOrderGroups] grouping.
 ///
 /// Covers:
 /// - Seller-confirmed pair → Valid
@@ -20,7 +20,7 @@ import 'dart:convert';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
-import 'package:hostr_sdk/usecase/reservation_groups/reservation_groups.dart';
+import 'package:hostr_sdk/usecase/order_groups/order_groups.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -400,7 +400,7 @@ Future<Reservation> _buildEscrowCommit({
 void main() async {
   final listing = _listing();
 
-  group('toReservationGroups', () {
+  group('toOrderGroups', () {
     test('groups buyer and seller by trade id (d-tag)', () async {
       final buyer = MockKeys.guest;
       final nego = await _negotiate(listing: listing, buyer: buyer);
@@ -410,7 +410,7 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pairs = Reservations.toReservationGroups(reservations: [nego, ack]);
+      final pairs = Reservations.toOrderGroups(reservations: [nego, ack]);
 
       expect(pairs.length, 1);
       final pair = pairs.values.first;
@@ -440,7 +440,7 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final pairs = Reservations.toReservationGroups(
+      final pairs = Reservations.toOrderGroups(
         reservations: [nego1, nego2, ack1],
       );
 
@@ -451,7 +451,7 @@ void main() async {
       final buyer = MockKeys.guest;
       final nego = await _negotiate(listing: listing, buyer: buyer);
 
-      final pairs = Reservations.toReservationGroups(reservations: [nego]);
+      final pairs = Reservations.toOrderGroups(reservations: [nego]);
 
       expect(pairs.length, 1);
       final pair = pairs.values.first;
@@ -460,7 +460,7 @@ void main() async {
     });
 
     test('empty list produces empty map', () {
-      final pairs = Reservations.toReservationGroups(reservations: []);
+      final pairs = Reservations.toOrderGroups(reservations: []);
 
       expect(pairs, isEmpty);
     });
@@ -478,7 +478,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -494,7 +494,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [ack]);
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -520,7 +520,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [nego]);
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
     });
 
@@ -540,7 +540,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [cancelled, nego]);
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
     });
@@ -556,7 +556,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [cancelled]);
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.buyerCancelled, isTrue);
     });
@@ -579,7 +579,7 @@ void main() async {
         reservations: [sellerCancelled, buyerCancelled],
       );
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
       expect((result as Valid).event.sellerCancelled, isTrue);
       expect((result as Valid).event.buyerCancelled, isTrue);
@@ -588,7 +588,7 @@ void main() async {
     test('empty pair (both null) → Invalid', () {
       final pair = ReservationGroup();
 
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('No reservation found'));
     });
@@ -621,12 +621,12 @@ void main() async {
         signer: buyer2,
       );
 
-      final pairs = Reservations.toReservationGroups(
+      final pairs = Reservations.toOrderGroups(
         reservations: [nego1, ack1, nego2, cancelled2],
       );
 
       final results = pairs.values
-          .map((pair) => ReservationGroups.verifyGroup(pair))
+          .map((pair) => OrderGroups.verifyGroup(pair))
           .toList();
 
       final valid = results.whereType<Valid<ReservationGroup>>().length;
@@ -671,12 +671,12 @@ void main() async {
         signer: buyer2,
       );
 
-      final pairs = Reservations.toReservationGroups(
+      final pairs = Reservations.toOrderGroups(
         reservations: [nego1, ack1, cancelled2],
       );
 
       final results = pairs.values
-          .map((pair) => ReservationGroups.verifyGroup(pair))
+          .map((pair) => OrderGroups.verifyGroup(pair))
           .whereType<Valid<ReservationGroup>>();
 
       // All verified pairs are Valid; callers filter out cancelled ones.
@@ -699,11 +699,11 @@ void main() async {
       final pair = ReservationGroup(reservations: [ack, nego]);
 
       // Default: seller confirmation makes it valid.
-      final defaultResult = ReservationGroups.verifyGroup(pair);
+      final defaultResult = OrderGroups.verifyGroup(pair);
       expect(defaultResult, isA<Valid<ReservationGroup>>());
 
       // Forced: buyer negotiate has no proof → Invalid.
-      final forcedResult = ReservationGroups.verifyGroup(
+      final forcedResult = OrderGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
@@ -723,7 +723,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [ack]);
 
-      final result = ReservationGroups.verifyGroup(
+      final result = OrderGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
@@ -742,7 +742,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [ack, nego]);
 
-      final result = ReservationGroups.verifyGroup(
+      final result = OrderGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: false,
       );
@@ -760,7 +760,7 @@ void main() async {
 
       final pair = ReservationGroup(reservations: [cancelled]);
 
-      final result = ReservationGroups.verifyGroup(
+      final result = OrderGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
@@ -771,7 +771,7 @@ void main() async {
     test('forceValidateSelfSigned=true: empty pair (both null) → Invalid', () {
       final pair = ReservationGroup();
 
-      final result = ReservationGroups.verifyGroup(
+      final result = OrderGroups.verifyGroup(
         pair,
         forceValidateSelfSigned: true,
       );
@@ -820,7 +820,7 @@ void main() async {
         );
 
         final pair = ReservationGroup(reservations: [commit]);
-        final result = ReservationGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair);
         expect(result, isA<Valid<ReservationGroup>>());
       },
     );
@@ -848,7 +848,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
 
@@ -871,7 +871,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('Amount insufficient'));
     });
@@ -906,7 +906,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('recipient does not match'));
     });
@@ -936,7 +936,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('profile does not match'));
     });
@@ -964,7 +964,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect((result as Invalid).reason, contains('LNURL does not match'));
     });
@@ -987,7 +987,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Invalid<ReservationGroup>>());
       expect(
         (result as Invalid).reason,
@@ -1016,7 +1016,7 @@ void main() async {
           proof: _buildEscrowPaymentProof(listing: listing),
         );
 
-        final result = await ReservationGroups.verifyGroupOnChain(
+        final result = await OrderGroups.verifyGroupOnChain(
           ReservationGroup(reservations: [commit]),
           forceValidateSelfSigned: true,
           escrowVerification: _StubEscrowVerification(
@@ -1056,7 +1056,7 @@ void main() async {
           signer: MockKeys.guest,
         );
 
-        final result = await ReservationGroups.verifyGroupOnChain(
+        final result = await OrderGroups.verifyGroupOnChain(
           ReservationGroup(reservations: [cancel]),
           forceValidateSelfSigned: true,
           escrowVerification: _StubEscrowVerification(
@@ -1094,7 +1094,7 @@ void main() async {
           listing: listing,
         );
 
-        final result = await ReservationGroups.verifyGroupOnChain(
+        final result = await OrderGroups.verifyGroupOnChain(
           ReservationGroup(reservations: [buyerCommit, escrowCommit]),
           forceValidateSelfSigned: true,
         );
@@ -1131,7 +1131,7 @@ void main() async {
         );
         final verifier = _StubEscrowVerification();
 
-        final result = await ReservationGroups.verifyGroupOnChain(
+        final result = await OrderGroups.verifyGroupOnChain(
           ReservationGroup(reservations: [buyerCommit, escrowCommit]),
           escrowVerification: verifier,
         );
@@ -1158,7 +1158,7 @@ void main() async {
         seller: MockKeys.hoster,
       );
 
-      final result = await ReservationGroups.verifyGroupOnChain(
+      final result = await OrderGroups.verifyGroupOnChain(
         ReservationGroup(reservations: [sellerAck, negotiate]),
       );
 
@@ -1180,7 +1180,7 @@ void main() async {
         salt: 'confirmed-nego-only',
       );
 
-      final result = await ReservationGroups.verifyGroupOnChain(
+      final result = await OrderGroups.verifyGroupOnChain(
         ReservationGroup(reservations: [negotiate]),
         forceValidateSelfSigned: false,
       );
@@ -1228,7 +1228,7 @@ void main() async {
         );
 
         final pair = ReservationGroup(reservations: [commit]);
-        final result = ReservationGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair);
         expect(result, isA<Valid<ReservationGroup>>());
       },
     );
@@ -1243,7 +1243,7 @@ void main() async {
         final nego = await _buildNegotiate(listing: listing, buyer: buyer);
 
         final pair = ReservationGroup(reservations: [nego]);
-        final result = ReservationGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair);
         expect(result, isA<Invalid<ReservationGroup>>());
       },
     );
@@ -1283,7 +1283,7 @@ void main() async {
       );
 
       final pair = ReservationGroup(reservations: [commit]);
-      final result = ReservationGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair);
       expect(result, isA<Valid<ReservationGroup>>());
     });
   });
@@ -1312,7 +1312,7 @@ void main() async {
 
         final pair = ReservationGroup(reservations: [ack, nego]);
 
-        final result = ReservationGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair);
         expect(result, isA<Valid<ReservationGroup>>());
       },
     );
@@ -1352,15 +1352,15 @@ void main() async {
         );
 
         final pair = ReservationGroup(reservations: [commit]);
-        final result = ReservationGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair);
         expect(result, isA<Valid<ReservationGroup>>());
       },
     );
   });
 
-  // ─── Group 7: Pipeline (toReservationGroups → verifyGroup) ───────────────
+  // ─── Group 7: Pipeline (toOrderGroups → verifyGroup) ───────────────
 
-  group('toReservationGroups + verifyGroup pipeline (with proofs)', () {
+  group('toOrderGroups + verifyGroup pipeline (with proofs)', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
     final buyer2 = MockKeys.reviewer;
@@ -1405,12 +1405,12 @@ void main() async {
         salt: 'pair-3',
       );
 
-      final pairs = Reservations.toReservationGroups(
+      final pairs = Reservations.toOrderGroups(
         reservations: [nego1, ack1, nego2, cancelled2, nego3],
       );
 
       final results = pairs.values
-          .map((pair) => ReservationGroups.verifyGroup(pair))
+          .map((pair) => OrderGroups.verifyGroup(pair))
           .toList();
 
       final validCount = results.whereType<Valid<ReservationGroup>>().length;
@@ -1465,12 +1465,12 @@ void main() async {
           salt: 'mixed-3',
         );
 
-        final pairs = Reservations.toReservationGroups(
+        final pairs = Reservations.toOrderGroups(
           reservations: [nego1, ack1, commit2, nego3],
         );
 
         final results = pairs.values
-            .map((pair) => ReservationGroups.verifyGroup(pair))
+            .map((pair) => OrderGroups.verifyGroup(pair))
             .toList();
 
         final validCount = results.whereType<Valid<ReservationGroup>>().length;
@@ -1518,7 +1518,7 @@ void main() async {
         signer: host,
       );
 
-      final pairs = Reservations.toReservationGroups(
+      final pairs = Reservations.toOrderGroups(
         reservations: [
           nego1,
           ack1,
@@ -1530,7 +1530,7 @@ void main() async {
       );
 
       final results = pairs.values
-          .map((pair) => ReservationGroups.verifyGroup(pair))
+          .map((pair) => OrderGroups.verifyGroup(pair))
           .toList();
 
       final activeCount = results
@@ -1594,15 +1594,15 @@ void main() async {
         );
         final group = ReservationGroup.fromReservation(negotiate);
 
-        expect(ReservationGroups.verifyGroup(group), isA<Invalid>());
+        expect(OrderGroups.verifyGroup(group), isA<Invalid>());
 
         final source = StreamWithStatus<Reservation>();
-        final reservationGroups = ReservationGroups(
+        final orderGroups = OrderGroups(
           reservations: _FakeReservations(),
           logger: CustomLogger(),
           evm: _FakeEvm(),
         );
-        final validationStream = reservationGroups.verifyFromSource(
+        final validationStream = orderGroups.verifyFromSource(
           source: source,
           validate: false,
         );

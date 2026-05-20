@@ -5,7 +5,7 @@ import '../can_verify.dart';
 import '../crud.usecase.dart';
 import '../escrow/escrow_verification.dart';
 import '../listings/listings.dart';
-import '../reservation_groups/reservation_groups.dart';
+import '../order_groups/order_groups.dart';
 import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
 
@@ -134,7 +134,7 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
 
     final validatedGroup = groupReservations.isEmpty
         ? null
-        : await ReservationGroups.verifyGroupOnChain(
+        : await OrderGroups.verifyGroupOnChain(
             ReservationGroup(reservations: groupReservations),
             escrowVerification: _escrowVerification,
           );

@@ -15,7 +15,7 @@ import '../crud.usecase.dart';
 import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../relays/relays.dart';
-import '../reservation_transitions/reservation_transitions.dart';
+import '../order_transitions/order_transitions.dart';
 import 'reservation_participant_authorization_resolver.dart';
 import 'reservation_participant_tags.dart';
 
@@ -37,7 +37,7 @@ class Reservations extends CrudUseCase<Reservation>
     implements CanVerify<Reservation, ReservationDeps> {
   final Messaging _messaging;
   final Auth _auth;
-  final ReservationTransitions _transitions;
+  final OrderTransitions _transitions;
   final Listings _listings;
   final Relays _relays;
   late final ReservationParticipantAuthorizationResolver
@@ -45,7 +45,7 @@ class Reservations extends CrudUseCase<Reservation>
       ReservationParticipantAuthorizationResolver(logger: logger);
   Messaging get messaging => _messaging;
   Auth get auth => _auth;
-  ReservationTransitions get transitions => _transitions;
+  OrderTransitions get transitions => _transitions;
   Listings get listings => _listings;
   StreamWithStatus<Reservation>? _myReservations;
   StreamSubscription<Reservation>? _myReservationsSubscription;
@@ -54,7 +54,7 @@ class Reservations extends CrudUseCase<Reservation>
     required super.logger,
     required Messaging messaging,
     required Auth auth,
-    required ReservationTransitions transitions,
+    required OrderTransitions transitions,
     required Listings listings,
     required Relays relays,
   }) : _messaging = messaging,
@@ -71,11 +71,7 @@ class Reservations extends CrudUseCase<Reservation>
 
   @override
   Future<void> beforeUpsert(Reservation event) async {
-    if (event.stage == ReservationStage.negotiate) {
-      throw StateError(
-        'Negotiate-stage reservations must be sent as private messages, not broadcast.',
-      );
-    }
+    MarketplaceOrder.fromEvent(event).ensureCanBroadcast();
   }
 
   Future<Reservation> _signReservation({
@@ -224,7 +220,7 @@ class Reservations extends CrudUseCase<Reservation>
   ///
   /// Each group's role-based getters (sellerReservation, buyerReservation,
   /// escrowReservation) are computed from the flat list automatically.
-  static Map<String, ReservationGroup> toReservationGroups({
+  static Map<String, ReservationGroup> toOrderGroups({
     required List<Reservation> reservations,
   }) {
     final Map<String, List<Reservation>> grouped = {};
@@ -245,13 +241,13 @@ class Reservations extends CrudUseCase<Reservation>
 
   /// Queries all reservations for [listing] and returns them grouped as
   /// [ReservationGroup] by trade id (`d` tag).
-  Future<Map<String, ReservationGroup>> queryReservationGroups({
+  Future<Map<String, ReservationGroup>> queryOrderGroups({
     required Listing listing,
   }) async {
     final reservations = await getListingReservations(
       listingAnchor: listing.anchor!,
     );
-    return toReservationGroups(reservations: reservations);
+    return toOrderGroups(reservations: reservations);
   }
 
   Map<String, ReservationGroup> groupByThread(List<Reservation> reservations) {

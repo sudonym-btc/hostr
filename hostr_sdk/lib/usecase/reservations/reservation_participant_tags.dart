@@ -1,4 +1,5 @@
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show MarketplaceOrder, MarketplaceOrderGroup;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 typedef ReservationParticipantAuthorizationSigner =
@@ -195,11 +196,13 @@ Set<String> resolvedReservationGroupParticipantSet({
 }
 
 String rawReservationGroupId(Reservation reservation) {
-  return ReservationGroup.groupIdFromEvent(reservation);
+  return MarketplaceOrderGroup.groupIdFromOrder(
+    MarketplaceOrder.fromEvent(reservation),
+  );
 }
 
 String rawReservationGroupIdForGroup(ReservationGroup group) {
-  return ReservationGroup.groupIdForParticipants(
+  return MarketplaceOrderGroup.groupIdForParticipants(
     tradeId: group.tradeId,
     participants: rawReservationGroupParticipantSet(group),
   );
@@ -213,7 +216,7 @@ String resolvedReservationGroupId({
   if (tradeId == null || tradeId.isEmpty) {
     throw StateError('Cannot derive reservation group id without trade id');
   }
-  return ReservationGroup.groupIdForParticipants(
+  return MarketplaceOrderGroup.groupIdForParticipants(
     tradeId: tradeId,
     participants: resolvedReservationParticipantSet(
       reservation: reservation,
@@ -226,7 +229,7 @@ String resolvedReservationGroupIdForGroup({
   required ReservationGroup group,
   Iterable<ResolvedReservationParticipantProof> resolvedProofs = const [],
 }) {
-  return ReservationGroup.groupIdForParticipants(
+  return MarketplaceOrderGroup.groupIdForParticipants(
     tradeId: group.tradeId,
     participants: resolvedReservationGroupParticipantSet(
       group: group,

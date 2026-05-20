@@ -113,6 +113,7 @@ class HostrDaemon {
         input: input,
         notificationToken: notificationToken,
         traceId: traceId,
+        hydrateAuthenticatedSession: false,
       );
     }, traceId: traceId);
   }
@@ -191,10 +192,12 @@ class HostrDaemon {
     String? notificationToken,
     String? traceId,
     HostrCancellationToken? cancellationToken,
+    bool hydrateAuthenticatedSession = true,
   }) async {
     cancellationToken?.throwIfCancelled();
     final activePubkey = session.auth.activePubkey;
-    if (activePubkey != null &&
+    if (hydrateAuthenticatedSession &&
+        activePubkey != null &&
         activePubkey.isNotEmpty &&
         !session.auth.needsBunkerRecovery &&
         await session.auth.isAuthenticated()) {
@@ -284,9 +287,9 @@ class HostrDaemon {
             HostrListingsAnchorsInput.fromJson(input),
           ),
         ),
-        'hostr.listings.reservationGroups' => (
+        'hostr.listings.orderGroups' => (
           dryRun: false,
-          data: await _listingsReservationGroups(
+          data: await _listingsOrderGroups(
             session,
             HostrListingsAnchorsInput.fromJson(input),
           ),
@@ -1648,7 +1651,7 @@ class HostrDaemon {
         results.add({'anchor': anchor, 'found': false, 'available': false});
         continue;
       }
-      final groups = await session.reservations.queryReservationGroups(
+      final groups = await session.reservations.queryOrderGroups(
         listing: listing,
       );
       results.add({
@@ -1682,7 +1685,7 @@ class HostrDaemon {
     return {'tag': kListingRefTag, 'results': results};
   }
 
-  Future<Map<String, Object?>> _listingsReservationGroups(
+  Future<Map<String, Object?>> _listingsOrderGroups(
     HostrSession session,
     HostrListingsAnchorsInput input,
   ) async {
@@ -1724,7 +1727,7 @@ class HostrDaemon {
         });
         continue;
       }
-      final groups = await session.reservations.queryReservationGroups(
+      final groups = await session.reservations.queryOrderGroups(
         listing: listing,
       );
       results.add({
@@ -1773,7 +1776,7 @@ class HostrDaemon {
         details: {'anchor': input.listingAnchor},
       );
     }
-    final groups = await session.reservations.queryReservationGroups(
+    final groups = await session.reservations.queryOrderGroups(
       listing: listing,
     );
     if (!Listing.isAvailable(
@@ -4096,7 +4099,7 @@ class HostrDaemon {
     HostrSession session,
     String tradeId,
   ) {
-    for (final group in session.escrowDaemon.reservationGroups.values) {
+    for (final group in session.escrowDaemon.orderGroups.values) {
       try {
         if (group.tradeId == tradeId) return group;
       } catch (_) {

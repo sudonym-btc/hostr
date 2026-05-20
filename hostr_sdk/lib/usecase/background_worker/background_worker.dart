@@ -14,7 +14,7 @@ import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
+import '../order_groups/order_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 /// A single notification to show or update in the OS notification tray.

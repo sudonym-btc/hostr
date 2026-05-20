@@ -3,7 +3,7 @@ library;
 
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
-import 'package:hostr_sdk/usecase/reservation_groups/reservation_group_participant_resolver.dart';
+import 'package:hostr_sdk/usecase/order_groups/order_group_participant_resolver.dart';
 import 'package:hostr_sdk/usecase/reservations/reservation_participant_keyring.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:models/main.dart';
@@ -86,7 +86,7 @@ void main() {
           request.pubKey,
         );
 
-        final groups = Reservations.toReservationGroups(
+        final groups = Reservations.toOrderGroups(
           reservations: [request, hostCommit],
         );
         expect(groups, hasLength(1));

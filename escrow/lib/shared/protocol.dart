@@ -91,7 +91,7 @@ const kRpcResolveNames = 'resolveNames';
 
 /// List all reservation groups the escrow is tracking.
 /// Returns `{ "groups": [ ReservationGroupSummaryJson, … ] }`.
-const kRpcListReservationGroups = 'listReservationGroups';
+const kRpcListOrderGroups = 'listOrderGroups';
 
 // ── Badges ──────────────────────────────────────────────────────────────────
 

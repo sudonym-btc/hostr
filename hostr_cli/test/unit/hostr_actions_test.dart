@@ -17,7 +17,7 @@ void main() {
         'hostr_listings_edit',
         'hostr_listings_availability',
         'hostr_listings_reviews',
-        'hostr_listings_reservationGroups',
+        'hostr_listings_orderGroups',
         'hostr_reservations_negotiateOffer',
         'hostr_reservations_negotiateAccept',
         'hostr_reservations_pay',

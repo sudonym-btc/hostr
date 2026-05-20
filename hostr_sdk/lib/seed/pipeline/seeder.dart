@@ -185,8 +185,8 @@ class Seeder {
     }
 
     // Transitions (depends on reservations being set).
-    final reservationTransitions = factory.buildReservationTransitions(threads);
-    for (final t in reservationTransitions) {
+    final orderTransitions = factory.buildOrderTransitions(threads);
+    for (final t in orderTransitions) {
       await sink.publish(t);
     }
 
@@ -236,7 +236,7 @@ class Seeder {
       escrowMethods: escrowMethods,
       threads: threads,
       reservationRequests: reservationRequests,
-      reservationTransitions: reservationTransitions,
+      orderTransitions: orderTransitions,
       threadMessages: threadMessages,
       reservations: reservations,
       zapReceipts: zapReceipts,

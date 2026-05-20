@@ -11,8 +11,7 @@ import 'package:rxdart/rxdart.dart';
 class ListingDependencies {
   Listing listing;
   final StreamWithStatus<Validation<Review>> verifiedReviews;
-  final StreamWithStatus<Validation<ReservationGroup>>
-  verifiedReservationGroups;
+  final StreamWithStatus<Validation<ReservationGroup>> verifiedOrderGroups;
   StreamWithStatus<List<Validation<Review>>>? _reviewItemsSource;
   StreamWithStatus<List<Validation<ReservationGroup>>>?
   _reservationGroupItemsSource;
@@ -33,7 +32,7 @@ class ListingDependencies {
           },
         ),
       ),
-      verifiedReservationGroups: getIt<Hostr>().reservationGroups.queryVerified(
+      verifiedOrderGroups: getIt<Hostr>().orderGroups.queryVerified(
         listingAnchor: anchor,
       ),
     );
@@ -42,7 +41,7 @@ class ListingDependencies {
   ListingDependencies({
     required this.listing,
     required this.verifiedReviews,
-    required this.verifiedReservationGroups,
+    required this.verifiedOrderGroups,
   });
 
   StreamWithStatus<List<Validation<Review>>> get _reviewItems =>
@@ -50,7 +49,7 @@ class ListingDependencies {
 
   StreamWithStatus<List<Validation<ReservationGroup>>>
   get _reservationGroupItems => _reservationGroupItemsSource ??=
-      verifiedReservationGroups.accumulateByKey((g) => g.event.groupId);
+      verifiedOrderGroups.accumulateByKey((g) => g.event.groupId);
 
   late final Stream<List<Validation<Review>>> reviewItems = _reviewItems
       .replayStream
@@ -91,7 +90,7 @@ class ListingDependencies {
     await _reservationGroupItemsSource?.close();
     _reservationGroupItemsSource = null;
     await verifiedReviews.close();
-    await verifiedReservationGroups.close();
+    await verifiedOrderGroups.close();
   }
 }
 

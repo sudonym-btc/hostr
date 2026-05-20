@@ -124,7 +124,7 @@ class SeedPipelineData {
   final List<EscrowMethod> escrowMethods;
   final List<SeedThread> threads;
   final List<Reservation> reservationRequests;
-  final List<ReservationTransition> reservationTransitions;
+  final List<ReservationTransition> orderTransitions;
   final List<Nip01Event> threadMessages;
   final List<Reservation> reservations;
   final List<Nip01Event> zapReceipts;
@@ -141,7 +141,7 @@ class SeedPipelineData {
     required this.escrowMethods,
     required this.threads,
     required this.reservationRequests,
-    required this.reservationTransitions,
+    required this.orderTransitions,
     required this.threadMessages,
     required this.reservations,
     required this.zapReceipts,
@@ -158,7 +158,7 @@ class SeedPipelineData {
     ...listings,
     // reservationRequests are intentionally excluded — negotiate-stage
     // events must only appear gift-wrapped (present in threadMessages).
-    ...reservationTransitions,
+    ...orderTransitions,
     ...threadMessages,
     ...zapReceipts,
     ...reservations,
@@ -206,7 +206,7 @@ class SeedPipelineData {
       escrowThreads: escrowThreads,
       zapThreads: zapThreads,
       reservationRequests: reservationRequests.length,
-      reservationTransitions: reservationTransitions.length,
+      orderTransitions: orderTransitions.length,
       messages: threadMessages.length,
       reservations: reservations.length,
       zapReceipts: zapReceipts.length,
@@ -235,7 +235,7 @@ class SeedSummary {
   final int escrowThreads;
   final int zapThreads;
   final int reservationRequests;
-  final int reservationTransitions;
+  final int orderTransitions;
   final int messages;
   final int reservations;
   final int zapReceipts;
@@ -259,7 +259,7 @@ class SeedSummary {
     required this.escrowThreads,
     required this.zapThreads,
     required this.reservationRequests,
-    required this.reservationTransitions,
+    required this.orderTransitions,
     required this.messages,
     required this.reservations,
     required this.zapReceipts,
@@ -284,7 +284,7 @@ class SeedSummary {
     'escrowThreads': escrowThreads,
     'zapThreads': zapThreads,
     'reservationRequests': reservationRequests,
-    'reservationTransitions': reservationTransitions,
+    'orderTransitions': orderTransitions,
     'messages': messages,
     'reservations': reservations,
     'zapReceipts': zapReceipts,

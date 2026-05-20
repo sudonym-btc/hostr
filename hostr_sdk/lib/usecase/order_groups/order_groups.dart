@@ -12,10 +12,10 @@ import '../reservations/reservation_participant_tags.dart';
 import '../reservations/reservations.dart';
 
 /// Dependencies resolved for a single reservation-group verification.
-class ReservationGroupDeps {
+class OrderGroupDeps {
   final Listing listing;
 
-  const ReservationGroupDeps({required this.listing});
+  const OrderGroupDeps({required this.listing});
 }
 
 /// Use case that groups raw [Reservation] events into [ReservationGroup]s
@@ -32,7 +32,7 @@ class ReservationGroupDeps {
 /// 3. Buyer-only (self-signed) → validate payment proof via
 ///    [Reservation.validate].
 @Singleton()
-class ReservationGroups {
+class OrderGroups {
   final Reservations _reservations;
   final CustomLogger _logger;
   final Evm _evm;
@@ -43,7 +43,7 @@ class ReservationGroups {
     logger: _logger,
   );
 
-  ReservationGroups({
+  OrderGroups({
     required Reservations reservations,
     required CustomLogger logger,
     required Evm evm,
@@ -93,7 +93,7 @@ class ReservationGroups {
           kListingRefTag: [listingAnchor],
         },
       ),
-      name: 'ReservationGroups-verified',
+      name: 'OrderGroups-verified',
     );
     return _buildValidatedStream(
       source: source,
@@ -121,7 +121,7 @@ class ReservationGroups {
           kListingRefTag: [listingAnchor],
         },
       ),
-      name: 'ReservationGroups-query',
+      name: 'OrderGroups-query',
     );
     return _buildValidatedStream(
       source: source,

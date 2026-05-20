@@ -26,9 +26,8 @@ class Hostr {
   LnurlUseCase get lnurl => scope<LnurlUseCase>();
   Location get location => scope<Location>();
   Reservations get reservations => scope<Reservations>();
-  ReservationGroups get reservationGroups => scope<ReservationGroups>();
-  ReservationTransitions get reservationTransitions =>
-      scope<ReservationTransitions>();
+  OrderGroups get orderGroups => scope<OrderGroups>();
+  OrderTransitions get orderTransitions => scope<OrderTransitions>();
   GiftWraps get giftWraps => scope<GiftWraps>();
   DmRelays get dmRelays => scope<DmRelays>();
   EscrowUseCase get escrow => scope<EscrowUseCase>();

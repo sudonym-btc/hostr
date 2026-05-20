@@ -3,13 +3,13 @@ import 'package:models/main.dart';
 import '../entity_factory.dart';
 import '../seed_pipeline_models.dart';
 
-/// Build deterministic [ReservationTransition] events for seeded threads.
+/// Build deterministic order transition events for seeded threads.
 ///
 /// Emits transitions for:
-/// - reservation request creation (guest, negotiate -> negotiate)
-/// - finalized reservation creation/update (guest/host, negotiate -> commit)
+/// - order request creation (guest, negotiate -> negotiate)
+/// - finalized order creation/update (guest/host, negotiate -> commit)
 /// - cancellation updates (host/guest, * -> cancel)
-List<ReservationTransition> buildReservationTransitions({
+List<ReservationTransition> buildOrderTransitions({
   required List<SeedThread> threads,
   EntityFactory? factory,
 }) {

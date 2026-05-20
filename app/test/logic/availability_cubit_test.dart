@@ -55,7 +55,7 @@ void main() {
         );
         return AvailabilityCubit(
           dateRangeCubit: dateRangeCubit,
-          reservationGroups: [
+          orderGroups: [
             _reservationGroup(
               start: DateTime(2026, 2, 10),
               end: DateTime(2026, 2, 12),
@@ -75,7 +75,7 @@ void main() {
         );
         return AvailabilityCubit(
           dateRangeCubit: dateRangeCubit,
-          reservationGroups: [
+          orderGroups: [
             _reservationGroup(
               start: DateTime(2026, 2, 2),
               end: DateTime(2026, 2, 4),
@@ -98,7 +98,7 @@ void main() {
         );
         return AvailabilityCubit(
           dateRangeCubit: dateRangeCubit,
-          reservationGroups: [
+          orderGroups: [
             _reservationGroup(
               start: DateTime(2026, 2, 2),
               end: DateTime(2026, 2, 4),

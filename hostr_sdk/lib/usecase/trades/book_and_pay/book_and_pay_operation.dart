@@ -76,7 +76,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
       try {
         emit(BookAndPayValidating(listingAnchor: input.listingAnchor));
 
-        await _userSubscriptions.start(validateReservationGroups: false);
+        await _userSubscriptions.start(validateOrderGroups: false);
         await _paymentProofOrchestrator.start();
         await _accountSeedStore.ensureReady();
         await _evm.init();
@@ -258,7 +258,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
   }
 
   Future<void> _assertAvailable(Listing listing, BookAndPayInput input) async {
-    final groups = await _reservations.queryReservationGroups(listing: listing);
+    final groups = await _reservations.queryOrderGroups(listing: listing);
     if (!Listing.isAvailable(input.start, input.end, groups.values.toList())) {
       throw StateError('Listing is not available for those dates.');
     }

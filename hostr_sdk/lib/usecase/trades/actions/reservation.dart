@@ -52,10 +52,7 @@ class ReservationActions {
     final keyPair = await trade.activeKeyPair();
 
     await reservations.cancel(
-      trade.currentReservationGroups
-          .whereType<Valid<ReservationGroup>>()
-          .first
-          .event,
+      trade.currentOrderGroups.whereType<Valid<ReservationGroup>>().first.event,
       keyPair,
     );
   }

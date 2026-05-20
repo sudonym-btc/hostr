@@ -8,7 +8,7 @@ import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart';
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
+import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart';
 import 'package:hostr_sdk/usecase/reservations/reservations.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator.dart';
 import 'package:hostr_sdk/util/main.dart';
@@ -142,8 +142,7 @@ class _FakeTradeAccountAllocator extends Fake implements TradeAccountAllocator {
   Future<int> reserveNextTradeIndex() async => 7;
 }
 
-class _FakeReservationTransitions extends Fake
-    implements ReservationTransitions {
+class _FakeOrderTransitions extends Fake implements OrderTransitions {
   int recordCalls = 0;
 
   @override
@@ -203,13 +202,13 @@ void main() {
   late _FakeAuth auth;
   late ReservationRequests reservationRequests;
   late Reservations reservations;
-  late _FakeReservationTransitions transitions;
+  late _FakeOrderTransitions transitions;
   late _FakeTradeAccountAllocator tradeAccountAllocator;
 
   setUp(() {
     requests = _FakeRequests();
     auth = _FakeAuth(MockKeys.guest);
-    transitions = _FakeReservationTransitions();
+    transitions = _FakeOrderTransitions();
     tradeAccountAllocator = _FakeTradeAccountAllocator();
 
     reservationRequests = ReservationRequests(

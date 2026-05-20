@@ -1,6 +1,7 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart';
 import 'package:models/main.dart';
+import 'package:ndk/ndk.dart' show MarketplaceOrder;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/coinlib_gift_wrap.dart';
@@ -31,11 +32,7 @@ class ReservationRequests extends CrudUseCase<Reservation> {
 
   @override
   Future<void> beforeUpsert(Reservation event) async {
-    if (event.stage == ReservationStage.negotiate) {
-      throw StateError(
-        'Negotiate-stage reservations must be sent as private messages, not broadcast.',
-      );
-    }
+    MarketplaceOrder.fromEvent(event).ensureCanBroadcast();
   }
 
   Future<Reservation> _signReservation({

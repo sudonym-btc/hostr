@@ -12,7 +12,7 @@ import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
-import 'package:hostr_sdk/usecase/reservation_groups/reservation_group_participant_resolver.dart';
+import 'package:hostr_sdk/usecase/order_groups/order_group_participant_resolver.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
@@ -95,7 +95,7 @@ class _FakeUserSubscriptions extends Fake implements UserSubscriptions {
   }
 
   @override
-  Future<void> start({bool validateReservationGroups = true}) async {
+  Future<void> start({bool validateOrderGroups = true}) async {
     startCount++;
   }
 }

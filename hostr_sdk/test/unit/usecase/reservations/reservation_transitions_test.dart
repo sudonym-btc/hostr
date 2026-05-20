@@ -3,7 +3,7 @@ library;
 
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart';
+import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
@@ -11,7 +11,24 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
-    show Accounts, Filter, Ndk, Nip01Event, Nip01Utils;
+    show
+        Accounts,
+        Bip340EventSigner,
+        EventSigner,
+        Filter,
+        Marketplace,
+        MarketplaceOrder,
+        MarketplaceOrderStage,
+        MarketplaceOrderTransition,
+        MarketplaceOrderTransitionContent,
+        MarketplaceOrderTransitionPublishResult,
+        MarketplaceOrderTransitionType,
+        MarketplaceOrderTransitionsUsecase,
+        MarketplaceResponse,
+        Ndk,
+        NdkBroadcastResponse,
+        Nip01Event,
+        Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -35,20 +52,129 @@ class _FakeAccounts extends Fake implements Accounts {
 
 class _FakeNdk extends Fake implements Ndk {
   final _FakeAccounts fakeAccounts = _FakeAccounts();
+  late final _FakeMarketplace fakeMarketplace;
+
+  _FakeNdk(_FakeRequests relay) {
+    fakeMarketplace = _FakeMarketplace(relay: relay, accounts: fakeAccounts);
+  }
 
   @override
   Accounts get accounts => fakeAccounts;
+
+  @override
+  Marketplace get marketplace => fakeMarketplace;
+}
+
+class _FakeMarketplace extends Fake implements Marketplace {
+  @override
+  final MarketplaceOrderTransitionsUsecase orderTransitions;
+
+  _FakeMarketplace({
+    required _FakeRequests relay,
+    required _FakeAccounts accounts,
+  }) : orderTransitions = _FakeMarketplaceOrderTransitions(
+         relay: relay,
+         accounts: accounts,
+       );
+}
+
+class _FakeMarketplaceOrderTransitions extends Fake
+    implements MarketplaceOrderTransitionsUsecase {
+  final _FakeRequests relay;
+  final _FakeAccounts accounts;
+
+  _FakeMarketplaceOrderTransitions({
+    required this.relay,
+    required this.accounts,
+  });
+
+  @override
+  Future<MarketplaceOrderTransitionPublishResult> record({
+    required MarketplaceOrder order,
+    required MarketplaceOrderTransitionType transitionType,
+    required MarketplaceOrderStage fromStage,
+    required MarketplaceOrderStage toStage,
+    EventSigner? customSigner,
+    Iterable<String>? specificRelays,
+    String? commitTermsHash,
+    String? reason,
+    Map<String, dynamic>? updatedFields,
+    String? prevTransitionId,
+  }) async {
+    final signer =
+        customSigner ??
+        Bip340EventSigner(
+          privateKey: MockKeys.guest.privateKey!,
+          publicKey: accounts.getPublicKey()!,
+        );
+    final transition = MarketplaceOrderTransition.create(
+      pubKey: signer.getPublicKey(),
+      order: order,
+      prevTransitionId: prevTransitionId ?? _previousFor(order, signer),
+      content: MarketplaceOrderTransitionContent(
+        transitionType: transitionType,
+        fromStage: fromStage,
+        toStage: toStage,
+        commitTermsHash: commitTermsHash ?? order.commitHash(),
+        reason: reason,
+        updatedFields: updatedFields,
+      ),
+    );
+    final signed = MarketplaceOrderTransition.fromEvent(
+      await signer.sign(transition),
+    );
+    relay.broadcasted.add(signed);
+    return MarketplaceOrderTransitionPublishResult(
+      transition: signed,
+      broadcast: NdkBroadcastResponse(
+        publishEvent: signed,
+        broadcastDoneStream: Stream.value([_successfulBroadcastResponse()]),
+      ),
+    );
+  }
+
+  @override
+  MarketplaceResponse<MarketplaceOrderTransition> queryByTradeId(
+    String tradeId, {
+    Duration? timeout,
+    Iterable<String>? explicitRelays,
+    bool cacheRead = true,
+    bool cacheWrite = true,
+    int? limit,
+  }) {
+    relay.queries.add(
+      Filter(kinds: const [kNostrKindReservationTransition], dTags: [tradeId]),
+    );
+    return MarketplaceResponse(
+      'fake-transitions',
+      Stream.fromIterable(
+        relay.queryResults.whereType<ReservationTransition>().map(
+          MarketplaceOrderTransition.fromEvent,
+        ),
+      ),
+    );
+  }
+
+  String? _previousFor(MarketplaceOrder order, EventSigner signer) {
+    final tradeId = order.tradeId;
+    if (tradeId == null || tradeId.isEmpty) return null;
+    MarketplaceOrderTransition? latest;
+    for (final event in relay.queryResults.whereType<ReservationTransition>()) {
+      if (event.parsedTags.tradeId == tradeId &&
+          event.pubKey == signer.getPublicKey()) {
+        latest = MarketplaceOrderTransition.fromEvent(event);
+      }
+    }
+    return latest?.id;
+  }
 }
 
 class _FakeRequests extends Fake implements hostr_requests.Requests {
-  final hostr_requests.NostrEventSigner? defaultSigner;
   final _source = StreamWithStatus<ReservationTransition>();
   final List<Nip01Event> broadcasted = [];
   final List<Nip01Event> queryResults = [];
   final List<Filter> queries = [];
   final List<Filter> subscriptions = [];
-
-  _FakeRequests({this.defaultSigner});
 
   @override
   StreamWithStatus<T> subscribe<T extends Nip01Event>({
@@ -81,7 +207,7 @@ class _FakeRequests extends Fake implements hostr_requests.Requests {
     hostr_requests.NostrEventSigner? signer,
   }) async {
     var eventToBroadcast = event.sig == null
-        ? await ((signer ?? defaultSigner)?.call(event) ?? Future.value(event))
+        ? await (signer?.call(event) ?? Future.value(event))
         : event;
     if (eventToBroadcast.sig != null && eventToBroadcast.id.isEmpty) {
       eventToBroadcast = eventToBroadcast.copyWith(
@@ -135,12 +261,12 @@ Future<Reservation> _makeReservation({
 void main() {
   late _FakeRequests relay;
   late _FakeNdk ndk;
-  late ReservationTransitions usecase;
+  late OrderTransitions usecase;
 
   setUp(() {
-    ndk = _FakeNdk();
-    relay = _FakeRequests(defaultSigner: ndk.fakeAccounts.sign);
-    usecase = ReservationTransitions(
+    relay = _FakeRequests();
+    ndk = _FakeNdk(relay);
+    usecase = OrderTransitions(
       requests: relay,
       logger: CustomLogger(),
       ndk: ndk,
@@ -151,7 +277,7 @@ void main() {
     await relay.close();
   });
 
-  group('ReservationTransitions', () {
+  group('OrderTransitions', () {
     group('record()', () {
       test('broadcasts a transition event with correct kind', () async {
         final reservation = await _makeReservation(dTag: 'trade-1');

@@ -1223,7 +1223,7 @@ class HostrActionSpec {
         return 'Use after a user has selected one or more listings and supplied dates, before booking or explaining date conflicts. Pass listing anchors from search/list results. If dates are missing, ask for them instead of guessing.';
       case 'hostr.listings.reviews':
         return 'Use when the user asks about reviews, reputation, prior guest feedback, or trust signals for one or more listings. Pass listing anchors from search/list results.';
-      case 'hostr.listings.reservationGroups':
+      case 'hostr.listings.orderGroups':
         return 'Use when the user asks why dates are unavailable, wants booking history/conflicts for a listing, or needs reservation context before changing availability-sensitive plans.';
       case 'hostr.reservations.bookAndPay':
         return 'Primary guest booking flow: use this when the user says book, reserve, make a reservation, create a reservation, or otherwise clearly wants an instant-book stay at or above the listed price. If the user says guest, my guest account, my trip, or similar, make sure the active account is the guest account first by using session account tools; do not book from an unrelated host or escrow account just because it is already active. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. The committed reservation and escrow trade are intentionally published under Hostr-created per-trade temporary pubkeys for privacy, so the buyer/reservation pubkey may differ from the active logged-in Hostr account. Treat that as normal and never describe it as an identity mismatch. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and reservationWaitSeconds to monitor payment/proof/reservation completion. Do not stop after displaying the invoice or wait for the user to say they paid. reservationWaitSeconds is intentionally short and capped below MCP client timeouts; if watch times out before the swap or reservation returns, call hostr_swaps_watch again with the returned retry arguments. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed reservation appears. Do not call hostr_reservations_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
@@ -1995,8 +1995,8 @@ export interface HostrListingsAvailabilityInput {
     typescriptInput: _anchorsTypescriptInput,
   );
 
-  static const listingsReservationGroups = HostrActionSpec(
-    id: 'hostr.listings.reservationGroups',
+  static const listingsOrderGroups = HostrActionSpec(
+    id: 'hostr.listings.orderGroups',
     title: 'Fetch Listing Reservation Groups',
     description:
         'Fetch public reservation groups for one or more listings. Use this before availability-sensitive reservation workflows when the agent needs to explain conflicts.',
@@ -3341,7 +3341,7 @@ export interface HostrSwapsRecoverAllInput {
     listingsEdit,
     listingsAvailability,
     listingsReviews,
-    listingsReservationGroups,
+    listingsOrderGroups,
     reservationsBookAndPay,
     reservationsOffer,
     reservationsNegotiateAccept,

@@ -17,8 +17,8 @@ import '../messaging/thread/state.dart';
 import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
-import '../reservation_groups/reservation_groups.dart';
+import '../order_groups/order_group_participant_resolver.dart';
+import '../order_groups/order_groups.dart';
 import '../reservation_requests/reservation_requests.dart';
 import '../reservations/reservations.dart';
 import '../trade_account_allocator/trade_account_allocator.dart';
@@ -83,7 +83,7 @@ class Trade extends Cubit<TradeState> {
   final MetadataUseCase _metadata;
   final IdentityClaimsUseCase _identityClaims;
   final UserSubscriptions _userSubscriptions;
-  final ReservationGroups _reservationGroups;
+  final OrderGroups _orderGroups;
   final Threads _threads;
   final TradeAccountAllocator _tradeAccountAllocator;
   final ReservationRequests _reservationRequests;
@@ -153,7 +153,7 @@ class Trade extends Cubit<TradeState> {
     required MetadataUseCase metadata,
     required IdentityClaimsUseCase identityClaims,
     required UserSubscriptions userSubscriptions,
-    required ReservationGroups reservationGroups,
+    required OrderGroups orderGroups,
     required Threads threads,
     required TradeAccountAllocator tradeAccountAllocator,
     required ReservationRequests reservationRequests,
@@ -164,7 +164,7 @@ class Trade extends Cubit<TradeState> {
        _metadata = metadata,
        _identityClaims = identityClaims,
        _userSubscriptions = userSubscriptions,
-       _reservationGroups = reservationGroups,
+       _orderGroups = orderGroups,
        _threads = threads,
        _tradeAccountAllocator = tradeAccountAllocator,
        _reservationRequests = reservationRequests,
@@ -181,8 +181,7 @@ class Trade extends Cubit<TradeState> {
        ),
        myReviews$ = userSubscriptions.myReviews$,
        super(const TradeInitialising()) {
-    resolvedReservationGroup$ = userSubscriptions
-        .allMyResolvedReservationGroups$
+    resolvedReservationGroup$ = userSubscriptions.allMyResolvedOrderGroups$
         .where(_matchesResolvedReservationGroup);
     reservationGroup$ = resolvedReservationGroup$.map(
       (item) => item.validation,
@@ -398,7 +397,7 @@ class Trade extends Cubit<TradeState> {
     final hostProfile = _hostProfile;
     final sellerEvmAddress = _sellerEvmAddress;
 
-    allListingReservations$ = _reservationGroups.queryVerified(
+    allListingReservations$ = _orderGroups.queryVerified(
       listingAnchor: listingAnchor,
       forceValidatePredicate: (group) => group.tradeId == tradeId,
     );
@@ -523,7 +522,7 @@ class Trade extends Cubit<TradeState> {
     final overlapLock = allListingReservationsLoaded
         ? resolveOverlapLock(
             ourReservationDTag: tradeId,
-            allListingReservationGroups: validAllListingPairs,
+            allListingOrderGroups: validAllListingPairs,
             startDate: start,
             endDate: end,
           )
@@ -696,7 +695,7 @@ class Trade extends Cubit<TradeState> {
   // ── Public API ─────────────────────────────────────────────────────
 
   /// Current reservation pair status list (for action execution).
-  List<Validation<ReservationGroup>> get currentReservationGroups =>
+  List<Validation<ReservationGroup>> get currentOrderGroups =>
       _bootstrapped ? reservationGroup$.items : const [];
 
   Future<KeyPair> activeKeyPair() => _logger.span('activeKeyPair', () async {

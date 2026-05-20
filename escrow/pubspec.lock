@@ -748,7 +748,7 @@ packages:
     description:
       path: "packages/ndk"
       ref: "feat/ndk-marketplace"
-      resolved-ref: "40db898a8b2dc4428d7fdd7c8170e73f3ea5ed87"
+      resolved-ref: "3e3bf19ae4535d726059ab78e366c82414802d98"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
     version: "0.8.2-dev.8"

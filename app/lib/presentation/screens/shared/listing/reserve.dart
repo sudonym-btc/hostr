@@ -113,10 +113,9 @@ class _ReserveState extends State<Reserve> {
   Widget build(BuildContext context) {
     return StreamBuilder<List<Validation<ReservationGroup>>>(
       stream: widget.reservationGroupItemsStream,
-      builder: (context, reservationGroupsSnapshot) {
-        final reservationGroups =
-            (reservationGroupsSnapshot.data ??
-                    const <Validation<ReservationGroup>>[])
+      builder: (context, orderGroupsSnapshot) {
+        final orderGroups =
+            (orderGroupsSnapshot.data ?? const <Validation<ReservationGroup>>[])
                 .whereType<Valid<ReservationGroup>>()
                 .map((validated) => validated.event)
                 .toList(growable: false);
@@ -138,7 +137,7 @@ class _ReserveState extends State<Reserve> {
                         onTap: () => selectDates(
                           context,
                           context.read<DateRangeCubit>(),
-                          reservationGroups,
+                          orderGroups,
                           enforceContiguousAvailability: true,
                         ),
                       ),
@@ -265,7 +264,7 @@ class _ReserveState extends State<Reserve> {
 Future<void> selectDates(
   BuildContext context,
   DateRangeCubit dateRangeCubit,
-  List<ReservationGroup> reservationGroups, {
+  List<ReservationGroup> orderGroups, {
   bool enforceContiguousAvailability = true,
 }) async {
   bool selectableDayPredicate(
@@ -283,13 +282,13 @@ Future<void> selectDates(
       }
 
       if (enforceContiguousAvailability) {
-        return Listing.isAvailable(selectedStartDay, day, reservationGroups);
+        return Listing.isAvailable(selectedStartDay, day, orderGroups);
       }
 
       return true;
     }
 
-    if (!Listing.isAvailable(day, day, reservationGroups)) {
+    if (!Listing.isAvailable(day, day, orderGroups)) {
       return false;
     }
 

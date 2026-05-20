@@ -14,9 +14,9 @@ import '../gift_wraps/gift_wraps.dart';
 import '../heartbeat/heartbeat.dart';
 import '../messaging/threads.dart';
 import '../requests/requests.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
-import '../reservation_groups/reservation_groups.dart';
-import '../reservation_transitions/reservation_transitions.dart';
+import '../order_groups/order_group_participant_resolver.dart';
+import '../order_groups/order_groups.dart';
+import '../order_transitions/order_transitions.dart';
 import '../reservations/reservation_participant_keyring.dart';
 import '../reservations/reservations.dart';
 import '../reviews/reviews.dart';
@@ -53,8 +53,8 @@ class UserSubscriptions {
   final GiftWraps _giftWraps;
   final Heartbeats _heartbeats;
   final Reservations _reservations;
-  final ReservationTransitions _transitions;
-  final ReservationGroups _reservationGroups;
+  final OrderTransitions _transitions;
+  final OrderGroups _orderGroups;
 
   final Reviews _reviews;
   final Zaps _zaps;
@@ -66,8 +66,8 @@ class UserSubscriptions {
     required GiftWraps giftWraps,
     required Heartbeats heartbeats,
     required Reservations reservations,
-    required ReservationTransitions transitions,
-    required ReservationGroups reservationGroups,
+    required OrderTransitions transitions,
+    required OrderGroups orderGroups,
     required Reviews reviews,
     required Zaps zaps,
     required EscrowUseCase escrow,
@@ -77,7 +77,7 @@ class UserSubscriptions {
        _heartbeats = heartbeats,
        _reservations = reservations,
        _transitions = transitions,
-       _reservationGroups = reservationGroups,
+       _orderGroups = orderGroups,
        _reviews = reviews,
        _zaps = zaps,
        _escrow = escrow,
@@ -96,9 +96,9 @@ class UserSubscriptions {
 
   /// Validated reservation groups derived from [allMyReservations$].
   /// Each group is grouped by trade ID and validated (proof-checked) via
-  /// [ReservationGroups.verifyFromSource]. Per-item stream — each emission
+  /// [OrderGroups.verifyFromSource]. Per-item stream — each emission
   /// is a single [Validation<ReservationGroup>] (upserted by group ID).
-  final StreamWithStatus<Validation<ReservationGroup>> allMyReservationGroups$ =
+  final StreamWithStatus<Validation<ReservationGroup>> allMyOrderGroups$ =
       StreamWithStatus();
 
   /// Reservation groups plus participant-set resolution metadata. This stream
@@ -106,7 +106,7 @@ class UserSubscriptions {
   /// group ids used to match private trade keys back to real conversation
   /// participants.
   final StreamWithStatus<ResolvedValidatedReservationGroupParticipants>
-  allMyResolvedReservationGroups$ = StreamWithStatus();
+  allMyResolvedOrderGroups$ = StreamWithStatus();
 
   /// Reservation groups where the current user is the **guest** (not the host).
   final StreamWithStatus<Validation<ReservationGroup>> myTrips$ =
@@ -169,9 +169,9 @@ class UserSubscriptions {
       StreamWithStatus<PaymentEvent>();
 
   // Intermediate derived sources created in start(), held for cleanup.
-  StreamWithStatus<Validation<ReservationGroup>>? _reservationGroupsSource;
+  StreamWithStatus<Validation<ReservationGroup>>? _orderGroupsSource;
   StreamWithStatus<ResolvedValidatedReservationGroupParticipants>?
-  _resolvedReservationGroupsSource;
+  _resolvedOrderGroupsSource;
   StreamWithStatus<Validation<ReservationGroup>>? _tripsSource;
   StreamWithStatus<ResolvedValidatedReservationGroupParticipants>?
   _resolvedTripsSource;
@@ -216,7 +216,7 @@ class UserSubscriptions {
   }
 
   Future<void> start({
-    bool validateReservationGroups = true,
+    bool validateOrderGroups = true,
   }) => _logger.span('start', () async {
     if (_started) return;
     _started = true;
@@ -246,23 +246,24 @@ class UserSubscriptions {
       _reservationFilterSource!,
     );
 
-    _reservationGroupsSource = _reservationGroups.verifyFromSource(
+    _orderGroupsSource = _orderGroups.verifyFromSource(
       source: allMyReservations$.stream,
-      validate: validateReservationGroups,
+      validate: validateOrderGroups,
     );
-    allMyReservationGroups$.pipeFrom(_reservationGroupsSource!);
-    _resolvedReservationGroupsSource = _reservationGroupsSource!
-        .resolveParticipantSets(resolver: _buildParticipantResolver());
-    allMyResolvedReservationGroups$.pipeFrom(_resolvedReservationGroupsSource!);
+    allMyOrderGroups$.pipeFrom(_orderGroupsSource!);
+    _resolvedOrderGroupsSource = _orderGroupsSource!.resolveParticipantSets(
+      resolver: _buildParticipantResolver(),
+    );
+    allMyResolvedOrderGroups$.pipeFrom(_resolvedOrderGroupsSource!);
 
-    _tripsSource = allMyReservationGroups$.where(
+    _tripsSource = allMyOrderGroups$.where(
       (item) => item.event.sellerPubkey != myPubkey,
     );
     myTrips$.pipeFrom(_tripsSource!);
     _myTripsListSource = myTrips$.accumulateByKey((v) => v.event.tradeId);
     myTripsList$.pipeFrom(_myTripsListSource!);
 
-    _resolvedTripsSource = allMyResolvedReservationGroups$.where(
+    _resolvedTripsSource = allMyResolvedOrderGroups$.where(
       (item) => item.group.sellerPubkey != myPubkey,
     );
     myResolvedTrips$.pipeFrom(_resolvedTripsSource!);
@@ -271,14 +272,14 @@ class UserSubscriptions {
     );
     myResolvedTripsList$.pipeFrom(_myResolvedTripsListSource!);
 
-    _hostingsSource = allMyReservationGroups$.where(
+    _hostingsSource = allMyOrderGroups$.where(
       (item) => item.event.sellerPubkey == myPubkey,
     );
     myHostings$.pipeFrom(_hostingsSource!);
     _myHostingsListSource = myHostings$.accumulateByKey((v) => v.event.tradeId);
     myHostingsList$.pipeFrom(_myHostingsListSource!);
 
-    _resolvedHostingsSource = allMyResolvedReservationGroups$.where(
+    _resolvedHostingsSource = allMyResolvedOrderGroups$.where(
       (item) => item.group.sellerPubkey == myPubkey,
     );
     myResolvedHostings$.pipeFrom(_resolvedHostingsSource!);
@@ -351,10 +352,10 @@ class UserSubscriptions {
     _resolvedTripsSource = null;
     await _tripsSource?.close();
     _tripsSource = null;
-    await _resolvedReservationGroupsSource?.close();
-    _resolvedReservationGroupsSource = null;
-    await _reservationGroupsSource?.close();
-    _reservationGroupsSource = null;
+    await _resolvedOrderGroupsSource?.close();
+    _resolvedOrderGroupsSource = null;
+    await _orderGroupsSource?.close();
+    _orderGroupsSource = null;
     await _reviewsSource?.close();
     _reviewsSource = null;
 
@@ -369,8 +370,8 @@ class UserSubscriptions {
     await myResolvedTrips$.reset();
     await myTripsList$.reset();
     await myTrips$.reset();
-    await allMyResolvedReservationGroups$.reset();
-    await allMyReservationGroups$.reset();
+    await allMyResolvedOrderGroups$.reset();
+    await allMyOrderGroups$.reset();
     await allMyReservations$.reset();
     await allTransitions$.reset();
     await allHeartbeats$.reset();
@@ -415,8 +416,8 @@ class UserSubscriptions {
     await myResolvedHostings$.close();
     await myHostingsList$.close();
     await myHostings$.close();
-    await allMyResolvedReservationGroups$.close();
-    await allMyReservationGroups$.close();
+    await allMyResolvedOrderGroups$.close();
+    await allMyOrderGroups$.close();
     await paymentEvents$.close();
     await latestHeartbeats$.close();
     await giftwraps$.close();

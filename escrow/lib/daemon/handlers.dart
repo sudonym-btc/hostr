@@ -41,7 +41,7 @@ class DaemonHandler {
     server.registerMethod(kRpcUpdateProfile, _updateProfile);
     server.registerMethod(kRpcGetEvmMnemonic, _getEvmMnemonic);
     server.registerMethod(kRpcResolveNames, _resolveNames);
-    server.registerMethod(kRpcListReservationGroups, _listReservationGroups);
+    server.registerMethod(kRpcListOrderGroups, _listOrderGroups);
     server.registerMethod(kRpcListBadgeDefinitions, _listBadgeDefinitions);
     server.registerMethod(kRpcUpsertBadgeDefinition, _upsertBadgeDefinition);
     server.registerMethod(kRpcDeleteBadgeDefinition, _deleteBadgeDefinition);
@@ -285,7 +285,7 @@ class DaemonHandler {
     String tradeId, {
     bool cachedOnly = false,
   }) async {
-    for (final group in daemon.reservationGroups.values) {
+    for (final group in daemon.orderGroups.values) {
       try {
         if (group.tradeId == tradeId) return group;
       } catch (_) {
@@ -298,9 +298,8 @@ class DaemonHandler {
     final reservations = await hostr.reservations.getByTradeId(tradeId);
     if (reservations.isEmpty) return null;
 
-    final groups = Reservations.toReservationGroups(reservations: reservations)
-        .values
-        .toList();
+    final groups =
+        Reservations.toOrderGroups(reservations: reservations).values.toList();
     groups
         .sort((a, b) => b.reservations.length.compareTo(a.reservations.length));
     for (final group in groups) {
@@ -962,8 +961,8 @@ class DaemonHandler {
 
   // ── Reservation Groups ────────────────────────────────────────────────────
 
-  Map<String, dynamic> _listReservationGroups(json_rpc.Parameters params) {
-    final groups = daemon.reservationGroups;
+  Map<String, dynamic> _listOrderGroups(json_rpc.Parameters params) {
+    final groups = daemon.orderGroups;
     return {
       'groups': groups.entries.map((e) {
         final g = e.value;

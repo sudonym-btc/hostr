@@ -180,7 +180,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
               .toList();
 
           _latestAvailabilityGroups = availabilityGroups;
-          _availabilityCubit?.updateReservationGroups(availabilityGroups);
+          _availabilityCubit?.updateOrderGroups(availabilityGroups);
         });
   }
 
@@ -212,7 +212,7 @@ class ListingListItemWidgetState extends State<ListingListItemWidget> {
     _localDateRangeCubit ??= DateRangeCubit();
     _availabilityCubit = AvailabilityCubit(
       dateRangeCubit: dateRangeCubit ?? _localDateRangeCubit!,
-      reservationGroups: _latestAvailabilityGroups,
+      orderGroups: _latestAvailabilityGroups,
     );
   }
 

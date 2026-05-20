@@ -50,7 +50,7 @@ import 'package:hostr_sdk/usecase/relays/relays.dart' as _i45;
 import 'package:hostr_sdk/usecase/requests/requests.dart' as _i8;
 import 'package:hostr_sdk/usecase/reservation_requests/reservation_requests.dart'
     as _i41;
-import 'package:hostr_sdk/usecase/reservation_transitions/reservation_transitions.dart'
+import 'package:hostr_sdk/usecase/order_transitions/order_transitions.dart'
     as _i15;
 import 'package:hostr_sdk/usecase/reservations/reservations.dart' as _i17;
 import 'package:hostr_sdk/usecase/storage/storage.dart' as _i27;
@@ -222,9 +222,9 @@ class _FakeAuth_25 extends _i1.SmartFake implements _i14.Auth {
     : super(parent, parentInvocation);
 }
 
-class _FakeReservationTransitions_26 extends _i1.SmartFake
-    implements _i15.ReservationTransitions {
-  _FakeReservationTransitions_26(Object parent, Invocation parentInvocation)
+class _FakeOrderTransitions_26 extends _i1.SmartFake
+    implements _i15.OrderTransitions {
+  _FakeOrderTransitions_26(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
@@ -1614,15 +1614,15 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as _i14.Auth);
 
   @override
-  _i15.ReservationTransitions get transitions =>
+  _i15.OrderTransitions get transitions =>
       (super.noSuchMethod(
             Invocation.getter(#transitions),
-            returnValue: _FakeReservationTransitions_26(
+            returnValue: _FakeOrderTransitions_26(
               this,
               Invocation.getter(#transitions),
             ),
           )
-          as _i15.ReservationTransitions);
+          as _i15.OrderTransitions);
 
   @override
   _i16.Listings get listings =>
@@ -1744,11 +1744,11 @@ class MockReservations extends _i1.Mock implements _i17.Reservations {
           as Map<String, List<_i10.Reservation>>);
 
   @override
-  _i29.Future<Map<String, _i10.ReservationGroup>> queryReservationGroups({
+  _i29.Future<Map<String, _i10.ReservationGroup>> queryOrderGroups({
     required _i10.Listing? listing,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#queryReservationGroups, [], {#listing: listing}),
+            Invocation.method(#queryOrderGroups, [], {#listing: listing}),
             returnValue: _i29.Future<Map<String, _i10.ReservationGroup>>.value(
               <String, _i10.ReservationGroup>{},
             ),

@@ -7,7 +7,7 @@ import 'package:models/main.dart';
 import '../../util/custom_logger.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
-import '../reservation_groups/reservation_group_participant_resolver.dart';
+import '../order_groups/order_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 abstract class CalendarPort {

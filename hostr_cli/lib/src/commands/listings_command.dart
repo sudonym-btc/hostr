@@ -233,7 +233,7 @@ class ListingsReservationsCommand extends HostrCliCommand {
   @override
   Future<HostrCliResult> runCommand() => runSharedAction(
     this,
-    action: 'hostr.listings.reservationGroups',
+    action: 'hostr.listings.orderGroups',
     input: _anchorsInput(this),
   );
 }

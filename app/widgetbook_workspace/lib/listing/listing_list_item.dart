@@ -28,7 +28,7 @@ Widget listingPureDateSelected(BuildContext context) {
   final dependencies = ListingDependencies(
     listing: mockListings[0],
     verifiedReviews: _emptyValidatedStream<Review>(),
-    verifiedReservationGroups: _emptyValidatedStream<ReservationGroup>(),
+    verifiedOrderGroups: _emptyValidatedStream<ReservationGroup>(),
   );
 
   return ListingListItemView(
@@ -50,7 +50,7 @@ Widget listingPureNoDateSelected(BuildContext context) {
   final dependencies = ListingDependencies(
     listing: mockListings[0],
     verifiedReviews: _emptyValidatedStream<Review>(),
-    verifiedReservationGroups: _emptyValidatedStream<ReservationGroup>(),
+    verifiedOrderGroups: _emptyValidatedStream<ReservationGroup>(),
   );
 
   return ListingListItemView(
