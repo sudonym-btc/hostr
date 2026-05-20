@@ -37,6 +37,15 @@ test('permits writes when auth pubkey matches event author', () => {
   assert.deepEqual(decision, { decision: Decision.PERMIT });
 });
 
+test('permits marketplace review events when auth pubkey matches event author', () => {
+  const decision = decideEventAdmission({
+    event: event({ kind: 31555 }),
+    authPubkey: Buffer.from(pubkey, 'hex'),
+  });
+
+  assert.deepEqual(decision, { decision: Decision.PERMIT });
+});
+
 test('denies writes when auth pubkey does not match event author', () => {
   const decision = decideEventAdmission({
     event: event({ kind: 30402 }),

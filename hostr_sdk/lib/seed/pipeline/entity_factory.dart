@@ -1447,18 +1447,18 @@ class EntityFactory {
         ['d', dTag ?? order.getDtag() ?? _nextDTag('review')],
         [kOrderRefTag, orderAnchor],
         [kListingRefTag, listingAnchor],
+        ReviewTags.primaryRatingTagFromStars(resolvedRating),
+        ReviewTags.proofTag(
+          await _participationProofForReview(
+            order: order,
+            recipientKeyPair: orderAuthorKeyPair,
+            identityPubkey: kp.publicKey,
+            role: 'buyer',
+          ),
+        ),
       ]),
       createdAt: createdAt ?? _defaultCreatedAt(),
-      content: ReviewContent(
-        rating: resolvedRating,
-        content: resolvedContent,
-        proof: await _participationProofForReview(
-          order: order,
-          recipientKeyPair: orderAuthorKeyPair,
-          identityPubkey: kp.publicKey,
-          role: 'buyer',
-        ),
-      ),
+      content: resolvedContent,
     ).signAs(kp, Review.fromNostrEvent);
   }
 

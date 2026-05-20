@@ -2665,23 +2665,22 @@ class HostrDaemon {
       sellerPubkey: group.sellerPubkey,
       tradeId: input.tradeId,
     );
+    final proof = await hostr.orders.createParticipationProofForReview(
+      order: order,
+      role: 'buyer',
+      recipientKeyPair: recipientKeyPair,
+      identityKeyPair: signerKeyPair,
+    );
     final review = Review(
       pubKey: signerKeyPair.publicKey,
       tags: ReviewTags([
         ['d', input.tradeId],
         [kOrderRefTag, orderAnchor],
         [kListingRefTag, listingAnchor],
+        ReviewTags.primaryRatingTagFromStars(input.rating),
+        ReviewTags.proofTag(proof),
       ]),
-      content: ReviewContent(
-        rating: input.rating,
-        content: input.content,
-        proof: await hostr.orders.createParticipationProofForReview(
-          order: order,
-          role: 'buyer',
-          recipientKeyPair: recipientKeyPair,
-          identityKeyPair: signerKeyPair,
-        ),
-      ),
+      content: input.content,
     );
     final verification = hostr.reviews.verify(
       review,

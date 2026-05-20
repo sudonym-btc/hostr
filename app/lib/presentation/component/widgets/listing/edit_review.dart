@@ -110,16 +110,14 @@ class EditReviewController extends UpsertFormController {
     await getIt<Hostr>().reviews.upsert(
       Review(
         pubKey: activeKeyPair.publicKey,
-        content: ReviewContent(
-          rating: rating,
-          content: reviewField.text,
-          proof: proof,
-        ),
+        content: reviewField.text,
         tags: ReviewTags([
           ['d', tradeId],
           [kListingRefTag, listing.anchor!],
           [kOrderRefTag, reservation?.anchor ?? ''],
           ['p', listing.pubKey],
+          ReviewTags.primaryRatingTagFromStars(rating),
+          ReviewTags.proofTag(proof),
         ]),
       ),
     );

@@ -274,7 +274,15 @@ Future<Review> _review({
   required Order proofOrder,
   required KeyPair proofOrderAuthorKeyPair,
   String? orderAnchor,
+  bool includeProof = true,
 }) async {
+  final proof = includeProof
+      ? await _proofForReview(
+          signer: signer,
+          order: proofOrder,
+          proofRecipientKeyPair: proofOrderAuthorKeyPair,
+        )
+      : null;
   return Review(
     pubKey: signer.publicKey,
     createdAt: DateTime(2026, 6, 1).millisecondsSinceEpoch ~/ 1000,
@@ -282,16 +290,10 @@ Future<Review> _review({
       ['d', proofOrder.getDtag() ?? 'review-trade'],
       [kListingRefTag, listing.anchor!],
       if (orderAnchor != null) [kOrderRefTag, orderAnchor],
+      ReviewTags.primaryRatingTagFromStars(5),
+      if (proof != null) ReviewTags.proofTag(proof),
     ]),
-    content: ReviewContent(
-      rating: 5,
-      content: 'Great stay!',
-      proof: await _proofForReview(
-        signer: signer,
-        order: proofOrder,
-        proofRecipientKeyPair: proofOrderAuthorKeyPair,
-      ),
-    ),
+    content: 'Great stay!',
   ).signAs(signer, Review.fromNostrEvent);
 }
 
@@ -428,6 +430,69 @@ void main() {
           proofOrder: negotiate,
           proofOrderAuthorKeyPair: buyerAlias,
         );
+
+        fakeRequests.events.addAll([negotiate, hostCommit, review]);
+
+        final verified = reviews.subscribeVerified(
+          filter: Filter(
+            tags: {
+              kListingRefTag: [listing.anchor!],
+            },
+          ),
+          debounce: Duration.zero,
+        );
+
+        final snapshot = await verified.itemsStream.firstWhere(
+          (items) => items.isNotEmpty,
+        );
+        expect(snapshot, hasLength(1));
+        expect(snapshot.first, isA<Valid<Review>>());
+
+        await verified.close();
+      },
+    );
+
+    test(
+      'participant-signed Gamma-shaped review validates without proof tag',
+      () async {
+        const tradeId = 'trade-direct-review';
+        final negotiate = await _order(
+          listing: listing,
+          signer: MockKeys.guest,
+          tradeId: tradeId,
+          start: DateTime(2026, 2, 1),
+          end: DateTime(2026, 2, 3),
+          recipient: MockKeys.guest.publicKey,
+          pTags: [
+            PTag.seller(listing.pubKey),
+            PTag.buyer(MockKeys.guest.publicKey),
+          ],
+        );
+        final hostCommit = await _order(
+          listing: listing,
+          signer: MockKeys.hoster,
+          tradeId: tradeId,
+          start: DateTime(2026, 2, 1),
+          end: DateTime(2026, 2, 3),
+          stage: OrderStage.commit,
+          recipient: MockKeys.guest.publicKey,
+          pTags: [
+            PTag.seller(listing.pubKey),
+            PTag.buyer(MockKeys.guest.publicKey),
+          ],
+        );
+        final review = await _review(
+          signer: MockKeys.guest,
+          listing: listing,
+          proofOrder: negotiate,
+          proofOrderAuthorKeyPair: MockKeys.guest,
+          includeProof: false,
+        );
+
+        expect(review.kind, kNostrKindReview);
+        expect(review.normalizedRating, 1);
+        expect(review.reviewText, 'Great stay!');
+        expect(review.proof, isNull);
 
         fakeRequests.events.addAll([negotiate, hostCommit, review]);
 

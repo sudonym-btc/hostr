@@ -2336,7 +2336,7 @@ export interface HostrOrderCommitInput {
     id: 'hostr.orders.review',
     title: 'Review Order',
     description:
-        'Preview or publish a guest review for a committed Hostr order. This creates a Nostr review event with a participation proof for the order trade; preview first and only publish after explicit approval.',
+        'Preview or publish a guest review for a committed Hostr order. This creates a kind 31555 Nostr review with raw text content, a normalized rating tag, and a participation proof tag for the order trade; preview first and only publish after explicit approval.',
     inputTypeName: 'HostrOrderReviewInput',
     readOnly: false,
     inputSchema: {

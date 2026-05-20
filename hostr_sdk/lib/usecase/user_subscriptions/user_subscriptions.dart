@@ -45,7 +45,7 @@ import '../zaps/zaps.dart';
 /// |---|---|---|
 /// | [allMyOrders$] | `kinds=[32122], #d=[known tradeIds]` | Yes |
 /// | [allTransitions$]    | order transitions, `#d=[known tradeIds]` | Yes |
-/// | [myReviews$]       | `kinds=[32124], authors=[myPubkey]`  | No (static) |
+/// | [myReviews$]       | `kinds=[31555], authors=[myPubkey]`  | No (static) |
 /// | [paymentEvents$]   | kind 9735 + EVM contract queries     | Dynamic (combine) |
 @Singleton()
 class UserSubscriptions {

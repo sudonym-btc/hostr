@@ -41,11 +41,28 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
        _escrowVerification = escrowVerification,
        super(kind: Review.kinds[0]);
 
+  bool _reviewAuthorMatchesOrderParticipant({
+    required Review review,
+    required Order order,
+  }) {
+    const roles = ['buyer', 'seller', 'escrow'];
+    for (final role in roles) {
+      if (order.parsedTags.getTagValueByMarker('p', role) == review.pubKey) {
+        return true;
+      }
+    }
+    return order.parsedTags.getTags('p').contains(review.pubKey);
+  }
+
   bool _proofMatchesOrder({required Review review, required Order order}) {
     final tradeId = order.getDtag();
     if (tradeId == null || tradeId.isEmpty) return false;
 
     final reviewProof = review.proof;
+    if (reviewProof == null) {
+      return _reviewAuthorMatchesOrderParticipant(review: review, order: order);
+    }
+
     final authorization = reviewProof.authorization;
     if (authorization == null) return false;
     if (authorization.pubkey != review.pubKey) return false;

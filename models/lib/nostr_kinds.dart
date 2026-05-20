@@ -6,9 +6,9 @@ const kNostrKindListing = 30402;
 /// https://nips.nostr.com/01
 const kNostrKindOrder = 32122;
 
-/// Hostr review, custom addressable event using NIP-01 kind ranges:
-/// https://nips.nostr.com/01
-const kNostrKindReview = 32124;
+/// Marketplace product review, following GammaMarkets/NIP-85 shape:
+/// https://github.com/GammaMarkets/market-spec
+const kNostrKindReview = 31555;
 
 /// Hostr commit authorization, regular custom event per NIP-01:
 /// https://nips.nostr.com/01
@@ -150,7 +150,6 @@ const kHostrOnlyKinds = <int>{
   kNostrKindSeenStatus,
   kNostrKindListing,
   kNostrKindOrder,
-  kNostrKindReview,
   kNostrKindCommitAuthorization,
   kNostrKindTradeKeyAuthorization,
   kNostrKindHostrSeed,

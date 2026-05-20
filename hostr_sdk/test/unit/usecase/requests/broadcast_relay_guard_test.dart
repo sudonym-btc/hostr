@@ -55,6 +55,7 @@ void main() {
       kNostrKindZapRequest: 'zap request (kind 9734)',
       kNostrKindZapReceipt: 'zap receipt (kind 9735)',
       kNostrKindProfileBadges: 'profile badges (kind 10008)',
+      kNostrKindReview: 'marketplace review (kind 31555)',
     };
 
     for (final entry in standardKinds.entries) {
@@ -85,7 +86,6 @@ void main() {
     const allHostrSpecificKinds = <int>{
       kNostrKindListing,
       kNostrKindOrder,
-      kNostrKindReview,
       kNostrKindOrderTransition,
       kNostrKindEscrowService,
       kNostrKindEscrowMethod,
@@ -118,6 +118,7 @@ void main() {
         kNostrKindZapRequest, // 9734
         kNostrKindZapReceipt, // 9735
         kNostrKindProfileBadges, // 10008
+        kNostrKindReview, // 31555
         kNostrKindConnect, // 24133
       };
 

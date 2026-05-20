@@ -44,8 +44,8 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   30302, // Hostr escrow service selection.
   30303, // Hostr escrow service advertisement.
   30402, // NIP-99 Hostr accommodation listing.
+  31555, // Marketplace product review.
   32122, // Hostr order.
-  32124, // Hostr review.
 ]);
 
 export const DEFAULT_AUTH_OPTIONAL_KINDS = Object.freeze([
