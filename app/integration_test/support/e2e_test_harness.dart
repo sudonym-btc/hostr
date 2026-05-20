@@ -861,12 +861,22 @@ Future<_GodFixtures> _seedFixtures(IntegrationTestHarness harness) async {
     usdtAddress: chainConfig.tokens['USDT']?.address,
   );
 
-  await hostr.metadata.upsert(host.profile);
-  if (host.identityClaims != null) {
-    await hostr.identityClaims.upsert(host.identityClaims!);
-  }
-  await hostr.escrows.upsert(escrowService);
-  await hostr.escrowMethods.upsert(hostEscrowMethod);
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: host.keyPair,
+    body: () async {
+      await hostr.metadata.upsert(host.profile);
+      if (host.identityClaims != null) {
+        await hostr.identityClaims.upsert(host.identityClaims!);
+      }
+      await hostr.escrowMethods.upsert(hostEscrowMethod);
+    },
+  );
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: MockKeys.escrow,
+    body: () => hostr.escrows.upsert(escrowService),
+  );
 
   final runId = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
   var listingCreatedAt =
@@ -968,7 +978,7 @@ Future<_GodFixtures> _seedFixtures(IntegrationTestHarness harness) async {
     negotiableBtcListing,
     negotiableUsdListing,
   ];
-  await _publishListingFixtures(hostr, listings);
+  await _publishListingFixtures(hostr, listings, signer: host.keyPair);
 
   return _GodFixtures(
     hostKeyPair: host.keyPair,
@@ -984,40 +994,47 @@ Future<_GodFixtures> _seedFixtures(IntegrationTestHarness harness) async {
 
 Future<void> _publishListingFixtures(
   Hostr hostr,
-  List<Listing> listings,
-) async {
-  var missing = listings;
-  for (var attempt = 0; attempt < 4 && missing.isNotEmpty; attempt++) {
-    for (final listing in missing) {
-      try {
-        await hostr.listings.upsert(listing);
-      } catch (error, stackTrace) {
-        // In web e2e runs NDK can occasionally complete broadcastDoneFuture
-        // before the delayed relay OK is observed. Fixture setup verifies by
-        // querying the relay below, so keep retrying unless the listing never
-        // becomes visible.
-        debugPrint(
-          'Listing fixture publish attempt failed for ${listing.id}: '
-          '$error\n$stackTrace',
+  List<Listing> listings, {
+  required KeyPair signer,
+}) async {
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: signer,
+    body: () async {
+      var missing = listings;
+      for (var attempt = 0; attempt < 4 && missing.isNotEmpty; attempt++) {
+        for (final listing in missing) {
+          try {
+            await hostr.listings.upsert(listing);
+          } catch (error, stackTrace) {
+            // In web e2e runs NDK can occasionally complete broadcastDoneFuture
+            // before the delayed relay OK is observed. Fixture setup verifies by
+            // querying the relay below, so keep retrying unless the listing never
+            // becomes visible.
+            debugPrint(
+              'Listing fixture publish attempt failed for ${listing.id}: '
+              '$error\n$stackTrace',
+            );
+          }
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 750));
+        final published = await hostr.listings.list(
+          Filter(ids: listings.map((listing) => listing.id).toList()),
+          name: 'god-listing-fixture-verify',
+        );
+        final publishedIds = published.map((listing) => listing.id).toSet();
+        missing = listings
+            .where((listing) => !publishedIds.contains(listing.id))
+            .toList(growable: false);
+      }
+      if (missing.isNotEmpty) {
+        throw StateError(
+          'Could not publish listing fixtures to relay: '
+          '${missing.map((listing) => listing.title).join(', ')}',
         );
       }
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 750));
-    final published = await hostr.listings.list(
-      Filter(ids: listings.map((listing) => listing.id).toList()),
-      name: 'god-listing-fixture-verify',
-    );
-    final publishedIds = published.map((listing) => listing.id).toSet();
-    missing = listings
-        .where((listing) => !publishedIds.contains(listing.id))
-        .toList(growable: false);
-  }
-  if (missing.isNotEmpty) {
-    throw StateError(
-      'Could not publish listing fixtures to relay: '
-      '${missing.map((listing) => listing.title).join(', ')}',
-    );
-  }
+    },
+  );
 }
 
 // Kept as the future threaded god-test scaffold; smaller tests below exercise
@@ -1263,6 +1280,7 @@ Future<void> _withSignedInUser({
     var ownsSignetKey = false;
 
     try {
+      late final _GodFixtures fixtures;
       switch (loginMode) {
         case E2eLoginMode.nsec:
           debugPrint('GOD_STEP signedInUser:create-nsec');
@@ -1270,6 +1288,9 @@ Future<void> _withSignedInUser({
           approvals = _NoopApprovalDriver();
           debugPrint('GOD_STEP signedInUser:publish-profile');
           await _publishProfileFor(harness, user, profileName);
+          debugPrint('GOD_STEP signedInUser:seed-fixtures');
+          fixtures = await _seedFixtures(harness);
+          debugPrint('GOD_STEP signedInUser:seed-fixtures:done');
           debugPrint('GOD_STEP signedInUser:sign-in-nsec');
           await _signInWithPrivateKeyUi(tester, router, user);
         case E2eLoginMode.bunker:
@@ -1282,6 +1303,9 @@ Future<void> _withSignedInUser({
           user = signetUser.keyPair;
           debugPrint('GOD_STEP signedInUser:publish-profile');
           await _publishProfileFor(harness, user, profileName);
+          debugPrint('GOD_STEP signedInUser:seed-fixtures');
+          fixtures = await _seedFixtures(harness);
+          debugPrint('GOD_STEP signedInUser:seed-fixtures:done');
           final signetApprovals = _SignetApprovalDriver(
             signet: signet,
             keyName: signetUser.keyName,
@@ -1293,9 +1317,6 @@ Future<void> _withSignedInUser({
           await _signInWithNostrConnectUi(tester, router, signet, signetUser);
       }
 
-      debugPrint('GOD_STEP signedInUser:seed-fixtures');
-      final fixtures = await _seedFixtures(harness);
-      debugPrint('GOD_STEP signedInUser:seed-fixtures:done');
       debugPrint('GOD_STEP signedInUser:wait-ready:start');
       await _waitForSignedInShellReady(tester, expectedPubkey: user.publicKey);
       debugPrint('GOD_STEP signedInUser:wait-ready:done');
@@ -1392,15 +1413,19 @@ Future<void> _assertLoginRoutingMatrixForMode({
 
       await _signInCreatedUser(tester, router, signet, user);
       if (testCase.hasMetadata && testCase.hasContinue) {
-        await _waitForText(
-          tester,
-          fixtures.usdListing.title,
+        await _waitForCreatedUserText(
+          tester: tester,
+          signet: signet,
+          user: user,
+          text: fixtures.usdListing.title,
           timeout: continueRouteTimeout,
         );
       } else if (testCase.hasMetadata) {
-        await _waitFor(
-          tester,
-          () =>
+        await _waitForCreatedUserCondition(
+          tester: tester,
+          signet: signet,
+          user: user,
+          condition: () =>
               find.byKey(const ValueKey('ready')).evaluate().isNotEmpty &&
               find
                   .byKey(const ValueKey('edit_profile_name_input'))
@@ -1410,9 +1435,11 @@ Future<void> _assertLoginRoutingMatrixForMode({
           reason: 'existing metadata should not route to profile completion',
         );
       } else {
-        await _waitForKey(
-          tester,
-          const ValueKey('edit_profile_name_input'),
+        await _waitForCreatedUserKey(
+          tester: tester,
+          signet: signet,
+          user: user,
+          key: const ValueKey('edit_profile_name_input'),
           timeout: const Duration(seconds: 60),
           reasonBuilder: () => _visibleTextSnapshot(
             tester,
@@ -1421,13 +1448,20 @@ Future<void> _assertLoginRoutingMatrixForMode({
         );
         await _completeRequiredProfile(tester, userLabel);
         if (testCase.hasContinue) {
-          await _waitForText(
-            tester,
-            fixtures.usdListing.title,
+          await _waitForCreatedUserText(
+            tester: tester,
+            signet: signet,
+            user: user,
+            text: fixtures.usdListing.title,
             timeout: continueRouteTimeout,
           );
         } else {
-          await _waitForText(tester, userLabel);
+          await _waitForCreatedUserText(
+            tester: tester,
+            signet: signet,
+            user: user,
+            text: userLabel,
+          );
         }
       }
 
@@ -1450,6 +1484,154 @@ Future<void> _assertLoginRoutingMatrixForMode({
     debugPrint(
       'GOD_STEP loginMatrix:${loginMode.label}:case metadata=${testCase.hasMetadata} continue=${testCase.hasContinue}:done',
     );
+  }
+
+  await _assertReserveRequiresProfileForMode(
+    tester: tester,
+    router: router,
+    harness: harness,
+    fixtures: fixtures,
+    signet: signet,
+    loginMode: loginMode,
+  );
+}
+
+Future<void> _assertReserveRequiresProfileForMode({
+  required WidgetTester tester,
+  required AppRouter router,
+  required IntegrationTestHarness harness,
+  required _GodFixtures fixtures,
+  required SignetTestController signet,
+  required E2eLoginMode loginMode,
+}) async {
+  final userLabel = 'God Reserve Gate ${loginMode.label}';
+  debugPrint('GOD_STEP reserveGate:${loginMode.label}:start');
+  final user = await _createLoginUser(
+    harness: harness,
+    signet: signet,
+    loginMode: loginMode,
+    profileName: userLabel,
+    publishProfile: false,
+  );
+  final approvals = user.approvals;
+
+  try {
+    getIt<PendingNavigation>().clear();
+    final hostr = getIt<Hostr>();
+    await _stopUserSession(hostr);
+    await hostr.auth.logout();
+
+    final listing = fixtures.negotiableUsdListing;
+    final negotiatedAmount = DenominatedAmount(
+      denomination: 'USD',
+      value: BigInt.from(15 * 1000000),
+      decimals: 6,
+    );
+    final start = DateTime.now().toUtc().add(const Duration(days: 21));
+    final end = start.add(const Duration(days: 2));
+    await _openListingForReservation(
+      tester: tester,
+      router: router,
+      listing: listing,
+      start: start,
+      end: end,
+    );
+    await _waitForListingTitleOrReserve(tester, listing.title);
+    await _enterReserveAmount(tester, '15');
+    await _waitForReserveButtonEnabled(
+      tester,
+      reason: 'anonymous reserve should become tappable before sign-in',
+    );
+    final existingTradeIds = getIt<Hostr>().messaging.threads.threads.values
+        .map((thread) => thread.conversationTag)
+        .where((tag) => tag.isNotEmpty)
+        .toSet();
+    await _tapKey(tester, find.byKey(const ValueKey('listing_reserve_button')));
+    await _waitFor(
+      tester,
+      () => find.byType(SignInScreen).evaluate().isNotEmpty,
+      timeout: const Duration(seconds: 60),
+      reasonBuilder: () => _visibleTextSnapshot(
+        tester,
+        'anonymous reserve should route to sign-in',
+      ),
+    );
+
+    await _signInCreatedUser(tester, router, signet, user);
+    await _waitForCreatedUserKey(
+      tester: tester,
+      signet: signet,
+      user: user,
+      key: const ValueKey('edit_profile_name_input'),
+      timeout: const Duration(seconds: 60),
+      reasonBuilder: () => _visibleTextSnapshot(
+        tester,
+        'reserve with missing metadata should route to profile completion',
+      ),
+    );
+    expect(
+      _hasReservationThreadForListing(getIt<Hostr>(), listing),
+      isFalse,
+      reason: 'Reserve should not publish before profile metadata is saved',
+    );
+
+    await _runCreatedUserActionApprovingSignet(
+      tester: tester,
+      signet: signet,
+      user: user,
+      action: () => _ensureBuyerEscrowPrerequisites(
+        hostr: getIt<Hostr>(),
+        fixtures: fixtures,
+      ),
+      reason: 'buyer escrow prerequisites should complete',
+    );
+    await _completeRequiredProfile(tester, userLabel);
+    await _waitForCreatedUserKey(
+      tester: tester,
+      signet: signet,
+      user: user,
+      key: const ValueKey('trade_request_cancel_button'),
+      timeout: loginMode == E2eLoginMode.bunker
+          ? const Duration(minutes: 2)
+          : const Duration(seconds: 90),
+      reasonBuilder: () => _visibleTextSnapshot(
+        tester,
+        'profile completion should auto-submit the pending reservation',
+      ),
+    );
+    final thread = await _waitForNewReservationThreadForListing(
+      tester: tester,
+      hostr: getIt<Hostr>(),
+      listing: listing,
+      existingTradeIds: existingTradeIds,
+    );
+    final latestRequest = thread.state.value.orderRequests.lastWhere(
+      (request) => request.parsedTags.listingAnchor == listing.anchor,
+    );
+    expect(latestRequest.amount, negotiatedAmount);
+    debugPrint(
+      'GOD_STEP reserveGate:${loginMode.label}:done:${thread.conversationTag}',
+    );
+  } finally {
+    getIt<PendingNavigation>().clear();
+    try {
+      await _signOut(tester, router, getIt<Hostr>());
+    } catch (_) {
+      await _stopUserSession(getIt<Hostr>());
+      await getIt<Hostr>().auth.logout();
+    }
+    await approvals.stop();
+    final signetUser = user.signetUser;
+    if (signetUser != null) {
+      try {
+        await signet.deleteKey(signetUser.keyName);
+      } catch (error) {
+        debugPrint(
+          'GOD_STEP reserveGate:${loginMode.label}:delete-key-error '
+          'key=${signetUser.keyName} $error',
+        );
+      }
+    }
   }
 }
 
@@ -1519,6 +1701,99 @@ Future<void> _signInCreatedUser(
     case E2eLoginMode.bunker:
       await _signInWithNostrConnectUi(tester, router, signet, user.signetUser!);
   }
+}
+
+Future<void> _waitForCreatedUserCondition({
+  required WidgetTester tester,
+  required SignetTestController signet,
+  required _CreatedLoginUser user,
+  required FutureOr<bool> Function() condition,
+  Duration timeout = const Duration(seconds: 30),
+  String? reason,
+  String Function()? reasonBuilder,
+}) async {
+  final signetUser = user.signetUser;
+  if (signetUser == null) {
+    await _waitFor(
+      tester,
+      condition,
+      timeout: timeout,
+      reason: reason,
+      reasonBuilder: reasonBuilder,
+    );
+    return;
+  }
+
+  await _approveSignetRequestsUntil(
+    tester,
+    signet: signet,
+    keyName: signetUser.keyName,
+    condition: condition,
+    timeout: timeout,
+    reasonBuilder: reasonBuilder ?? (reason == null ? null : () => reason),
+  );
+}
+
+Future<void> _waitForCreatedUserKey({
+  required WidgetTester tester,
+  required SignetTestController signet,
+  required _CreatedLoginUser user,
+  required Key key,
+  Duration timeout = const Duration(seconds: 30),
+  String? reason,
+  String Function()? reasonBuilder,
+}) => _waitForCreatedUserCondition(
+  tester: tester,
+  signet: signet,
+  user: user,
+  condition: () => find.byKey(key).evaluate().isNotEmpty,
+  timeout: timeout,
+  reasonBuilder:
+      reasonBuilder ??
+      (reason != null
+          ? () => reason
+          : () => _visibleTextSnapshot(tester, 'waiting for key $key')),
+);
+
+Future<void> _waitForCreatedUserText({
+  required WidgetTester tester,
+  required SignetTestController signet,
+  required _CreatedLoginUser user,
+  required String text,
+  Duration timeout = const Duration(seconds: 30),
+}) => _waitForCreatedUserCondition(
+  tester: tester,
+  signet: signet,
+  user: user,
+  condition: () => find.textContaining(text).evaluate().isNotEmpty,
+  timeout: timeout,
+  reasonBuilder: () => _visibleTextSnapshot(tester, 'waiting for text "$text"'),
+);
+
+Future<T> _runCreatedUserActionApprovingSignet<T>({
+  required WidgetTester tester,
+  required SignetTestController signet,
+  required _CreatedLoginUser user,
+  required Future<T> Function() action,
+  Duration timeout = const Duration(seconds: 60),
+  String? reason,
+}) async {
+  final signetUser = user.signetUser;
+  if (signetUser == null) return action();
+
+  final completer = Completer<T>();
+  unawaited(
+    action().then(completer.complete).catchError(completer.completeError),
+  );
+  await _approveSignetRequestsUntil(
+    tester,
+    signet: signet,
+    keyName: signetUser.keyName,
+    condition: () => completer.isCompleted,
+    timeout: timeout,
+    reasonBuilder: reason == null ? null : () => reason,
+  );
+  return completer.future;
 }
 
 // ignore: unused_element
@@ -2023,11 +2298,21 @@ Future<void> _publishProfileFor(
     displayName: name,
     lud16: lud16,
   );
-  await harness.hostr.metadata.upsert(profile);
-  await harness.hostr.ndk.config.cache.saveMetadata(profile.metadata);
-  final readback = await harness.hostr.metadata
-      .loadMetadata(keyPair.publicKey, forceRefresh: true)
-      .timeout(const Duration(seconds: 20), onTimeout: () => null);
+  await _withE2eNip42Signer(
+    hostr: harness.hostr,
+    keyPair: keyPair,
+    body: () async {
+      await harness.hostr.metadata.upsert(profile);
+      await harness.hostr.ndk.config.cache.saveMetadata(profile.metadata);
+    },
+  );
+  final readback = await _withE2eNip42Signer(
+    hostr: harness.hostr,
+    keyPair: keyPair,
+    body: () => harness.hostr.metadata
+        .loadMetadata(keyPair.publicKey, forceRefresh: true)
+        .timeout(const Duration(seconds: 20), onTimeout: () => null),
+  );
   debugPrint(
     'GOD_STEP publishProfile:readback '
     'pubkey=${keyPair.publicKey} found=${readback != null} name=$name',
@@ -2037,6 +2322,82 @@ Future<void> _publishProfileFor(
       'Published profile for ${keyPair.publicKey} was not readable before sign-in',
     );
   }
+}
+
+Account _installE2eNip42Signer(Hostr hostr, KeyPair keyPair) {
+  final privateKey = keyPair.privateKey;
+  if (privateKey == null || privateKey.isEmpty) {
+    throw StateError(
+      'E2E NIP-42 fixture auth requires a private key for ${keyPair.publicKey}',
+    );
+  }
+
+  final accounts = hostr.ndk.accounts;
+  final existing = accounts.accounts[keyPair.publicKey];
+  if (existing != null && existing.signer.canSign()) return existing;
+
+  if (existing != null) {
+    accounts.removeAccount(pubkey: keyPair.publicKey);
+  }
+  accounts.addAccount(
+    pubkey: keyPair.publicKey,
+    type: AccountType.externalSigner,
+    signer: CoinlibEventSigner(
+      privateKey: privateKey,
+      publicKey: keyPair.publicKey,
+    ),
+  );
+  return accounts.accounts[keyPair.publicKey]!;
+}
+
+Future<T> _withE2eNip42Signer<T>({
+  required Hostr hostr,
+  required KeyPair keyPair,
+  required Future<T> Function() body,
+}) async {
+  final account = _installE2eNip42Signer(hostr, keyPair);
+  final accounts = hostr.ndk.accounts;
+  final previousPubkey = accounts.getPublicKey();
+  if (previousPubkey != keyPair.publicKey) {
+    accounts.switchAccount(pubkey: keyPair.publicKey);
+  }
+
+  try {
+    await _authenticateE2eNip42FixtureAccount(hostr, account);
+    return await body();
+  } finally {
+    await _closeE2eHostrRelayTransport(hostr);
+    if (previousPubkey != null &&
+        previousPubkey != keyPair.publicKey &&
+        accounts.accounts.containsKey(previousPubkey)) {
+      accounts.switchAccount(pubkey: previousPubkey);
+    }
+  }
+}
+
+Future<void> _authenticateE2eNip42FixtureAccount(
+  Hostr hostr,
+  Account account,
+) async {
+  final relay = hostr.config.hostrRelay.trim();
+  if (relay.isEmpty) return;
+
+  // The dev relay enforces that the authenticated connection identity matches
+  // the event author. Fixture setup publishes as several deterministic keys, so
+  // each fixture author gets a fresh socket before its AUTH event.
+  await _closeE2eHostrRelayTransport(hostr);
+  await hostr.ndk.relays.ensureAuthenticated(
+    relayUrl: relay,
+    account: account,
+    timeout: const Duration(seconds: 30),
+    challengeTimeout: const Duration(seconds: 5),
+  );
+}
+
+Future<void> _closeE2eHostrRelayTransport(Hostr hostr) async {
+  final relay = hostr.config.hostrRelay.trim();
+  if (relay.isEmpty) return;
+  await hostr.ndk.relays.closeTransport(relay);
 }
 
 Future<void> _signInWithNostrConnectUi(
@@ -2075,9 +2436,12 @@ Future<void> _signInWithNostrConnectUi(
       await tester.state<SignInScreenState>(stateFinder).restartNostrConnect();
       await _settle(tester, frames: 10);
     }
+    if (getIt<Hostr>().auth.authState.value is LoggedIn) return;
     await _waitFor(
       tester,
       () {
+        if (getIt<Hostr>().auth.authState.value is LoggedIn) return true;
+        if (find.byType(SignInScreen).evaluate().isEmpty) return true;
         final refreshedUri = _currentNostrConnectUri(tester);
         return refreshedUri != null && refreshedUri != uri;
       },
@@ -2087,6 +2451,8 @@ Future<void> _signInWithNostrConnectUi(
         'nostrconnect URI should rotate after refresh',
       ),
     );
+    if (getIt<Hostr>().auth.authState.value is LoggedIn) return;
+    if (find.byType(SignInScreen).evaluate().isEmpty) return;
     final refreshedUri = await _waitForNostrConnectUri(tester);
     debugPrint(
       'GOD_STEP signInBunker:refresh-uri:done '
@@ -2477,14 +2843,12 @@ Future<_ReservationJourneyResult> _reserveListing({
       .map((thread) => thread.conversationTag)
       .where((tag) => tag.isNotEmpty)
       .toSet();
-  final reserveButton = find.byKey(const ValueKey('listing_reserve_button'));
-  await _waitFor(
+  await _waitForReserveButtonEnabled(
     tester,
-    () => reserveButton.evaluate().isNotEmpty,
     timeout: const Duration(seconds: 120),
     reasonBuilder: () => _visibleTextSnapshot(
       tester,
-      'reservation $label should show a reserve button',
+      'reservation $label should show an enabled reserve button',
     ),
   );
   debugPrint('GOD_STEP reserve:$label:reserve-button-visible');
@@ -2532,6 +2896,69 @@ Future<_ReservationJourneyResult> _reserveListing({
     threadAnchor: thread.anchor,
     tradeId: thread.conversationTag,
   );
+}
+
+Future<void> _waitForReserveButtonEnabled(
+  WidgetTester tester, {
+  Duration timeout = const Duration(seconds: 30),
+  String? reason,
+  String Function()? reasonBuilder,
+}) async {
+  final reserveButton = find.byKey(const ValueKey('listing_reserve_button'));
+  await _waitFor(
+    tester,
+    () {
+      final buttons = reserveButton.evaluate();
+      if (buttons.isEmpty) return false;
+      return tester.widget<FilledButton>(reserveButton).onPressed != null;
+    },
+    timeout: timeout,
+    reasonBuilder:
+        reasonBuilder ??
+        (reason != null ? () => reason : null) ??
+        () => _visibleTextSnapshot(tester, 'reserve button should be enabled'),
+  );
+}
+
+bool _hasReservationThreadForListing(Hostr hostr, Listing listing) {
+  return hostr.messaging.threads.threads.values.any(
+    (thread) => _threadHasReservationForListing(thread, listing),
+  );
+}
+
+Future<Thread> _waitForNewReservationThreadForListing({
+  required WidgetTester tester,
+  required Hostr hostr,
+  required Listing listing,
+  required Set<String> existingTradeIds,
+}) async {
+  await _waitFor(
+    tester,
+    () => hostr.messaging.threads.threads.values.any(
+      (thread) =>
+          thread.conversationTag.isNotEmpty &&
+          !existingTradeIds.contains(thread.conversationTag) &&
+          _threadHasReservationForListing(thread, listing),
+    ),
+    timeout: const Duration(seconds: 30),
+    reasonBuilder: () => _visibleTextSnapshot(
+      tester,
+      'auto reservation should create a new conversation thread',
+    ),
+  );
+  final threads =
+      hostr.messaging.threads.threads.values
+          .where(
+            (thread) =>
+                thread.conversationTag.isNotEmpty &&
+                !existingTradeIds.contains(thread.conversationTag) &&
+                _threadHasReservationForListing(thread, listing),
+          )
+          .toList()
+        ..sort(
+          (a, b) => b.lastActivityTimestamp.compareTo(a.lastActivityTimestamp),
+        );
+  return threads.first;
 }
 
 bool _threadHasReservationForListing(Thread thread, Listing listing) {
@@ -4695,8 +5122,16 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     label: 'backend live booking host commit',
   );
 
-  await hostr.orders.upsert(buyerCommit);
-  await hostr.orders.upsert(hostCommit);
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: guestTradeKeyPair,
+    body: () => hostr.orders.upsert(buyerCommit),
+  );
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: hostKeyPair,
+    body: () => hostr.orders.upsert(hostCommit),
+  );
   hostr.userSubscriptions.allMyOrders$.stream.add(buyerCommit);
   hostr.userSubscriptions.allMyOrders$.stream.add(hostCommit);
   await _waitForResolvedReservationGroup(
@@ -4862,8 +5297,16 @@ Future<_BackendLiveBooking> _createBackendCompletedReviewBooking({
     label: 'backend completed review host commit $label',
   );
 
-  await hostr.orders.upsert(buyerCommit);
-  await hostr.orders.upsert(hostCommit);
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: guestTradeKeyPair,
+    body: () => hostr.orders.upsert(buyerCommit),
+  );
+  await _withE2eNip42Signer(
+    hostr: hostr,
+    keyPair: hostKeyPair,
+    body: () => hostr.orders.upsert(hostCommit),
+  );
   hostr.userSubscriptions.allMyOrders$.stream.add(buyerCommit);
   hostr.userSubscriptions.allMyOrders$.stream.add(hostCommit);
   hostr.userSubscriptions.allMyOrders$.stream.addStatus(

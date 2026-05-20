@@ -23,9 +23,16 @@ import 'reviews.dart' as listing_sections;
 class ListingView extends StatefulWidget {
   final String a;
   final DateTimeRange? dateRange;
+  final DenominatedAmount? reserveAmount;
+  final bool autoReserve;
 
   // ignore: use_key_in_widget_constructors
-  const ListingView({required this.a, this.dateRange});
+  const ListingView({
+    required this.a,
+    this.dateRange,
+    this.reserveAmount,
+    this.autoReserve = false,
+  });
 
   @override
   State<ListingView> createState() => _ListingViewState();
@@ -61,7 +68,11 @@ class _ListingViewState extends State<ListingView> {
 
         return ListingDependenciesProvider(
           listing: state.data!,
-          child: _ListingViewContent(dateRange: widget.dateRange),
+          child: _ListingViewContent(
+            dateRange: widget.dateRange,
+            reserveAmount: widget.reserveAmount,
+            autoReserve: widget.autoReserve,
+          ),
         );
       },
     );
@@ -70,8 +81,14 @@ class _ListingViewState extends State<ListingView> {
 
 class _ListingViewContent extends StatelessWidget {
   final DateTimeRange? dateRange;
+  final DenominatedAmount? reserveAmount;
+  final bool autoReserve;
 
-  const _ListingViewContent({required this.dateRange});
+  const _ListingViewContent({
+    required this.dateRange,
+    required this.reserveAmount,
+    required this.autoReserve,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +118,8 @@ class _ListingViewContent extends StatelessWidget {
                   right: kSpace6,
                   child: Reserve(
                     listing: listing,
+                    initialAmount: reserveAmount,
+                    autoReserve: autoReserve,
                     reservationGroupItemsStream:
                         dependencies.reservationGroupItems,
                     reservationsStatus:

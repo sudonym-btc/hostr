@@ -2,6 +2,7 @@ export 'auth_gated_action.dart';
 export 'auth_guard.dart';
 export 'continuation.dart';
 export 'guest_guard.dart';
+export 'listing_reservation_route.dart';
 export 'host_guard.dart';
 export 'nostr_link_handler.dart';
 export 'pending_navigation.dart';

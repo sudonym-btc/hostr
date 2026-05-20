@@ -598,14 +598,7 @@ class Requests extends RequestsModel {
     }
     relays = guardedRelays;
 
-    if (shouldPreAuthHostrRelayForBroadcast(
-          eventKind: event.kind,
-          hostrRelay: _config.hostrRelay,
-          relays: relays,
-        ) &&
-        _auth.activePubkey != null) {
-      await _auth.ensureNip42AuthForHostrRelay();
-    }
+    await _preAuthHostrRelayForBroadcast(event: event, relays: relays);
 
     var eventToBroadcast = event;
 
@@ -635,6 +628,35 @@ class Requests extends RequestsModel {
       context: 'kind ${event.kind} ${event.id}',
     );
     return BroadcastResult(event: eventToBroadcast, responses: responses);
+  }
+
+  Future<void> _preAuthHostrRelayForBroadcast({
+    required Nip01Event event,
+    List<String>? relays,
+  }) async {
+    if (!shouldPreAuthHostrRelayForBroadcast(
+      eventKind: event.kind,
+      hostrRelay: _config.hostrRelay,
+      relays: relays,
+    )) {
+      return;
+    }
+
+    final activePubkey = _auth.activePubkey;
+    if (activePubkey != null && activePubkey == event.pubKey) {
+      await _auth.ensureNip42AuthForHostrRelay();
+      return;
+    }
+
+    final authorAccount = _ndk.accounts.accounts[event.pubKey];
+    if (authorAccount == null || !authorAccount.signer.canSign()) return;
+    await _ndk.relays.closeTransport(_config.hostrRelay);
+    await _ndk.relays.ensureAuthenticated(
+      relayUrl: _config.hostrRelay,
+      account: authorAccount,
+      timeout: const Duration(seconds: 30),
+      challengeTimeout: const Duration(seconds: 5),
+    );
   }
 
   /// Opens a live-only NDK subscription (no query phase) and forwards

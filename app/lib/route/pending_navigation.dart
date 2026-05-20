@@ -9,7 +9,7 @@ import 'package:injectable/injectable.dart';
 /// After authentication (and profile completion if needed), the startup gate
 /// consumes the pending route and navigates there.
 ///
-/// **Writers:** [AuthGuard] and [authGatedAction] — exactly two places.
+/// **Writers:** [AuthGuard], [authGatedAction], and [metadataGatedAction].
 /// **Consumer:** The startup gate listener — exactly one place.
 @singleton
 class PendingNavigation {

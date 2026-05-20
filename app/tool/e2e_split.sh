@@ -278,9 +278,11 @@ cleanup_signet_test_apps() {
 
   local cookie_file csrf_token app_id
   cookie_file="$(mktemp)"
-  csrf_token="$(curl -sk --max-time 5 -c "$cookie_file" \
-    https://bunker-nostr.hostr.development/csrf-token |
-    jq -r '(.csrfToken // .token // "") | tostring')"
+  csrf_token="$(
+    { curl -sk --max-time 5 -c "$cookie_file" \
+      https://bunker-nostr.hostr.development/csrf-token || true; } |
+      jq -r '(.csrfToken // .token // "") | tostring'
+  )"
 
   if [[ -z "$csrf_token" ]]; then
     rm -f "$cookie_file"
@@ -299,8 +301,8 @@ cleanup_signet_test_apps() {
       "https://bunker-nostr.hostr.development/apps/${app_id}/revoke" \
       >/dev/null || true
   done < <(
-    curl -sk --max-time 5 -b "$cookie_file" \
-      https://bunker-nostr.hostr.development/apps |
+    { curl -sk --max-time 5 -b "$cookie_file" \
+      https://bunker-nostr.hostr.development/apps || true; } |
       jq -r '
         def e2e_key:
           startswith("hostr-bunker-") or

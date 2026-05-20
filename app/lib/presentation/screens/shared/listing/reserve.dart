@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +10,7 @@ import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr/presentation/forms/main.dart';
 import 'package:hostr/route/auth_gated_action.dart';
+import 'package:hostr/route/listing_reservation_route.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:models/main.dart';
@@ -16,6 +19,8 @@ import 'package:rxdart/rxdart.dart';
 class Reserve extends StatefulWidget {
   final Listing listing;
   final Stream<List<Validation<OrderGroup>>> reservationGroupItemsStream;
+  final DenominatedAmount? initialAmount;
+  final bool autoReserve;
 
   /// Status stream from the underlying [StreamWithStatus].
   /// When provided, the reserve button is disabled until the status
@@ -26,6 +31,8 @@ class Reserve extends StatefulWidget {
     super.key,
     required this.listing,
     required this.reservationGroupItemsStream,
+    this.initialAmount,
+    this.autoReserve = false,
     this.reservationsStatus,
   });
 
@@ -38,6 +45,8 @@ class _ReserveState extends State<Reserve> {
   DenominatedAmount? _customAmount;
   String? _customAmountRangeKey;
   String? _amountControllerSyncKey;
+  String? _initialAmountSyncKey;
+  bool _autoReserveAttempted = false;
 
   @override
   void dispose() {
@@ -53,12 +62,17 @@ class _ReserveState extends State<Reserve> {
     return widget.listing.cost(start: range.start, end: range.end);
   }
 
-  DenominatedAmount _effectiveAmountFor(DateTimeRange range) {
+  DenominatedAmount? _customAmountFor(DateTimeRange? range) {
+    if (range == null) return null;
     final key = _rangeKey(range);
     if (_customAmount != null && _customAmountRangeKey == key) {
       return _customAmount!;
     }
-    return _listingAmountFor(range);
+    return null;
+  }
+
+  DenominatedAmount _effectiveAmountFor(DateTimeRange range) {
+    return _customAmountFor(range) ?? _listingAmountFor(range);
   }
 
   String _amountKey(DenominatedAmount amount) {
@@ -66,6 +80,7 @@ class _ReserveState extends State<Reserve> {
   }
 
   void _syncAmountController(DateTimeRange range) {
+    _syncInitialAmount(range);
     final amount = _effectiveAmountFor(range);
     final syncKey = '${_rangeKey(range)}:${_amountKey(amount)}';
     if (_amountControllerSyncKey == syncKey) {
@@ -73,6 +88,17 @@ class _ReserveState extends State<Reserve> {
     }
     _amountControllerSyncKey = syncKey;
     _amountController.setState(amount);
+  }
+
+  void _syncInitialAmount(DateTimeRange range) {
+    if (!widget.listing.negotiable) return;
+    final initialAmount = widget.initialAmount;
+    if (initialAmount == null) return;
+    final syncKey = '${_rangeKey(range)}:${_amountKey(initialAmount)}';
+    if (_initialAmountSyncKey == syncKey) return;
+    _initialAmountSyncKey = syncKey;
+    _customAmount = initialAmount;
+    _customAmountRangeKey = _rangeKey(range);
   }
 
   Widget _buildBasePrice(BuildContext context) {
@@ -101,12 +127,60 @@ class _ReserveState extends State<Reserve> {
     );
   }
 
-  PageRouteInfo _reservePendingRoute(DateTimeRange? dateRange) {
+  PageRouteInfo _reservePendingRoute(
+    DateTimeRange? dateRange, {
+    bool autoReserve = false,
+  }) {
+    final reserveAmount = _customAmountFor(dateRange);
     return ListingRoute(
       a: widget.listing.naddr()!,
       dateRangeStart: dateRange?.start.toIso8601String(),
       dateRangeEnd: dateRange?.end.toIso8601String(),
+      reserveAmountValue: reserveAmountValueQuery(reserveAmount),
+      reserveAmountDenomination: reserveAmountDenominationQuery(reserveAmount),
+      reserveAmountDecimals: reserveAmountDecimalsQuery(reserveAmount),
+      autoReserve: autoReserveQuery(autoReserve),
     );
+  }
+
+  Future<void> _submitReservation(
+    BuildContext context,
+    DateTimeRange dateRange,
+  ) async {
+    await metadataGatedAction(
+      context,
+      pendingRoute: _reservePendingRoute(dateRange, autoReserve: true),
+      action: () async {
+        if (!context.mounted) return;
+        await context.read<ReservationCubit>().createOrderRequest(
+          listing: widget.listing,
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+          amount: _effectiveAmountFor(dateRange),
+          onSuccess: (reservation) {
+            final anchor = Threads.conversationId(reservation.getDtag()!, [
+              getIt<Hostr>().auth.getActiveKey().publicKey,
+              widget.listing.pubKey,
+            ]);
+            AutoRouter.of(context).push(ThreadRoute(anchor: anchor));
+          },
+        );
+      },
+    );
+  }
+
+  void _scheduleAutoReserveIfReady({
+    required BuildContext context,
+    required DateTimeRange? dateRange,
+    required bool canReserve,
+  }) {
+    if (!widget.autoReserve || _autoReserveAttempted || !canReserve) return;
+    if (dateRange == null) return;
+    _autoReserveAttempted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_submitReservation(context, dateRange));
+    });
   }
 
   @override
@@ -204,44 +278,20 @@ class _ReserveState extends State<Reserve> {
                             statusStream == null ||
                             statusSnapshot.data is StreamStatusQueryComplete ||
                             statusSnapshot.data is StreamStatusLive;
+                        final canReserve =
+                            state.status != ReservationCubitStatus.loading &&
+                            dateRange != null &&
+                            reservationsReady;
+                        _scheduleAutoReserveIfReady(
+                          context: context,
+                          dateRange: dateRange,
+                          canReserve: canReserve,
+                        );
                         return FilledButton(
                           key: const ValueKey('listing_reserve_button'),
-                          onPressed:
-                              state.status == ReservationCubitStatus.loading ||
-                                  dateRange == null ||
-                                  !reservationsReady
-                              ? null
-                              : () => authGatedAction(
-                                  context,
-                                  pendingRoute: _reservePendingRoute(dateRange),
-                                  action: () async {
-                                    await context
-                                        .read<ReservationCubit>()
-                                        .createOrderRequest(
-                                          listing: widget.listing,
-                                          startDate: dateRange.start,
-                                          endDate: dateRange.end,
-                                          amount: _effectiveAmountFor(
-                                            dateRange,
-                                          ),
-                                          onSuccess: (reservation) {
-                                            final anchor =
-                                                Threads.conversationId(
-                                                  reservation.getDtag()!,
-                                                  [
-                                                    getIt<Hostr>().auth
-                                                        .getActiveKey()
-                                                        .publicKey,
-                                                    widget.listing.pubKey,
-                                                  ],
-                                                );
-                                            AutoRouter.of(
-                                              context,
-                                            ).push(ThreadRoute(anchor: anchor));
-                                          },
-                                        );
-                                  },
-                                ),
+                          onPressed: canReserve
+                              ? () => _submitReservation(context, dateRange)
+                              : null,
                           child: state.status == ReservationCubitStatus.loading
                               ? const AppLoadingIndicator.small()
                               : !reservationsReady

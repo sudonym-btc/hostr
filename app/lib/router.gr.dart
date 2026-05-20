@@ -159,6 +159,10 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
     required String a,
     String? dateRangeStart,
     String? dateRangeEnd,
+    String? reserveAmountValue,
+    String? reserveAmountDenomination,
+    String? reserveAmountDecimals,
+    String? autoReserve,
     List<PageRouteInfo>? children,
   }) : super(
          ListingRoute.name,
@@ -166,11 +170,19 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
            a: a,
            dateRangeStart: dateRangeStart,
            dateRangeEnd: dateRangeEnd,
+           reserveAmountValue: reserveAmountValue,
+           reserveAmountDenomination: reserveAmountDenomination,
+           reserveAmountDecimals: reserveAmountDecimals,
+           autoReserve: autoReserve,
          ),
          rawPathParams: {'a': a},
          rawQueryParams: {
            'dateRangeStart': dateRangeStart,
            'dateRangeEnd': dateRangeEnd,
+           'reserveAmountValue': reserveAmountValue,
+           'reserveAmountDenomination': reserveAmountDenomination,
+           'reserveAmountDecimals': reserveAmountDecimals,
+           'autoReserve': autoReserve,
          },
          initialChildren: children,
        );
@@ -187,12 +199,22 @@ class ListingRoute extends PageRouteInfo<ListingRouteArgs> {
           a: pathParams.getString('a'),
           dateRangeStart: queryParams.optString('dateRangeStart'),
           dateRangeEnd: queryParams.optString('dateRangeEnd'),
+          reserveAmountValue: queryParams.optString('reserveAmountValue'),
+          reserveAmountDenomination: queryParams.optString(
+            'reserveAmountDenomination',
+          ),
+          reserveAmountDecimals: queryParams.optString('reserveAmountDecimals'),
+          autoReserve: queryParams.optString('autoReserve'),
         ),
       );
       return ListingScreen(
         a: args.a,
         dateRangeStart: args.dateRangeStart,
         dateRangeEnd: args.dateRangeEnd,
+        reserveAmountValue: args.reserveAmountValue,
+        reserveAmountDenomination: args.reserveAmountDenomination,
+        reserveAmountDecimals: args.reserveAmountDecimals,
+        autoReserve: args.autoReserve,
       );
     },
   );
@@ -203,6 +225,10 @@ class ListingRouteArgs {
     required this.a,
     this.dateRangeStart,
     this.dateRangeEnd,
+    this.reserveAmountValue,
+    this.reserveAmountDenomination,
+    this.reserveAmountDecimals,
+    this.autoReserve,
   });
 
   final String a;
@@ -211,9 +237,17 @@ class ListingRouteArgs {
 
   final String? dateRangeEnd;
 
+  final String? reserveAmountValue;
+
+  final String? reserveAmountDenomination;
+
+  final String? reserveAmountDecimals;
+
+  final String? autoReserve;
+
   @override
   String toString() {
-    return 'ListingRouteArgs{a: $a, dateRangeStart: $dateRangeStart, dateRangeEnd: $dateRangeEnd}';
+    return 'ListingRouteArgs{a: $a, dateRangeStart: $dateRangeStart, dateRangeEnd: $dateRangeEnd, reserveAmountValue: $reserveAmountValue, reserveAmountDenomination: $reserveAmountDenomination, reserveAmountDecimals: $reserveAmountDecimals, autoReserve: $autoReserve}';
   }
 
   @override
@@ -222,12 +256,22 @@ class ListingRouteArgs {
     if (other is! ListingRouteArgs) return false;
     return a == other.a &&
         dateRangeStart == other.dateRangeStart &&
-        dateRangeEnd == other.dateRangeEnd;
+        dateRangeEnd == other.dateRangeEnd &&
+        reserveAmountValue == other.reserveAmountValue &&
+        reserveAmountDenomination == other.reserveAmountDenomination &&
+        reserveAmountDecimals == other.reserveAmountDecimals &&
+        autoReserve == other.autoReserve;
   }
 
   @override
   int get hashCode =>
-      a.hashCode ^ dateRangeStart.hashCode ^ dateRangeEnd.hashCode;
+      a.hashCode ^
+      dateRangeStart.hashCode ^
+      dateRangeEnd.hashCode ^
+      reserveAmountValue.hashCode ^
+      reserveAmountDenomination.hashCode ^
+      reserveAmountDecimals.hashCode ^
+      autoReserve.hashCode;
 }
 
 /// generated route for
