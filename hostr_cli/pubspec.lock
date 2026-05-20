@@ -603,11 +603,11 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/ndk"
-      ref: "codex/hostr-ndk-fixes-upstream-master"
-      resolved-ref: "85f5ca2d3791b56149caaac09a0877b658f56d5a"
+      ref: "feat/hostr-fixes"
+      resolved-ref: "30ac7f9b3fd4fd11a75cb2d77467d13c444a016b"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
-    version: "0.8.2-dev.8"
+    version: "0.8.3"
   ndk_bip32_keys:
     dependency: transitive
     description:
