@@ -52,8 +52,8 @@ class ThreadReadyWidget extends StatelessWidget {
                 surfaceTintColor: Colors.transparent,
                 backgroundColor: appBarColor,
                 title: ThreadHeaderWidget(
-                  onCounterpartyTap: (profile) =>
-                      ProfilePopup.show(context, profile.pubKey),
+                  onCounterpartyTap: (pubkey) =>
+                      ProfilePopup.show(context, pubkey),
                 ),
               ),
             ),

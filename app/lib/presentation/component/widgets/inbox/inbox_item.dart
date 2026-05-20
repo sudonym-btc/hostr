@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/core/util/format_date.dart';
+import 'package:hostr/core/util/npub_formatter.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
@@ -103,7 +104,7 @@ class _CounterpartyNamesText extends StatelessWidget {
   }) {
     if (index >= counterparties.length) {
       final joinedNames = counterparties
-          .map((pubkey) => namesByPubkey[pubkey] ?? _fallbackName(pubkey))
+          .map((pubkey) => namesByPubkey[pubkey] ?? formatNpubPreview(pubkey))
           .join(', ');
       return Text(
         joinedNames,
@@ -135,12 +136,9 @@ class _CounterpartyNamesText extends StatelessWidget {
     required String fallbackPubkey,
   }) {
     final name = profile?.metadata.getName().trim() ?? '';
-    if (name.isNotEmpty) return name;
-    return _fallbackName(fallbackPubkey);
+    if (name.isNotEmpty && name != fallbackPubkey) return name;
+    return formatNpubPreview(fallbackPubkey);
   }
-
-  String _fallbackName(String pubkey) =>
-      pubkey.length <= 8 ? pubkey : pubkey.substring(0, 8);
 }
 
 class InboxItem extends StatefulWidget {

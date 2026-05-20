@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hostr/core/util/main.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
 import 'package:models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
   final Widget? trailing;
-  final ValueChanged<ProfileMetadata>? onCounterpartyTap;
+  final ValueChanged<String>? onCounterpartyTap;
   const ThreadHeaderWidget({super.key, this.trailing, this.onCounterpartyTap});
 
   @override
@@ -34,7 +35,6 @@ class ThreadHeaderWidget extends StatelessWidget {
                 .state
                 .value
                 .counterpartyPubkeys,
-            valueOf: (counterparty) => counterparty.metadata.getName(),
             baseStyle: titleStyle,
           ),
         ),
@@ -61,7 +61,6 @@ class ThreadHeaderWidget extends StatelessWidget {
 
   List<InlineSpan> _buildCounterpartySpans({
     required List<String> counterparties,
-    required String Function(ProfileMetadata) valueOf,
     TextStyle? baseStyle,
   }) {
     final linkStyle = baseStyle;
@@ -79,16 +78,21 @@ class ThreadHeaderWidget extends StatelessWidget {
         WidgetSpan(
           child: ProfileProvider(
             pubkey: counterparty,
-            builder: (context, profile) => GestureDetector(
-              onTap: onCounterpartyTap != null && profile.data != null
-                  ? () => onCounterpartyTap!(profile.data!)
-                  : null,
-              child: Text(
-                profile.data?.metadata.getName() ?? '',
-                style: linkStyle,
-                overflow: TextOverflow.visible, // important
-              ),
-            ),
+            builder: (context, profile) {
+              final label = _counterpartyLabel(counterparty, profile.data);
+              return GestureDetector(
+                onTap: onCounterpartyTap != null
+                    ? () => onCounterpartyTap!(counterparty)
+                    : null,
+                child: Text(
+                  label,
+                  style: linkStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              );
+            },
           ),
         ),
       );
@@ -96,11 +100,17 @@ class ThreadHeaderWidget extends StatelessWidget {
 
     return spans;
   }
+
+  String _counterpartyLabel(String pubkey, ProfileMetadata? profile) {
+    final name = profile?.metadata.getName().trim() ?? '';
+    if (name.isNotEmpty && name != pubkey) return name;
+    return formatNpubPreview(pubkey);
+  }
 }
 
 class ProfileAvatars extends StatelessWidget {
   final List<String> profiles;
-  final ValueChanged<ProfileMetadata>? onProfileTap;
+  final ValueChanged<String>? onProfileTap;
 
   /// Circle radius in logical pixels (matches [AppAvatar] presets).
   final double radius;
@@ -167,29 +177,29 @@ class ProfileAvatars extends StatelessWidget {
         height: diameter,
         width: diameter,
         child: Stack(
-          children: profiles.indexed
-              .map(
-                (entry) => ProfileProvider(
-                  pubkey: entry.$2,
-                  builder: (context, profile) => profile.data != null
-                      ? Positioned(
-                          left: entry.$1 * overlap,
-                          child: GestureDetector(
-                            onTap: onProfileTap != null
-                                ? () => onProfileTap!(profile.data!)
-                                : null,
-                            child: AppAvatar.custom(
-                              radius: radius,
-                              image: profile.data?.metadata.picture,
-                              pubkey: profile.data?.pubKey,
-                              label: profile.data?.metadata.name ?? '',
-                            ),
-                          ),
-                        )
-                      : const SizedBox(),
-                ),
-              )
-              .toList(),
+          children: profiles.indexed.map((entry) {
+            final pubkey = entry.$2;
+            return ProfileProvider(
+              pubkey: pubkey,
+              builder: (context, profile) {
+                final metadata = profile.data?.metadata;
+                return Positioned(
+                  left: entry.$1 * overlap,
+                  child: GestureDetector(
+                    onTap: onProfileTap != null
+                        ? () => onProfileTap!(pubkey)
+                        : null,
+                    child: AppAvatar.custom(
+                      radius: radius,
+                      image: metadata?.picture,
+                      pubkey: pubkey,
+                      label: metadata?.name,
+                    ),
+                  ),
+                );
+              },
+            );
+          }).toList(),
         ),
       ),
     );
