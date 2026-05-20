@@ -33,7 +33,7 @@ dependency_overrides:
   ndk:
     git:
       url: https://github.com/sudonym-btc/ndk.git
-      ref: codex/hostr-ndk-fixes-upstream-master
+      ref: feat/ndk-marketplace
       path: packages/ndk
   pointycastle: ^4.0.0
   js: ^0.7.2

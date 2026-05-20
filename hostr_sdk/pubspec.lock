@@ -692,8 +692,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/ndk"
-      ref: "codex/hostr-ndk-fixes-upstream-master"
-      resolved-ref: "85f5ca2d3791b56149caaac09a0877b658f56d5a"
+      ref: "feat/ndk-marketplace"
+      resolved-ref: "40db898a8b2dc4428d7fdd7c8170e73f3ea5ed87"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
     version: "0.8.2-dev.8"
