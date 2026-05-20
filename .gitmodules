@@ -21,3 +21,7 @@
 [submodule "dependencies/nips/marketplace-listing-nip"]
 	path = dependencies/nips/marketplace-listing-nip
 	url = git@github.com:sudonym-btc/marketplace-listing-nip.git
+[submodule "dependencies/ndk"]
+	path = dependencies/ndk
+	url = git@github.com:sudonym-btc/ndk.git
+	branch = codex/hostr-ndk-fixes-upstream-master
