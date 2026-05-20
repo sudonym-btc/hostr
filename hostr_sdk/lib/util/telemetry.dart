@@ -70,6 +70,7 @@ Iterable<Attribute> _buildAttributes(Map<String, Object?>? attributes) sync* {
 /// ```
 class Telemetry {
   static bool _otelLoggingConfigured = false;
+  static Map<String, Object?> _contextAttributes = const {};
 
   late final TracerProvider _provider;
   late final Tracer _tracer;
@@ -134,6 +135,37 @@ class Telemetry {
 
   Tracer get tracer => _tracer;
 
+  static Map<String, Object?> get contextAttributes =>
+      Map.unmodifiable(_contextAttributes);
+
+  static void setContextAttributes(Map<String, Object?> attributes) {
+    final next = <String, Object?>{..._contextAttributes};
+    for (final entry in attributes.entries) {
+      final value = entry.value;
+      if (value == null) {
+        next.remove(entry.key);
+      } else {
+        next[entry.key] = value;
+      }
+    }
+    _contextAttributes = Map.unmodifiable(next);
+  }
+
+  static void clearContextAttributes(Iterable<String> keys) {
+    final next = <String, Object?>{..._contextAttributes};
+    for (final key in keys) {
+      next.remove(key);
+    }
+    _contextAttributes = Map.unmodifiable(next);
+  }
+
+  static Map<String, Object?> _mergeContextAttributes(
+    Map<String, Object?>? attributes,
+  ) {
+    if (_contextAttributes.isEmpty) return attributes ?? const {};
+    return {..._contextAttributes, ...?attributes};
+  }
+
   static void _configureOtelLogging() {
     if (_otelLoggingConfigured) return;
     _otelLoggingConfigured = true;
@@ -172,7 +204,9 @@ class Telemetry {
   }) async {
     final parentCtx = _zoneContext;
     final span = _tracer.startSpan(name, context: parentCtx, kind: kind);
-    for (final attribute in _buildAttributes(attributes)) {
+    for (final attribute in _buildAttributes(
+      _mergeContextAttributes(attributes),
+    )) {
       span.setAttribute(attribute);
     }
 
@@ -200,7 +234,9 @@ class Telemetry {
   }) {
     final parentCtx = _zoneContext;
     final span = _tracer.startSpan(name, context: parentCtx, kind: kind);
-    for (final attribute in _buildAttributes(attributes)) {
+    for (final attribute in _buildAttributes(
+      _mergeContextAttributes(attributes),
+    )) {
       span.setAttribute(attribute);
     }
 
@@ -223,7 +259,9 @@ class Telemetry {
   /// Use this for log-like messages inside an existing span.
   void addEvent(String name, {Map<String, Object?>? attributes}) {
     final span = spanFromContext(_zoneContext);
-    final attrs = _buildAttributes(attributes).toList();
+    final attrs = _buildAttributes(
+      _mergeContextAttributes(attributes),
+    ).toList();
     span.addEvent(name, attributes: attrs);
   }
 

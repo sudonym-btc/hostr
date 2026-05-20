@@ -4,6 +4,8 @@ import 'package:test/test.dart';
 
 void main() {
   group('TraceContext', () {
+    tearDown(CustomLogger.clearAccountContext);
+
     test('propagates trace ids through zones and headers', () async {
       expect(TraceContext.currentTraceId, isNull);
       expect(TraceContext.headers(), isEmpty);
@@ -35,6 +37,61 @@ void main() {
         );
       },
     );
+
+    test('CustomLogger includes account context in emitted lines', () {
+      final output = _CapturingLogOutput();
+      CustomLogger.configure(output: output, level: Level.info);
+      CustomLogger.setAccountContext(
+        pubkey:
+            '01b74905ebe5c42f557e75c3dfa2f23984ffa822feae75e8eccedd346553929a',
+        npub: 'npub1qxm5jp0tuhzz74t7whpalghj8xz0l2pzl6h8t68vemwnge2nj2dqse0znr',
+      );
+
+      CustomLogger(tag: 'trace-test').i('hello from account logger');
+
+      final lines = output.lines.join('\n');
+      expect(
+        lines,
+        contains(
+          'hostr.user.pubkey=01b74905ebe5c42f557e75c3dfa2f23984ffa822feae75e8eccedd346553929a',
+        ),
+      );
+      expect(
+        lines,
+        contains(
+          'hostr.user.npub=npub1qxm5jp0tuhzz74t7whpalghj8xz0l2pzl6h8t68vemwnge2nj2dqse0znr',
+        ),
+      );
+      expect(lines, contains('hello from account logger'));
+    });
+
+    test('CustomLogger includes account context in span log lines', () {
+      final output = _CapturingLogOutput();
+      CustomLogger.configure(output: output, level: Level.trace);
+      CustomLogger.setAccountContext(
+        pubkey:
+            '01b74905ebe5c42f557e75c3dfa2f23984ffa822feae75e8eccedd346553929a',
+        npub: 'npub1qxm5jp0tuhzz74t7whpalghj8xz0l2pzl6h8t68vemwnge2nj2dqse0znr',
+      );
+
+      CustomLogger(tag: 'trace-test').spanSync('accounted', () {});
+
+      final lines = output.lines.join('\n');
+      expect(
+        lines,
+        contains(
+          'hostr.user.pubkey=01b74905ebe5c42f557e75c3dfa2f23984ffa822feae75e8eccedd346553929a',
+        ),
+      );
+      expect(
+        lines,
+        contains(
+          'hostr.user.npub=npub1qxm5jp0tuhzz74t7whpalghj8xz0l2pzl6h8t68vemwnge2nj2dqse0znr',
+        ),
+      );
+      expect(lines, contains('span start: trace-test.accounted'));
+      expect(lines, isNot(contains('attrs={hostr.user.pubkey:')));
+    });
   });
 }
 

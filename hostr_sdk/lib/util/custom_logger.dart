@@ -20,6 +20,9 @@ class _DeveloperLogOutput extends LogOutput {
 }
 
 class CustomLogger extends Logger {
+  static const userPubkeyAttribute = 'hostr.user.pubkey';
+  static const userNpubAttribute = 'hostr.user.npub';
+
   static LogOutput? _outputOverride;
   static Level _levelOverride = Level.trace;
   static String _tag = 'hostr';
@@ -52,6 +55,26 @@ class CustomLogger extends Logger {
 
   /// Returns the [Telemetry] instance attached to the logger system.
   static Telemetry get telemetry => _telemetry ?? Telemetry.noop();
+
+  static void setAccountContext({required String pubkey, String? npub}) {
+    final normalizedPubkey = pubkey.trim();
+    final normalizedNpub = npub?.trim();
+    if (normalizedPubkey.isEmpty) {
+      clearAccountContext();
+      return;
+    }
+
+    Telemetry.setContextAttributes({
+      userPubkeyAttribute: normalizedPubkey,
+      userNpubAttribute: normalizedNpub?.isNotEmpty == true
+          ? normalizedNpub
+          : null,
+    });
+  }
+
+  static void clearAccountContext() {
+    Telemetry.clearContextAttributes([userPubkeyAttribute, userNpubAttribute]);
+  }
 
   CustomLogger({String? tag})
     : _resolvedTag = tag ?? _tag,
@@ -97,7 +120,7 @@ class CustomLogger extends Logger {
     final spanName = '$_resolvedTag.$name';
     final stopwatch = Stopwatch()..start();
     final spanAttributes = _withTraceAttributes(attributes);
-    _logSpanStart(spanName, attributes: spanAttributes);
+    _logSpanStart(spanName);
 
     try {
       final result = await telemetry.runInSpan(
@@ -125,9 +148,16 @@ class CustomLogger extends Logger {
   }
 
   String _withTraceMessage(dynamic message) {
+    final parts = <String>[];
     final traceId = TraceContext.currentTraceId;
-    if (traceId == null) return message.toString();
-    return '[traceId=$traceId] $message';
+    if (traceId != null) {
+      parts.add('traceId=$traceId');
+    }
+    for (final entry in Telemetry.contextAttributes.entries) {
+      parts.add('${entry.key}=${entry.value}');
+    }
+    if (parts.isEmpty) return message.toString();
+    return '[${parts.join(' ')}] $message';
   }
 
   /// Synchronous variant of [span].
@@ -139,7 +169,7 @@ class CustomLogger extends Logger {
     final spanName = '$_resolvedTag.$name';
     final stopwatch = Stopwatch()..start();
     final spanAttributes = _withTraceAttributes(attributes);
-    _logSpanStart(spanName, attributes: spanAttributes);
+    _logSpanStart(spanName);
 
     try {
       final result = telemetry.runInSpanSync(
@@ -160,11 +190,8 @@ class CustomLogger extends Logger {
     }
   }
 
-  void _logSpanStart(String spanName, {Map<String, Object>? attributes}) {
-    final suffix = attributes == null || attributes.isEmpty
-        ? ''
-        : ' attrs=$attributes';
-    super.t(_withTraceMessage('span start: $spanName$suffix'));
+  void _logSpanStart(String spanName) {
+    super.t(_withTraceMessage('span start: $spanName'));
   }
 
   void _logSpanEnd(String spanName, {required Duration elapsed}) {

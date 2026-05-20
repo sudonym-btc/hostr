@@ -646,10 +646,27 @@ class Auth {
       throw StateError('Authenticated auth record must include a public key');
     }
     _authRecord = record;
+    _setTelemetryAccountContext(record.publicKeyHex!);
   }
 
   void _clearAuthenticated() {
     _authRecord = null;
+    CustomLogger.clearAccountContext();
+  }
+
+  void _setTelemetryAccountContext(String pubkey) {
+    CustomLogger.setAccountContext(
+      pubkey: pubkey,
+      npub: _tryEncodeNpub(pubkey),
+    );
+  }
+
+  String? _tryEncodeNpub(String pubkey) {
+    try {
+      return Helpers.encodeBech32(pubkey, 'npub');
+    } catch (_) {
+      return null;
+    }
   }
 
   void _emitAuthState(AuthState state, {bool force = false}) {
