@@ -90,11 +90,10 @@ void main() {
       final tradeAmount = BigInt.from(5) * BigInt.from(10).pow(decimals);
       final usdtAmount = TokenAmount(value: tradeAmount, token: usdtToken);
 
-      // escrow fee: mirrors EscrowServiceContent.escrowFee but in BigInt
-      final feePercent = escrowService.feePercent;
-      final escrowFee =
-          (usdtAmount.value * BigInt.from((feePercent * 100).round())) ~/
-          BigInt.from(10000);
+      final escrowFee = escrowService.escrowFee(
+        usdtAmount.value,
+        tokenAddress: usdtToken.address,
+      );
       final totalTokenCost = tradeAmount + escrowFee;
 
       // ── 5. Get buyer's EVM key ────────────────────────────────────────

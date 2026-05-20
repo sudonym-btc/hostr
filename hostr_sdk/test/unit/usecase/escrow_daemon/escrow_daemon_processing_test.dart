@@ -429,12 +429,14 @@ EscrowService _escrowService() => EscrowService(
   ]),
   content: EscrowServiceContent(
     pubkey: MockKeys.escrow.publicKey,
-    evmAddress: '0x0000000000000000000000000000000000000002',
-    contractAddress: '0x0000000000000000000000000000000000000001',
-    contractBytecodeHash: 'mock-bytecode',
-    chainId: 30,
     maxDuration: const Duration(days: 30),
     type: EscrowType.EVM,
+    params: const EscrowServiceParams(
+      arbiterAddress: '0x0000000000000000000000000000000000000002',
+      contractAddress: '0x0000000000000000000000000000000000000001',
+      contractBytecodeHash: 'mock-bytecode',
+      chainId: 30,
+    ),
   ),
 );
 
@@ -461,9 +463,9 @@ PaymentProof _paymentProof() => PaymentProof(
   listing: _listing(),
   zapProof: null,
   escrowProof: EscrowProof(
-    txHash: '0xabc',
-    hostsEscrowMethods: _escrowMethod(),
+    sellerEscrowMethods: _escrowMethod(),
     escrowService: _escrowService(),
+    params: EvmEscrowProofParams(txHash: '0xabc'),
   ),
 );
 
@@ -541,9 +543,7 @@ void main() {
     test('bootstrap does not publish an escrow service', () async {
       harness = _Harness();
 
-      final context = await harness.daemon.bootstrap(
-        const EscrowDaemonConfig(),
-      );
+      final context = await harness.daemon.bootstrap(EscrowDaemonConfig());
 
       expect(
         context.escrowService.contractAddress,

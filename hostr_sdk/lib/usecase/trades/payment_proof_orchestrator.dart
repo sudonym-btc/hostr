@@ -130,9 +130,9 @@ class PaymentProofOrchestrator {
         hoster: profile,
         zapProof: null,
         escrowProof: EscrowProof(
-          txHash: transactionHash,
-          hostsEscrowMethods: escrowService.sellerMethods,
+          sellerEscrowMethods: escrowService.sellerMethods,
           escrowService: escrowService.service,
+          params: EvmEscrowProofParams(txHash: transactionHash),
         ),
       ),
     );
@@ -154,17 +154,9 @@ class PaymentProofOrchestrator {
             : null,
         escrowProof: funded is EscrowFundedEvent
             ? EscrowProof(
-                txHash: funded.transactionHash,
-                hostsEscrowMethods: funded.escrowService!.sellerMethods,
+                sellerEscrowMethods: funded.escrowService!.sellerMethods,
                 escrowService: funded.escrowService!.service,
-                buyerEvmAddress: funded.buyer?.eip55With0x,
-                sellerEvmAddress: funded.seller?.eip55With0x,
-                arbiterEvmAddress: funded.arbiter?.eip55With0x,
-                contractAddress: funded.contractAddress,
-                chainId: funded.chainId,
-                tokenTagId: funded.amount.token.tagId,
-                unlockAt: funded.unlockAt,
-                escrowFee: funded.escrowFee?.value,
+                params: EvmEscrowProofParams(txHash: funded.transactionHash),
               )
             : null,
       ),

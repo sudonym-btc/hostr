@@ -574,9 +574,9 @@ void main() {
           listing: listing,
           zapProof: null,
           escrowProof: EscrowProof(
-            txHash: txHash!,
             escrowService: escrowService,
-            hostsEscrowMethods: escrowMethod,
+            sellerEscrowMethods: escrowMethod,
+            params: EvmEscrowProofParams(txHash: txHash!),
           ),
         );
 

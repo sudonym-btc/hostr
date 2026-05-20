@@ -1542,6 +1542,10 @@ const imageCarousel = (title: string, images: ListingImage[]): string => {
 
 const listingFlags = (listing: Record<string, unknown>): string[] => {
   const flags: string[] = [];
+  const rentOrBuy = stringValue(listing.rentOrBuy);
+  if (rentOrBuy === "rent" || rentOrBuy === "buy") {
+    flags.push(rentOrBuy);
+  }
   if (boolValue(listing.instantBook) === true) {
     flags.push("instant book");
   }
@@ -2374,12 +2378,13 @@ type EscrowServiceCardData = {
   type: "escrow-service-card";
   title: string;
   pubkey?: string;
-  evmAddress?: string;
+  params?: Record<string, unknown>;
+  arbiterAddress?: string;
   chainId?: number;
   contractAddress?: string;
-  feePercent?: number;
+  fee?: Record<string, unknown>;
   maxDurationSeconds?: number;
-  tokenFeeHintCount: number;
+  assetOverrideCount: number;
   changes?: Record<string, unknown>;
   deleted?: boolean;
 };
@@ -2388,23 +2393,24 @@ const escrowServiceCardData = (
   card: Record<string, unknown>,
 ): EscrowServiceCardData | null => {
   if (stringValue(card.type) !== "escrow-service-card") return null;
-  const chainId = Number(card.chainId);
+  const params = record(card.params);
+  const chainId = Number(params?.chainId);
   const maxDurationSeconds = Number(card.maxDurationSeconds);
-  const tokenFeeHints = record(card.tokenFeeHints);
+  const fee = record(card.fee);
+  const assetOverrides = record(fee?.assetOverrides);
   return {
     type: "escrow-service-card",
     title: stringValue(card.title) ?? "Escrow service",
     pubkey: stringValue(card.pubkey) ?? undefined,
-    evmAddress: stringValue(card.evmAddress) ?? undefined,
+    params: params ?? undefined,
+    arbiterAddress: stringValue(params?.arbiterAddress) ?? undefined,
     chainId: Number.isFinite(chainId) ? chainId : undefined,
-    contractAddress: stringValue(card.contractAddress) ?? undefined,
-    feePercent: Number.isFinite(Number(card.feePercent))
-      ? Number(card.feePercent)
-      : undefined,
+    contractAddress: stringValue(params?.contractAddress) ?? undefined,
+    fee: fee ?? undefined,
     maxDurationSeconds: Number.isFinite(maxDurationSeconds)
       ? maxDurationSeconds
       : undefined,
-    tokenFeeHintCount: tokenFeeHints ? Object.keys(tokenFeeHints).length : 0,
+    assetOverrideCount: assetOverrides ? Object.keys(assetOverrides).length : 0,
     changes: record(card.changes) ?? undefined,
     deleted: boolValue(card.deleted) ?? undefined,
   };
@@ -2428,8 +2434,23 @@ const escrowServiceCardsFromResult = (
 const percentLabel = (value: number | undefined): string | null =>
   Number.isFinite(value) ? `${Math.round((value ?? 0) * 100)}%` : null;
 
-const percentDecimalLabel = (value: number | undefined): string | null =>
-  Number.isFinite(value) ? `${value}%` : null;
+const escrowFeeLabel = (
+  fee: Record<string, unknown> | undefined,
+): string | null => {
+  if (!fee) return null;
+  const ppm = Number(fee.ppm);
+  const base = stringValue(fee.base);
+  const min = stringValue(fee.min);
+  const max = stringValue(fee.max);
+  const parts = [];
+  if (Number.isFinite(ppm) && ppm > 0) {
+    parts.push(`${(ppm / 10000).toFixed(2).replace(/\.00$/, "")}%`);
+  }
+  if (base && base !== "0") parts.push(`base ${base}`);
+  if (min && min !== "0") parts.push(`min ${min}`);
+  if (max && max !== "0") parts.push(`max ${max}`);
+  return parts.length > 0 ? parts.join(" + ") : "0";
+};
 
 const durationLabel = (seconds: number | undefined): string | null => {
   if (!Number.isFinite(seconds)) return null;
@@ -2445,15 +2466,15 @@ const escrowServiceCard = (card: EscrowServiceCardData): string => {
   return [
     `### ${card.title}`,
     card.deleted ? "**Deleted:** yes" : null,
-    card.feePercent !== undefined
-      ? `**Fee:** ${percentDecimalLabel(card.feePercent)}`
-      : null,
+    card.fee ? `**Fee:** ${escrowFeeLabel(card.fee)}` : null,
     card.maxDurationSeconds !== undefined
       ? `**Max duration:** ${durationLabel(card.maxDurationSeconds)}`
       : null,
-    `**Token fee hints:** ${card.tokenFeeHintCount}`,
+    `**Asset overrides:** ${card.assetOverrideCount}`,
     card.chainId !== undefined ? `**Chain:** ${card.chainId}` : null,
-    card.evmAddress ? `**EVM address:** \`${card.evmAddress}\`` : null,
+    card.arbiterAddress
+      ? `**Arbiter address:** \`${card.arbiterAddress}\``
+      : null,
     card.contractAddress
       ? `**Contract:** \`${card.contractAddress}\``
       : null,

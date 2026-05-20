@@ -318,9 +318,9 @@ PaymentProof _buildEscrowPaymentProof({
     listing: listing,
     zapProof: null,
     escrowProof: EscrowProof(
-      txHash: txHash,
       escrowService: escrowService,
-      hostsEscrowMethods: escrowMethod,
+      sellerEscrowMethods: escrowMethod,
+      params: EvmEscrowProofParams(txHash: txHash),
     ),
   );
 }
@@ -712,9 +712,9 @@ void main() {
         // Build escrow proof (validates the EscrowProof construction path)
         // ignore: unused_local_variable
         final proof = EscrowProof(
-          txHash: txHash,
           escrowService: escrowService,
-          hostsEscrowMethods: escrowMethod,
+          sellerEscrowMethods: escrowMethod,
+          params: EvmEscrowProofParams(txHash: txHash),
         );
 
         // Validate against the chain — checks tx exists + receipt

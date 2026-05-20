@@ -4650,7 +4650,7 @@ Future<_BackendLiveBooking> _createBackendLiveBooking({
     listing: listing,
     txHash: txHash,
     escrowService: fixtures.escrowService,
-    hostsEscrowMethod: hostEscrowMethod,
+    sellerEscrowMethod: hostEscrowMethod,
   );
   final reservationParticipants = [
     PTag.seller(listing.pubKey),

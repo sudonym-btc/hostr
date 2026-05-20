@@ -249,8 +249,9 @@ class _EscrowServicesModalContent extends StatelessWidget {
   }
 
   Widget _buildServiceTile(BuildContext context, EscrowService service) {
+    final proportionalFee = service.fee.ppm / 10000;
     final feeDesc = [
-      if (service.feePercent > 0) '${service.feePercent}%',
+      if (service.fee.ppm > 0) '${proportionalFee.toStringAsFixed(2)}%',
     ].join(' + ');
     return Card(
       child: ListTile(

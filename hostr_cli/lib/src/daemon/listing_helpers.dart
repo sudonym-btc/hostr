@@ -19,6 +19,7 @@ Map<String, Object?> listingSummary(Listing listing) => {
   'description': listing.description,
   'active': listing.active,
   'type': listing.listingType.name,
+  'rentOrBuy': listing.rentOrBuy.name,
   'images': listing.images,
   'prices': listing.prices.map(priceJson).toList(),
   'specifications': listing.specifications.toMap(),

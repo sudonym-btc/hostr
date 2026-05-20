@@ -50,8 +50,7 @@ const kRpcListServices = 'listServices';
 const kRpcGetService = 'getService';
 
 /// Update an escrow service's editable fields and re-broadcast.
-/// Params: `{ "serviceId": String, "feeBase": int?, "feePercent": double?,
-///            "minAmount": int?, "maxAmount": int? }`.
+/// Params: `{ "serviceId": String, "fee": object? }`.
 /// Returns `{ "ok": true }`.
 const kRpcUpdateService = 'updateService';
 
@@ -269,29 +268,25 @@ class ThreadMessage {
 /// Summary of an escrow service for list views.
 class ServiceSummary {
   final String id;
-  final String contractAddress;
-  final int chainId;
-  final double feePercent;
+  final Map<String, dynamic> params;
+  final Map<String, dynamic> fee;
 
   ServiceSummary({
     required this.id,
-    required this.contractAddress,
-    required this.chainId,
-    required this.feePercent,
+    required this.params,
+    required this.fee,
   });
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'contractAddress': contractAddress,
-        'chainId': chainId,
-        'feePercent': feePercent,
+        'params': params,
+        'fee': fee,
       };
 
   factory ServiceSummary.fromJson(Map<String, dynamic> json) => ServiceSummary(
         id: json['id'] as String,
-        contractAddress: json['contractAddress'] as String,
-        chainId: json['chainId'] as int,
-        feePercent: (json['feePercent'] as num).toDouble(),
+        params: Map<String, dynamic>.from(json['params'] as Map),
+        fee: Map<String, dynamic>.from(json['fee'] as Map),
       );
 }
 

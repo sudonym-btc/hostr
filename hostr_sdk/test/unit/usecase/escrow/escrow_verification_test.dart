@@ -170,12 +170,12 @@ PaymentProof _paymentProof({
     listing: listing,
     zapProof: null,
     escrowProof: EscrowProof(
-      txHash: txHash,
       escrowService: escrowService,
-      hostsEscrowMethods: _escrowMethod(
+      sellerEscrowMethods: _escrowMethod(
         escrowService: escrowService,
         includeAcceptedToken: includeAcceptedToken,
       ),
+      params: EvmEscrowProofParams(txHash: txHash),
     ),
   );
 }

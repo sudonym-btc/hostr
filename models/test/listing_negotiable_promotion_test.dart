@@ -96,5 +96,39 @@ void main() {
       expect(filter.tags?['s'], ['kitchen']);
       expect(filter.tags?['S'], isNull);
     });
+
+    test('derives rent mode from recurring prices and promotes it', () {
+      final listing = _base();
+
+      expect(listing.rentOrBuy, RentOrBuy.rent);
+      expect(listing.parsedTags.getTags('rentOrBuy'), ['rent']);
+      expect(listing.parsedTags.getTags('M'), ['rent']);
+    });
+
+    test('derives buy mode from fixed prices and promotes it', () {
+      final listing = _base().rebuild(
+        prices: [
+          Price(
+            amount: DenominatedAmount(
+              value: BigInt.from(100000),
+              denomination: 'BTC',
+              decimals: 8,
+            ),
+          ),
+        ],
+      );
+
+      expect(listing.rentOrBuy, RentOrBuy.buy);
+      expect(listing.parsedTags.getTags('rentOrBuy'), ['buy']);
+      expect(listing.parsedTags.getTags('M'), ['buy']);
+      expect(listing.parsedTags.getTags('M'), isNot(contains('rent')));
+    });
+
+    test('filter builder targets promoted rent or buy tag', () {
+      final filter = Listing.buildFilter().forRent().build();
+
+      expect(filter.tags?['t'], ['accommodation']);
+      expect(filter.tags?['M'], ['rent']);
+    });
   });
 }

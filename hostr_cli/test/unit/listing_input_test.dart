@@ -46,8 +46,32 @@ void main() {
         expect(listing.prices.single.amount.denomination, 'BTC');
         expect(listing.prices.single.amount.value, BigInt.from(100000));
         expect(listing.prices.single.frequency, Frequency.daily);
+        expect(listing.rentOrBuy, RentOrBuy.rent);
+        expect(listing.parsedTags.getTags('M'), ['rent']);
       },
     );
+
+    test('builds fixed-price listings as buy listings', () {
+      final listing = buildListingFromInput(
+        pubkey: 'f' * 64,
+        input: {
+          'title': 'Garden room',
+          'description': 'A quiet room',
+          'type': 'room',
+          'price': {
+            'amount': {'value': '100000', 'currency': 'BTC', 'unit': 'sats'},
+            'frequency': 'fixed',
+          },
+        },
+        images: const ['https://hostr.network/a.jpg'],
+        imageMetas: const [IMeta(url: 'https://hostr.network/a.jpg')],
+        h3Tags: const [H3Tag(index: '599685771850416127', resolution: 15)],
+      );
+
+      expect(listing.prices.single.frequency, isNull);
+      expect(listing.rentOrBuy, RentOrBuy.buy);
+      expect(listing.parsedTags.getTags('M'), ['buy']);
+    });
 
     test('rejects mixed listing currencies', () {
       expect(

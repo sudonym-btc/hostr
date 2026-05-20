@@ -107,21 +107,28 @@ class EscrowVerification {
     EscrowProof escrowProof,
     Order order,
   ) {
-    if (escrowProof.hostsEscrowMethods.pubKey !=
+    if (escrowProof.sellerEscrowMethods.pubKey !=
         getPubKeyFromAnchor(order.parsedTags.listingAnchor)) {
       return const EscrowVerificationResult.invalid(
         'Escrow proof is for a different listing (pubkey mismatch)',
       );
     }
 
-    if (!escrowProof.hostsEscrowMethods.valid()) {
+    if (!escrowProof.sellerEscrowMethods.valid()) {
       return const EscrowVerificationResult.invalid(
         'Invalid signature on escrow methods',
       );
     }
 
     final escrowService = escrowProof.escrowService;
-    final supportedContractHashes = escrowProof.hostsEscrowMethods
+    if (escrowService.escrowType != EscrowType.EVM ||
+        escrowProof.params is! EvmEscrowProofParams) {
+      return const EscrowVerificationResult.invalid(
+        'Escrow proof params are not valid EVM params',
+      );
+    }
+
+    final supportedContractHashes = escrowProof.sellerEscrowMethods
         .getTags('c')
         .map((element) => element.toLowerCase());
 
@@ -133,7 +140,7 @@ class EscrowVerification {
       );
     }
 
-    if (escrowProof.hostsEscrowMethods
+    if (escrowProof.sellerEscrowMethods
         .getTags('p')
         .where((element) => element == escrowService.pubKey)
         .isEmpty) {
@@ -201,7 +208,7 @@ class EscrowVerification {
     if (bindingError != null) return bindingError;
 
     // Verify the host accepts this on-chain token for the denomination.
-    if (!escrowProof.hostsEscrowMethods.acceptsToken(
+    if (!escrowProof.sellerEscrowMethods.acceptsToken(
       denomination,
       onChainAmount.token.tagId,
     )) {
@@ -299,28 +306,11 @@ class EscrowVerification {
         'service chain ${service.chainId}',
       );
     }
-    if (escrowProof.chainId != null &&
-        escrowProof.chainId != fundedEvent.chainId) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof chain ${escrowProof.chainId} does not match funding '
-        'event chain ${fundedEvent.chainId}',
-      );
-    }
 
     if (!_sameAddress(fundedEvent.contractAddress, service.contractAddress)) {
       return EscrowVerificationResult.invalid(
         'Escrow funding contract ${fundedEvent.contractAddress} does not match '
         'selected service contract ${service.contractAddress}',
-      );
-    }
-    if (escrowProof.contractAddress != null &&
-        !_sameAddress(
-          escrowProof.contractAddress!,
-          fundedEvent.contractAddress,
-        )) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof contract ${escrowProof.contractAddress} does not match '
-        'funding event contract ${fundedEvent.contractAddress}',
       );
     }
 
@@ -329,51 +319,6 @@ class EscrowVerification {
       return EscrowVerificationResult.invalid(
         'Escrow funding arbiter ${arbiter ?? 'missing'} does not match '
         'selected service arbiter ${service.evmAddress}',
-      );
-    }
-    if (escrowProof.arbiterEvmAddress != null &&
-        !_sameAddress(escrowProof.arbiterEvmAddress!, arbiter)) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof arbiter ${escrowProof.arbiterEvmAddress} does not match '
-        'funding event arbiter $arbiter',
-      );
-    }
-
-    final seller = fundedEvent.seller?.eip55With0x;
-    if (escrowProof.sellerEvmAddress != null &&
-        (seller == null ||
-            !_sameAddress(escrowProof.sellerEvmAddress!, seller))) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof seller ${escrowProof.sellerEvmAddress} does not match '
-        'funding event seller ${seller ?? 'missing'}',
-      );
-    }
-
-    final buyer = fundedEvent.buyer?.eip55With0x;
-    if (escrowProof.buyerEvmAddress != null &&
-        (buyer == null || !_sameAddress(escrowProof.buyerEvmAddress!, buyer))) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof buyer ${escrowProof.buyerEvmAddress} does not match '
-        'funding event buyer ${buyer ?? 'missing'}',
-      );
-    }
-
-    if (escrowProof.tokenTagId != null &&
-        AcceptedPaymentForm.canonicalTokenTagId(escrowProof.tokenTagId!) !=
-            AcceptedPaymentForm.canonicalTokenTagId(
-              onChainAmount.token.tagId,
-            )) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof token ${escrowProof.tokenTagId} does not match funding '
-        'event token ${onChainAmount.token.tagId}',
-      );
-    }
-
-    if (escrowProof.unlockAt != null &&
-        escrowProof.unlockAt != fundedEvent.unlockAt) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof unlockAt ${escrowProof.unlockAt} does not match funding '
-        'event unlockAt ${fundedEvent.unlockAt}',
       );
     }
 
@@ -389,12 +334,6 @@ class EscrowVerification {
       return EscrowVerificationResult.invalid(
         'Escrow fee $actualFee does not match selected service fee '
         '$expectedFee',
-      );
-    }
-    if (escrowProof.escrowFee != null && escrowProof.escrowFee != actualFee) {
-      return EscrowVerificationResult.invalid(
-        'Escrow proof fee ${escrowProof.escrowFee} does not match funding '
-        'event fee $actualFee',
       );
     }
 

@@ -585,9 +585,8 @@ class DaemonHandler {
       'services': byContract.values
           .map((s) => ServiceSummary(
                 id: s.id,
-                contractAddress: s.contractAddress,
-                chainId: s.chainId,
-                feePercent: s.feePercent,
+                params: s.parsedContent.params.toJson(),
+                fee: s.fee.toJson(),
               ).toJson())
           .toList(),
     };
@@ -599,11 +598,10 @@ class DaemonHandler {
     return {
       'id': service.id,
       'pubkey': service.escrowPubkey,
-      'evmAddress': service.evmAddress,
-      'contractAddress': service.contractAddress,
-      'chainId': service.chainId,
-      'feePercent': service.feePercent,
+      'type': service.escrowType.name,
       'maxDuration': service.maxDuration.inSeconds,
+      'fee': service.fee.toJson(),
+      'params': service.parsedContent.params.toJson(),
     };
   }
 
@@ -618,7 +616,7 @@ class DaemonHandler {
     final existingTags =
         existing.tags.map((t) => List<String>.from(t)).toList();
     if (!existingTags.any((t) => t.isNotEmpty && t[0] == 'd')) {
-      existingTags.add(['d', old.contractAddress]);
+      existingTags.add(['d', old.params.contractAddress]);
     }
 
     final updated = EscrowService(
@@ -626,14 +624,12 @@ class DaemonHandler {
       tags: EventTags(existingTags),
       content: EscrowServiceContent(
         pubkey: old.pubkey,
-        evmAddress: old.evmAddress,
-        contractAddress: old.contractAddress,
-        contractBytecodeHash: old.contractBytecodeHash,
-        chainId: old.chainId,
-        maxDuration: old.maxDuration,
         type: old.type,
-        feePercent: params['feePercent'].asNumOr(old.feePercent).toDouble(),
-        tokenFeeHints: old.tokenFeeHints,
+        maxDuration: old.maxDuration,
+        fee: EscrowFee.fromJson(
+          Map<String, dynamic>.from(params['fee'].asMapOr(old.fee.toJson())),
+        ),
+        params: old.params,
       ),
       createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );

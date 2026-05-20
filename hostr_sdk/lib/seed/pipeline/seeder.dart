@@ -302,13 +302,15 @@ class Seeder {
               pubKey: MockKeys.escrow.publicKey,
               content: EscrowServiceContent(
                 pubkey: MockKeys.escrow.publicKey,
-                evmAddress: '0x0',
-                contractAddress: ctx.contractAddress,
-                contractBytecodeHash: '0x0',
-                chainId: 31337,
                 maxDuration: const Duration(days: 365),
                 type: EscrowType.EVM,
-                feePercent: 1.0,
+                fee: EscrowFee(ppm: 10000),
+                params: EscrowServiceParams(
+                  arbiterAddress: '0x0',
+                  contractAddress: ctx.contractAddress,
+                  contractBytecodeHash: '0x0',
+                  chainId: 31337,
+                ),
               ),
               tags: EventTags([
                 ['d', 'seed-escrow-service-31337'],

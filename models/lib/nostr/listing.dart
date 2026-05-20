@@ -4,6 +4,8 @@ import 'package:models/main.dart';
 import 'package:ndk/ndk.dart';
 
 const _publishedAtTag = 'published_at';
+const _rentOrBuyTag = 'rentOrBuy';
+const _rentOrBuyPromotionTag = 'M';
 
 final List<DenominatedAmount> listingPricesMin = List.unmodifiable([
   DenominatedAmount(
@@ -53,6 +55,7 @@ mixin ListingTagRead {
       tagSource.getTagBool('instantBook', defaultValue: true);
   bool get allowSelfSignedOrder => tagSource.getTagBool('allowSelfSignedOrder');
   List<Price> get prices => tagSource.getTagPrices();
+  RentOrBuy get rentOrBuy => Listing.rentOrBuyForPrices(prices);
   List<CancellationPolicy> get cancellationPolicies =>
       tagSource.getTagCancellationPolicies();
   List<CancellationPolicy> get cancellationPolicy => cancellationPolicies;
@@ -103,15 +106,16 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   //
   // | Letter | Dimension     | Source tag example                    |
   // |--------|---------------|---------------------------------------|
-  // | T      | Listing type  | ['type', 'house']        → ['T','house']  |
-  // | s      | Bool features | ['spec', 'pool']         → ['s','pool']   |
-  // | c      | Max guests    | ['spec','max_guests','4'] → ['c','4']     |
-  // | b      | Beds          | ['spec','beds','2']       → ['b','2']     |
-  // | B      | Bedrooms      | ['spec','bedrooms','2']   → ['B','2']     |
-  // | R      | Bathrooms     | ['spec','bathrooms','2']  → ['R','2']     |
-  // | A      | Active        | ['active','true']          → ['A','true'] |
-  // | N      | Negotiable    | ['negotiable','true']     → ['N','true']  |
-  // | S      | Feature AND   | ['spec','pool'] + ['spec','gym'] → ['S','gym+pool'] |
+  // | T      | Listing type  | ['type', 'house']         -> ['T','house']  |
+  // | s      | Bool features | ['spec', 'pool']          -> ['s','pool']   |
+  // | c      | Max guests    | ['spec','max_guests','4'] -> ['c','4']      |
+  // | b      | Beds          | ['spec','beds','2']       -> ['b','2']      |
+  // | B      | Bedrooms      | ['spec','bedrooms','2']   -> ['B','2']      |
+  // | R      | Bathrooms     | ['spec','bathrooms','2']  -> ['R','2']      |
+  // | A      | Active        | ['active','true']         -> ['A','true']   |
+  // | N      | Negotiable    | ['negotiable','true']     -> ['N','true']   |
+  // | M      | Rent/buy mode | ['rentOrBuy','rent']      -> ['M','rent']   |
+  // | S      | Feature AND   | ['spec','pool'] + ['spec','gym'] -> ['S','gym+pool'] |
 
   static const List<TagPromotion> promotions = [
     TagPromotion.direct(source: 'type', target: 'T'),
@@ -123,6 +127,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     TagPromotion.direct(source: 'active', target: 'A'),
     TagPromotion.direct(source: 'instantBook', target: 'I'),
     TagPromotion.direct(source: 'negotiable', target: 'N'),
+    TagPromotion.direct(source: _rentOrBuyTag, target: _rentOrBuyPromotionTag),
   ];
 
   /// Letters emitted by [promotions] — stripped during [rebuild] so they
@@ -163,6 +168,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       ListingFilterBuilder(promotions, kind: kNostrKindListing).rawTags(const {
         't': [category],
       });
+
+  static RentOrBuy rentOrBuyForPrices(Iterable<Price> prices) =>
+      prices.any((price) => price.frequency != null)
+          ? RentOrBuy.rent
+          : RentOrBuy.buy;
 
   @override
   EventTags get tagSource => parsedTags;
@@ -216,6 +226,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
   }) {
     final eventCreatedAt =
         createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final rentOrBuy = rentOrBuyForPrices(price);
     return Listing(
       pubKey: pubKey,
       createdAt: eventCreatedAt,
@@ -238,6 +249,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addBool('instantBook', instantBook)
               ..addBool('allowSelfSignedOrder', allowSelfSignedOrder)
               ..addPrices(price)
+              ..addEnum(_rentOrBuyTag, rentOrBuy)
               ..addCancellationPolicies(cancellationPolicy)
               ..addOptionalDenominatedAmount('securityDeposit', securityDeposit)
               ..addOptionalDenominatedAmount(
@@ -250,6 +262,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                 ['active', active.toString()],
                 ['instantBook', instantBook.toString()],
                 ['negotiable', negotiable.toString()],
+                [_rentOrBuyTag, rentOrBuy.name],
                 ...specifications.toTags(),
               ], promotions))
               ..addAll(TagPromotion.promoteBooleanCombinations(
@@ -316,6 +329,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       'instantBook',
       'allowSelfSignedOrder',
       'price',
+      _rentOrBuyTag,
       'cancellationPolicy',
       'spec',
       'amenity', // back-compat: strip legacy amenity tags on rebuild
@@ -331,6 +345,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     final updatedImages = images ?? this.images;
     final updatedImageMetas =
         imageMetas ?? _imageMetasForImages(updatedImages, this.imageMetas);
+    final updatedPrices = prices ?? this.prices;
+    final updatedRentOrBuy = rentOrBuyForPrices(updatedPrices);
 
     return Listing(
       pubKey: pubKey ?? this.pubKey,
@@ -354,7 +370,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addBool('instantBook', instantBook ?? this.instantBook)
               ..addBool('allowSelfSignedOrder',
                   allowSelfSignedOrder ?? this.allowSelfSignedOrder)
-              ..addPrices(prices ?? this.prices)
+              ..addPrices(updatedPrices)
+              ..addEnum(_rentOrBuyTag, updatedRentOrBuy)
               ..addCancellationPolicies(
                   cancellationPolicy ?? this.cancellationPolicy)
               ..addOptionalDenominatedAmount(
@@ -380,6 +397,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
                 ['active', (active ?? this.active).toString()],
                 ['instantBook', (instantBook ?? this.instantBook).toString()],
                 ['negotiable', (negotiable ?? this.negotiable).toString()],
+                [_rentOrBuyTag, updatedRentOrBuy.name],
                 ...(specifications ?? this.specifications).toTags(),
               ], promotions))
               ..addAll(TagPromotion.promoteBooleanCombinations(
@@ -560,6 +578,8 @@ class CancellationPolicy {
 }
 
 enum ListingType { room, house, apartment, villa, hotel, hostel, resort }
+
+enum RentOrBuy { rent, buy }
 
 // ── Specifications (tag-backed) ─────────────────────────────────────────────
 

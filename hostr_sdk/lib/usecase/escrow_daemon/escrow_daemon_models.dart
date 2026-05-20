@@ -56,8 +56,8 @@ class TradeSnapshot {
 
 /// Configuration for the escrow daemon bootstrap.
 class EscrowDaemonConfig {
-  /// Fee percentage for the escrow service (e.g. 1 for 1%).
-  final double feePercent;
+  /// Fee policy for the escrow service.
+  final EscrowFee fee;
 
   /// Maximum trade duration.
   final Duration maxDuration;
@@ -66,11 +66,11 @@ class EscrowDaemonConfig {
   /// Defaults to 0 (the first configured chain).
   final int chainIndex;
 
-  const EscrowDaemonConfig({
-    this.feePercent = 1,
+  EscrowDaemonConfig({
+    EscrowFee? fee,
     this.maxDuration = const Duration(days: 365),
     this.chainIndex = 0,
-  });
+  }) : fee = fee ?? EscrowFee(ppm: 10000);
 }
 
 /// All the long-lived objects the daemon needs after bootstrap.

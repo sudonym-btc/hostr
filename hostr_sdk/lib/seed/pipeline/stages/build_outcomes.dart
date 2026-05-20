@@ -126,7 +126,7 @@ Future<Order> buildOrderForPlan({
         listing: thread.listing,
         txHash: plan.createTxHash!,
         escrowService: escrowService,
-        hostsEscrowMethod: method,
+        sellerEscrowMethod: method,
       );
     } else {
       print(
@@ -223,22 +223,24 @@ EscrowProof _buildBogusEscrowProof({
   required EscrowProof original,
 }) {
   return EscrowProof(
-    txHash: _randomHex(ctx, 64),
     escrowService: _buildBogusEscrowService(ctx),
-    hostsEscrowMethods: original.hostsEscrowMethods,
+    sellerEscrowMethods: original.sellerEscrowMethods,
+    params: EvmEscrowProofParams(txHash: _randomHex(ctx, 64)),
   );
 }
 
 EscrowService _buildBogusEscrowService(SeedContext ctx) {
   final content = EscrowServiceContent(
     pubkey: MockKeys.escrow.publicKey,
-    evmAddress: _randomHex(ctx, 40),
-    contractAddress: _randomHex(ctx, 40),
-    contractBytecodeHash: _randomHex(ctx, 64),
-    chainId: 1000 + ctx.random.nextInt(8000),
     maxDuration: const Duration(days: 365),
     type: EscrowType.EVM,
-    feePercent: (ctx.random.nextInt(30) + 5) / 10, // 0.5 – 3.5 %
+    fee: EscrowFee(ppm: (ctx.random.nextInt(30) + 5) * 1000),
+    params: EscrowServiceParams(
+      arbiterAddress: _randomHex(ctx, 40),
+      contractAddress: _randomHex(ctx, 40),
+      contractBytecodeHash: _randomHex(ctx, 64),
+      chainId: 1000 + ctx.random.nextInt(8000),
+    ),
   );
 
   final unsigned = EscrowService(

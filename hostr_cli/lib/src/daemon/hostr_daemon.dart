@@ -1412,6 +1412,9 @@ class HostrDaemon {
     if (input.type != null) {
       builder.listingTypes([_listingType(input.type!)]);
     }
+    if (input.rentOrBuy != null) {
+      builder.rentOrBuy(_rentOrBuy(input.rentOrBuy!).name);
+    }
     if (input.guests != null) builder.minGuests(input.guests!);
     if (input.features.isNotEmpty) builder.features(input.features);
     if (input.location != null) {
@@ -2455,9 +2458,9 @@ class HostrDaemon {
         hoster: profile,
         zapProof: null,
         escrowProof: EscrowProof(
-          txHash: swapState.data.claimTxHash!,
           escrowService: selectedEscrow.service,
-          hostsEscrowMethods: selectedEscrow.sellerMethods,
+          sellerEscrowMethods: selectedEscrow.sellerMethods,
+          params: EvmEscrowProofParams(txHash: swapState.data.claimTxHash!),
         ),
       ),
     );
@@ -3266,20 +3269,9 @@ class HostrDaemon {
     final current = input.serviceId == null
         ? escrow.context.escrowService
         : await _getOwnedEscrowService(session, tokenPubkey, input.serviceId!);
-    final updatedHints = input.tokenFeeHints != null
-        ? input.tokenFeeHints!.map(
-            (token, hints) => MapEntry(
-              token,
-              TokenFeeHints(
-                baseFee: hints.baseFee,
-                maxFee: hints.maxFee,
-                minFee: hints.minFee,
-              ),
-            ),
-          )
-        : input.clearTokenFeeHints
-        ? const <String, TokenFeeHints>{}
-        : current.tokenFeeHints;
+    final updatedFee = input.fee != null
+        ? _escrowFeeFromInput(input.fee!)
+        : current.fee;
 
     final updated = EscrowService(
       pubKey: current.pubKey,
@@ -3287,16 +3279,12 @@ class HostrDaemon {
       createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       content: EscrowServiceContent(
         pubkey: current.escrowPubkey,
-        evmAddress: current.evmAddress,
-        contractAddress: current.contractAddress,
-        contractBytecodeHash: current.contractBytecodeHash,
-        chainId: current.chainId,
+        type: current.escrowType,
         maxDuration: input.maxDurationSeconds != null
             ? Duration(seconds: input.maxDurationSeconds!)
             : current.maxDuration,
-        type: current.escrowType,
-        feePercent: input.feePercent ?? current.feePercent,
-        tokenFeeHints: updatedHints,
+        fee: updatedFee,
+        params: current.parsedContent.params,
       ),
     );
 
@@ -3841,7 +3829,7 @@ class HostrDaemon {
     final daemon = session.escrowDaemon;
     final context = daemon.isBootstrapped
         ? daemon.context
-        : await daemon.bootstrap(const EscrowDaemonConfig());
+        : await daemon.bootstrap(EscrowDaemonConfig());
     if (!daemon.isStarted) {
       await daemon.start();
     }
@@ -3875,7 +3863,7 @@ class HostrDaemon {
     EscrowService? before,
     bool deleted = false,
   }) {
-    final beforeFee = before?.feePercent;
+    final beforeFee = before?.fee;
     final beforeMaxDuration = before?.maxDuration.inSeconds;
     return {
       'type': 'escrow-service-card',
@@ -3885,27 +3873,22 @@ class HostrDaemon {
           ? 'Escrow service update preview'
           : 'Escrow service',
       'pubkey': service.pubKey,
-      'evmAddress': service.evmAddress,
-      'chainId': service.chainId,
-      'contractAddress': service.contractAddress,
-      'contractBytecodeHash': service.contractBytecodeHash,
-      'feePercent': service.feePercent,
+      'escrowType': service.escrowType.name,
+      'fee': _escrowFeeJson(service.fee),
       'maxDurationSeconds': service.maxDuration.inSeconds,
-      'tokenFeeHints': _tokenFeeHintsJson(service.tokenFeeHints),
+      'params': service.parsedContent.params.toJson(),
       if (deleted) 'deleted': true,
       if (before != null)
         'changes': {
-          if (beforeFee != service.feePercent)
-            'feePercent': {'from': beforeFee, 'to': service.feePercent},
+          if (!_escrowFeeEqual(beforeFee!, service.fee))
+            'fee': {
+              'from': _escrowFeeJson(beforeFee),
+              'to': _escrowFeeJson(service.fee),
+            },
           if (beforeMaxDuration != service.maxDuration.inSeconds)
             'maxDurationSeconds': {
               'from': beforeMaxDuration,
               'to': service.maxDuration.inSeconds,
-            },
-          if (!_tokenFeeHintsEqual(before.tokenFeeHints, service.tokenFeeHints))
-            'tokenFeeHints': {
-              'from': _tokenFeeHintsJson(before.tokenFeeHints),
-              'to': _tokenFeeHintsJson(service.tokenFeeHints),
             },
         },
     };
@@ -5996,40 +5979,26 @@ Map<String, Object?> _escrowServiceJson(EscrowService service) => {
   'id': service.id,
   'pubkey': service.pubKey,
   'escrowPubkey': service.escrowPubkey,
-  'chainId': service.chainId,
-  'contractAddress': service.contractAddress,
-  'contractBytecodeHash': service.contractBytecodeHash,
-  'evmAddress': service.evmAddress,
-  'feePercent': service.feePercent,
+  'type': service.escrowType.name,
+  'fee': _escrowFeeJson(service.fee),
   'maxDurationSeconds': service.maxDuration.inSeconds,
-  'tokenFeeHints': _tokenFeeHintsJson(service.tokenFeeHints),
+  'params': service.parsedContent.params.toJson(),
 };
 
-Map<String, Object?> _tokenFeeHintsJson(Map<String, TokenFeeHints> hints) => {
-  for (final entry in hints.entries)
-    entry.key: {
-      'baseFee': entry.value.baseFee,
-      'maxFee': entry.value.maxFee,
-      'minFee': entry.value.minFee,
-    },
-};
+EscrowFee _escrowFeeFromInput(HostrEscrowFeeInput input) => EscrowFee(
+  ppm: input.ppm,
+  base: input.base,
+  min: input.min,
+  max: input.max,
+  assetOverrides: input.assetOverrides.map(
+    (key, value) => MapEntry(key, _escrowFeeFromInput(value)),
+  ),
+);
 
-bool _tokenFeeHintsEqual(
-  Map<String, TokenFeeHints> left,
-  Map<String, TokenFeeHints> right,
-) {
-  if (left.length != right.length) return false;
-  for (final entry in left.entries) {
-    final other = right[entry.key];
-    if (other == null) return false;
-    if (entry.value.baseFee != other.baseFee ||
-        entry.value.maxFee != other.maxFee ||
-        entry.value.minFee != other.minFee) {
-      return false;
-    }
-  }
-  return true;
-}
+Map<String, Object?> _escrowFeeJson(EscrowFee fee) => fee.toJson();
+
+bool _escrowFeeEqual(EscrowFee left, EscrowFee right) =>
+    jsonEncode(_escrowFeeJson(left)) == jsonEncode(_escrowFeeJson(right));
 
 class _EscrowFundingPlan {
   const _EscrowFundingPlan({
@@ -6072,6 +6041,18 @@ ListingType _listingType(String input) {
       'invalid_listing_type',
       'Unsupported listing type "$input".',
       path: 'type',
+      exitCode: 64,
+    ),
+  );
+}
+
+RentOrBuy _rentOrBuy(String input) {
+  return RentOrBuy.values.firstWhere(
+    (mode) => mode.name == input.trim().toLowerCase(),
+    orElse: () => throw HostrCliException(
+      'invalid_rent_or_buy',
+      'Unsupported rentOrBuy value "$input". Expected rent or buy.',
+      path: 'rentOrBuy',
       exitCode: 64,
     ),
   );

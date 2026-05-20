@@ -72,13 +72,16 @@ void main() {
   test('listings search input normalizes optional fields safely', () {
     final input = HostrListingsSearchInput.fromJson({
       'location': '  Lisbon ',
+      'rentOrBuy': ' Rent ',
       'features': [' wifi ', '', 'kitchen'],
       'limit': 500,
     });
 
     expect(input.location, 'Lisbon');
+    expect(input.rentOrBuy, 'rent');
     expect(input.features, ['wifi', 'kitchen']);
     expect(input.limit, 50);
+    expect(input.toJson(), containsPair('rentOrBuy', 'rent'));
   });
 
   test('write action inputs default to dry run and expose dryRun controls', () {

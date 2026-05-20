@@ -249,6 +249,20 @@ class ListingFilterBuilder {
     return this;
   }
 
+  /// Filter by rent/buy mode. Values are `rent` or `buy`.
+  ListingFilterBuilder rentOrBuy(String mode) {
+    final target = _targetFor(source: 'rentOrBuy');
+    final normalized = mode.trim().toLowerCase();
+    if (target != null && normalized.isNotEmpty) {
+      _tags[target] = [normalized];
+    }
+    return this;
+  }
+
+  ListingFilterBuilder forRent() => rentOrBuy('rent');
+
+  ListingFilterBuilder forBuy() => rentOrBuy('buy');
+
   /// Merge additional raw tag filters (e.g. geohash).
   ListingFilterBuilder rawTags(Map<String, List<String>> tags) {
     for (final entry in tags.entries) {

@@ -19,14 +19,14 @@ class EscrowService
 
   // ── Convenience getters ─────────────────────────────────────────────
   String get escrowPubkey => parsedContent.pubkey;
-  String get evmAddress => parsedContent.evmAddress;
-  String get contractAddress => parsedContent.contractAddress;
-  String get contractBytecodeHash => parsedContent.contractBytecodeHash;
-  int get chainId => parsedContent.chainId;
+  String get arbiterAddress => parsedContent.params.arbiterAddress;
+  String get evmAddress => arbiterAddress;
+  String get contractAddress => parsedContent.params.contractAddress;
+  String get contractBytecodeHash => parsedContent.params.contractBytecodeHash;
+  int get chainId => parsedContent.params.chainId;
   Duration get maxDuration => parsedContent.maxDuration;
   EscrowType get escrowType => parsedContent.type;
-  double get feePercent => parsedContent.feePercent;
-  Map<String, TokenFeeHints> get tokenFeeHints => parsedContent.tokenFeeHints;
+  EscrowFee get fee => parsedContent.fee;
   BigInt escrowFee(BigInt amount, {String tokenAddress = 'native'}) =>
       parsedContent.escrowFee(amount, tokenAddress: tokenAddress);
 
@@ -51,131 +51,194 @@ class EscrowService
         );
 }
 
-/// Per-token fee hints published by the escrow operator.
+/// Fee policy published by the escrow operator.
 ///
-/// All values are in the token's smallest unit. When absent, defaults to zero.
-class TokenFeeHints {
-  /// Flat base fee in the token's smallest unit (e.g. 500 sats for BTC,
-  /// 50000 micro-USDT for USDT). Added on top of [EscrowServiceContent.feePercent].
-  final int baseFee;
+/// Amount values are in the selected asset's smallest unit. Asset overrides are
+/// keyed by token contract address, or `native` for the chain's native asset.
+class EscrowFee {
+  static final BigInt _ppmDenominator = BigInt.from(1000000);
 
-  /// Maximum fee cap in the token's smallest unit. Zero means no cap.
-  final int maxFee;
+  /// Proportional fee in parts per million.
+  final int ppm;
 
-  /// Minimum fee floor in the token's smallest unit. Zero means no floor.
-  final int minFee;
+  /// Flat fee added after the proportional fee.
+  final BigInt base;
 
-  const TokenFeeHints({
-    this.baseFee = 0,
-    this.maxFee = 0,
-    this.minFee = 0,
+  /// Minimum fee floor. Zero means no floor.
+  final BigInt min;
+
+  /// Maximum fee cap. Zero means no cap.
+  final BigInt max;
+
+  /// Per-asset complete fee overrides.
+  final Map<String, EscrowFee> assetOverrides;
+
+  EscrowFee({
+    this.ppm = 0,
+    BigInt? base,
+    BigInt? min,
+    BigInt? max,
+    this.assetOverrides = const {},
+  })  : base = base ?? BigInt.zero,
+        min = min ?? BigInt.zero,
+        max = max ?? BigInt.zero;
+
+  EscrowFee forAsset(String asset) => assetOverrides[asset] ?? this;
+
+  BigInt calculate(BigInt amount) {
+    var value = (amount * BigInt.from(ppm)) ~/ _ppmDenominator + base;
+    if (min > BigInt.zero && value < min) {
+      value = min;
+    }
+    if (max > BigInt.zero && value > max) {
+      value = max;
+    }
+    return value;
+  }
+
+  Map<String, dynamic> toJson({bool includeAssetOverrides = true}) => {
+        'ppm': ppm,
+        'base': base.toString(),
+        'min': min.toString(),
+        'max': max.toString(),
+        if (includeAssetOverrides && assetOverrides.isNotEmpty)
+          'assetOverrides': assetOverrides.map(
+            (key, value) =>
+                MapEntry(key, value.toJson(includeAssetOverrides: false)),
+          ),
+      };
+
+  factory EscrowFee.fromJson(Map<String, dynamic> json) {
+    final rawOverrides = json['assetOverrides'];
+    final overrides = <String, EscrowFee>{};
+    if (rawOverrides is Map) {
+      for (final entry in rawOverrides.entries) {
+        final value = entry.value;
+        if (value is Map) {
+          overrides[entry.key.toString()] = EscrowFee.fromJson(
+            Map<String, dynamic>.from(value),
+          );
+        }
+      }
+    }
+
+    final ppm = (json['ppm'] as num?)?.toInt() ?? 0;
+    if (ppm < 0) {
+      throw FormatException('Invalid escrow fee "ppm": $ppm');
+    }
+
+    return EscrowFee(
+      ppm: ppm,
+      base: _amountFromJson(json['base'], 'base'),
+      min: _amountFromJson(json['min'], 'min'),
+      max: _amountFromJson(json['max'], 'max'),
+      assetOverrides: overrides,
+    );
+  }
+
+  static BigInt _amountFromJson(dynamic value, String field) {
+    if (value == null) return BigInt.zero;
+    if (value is BigInt) return value;
+    if (value is int) return BigInt.from(value);
+    if (value is num) return BigInt.from(value.toInt());
+    final parsed = BigInt.tryParse(value.toString());
+    if (parsed == null || parsed < BigInt.zero) {
+      throw FormatException('Invalid escrow fee "$field": $value');
+    }
+    return parsed;
+  }
+
+  static final zero = EscrowFee();
+}
+
+class EscrowServiceParams {
+  final String arbiterAddress;
+  final String contractAddress;
+  final String contractBytecodeHash;
+  final int chainId;
+
+  const EscrowServiceParams({
+    required this.arbiterAddress,
+    required this.contractAddress,
+    required this.contractBytecodeHash,
+    required this.chainId,
   });
 
   Map<String, dynamic> toJson() => {
-        'baseFee': baseFee,
-        'maxFee': maxFee,
-        'minFee': minFee,
+        'arbiterAddress': arbiterAddress,
+        'contractAddress': contractAddress,
+        'contractBytecodeHash': contractBytecodeHash,
+        'chainId': chainId,
       };
 
-  factory TokenFeeHints.fromJson(Map<String, dynamic> json) => TokenFeeHints(
-        baseFee: (json['baseFee'] as num?)?.toInt() ?? 0,
-        maxFee: (json['maxFee'] as num?)?.toInt() ?? 0,
-        minFee: (json['minFee'] as num?)?.toInt() ?? 0,
+  factory EscrowServiceParams.fromJson(Map<String, dynamic> json) =>
+      EscrowServiceParams(
+        arbiterAddress: json['arbiterAddress'],
+        contractAddress: json['contractAddress'],
+        contractBytecodeHash: json['contractBytecodeHash'],
+        chainId: json['chainId'],
       );
-
-  static const zero = TokenFeeHints();
 }
 
 class EscrowServiceContent extends EventContent {
   final String pubkey;
-  final String evmAddress;
-  final String contractAddress;
-  final String contractBytecodeHash;
-  final int chainId;
-  final Duration maxDuration;
   final EscrowType type;
+  final Duration maxDuration;
 
-  /// Proportional fee as a percentage of the escrow amount (e.g. 1.5 = 1.5%).
-  final double feePercent;
+  /// Fee policy for the escrow service.
+  final EscrowFee fee;
 
-  /// Optional per-token fee hints keyed by token address (or `'native'` for
-  /// the chain's native asset). When absent for a token, all hints default
-  /// to zero.
-  final Map<String, TokenFeeHints> tokenFeeHints;
+  /// Service-type specific parameters.
+  final EscrowServiceParams params;
+
+  String get arbiterAddress => params.arbiterAddress;
+  String get evmAddress => arbiterAddress;
+  String get contractAddress => params.contractAddress;
+  String get contractBytecodeHash => params.contractBytecodeHash;
+  int get chainId => params.chainId;
 
   /// Compute the escrow fee for a given [amount] in token smallest units.
   ///
-  /// Uses [feePercent] plus the per-token [baseFee] from [tokenFeeHints].
-  /// The result is clamped to [minFee, maxFee] when those hints are set.
-  ///
-  /// `fee = floor(amount × feePercent / 100) + baseFee`
+  /// `fee = clamp(floor(amount * ppm / 1,000,000) + base, min, max)`
   ///
   /// [tokenAddress] should be the ERC-20 contract address or `'native'`.
-  BigInt escrowFee(BigInt amount, {String tokenAddress = 'native'}) {
-    final hints = tokenFeeHints[tokenAddress] ?? TokenFeeHints.zero;
-    var fee = (amount * BigInt.from((feePercent * 100).round())) ~/
-            BigInt.from(10000) +
-        BigInt.from(hints.baseFee);
-    if (hints.minFee > 0 && fee < BigInt.from(hints.minFee)) {
-      fee = BigInt.from(hints.minFee);
-    }
-    if (hints.maxFee > 0 && fee > BigInt.from(hints.maxFee)) {
-      fee = BigInt.from(hints.maxFee);
-    }
-    return fee;
-  }
+  BigInt escrowFee(BigInt amount, {String tokenAddress = 'native'}) =>
+      fee.forAsset(tokenAddress).calculate(amount);
 
   EscrowServiceContent(
       {required this.pubkey,
-      required this.evmAddress,
-      required this.contractAddress,
-      required this.contractBytecodeHash,
-      required this.chainId,
-      required this.maxDuration,
       required this.type,
-      this.feePercent = 0,
-      this.tokenFeeHints = const {}});
+      required this.maxDuration,
+      EscrowFee? fee,
+      required this.params})
+      : fee = fee ?? EscrowFee.zero;
 
   @override
   Map<String, dynamic> toJson() {
     return {
       "pubkey": pubkey,
-      "evmAddress": evmAddress,
-      "contractAddress": contractAddress,
-      "contractBytecodeHash": contractBytecodeHash,
-      "chainId": chainId,
-      "maxDuration": maxDuration.inSeconds,
       "type": type.toString().split('.').last,
-      "feePercent": feePercent,
-      if (tokenFeeHints.isNotEmpty)
-        "tokenFeeHints": tokenFeeHints.map(
-          (k, v) => MapEntry(k, v.toJson()),
-        ),
+      "maxDuration": maxDuration.inSeconds,
+      "fee": fee.toJson(),
+      "params": params.toJson(),
     };
   }
 
   static EscrowServiceContent fromJson(Map<String, dynamic> json) {
-    final rawHints = json["tokenFeeHints"] as Map<String, dynamic>?;
-    final hints = <String, TokenFeeHints>{};
-    if (rawHints != null) {
-      for (final entry in rawHints.entries) {
-        hints[entry.key] = TokenFeeHints.fromJson(
-          Map<String, dynamic>.from(entry.value as Map),
-        );
-      }
-    }
+    final rawFee = json["fee"];
+    final rawParams = json["params"] as Map;
 
     return EscrowServiceContent(
       pubkey: json["pubkey"],
-      evmAddress: json["evmAddress"],
-      contractAddress: json["contractAddress"],
-      contractBytecodeHash: json["contractBytecodeHash"],
-      chainId: json["chainId"],
-      maxDuration: Duration(seconds: json["maxDuration"]),
       type: EscrowType.values
           .firstWhere((e) => e.toString() == 'EscrowType.${json["type"]}'),
-      feePercent: (json["feePercent"] as num?)?.toDouble() ?? 0,
-      tokenFeeHints: hints,
+      maxDuration: Duration(seconds: json["maxDuration"]),
+      fee: rawFee is Map
+          ? EscrowFee.fromJson(Map<String, dynamic>.from(rawFee))
+          : EscrowFee.zero,
+      params: EscrowServiceParams.fromJson(
+        Map<String, dynamic>.from(rawParams),
+      ),
     );
   }
 }

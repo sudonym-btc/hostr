@@ -594,18 +594,19 @@ class EscrowDaemon {
       ]),
       content: EscrowServiceContent(
         pubkey: pubKey,
-        evmAddress: evmKey.address.eip55With0x,
-        contractAddress: contractAddress,
-        contractBytecodeHash:
-            await SupportedEscrowContractRegistry.bytecodeHashForAddress(
-              chain,
-              EthereumAddress.fromHex(contractAddress),
-            ),
-        chainId: chain.config.chainId,
-        maxDuration: existingService?.maxDuration ?? config.maxDuration,
         type: EscrowType.EVM,
-        feePercent: existingService?.feePercent ?? config.feePercent,
-        tokenFeeHints: existingService?.tokenFeeHints ?? const {},
+        maxDuration: existingService?.maxDuration ?? config.maxDuration,
+        fee: existingService?.fee ?? config.fee,
+        params: EscrowServiceParams(
+          arbiterAddress: evmKey.address.eip55With0x,
+          contractAddress: contractAddress,
+          contractBytecodeHash:
+              await SupportedEscrowContractRegistry.bytecodeHashForAddress(
+                chain,
+                EthereumAddress.fromHex(contractAddress),
+              ),
+          chainId: chain.config.chainId,
+        ),
       ),
     );
 

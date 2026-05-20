@@ -51,6 +51,7 @@ class HostrListingsSearchInput {
     this.location,
     this.query,
     this.type,
+    this.rentOrBuy,
     this.guests,
     this.features = const [],
     this.limit = 10,
@@ -59,15 +60,18 @@ class HostrListingsSearchInput {
   final String? location;
   final String? query;
   final String? type;
+  final String? rentOrBuy;
   final int? guests;
   final List<String> features;
   final int limit;
 
   factory HostrListingsSearchInput.fromJson(Map<String, dynamic> json) {
+    final rentOrBuy = _optionalString(json['rentOrBuy']);
     return HostrListingsSearchInput(
       location: _optionalString(json['location']),
       query: _optionalString(json['query']),
       type: _optionalString(json['type']),
+      rentOrBuy: rentOrBuy?.toLowerCase(),
       guests: _optionalInt(json['guests']),
       features: _optionalStringList(json['features']),
       limit: (_optionalInt(json['limit']) ?? 10).clamp(1, 50).toInt(),
@@ -78,6 +82,7 @@ class HostrListingsSearchInput {
     if (location != null) 'location': location,
     if (query != null) 'query': query,
     if (type != null) 'type': type,
+    if (rentOrBuy != null) 'rentOrBuy': rentOrBuy,
     if (guests != null) 'guests': guests,
     if (features.isNotEmpty) 'features': features,
     'limit': limit,
@@ -922,22 +927,34 @@ class HostrEscrowServiceGetInput {
   }
 }
 
-class HostrTokenFeeHintsInput {
-  const HostrTokenFeeHintsInput({
-    this.baseFee = 0,
-    this.maxFee = 0,
-    this.minFee = 0,
-  });
+class HostrEscrowFeeInput {
+  HostrEscrowFeeInput({
+    this.ppm = 0,
+    BigInt? base,
+    BigInt? min,
+    BigInt? max,
+    this.assetOverrides = const {},
+  }) : base = base ?? BigInt.zero,
+       min = min ?? BigInt.zero,
+       max = max ?? BigInt.zero;
 
-  final int baseFee;
-  final int maxFee;
-  final int minFee;
+  final int ppm;
+  final BigInt base;
+  final BigInt min;
+  final BigInt max;
+  final Map<String, HostrEscrowFeeInput> assetOverrides;
 
-  factory HostrTokenFeeHintsInput.fromJson(Map<String, dynamic> json) {
-    return HostrTokenFeeHintsInput(
-      baseFee: (_optionalInt(json['baseFee']) ?? 0).clamp(0, 1 << 62).toInt(),
-      maxFee: (_optionalInt(json['maxFee']) ?? 0).clamp(0, 1 << 62).toInt(),
-      minFee: (_optionalInt(json['minFee']) ?? 0).clamp(0, 1 << 62).toInt(),
+  factory HostrEscrowFeeInput.fromJson(Map<String, dynamic> json) {
+    final ppm = _optionalInt(json['ppm']) ?? 0;
+    if (ppm < 0) {
+      throw const FormatException('Expected "fee.ppm" to be non-negative.');
+    }
+    return HostrEscrowFeeInput(
+      ppm: ppm,
+      base: _optionalBigInt(json['base'], 'fee.base') ?? BigInt.zero,
+      min: _optionalBigInt(json['min'], 'fee.min') ?? BigInt.zero,
+      max: _optionalBigInt(json['max'], 'fee.max') ?? BigInt.zero,
+      assetOverrides: _optionalEscrowFeeOverrides(json['assetOverrides']),
     );
   }
 }
@@ -945,29 +962,23 @@ class HostrTokenFeeHintsInput {
 class HostrEscrowServiceUpdateInput {
   const HostrEscrowServiceUpdateInput({
     this.serviceId,
-    this.feePercent,
+    this.fee,
     this.maxDurationSeconds,
-    this.tokenFeeHints,
-    this.clearTokenFeeHints = false,
     this.dryRun = true,
   });
 
   final String? serviceId;
-  final double? feePercent;
+  final HostrEscrowFeeInput? fee;
   final int? maxDurationSeconds;
-  final Map<String, HostrTokenFeeHintsInput>? tokenFeeHints;
-  final bool clearTokenFeeHints;
   final bool dryRun;
 
   factory HostrEscrowServiceUpdateInput.fromJson(Map<String, dynamic> json) {
     return HostrEscrowServiceUpdateInput(
       serviceId: _optionalString(json['serviceId']),
-      feePercent: _optionalPercent(json['feePercent'], 'feePercent'),
+      fee: _optionalEscrowFee(json['fee']),
       maxDurationSeconds: _optionalInt(
         json['maxDurationSeconds'],
       )?.clamp(1, 315360000).toInt(),
-      tokenFeeHints: _optionalTokenFeeHints(json['tokenFeeHints']),
-      clearTokenFeeHints: _optionalBool(json['clearTokenFeeHints']) ?? false,
       dryRun: _optionalBool(json['dryRun']) ?? true,
     );
   }
@@ -1263,7 +1274,7 @@ class HostrActionSpec {
       case 'hostr.escrow.service.get':
         return 'Escrow-operator detail view: inspect one escrow service event before explaining or editing settings. Use serviceId from hostr_escrow_service_list or user input.';
       case 'hostr.escrow.service.edit':
-        return 'Escrow-operator settings workflow: preview changes to fee percent, maximum duration, or token fee hints. Keep dryRun=true until the user approves the exact preview. Use hostr_profile_edit for public profile/identity metadata; this tool only changes escrow service parameters.';
+        return 'Escrow-operator settings workflow: preview changes to fee policy or maximum duration. Keep dryRun=true until the user approves the exact preview. Use hostr_profile_edit for public profile/identity metadata; this tool only changes escrow service parameters.';
       case 'hostr.escrow.service.delete':
         return 'Escrow-operator destructive workflow: preview deletion of a public escrow service event and require explicit deletion approval before dryRun=false. Include the reason when the user gives one.';
       case 'hostr.escrow.trades.list':
@@ -1493,6 +1504,12 @@ export interface HostrSessionConnectInput {
           'description':
               'Hostr listing type, for example room, house, apartment, cabin, or villa.',
         },
+        'rentOrBuy': {
+          'type': 'string',
+          'enum': ['rent', 'buy'],
+          'description':
+              'Filter by listing market mode. Use rent for listings with recurring prices and buy for fixed-price listings.',
+        },
         'guests': {
           'type': 'integer',
           'minimum': 1,
@@ -1520,6 +1537,8 @@ export interface HostrListingsSearchInput {
   query?: string;
   /** Hostr listing type, for example room, house, apartment, cabin, or villa. */
   type?: string;
+  /** Filter by listing market mode. Use rent for listings with recurring prices and buy for fixed-price listings. */
+  rentOrBuy?: "rent" | "buy";
   /** Minimum guest capacity. */
   guests?: number;
   /** Required canonical boolean listing specification keys. Use wireless_internet for Wi-Fi/wifi/WIFI. Examples: wireless_internet, kitchen, pool, free_parking, allows_pets, beachfront. */
@@ -2880,12 +2899,30 @@ export interface HostrEscrowServiceGetInput {
           'description':
               'Optional escrow service event id to edit. Omit to edit the daemon bootstrap service.',
         },
-        'feePercent': {
-          'type': 'number',
-          'minimum': 0,
-          'maximum': 100,
+        'fee': {
+          'type': 'object',
           'description':
-              'Proportional escrow fee as a percent, e.g. 1.5 for 1.5%.',
+              'Full replacement escrow fee policy. ppm is parts per million; base, min, and max are asset smallest-unit strings. assetOverrides is keyed by token contract address or "native".',
+          'additionalProperties': false,
+          'properties': {
+            'ppm': {'type': 'integer', 'minimum': 0},
+            'base': {'type': 'string'},
+            'min': {'type': 'string'},
+            'max': {'type': 'string'},
+            'assetOverrides': {
+              'type': 'object',
+              'additionalProperties': {
+                'type': 'object',
+                'additionalProperties': false,
+                'properties': {
+                  'ppm': {'type': 'integer', 'minimum': 0},
+                  'base': {'type': 'string'},
+                  'min': {'type': 'string'},
+                  'max': {'type': 'string'},
+                },
+              },
+            },
+          },
         },
         'maxDurationSeconds': {
           'type': 'integer',
@@ -2894,50 +2931,30 @@ export interface HostrEscrowServiceGetInput {
           'description':
               'Maximum supported escrow duration in seconds. Omit to preserve the current value.',
         },
-        'tokenFeeHints': {
-          'type': 'object',
-          'description':
-              'Optional full replacement map keyed by token address, or "native". Values are smallest-unit fee hints.',
-          'additionalProperties': {
-            'type': 'object',
-            'additionalProperties': false,
-            'properties': {
-              'baseFee': {'type': 'integer', 'minimum': 0},
-              'maxFee': {'type': 'integer', 'minimum': 0},
-              'minFee': {'type': 'integer', 'minimum': 0},
-            },
-          },
-        },
-        'clearTokenFeeHints': {
-          'type': 'boolean',
-          'default': false,
-          'description':
-              'Clear all per-token fee hints. Ignored if tokenFeeHints is provided.',
-        },
         'dryRun': {'type': 'boolean', 'default': true},
       },
     },
     typescriptInput: '''
-export interface HostrTokenFeeHintsInput {
-  /** Flat base fee in token smallest units. */
-  baseFee?: number;
-  /** Maximum fee cap in token smallest units. Zero means no cap. */
-  maxFee?: number;
-  /** Minimum fee floor in token smallest units. Zero means no floor. */
-  minFee?: number;
+export interface HostrEscrowFeeInput {
+  /** Proportional fee in parts per million. */
+  ppm?: number;
+  /** Flat base fee in the asset smallest unit. */
+  base?: string;
+  /** Minimum fee in the asset smallest unit. Zero means no floor. */
+  min?: string;
+  /** Maximum fee in the asset smallest unit. Zero means no cap. */
+  max?: string;
+  /** Full fee overrides keyed by token contract address, or "native". */
+  assetOverrides?: Record<string, HostrEscrowFeeInput>;
 }
 
 export interface HostrEscrowServiceUpdateInput {
   /** Optional escrow service event id to edit. Omit to edit the daemon bootstrap service. */
   serviceId?: string;
-  /** Proportional escrow fee as a percent, e.g. 1.5 for 1.5%. */
-  feePercent?: number;
+  /** Full replacement escrow fee policy. */
+  fee?: HostrEscrowFeeInput;
   /** Maximum supported escrow duration in seconds. */
   maxDurationSeconds?: number;
-  /** Full replacement map keyed by token address, or "native". */
-  tokenFeeHints?: Record<string, HostrTokenFeeHintsInput>;
-  /** Clear all per-token fee hints. Ignored if tokenFeeHints is provided. */
-  clearTokenFeeHints?: boolean;
   /** Defaults to true. Set false only after explicit approval. */
   dryRun?: boolean;
 }
@@ -3547,33 +3564,51 @@ double _requiredRatio(dynamic value, String key) {
   return parsed;
 }
 
-double? _optionalPercent(dynamic value, String key) {
-  if (value == null) return null;
-  final parsed = value is num ? value.toDouble() : double.tryParse('$value');
-  if (parsed == null || parsed < 0 || parsed > 100) {
-    throw FormatException('Expected "$key" to be a number from 0 to 100.');
-  }
-  return parsed;
-}
-
-Map<String, HostrTokenFeeHintsInput>? _optionalTokenFeeHints(dynamic value) {
+HostrEscrowFeeInput? _optionalEscrowFee(dynamic value) {
   if (value == null) return null;
   if (value is! Map) {
-    throw const FormatException('Expected "tokenFeeHints" to be an object.');
+    throw const FormatException('Expected "fee" to be an object.');
   }
-  final hints = <String, HostrTokenFeeHintsInput>{};
+  return HostrEscrowFeeInput.fromJson(Map<String, dynamic>.from(value));
+}
+
+Map<String, HostrEscrowFeeInput> _optionalEscrowFeeOverrides(dynamic value) {
+  if (value == null) return const {};
+  if (value is! Map) {
+    throw const FormatException(
+      'Expected "fee.assetOverrides" to be an object.',
+    );
+  }
+  final overrides = <String, HostrEscrowFeeInput>{};
   for (final entry in value.entries) {
     final key = entry.key.toString().trim();
     if (key.isEmpty) continue;
     final raw = entry.value;
     if (raw is! Map) {
-      throw FormatException('Expected tokenFeeHints["$key"] to be an object.');
+      throw FormatException(
+        'Expected fee.assetOverrides["$key"] to be an object.',
+      );
     }
-    hints[key] = HostrTokenFeeHintsInput.fromJson(
+    overrides[key] = HostrEscrowFeeInput.fromJson(
       Map<String, dynamic>.from(raw),
     );
   }
-  return hints;
+  return overrides;
+}
+
+BigInt? _optionalBigInt(dynamic value, String key) {
+  if (value == null) return null;
+  final parsed = value is BigInt
+      ? value
+      : value is int
+      ? BigInt.from(value)
+      : value is num
+      ? BigInt.from(value.toInt())
+      : BigInt.tryParse(value.toString());
+  if (parsed == null || parsed < BigInt.zero) {
+    throw FormatException('Expected "$key" to be a non-negative integer.');
+  }
+  return parsed;
 }
 
 List<String> _optionalStringList(dynamic value) {

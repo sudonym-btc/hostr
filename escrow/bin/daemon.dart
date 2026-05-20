@@ -7,6 +7,7 @@ import 'package:escrow/injection.dart';
 import 'package:escrow/shared/socket_config.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
+import 'package:models/main.dart' show EscrowFee;
 import 'package:models/stubs/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
@@ -82,7 +83,7 @@ void main(List<String> arguments) async {
 
   final daemon = hostr.escrowDaemon;
   await daemon.bootstrap(EscrowDaemonConfig(
-    feePercent: 1,
+    fee: EscrowFee(ppm: 10000),
     maxDuration: const Duration(days: 365),
     chainIndex: chainIndex,
   ));

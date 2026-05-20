@@ -1600,16 +1600,16 @@ class EntityFactory {
     required Listing listing,
     required String txHash,
     required EscrowService escrowService,
-    required EscrowMethod hostsEscrowMethod,
+    required EscrowMethod sellerEscrowMethod,
   }) {
     return PaymentProof(
       hoster: hostProfile,
       listing: listing,
       zapProof: null,
       escrowProof: EscrowProof(
-        txHash: txHash,
         escrowService: escrowService,
-        hostsEscrowMethods: hostsEscrowMethod,
+        sellerEscrowMethods: sellerEscrowMethod,
+        params: EvmEscrowProofParams(txHash: txHash),
       ),
     );
   }

@@ -245,10 +245,12 @@ class SeedFactory {
         listing: thread.listing,
         zapProof: null,
         escrowProof: EscrowProof(
-          txHash:
-              '0x${List.generate(64, (i) => ((thread.id.codeUnitAt(i % thread.id.length) + i) % 16).toRadixString(16)).join()}',
           escrowService: escrowService,
-          hostsEscrowMethods: escrowMethod,
+          sellerEscrowMethods: escrowMethod,
+          params: EvmEscrowProofParams(
+            txHash:
+                '0x${List.generate(64, (i) => ((thread.id.codeUnitAt(i % thread.id.length) + i) % 16).toRadixString(16)).join()}',
+          ),
         ),
       );
     } else {

@@ -363,9 +363,9 @@ PaymentProof _buildEscrowPaymentProof({required Listing listing}) {
     listing: listing,
     zapProof: null,
     escrowProof: EscrowProof(
-      txHash: '0xabc123',
       escrowService: escrowService,
-      hostsEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
+      sellerEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
+      params: EvmEscrowProofParams(txHash: '0xabc123'),
     ),
   );
 }
