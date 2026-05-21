@@ -32,7 +32,7 @@ services:
       - acme-html:/usr/share/nginx/html
 
   relay:
-    image: ${DOCKER_REGISTRY}/relay:64cfcaf
+    image: ${DOCKER_REGISTRY}/relay:${RELAY_IMAGE_TAG:-520d4c0}
     build: !reset null
     environment:
       - LETSENCRYPT_HOST=relay.${DOMAIN}
