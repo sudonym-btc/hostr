@@ -98,6 +98,7 @@ Future<List<EscrowMethod>> buildEscrowMethods({
   required int chainId,
   String? tbtcAddress,
   String? usdtAddress,
+  int? createdAt,
   EntityFactory? factory,
 }) async {
   final f = factory ?? EntityFactory(ctx: ctx);
@@ -110,7 +111,7 @@ Future<List<EscrowMethod>> buildEscrowMethods({
         chainId: chainId,
         tbtcAddress: tbtcAddress,
         usdtAddress: usdtAddress,
-        createdAt: ctx.baseDate.millisecondsSinceEpoch ~/ 1000,
+        createdAt: createdAt ?? ctx.baseDate.millisecondsSinceEpoch ~/ 1000,
       ),
     );
   }

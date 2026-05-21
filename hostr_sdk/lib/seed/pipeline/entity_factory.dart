@@ -1015,6 +1015,8 @@ class EntityFactory {
     String? usdtAddress,
     int? createdAt,
   }) async {
+    const appId = 'hostr';
+
     // Rootstock chains use native RBTC as the BTC settlement token.
     // All other chains (Arbitrum, etc.) use a wrapped ERC-20 like tBTC.
     final isRootstock = ChainIds.values
@@ -1026,6 +1028,7 @@ class EntityFactory {
         AcceptedPaymentForm(
           denomination: 'BTC',
           tokenTagId: Token.native(chainId).tagId,
+          appId: appId,
         ),
       if (tbtcAddress != null && tbtcAddress.isNotEmpty)
         AcceptedPaymentForm(
@@ -1035,6 +1038,7 @@ class EntityFactory {
             address: tbtcAddress,
             decimals: 0,
           ).tagId,
+          appId: appId,
         ),
       if (usdtAddress != null && usdtAddress.isNotEmpty)
         AcceptedPaymentForm(
@@ -1044,6 +1048,7 @@ class EntityFactory {
             address: usdtAddress,
             decimals: 0,
           ).tagId,
+          appId: appId,
         ),
     ];
 

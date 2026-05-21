@@ -8,6 +8,7 @@ import 'seed_context.dart';
 import 'seed_pipeline_config.dart';
 import 'seed_pipeline_models.dart';
 import 'stages/build_badges.dart' as stage_badges;
+import 'stages/build_account_seeds.dart' as stage_account_seeds;
 import 'stages/build_listings.dart' as stage_listings;
 import 'stages/build_messages.dart' as stage_messages;
 import 'stages/build_profiles.dart' as stage_profiles;
@@ -67,6 +68,15 @@ class SeedFactory {
   Future<List<ProfileMetadata>> buildProfiles(List<SeedUser> users) =>
       stage_profiles.buildProfiles(ctx: _ctx, users: users, factory: _entities);
 
+  Future<List<Nip01Event>> buildAccountSeeds(
+    List<SeedUser> users, {
+    int? createdAt,
+  }) => stage_account_seeds.buildAccountSeeds(
+    ctx: _ctx,
+    users: users,
+    createdAt: createdAt,
+  );
+
   Future<List<IdentityClaims>> buildIdentityClaims(List<SeedUser> users) =>
       stage_profiles.buildIdentityClaims(
         ctx: _ctx,
@@ -90,16 +100,19 @@ class SeedFactory {
     factory: _entities,
   );
 
-  Future<List<EscrowMethod>> buildEscrowMethods(List<SeedUser> users) =>
-      stage_profiles.buildEscrowMethods(
-        ctx: _ctx,
-        users: users,
-        multiEscrowBytecodeHash: config.multiEscrowBytecodeHash,
-        chainId: config.chainId,
-        tbtcAddress: config.tbtcAddress,
-        usdtAddress: config.usdtAddress,
-        factory: _entities,
-      );
+  Future<List<EscrowMethod>> buildEscrowMethods(
+    List<SeedUser> users, {
+    int? createdAt,
+  }) => stage_profiles.buildEscrowMethods(
+    ctx: _ctx,
+    users: users,
+    multiEscrowBytecodeHash: config.multiEscrowBytecodeHash,
+    chainId: config.chainId,
+    tbtcAddress: config.tbtcAddress,
+    usdtAddress: config.usdtAddress,
+    createdAt: createdAt,
+    factory: _entities,
+  );
 
   List<Listing> buildListings(List<SeedUser> hosts) =>
       stage_listings.buildListings(
@@ -179,6 +192,7 @@ class SeedFactory {
       ...await buildProfiles(users),
       await buildEscrowProfile(),
     ];
+    final accountSeeds = await buildAccountSeeds(users);
     final identityClaims = [
       ...await buildIdentityClaims(users),
       await buildEscrowIdentityClaims(),
@@ -205,6 +219,7 @@ class SeedFactory {
     return SeedPipelineData(
       users: users,
       profiles: profiles,
+      accountSeeds: accountSeeds,
       identityClaims: identityClaims,
       listings: listings,
       escrowServices: escrowServices,

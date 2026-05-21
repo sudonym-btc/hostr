@@ -102,6 +102,17 @@ void main() {
     await _resetSession(hostr);
   });
 
+  test('fixture host escrow method trusts the published escrow service', () {
+    expect(
+      fixture.hostEscrowMethod.trustedEscrowPubkeys,
+      contains(fixture.escrowService.pubKey),
+    );
+    expect(
+      fixture.hostEscrowMethod.supportedContractBytecodeHashes,
+      contains(fixture.escrowService.contractBytecodeHash),
+    );
+  });
+
   for (final loginMode in _PaymentProofLoginMode.values) {
     for (final testCase in _PaymentProofCase.values) {
       test(

@@ -118,6 +118,7 @@ class SeedOutcomePlan {
 class SeedPipelineData {
   final List<SeedUser> users;
   final List<ProfileMetadata> profiles;
+  final List<Nip01Event> accountSeeds;
   final List<IdentityClaims> identityClaims;
   final List<Listing> listings;
   final List<EscrowService> escrowServices;
@@ -135,6 +136,7 @@ class SeedPipelineData {
   const SeedPipelineData({
     required this.users,
     required this.profiles,
+    required this.accountSeeds,
     required this.identityClaims,
     required this.listings,
     required this.escrowServices,
@@ -152,6 +154,7 @@ class SeedPipelineData {
 
   List<Nip01Event> get allEvents => [
     ...profiles,
+    ...accountSeeds,
     ...identityClaims,
     ...escrowServices,
     ...escrowMethods,
@@ -196,6 +199,7 @@ class SeedPipelineData {
       hosts: hosts,
       guests: users.length - hosts,
       profiles: profiles.length,
+      accountSeeds: accountSeeds.length,
       listings: listings.length,
       threads: threads.length,
       pendingThreads: pendingThreads,
@@ -225,6 +229,7 @@ class SeedSummary {
   final int hosts;
   final int guests;
   final int profiles;
+  final int accountSeeds;
   final int listings;
   final int threads;
   final int pendingThreads;
@@ -249,6 +254,7 @@ class SeedSummary {
     required this.hosts,
     required this.guests,
     required this.profiles,
+    required this.accountSeeds,
     required this.listings,
     required this.threads,
     required this.pendingThreads,
@@ -274,6 +280,7 @@ class SeedSummary {
     'hosts': hosts,
     'guests': guests,
     'profiles': profiles,
+    'accountSeeds': accountSeeds,
     'listings': listings,
     'threads': threads,
     'pendingThreads': pendingThreads,
