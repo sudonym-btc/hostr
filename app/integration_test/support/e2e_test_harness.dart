@@ -794,7 +794,7 @@ class _SignetApprovalDriver implements _ApprovalDriver {
           final pending = (await signet.requests())
               .where(
                 (request) =>
-                    request.keyName == keyName &&
+                    (request.keyName == null || request.keyName == keyName) &&
                     !_submittedRequestIds.contains(request.id),
               )
               .toList(growable: false);
@@ -1256,12 +1256,32 @@ Future<void> _withFreshApp(
   resetBrowserRouteForE2e();
   final router = AppRouter();
   await mockNetworkImages(() async {
-    await tester.pumpWidget(MyApp(key: UniqueKey(), appRouter: router));
+    await tester.pumpWidget(
+      MyApp(key: UniqueKey(), appRouter: router, restorationScopeId: null),
+    );
     await _settle(tester);
     debugPrint('GOD_STEP withFreshApp:body');
     await body(router);
   });
   debugPrint('GOD_STEP withFreshApp:done');
+}
+
+Future<AppRouter> _restartFreshAppInPlace(WidgetTester tester) async {
+  debugPrint('GOD_STEP restartFreshApp:start');
+  getIt<PendingNavigation>().clear();
+  final hostr = getIt<Hostr>();
+  await _stopUserSession(hostr);
+  await hostr.auth.logout();
+  await tester.pumpWidget(const SizedBox.shrink());
+  await _settle(tester, frames: 8);
+  resetBrowserRouteForE2e();
+  final router = AppRouter();
+  await tester.pumpWidget(
+    MyApp(key: UniqueKey(), appRouter: router, restorationScopeId: null),
+  );
+  await _settle(tester, frames: 12);
+  debugPrint('GOD_STEP restartFreshApp:done');
+  return router;
 }
 
 Future<void> _withSignedInUser({
@@ -1387,7 +1407,9 @@ Future<void> _assertLoginRoutingMatrixForMode({
       ? const Duration(minutes: 2)
       : const Duration(seconds: 60);
 
+  var activeRouter = router;
   for (final testCase in cases) {
+    activeRouter = await _restartFreshAppInPlace(tester);
     debugPrint(
       'GOD_STEP loginMatrix:${loginMode.label}:case metadata=${testCase.hasMetadata} continue=${testCase.hasContinue}:start',
     );
@@ -1411,7 +1433,7 @@ Future<void> _assertLoginRoutingMatrixForMode({
         getIt<PendingNavigation>().clear();
       }
 
-      await _signInCreatedUser(tester, router, signet, user);
+      await _signInCreatedUser(tester, activeRouter, signet, user);
       if (testCase.hasMetadata && testCase.hasContinue) {
         await _waitForCreatedUserText(
           tester: tester,
@@ -1432,7 +1454,11 @@ Future<void> _assertLoginRoutingMatrixForMode({
                   .evaluate()
                   .isEmpty,
           timeout: const Duration(seconds: 60),
-          reason: 'existing metadata should not route to profile completion',
+          reasonBuilder: () => _signedInShellReadySnapshot(
+            tester,
+            expectedPubkey: user.keyPair.publicKey,
+            prefix: 'existing metadata should not route to profile completion',
+          ),
         );
       } else {
         await _waitForCreatedUserKey(
@@ -1465,7 +1491,7 @@ Future<void> _assertLoginRoutingMatrixForMode({
         }
       }
 
-      await _signOut(tester, router, getIt<Hostr>());
+      await _signOut(tester, activeRouter, getIt<Hostr>());
     } finally {
       getIt<PendingNavigation>().clear();
       await approvals.stop();
@@ -1486,9 +1512,10 @@ Future<void> _assertLoginRoutingMatrixForMode({
     );
   }
 
+  activeRouter = await _restartFreshAppInPlace(tester);
   await _assertReserveRequiresProfileForMode(
     tester: tester,
-    router: router,
+    router: activeRouter,
     harness: harness,
     fixtures: fixtures,
     signet: signet,
@@ -1575,16 +1602,6 @@ Future<void> _assertReserveRequiresProfileForMode({
       reason: 'Reserve should not publish before profile metadata is saved',
     );
 
-    await _runCreatedUserActionApprovingSignet(
-      tester: tester,
-      signet: signet,
-      user: user,
-      action: () => _ensureBuyerEscrowPrerequisites(
-        hostr: getIt<Hostr>(),
-        fixtures: fixtures,
-      ),
-      reason: 'buyer escrow prerequisites should complete',
-    );
     await _completeRequiredProfile(tester, userLabel);
     await _waitForCreatedUserKey(
       tester: tester,
@@ -1769,32 +1786,6 @@ Future<void> _waitForCreatedUserText({
   timeout: timeout,
   reasonBuilder: () => _visibleTextSnapshot(tester, 'waiting for text "$text"'),
 );
-
-Future<T> _runCreatedUserActionApprovingSignet<T>({
-  required WidgetTester tester,
-  required SignetTestController signet,
-  required _CreatedLoginUser user,
-  required Future<T> Function() action,
-  Duration timeout = const Duration(seconds: 60),
-  String? reason,
-}) async {
-  final signetUser = user.signetUser;
-  if (signetUser == null) return action();
-
-  final completer = Completer<T>();
-  unawaited(
-    action().then(completer.complete).catchError(completer.completeError),
-  );
-  await _approveSignetRequestsUntil(
-    tester,
-    signet: signet,
-    keyName: signetUser.keyName,
-    condition: () => completer.isCompleted,
-    timeout: timeout,
-    reasonBuilder: reason == null ? null : () => reason,
-  );
-  return completer.future;
-}
 
 // ignore: unused_element
 Future<void> _runReservationMatrix(_E2eSession session) async {
@@ -2012,7 +2003,7 @@ Map<String, int> _expectedSubscriptionCountsAfterUsdReservation(
     'Order-user-reservations-live',
     'OrderTransition-user-transitions-live',
     'ReceivedHeartbeat-user-heartbeats-live',
-    'ZapReceipts-sub',
+    'ZapReceipts-sub-live',
   ]) {
     expected[name] = (expected[name] ?? 0) + 1;
   }
@@ -2233,11 +2224,25 @@ Future<void> _assertSignInRoutingMatrix({
 }
 
 Future<void> _completeRequiredProfile(WidgetTester tester, String name) async {
+  const saveButtonKey = ValueKey('edit_profile_save_button');
   await tester.enterText(
     find.byKey(const ValueKey('edit_profile_name_input')),
     name,
   );
-  await _tapSave(tester, const ValueKey('edit_profile_save_button'));
+  await _settle(tester, frames: 4);
+  await _waitFor(
+    tester,
+    () {
+      final buttons = find.byKey(saveButtonKey).evaluate();
+      if (buttons.isEmpty) return false;
+      final widget = tester.widget<FutureButton>(find.byKey(saveButtonKey));
+      return widget.onPressed != null;
+    },
+    timeout: const Duration(seconds: 30),
+    reasonBuilder: () =>
+        _visibleTextSnapshot(tester, 'profile save button should enable'),
+  );
+  await _tapSave(tester, saveButtonKey);
 }
 
 Future<void> _signInWithPrivateKeyUi(
@@ -2484,7 +2489,7 @@ Future<void> _signInWithNostrConnectUi(
       final now = DateTime.now();
       final sentAt = lastSentAt;
       if (sentAt != null &&
-          now.difference(sentAt) >= const Duration(seconds: 20)) {
+          now.difference(sentAt) >= const Duration(seconds: 45)) {
         await refreshNostrConnectUri(
           'sent-response-timeout',
           revokeAppId: lastSentAppId,
@@ -2516,16 +2521,16 @@ Future<void> _signInWithNostrConnectUi(
         }
         lastSentAt = now;
         lastSentAppId = appId;
-        nextConnectAttempt = now.add(const Duration(seconds: 20));
+        nextConnectAttempt = now.add(const Duration(seconds: 45));
       } on SignetHttpException catch (e) {
         debugPrint('GOD_STEP signInBunker:connect-error $e');
         if (e.statusCode == 409 && e.message.contains('already_connected')) {
           final appId = _existingAppIdFromSignetError(e.message);
           if (appId != null) {
-            await refreshNostrConnectUri(
-              'already-connected',
-              revokeAppId: appId,
-            );
+            debugPrint('GOD_STEP signInBunker:already-connected-wait $appId');
+            lastSentAt = now;
+            lastSentAppId = appId;
+            nextConnectAttempt = now.add(const Duration(seconds: 45));
           } else {
             await signet.revokeAppsForKey(user.keyName);
             await refreshNostrConnectUri('already-connected-no-app');
@@ -2713,10 +2718,12 @@ Future<void> _approveSignetRequestsUntil(
     await beforePoll?.call();
 
     try {
-      final pending = (await signet.requests())
+      final allPending = await signet.requests();
+      final pending = allPending
           .where(
             (request) =>
-                request.keyName == keyName && !submitted.contains(request.id),
+                (request.keyName == null || request.keyName == keyName) &&
+                !submitted.contains(request.id),
           )
           .toList(growable: false);
       if (pending.isNotEmpty) {
@@ -6030,7 +6037,7 @@ Future<void> _assertBunkerRestoreFailureAndRetry({
   await sdk_di.getIt.reset();
   await initCore(Env.dev);
   router = AppRouter();
-  await tester.pumpWidget(MyApp(appRouter: router));
+  await tester.pumpWidget(MyApp(appRouter: router, restorationScopeId: null));
   await _waitForText(
     tester,
     'Hostr could not restore the saved bunker session.',

@@ -22,7 +22,9 @@ import 'package:workmanager/workmanager.dart';
 /// The Widget that configures your application.
 class MyApp extends StatefulWidget {
   final AppRouter? appRouter;
-  const MyApp({super.key, this.appRouter});
+  final String? restorationScopeId;
+
+  const MyApp({super.key, this.appRouter, this.restorationScopeId = 'app'});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -124,7 +126,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // MaterialApp to restore the navigation stack when a user leaves and
       // returns to the app after it has been killed while running in the
       // background.
-      restorationScopeId: 'app',
+      restorationScopeId: widget.restorationScopeId,
 
       // Provide the generated AppLocalizations to the MaterialApp. This
       // allows descendant Widgets to display the correct translations
