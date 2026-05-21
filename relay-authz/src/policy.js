@@ -91,7 +91,9 @@ export function decideEventAdmission(request, options = {}) {
       return deny('event pubkey is missing');
     }
     if (authPubkey !== eventPubkey) {
-      return deny('NIP-42 authenticated pubkey must match event author');
+      return deny(
+        'auth-required: NIP-42 authenticated pubkey must match event author',
+      );
     }
   }
 
