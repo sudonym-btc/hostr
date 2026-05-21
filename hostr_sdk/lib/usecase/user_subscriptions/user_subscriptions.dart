@@ -26,7 +26,7 @@ import '../zaps/zaps.dart';
 /// User-scoped subscription manager.
 ///
 /// Instead of opening N × 5 Nostr subscriptions (one set per trade thread),
-/// this singleton maintains a **constant 5** long-lived subscriptions that
+/// this singleton maintains a bounded set of long-lived subscriptions that
 /// cover all trades the user is involved in.
 ///
 /// [Trade] becomes a lightweight filter/view layer that simply
@@ -45,6 +45,7 @@ import '../zaps/zaps.dart';
 /// |---|---|---|
 /// | [allMyOrders$] | `kinds=[32122], #d=[known tradeIds]` | Yes |
 /// | [allTransitions$]    | order transitions, `#d=[known tradeIds]` | Yes |
+/// | [allZapReceipts$] | `kinds=[9735], #p=[known sellers], #e=[known tradeIds]` | Yes |
 /// | [myReviews$]       | `kinds=[31555], authors=[myPubkey]`  | No (static) |
 /// | [paymentEvents$]   | kind 9735 + EVM contract queries     | Dynamic (combine) |
 @Singleton()
@@ -151,6 +152,10 @@ class UserSubscriptions {
   late final ExpandableSubscription<ReceivedHeartbeat> allHeartbeats$ =
       _heartbeats.createExpandable(name: 'user-heartbeats');
 
+  /// All zap receipt events across every trade the user is in.
+  late final ExpandableSubscription<Nip01Event> allZapReceipts$ = _zaps
+      .createExpandableZapReceipts(name: 'ZapReceipts-sub');
+
   /// Latest heartbeat per discovered counterparty pubkey.
   final StreamWithStatus<ReceivedHeartbeat> latestHeartbeats$ =
       StreamWithStatus();
@@ -184,6 +189,7 @@ class UserSubscriptions {
   StreamWithStatus<List<ResolvedValidatedOrderGroupParticipants>>?
   _myResolvedHostingsListSource;
   StreamWithStatus<Review>? _reviewsSource;
+  StreamWithStatus<PaymentEvent>? _zapPaymentsSource;
 
   /// Emits `true` once all required streams are live.
   final BehaviorSubject<bool> _isLive = BehaviorSubject.seeded(false);
@@ -193,6 +199,7 @@ class UserSubscriptions {
   final Set<String> _knownSellerPubkeys = {};
   final Set<String> _knownEscrowServiceKeys = {};
   final Set<String> _knownZapTradeIds = {};
+  final Map<String, String> _zapSellerPubkeyByTradeId = {};
   final Set<String> _knownHeartbeatPubkeys = {};
   final Set<String> _knownThreadHeartbeatKeys = {};
   final Map<String, ReceivedHeartbeat> _latestHeartbeatsByPubkey = {};
@@ -205,6 +212,7 @@ class UserSubscriptions {
   StreamWithStatus<Filter>? _orderFilterSource;
   StreamWithStatus<Filter>? _transitionFilterSource;
   StreamWithStatus<Filter>? _heartbeatFilterSource;
+  StreamWithStatus<Filter>? _zapReceiptFilterSource;
 
   void trackTradeId(String tradeId) {
     if (tradeId.isEmpty) return;
@@ -239,6 +247,7 @@ class UserSubscriptions {
     _orderFilterSource = StreamWithStatus<Filter>();
     _transitionFilterSource = StreamWithStatus<Filter>();
     _heartbeatFilterSource = StreamWithStatus<Filter>();
+    _zapReceiptFilterSource = StreamWithStatus<Filter>();
 
     await _orders.startExpandable(allMyOrders$, _orderFilterSource!);
 
@@ -290,6 +299,15 @@ class UserSubscriptions {
     );
 
     await _heartbeats.startExpandable(allHeartbeats$, _heartbeatFilterSource!);
+
+    await _zaps.startExpandableZapReceipts(
+      allZapReceipts$,
+      _zapReceiptFilterSource!,
+    );
+    _zapPaymentsSource = allZapReceipts$.stream
+        .where(_isZapReceiptForKnownTrade)
+        .asyncMap<PaymentEvent>(_mapZapReceiptPaymentEvent);
+    _addPaymentSource(_zapPaymentsSource!);
 
     // Should be a scan!
     latestHeartbeats$.addSubscription(
@@ -371,6 +389,7 @@ class UserSubscriptions {
     await allMyOrders$.reset();
     await allTransitions$.reset();
     await allHeartbeats$.reset();
+    await allZapReceipts$.reset();
     await myReviews$.reset();
     await paymentEvents$.reset();
     await latestHeartbeats$.reset();
@@ -386,11 +405,15 @@ class UserSubscriptions {
     _transitionFilterSource = null;
     await _heartbeatFilterSource?.close();
     _heartbeatFilterSource = null;
+    await _zapReceiptFilterSource?.close();
+    _zapReceiptFilterSource = null;
+    _zapPaymentsSource = null;
 
     _knownTradeIds.clear();
     _knownSellerPubkeys.clear();
     _knownEscrowServiceKeys.clear();
     _knownZapTradeIds.clear();
+    _zapSellerPubkeyByTradeId.clear();
     _knownHeartbeatPubkeys.clear();
     _knownThreadHeartbeatKeys.clear();
     _latestHeartbeatsByPubkey.clear();
@@ -403,6 +426,7 @@ class UserSubscriptions {
     await allMyOrders$.close();
     await allTransitions$.close();
     await allHeartbeats$.close();
+    await allZapReceipts$.close();
     await myReviews$.close();
     await myResolvedTripsList$.close();
     await myResolvedTrips$.close();
@@ -463,6 +487,7 @@ class UserSubscriptions {
         _orderFilterSource?.addStatus(StreamStatusLive());
         _transitionFilterSource?.addStatus(StreamStatusLive());
         _heartbeatFilterSource?.addStatus(StreamStatusLive());
+        _zapReceiptFilterSource?.addStatus(StreamStatusLive());
       }),
     );
   });
@@ -499,11 +524,24 @@ class UserSubscriptions {
 
         final anchor = order.parsedTags.listingAnchor;
         final sellerPubkey = getPubKeyFromAnchor(anchor);
-        if (sellerPubkey.isNotEmpty && _knownSellerPubkeys.add(sellerPubkey)) {
-          final tradeId = order.getDtag();
-          if (tradeId != null && _knownZapTradeIds.add(tradeId)) {
-            _addZapReceiptStream(sellerPubkey: sellerPubkey, tradeId: tradeId);
+        var zapFilterChanged = false;
+        if (sellerPubkey.isNotEmpty && tradeId != null && tradeId.isNotEmpty) {
+          final existingSeller = _zapSellerPubkeyByTradeId[tradeId];
+          if (existingSeller == null) {
+            _zapSellerPubkeyByTradeId[tradeId] = sellerPubkey;
+          } else if (existingSeller != sellerPubkey) {
+            _logger.w(
+              'Ignoring zap seller mismatch for trade=$tradeId '
+              'known=$existingSeller candidate=$sellerPubkey',
+            );
+            return;
           }
+
+          zapFilterChanged = _knownSellerPubkeys.add(sellerPubkey);
+          zapFilterChanged = _knownZapTradeIds.add(tradeId) || zapFilterChanged;
+        }
+        if (zapFilterChanged) {
+          _emitZapReceiptFilter();
         }
       });
 
@@ -529,6 +567,17 @@ class UserSubscriptions {
     _heartbeatFilterSource?.add(filter);
   });
 
+  void _emitZapReceiptFilter() => _logger.spanSync('_emitZapReceiptFilter', () {
+    if (_knownSellerPubkeys.isEmpty || _knownZapTradeIds.isEmpty) return;
+    final sellers = _knownSellerPubkeys.toList()..sort();
+    final tradeIds = _knownZapTradeIds.toList()..sort();
+    final filter = Filter(pTags: sellers, eTags: tradeIds);
+    _logger.d(
+      'emitting zap receipt filter sellers=$sellers tradeIds=$tradeIds',
+    );
+    _zapReceiptFilterSource?.add(filter);
+  });
+
   void _trackLatestHeartbeat(ReceivedHeartbeat heartbeat) {
     final existing = _latestHeartbeatsByPubkey[heartbeat.pubKey];
     if (existing != null && existing.createdAt > heartbeat.createdAt) {
@@ -552,34 +601,45 @@ class UserSubscriptions {
     return null;
   }
 
-  void _addZapReceiptStream({
-    required String sellerPubkey,
-    required String tradeId,
-  }) => _logger.spanSync('_addZapReceiptStream', () {
-    _logger.d(
-      'UserSubscriptions adding zap receipt stream for '
-      'seller=$sellerPubkey tradeId=$tradeId',
-    );
-    final zapSource = _zaps.subscribeZapReceipts(
-      pubkey: sellerPubkey,
-      eventId: tradeId,
-    );
-    final mapped = zapSource.asyncMap<PaymentEvent>((event) async {
-      final receipt = ZapReceipt.fromEvent(event);
-      final amountSats = receipt.amountSats;
-      if (amountSats == null) {
-        throw FormatException('Zap receipt ${event.id} has no parsable amount');
-      }
-      return ZapFundedEvent(
-        tradeId: receipt.eventId!,
-        event: Nip01EventModel.fromEntity(event),
-        zapReceipt: receipt,
-        amount: rbtcFromSats(BigInt.from(amountSats)),
+  bool _isZapReceiptForKnownTrade(Nip01Event event) {
+    final receipt = ZapReceipt.fromEvent(event);
+    final tradeId = receipt.eventId;
+    if (tradeId == null || tradeId.isEmpty) return true;
+
+    final expectedSeller = _zapSellerPubkeyByTradeId[tradeId];
+    if (expectedSeller == null) return false;
+
+    final recipient = receipt.recipient;
+    if (recipient != null &&
+        recipient.isNotEmpty &&
+        recipient != expectedSeller) {
+      _logger.d(
+        'Ignoring zap receipt ${event.id}: trade=$tradeId '
+        'expected seller=$expectedSeller recipient=$recipient',
       );
-    });
-    mapped.onClose = () => zapSource.close();
-    _addPaymentSource(mapped);
-  });
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<PaymentEvent> _mapZapReceiptPaymentEvent(Nip01Event event) async {
+    final receipt = ZapReceipt.fromEvent(event);
+    final amountSats = receipt.amountSats;
+    if (amountSats == null) {
+      throw FormatException('Zap receipt ${event.id} has no parsable amount');
+    }
+    final tradeId = receipt.eventId;
+    if (tradeId == null || tradeId.isEmpty) {
+      throw FormatException('Zap receipt ${event.id} has no event id');
+    }
+    return ZapFundedEvent(
+      tradeId: tradeId,
+      event: Nip01EventModel.fromEntity(event),
+      zapReceipt: receipt,
+      amount: rbtcFromSats(BigInt.from(amountSats)),
+    );
+  }
 
   void _maybeAddEscrowStream(
     EscrowServiceSelected escrowSelected,

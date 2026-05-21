@@ -70,6 +70,7 @@ class ExpandableSubscription<T extends Nip01Event> {
   Timer? _debounceTimer;
   Filter? _pendingFilter;
   final Stream<T>? _localUpdates;
+  final List<String>? _relays;
 
   /// True after at least one relay query + live subscription cycle has
   /// completed (i.e. we've fetched historical data for the current filter).
@@ -87,11 +88,13 @@ class ExpandableSubscription<T extends Nip01Event> {
     required String name,
     required StreamWithStatus<Filter> filterSource,
     Stream<T>? localUpdates,
+    List<String>? relays,
     Duration debounceDuration = const Duration(milliseconds: 500),
   }) : _requests = requests,
        _logger = logger,
        _name = name,
        _localUpdates = localUpdates,
+       _relays = relays,
        _debounceDuration = debounceDuration {
     _subscribeToFilterSource(filterSource);
   }
@@ -103,11 +106,13 @@ class ExpandableSubscription<T extends Nip01Event> {
     required CustomLogger logger,
     required String name,
     Stream<T>? localUpdates,
+    List<String>? relays,
     Duration debounceDuration = const Duration(milliseconds: 500),
   }) : _requests = requests,
        _logger = logger,
        _name = name,
        _localUpdates = localUpdates,
+       _relays = relays,
        _debounceDuration = debounceDuration;
 
   // ── Public API ──────────────────────────────────────────────────────
@@ -289,7 +294,7 @@ class ExpandableSubscription<T extends Nip01Event> {
   }) {
     _deltaQuerySub?.cancel();
     _deltaQuerySub = _requests
-        .query<T>(filter: filter, name: queryName)
+        .query<T>(filter: filter, relays: _relays, name: queryName)
         .listen(
           _dedupAdd,
           onError: stream.addError,
@@ -331,6 +336,7 @@ class ExpandableSubscription<T extends Nip01Event> {
       name: '$_name-live',
       onData: _dedupAdd,
       onError: stream.addError,
+      relays: _relays,
     );
 
     _logger.d(

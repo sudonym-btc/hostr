@@ -3,7 +3,7 @@ import 'package:ndk/ndk.dart' hide Nwc, Requests;
 
 import '../../config.dart';
 import '../../injection.dart';
-import '../../util/stream_status.dart';
+import '../../util/main.dart';
 import '../nwc/nwc.dart';
 import '../requests/requests.dart';
 
@@ -13,14 +13,17 @@ class Zaps {
   final Ndk ndk;
   final HostrConfig? _config;
   final Requests? _requests;
+  final CustomLogger _logger;
 
   Zaps({
     required this.nwc,
     required this.ndk,
     HostrConfig? config,
     Requests? requests,
+    CustomLogger? logger,
   }) : _config = config,
-       _requests = requests;
+       _requests = requests,
+       _logger = (logger ?? CustomLogger()).scope('zaps');
 
   List<String> _zapReceiptRelays() => _config?.bootstrapRelays ?? const [];
 
@@ -69,6 +72,35 @@ class Zaps {
       relays: _zapReceiptRelays(),
       name: 'ZapReceipts-sub',
     );
+  }
+
+  ExpandableSubscription<Nip01Event> createExpandableZapReceipts({
+    required String name,
+    Duration debounceDuration = const Duration(milliseconds: 500),
+  }) {
+    final requests = _requests;
+    if (requests == null) {
+      throw StateError(
+        'Cannot create expandable zap receipt subscription without Requests',
+      );
+    }
+    return ExpandableSubscription<Nip01Event>.idle(
+      requests: requests,
+      logger: _logger,
+      name: name,
+      relays: _zapReceiptRelays(),
+      debounceDuration: debounceDuration,
+    );
+  }
+
+  Future<void> startExpandableZapReceipts(
+    ExpandableSubscription<Nip01Event> subscription,
+    StreamWithStatus<Filter> filterSource,
+  ) {
+    final kindMerged = filterSource.map<Filter>(
+      (filter) => getCombinedFilter(filter, Filter(kinds: [ZapReceipt.kKind])),
+    );
+    return subscription.restart(kindMerged);
   }
 }
 
