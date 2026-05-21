@@ -237,19 +237,42 @@ class UserStartupProfile implements StartupProfile {
         () => _relays.loadNip65Hints(pubkey),
       );
 
-      await tracker.run(
-        StartupItemId.seed,
-        () => _accountSeedStore.ensureReady(pubkey: pubkey),
-      );
-      context.token.throwIfCancelled();
-
-      final metadataFuture = tracker.run(
+      final profileBootstrap = await tracker.run(
         StartupItemId.profile,
         () => _profileBootstrapper.run(
           pubkey: pubkey,
           hasNip65Future: hasNip65Future,
         ),
       );
+      context.token.throwIfCancelled();
+
+      if (!profileBootstrap.hasMetadata) {
+        tracker.skip(
+          StartupItemId.seed,
+          detail: 'Waiting for profile completion',
+        );
+        tracker.skip(
+          StartupItemId.inbox,
+          detail: 'Waiting for profile completion',
+        );
+        tracker.skip(
+          StartupItemId.accountServices,
+          detail: 'Waiting for profile completion',
+        );
+        final result = UserStartupReady(
+          pubkey: pubkey,
+          hasMetadata: false,
+          inboxLive: false,
+        );
+        tracker.ready(result);
+        return result;
+      }
+
+      await tracker.run(
+        StartupItemId.seed,
+        () => _accountSeedStore.ensureReady(pubkey: pubkey),
+      );
+      context.token.throwIfCancelled();
 
       final inboxFuture = tracker.runOptional(StartupItemId.inbox, () async {
         await hasNip65Future;
@@ -263,7 +286,7 @@ class UserStartupProfile implements StartupProfile {
             .timeout(const Duration(seconds: 30), onTimeout: () => false);
       });
 
-      final results = await Future.wait<Object?>([metadataFuture, inboxFuture]);
+      final results = await Future.wait<Object?>([inboxFuture]);
       context.token.throwIfCancelled();
 
       await tracker.run(StartupItemId.accountServices, () async {
@@ -276,11 +299,10 @@ class UserStartupProfile implements StartupProfile {
         ]);
       });
 
-      final profileBootstrap = results[0] as UserStartupProfileBootstrapResult;
       final result = UserStartupReady(
         pubkey: pubkey,
-        hasMetadata: profileBootstrap.hasMetadata,
-        inboxLive: results[1] == true,
+        hasMetadata: true,
+        inboxLive: results[0] == true,
       );
       tracker.ready(result);
       return result;

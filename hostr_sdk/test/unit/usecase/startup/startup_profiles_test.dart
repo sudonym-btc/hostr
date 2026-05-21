@@ -155,15 +155,15 @@ void main() {
           const UserStartupReady(
             pubkey: 'user-pubkey',
             hasMetadata: false,
-            inboxLive: true,
+            inboxLive: false,
           ),
         );
-        expect(userSubscriptions.starts, 1);
-        expect(seedStore.ensureCalls, ['user-pubkey']);
-        expect(paymentProof.starts, 1);
-        expect(fundsMonitor.starts, 1);
-        expect(backgroundWorker.watchCalls, 1);
-        expect(calendar.starts, 1);
+        expect(userSubscriptions.starts, 0);
+        expect(seedStore.ensureCalls, isEmpty);
+        expect(paymentProof.starts, 0);
+        expect(fundsMonitor.starts, 0);
+        expect(backgroundWorker.watchCalls, 0);
+        expect(calendar.starts, 0);
         verify(relays.loadNip65Hints('user-pubkey')).called(1);
         verify(
           metadata.loadMetadata('user-pubkey', forceRefresh: false),
@@ -198,6 +198,9 @@ void main() {
       ).thenReturn(KeyPair('privkey', 'user-pubkey', null, null));
       when(auth.activePubkey).thenReturn('user-pubkey');
       when(relays.loadNip65Hints('user-pubkey')).thenAnswer((_) async => true);
+      when(
+        metadata.loadMetadata('user-pubkey', forceRefresh: false),
+      ).thenAnswer((_) async => _profile('user-pubkey'));
 
       final profile = UserStartupProfile(
         core: _FakeStartupCore(),
@@ -236,17 +239,18 @@ void main() {
         _states(snapshots.last)[StartupItemId.seed],
         StartupItemState.failed,
       );
+      verify(
+        metadata.loadMetadata('user-pubkey', forceRefresh: false),
+      ).called(1);
       expect(seedStore.ensureCalls, ['user-pubkey']);
       expect(userSubscriptions.starts, 0);
       expect(paymentProof.starts, 0);
       expect(fundsMonitor.starts, 0);
       expect(backgroundWorker.watchCalls, 0);
       expect(calendar.starts, 0);
-      expect(listings.queriedAuthors, isEmpty);
+      expect(listings.queriedAuthors, ['user-pubkey']);
       expect(identityClaims.ensureCalls, 0);
-      verifyNever(
-        metadata.loadMetadata(any, forceRefresh: anyNamed('forceRefresh')),
-      );
+      verifyNever(metadata.loadMetadata('user-pubkey', forceRefresh: true));
     });
 
     test('user startup force refreshes metadata when NIP-65 exists', () async {
