@@ -17,7 +17,12 @@ on:
       relay_commit:
         description: 'nostr-rs-relay commit SHA to build'
         required: true
-        default: '64cfcaf44af498bf7969a8be5d6f0115abf98e4a'
+        default: '520d4c0255f2d397443576de449ca4915a488f66'
+        type: string
+      relay_repo:
+        description: 'nostr-rs-relay GitHub repository to build'
+        required: true
+        default: 'sudonym-btc/nostr-rs-relay'
         type: string
       tag_latest:
         description: 'Also update the latest tags'
@@ -47,10 +52,15 @@ jobs:
             exit 64
           fi
 
-      - name: Validate relay commit
+      - name: Validate relay source
         id: meta
         run: |
           relay_commit="${{ inputs.relay_commit }}"
+          relay_repo="${{ inputs.relay_repo }}"
+          if ! [[ "$relay_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "relay_repo must be a GitHub repository in owner/name form." >&2
+            exit 64
+          fi
           if ! [[ "$relay_commit" =~ ^[0-9a-f]{40}$ ]]; then
             echo "relay_commit must be a full 40-character lowercase hex commit SHA." >&2
             exit 64
@@ -112,6 +122,7 @@ jobs:
       - name: Build & push nostr-rs-relay
         env:
           REGISTRY: ${{ steps.meta.outputs.registry }}
+          RELAY_REPO: ${{ inputs.relay_repo }}
           RELAY_COMMIT: ${{ inputs.relay_commit }}
           RELAY_TAG: ${{ needs.prepare.outputs.relay_tag }}
           TAG_LATEST: ${{ inputs.tag_latest }}
@@ -126,7 +137,7 @@ jobs:
             tags+=(-t "$image")
           done
 
-          docker build "${tags[@]}" "https://github.com/scsibug/nostr-rs-relay.git#$RELAY_COMMIT"
+          docker build "${tags[@]}" "https://github.com/$RELAY_REPO.git#$RELAY_COMMIT"
 
           for image in "${images[@]}"; do
             docker push "$image"

@@ -58,11 +58,11 @@ services:
           - paymaster.${DOMAIN}
 
   relay:
-    # Local dev can build the pinned upstream commit with the NIP-42 AUTH OK fix.
-    # Hosted overlays pull the same commit tag from the environment registry.
-    image: hostr/nostr-rs-relay:64cfcaf
+    # Local dev can build the pinned relay repo/commit. Hosted overlays pull
+    # the same commit tag from the environment registry.
+    image: hostr/nostr-rs-relay:${RELAY_IMAGE_TAG:-520d4c0}
     build:
-      context: https://github.com/scsibug/nostr-rs-relay.git#64cfcaf44af498bf7969a8be5d6f0115abf98e4a
+      context: https://github.com/${RELAY_REPO:-sudonym-btc/nostr-rs-relay}.git#${RELAY_COMMIT:-520d4c0255f2d397443576de449ca4915a488f66}
     platform: linux/amd64
     restart: unless-stopped
     depends_on:
