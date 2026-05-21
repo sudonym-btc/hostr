@@ -94,6 +94,7 @@ services:
       - default
 
   relay-authz:
+    image: hostr/relay-authz:${RELAY_AUTHZ_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: relay-authz/Dockerfile
