@@ -128,6 +128,9 @@ class EditProfileViewState extends State<EditProfileView> {
   }
 
   void _onProfileLoaded(ProfileMetadata? metadata) {
+    if (controller.isDirty) {
+      return;
+    }
     controller.setState(metadata);
     final isNew = metadata == null;
     if (isNew != _isNewProfile) {

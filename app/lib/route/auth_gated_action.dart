@@ -41,7 +41,7 @@ Future<void> authGatedAction(
 /// metadata exists yet, the user is sent to edit-profile first. In both cases
 /// [pendingRoute] is saved so the profile/sign-in flow can return the user to
 /// the original surface before they retry the action.
-Future<void> metadataGatedAction(
+Future<bool> metadataGatedAction(
   BuildContext context, {
   required PageRouteInfo pendingRoute,
   required Future<void> Function() action,
@@ -49,15 +49,17 @@ Future<void> metadataGatedAction(
   final hostr = getIt<Hostr>();
   if (hostr.auth.authState.value is! LoggedIn) {
     _routeToSignIn(context, pendingRoute);
-    return;
+    return false;
   }
 
   final activePubkey = hostr.auth.activePubkey;
   var hasMetadata = false;
   try {
-    hasMetadata =
-        activePubkey != null &&
-        await hostr.metadata.loadMetadata(activePubkey) != null;
+    final startup = await hostr.startup.ensureAuthenticatedUserReady();
+    hasMetadata = startup is UserStartupReady && startup.hasMetadata;
+    if (!hasMetadata && activePubkey != null) {
+      hasMetadata = await hostr.metadata.loadMetadata(activePubkey) != null;
+    }
   } catch (error, stackTrace) {
     _metadataGateLog.w(
       'Profile metadata check failed before gated action',
@@ -65,14 +67,15 @@ Future<void> metadataGatedAction(
       stackTrace: stackTrace,
     );
   }
-  if (!context.mounted) return;
+  if (!context.mounted) return false;
 
   if (!hasMetadata) {
     _routeToEditProfile(context, pendingRoute);
-    return;
+    return false;
   }
 
   await action();
+  return true;
 }
 
 void _routeToSignIn(BuildContext context, PageRouteInfo pendingRoute) {

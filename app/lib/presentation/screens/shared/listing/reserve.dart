@@ -47,6 +47,8 @@ class _ReserveState extends State<Reserve> {
   String? _amountControllerSyncKey;
   String? _initialAmountSyncKey;
   bool _autoReserveAttempted = false;
+  bool _autoReserveInFlight = false;
+  bool _autoReserveAfterProfileGate = false;
 
   @override
   void dispose() {
@@ -143,11 +145,11 @@ class _ReserveState extends State<Reserve> {
     );
   }
 
-  Future<void> _submitReservation(
+  Future<bool> _submitReservation(
     BuildContext context,
     DateTimeRange dateRange,
   ) async {
-    await metadataGatedAction(
+    final actionRan = await metadataGatedAction(
       context,
       pendingRoute: _reservePendingRoute(dateRange, autoReserve: true),
       action: () async {
@@ -167,6 +169,12 @@ class _ReserveState extends State<Reserve> {
         );
       },
     );
+    if (!actionRan && mounted) {
+      setState(() {
+        _autoReserveAfterProfileGate = true;
+      });
+    }
+    return actionRan;
   }
 
   void _scheduleAutoReserveIfReady({
@@ -174,12 +182,36 @@ class _ReserveState extends State<Reserve> {
     required DateTimeRange? dateRange,
     required bool canReserve,
   }) {
-    if (!widget.autoReserve || _autoReserveAttempted || !canReserve) return;
+    final shouldAutoReserve =
+        widget.autoReserve || _autoReserveAfterProfileGate;
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
+    if (!isCurrentRoute ||
+        !shouldAutoReserve ||
+        _autoReserveAttempted ||
+        _autoReserveInFlight ||
+        !canReserve) {
+      return;
+    }
     if (dateRange == null) return;
-    _autoReserveAttempted = true;
+    _autoReserveInFlight = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_submitReservation(context, dateRange));
+      unawaited(() async {
+        var actionRan = false;
+        try {
+          actionRan = await _submitReservation(context, dateRange);
+        } finally {
+          if (mounted) {
+            setState(() {
+              _autoReserveInFlight = false;
+              if (actionRan) {
+                _autoReserveAttempted = true;
+                _autoReserveAfterProfileGate = false;
+              }
+            });
+          }
+        }
+      }());
     });
   }
 
