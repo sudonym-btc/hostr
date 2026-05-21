@@ -144,6 +144,43 @@ void main() {
     });
 
     test(
+      'logout closes authenticated relay socket before the next login',
+      () async {
+        final relay = _Nip42Relay(requireAuthForEvents: true);
+        await relay.start();
+
+        final ndk = _ndkFor(relay.url);
+        final auth = _authFor(ndk: ndk, relayUrl: relay.url);
+        final secondKey = Bip340.generatePrivateKey();
+
+        try {
+          await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
+          expect(relay.activeSocketCount, 1);
+
+          await auth.logout().timeout(const Duration(seconds: 4));
+          await _waitFor(
+            () => relay.activeSocketCount == 0,
+            timeout: const Duration(seconds: 2),
+          );
+
+          await auth
+              .signin(secondKey.privateKey!)
+              .timeout(const Duration(seconds: 4));
+
+          expect(relay.authMessagesReceived, 2);
+          expect(relay.authPubkeysReceived, [
+            Bip340.getPublicKey(_hexPrivKey),
+            secondKey.publicKey,
+          ]);
+        } finally {
+          await auth.dispose();
+          await ndk.destroy();
+          await relay.stop();
+        }
+      },
+    );
+
+    test(
       'temp-pubkey gift wraps reuse logged-in AUTH for Hostr relay writes',
       () async {
         final relay = _Nip42Relay(requireAuthForEvents: true);
@@ -182,6 +219,19 @@ void main() {
       },
     );
   });
+}
+
+Future<void> _waitFor(
+  bool Function() condition, {
+  required Duration timeout,
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (condition()) return;
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+  }
+  if (condition()) return;
+  throw TimeoutException('Condition was not met before $timeout', timeout);
 }
 
 Ndk _ndkFor(String relayUrl) {
@@ -283,6 +333,7 @@ class _Nip42Relay {
   final authPubkeysReceived = <String>[];
 
   String get url => 'ws://localhost:${_server!.port}';
+  int get activeSocketCount => _sockets.length;
 
   Future<void> start() async {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

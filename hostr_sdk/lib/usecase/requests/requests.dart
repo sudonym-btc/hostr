@@ -598,8 +598,6 @@ class Requests extends RequestsModel {
     }
     relays = guardedRelays;
 
-    await _preAuthHostrRelayForBroadcast(event: event, relays: relays);
-
     var eventToBroadcast = event;
 
     if (event.sig == null) {
@@ -610,6 +608,11 @@ class Requests extends RequestsModel {
         id: Nip01Utils.calculateId(eventToBroadcast),
       );
     }
+
+    await _preAuthHostrRelayForBroadcast(
+      event: eventToBroadcast,
+      relays: relays,
+    );
 
     _logger.d(
       'broadcast event: ${_broadcastEventDebugSummary(eventToBroadcast)}',
@@ -644,6 +647,11 @@ class Requests extends RequestsModel {
 
     final activePubkey = _auth.activePubkey;
     if (activePubkey != null && activePubkey == event.pubKey) {
+      // Bunker-backed signers need their NIP-46 response subscription alive to
+      // sign AUTH events. A proactive relay-auth reconnect can close that
+      // subscription, so let NDK's lazy auth-required retry sign on the current
+      // socket instead.
+      if (_auth.isBunkerBacked) return;
       await _auth.ensureNip42AuthForHostrRelay();
       return;
     }

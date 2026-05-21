@@ -521,6 +521,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "10.1.1"
+  idb_shim:
+    dependency: transitive
+    description:
+      name: idb_shim
+      sha256: "48be1c95f06c4b059d0f5b9888dc5d7384e4a9e4d71824ae2deeb1e1546c6c07"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.9.2"
   injectable:
     dependency: "direct main"
     description:
@@ -685,7 +693,7 @@ packages:
     description:
       path: "packages/ndk"
       ref: "feat/hostr-fixes"
-      resolved-ref: "17b906ca610583d82ac92fc86006d5a9440aa67f"
+      resolved-ref: "284a340810da3a24300bbd3698d96a3d8ff5e904"
       url: "https://github.com/sudonym-btc/ndk.git"
     source: git
     version: "0.8.3"
@@ -857,6 +865,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.8.7"
+  sembast_web:
+    dependency: transitive
+    description:
+      name: sembast_web
+      sha256: eaeb2f14613098fb8b363b01ae4e280031736b7ae1aa38653dbee0d47af6e3ea
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.4+1"
   shelf:
     dependency: "direct main"
     description:

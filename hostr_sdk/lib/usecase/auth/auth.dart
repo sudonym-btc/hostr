@@ -254,6 +254,7 @@ class Auth {
   Future<void> logout() => _logger.span('logout', () async {
     _logger.i('AuthService.logout');
     clearNip44ConvKeyCache();
+    await _resetNip42RelayAuthForLogout();
     await _authStorage.wipe();
     await _loadActiveKeyPair();
     await _ensureNdkAccountsMatchAsync();
@@ -376,6 +377,22 @@ class Auth {
       challengeTimeout: _nip42ChallengeTimeout,
     );
     _logger.d('NIP-42 relay auth completed for $relay');
+  }
+
+  Future<void> _resetNip42RelayAuthForLogout() async {
+    _nip42AuthInFlight = null;
+    if (!_scope.isRegistered<HostrConfig>()) return;
+
+    final relays = _nip42AuthRelayTargets(_scope<HostrConfig>());
+    await Future.wait(
+      relays.map((relay) async {
+        try {
+          await _ndk.relays.closeTransport(relay);
+        } catch (error) {
+          _logger.w('Failed to close NIP-42 relay $relay on logout: $error');
+        }
+      }),
+    );
   }
 
   /// Returns whether there is an active key pair.

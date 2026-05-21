@@ -48,29 +48,33 @@ void main() {
       await _withBunkerSignedIn(
         hostr: hostr,
         buyer: buyer,
-        body: () async {
+        body: (bunkerUri) async {
           expect(hostr.auth.isBunkerBacked, isTrue);
           expect(hostr.ndk.accounts.canSign, isTrue);
 
-          final unsigned = Nip01Event(
-            pubKey: buyer.publicKey,
-            kind: 1,
-            tags: const [],
-            content:
-                'hostr bunker signin smoke ${DateTime.now().toIso8601String()}',
-            createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          await _expectRemoteSignerCanSign(
+            hostr: hostr,
+            buyer: buyer,
+            label: 'first',
           );
 
-          final signed = await hostr.ndk.accounts
-              .sign(unsigned)
+          final seedHex = await hostr.accountSeedStore
+              .getActiveSeedHex()
+              .timeout(const Duration(seconds: 60));
+
+          expect(seedHex, matches(RegExp(r'^[0-9a-f]{64}$')));
+
+          await hostr.auth.logout().timeout(const Duration(seconds: 30));
+          await hostr.auth
+              .signinWithBunkerUrl(bunkerUri)
               .timeout(const Duration(seconds: 30));
 
-          expect(signed.pubKey, buyer.publicKey);
-          expect(signed.sig, isNotNull);
-          expect(Nip01Utils.isIdValid(signed), isTrue);
-          expect(
-            ndk_bip340.Bip340.verify(signed.id, signed.sig!, signed.pubKey),
-            isTrue,
+          expect(hostr.auth.isBunkerBacked, isTrue);
+          expect(hostr.ndk.accounts.canSign, isTrue);
+          await _expectRemoteSignerCanSign(
+            hostr: hostr,
+            buyer: buyer,
+            label: 'second',
           );
         },
       );
@@ -82,7 +86,7 @@ void main() {
 Future<void> _withBunkerSignedIn({
   required Hostr hostr,
   required KeyPair buyer,
-  required Future<void> Function() body,
+  required Future<void> Function(String bunkerUri) body,
 }) async {
   final signet = SignetBunkerClient(
     baseUri: Uri.parse('https://bunker-nostr.hostr.development/'),
@@ -110,7 +114,7 @@ Future<void> _withBunkerSignedIn({
     await hostr.auth
         .signinWithBunkerUrl(imported.bunkerUri)
         .timeout(const Duration(seconds: 30));
-    await body();
+    await body(imported.bunkerUri);
   } finally {
     await approvals?.stop();
     try {
@@ -119,6 +123,33 @@ Future<void> _withBunkerSignedIn({
       await signet.close();
     }
   }
+}
+
+Future<void> _expectRemoteSignerCanSign({
+  required Hostr hostr,
+  required KeyPair buyer,
+  required String label,
+}) async {
+  final unsigned = Nip01Event(
+    pubKey: buyer.publicKey,
+    kind: 1,
+    tags: const [],
+    content:
+        'hostr bunker signin $label smoke ${DateTime.now().toIso8601String()}',
+    createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+  );
+
+  final signed = await hostr.ndk.accounts
+      .sign(unsigned)
+      .timeout(const Duration(seconds: 30));
+
+  expect(signed.pubKey, buyer.publicKey);
+  expect(signed.sig, isNotNull);
+  expect(Nip01Utils.isIdValid(signed), isTrue);
+  expect(
+    ndk_bip340.Bip340.verify(signed.id, signed.sig!, signed.pubKey),
+    isTrue,
+  );
 }
 
 class _SignetApprovalLoop {
