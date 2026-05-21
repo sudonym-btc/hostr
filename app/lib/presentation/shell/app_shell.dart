@@ -249,6 +249,7 @@ class _AppShellScreenState extends State<AppShellScreen>
             separatorBuilder: (_, _) => const SizedBox(height: kSpace2),
           ),
         ),
+        const FollowUsWidget.sidebar(),
         Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: kSpace4,

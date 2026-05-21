@@ -20,6 +20,7 @@ export 'nostr_wallet_connect/nostr_wallet_auth.dart';
 export 'nostr_wallet_connect/nostr_wallet_connect.dart';
 export 'nostr_wallet_connect/nwc_connectivity_banner.dart';
 export 'profile/profile_chip.dart';
+export 'profile/follow_us.dart';
 export 'profile/profile_header.dart';
 export 'relay/relay_connectivity_banner.dart';
 export 'relay/relay_list.dart';

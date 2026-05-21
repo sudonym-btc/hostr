@@ -170,11 +170,16 @@ class ProfileSettingsSection extends StatelessWidget {
     ];
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter(BuildContext context) {
+    final showFollowUs = !AppLayoutSpec.of(context).showsSidebarNavigation;
     return AppSurface(
       child: Column(
         children: [
           const ZapUsWidget(),
+          if (showFollowUs) ...[
+            Gap.vertical.md(),
+            const FollowUsWidget.profile(),
+          ],
           if (const bool.fromEnvironment('dart.vm.product') == false)
             const DevWidget(),
         ],
@@ -187,7 +192,7 @@ class ProfileSettingsSection extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final sections = _buildSections(context);
-        final footer = _buildFooter();
+        final footer = _buildFooter(context);
 
         // Expanded viewport: height is bounded → use CustomScrollView so the
         // pane scrolls independently and SliverFillRemaining pushes the footer
