@@ -187,7 +187,7 @@ class _InboxItemState extends State<InboxItem> {
     required Listing? listing,
   }) {
     if (reservation.stage == OrderStage.cancel) {
-      return 'Order cancelled';
+      return 'Reservation cancelled';
     }
 
     final listingTitle = (listing ?? reservation.proof?.listing)?.title.trim();
@@ -203,7 +203,9 @@ class _InboxItemState extends State<InboxItem> {
       if (listingTitle != null && listingTitle.isNotEmpty) listingTitle,
     ].join(' ');
 
-    return details.isEmpty ? 'Order $action' : 'Order $action for $details';
+    return details.isEmpty
+        ? 'Reservation $action'
+        : 'Reservation $action for $details';
   }
 
   Widget _buildItem({
