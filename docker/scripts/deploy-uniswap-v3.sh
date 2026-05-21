@@ -45,7 +45,7 @@ RPC="$ARBITRUM_RPC"
 
 # ── Uniswap deployer: dedicated Anvil account (clean nonce 0) ─────────────
 # Do not reuse this key for Alto, account abstraction deployers, or seed txs:
-# those services run before arbitrum-init and would consume deterministic nonces.
+# those services run independently and would consume deterministic nonces.
 UNI_PK="0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
 UNI_DEPLOYER="0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 

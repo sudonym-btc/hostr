@@ -66,14 +66,16 @@ services:
     environment:
       - VIRTUAL_HOST=arbitrum.${DOMAIN}
       - VIRTUAL_PORT=8545
+    volumes:
+      - ./docker/scripts/arbitrum-contract-healthcheck.sh:/scripts/arbitrum-contract-healthcheck.sh:ro
     ports:
       - 8546:8545
     healthcheck:
-      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://127.0.0.1:8545"]
-      timeout: 2s
-      retries: 5
-      interval: 1s
-      start_period: 1s
+      test: ["CMD", "sh", "/scripts/arbitrum-contract-healthcheck.sh"]
+      timeout: 10s
+      retries: 60
+      interval: 5s
+      start_period: 180s
     networks:
       - default
 
@@ -83,9 +85,12 @@ services:
     restart: "no"
     depends_on:
       anvil-arbitrum:
-        condition: service_healthy
+        # The Anvil healthcheck waits for contracts deployed by this init
+        # container, so init must start from container start/RPC readiness.
+        condition: service_started
     volumes:
       - ./docker/scripts/arbitrum-init.sh:/scripts/arbitrum-init.sh:ro
+      - ./docker/scripts/arbitrum-contract-healthcheck.sh:/scripts/arbitrum-contract-healthcheck.sh:ro
       - ./docker/scripts/deploy-uniswap-v3.sh:/scripts/deploy-uniswap-v3.sh:ro
       - ./docker/scripts/local-chain-bytecodes:/scripts/local-chain-bytecodes:ro
       - ./docker/scripts/uniswap-v3-bytecodes:/scripts/uniswap-v3-bytecodes:ro

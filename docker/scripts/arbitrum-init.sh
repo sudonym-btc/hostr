@@ -151,13 +151,21 @@ fi
 
 # ── 6. Deploy Uniswap V3 stack ───────────────────────────────────────────
 # Deploys WETH9, Multicall3, UniswapV3Factory, NonfungiblePositionManager,
-# QuoterV2, SwapRouter02.  Creates WETH/USDT + WETH/tBTC pools and seeds
-# full-range liquidity.
+# QuoterV2, Permit2, and UniversalRouter. Creates the tBTC/USDT pool and
+# seeds full-range liquidity.
 export ARBITRUM_RPC="$ARBITRUM_RPC"
 export TBTC_ADDRESS="$TBTC_ADDRESS"
 export USDT_ADDRESS="$USDT_ADDRESS"
 export DEPLOYER_PK="$DEPLOYER_PK"
 sh /scripts/deploy-uniswap-v3.sh
+
+if [ -f /scripts/arbitrum-contract-healthcheck.sh ]; then
+  echo ""
+  echo "Verifying Arbitrum contract health..."
+  ARBITRUM_HEALTHCHECK_RPC_URL="$ARBITRUM_RPC" sh /scripts/arbitrum-contract-healthcheck.sh
+else
+  echo "WARNING: /scripts/arbitrum-contract-healthcheck.sh not found; skipping contract health verification"
+fi
 
 echo ""
 echo "Arbitrum init complete."
