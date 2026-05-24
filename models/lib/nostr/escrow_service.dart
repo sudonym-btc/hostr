@@ -4,6 +4,7 @@ import 'package:models/nostr/event.dart';
 import 'package:ndk/ndk.dart';
 
 import '../nostr_kinds.dart';
+import 'payment_method.dart';
 import 'type_json_content.dart';
 
 class EscrowService
@@ -243,7 +244,12 @@ class EscrowServiceContent extends EventContent {
   }
 }
 
-enum EscrowType { EVM }
+enum EscrowType {
+  EVM(PaymentMethod.evm);
+
+  final PaymentMethod paymentMethod;
+  const EscrowType(this.paymentMethod);
+}
 
 enum ChainIds {
   Rootstock(30),

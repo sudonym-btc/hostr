@@ -44,16 +44,19 @@ mixin ListingTagRead {
 
   bool get active => tagSource.getTagBool('active', defaultValue: true);
   bool get negotiable => tagSource.getTagBool('negotiable');
-  int get minStay => tagSource.getTagInt('minStay') ?? 1;
+  String? get minDuration =>
+      tagSource.getTagValue('minDuration') ??
+      Listing.defaultMinDurationForFrequency(
+        Listing.primaryRecurringFrequency(prices),
+      );
+
   String? get checkIn => tagSource.getTagValue('checkIn');
   String? get checkOut => tagSource.getTagValue('checkOut');
   String get location => tagSource.getTagValue('location') ?? '';
   int get quantity => tagSource.getTagInt('quantity') ?? 1;
   ListingType get listingType =>
       tagSource.getTagEnum('type', ListingType.values) ?? ListingType.room;
-  bool get instantBook =>
-      tagSource.getTagBool('instantBook', defaultValue: true);
-  bool get allowSelfSignedOrder => tagSource.getTagBool('allowSelfSignedOrder');
+  bool get autoAccept => tagSource.getTagBool('autoAccept');
   List<Price> get prices => tagSource.getTagPrices();
   RentOrBuy get rentOrBuy => Listing.rentOrBuyForPrices(prices);
   List<CancellationPolicy> get cancellationPolicies =>
@@ -125,7 +128,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     TagPromotion.valued(source: 'spec', match: 'bedrooms', target: 'B'),
     TagPromotion.valued(source: 'spec', match: 'bathrooms', target: 'R'),
     TagPromotion.direct(source: 'active', target: 'A'),
-    TagPromotion.direct(source: 'instantBook', target: 'I'),
+    TagPromotion.direct(source: 'autoAccept', target: 'I'),
     TagPromotion.direct(source: 'negotiable', target: 'N'),
     TagPromotion.direct(source: _rentOrBuyTag, target: _rentOrBuyPromotionTag),
   ];
@@ -174,6 +177,24 @@ class Listing extends Event<ListingTags> with ListingTagRead {
           ? RentOrBuy.rent
           : RentOrBuy.buy;
 
+  static Frequency? primaryRecurringFrequency(Iterable<Price> prices) {
+    for (final price in prices) {
+      final frequency = price.frequency;
+      if (frequency != null) return frequency;
+    }
+    return null;
+  }
+
+  static String? defaultMinDurationForFrequency(Frequency? frequency) {
+    if (frequency == null) return null;
+    return switch (frequency) {
+      Frequency.daily => 'P1D',
+      Frequency.weekly => 'P1W',
+      Frequency.monthly => 'P1M',
+      Frequency.yearly => 'P1Y',
+    };
+  }
+
   @override
   EventTags get tagSource => parsedTags;
 
@@ -211,12 +232,11 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     required Specifications specifications,
     bool active = true,
     bool negotiable = false,
-    int minStay = 1,
+    String? minDuration,
     String checkIn = '15:0',
     String checkOut = '11:0',
     int quantity = 1,
-    bool instantBook = true,
-    bool allowSelfSignedOrder = false,
+    bool autoAccept = true,
     List<CancellationPolicy> cancellationPolicy = const [],
     DenominatedAmount? securityDeposit,
     DenominatedAmount? minPaymentAmount,
@@ -227,6 +247,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     final eventCreatedAt =
         createdAt ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final rentOrBuy = rentOrBuyForPrices(price);
+    final minDurationPriceFrequency = primaryRecurringFrequency(price);
     return Listing(
       pubKey: pubKey,
       createdAt: eventCreatedAt,
@@ -240,14 +261,16 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add(_publishedAtTag, eventCreatedAt.toString())
               ..addBool('active', active)
               ..addBool('negotiable', negotiable)
-              ..addInt('minStay', minStay)
+              ..addAll(_minDurationTags(
+                minDuration,
+                minDurationPriceFrequency,
+              ))
               ..add('checkIn', checkIn)
               ..add('checkOut', checkOut)
               ..add('location', location)
               ..addInt('quantity', quantity)
               ..addEnum('type', type)
-              ..addBool('instantBook', instantBook)
-              ..addBool('allowSelfSignedOrder', allowSelfSignedOrder)
+              ..addBool('autoAccept', autoAccept)
               ..addPrices(price)
               ..addEnum(_rentOrBuyTag, rentOrBuy)
               ..addCancellationPolicies(cancellationPolicy)
@@ -260,7 +283,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addAll(TagPromotion.promoteAll([
                 ['type', type.name],
                 ['active', active.toString()],
-                ['instantBook', instantBook.toString()],
+                ['autoAccept', autoAccept.toString()],
                 ['negotiable', negotiable.toString()],
                 [_rentOrBuyTag, rentOrBuy.name],
                 ...specifications.toTags(),
@@ -281,14 +304,13 @@ class Listing extends Event<ListingTags> with ListingTagRead {
     // Tag fields
     bool? active,
     bool? negotiable,
-    int? minStay,
+    String? minDuration,
     String? checkIn,
     String? checkOut,
     String? location,
     int? quantity,
     ListingType? type,
-    bool? instantBook,
-    bool? allowSelfSignedOrder,
+    bool? autoAccept,
     List<Price>? prices,
     List<CancellationPolicy>? cancellationPolicy,
     Specifications? specifications,
@@ -320,14 +342,13 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       't',
       'active',
       'negotiable',
-      'minStay',
+      'minDuration',
       'checkIn',
       'checkOut',
       'location',
       'quantity',
       'type',
-      'instantBook',
-      'allowSelfSignedOrder',
+      'autoAccept',
       'price',
       _rentOrBuyTag,
       'cancellationPolicy',
@@ -347,6 +368,8 @@ class Listing extends Event<ListingTags> with ListingTagRead {
         imageMetas ?? _imageMetasForImages(updatedImages, this.imageMetas);
     final updatedPrices = prices ?? this.prices;
     final updatedRentOrBuy = rentOrBuyForPrices(updatedPrices);
+    final updatedMinDurationFrequency =
+        primaryRecurringFrequency(updatedPrices);
 
     return Listing(
       pubKey: pubKey ?? this.pubKey,
@@ -361,15 +384,16 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..add(_publishedAtTag, firstPublishedAt.toString())
               ..addBool('active', active ?? this.active)
               ..addBool('negotiable', negotiable ?? this.negotiable)
-              ..addInt('minStay', minStay ?? this.minStay)
+              ..addAll(_minDurationTags(
+                minDuration ?? this.minDuration,
+                updatedMinDurationFrequency,
+              ))
               ..add('checkIn', checkIn ?? this.checkIn ?? '15:0')
               ..add('checkOut', checkOut ?? this.checkOut ?? '11:0')
               ..add('location', location ?? this.location)
               ..addInt('quantity', quantity ?? this.quantity)
               ..addEnum('type', type ?? this.listingType)
-              ..addBool('instantBook', instantBook ?? this.instantBook)
-              ..addBool('allowSelfSignedOrder',
-                  allowSelfSignedOrder ?? this.allowSelfSignedOrder)
+              ..addBool('autoAccept', autoAccept ?? this.autoAccept)
               ..addPrices(updatedPrices)
               ..addEnum(_rentOrBuyTag, updatedRentOrBuy)
               ..addCancellationPolicies(
@@ -395,7 +419,7 @@ class Listing extends Event<ListingTags> with ListingTagRead {
               ..addAll(TagPromotion.promoteAll([
                 ['type', (type ?? this.listingType).name],
                 ['active', (active ?? this.active).toString()],
-                ['instantBook', (instantBook ?? this.instantBook).toString()],
+                ['autoAccept', (autoAccept ?? this.autoAccept).toString()],
                 ['negotiable', (negotiable ?? this.negotiable).toString()],
                 [_rentOrBuyTag, updatedRentOrBuy.name],
                 ...(specifications ?? this.specifications).toTags(),
@@ -409,6 +433,20 @@ class Listing extends Event<ListingTags> with ListingTagRead {
       ),
       content: description ?? this.description,
     );
+  }
+
+  static List<List<String>> _minDurationTags(
+    String? minDuration,
+    Frequency? frequency,
+  ) {
+    if (frequency == null) return const [];
+    final value = minDuration?.trim().isNotEmpty == true
+        ? minDuration!.trim()
+        : defaultMinDurationForFrequency(frequency);
+    if (value == null) return const [];
+    return [
+      ['minDuration', value],
+    ];
   }
 
   static List<List<String>> _imageTags(
@@ -557,24 +595,32 @@ class TimeOfDay {
 }
 
 class CancellationPolicy {
-  final Duration durationBeforeStart;
+  final Duration? durationBeforeStart;
+  final Duration? durationAfterOrder;
   final double refundFraction;
 
   const CancellationPolicy({
-    required this.durationBeforeStart,
+    this.durationBeforeStart,
+    this.durationAfterOrder,
     required this.refundFraction,
-  })  : assert(refundFraction >= 0),
+  })  : assert(durationBeforeStart != null || durationAfterOrder != null),
+        assert(refundFraction >= 0),
         assert(refundFraction <= 1);
 
   @override
   bool operator ==(Object other) {
     return other is CancellationPolicy &&
         other.durationBeforeStart == durationBeforeStart &&
+        other.durationAfterOrder == durationAfterOrder &&
         other.refundFraction == refundFraction;
   }
 
   @override
-  int get hashCode => Object.hash(durationBeforeStart, refundFraction);
+  int get hashCode => Object.hash(
+        durationBeforeStart,
+        durationAfterOrder,
+        refundFraction,
+      );
 }
 
 enum ListingType { room, house, apartment, villa, hotel, hostel, resort }

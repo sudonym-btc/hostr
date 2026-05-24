@@ -492,9 +492,17 @@ class Order extends JsonContentNostrEvent<OrderContent, OrderTags> {
 
     final proof = order.proof!;
 
-    if (proof.zapProof != null) {
-      final zapProof = proof.zapProof!;
-      final receipt = ZapReceipt.fromEvent(zapProof.receipt);
+    final paymentProof = proof.paymentProof;
+    if (paymentProof == null) {
+      setField(
+        'paymentProof',
+        false,
+        'Unsupported or missing payment proof type',
+      );
+    } else if (paymentProof.method == PaymentMethod.zap &&
+        paymentProof.params is ZapPaymentProofParams) {
+      final params = paymentProof.params as ZapPaymentProofParams;
+      final receipt = ZapReceipt.fromEvent(params.receipt);
 
       final expectedAmount = order.resolveExpectedAmount(
         listing: proof.listing,
@@ -534,25 +542,39 @@ class Order extends JsonContentNostrEvent<OrderContent, OrderTags> {
         recipientOk ? null : 'Receipt recipient does not match listing pubKey',
       );
 
-      final hosterOk = proof.hoster.pubKey == listingAuthor;
+      final recipientProfileOk =
+          params.recipientProfile.pubKey == listingAuthor;
       setField(
-        'hosterProfile',
-        hosterOk,
-        hosterOk ? null : 'Attached profile does not match listing pubkey',
+        'recipientProfile',
+        recipientProfileOk,
+        recipientProfileOk
+            ? null
+            : 'Attached recipient profile does not match listing pubkey',
       );
 
-      final lnurlOk = receipt.lnurl == Metadata.fromEvent(proof.hoster).lud16;
+      final lnurlOk =
+          receipt.lnurl == Metadata.fromEvent(params.recipientProfile).lud16;
       setField(
         'zapLnurl',
         lnurlOk,
         lnurlOk ? null : 'Zap receipt LNURL does not match hoster lud16',
       );
-    } else if (proof.escrowProof != null) {
-      setField('escrowProof', true);
-      // TODO: Implement escrow proof validation and update field results
+    } else if (paymentProof.method == PaymentMethod.evm &&
+        paymentProof.params is EvmPaymentProofParams) {
+      final escrow = proof.escrow;
+      if (escrow == null) {
+        setField(
+          'escrow',
+          false,
+          'Missing escrow context for EVM payment proof',
+        );
+      } else {
+        setField('escrow', true);
+      }
+      // TODO: Implement EVM escrow proof validation and update field results
     } else {
       setField(
-        'proofType',
+        'paymentProof',
         false,
         'Unsupported or missing payment proof type',
       );
@@ -760,127 +782,214 @@ class OrderContent extends EventContent with CommitTerms {
 }
 
 class PaymentProof {
-  Nip01Event hoster;
-  Listing listing;
-  ZapProof? zapProof;
-  EscrowProof? escrowProof;
+  final Listing listing;
+  final PaymentProofEvidence? paymentProof;
+  final EscrowPaymentContext? escrow;
 
-  PaymentProof(
-      {required this.hoster,
-      required this.listing,
-      required this.zapProof,
-      required this.escrowProof});
+  PaymentProof({
+    required this.listing,
+    required this.paymentProof,
+    this.escrow,
+  });
+
+  factory PaymentProof.evm({
+    required Listing listing,
+    required String txHash,
+    required EscrowService escrowService,
+    required EscrowMethod sellerEscrowMethod,
+  }) {
+    return PaymentProof(
+      listing: listing,
+      paymentProof: PaymentProofEvidence(
+        method: PaymentMethod.evm,
+        params: EvmPaymentProofParams(txHash: txHash),
+      ),
+      escrow: EscrowPaymentContext(
+        escrowService: escrowService,
+        sellerEscrowMethod: sellerEscrowMethod,
+      ),
+    );
+  }
+
+  factory PaymentProof.zap({
+    required Listing listing,
+    required Nip01EventModel receipt,
+    required Nip01Event recipientProfile,
+  }) {
+    return PaymentProof(
+      listing: listing,
+      paymentProof: PaymentProofEvidence(
+        method: PaymentMethod.zap,
+        params: ZapPaymentProofParams(
+          receipt: receipt,
+          recipientProfile: recipientProfile,
+        ),
+      ),
+    );
+  }
+
+  EvmPaymentProofParams? get evmParams {
+    final proof = paymentProof;
+    final params = proof?.params;
+    if (proof?.method == PaymentMethod.evm && params is EvmPaymentProofParams) {
+      return params;
+    }
+    return null;
+  }
+
+  ZapPaymentProofParams? get zapParams {
+    final proof = paymentProof;
+    final params = proof?.params;
+    if (proof?.method == PaymentMethod.zap && params is ZapPaymentProofParams) {
+      return params;
+    }
+    return null;
+  }
+
+  bool get hasEscrowPaymentProof => evmParams != null && escrow != null;
 
   Map<String, dynamic> toJson() {
     return {
-      "hoster": Nip01EventModel.fromEntity(hoster).toJson(),
       "listing": Nip01EventModel.fromEntity(listing).toJson(),
-      "zapProof": zapProof?.toJson(),
-      "escrowProof": escrowProof?.toJson(),
+      "paymentProof": paymentProof?.toJson(),
+      if (escrow != null) "escrow": escrow!.toJson(),
     };
   }
 
   static PaymentProof fromJson(Map<String, dynamic> json) {
+    final listing = Listing.fromNostrEvent(
+      Nip01EventModel.fromJson(json["listing"]),
+    );
+
+    final paymentProofJson = json["paymentProof"];
+    if (paymentProofJson is Map) {
+      return PaymentProof(
+        listing: listing,
+        paymentProof: PaymentProofEvidence.fromJson(
+          Map<String, dynamic>.from(paymentProofJson),
+        ),
+        escrow: json["escrow"] != null
+            ? EscrowPaymentContext.fromJson(
+                Map<String, dynamic>.from(json["escrow"] as Map),
+              )
+            : null,
+      );
+    }
+
     return PaymentProof(
-      listing:
-          Listing.fromNostrEvent(Nip01EventModel.fromJson(json["listing"])),
-      zapProof:
-          json["zapProof"] != null ? ZapProof.fromJson(json["zapProof"]) : null,
-      escrowProof: json["escrowProof"] != null
-          ? EscrowProof.fromJson(json["escrowProof"])
-          : null,
-      hoster: Nip01EventModel.fromJson(json["hoster"]),
+      listing: listing,
+      paymentProof: null,
     );
   }
 }
 
-class EscrowProof {
+class EscrowPaymentContext {
   final EscrowService escrowService;
-  final EscrowMethod sellerEscrowMethods;
-  final EscrowProofParams params;
+  final EscrowMethod sellerEscrowMethod;
 
-  String get txHash => evmParams.txHash;
-
-  EvmEscrowProofParams get evmParams {
-    final params = this.params;
-    if (params is EvmEscrowProofParams) return params;
-    throw StateError('Escrow proof params are not EVM params.');
-  }
-
-  EscrowProof({
-    required this.sellerEscrowMethods,
+  EscrowPaymentContext({
+    required this.sellerEscrowMethod,
     required this.escrowService,
-    required this.params,
   });
 
   Map<String, dynamic> toJson() {
     return {
       "escrowService": escrowService.toString(),
-      "sellerEscrowMethods": sellerEscrowMethods.toString(),
-      "params": params.toJson(),
+      "sellerEscrowMethod": sellerEscrowMethod.toString(),
     };
   }
 
-  static EscrowProof fromJson(Map<String, dynamic> json) {
+  static EscrowPaymentContext fromJson(Map<String, dynamic> json) {
     final escrowService = EscrowService.fromNostrEvent(
       Nip01EventModel.fromJson(jsonDecode(json["escrowService"])),
     );
-    return EscrowProof(
+    return EscrowPaymentContext(
       escrowService: escrowService,
-      sellerEscrowMethods: EscrowMethod.fromNostrEvent(
-        Nip01EventModel.fromJson(jsonDecode(json["sellerEscrowMethods"])),
+      sellerEscrowMethod: EscrowMethod.fromNostrEvent(
+        Nip01EventModel.fromJson(jsonDecode(json["sellerEscrowMethod"])),
       ),
-      params: EscrowProofParams.fromJson(
-        escrowService.escrowType,
+    );
+  }
+}
+
+class PaymentProofEvidence {
+  final PaymentMethod method;
+  final PaymentProofParams params;
+
+  const PaymentProofEvidence({
+    required this.method,
+    required this.params,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'method': method.wireName,
+        'params': params.toJson(),
+      };
+
+  factory PaymentProofEvidence.fromJson(Map<String, dynamic> json) {
+    final method = PaymentMethod.fromJson(json['method']);
+    return PaymentProofEvidence(
+      method: method,
+      params: PaymentProofParams.fromJson(
+        method,
         Map<String, dynamic>.from(json['params'] as Map),
       ),
     );
   }
 }
 
-abstract class EscrowProofParams {
-  const EscrowProofParams();
+abstract class PaymentProofParams {
+  const PaymentProofParams();
 
   Map<String, dynamic> toJson();
 
-  static EscrowProofParams fromJson(
-    EscrowType type,
+  static PaymentProofParams fromJson(
+    PaymentMethod method,
     Map<String, dynamic> json,
   ) {
-    return switch (type) {
-      EscrowType.EVM => EvmEscrowProofParams.fromJson(json),
+    return switch (method) {
+      PaymentMethod.evm => EvmPaymentProofParams.fromJson(json),
+      PaymentMethod.zap => ZapPaymentProofParams.fromJson(json),
     };
   }
 }
 
-final class EvmEscrowProofParams extends EscrowProofParams {
+final class EvmPaymentProofParams extends PaymentProofParams {
   final String txHash;
 
-  const EvmEscrowProofParams({required this.txHash});
+  const EvmPaymentProofParams({required this.txHash});
 
   @override
   Map<String, dynamic> toJson() => {
         'txHash': txHash,
       };
 
-  factory EvmEscrowProofParams.fromJson(Map<String, dynamic> json) =>
-      EvmEscrowProofParams(txHash: json['txHash'] as String);
+  factory EvmPaymentProofParams.fromJson(Map<String, dynamic> json) =>
+      EvmPaymentProofParams(txHash: json['txHash'] as String);
 }
 
-class ZapProof {
+final class ZapPaymentProofParams extends PaymentProofParams {
   final Nip01EventModel receipt;
-  ZapProof({required this.receipt});
+  final Nip01Event recipientProfile;
 
-  toJson() {
+  const ZapPaymentProofParams({
+    required this.receipt,
+    required this.recipientProfile,
+  });
+
+  @override
+  Map<String, dynamic> toJson() {
     return {
       "receipt": receipt.toJsonString(),
+      "recipientProfile": Nip01EventModel.fromEntity(recipientProfile).toJson(),
     };
   }
 
-  static fromJson(Map<String, dynamic> json) {
-    return ZapProof(
-        receipt: Nip01EventModel.fromJson(jsonDecode(json["receipt"])));
-  }
+  factory ZapPaymentProofParams.fromJson(Map<String, dynamic> json) =>
+      ZapPaymentProofParams(
+        receipt: Nip01EventModel.fromJson(jsonDecode(json["receipt"])),
+        recipientProfile: Nip01EventModel.fromJson(json["recipientProfile"]),
+      );
 }
 
 enum OrderStatus {

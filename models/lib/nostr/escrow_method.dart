@@ -8,6 +8,17 @@ import '../stubs/keypairs.dart';
 
 const kAcceptedPaymentFormTag = 'o';
 
+String evmAddressOwnershipMessage({
+  required String nostrPubkey,
+  required String evmAddress,
+}) {
+  return [
+    'EVM address ownership proof',
+    'nostr:$nostrPubkey',
+    'evm:address:$evmAddress',
+  ].join('\n');
+}
+
 /// A denomination → concrete token mapping declared via an `"o"` tag on an
 /// [EscrowMethod] event.
 ///
@@ -92,6 +103,8 @@ class AcceptedPaymentForm {
 
 class EscrowMethod extends Event {
   static const List<int> kinds = [kNostrKindEscrowMethod];
+  static const String evmAddressClaimPrefix = 'evm:address:';
+  static const String eip191ProofPrefix = 'eip191:';
   static final EventTagsParser<EventTags> _tagParser = EventTags.new;
 
   EscrowMethod.fromNostrEvent(Nip01Event e)
@@ -121,6 +134,39 @@ class EscrowMethod extends Event {
         .toList();
   }
 
+  String? get evmAddress {
+    final claim = _lastEvmAddressTag();
+    if (claim == null) return null;
+    return claim[1].substring(evmAddressClaimPrefix.length);
+  }
+
+  String? get evmAddressProof {
+    final claim = _lastEvmAddressTag();
+    if (claim == null || claim.length < 3) return null;
+    final proof = claim[2];
+    return proof.startsWith(eip191ProofPrefix)
+        ? proof.substring(eip191ProofPrefix.length)
+        : proof;
+  }
+
+  EscrowMethod withEvmAddress(
+    String address, {
+    String? eip191Proof,
+    int? createdAt,
+  }) {
+    final updatedTags = withoutEvmAddressClaims(tags).toList()
+      ..add(evmAddressTag(address, eip191Proof: eip191Proof));
+    return EscrowMethod.fromNostrEvent(
+      Nip01Event(
+        pubKey: pubKey,
+        kind: kind,
+        tags: updatedTags,
+        content: content,
+        createdAt: createdAt ?? Nip01Event.secondsSinceEpoch(),
+      ),
+    );
+  }
+
   /// Token tag IDs accepted for a specific [denomination] (e.g. `"BTC"`).
   List<String> acceptedTokensFor(String denomination) {
     return acceptedPaymentForms
@@ -147,5 +193,34 @@ class EscrowMethod extends Event {
           AcceptedPaymentForm.canonicalTokenTagId(f.tokenTagId) ==
               canonicalTokenTagId,
     );
+  }
+
+  static List<String> evmAddressTag(String address, {String? eip191Proof}) {
+    return [
+      'i',
+      '$evmAddressClaimPrefix$address',
+      if (eip191Proof != null && eip191Proof.isNotEmpty)
+        '$eip191ProofPrefix$eip191Proof',
+    ];
+  }
+
+  static bool isEvmAddressTag(List<String> tag) {
+    return tag.length >= 2 &&
+        tag[0] == 'i' &&
+        tag[1].startsWith(evmAddressClaimPrefix);
+  }
+
+  static Iterable<List<String>> withoutEvmAddressClaims(
+    Iterable<List<String>> tags,
+  ) {
+    return tags.where((tag) => !isEvmAddressTag(tag));
+  }
+
+  List<String>? _lastEvmAddressTag() {
+    List<String>? latest;
+    for (final tag in tags) {
+      if (isEvmAddressTag(tag)) latest = tag;
+    }
+    return latest;
   }
 }

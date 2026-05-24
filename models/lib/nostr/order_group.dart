@@ -12,7 +12,7 @@ import 'package:models/nostr_kinds.dart' show kListingRefTag;
 ///
 /// - **seller / host**: `pubKey == getPubKeyFromAnchor(listingAnchor)`
 /// - **escrow**: `pubKey == escrowPubkey` (resolved from any order's
-///   `escrowProof.escrowService.escrowPubkey`) and `pubKey != hostPubkey`
+///   `proof.escrow.escrowService.escrowPubkey`) and `pubKey != hostPubkey`
 /// - **buyer / guest**: everyone else
 ///
 /// Because the getters are derived, adding a order that reveals the
@@ -130,9 +130,9 @@ class OrderGroup {
 
   /// The order published by the escrow service, if any.
   ///
-  /// Only resolvable when one of the orders carries an
-  /// [EscrowProof] whose `escrowService.escrowPubkey` is known and
-  /// differs from the host pubkey.
+  /// Only resolvable when one of the orders carries escrow payment context
+  /// whose `escrowService.escrowPubkey` is known and differs from the host
+  /// pubkey.
   Order? get escrowOrder {
     final ep = escrowPubkey;
     if (ep == null) return null;
@@ -160,13 +160,13 @@ class OrderGroup {
   /// The buyer (guest) pubkey, resolved from the buyer's order.
   String? get buyerPubkey => buyerOrder?.pubKey;
 
-  /// The escrow service pubkey, resolved from the first order that
-  /// carries an [EscrowProof], falling back to the first `p` tag with
-  /// an `"escrow"` role marker (`["p", pk, "", "escrow"]`).
+  /// The escrow service pubkey, resolved from the first order that carries
+  /// escrow payment context, falling back to the first `p` tag with an
+  /// `"escrow"` role marker (`["p", pk, "", "escrow"]`).
   String? get escrowPubkey {
-    // 1. Resolve from EscrowProof (most authoritative).
+    // 1. Resolve from escrow context (most authoritative).
     for (final r in orders) {
-      final pk = r.proof?.escrowProof?.escrowService.escrowPubkey;
+      final pk = r.proof?.escrow?.escrowService.escrowPubkey;
       if (pk != null) return pk;
     }
     // 2. Fallback: scan p tags for the role marker.

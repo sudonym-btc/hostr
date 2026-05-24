@@ -49,10 +49,6 @@ const kNostrKindProfile = 0;
 /// https://nips.nostr.com/42
 const kNostrKindRelayAuthentication = 22242;
 
-/// External identity claims, defined by NIP-39:
-/// https://nips.nostr.com/39
-const kNostrKindIdentityClaims = 10011;
-
 /// Legacy encrypted direct message, defined by NIP-04:
 /// https://nips.nostr.com/04
 const kNostrKindLegacyDM = 4;
@@ -157,7 +153,6 @@ const kHostrOnlyKinds = <int>{
   kNostrKindEscrowService,
   kNostrKindEscrowMethod,
   kNostrKindEscrowServiceSelected,
-  kNostrKindIdentityClaims,
   kNostrKindJsonMessage,
   kNostrKindSeal,
   kNostrKindReceivedHeartbeat,

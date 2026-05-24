@@ -32,8 +32,6 @@ T parser<T extends Nip01Event>(Nip01Event event) {
     return BadgeAward.fromNostrEvent(event) as T;
   } else if (BadgeDefinition.kinds.contains(eventKind)) {
     return BadgeDefinition.fromNostrEvent(event) as T;
-  } else if (IdentityClaims.kinds.contains(eventKind)) {
-    return IdentityClaims.fromNostrEvent(event) as T;
   } else if (ProfileMetadata.kinds.contains(eventKind)) {
     return ProfileMetadata.fromNostrEvent(event) as T;
   }

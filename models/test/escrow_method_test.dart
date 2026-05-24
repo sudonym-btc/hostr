@@ -61,5 +61,85 @@ void main() {
         isFalse,
       );
     });
+
+    test('builds a generic EVM address ownership message', () {
+      final message = evmAddressOwnershipMessage(
+        nostrPubkey: pubkey,
+        evmAddress: '0x1111111111111111111111111111111111111111',
+      );
+
+      expect(message, isNot(contains('Hostr')));
+      expect(
+        message,
+        [
+          'EVM address ownership proof',
+          'nostr:$pubkey',
+          'evm:address:0x1111111111111111111111111111111111111111',
+        ].join('\n'),
+      );
+    });
+
+    test('parses embedded EVM address claims', () {
+      final method = EscrowMethod.fromNostrEvent(
+        Nip01Event(
+          pubKey: 'pubkey',
+          kind: kNostrKindEscrowMethod,
+          tags: const [
+            ['i', 'github:alice', 'proof'],
+            [
+              'i',
+              'evm:address:0x1111111111111111111111111111111111111111',
+              'eip191:0xsig',
+            ],
+          ],
+          content: '',
+        ),
+      );
+
+      expect(
+        method.evmAddress,
+        '0x1111111111111111111111111111111111111111',
+      );
+      expect(method.evmAddressProof, '0xsig');
+    });
+
+    test('replaces only prior EVM address claims', () {
+      final method = EscrowMethod.fromNostrEvent(
+        Nip01Event(
+          pubKey: 'pubkey',
+          kind: kNostrKindEscrowMethod,
+          tags: const [
+            ['i', 'github:alice', 'proof'],
+            ['i', 'evm:address:0xold', 'eip191:0xoldproof'],
+          ],
+          content: '',
+        ),
+      ).withEvmAddress('0xnew', eip191Proof: '0xnewproof');
+
+      expect(
+        method.tags,
+        contains(predicate<List<String>>((tag) {
+          return tag.length == 3 &&
+              tag[0] == 'i' &&
+              tag[1] == 'github:alice' &&
+              tag[2] == 'proof';
+        })),
+      );
+      expect(
+        method.tags,
+        isNot(contains(predicate<List<String>>((tag) {
+          return tag.length >= 2 && tag[1] == 'evm:address:0xold';
+        }))),
+      );
+      expect(
+        method.tags,
+        contains(predicate<List<String>>((tag) {
+          return tag.length == 3 &&
+              tag[0] == 'i' &&
+              tag[1] == 'evm:address:0xnew' &&
+              tag[2] == 'eip191:0xnewproof';
+        })),
+      );
+    });
   });
 }

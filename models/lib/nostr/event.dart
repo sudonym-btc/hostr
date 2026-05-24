@@ -266,19 +266,39 @@ class EventTags {
 
   // ── Cancellation policy helpers ──────────────────────────────────
 
-  /// Parse cancellation policy tags encoded as
-  /// `["cancellationPolicy", "secondsBeforeStart", "refundFraction"]`.
+  /// Parse field-labeled cancellation policy tags.
   List<CancellationPolicy> getTagCancellationPolicies() {
     return tags
-        .where((t) => t.length >= 3 && t[0] == 'cancellationPolicy')
+        .where((t) => t.length >= 5 && t[0] == 'cancellationPolicy')
         .map((t) {
-          final secondsBeforeStart = int.tryParse(t[1]);
-          final refundFraction = double.tryParse(t[2]);
-          if (secondsBeforeStart == null || refundFraction == null) {
+          final fields = <String, String>{};
+          for (var i = 1; i + 1 < t.length; i += 2) {
+            fields[t[i]] = t[i + 1];
+          }
+          final secondsBeforeStart = int.tryParse(
+            fields['secondsBeforeStart'] ?? '',
+          );
+          final secondsAfterOrder = int.tryParse(
+            fields['secondsAfterOrder'] ?? '',
+          );
+          final refundFraction = double.tryParse(
+            fields['refundFraction'] ?? '',
+          );
+          if (refundFraction == null ||
+              refundFraction < 0 ||
+              refundFraction > 1 ||
+              (secondsBeforeStart == null && secondsAfterOrder == null) ||
+              (secondsBeforeStart != null && secondsBeforeStart < 0) ||
+              (secondsAfterOrder != null && secondsAfterOrder < 0)) {
             return null;
           }
           return CancellationPolicy(
-            durationBeforeStart: Duration(seconds: secondsBeforeStart),
+            durationBeforeStart: secondsBeforeStart == null
+                ? null
+                : Duration(seconds: secondsBeforeStart),
+            durationAfterOrder: secondsAfterOrder == null
+                ? null
+                : Duration(seconds: secondsAfterOrder),
             refundFraction: refundFraction,
           );
         })

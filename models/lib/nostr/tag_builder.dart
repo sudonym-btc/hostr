@@ -126,15 +126,41 @@ class TagBuilder {
     return this;
   }
 
-  /// Encodes each [CancellationPolicy] as
-  /// `["cancellationPolicy", "secondsBeforeStart", "refundFraction"]`.
+  /// Encodes each [CancellationPolicy] as a field-labeled tag.
   TagBuilder addCancellationPolicies(List<CancellationPolicy> policies) {
     for (final policy in policies) {
-      _tags.add([
+      final durationBeforeStart = policy.durationBeforeStart;
+      final durationAfterOrder = policy.durationAfterOrder;
+      if (durationBeforeStart == null && durationAfterOrder == null) {
+        throw ArgumentError(
+          'Cancellation policy must include durationBeforeStart, '
+          'durationAfterOrder, or both.',
+        );
+      }
+      if ((durationBeforeStart?.isNegative ?? false) ||
+          (durationAfterOrder?.isNegative ?? false)) {
+        throw ArgumentError(
+          'Cancellation policy durations must be non-negative.',
+        );
+      }
+      final tag = [
         'cancellationPolicy',
-        policy.durationBeforeStart.inSeconds.toString(),
+        'refundFraction',
         policy.refundFraction.toString(),
-      ]);
+      ];
+      if (durationBeforeStart != null) {
+        tag.addAll([
+          'secondsBeforeStart',
+          durationBeforeStart.inSeconds.toString(),
+        ]);
+      }
+      if (durationAfterOrder != null) {
+        tag.addAll([
+          'secondsAfterOrder',
+          durationAfterOrder.inSeconds.toString(),
+        ]);
+      }
+      _tags.add(tag);
     }
     return this;
   }
