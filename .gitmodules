@@ -24,4 +24,8 @@
 [submodule "dependencies/ndk"]
 	path = dependencies/ndk
 	url = git@github.com:sudonym-btc/ndk.git
-	branch = codex/hostr-ndk-fixes-upstream-master
+	branch = marketplace
+[submodule "dependencies/nostr-tools"]
+	path = dependencies/nostr-tools
+	url = git@github.com:sudonym-btc/nostr-tools.git
+	branch = marketplace
