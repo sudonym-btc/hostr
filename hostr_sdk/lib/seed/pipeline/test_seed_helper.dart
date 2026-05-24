@@ -208,15 +208,15 @@ class TestSeedHelper {
     );
 
     final profile = (await _factory.buildProfiles([user])).first;
-    final identityClaims = hasEvm
-        ? (await _factory.buildIdentityClaims([user])).first
+    final escrowMethod = hasEvm
+        ? (await _factory.buildEscrowMethods([user])).first
         : null;
     final listings = _factory.buildListings([user]);
 
     return TestHost(
       user: user,
       profile: profile,
-      identityClaims: identityClaims,
+      escrowMethod: escrowMethod,
       listings: listings,
     );
   }
@@ -244,13 +244,13 @@ class TestGuest {
 class TestHost {
   final SeedUser user;
   final ProfileMetadata profile;
-  final IdentityClaims? identityClaims;
+  final EscrowMethod? escrowMethod;
   final List<Listing> listings;
 
   const TestHost({
     required this.user,
     required this.profile,
-    this.identityClaims,
+    this.escrowMethod,
     required this.listings,
   });
 
@@ -258,7 +258,7 @@ class TestHost {
   String get publicKey => user.keyPair.publicKey;
   String get privateKey => user.keyPair.privateKey!;
   Listing get listing => listings.first;
-  String? get evmAddress => identityClaims?.evmAddress;
+  String? get evmAddress => escrowMethod?.evmAddress;
 }
 
 /// Result of [TestSeedHelper.freshTrade].

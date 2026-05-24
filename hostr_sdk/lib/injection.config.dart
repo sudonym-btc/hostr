@@ -66,8 +66,6 @@ import 'package:hostr_sdk/usecase/evm/operations/swap_quote_service.dart'
 import 'package:hostr_sdk/usecase/evm/operations/swap_recoverer.dart' as _i249;
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart' as _i308;
 import 'package:hostr_sdk/usecase/heartbeat/heartbeat.dart' as _i175;
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart'
-    as _i950;
 import 'package:hostr_sdk/usecase/listings/listings.dart' as _i906;
 import 'package:hostr_sdk/usecase/lnurl/lnurl.dart' as _i908;
 import 'package:hostr_sdk/usecase/location/location.dart' as _i56;
@@ -354,14 +352,6 @@ extension GetItInjectableX on _i174.GetIt {
         url: gh<String>(),
       ),
     );
-    gh.singleton<_i950.IdentityClaimsUseCase>(
-      () => _i950.IdentityClaimsUseCase(
-        auth: gh<_i1000.Auth>(),
-        config: gh<_i910.HostrConfig>(),
-        requests: gh<_i1014.Requests>(),
-        logger: gh<_i331.CustomLogger>(),
-      ),
-    );
     gh.singleton<_i376.EscrowUseCase>(
       () => _i376.EscrowUseCase(
         logger: gh<_i372.CustomLogger>(),
@@ -468,7 +458,6 @@ extension GetItInjectableX on _i174.GetIt {
         escrowMethods: gh<_i445.EscrowMethods>(),
         blossom: gh<_i824.BlossomUseCase>(),
         evm: gh<_i305.Evm>(),
-        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
         config: gh<_i910.HostrConfig>(),
         requests: gh<_i1014.Requests>(),
         logger: gh<_i331.CustomLogger>(),
@@ -680,7 +669,7 @@ extension GetItInjectableX on _i174.GetIt {
         auth: gh<_i1000.Auth>(),
         listings: gh<_i906.Listings>(),
         metadata: gh<_i149.MetadataUseCase>(),
-        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
+        escrowMethods: gh<_i445.EscrowMethods>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         orderGroups: gh<_i533.OrderGroups>(),
         threads: gh<_i768.Threads>(),
@@ -737,7 +726,6 @@ extension GetItInjectableX on _i174.GetIt {
         accountSeedStore: gh<_i756.AccountSeedStore>(),
         metadata: gh<_i149.MetadataUseCase>(),
         listings: gh<_i906.Listings>(),
-        identityClaims: gh<_i950.IdentityClaimsUseCase>(),
         userSubscriptions: gh<_i576.UserSubscriptions>(),
         paymentProofOrchestrator: gh<_i850.PaymentProofOrchestrator>(),
         fundsMonitor: gh<_i1016.FundsMonitorService>(),

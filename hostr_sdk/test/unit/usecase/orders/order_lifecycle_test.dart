@@ -2,10 +2,10 @@
 ///
 /// Covers:
 /// - Creating a negotiate order with deterministic trade id & commitment hash
-/// - Self-signed commit with escrow proof (allowSelfSignedOrder=true)
-/// - Seller-ack flow (allowSelfSignedOrder=false)
+/// - Self-signed commit with escrow proof (autoAccept=true)
+/// - Seller-ack flow (autoAccept=false)
 /// - Buyer / seller cancel → OrderGroupStatus accuracy
-/// - negotiable × allowSelfSignedOrder matrix
+/// - negotiable × autoAccept matrix
 /// - Commit-terms validation and hash integrity
 /// - OrderTransition validation across the lifecycle
 /// - Participant proof payload hash stability
@@ -15,7 +15,7 @@ library;
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
+import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -29,8 +29,7 @@ final _f = EntityFactory();
 Listing _listing({
   KeyPair? signer,
   bool negotiable = false,
-  bool allowSelfSignedOrder = false,
-  bool instantBook = true,
+  bool autoAccept = true,
   int pricePerNightSats = 100000,
   List<Price>? price,
 }) {
@@ -47,8 +46,7 @@ Listing _listing({
     type: ListingType.house,
     specifications: Specifications(),
     negotiable: negotiable,
-    allowSelfSignedOrder: allowSelfSignedOrder,
-    instantBook: instantBook,
+    autoAccept: autoAccept,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   );
 }
@@ -187,8 +185,7 @@ OrderTransition _transition({
   );
 }
 
-/// Minimal fake escrow proof that satisfies the `proof.escrowProof != null`
-/// branch in `Order.validate`.
+/// Minimal fake EVM proof with escrow context for `Order.validate`.
 PaymentProof _escrowPaymentProof({required Listing listing}) {
   final escrowService = MOCK_ESCROWS(
     contractAddress: '0xDEAD',
@@ -204,25 +201,11 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
     privateKey: MockKeys.hoster.privateKey!,
   );
 
-  return PaymentProof(
-    hoster: Nip01EventModel.fromEntity(
-      Nip01Utils.signWithPrivateKey(
-        event: Nip01Event(
-          kind: 0,
-          pubKey: MockKeys.hoster.publicKey,
-          tags: [],
-          content: '',
-        ),
-        privateKey: MockKeys.hoster.privateKey!,
-      ),
-    ),
+  return PaymentProof.evm(
     listing: listing,
-    zapProof: null,
-    escrowProof: EscrowProof(
-      escrowService: escrowService,
-      sellerEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
-      params: EvmEscrowProofParams(txHash: '0xabc123'),
-    ),
+    txHash: '0xabc123',
+    escrowService: escrowService,
+    sellerEscrowMethod: EscrowMethod.fromNostrEvent(methodEvent),
   );
 }
 
@@ -234,27 +217,31 @@ void main() async {
   final buyer = MockKeys.guest;
   final seller = MockKeys.hoster;
 
-  // ── 1. Listing allowSelfSignedOrder field ────────────────────
+  // ── 1. Listing autoAccept field ────────────────────
 
-  group('Listing.allowSelfSignedOrder', () {
-    test('defaults to false', () {
+  group('Listing.autoAccept', () {
+    test('Listing.create emits autoAccept=true by default', () {
       final listing = _listing();
-      expect(listing.allowSelfSignedOrder, isFalse);
+      expect(listing.autoAccept, isTrue);
     });
 
     test('round-trips through Listing.create when true', () {
-      final listing = _listing(allowSelfSignedOrder: true);
-      expect(listing.allowSelfSignedOrder, isTrue);
+      final listing = _listing(autoAccept: true);
+      expect(listing.autoAccept, isTrue);
     });
 
     test('round-trips through Listing.create when false', () {
-      final listing = _listing(allowSelfSignedOrder: false);
-      expect(listing.allowSelfSignedOrder, isFalse);
+      final listing = _listing(autoAccept: false);
+      expect(listing.autoAccept, isFalse);
     });
 
-    test('defaults to false', () {
+    test('missing tag parses as false', () {
       final listing = _listing();
-      expect(listing.allowSelfSignedOrder, isFalse);
+      final tags = listing.tags
+          .where((tag) => tag.first != 'autoAccept' && tag.first != 'I')
+          .toList();
+      final reparsed = Listing.fromNostrEvent(listing.copyWith(tags: tags));
+      expect(reparsed.autoAccept, isFalse);
     });
   });
 
@@ -346,7 +333,7 @@ void main() async {
     });
 
     test('salt is not carried into published commit transition', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       const salt = 'buyer-keeps-this';
       final negotiate = await _negotiateOrder(
         listing: listing,
@@ -370,9 +357,9 @@ void main() async {
 
   // ── 4. Self-signed commit with escrow proof ────────────────────────
 
-  group('Self-signed commit (allowSelfSignedOrder=true)', () {
+  group('Self-signed commit (autoAccept=true)', () {
     test('buyer can self-sign commit when listing allows it', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -389,11 +376,11 @@ void main() async {
       expect(commit.stage, OrderStage.commit);
       expect(commit.isCommit, isTrue);
       expect(commit.proof, isNotNull);
-      expect(commit.proof!.escrowProof, isNotNull);
+      expect(commit.proof!.hasEscrowPaymentProof, isTrue);
     });
 
     test('commit preserves commitTermsHash from negotiate', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -412,7 +399,7 @@ void main() async {
     test(
       'commit with altered terms produces different commitTermsHash',
       () async {
-        final listing = _listing(allowSelfSignedOrder: true);
+        final listing = _listing(autoAccept: true);
         final negotiate = await _negotiateOrder(
           listing: listing,
           buyer: buyer,
@@ -438,11 +425,11 @@ void main() async {
     );
   });
 
-  // ── 5. Seller-ack flow (allowSelfSignedOrder=false) ──────────
+  // ── 5. Seller-ack flow (autoAccept=false) ──────────
 
-  group('Seller-ack flow (allowSelfSignedOrder=false)', () {
+  group('Seller-ack flow (autoAccept=false)', () {
     test('seller ack order references same trade id (d-tag)', () async {
-      final listing = _listing(allowSelfSignedOrder: false);
+      final listing = _listing(autoAccept: false);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -460,7 +447,7 @@ void main() async {
     });
 
     test('Order.validate accepts host order without proof', () async {
-      final listing = _listing(allowSelfSignedOrder: false);
+      final listing = _listing(autoAccept: false);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -482,7 +469,7 @@ void main() async {
 
     test('Order.validate rejects buyer commit without proof when listing '
         'does not allow self-signed', () async {
-      final listing = _listing(allowSelfSignedOrder: false);
+      final listing = _listing(autoAccept: false);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -502,49 +489,46 @@ void main() async {
     });
   });
 
-  // ── 6. negotiable × allowSelfSignedOrder matrix ─────────────
+  // ── 6. negotiable × autoAccept matrix ─────────────
 
   group('Listing policy flag matrix', () {
     for (final negotiable in [true, false]) {
       for (final selfSigned in [true, false]) {
-        test('negotiable=$negotiable, allowSelfSignedOrder=$selfSigned '
+        test('negotiable=$negotiable, autoAccept=$selfSigned '
             'roundtrips', () {
           final listing = _listing(
             negotiable: negotiable,
-            allowSelfSignedOrder: selfSigned,
+            autoAccept: selfSigned,
           );
           expect(listing.negotiable, negotiable);
-          expect(listing.allowSelfSignedOrder, selfSigned);
+          expect(listing.autoAccept, selfSigned);
         });
       }
     }
 
-    test(
-      'buyer self-signed commit accepted when allowSelfSigned=true',
-      () async {
-        final listing = _listing(negotiable: false, allowSelfSignedOrder: true);
-        final negotiate = await _negotiateOrder(
-          listing: listing,
-          buyer: buyer,
-          salt: 'salt-matrix1',
-        );
-        final commit = await _commitOrder(
-          negotiate: negotiate,
-          listing: listing,
-          buyer: buyer,
-          proof: _escrowPaymentProof(listing: listing),
-        );
+    test('buyer self-signed commit accepted when autoAccept=true', () async {
+      final listing = _listing(negotiable: false, autoAccept: true);
+      final negotiate = await _negotiateOrder(
+        listing: listing,
+        buyer: buyer,
+        salt: 'salt-matrix1',
+      );
+      final commit = await _commitOrder(
+        negotiate: negotiate,
+        listing: listing,
+        buyer: buyer,
+        proof: _escrowPaymentProof(listing: listing),
+      );
 
-        // With escrow proof, Order.validate should accept
-        final result = Order.validate(commit);
-        expect(result.isValid, isTrue);
-      },
-    );
+      // With escrow proof, Order.validate should accept
+      final result = Order.validate(commit);
+      expect(result.isValid, isTrue);
+    });
 
     test(
       'buyer commit without proof rejected regardless of negotiable',
       () async {
-        final listing = _listing(negotiable: true, allowSelfSignedOrder: false);
+        final listing = _listing(negotiable: true, autoAccept: false);
         final negotiate = await _negotiateOrder(
           listing: listing,
           buyer: buyer,
@@ -622,7 +606,7 @@ void main() async {
     });
 
     test('committed order matches negotiated terms hash', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -657,7 +641,7 @@ void main() async {
 
   group('Seller-signature verification', () {
     test('seller signs negotiate terms → buyer commit verifies', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -690,7 +674,7 @@ void main() async {
       'seller-signed cross-denomination amount overrides stale listing price',
       () async {
         final listing = _listing(
-          allowSelfSignedOrder: true,
+          autoAccept: true,
           price: [
             Price(
               amount: DenominatedAmount(
@@ -743,7 +727,7 @@ void main() async {
       'unsigned cross-denomination amount falls back to listing price',
       () async {
         final listing = _listing(
-          allowSelfSignedOrder: true,
+          autoAccept: true,
           price: [
             Price(
               amount: DenominatedAmount(
@@ -789,7 +773,7 @@ void main() async {
     );
 
     test('buyer alters dates → seller signature fails verification', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -828,7 +812,7 @@ void main() async {
     test(
       'buyer alters quantity → seller signature fails verification',
       () async {
-        final listing = _listing(allowSelfSignedOrder: true);
+        final listing = _listing(autoAccept: true);
         final negotiate = await _negotiateOrder(
           listing: listing,
           buyer: buyer,
@@ -862,7 +846,7 @@ void main() async {
     );
 
     test('buyer alters amount → seller signature fails verification', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -907,7 +891,7 @@ void main() async {
     test(
       'buyer changes recipient → seller signature fails verification',
       () async {
-        final listing = _listing(allowSelfSignedOrder: true);
+        final listing = _listing(autoAccept: true);
         final negotiate = await _negotiateOrder(
           listing: listing,
           buyer: buyer,
@@ -961,7 +945,7 @@ void main() async {
     test(
       'forged authorization (wrong private key) → verifyCommit returns false',
       () async {
-        final listing = _listing(allowSelfSignedOrder: true);
+        final listing = _listing(autoAccept: true);
         final negotiate = await _negotiateOrder(
           listing: listing,
           buyer: buyer,
@@ -1053,7 +1037,7 @@ void main() async {
     });
 
     test('seller cancels committed → pair shows cancelled', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -1106,7 +1090,7 @@ void main() async {
     });
 
     test('active pair (committed, not cancelled)', () async {
-      final listing = _listing(allowSelfSignedOrder: true);
+      final listing = _listing(autoAccept: true);
       final negotiate = await _negotiateOrder(
         listing: listing,
         buyer: buyer,
@@ -1310,7 +1294,7 @@ void main() async {
 
   group('End-to-end order lifecycle', () {
     test('self-signed: negotiate → pay → commit → seller cancel', () async {
-      final listing = _listing(allowSelfSignedOrder: true, negotiable: false);
+      final listing = _listing(autoAccept: true, negotiable: false);
       const salt = 'e2e-self-signed-salt';
 
       // Step 1: Buyer creates negotiate order (DM to seller)
@@ -1323,7 +1307,7 @@ void main() async {
 
       // Step 2: Buyer pays, receives escrow proof
       final proof = _escrowPaymentProof(listing: listing);
-      expect(proof.escrowProof, isNotNull);
+      expect(proof.hasEscrowPaymentProof, isTrue);
 
       // Step 3: Buyer broadcasts commit with proof
       final commit = await _commitOrder(
@@ -1333,7 +1317,7 @@ void main() async {
         proof: proof,
       );
       expect(commit.isCommit, isTrue);
-      expect(commit.proof!.escrowProof!.txHash, '0xabc123');
+      expect(commit.proof!.evmParams!.txHash, '0xabc123');
 
       // Validate the commit is accepted
       final validation = Order.validate(commit);
@@ -1384,7 +1368,7 @@ void main() async {
     test(
       'seller-ack: negotiate → counter-offers → sellerAck → buyer cancel',
       () async {
-        final listing = _listing(allowSelfSignedOrder: false, negotiable: true);
+        final listing = _listing(autoAccept: false, negotiable: true);
         const salt = 'e2e-seller-ack-salt';
 
         // Step 1: Buyer proposes

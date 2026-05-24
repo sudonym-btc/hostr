@@ -10,7 +10,6 @@ import '../../escrow/main.dart';
 import '../../escrows/escrows.dart';
 import '../../evm/evm.dart';
 import '../../evm/operations/swap_in/swap_in_state.dart';
-import '../../identity_claims/main.dart';
 import '../../listings/listings.dart';
 import '../../messaging/thread.dart';
 import '../../messaging/messaging.dart';
@@ -33,7 +32,6 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     required Messaging messaging,
     required EscrowUseCase escrow,
     required Escrows escrows,
-    required IdentityClaimsUseCase identityClaims,
     required MetadataUseCase metadata,
     required Evm evm,
     required UserSubscriptions userSubscriptions,
@@ -47,7 +45,6 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
        _messaging = messaging,
        _escrow = escrow,
        _escrows = escrows,
-       _identityClaims = identityClaims,
        _metadata = metadata,
        _evm = evm,
        _userSubscriptions = userSubscriptions,
@@ -63,7 +60,6 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
   final Messaging _messaging;
   final EscrowUseCase _escrow;
   final Escrows _escrows;
-  final IdentityClaimsUseCase _identityClaims;
   final MetadataUseCase _metadata;
   final Evm _evm;
   final UserSubscriptions _userSubscriptions;
@@ -82,7 +78,7 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
         await _evm.init();
 
         final listing = await _requireListing(input.listingAnchor);
-        _assertInstantBookEligible(listing);
+        _assertAutoAcceptEligible(listing);
         _assertNotOwnListing(listing);
         await _assertAvailable(listing, input);
 
@@ -238,12 +234,12 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
     return listing;
   }
 
-  void _assertInstantBookEligible(Listing listing) {
+  void _assertAutoAcceptEligible(Listing listing) {
     if (!listing.active) {
       throw StateError('Listing is not active.');
     }
-    if (!listing.instantBook) {
-      throw StateError('Listing does not allow instant book.');
+    if (!listing.autoAccept) {
+      throw StateError('Listing does not allow auto-accept.');
     }
   }
 
@@ -292,17 +288,16 @@ class BookAndPayOperation extends Cubit<BookAndPayState> {
       throw StateError('Seller profile metadata was not found.');
     }
 
-    final sellerEvmAddress = await _identityClaims.loadEvmAddress(sellerPubkey);
-    if (sellerEvmAddress == null || sellerEvmAddress.isEmpty) {
-      throw StateError('Seller EVM identity claim was not found.');
-    }
-
     final mutual = await _escrows.determineMutualEscrow(
       _auth.getActiveKey().publicKey,
       sellerPubkey,
     );
     if (mutual.compatibleServices.isEmpty || mutual.sellerMethod == null) {
       throw StateError('No compatible escrow service was found.');
+    }
+    final sellerEvmAddress = mutual.sellerMethod!.evmAddress;
+    if (sellerEvmAddress == null || sellerEvmAddress.isEmpty) {
+      throw StateError('Seller EVM address was not found on escrow method.');
     }
 
     EscrowService? service;

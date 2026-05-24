@@ -8,7 +8,6 @@ import 'package:models/nostr_kinds.dart'
     show
         kHostrOnlyKinds,
         kNostrKindConnect,
-        kNostrKindIdentityClaims,
         kNostrKindNWCInfo,
         kNostrKindNWCNotification,
         kNostrKindNWCRequest,
@@ -17,14 +16,7 @@ import 'package:models/nostr_kinds.dart'
 import 'package:models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
-    show
-        Filter,
-        LogOutput,
-        Logger,
-        Ndk,
-        Nip01Event,
-        Nip01EventModel,
-        Nip01Utils;
+    show Filter, LogOutput, Logger, Ndk, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/logger/log_event.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:rxdart/rxdart.dart';
@@ -192,10 +184,6 @@ String _shortHex(String? value) {
   if (value == null) return 'null';
   if (value.length <= 16) return value;
   return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
-}
-
-String _nostrEventDebugJson(Nip01Event event) {
-  return jsonEncode(Nip01EventModel.fromEntity(event).toJson());
 }
 
 String _broadcastEventDebugSummary(Nip01Event event) {
@@ -617,12 +605,6 @@ class Requests extends RequestsModel {
     _logger.d(
       'broadcast event: ${_broadcastEventDebugSummary(eventToBroadcast)}',
     );
-    if (eventToBroadcast.kind == kNostrKindIdentityClaims) {
-      _logger.d(
-        'broadcast identity claim JSON: ${_nostrEventDebugJson(eventToBroadcast)}',
-      );
-    }
-
     final responses = await ndk.broadcast
         .broadcast(nostrEvent: eventToBroadcast, specificRelays: relays)
         .broadcastDoneFuture;

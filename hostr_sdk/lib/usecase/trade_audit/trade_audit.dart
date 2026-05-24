@@ -204,10 +204,10 @@ class TradeAudit {
         }
       }
 
-      // 3. Resolve escrow pubkey from any order carrying an EscrowProof.
+      // 3. Resolve escrow pubkey from any order carrying escrow context.
       String? escrowPubkey;
       for (final r in allOrders) {
-        final pk = r.proof?.escrowProof?.escrowService.escrowPubkey;
+        final pk = r.proof?.escrow?.escrowService.escrowPubkey;
         if (pk != null) {
           escrowPubkey = pk;
           break;
@@ -272,7 +272,8 @@ class TradeAudit {
         final committedBuyer = buyerOrders
             .where(
               (r) =>
-                  r.stage == OrderStage.commit && r.proof?.escrowProof != null,
+                  r.stage == OrderStage.commit &&
+                  r.proof?.hasEscrowPaymentProof == true,
             )
             .toList();
         if (committedBuyer.isNotEmpty) {
@@ -454,7 +455,8 @@ class TradeAudit {
 
     // Escrow involvement expected but missing.
     final buyerClaimsEscrow =
-        buyer?.orders.any((r) => r.proof?.escrowProof != null) == true;
+        buyer?.orders.any((r) => r.proof?.hasEscrowPaymentProof == true) ==
+        true;
     if (buyerClaimsEscrow && escrow == null) {
       return 'Buyer claims escrow involvement but the escrow service never confirmed; escrow is unresponsive.';
     }

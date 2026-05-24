@@ -57,7 +57,7 @@ class _StubEscrowVerification extends Fake implements EscrowVerification {
 //  Helpers
 // ═══════════════════════════════════════════════════════════════════════
 
-Listing _listing({KeyPair? signer, bool allowSelfSignedOrder = false}) {
+Listing _listing({KeyPair? signer, bool autoAccept = false}) {
   final key = signer ?? MockKeys.hoster;
   return _f.listing(
     signer: key,
@@ -69,7 +69,7 @@ Listing _listing({KeyPair? signer, bool allowSelfSignedOrder = false}) {
     location: 'test-location',
     type: ListingType.house,
     specifications: Specifications(),
-    allowSelfSignedOrder: allowSelfSignedOrder,
+    autoAccept: autoAccept,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   );
 }
@@ -138,10 +138,10 @@ Future<Order> _cancel({
 //  Extended helpers (extracted from integration test for pure-logic groups)
 // ═══════════════════════════════════════════════════════════════════════
 
-/// Extended listing builder with negotiable / allowSelfSignedOrder.
+/// Extended listing builder with negotiable / autoAccept.
 Listing _buildListing({
   required KeyPair host,
-  bool allowSelfSignedOrder = false,
+  bool autoAccept = false,
   bool negotiable = false,
   BigInt? pricePerNight,
 }) => _f.listing(
@@ -156,7 +156,7 @@ Listing _buildListing({
   type: ListingType.house,
   specifications: Specifications(),
   negotiable: negotiable,
-  allowSelfSignedOrder: allowSelfSignedOrder,
+  autoAccept: autoAccept,
   createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -325,11 +325,10 @@ PaymentProof _buildZapPaymentProof({
     lnurl: lnurl,
   );
 
-  return PaymentProof(
-    hoster: hosterProfile,
+  return PaymentProof.zap(
     listing: listing,
-    zapProof: ZapProof(receipt: receipt),
-    escrowProof: null,
+    receipt: receipt,
+    recipientProfile: hosterProfile,
   );
 }
 
@@ -348,25 +347,11 @@ PaymentProof _buildEscrowPaymentProof({required Listing listing}) {
     privateKey: MockKeys.hoster.privateKey!,
   );
 
-  return PaymentProof(
-    hoster: Nip01EventModel.fromEntity(
-      Nip01Utils.signWithPrivateKey(
-        event: Nip01Event(
-          kind: 0,
-          pubKey: MockKeys.hoster.publicKey,
-          tags: const [],
-          content: '',
-        ),
-        privateKey: MockKeys.hoster.privateKey!,
-      ),
-    ),
+  return PaymentProof.evm(
     listing: listing,
-    zapProof: null,
-    escrowProof: EscrowProof(
-      escrowService: escrowService,
-      sellerEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
-      params: EvmEscrowProofParams(txHash: '0xabc123'),
-    ),
+    txHash: '0xabc123',
+    escrowService: escrowService,
+    sellerEscrowMethod: EscrowMethod.fromNostrEvent(methodEvent),
   );
 }
 
@@ -783,7 +768,7 @@ void main() async {
     late Nip01Event hosterProfile;
 
     setUp(() {
-      listing = _buildListing(host: host, allowSelfSignedOrder: true);
+      listing = _buildListing(host: host, autoAccept: true);
       hosterProfile = _buildProfileEvent(key: host, lud16: lnurl);
     });
 
@@ -883,11 +868,10 @@ void main() async {
         lnurl: lnurl,
       );
 
-      final proof = PaymentProof(
-        hoster: hosterProfile,
+      final proof = PaymentProof.zap(
         listing: listing,
-        zapProof: ZapProof(receipt: receipt),
-        escrowProof: null,
+        receipt: receipt,
+        recipientProfile: hosterProfile,
       );
 
       final commit = await _buildSelfSignedCommit(
@@ -964,12 +948,7 @@ void main() async {
     test('no proof type (null zap + null escrow) → Invalid', () async {
       final nego = await _buildNegotiate(listing: listing, buyer: buyer);
 
-      final proof = PaymentProof(
-        hoster: hosterProfile,
-        listing: listing,
-        zapProof: null,
-        escrowProof: null,
-      );
+      final proof = PaymentProof(listing: listing, paymentProof: null);
 
       final commit = await _buildSelfSignedCommit(
         negotiate: nego,
@@ -992,10 +971,7 @@ void main() async {
     test(
       'escrow-backed buyer commit sets confirmedCommitted=true after verification',
       () async {
-        final listing = _buildListing(
-          host: MockKeys.hoster,
-          allowSelfSignedOrder: true,
-        );
+        final listing = _buildListing(host: MockKeys.hoster, autoAccept: true);
         final negotiate = await _buildNegotiate(
           listing: listing,
           buyer: MockKeys.guest,
@@ -1024,10 +1000,7 @@ void main() async {
     test(
       'cancelled escrow-backed buyer order keeps confirmedCommitted=true',
       () async {
-        final listing = _buildListing(
-          host: MockKeys.hoster,
-          allowSelfSignedOrder: true,
-        );
+        final listing = _buildListing(host: MockKeys.hoster, autoAccept: true);
         final negotiate = await _buildNegotiate(
           listing: listing,
           buyer: MockKeys.guest,
@@ -1063,10 +1036,7 @@ void main() async {
     test(
       'escrow commit sets confirmedCommitted=true without on-chain verifier',
       () async {
-        final listing = _buildListing(
-          host: MockKeys.hoster,
-          allowSelfSignedOrder: true,
-        );
+        final listing = _buildListing(host: MockKeys.hoster, autoAccept: true);
         final negotiate = await _buildNegotiate(
           listing: listing,
           buyer: MockKeys.guest,
@@ -1096,10 +1066,7 @@ void main() async {
     test(
       'escrow commit is valid without rechecking buyer proof in normal UI mode',
       () async {
-        final listing = _buildListing(
-          host: MockKeys.hoster,
-          allowSelfSignedOrder: true,
-        );
+        final listing = _buildListing(host: MockKeys.hoster, autoAccept: true);
         final negotiate = await _buildNegotiate(
           listing: listing,
           buyer: MockKeys.guest,
@@ -1150,10 +1117,7 @@ void main() async {
     });
 
     test('negotiate-only order stays confirmedCommitted=false', () async {
-      final listing = _buildListing(
-        host: MockKeys.hoster,
-        allowSelfSignedOrder: true,
-      );
+      final listing = _buildListing(host: MockKeys.hoster, autoAccept: true);
       final negotiate = await _buildNegotiate(
         listing: listing,
         buyer: MockKeys.guest,
@@ -1169,16 +1133,16 @@ void main() async {
     });
   });
 
-  // ─── Group 5: allowSelfSignedOrder flag ──────────────────────────
+  // ─── Group 5: autoAccept flag ──────────────────────────
 
-  group('verifyGroup — allowSelfSignedOrder flag', () {
+  group('verifyGroup — autoAccept flag', () {
     final host = MockKeys.hoster;
     final buyer = MockKeys.guest;
 
     test(
-      'self-signed commit with proof when allowSelfSigned=true → Valid',
+      'self-signed commit with proof when autoAccept=true -> Valid',
       () async {
-        final listing = _buildListing(host: host, allowSelfSignedOrder: true);
+        final listing = _buildListing(host: host, autoAccept: true);
         final hosterProfile = _buildProfileEvent(
           key: host,
           lud16: 'host@hostr.development',
@@ -1205,29 +1169,26 @@ void main() async {
         );
 
         final pair = OrderGroup(orders: [commit]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair, listing: listing);
         expect(result, isA<Valid<OrderGroup>>());
       },
     );
 
     test(
-      'self-signed commit WITHOUT proof when allowSelfSigned=false → Invalid',
+      'self-signed commit WITHOUT proof when autoAccept=false -> Invalid',
       () async {
-        final listing = _buildListing(host: host, allowSelfSignedOrder: false);
+        final listing = _buildListing(host: host, autoAccept: false);
         final nego = await _buildNegotiate(listing: listing, buyer: buyer);
 
         final pair = OrderGroup(orders: [nego]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair, listing: listing);
         expect(result, isA<Invalid<OrderGroup>>());
       },
     );
 
-    test('self-signed commit WITH valid proof when allowSelfSigned=false '
-        '→ still Valid (proof is sufficient)', () async {
-      // NOTE: Current validation logic does NOT check
-      // allowSelfSignedOrder — it only checks the payment proof.
-      // This test documents that current behavior.
-      final listing = _buildListing(host: host, allowSelfSignedOrder: false);
+    test('self-signed commit WITH valid proof when autoAccept=false '
+        '-> Invalid until seller confirms', () async {
+      final listing = _buildListing(host: host, autoAccept: false);
       final hosterProfile = _buildProfileEvent(
         key: host,
         lud16: 'host@hostr.development',
@@ -1254,8 +1215,8 @@ void main() async {
       );
 
       final pair = OrderGroup(orders: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
-      expect(result, isA<Valid<OrderGroup>>());
+      final result = OrderGroups.verifyGroup(pair, listing: listing);
+      expect(result, isA<Invalid<OrderGroup>>());
     });
   });
 
@@ -1294,7 +1255,7 @@ void main() async {
         final listing = _buildListing(
           host: host,
           negotiable: false,
-          allowSelfSignedOrder: true,
+          autoAccept: true,
         );
         final hosterProfile = _buildProfileEvent(
           key: host,
@@ -1340,7 +1301,7 @@ void main() async {
     late Nip01Event hosterProfile;
 
     setUp(() {
-      listing = _buildListing(host: host, allowSelfSignedOrder: true);
+      listing = _buildListing(host: host, autoAccept: true);
       hosterProfile = _buildProfileEvent(
         key: host,
         lud16: 'host@hostr.development',

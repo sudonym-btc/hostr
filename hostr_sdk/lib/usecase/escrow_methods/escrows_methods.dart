@@ -1,7 +1,11 @@
+import 'dart:convert';
+
+import 'package:convert/convert.dart';
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip51List;
 import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
@@ -24,10 +28,18 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
   Future<EscrowMethod?> myMethod() async {
     final keyPair = _auth.activeKeyPair;
     if (keyPair == null) return null;
+    return loadMethod(keyPair.publicKey);
+  }
+
+  Future<EscrowMethod?> loadMethod(String pubkey) {
     return getOne(
-      Filter(kinds: EscrowMethod.kinds, authors: [keyPair.publicKey]),
+      Filter(kinds: EscrowMethod.kinds, authors: [pubkey]),
       cacheRead: false,
     );
+  }
+
+  Future<String?> loadEvmAddress(String pubkey) async {
+    return (await loadMethod(pubkey))?.evmAddress;
   }
 
   /// Ensures the current user's escrow method list contains the given trusted
@@ -46,6 +58,13 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
   ///   - USDT (if configured) denominated as `USD`.
   List<AcceptedPaymentForm> _buildAcceptedPaymentForms() =>
       buildAcceptedPaymentForms(_evm);
+
+  Future<_EvmMethodClaim> _buildEvmMethodClaim(String nostrPubkey) async {
+    return _evmMethodClaimFor(
+      evmKey: await _auth.hd.getActiveEvmKey(),
+      nostrPubkey: nostrPubkey,
+    );
+  }
 
   Future<void> ensureEscrowMethod({
     Set<String> bytecodeHashes = const {},
@@ -66,6 +85,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
     final resolvedForms = acceptedPaymentForms ?? _buildAcceptedPaymentForms();
 
     final pubkey = keyPair.publicKey;
+    final evmClaim = await _buildEvmMethodClaim(pubkey);
     final existing = await getOne(
       Filter(kinds: EscrowMethod.kinds, authors: [pubkey]),
       cacheRead: false,
@@ -108,23 +128,28 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       final formsChanged =
           newFormsSet.length != existingFormsSet.length ||
           !newFormsSet.containsAll(existingFormsSet);
-      final hasLegacyHostrPaymentForms = existing.tags.any(
-        _isLegacyHostrAcceptedPaymentFormTag,
+      final evmAddressChanged = !_sameAddress(
+        existing.evmAddress,
+        evmClaim.address,
       );
+      final evmProofMissing =
+          existing.evmAddressProof == null || existing.evmAddressProof!.isEmpty;
 
       if (missingTrusted.isEmpty &&
           missingContracts.isEmpty &&
           !formsChanged &&
-          !hasLegacyHostrPaymentForms) {
+          !evmAddressChanged &&
+          !evmProofMissing) {
         return;
       }
 
-      // Rebuild tags: keep all non-payment-form tags, plus retained
-      // foreign-appId payment-form tags, then append our fresh forms.
+      // Rebuild tags: keep all non-payment-form/EVM tags, plus retained
+      // foreign-appId payment-form tags, then append our fresh forms and EVM
+      // method claim.
       final tags = <List<String>>[];
       for (final tag in existing.tags) {
         if (tag.isNotEmpty && tag[0] == kAcceptedPaymentFormTag) continue;
-        if (_isLegacyHostrAcceptedPaymentFormTag(tag)) continue;
+        if (EscrowMethod.isEvmAddressTag(tag)) continue;
         tags.add([...tag]);
       }
       for (final pubkey in missingTrusted) {
@@ -140,6 +165,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       for (final form in resolvedForms) {
         tags.add(form.toTag());
       }
+      tags.add(evmClaim.tag);
 
       final signed = await _auth.signEvent(
         Nip01Event(
@@ -181,6 +207,7 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
       final completeTags = [
         ...listEvent.tags,
         for (final form in resolvedForms) form.toTag(),
+        evmClaim.tag,
       ];
 
       logger.i(
@@ -220,13 +247,31 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
 /// replaced on subsequent calls to [EscrowMethods.ensureEscrowMethod].
 const _appId = 'hostr';
 
-bool _isLegacyHostrAcceptedPaymentFormTag(List<String> tag) {
-  if (tag.length < 4 || tag[0] != 'a' || tag[3] != _appId) return false;
+class _EvmMethodClaim {
+  const _EvmMethodClaim({required this.address, required this.proof});
 
-  final tokenTagId = tag[2];
-  return tokenTagId == tokenTagId.toUpperCase() ||
-      RegExp(r'^\d+:0x[0-9a-fA-F]{40}$').hasMatch(tokenTagId);
+  final String address;
+  final String proof;
+
+  List<String> get tag =>
+      EscrowMethod.evmAddressTag(address, eip191Proof: proof);
 }
+
+_EvmMethodClaim _evmMethodClaimFor({
+  required EthPrivateKey evmKey,
+  required String nostrPubkey,
+}) {
+  final address = evmKey.address.eip55With0x;
+  final message = evmAddressOwnershipMessage(
+    nostrPubkey: nostrPubkey,
+    evmAddress: address,
+  );
+  final proof =
+      '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(message)))}';
+  return _EvmMethodClaim(address: address, proof: proof);
+}
+
+bool _sameAddress(String? a, String b) => a?.toLowerCase() == b.toLowerCase();
 
 List<AcceptedPaymentForm> buildAcceptedPaymentForms(Evm evm) {
   final forms = <AcceptedPaymentForm>[];

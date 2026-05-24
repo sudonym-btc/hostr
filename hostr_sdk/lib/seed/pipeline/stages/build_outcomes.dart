@@ -18,7 +18,7 @@ import '../seed_pipeline_models.dart';
 /// Deterministic, synchronous outcome planning — no I/O.
 ///
 /// Consumes [SeedContext.random] to assign each thread a planned outcome
-/// (escrow vs zap, settlement type, self-signed flag).
+/// (escrow vs zap, settlement type, auto-accept behavior).
 List<SeedOutcomePlan> buildOutcomePlans({
   required SeedContext ctx,
   required List<SeedThread> threads,
@@ -203,7 +203,7 @@ PaymentProof? _maybeCorruptPaymentProof({
     return null;
   }
 
-  final shouldDropProof = proof.escrowProof == null || ctx.random.nextBool();
+  final shouldDropProof = !proof.hasEscrowPaymentProof || ctx.random.nextBool();
   if (shouldDropProof) {
     onInvalid?.call('missing_payment_proof');
     return null;
@@ -211,21 +211,22 @@ PaymentProof? _maybeCorruptPaymentProof({
 
   onInvalid?.call('bogus_escrow_proof');
   return PaymentProof(
-    hoster: proof.hoster,
     listing: proof.listing,
-    zapProof: proof.zapProof,
-    escrowProof: _buildBogusEscrowProof(ctx: ctx, original: proof.escrowProof!),
+    paymentProof: PaymentProofEvidence(
+      method: PaymentMethod.evm,
+      params: EvmPaymentProofParams(txHash: _randomHex(ctx, 64)),
+    ),
+    escrow: _buildBogusEscrowContext(ctx: ctx, original: proof.escrow!),
   );
 }
 
-EscrowProof _buildBogusEscrowProof({
+EscrowPaymentContext _buildBogusEscrowContext({
   required SeedContext ctx,
-  required EscrowProof original,
+  required EscrowPaymentContext original,
 }) {
-  return EscrowProof(
+  return EscrowPaymentContext(
     escrowService: _buildBogusEscrowService(ctx),
-    sellerEscrowMethods: original.sellerEscrowMethods,
-    params: EvmEscrowProofParams(txHash: _randomHex(ctx, 64)),
+    sellerEscrowMethod: original.sellerEscrowMethod,
   );
 }
 

@@ -1,5 +1,4 @@
 import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
 
 import '../entity_factory.dart';
 import '../seed_context.dart';
@@ -36,22 +35,6 @@ Future<List<ProfileMetadata>> buildProfiles({
   );
 }
 
-Future<List<IdentityClaims>> buildIdentityClaims({
-  required SeedContext ctx,
-  required List<SeedUser> users,
-  EntityFactory? factory,
-}) async {
-  final f = factory ?? EntityFactory(ctx: ctx);
-  return Future.wait(
-    users.where((user) => user.hasEvm).map((user) {
-      return f.identityClaims(
-        signer: user.keyPair,
-        createdAt: ctx.timestampDaysAfter(user.index + 1),
-      );
-    }),
-  );
-}
-
 Future<ProfileMetadata> buildEscrowProfile({
   required SeedContext ctx,
   required SeedPipelineConfig config,
@@ -62,17 +45,6 @@ Future<ProfileMetadata> buildEscrowProfile({
     name: config.escrowProfileName,
     displayName: config.escrowProfileName,
     picture: config.escrowProfilePicture,
-    createdAt: ctx.baseDate.millisecondsSinceEpoch ~/ 1000,
-  );
-}
-
-Future<IdentityClaims> buildEscrowIdentityClaims({
-  required SeedContext ctx,
-  EntityFactory? factory,
-}) async {
-  final f = factory ?? EntityFactory(ctx: ctx);
-  return f.identityClaims(
-    signer: MockKeys.escrow,
     createdAt: ctx.baseDate.millisecondsSinceEpoch ~/ 1000,
   );
 }

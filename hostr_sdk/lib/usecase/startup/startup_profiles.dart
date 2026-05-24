@@ -8,7 +8,6 @@ import '../background_worker/background_worker.dart';
 import '../calendar/calendar.dart';
 import '../deterministic_keys/account_seed_store.dart';
 import '../evm/operations/funds_monitor/funds_monitor_service.dart';
-import '../identity_claims/identity_claims.dart';
 import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
@@ -159,7 +158,6 @@ class UserStartupProfile implements StartupProfile {
     required AccountSeedStore accountSeedStore,
     required MetadataUseCase metadata,
     required Listings listings,
-    required IdentityClaimsUseCase identityClaims,
     required UserSubscriptions userSubscriptions,
     required PaymentProofOrchestrator paymentProofOrchestrator,
     required FundsMonitorService fundsMonitor,

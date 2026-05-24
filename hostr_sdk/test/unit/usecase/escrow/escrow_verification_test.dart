@@ -1,6 +1,9 @@
 @Tags(['unit'])
 library;
 
+import 'dart:convert';
+
+import 'package:convert/convert.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
@@ -14,9 +17,12 @@ import 'package:models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show BlockInformation, EthereumAddress;
-import 'package:web3dart/web3dart.dart' show GeneratedContract;
+import 'package:web3dart/web3dart.dart' show EthPrivateKey, GeneratedContract;
 
 final _f = EntityFactory();
+final _sellerEvmKey = EthPrivateKey.fromHex(
+  '00000000000000000000000000000000000000000000000000000000000000cafe',
+);
 
 class _FakeSupportedEscrowContract extends Fake
     implements SupportedEscrowContract<GeneratedContract> {
@@ -101,8 +107,7 @@ Listing _listing({
   type: ListingType.house,
   specifications: Specifications(),
   negotiable: negotiable,
-  allowSelfSignedOrder: true,
-  instantBook: true,
+  autoAccept: true,
   securityDeposit: securityDeposit,
   maxDisputePeriod: maxDisputePeriod,
   createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
@@ -118,16 +123,22 @@ EscrowService _escrowService() {
 EscrowMethod _escrowMethod({
   required EscrowService escrowService,
   bool includeAcceptedToken = true,
+  bool includeEvmProof = true,
 }) {
   final chosenEscrowType = escrowService.escrowType
       .toString()
       .split('.')
       .last
       .toLowerCase();
+  final evmAddress = _sellerEvmKey.address.eip55With0x;
+  final evmProof =
+      '0x${hex.encode(_sellerEvmKey.signPersonalMessageToUint8List(utf8.encode(evmAddressOwnershipMessage(nostrPubkey: MockKeys.hoster.publicKey, evmAddress: evmAddress))))}';
   final tags = <List<String>>[
     ['t', chosenEscrowType],
     ['c', escrowService.contractBytecodeHash],
     ['p', escrowService.pubKey],
+    if (includeEvmProof)
+      EscrowMethod.evmAddressTag(evmAddress, eip191Proof: evmProof),
     if (includeAcceptedToken)
       [
         kAcceptedPaymentFormTag,
@@ -152,30 +163,17 @@ PaymentProof _paymentProof({
   required Listing listing,
   required String txHash,
   bool includeAcceptedToken = true,
+  bool includeEvmProof = true,
 }) {
   final escrowService = _escrowService();
-  final hoster = Nip01Utils.signWithPrivateKey(
-    event: Nip01Event(
-      kind: 0,
-      pubKey: MockKeys.hoster.publicKey,
-      tags: const [],
-      content: '',
-      createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-    ),
-    privateKey: MockKeys.hoster.privateKey!,
-  );
-
-  return PaymentProof(
-    hoster: hoster,
+  return PaymentProof.evm(
     listing: listing,
-    zapProof: null,
-    escrowProof: EscrowProof(
+    txHash: txHash,
+    escrowService: escrowService,
+    sellerEscrowMethod: _escrowMethod(
       escrowService: escrowService,
-      sellerEscrowMethods: _escrowMethod(
-        escrowService: escrowService,
-        includeAcceptedToken: includeAcceptedToken,
-      ),
-      params: EvmEscrowProofParams(txHash: txHash),
+      includeAcceptedToken: includeAcceptedToken,
+      includeEvmProof: includeEvmProof,
     ),
   );
 }
@@ -219,6 +217,7 @@ EscrowFundedEvent _fundedEvent({
   required int amountSats,
   int? bondAmountSats,
   int? unlockAt,
+  String? sellerAddress,
 }) {
   final amount = rbtcFromSats(BigInt.from(amountSats), chainId: 412346);
   return EscrowFundedEvent(
@@ -239,7 +238,7 @@ EscrowFundedEvent _fundedEvent({
       '0x000000000000000000000000000000000000b0b0',
     ),
     seller: EthereumAddress.fromHex(
-      '0x000000000000000000000000000000000000cafe',
+      sellerAddress ?? _sellerEvmKey.address.eip55With0x,
     ),
     arbiter: EthereumAddress.fromHex(
       '0x000000000000000000000000000000000000bEEF',
@@ -417,6 +416,84 @@ void main() {
 
       expect(result.isValid, isFalse);
       expect(result.reason, contains('does not accept token'));
+    },
+  );
+
+  test(
+    'fails when seller escrow method is missing EVM address proof',
+    () async {
+      final listing = _listing();
+      const txHash = '0xmissing-evm-proof';
+      final proof = _paymentProof(
+        listing: listing,
+        txHash: txHash,
+        includeEvmProof: false,
+      );
+      final order = _order(
+        listing: listing,
+        amount: DenominatedAmount(
+          value: BigInt.from(100000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
+        proof: proof,
+        includeSellerSignature: true,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _fundedEvent(
+          tradeId: order.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(order: order);
+
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('missing an EVM address proof'));
+    },
+  );
+
+  test(
+    'fails when funded seller does not match escrow method EVM address',
+    () async {
+      final listing = _listing();
+      const txHash = '0xseller-mismatch';
+      final proof = _paymentProof(listing: listing, txHash: txHash);
+      final order = _order(
+        listing: listing,
+        amount: DenominatedAmount(
+          value: BigInt.from(100000),
+          denomination: 'BTC',
+          decimals: 8,
+        ),
+        proof: proof,
+        includeSellerSignature: true,
+      );
+
+      final contract = _FakeSupportedEscrowContract(
+        _fundedEvent(
+          tradeId: order.getDtag()!,
+          txHash: txHash,
+          amountSats: 100000,
+          sellerAddress: '0x0000000000000000000000000000000000000bad',
+        ),
+      );
+      final verification = EscrowVerification(
+        evm: _FakeEvm(_FakeConfiguredEvmChain(_FakeEscrowCapability(contract))),
+        logger: CustomLogger(),
+      );
+
+      final result = await verification.verify(order: order);
+
+      expect(result.isValid, isFalse);
+      expect(result.reason, contains('does not match'));
+      expect(result.reason, contains('seller escrow method EVM address'));
     },
   );
 

@@ -217,7 +217,7 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
   var totalExpected = 0;
   for (final thread in threads) {
     if (!thread.paidViaEscrow || thread.order == null) continue;
-    if (thread.order!.proof?.escrowProof == null) continue;
+    if (thread.order!.proof?.hasEscrowPaymentProof != true) continue;
     totalExpected += 2;
   }
 
@@ -240,8 +240,8 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
       final thread = threads[i];
       if (!thread.paidViaEscrow || thread.order == null) continue;
 
-      final escrowProof = thread.order!.proof?.escrowProof;
-      if (escrowProof == null) continue;
+      final escrow = thread.order!.proof?.escrow;
+      if (escrow == null) continue;
 
       final threadAnchor = thread.request.getDtag()!;
 
@@ -250,8 +250,8 @@ Future<List<Nip01Event>> buildEscrowSelectedMessages({
         listingAnchor: thread.listing.anchor!,
         threadAnchor: threadAnchor,
         sellerPubkey: thread.host.keyPair.publicKey,
-        service: escrowProof.escrowService,
-        sellerMethods: escrowProof.sellerEscrowMethods,
+        service: escrow.escrowService,
+        sellerMethods: escrow.sellerEscrowMethod,
         dTag: threadAnchor,
         createdAt: ctx.timestampDaysAfter(40 + i),
       );

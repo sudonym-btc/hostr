@@ -351,7 +351,7 @@ class Orders extends CrudUseCase<Order> implements CanVerify<Order, OrderDeps> {
     final listingAnchor = negotiateOrder.parsedTags.listingAnchor;
 
     final sellerPk = getPubKeyFromAnchor(listingAnchor);
-    final escrowPk = proof.escrowProof?.escrowService.escrowPubkey;
+    final escrowPk = proof.escrow?.escrowService.escrowPubkey;
     final participantPlan = await buildOrderParticipantTagPlan(
       tradeId: tradeId!,
       orderAuthorKey: activeKeyPair,

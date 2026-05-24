@@ -200,7 +200,7 @@ Map<String, Object?> _listingJson(Listing listing) => {
   'title': listing.title,
   'description': listing.description,
   'active': listing.active,
-  'instantBook': listing.instantBook,
+  'autoAccept': listing.autoAccept,
   'type': listing.listingType.name,
   'images': listing.images,
   'prices': listing.prices

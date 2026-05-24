@@ -13,7 +13,6 @@ import '../crud.usecase.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../escrow_methods/escrows_methods.dart';
 import '../evm/evm.dart';
-import '../identity_claims/identity_claims.dart';
 import '../relays/relays.dart';
 
 @visibleForTesting
@@ -47,7 +46,6 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   // ignore: unused_field
   final BlossomUseCase _blossom;
   final Evm _evm;
-  final IdentityClaimsUseCase _identityClaims;
   final HostrConfig _config;
   final Map<String, Future<ProfileMetadata?>> _inFlightLoads = {};
   // Profile upserts, startup, and listing writes can all ask for seller config
@@ -60,7 +58,6 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     required EscrowMethods escrowMethods,
     required BlossomUseCase blossom,
     required Evm evm,
-    required IdentityClaimsUseCase identityClaims,
     required HostrConfig config,
     required super.requests,
     required super.logger,
@@ -69,7 +66,6 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
        _escrowMethods = escrowMethods,
        _blossom = blossom,
        _evm = evm,
-       _identityClaims = identityClaims,
        _config = config,
        super(kind: Metadata.kKind);
 
@@ -221,8 +217,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     );
   }
 
-  /// Ensures Hostr-managed user config is up to date:
-  /// identity claims and escrow methods.
+  /// Ensures Hostr-managed user escrow config is up to date.
   ///
   /// Blossom and NIP-65 list writes are intentionally paused. We do not want the
   /// app to rely on user-published server/relay lists while Hostr traffic is
@@ -260,12 +255,6 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
         'Skipping automatic NIP-65 publish for $pubkey '
         'while syncing via ${_relays.runtimeType}',
       );
-    }
-
-    try {
-      await _identityClaims.ensureEvmAddress();
-    } catch (e) {
-      logger.e('IdentityClaims.ensureEvmAddress failed: $e');
     }
 
     try {

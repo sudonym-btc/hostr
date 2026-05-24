@@ -685,7 +685,7 @@ class DaemonHandler {
     }
 
     final m = profile.metadata;
-    final evmAddr = await hostr.identityClaims.loadEvmAddress(pubkey);
+    final evmAddr = await hostr.escrowMethods.loadEvmAddress(pubkey);
     return {
       'pubkey': pubkey,
       'name': m.name,

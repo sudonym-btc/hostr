@@ -62,10 +62,6 @@ class Seeder {
       await factory.buildEscrowProfile(),
     ];
     final accountSeeds = await factory.buildAccountSeeds(users);
-    final identityClaims = [
-      ...await factory.buildIdentityClaims(users),
-      await factory.buildEscrowIdentityClaims(),
-    ];
     final escrowServices = await factory.buildEscrowServices();
     final escrowMethodCreatedAt = resolvedNow.millisecondsSinceEpoch ~/ 1000;
     final escrowMethods = await factory.buildEscrowMethods(
@@ -82,9 +78,6 @@ class Seeder {
     }
     for (final seed in accountSeeds) {
       await sink.publish(seed);
-    }
-    for (final claim in identityClaims) {
-      await sink.publish(claim);
     }
     for (final e in escrowServices) {
       await sink.publish(e);
@@ -237,7 +230,6 @@ class Seeder {
       users: users,
       profiles: profiles,
       accountSeeds: accountSeeds,
-      identityClaims: identityClaims,
       listings: listings,
       escrowServices: escrowServices,
       escrowMethods: escrowMethods,

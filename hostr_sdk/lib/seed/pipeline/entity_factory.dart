@@ -3,8 +3,6 @@ import 'dart:math';
 
 import 'package:convert/convert.dart';
 import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart'
-    show evmIdentityClaimMessage;
 import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:models/main.dart';
@@ -656,7 +654,7 @@ Specifications _buildListingSpecifications(Random r) {
 /// Use directly in unit tests:
 /// ```dart
 /// final f = EntityFactory();
-/// final listing = f.listing(title: 'Beach House', instantBook: true);
+/// final listing = f.listing(title: 'Beach House', autoAccept: true);
 /// final profile = await f.profile(displayName: 'Alice');
 /// final order = f.order(listing: listing);
 /// ```
@@ -710,10 +708,9 @@ class EntityFactory {
     ListingType? type,
     List<String>? images,
     Specifications? specifications,
-    bool? instantBook,
-    bool? allowSelfSignedOrder,
+    bool? autoAccept,
     bool? negotiable,
-    int? minStay,
+    String? minDuration,
     String? checkIn,
     String? checkOut,
     bool? active,
@@ -820,10 +817,9 @@ class EntityFactory {
           seedImages ??
           ['https://picsum.photos/seed/$resolvedDTag/1200/800'],
       specifications: specifications ?? seedAmenities ?? Specifications(),
-      instantBook: instantBook ?? true,
-      allowSelfSignedOrder: allowSelfSignedOrder ?? false,
+      autoAccept: autoAccept ?? true,
       negotiable: negotiable ?? false,
-      minStay: minStay ?? 1,
+      minDuration: minDuration,
       checkIn: checkIn ?? '15:0',
       checkOut: checkOut ?? '11:0',
       active: active ?? true,
@@ -963,26 +959,6 @@ class EntityFactory {
     return ProfileMetadata.fromNostrEvent(signed);
   }
 
-  Future<IdentityClaims> identityClaims({
-    required KeyPair signer,
-    int? createdAt,
-  }) async {
-    final evmKey = await deriveEvmKey(signer.privateKey!);
-    final evmAddress = evmKey.address.eip55With0x;
-    final message = evmIdentityClaimMessage(
-      nostrPubkey: signer.publicKey,
-      evmAddress: evmAddress,
-    );
-    final proof =
-        '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(message)))}';
-    return IdentityClaims.build(
-      pubKey: signer.publicKey,
-      evmAddress: evmAddress,
-      eip191Proof: proof,
-      createdAt: createdAt ?? _defaultCreatedAt(),
-    ).signAs(signer, IdentityClaims.fromNostrEvent);
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Escrow Service
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1052,6 +1028,11 @@ class EntityFactory {
         ),
     ];
 
+    final evmKey = await deriveEvmKey(signer.privateKey!);
+    final evmAddress = evmKey.address.eip55With0x;
+    final evmProof =
+        '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(evmAddressOwnershipMessage(nostrPubkey: signer.publicKey, evmAddress: evmAddress))))}';
+
     final resolvedHash =
         multiEscrowBytecodeHash ?? '0xMockMultiEscrowBytecodeHash';
     final resolvedCreatedAt =
@@ -1080,6 +1061,7 @@ class EntityFactory {
     final completeTags = [
       ...listEvent.tags,
       for (final form in acceptedPaymentForms) form.toTag(),
+      EscrowMethod.evmAddressTag(evmAddress, eip191Proof: evmProof),
     ];
 
     final completeEvent = Nip01Event(
@@ -1169,7 +1151,7 @@ class EntityFactory {
       ),
     );
 
-    final escrowPubkey = proof?.escrowProof?.escrowService.escrowPubkey;
+    final escrowPubkey = proof?.escrow?.escrowService.escrowPubkey;
     if (escrowPubkey != null && escrowPubkey.isNotEmpty) {
       participantsByRole.putIfAbsent(
         'escrow',
@@ -1607,15 +1589,11 @@ class EntityFactory {
     required EscrowService escrowService,
     required EscrowMethod sellerEscrowMethod,
   }) {
-    return PaymentProof(
-      hoster: hostProfile,
+    return PaymentProof.evm(
       listing: listing,
-      zapProof: null,
-      escrowProof: EscrowProof(
-        escrowService: escrowService,
-        sellerEscrowMethods: sellerEscrowMethod,
-        params: EvmEscrowProofParams(txHash: txHash),
-      ),
+      txHash: txHash,
+      escrowService: escrowService,
+      sellerEscrowMethod: sellerEscrowMethod,
     );
   }
 
@@ -1625,13 +1603,14 @@ class EntityFactory {
     required Listing listing,
     Nip01Event? zapReceiptEvent,
   }) {
-    return PaymentProof(
-      hoster: hostProfile,
+    final receipt = zapReceiptEvent;
+    if (receipt == null) {
+      return PaymentProof(listing: listing, paymentProof: null);
+    }
+    return PaymentProof.zap(
       listing: listing,
-      zapProof: zapReceiptEvent != null
-          ? ZapProof(receipt: Nip01EventModel.fromEntity(zapReceiptEvent))
-          : null,
-      escrowProof: null,
+      receipt: Nip01EventModel.fromEntity(receipt),
+      recipientProfile: hostProfile,
     );
   }
 }

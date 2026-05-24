@@ -145,6 +145,7 @@ class OrderGroups {
   /// other contexts without needing the full usecase instance.
   static Validation<OrderGroup> verifyGroup(
     OrderGroup group, {
+    Listing? listing,
     bool forceValidateSelfSigned = false,
   }) {
     // 1. Cancelled → Valid (cancellation is a legitimate protocol outcome,
@@ -163,6 +164,10 @@ class OrderGroups {
           return Valid(group);
         }
         return Invalid(group, 'No order found');
+      }
+
+      if (group.sellerOrder == null && listing != null && !listing.autoAccept) {
+        return Invalid(group, 'Listing does not allow auto-accepted orders');
       }
 
       final validation = Order.validate(buyer);
@@ -193,7 +198,12 @@ class OrderGroups {
       return Invalid(group, 'No order found');
     }
 
-    // 5. Validate the buyer's self-signed proof.
+    // 5. Buyer-only commits require seller pre-authorization.
+    if (listing != null && !listing.autoAccept) {
+      return Invalid(group, 'Listing does not allow auto-accepted orders');
+    }
+
+    // 6. Validate the buyer's self-signed proof.
     final validation = Order.validate(buyer);
     if (validation.isValid) {
       return Valid(group);
@@ -216,12 +226,14 @@ class OrderGroups {
   /// checked regardless of whether a seller confirmation exists.
   static Future<Validation<OrderGroup>> verifyGroupOnChain(
     OrderGroup group, {
+    Listing? listing,
     bool forceValidateSelfSigned = false,
     EscrowVerification? escrowVerification,
   }) async {
     // Run Nostr-level check first.
     final nostrResult = verifyGroup(
       group,
+      listing: listing,
       forceValidateSelfSigned: forceValidateSelfSigned,
     );
 
@@ -243,7 +255,7 @@ class OrderGroups {
     // Only check on-chain when:
     // a) escrowVerification is available, AND
     // b) buyer has an escrow proof.
-    final hasEscrowProof = buyer.proof?.escrowProof != null;
+    final hasEscrowProof = buyer.proof?.hasEscrowPaymentProof == true;
     final needsOnChain = hasEscrowProof && escrowVerification != null;
 
     if (!needsOnChain) {
@@ -278,6 +290,7 @@ class OrderGroups {
     bool Function(OrderGroup group)? forceValidatePredicate,
   }) {
     final groups = <String, OrderGroup>{};
+    final listingCache = <String, Listing?>{};
     final pendingItems = <Order>[];
     final validationQueue = Queue<({String groupId, String tradeId})>();
     final queuedGroupIds = <String>{};
@@ -291,6 +304,16 @@ class OrderGroups {
 
     late final StreamWithStatus<Validation<OrderGroup>> result;
 
+    Future<Listing?> listingFor(OrderGroup group) async {
+      final listingAnchor = group.listingAnchor;
+      if (listingCache.containsKey(listingAnchor)) {
+        return listingCache[listingAnchor];
+      }
+      final listing = await _orders.listings.getOneByAnchor(listingAnchor);
+      listingCache[listingAnchor] = listing;
+      return listing;
+    }
+
     Future<Validation<OrderGroup>> validateGroup({
       required OrderGroup group,
       required String tradeId,
@@ -299,9 +322,11 @@ class OrderGroups {
       if (validate) {
         final shouldForceValidate =
             forceValidatePredicate?.call(group) ?? forceValidateSelfSigned;
+        final listing = await listingFor(group);
 
         validated = await verifyGroupOnChain(
           group,
+          listing: listing,
           forceValidateSelfSigned: shouldForceValidate,
           escrowVerification: escrowVerification,
         );

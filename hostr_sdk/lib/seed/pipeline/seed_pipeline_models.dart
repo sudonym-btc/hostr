@@ -119,7 +119,6 @@ class SeedPipelineData {
   final List<SeedUser> users;
   final List<ProfileMetadata> profiles;
   final List<Nip01Event> accountSeeds;
-  final List<IdentityClaims> identityClaims;
   final List<Listing> listings;
   final List<EscrowService> escrowServices;
   final List<EscrowMethod> escrowMethods;
@@ -137,7 +136,6 @@ class SeedPipelineData {
     required this.users,
     required this.profiles,
     required this.accountSeeds,
-    required this.identityClaims,
     required this.listings,
     required this.escrowServices,
     required this.escrowMethods,
@@ -155,7 +153,6 @@ class SeedPipelineData {
   List<Nip01Event> get allEvents => [
     ...profiles,
     ...accountSeeds,
-    ...identityClaims,
     ...escrowServices,
     ...escrowMethods,
     ...listings,
@@ -603,12 +600,13 @@ class SeedPipelineOutcome {
         'type': 'no_proof',
         'fault': invalidReason ?? 'not_required',
       };
-    } else if (proof.escrowProof != null) {
-      final e = proof.escrowProof!;
+    } else if (proof.hasEscrowPaymentProof) {
+      final escrow = proof.escrow!;
+      final evm = proof.evmParams!;
       proofEntry = <String, dynamic>{
         'type': 'escrow',
-        'tx_hash': e.txHash,
-        'contract_address': e.escrowService.contractAddress,
+        'tx_hash': evm.txHash,
+        'contract_address': escrow.escrowService.contractAddress,
         'settlement_outcome': plan.escrowOutcome?.name ?? 'active',
         'trade_already_existed_on_chain': plan.tradeAlreadyExisted,
         'proof_valid': invalidReason == null,

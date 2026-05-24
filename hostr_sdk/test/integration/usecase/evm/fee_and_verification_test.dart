@@ -18,7 +18,6 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
@@ -71,24 +70,6 @@ EscrowMethod _buildSignedEscrowMethod({
     privateKey: host.privateKey!,
   );
   return EscrowMethod.fromNostrEvent(event);
-}
-
-/// Builds a signed profile event for a host.
-Nip01Event _buildSignedProfile({required KeyPair key}) {
-  final meta = <String, dynamic>{
-    'name': 'test-user-${key.publicKey.substring(0, 6)}',
-  };
-  final unsigned = Nip01Event(
-    pubKey: key.publicKey,
-    kind: 0,
-    tags: const [],
-    content: jsonEncode(meta),
-    createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
-  );
-  return Nip01Utils.signWithPrivateKey(
-    event: unsigned,
-    privateKey: key.privateKey!,
-  );
 }
 
 /// Builds a self-signed commit order with a [PaymentProof].
@@ -548,7 +529,6 @@ void main() {
         // ── 6. Build self-signed order with escrow proof ──
         final hostKeyPair = trade.host.keyPair;
         final listing = trade.listing;
-        final hosterProfile = _buildSignedProfile(key: hostKeyPair);
         final bridgeToken = await configured.resolveBridgeToken();
         final acceptedPaymentForms = <AcceptedPaymentForm>[
           AcceptedPaymentForm(
@@ -569,15 +549,11 @@ void main() {
         // Use the actual trade's negotiate order for the commit —
         // its dTag is the trade ID that was funded on-chain. Building a
         // new order with a different dTag would not match.
-        final proof = PaymentProof(
-          hoster: hosterProfile,
+        final proof = PaymentProof.evm(
           listing: listing,
-          zapProof: null,
-          escrowProof: EscrowProof(
-            escrowService: escrowService,
-            sellerEscrowMethods: escrowMethod,
-            params: EvmEscrowProofParams(txHash: txHash!),
-          ),
+          txHash: txHash!,
+          escrowService: escrowService,
+          sellerEscrowMethod: escrowMethod,
         );
 
         final commit = _buildSelfSignedCommit(

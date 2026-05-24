@@ -1,6 +1,5 @@
 import 'package:hostr_sdk/seed/pipeline/seed_factory.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
-import 'package:models/main.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -26,18 +25,6 @@ void main() {
         ),
         isEmpty,
       );
-    });
-
-    test('publishes escrow EVM address as identity claim', () async {
-      final factory = SeedFactory(
-        config: const SeedPipelineConfig(userCount: 0),
-      );
-
-      final claim = await factory.buildEscrowIdentityClaims();
-
-      expect(claim.kind, kNostrKindIdentityClaims);
-      expect(claim.evmAddress, startsWith('0x'));
-      expect(claim.evmAddressProof, startsWith('0x'));
     });
   });
 }

@@ -8,7 +8,7 @@ import 'package:hostr_sdk/usecase/trades/trade.dart';
 import 'package:hostr_sdk/util/main.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
-import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel, Nip01Utils;
+import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:test/test.dart';
 
 final _f = EntityFactory();
@@ -23,8 +23,7 @@ Listing _listing() => _f.listing(
   location: 'test-location',
   type: ListingType.house,
   specifications: Specifications(),
-  allowSelfSignedOrder: true,
-  instantBook: true,
+  autoAccept: true,
   createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
 );
 
@@ -43,25 +42,11 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
     privateKey: MockKeys.hoster.privateKey!,
   );
 
-  return PaymentProof(
-    hoster: Nip01EventModel.fromEntity(
-      Nip01Utils.signWithPrivateKey(
-        event: Nip01Event(
-          kind: 0,
-          pubKey: MockKeys.hoster.publicKey,
-          tags: const [],
-          content: '',
-        ),
-        privateKey: MockKeys.hoster.privateKey!,
-      ),
-    ),
+  return PaymentProof.evm(
     listing: listing,
-    zapProof: null,
-    escrowProof: EscrowProof(
-      escrowService: escrowService,
-      sellerEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
-      params: EvmEscrowProofParams(txHash: '0xabc123'),
-    ),
+    txHash: '0xabc123',
+    escrowService: escrowService,
+    sellerEscrowMethod: EscrowMethod.fromNostrEvent(methodEvent),
   );
 }
 
@@ -85,7 +70,7 @@ Order _escrowBackedOrder(Listing listing) {
     pTags: [
       PTag.seller(MockKeys.hoster.publicKey),
       PTag.buyer(MockKeys.guest.publicKey),
-      PTag.escrow(proof.escrowProof!.escrowService.escrowPubkey),
+      PTag.escrow(proof.escrow!.escrowService.escrowPubkey),
     ],
     createdAt: DateTime(2026, 1, 3).millisecondsSinceEpoch ~/ 1000,
   ).signAs(MockKeys.guest, Order.fromNostrEvent);

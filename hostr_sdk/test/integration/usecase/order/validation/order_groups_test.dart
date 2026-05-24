@@ -5,7 +5,7 @@
 /// - All permutations of order transitions (negotiate, commit, cancel).
 /// - Payment proof validation: escrow (on-chain) and zap receipt.
 /// - Negotiation: buyer must attach seller-signed negotiation when price < listing.
-/// - Self-signed proof: must fail when `allowSelfSignedOrder = false`
+/// - Self-signed proof: must fail when `autoAccept = false`
 ///   and no seller order exists.
 /// - Cancelled pairs are [Valid] protocol outcomes (filter via
 ///   [OrderGroup.cancelled] when needed).
@@ -53,9 +53,8 @@ final _twoEthWei = BigInt.parse('2000000000000000000');
 /// Creates a signed listing published by [host].
 Listing _buildListing({
   required KeyPair host,
-  bool allowSelfSignedOrder = false,
   bool negotiable = false,
-  bool instantBook = true,
+  bool autoAccept = true,
   BigInt? pricePerNight,
 }) {
   return Listing.create(
@@ -79,8 +78,7 @@ Listing _buildListing({
     type: ListingType.house,
     specifications: Specifications(),
     negotiable: negotiable,
-    allowSelfSignedOrder: allowSelfSignedOrder,
-    instantBook: instantBook,
+    autoAccept: autoAccept,
     createdAt: DateTime(2026, 1, 1).millisecondsSinceEpoch ~/ 1000,
   ).signAs(host, Listing.fromNostrEvent);
 }
@@ -297,31 +295,25 @@ PaymentProof _buildZapPaymentProof({
     lnurl: lnurl,
   );
 
-  return PaymentProof(
-    hoster: hosterProfile,
+  return PaymentProof.zap(
     listing: listing,
-    zapProof: ZapProof(receipt: receipt),
-    escrowProof: null,
+    receipt: receipt,
+    recipientProfile: hosterProfile,
   );
 }
 
 /// Builds a [PaymentProof] containing an escrow proof with a real [txHash].
 PaymentProof _buildEscrowPaymentProof({
   required Listing listing,
-  required Nip01Event hosterProfile,
   required String txHash,
   required EscrowService escrowService,
   required EscrowMethod escrowMethod,
 }) {
-  return PaymentProof(
-    hoster: hosterProfile,
+  return PaymentProof.evm(
     listing: listing,
-    zapProof: null,
-    escrowProof: EscrowProof(
-      escrowService: escrowService,
-      sellerEscrowMethods: escrowMethod,
-      params: EvmEscrowProofParams(txHash: txHash),
-    ),
+    txHash: txHash,
+    escrowService: escrowService,
+    sellerEscrowMethod: escrowMethod,
   );
 }
 
@@ -565,7 +557,6 @@ void main() {
       late Listing listing;
       late EscrowService escrowService;
       late EscrowMethod escrowMethod;
-      late Nip01Event hosterProfile;
 
       /// Send a [Call] from [signer] and wait for its receipt.
       Future<String> sendCall(Call call, EthPrivateKey signer) async {
@@ -597,18 +588,9 @@ void main() {
           logger: CustomLogger(),
         );
 
-        listing = _buildListing(
-          host: host,
-          allowSelfSignedOrder: true,
-          instantBook: true,
-        );
+        listing = _buildListing(host: host, autoAccept: true);
         escrowService = await _buildEscrowService();
         escrowMethod = _buildEscrowMethod(host: host);
-
-        hosterProfile = _buildProfileEvent(
-          key: host,
-          lud16: 'host@hostr.development',
-        );
       });
 
       tearDownAll(() {
@@ -656,7 +638,6 @@ void main() {
         // Build escrow proof with the real tx hash
         final proof = _buildEscrowPaymentProof(
           listing: listing,
-          hosterProfile: hosterProfile,
           txHash: txHash,
           escrowService: escrowService,
           escrowMethod: escrowMethod,
@@ -675,7 +656,7 @@ void main() {
         expect(result, isA<Valid<OrderGroup>>());
       });
 
-      test('EscrowProof.validate checks tx exists on chain', () async {
+      test('EVM payment proof context checks tx exists on chain', () async {
         final buyerEvm = await deriveEvmKey(buyer.privateKey!);
         await harness.anvil.setBalance(
           address: buyerEvm.address.eip55With0x,
@@ -709,18 +690,16 @@ void main() {
 
         final txHash = await sendCall(intent, buyerEvm);
 
-        // Build escrow proof (validates the EscrowProof construction path)
+        // Build escrow payment proof context.
         // ignore: unused_local_variable
-        final proof = EscrowProof(
+        final proof = PaymentProof.evm(
+          listing: listing,
+          txHash: txHash,
           escrowService: escrowService,
-          sellerEscrowMethods: escrowMethod,
-          params: EvmEscrowProofParams(txHash: txHash),
+          sellerEscrowMethod: escrowMethod,
         );
 
-        // Validate against the chain — checks tx exists + receipt
-        // Note: EscrowProof.validate currently always returns false
-        // (implementation is a TODO with asserts). We verify the
-        // transaction information is readable from the chain.
+        // Validate the payment proof construction path and on-chain tx lookup.
         final txInfo = await web3.getTransactionByHash(txHash);
         expect(txInfo, isNotNull, reason: 'TX should be readable on chain');
         expect(txInfo!.value.getInWei, equals(BigInt.from(50000)));
@@ -788,7 +767,7 @@ void main() {
     final lnurl = 'host@hostr.development';
 
     setUp(() {
-      listing = _buildListing(host: host, allowSelfSignedOrder: true);
+      listing = _buildListing(host: host, autoAccept: true);
       hosterProfile = _buildProfileEvent(key: host, lud16: lnurl);
     });
 
@@ -888,11 +867,10 @@ void main() {
         lnurl: lnurl,
       );
 
-      final proof = PaymentProof(
-        hoster: hosterProfile,
+      final proof = PaymentProof.zap(
         listing: listing,
-        zapProof: ZapProof(receipt: receipt),
-        escrowProof: null,
+        receipt: receipt,
+        recipientProfile: hosterProfile,
       );
 
       final commit = _buildSelfSignedCommit(
@@ -970,12 +948,7 @@ void main() {
     test('no proof type (null zap + null escrow) → Invalid', () {
       final nego = _buildNegotiate(listing: listing, buyer: buyer);
 
-      final proof = PaymentProof(
-        hoster: hosterProfile,
-        listing: listing,
-        zapProof: null,
-        escrowProof: null,
-      );
+      final proof = PaymentProof(listing: listing, paymentProof: null);
 
       final commit = _buildSelfSignedCommit(
         negotiate: nego,
@@ -994,11 +967,11 @@ void main() {
     });
   });
 
-  // ─── Group 5: Self-signed without seller — allowSelfSignedOrder ─
+  // ─── Group 5: Self-signed without seller — autoAccept ─
 
-  group('verifyGroup — allowSelfSignedOrder flag', () {
-    test('self-signed commit with proof when allowSelfSigned=true → Valid', () {
-      final listing = _buildListing(host: host, allowSelfSignedOrder: true);
+  group('verifyGroup — autoAccept flag', () {
+    test('self-signed commit with proof when autoAccept=true -> Valid', () {
+      final listing = _buildListing(host: host, autoAccept: true);
       final hosterProfile = _buildProfileEvent(
         key: host,
         lud16: 'host@hostr.development',
@@ -1025,31 +998,26 @@ void main() {
       );
 
       final pair = OrderGroup(orders: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
+      final result = OrderGroups.verifyGroup(pair, listing: listing);
       expect(result, isA<Valid<OrderGroup>>());
     });
 
     test(
-      'self-signed commit WITHOUT proof when allowSelfSigned=false → Invalid',
+      'self-signed commit WITHOUT proof when autoAccept=false -> Invalid',
       () {
-        final listing = _buildListing(host: host, allowSelfSignedOrder: false);
+        final listing = _buildListing(host: host, autoAccept: false);
         final nego = _buildNegotiate(listing: listing, buyer: buyer);
 
         // No proof attached — should definitely be invalid
         final pair = OrderGroup(orders: [nego]);
-        final result = OrderGroups.verifyGroup(pair);
+        final result = OrderGroups.verifyGroup(pair, listing: listing);
         expect(result, isA<Invalid<OrderGroup>>());
       },
     );
 
-    test('self-signed commit WITH valid proof when allowSelfSigned=false '
-        '→ still Valid (proof is sufficient)', () {
-      // NOTE: The current validation logic does NOT check
-      // allowSelfSignedOrder — it only checks the payment proof.
-      // If the proof is valid, the pair is valid regardless of the flag.
-      // This test documents that current behavior. If the flag should
-      // gate self-signed orders, verifyGroup must be updated.
-      final listing = _buildListing(host: host, allowSelfSignedOrder: false);
+    test('self-signed commit WITH valid proof when autoAccept=false '
+        '-> Invalid until seller confirms', () {
+      final listing = _buildListing(host: host, autoAccept: false);
       final hosterProfile = _buildProfileEvent(
         key: host,
         lud16: 'host@hostr.development',
@@ -1076,10 +1044,8 @@ void main() {
       );
 
       final pair = OrderGroup(orders: [commit]);
-      final result = OrderGroups.verifyGroup(pair);
-      // Documenting current behavior: proof validation passes regardless
-      // of allowSelfSignedOrder flag.
-      expect(result, isA<Valid<OrderGroup>>());
+      final result = OrderGroups.verifyGroup(pair, listing: listing);
+      expect(result, isA<Invalid<OrderGroup>>());
     });
   });
 
@@ -1133,7 +1099,7 @@ void main() {
         final listing = _buildListing(
           host: host,
           negotiable: false,
-          allowSelfSignedOrder: true,
+          autoAccept: true,
         );
         final hosterProfile = _buildProfileEvent(
           key: host,
@@ -1175,7 +1141,7 @@ void main() {
     late Nip01Event hosterProfile;
 
     setUp(() {
-      listing = _buildListing(host: host, allowSelfSignedOrder: true);
+      listing = _buildListing(host: host, autoAccept: true);
       hosterProfile = _buildProfileEvent(
         key: host,
         lud16: 'host@hostr.development',
@@ -1381,11 +1347,9 @@ void main() {
     test('buyer with escrow proof → valid (current implementation)', () async {
       final escrowService = await _buildEscrowService();
       final escrowMethod = _buildEscrowMethod(host: host);
-      final hosterProfile = _buildProfileEvent(key: host);
 
       final proof = _buildEscrowPaymentProof(
         listing: listing,
-        hosterProfile: hosterProfile,
         txHash: '0x${'a' * 64}',
         escrowService: escrowService,
         escrowMethod: escrowMethod,
@@ -1399,9 +1363,9 @@ void main() {
       );
 
       final result = Order.validate(commit);
-      // Current implementation: escrow proof always sets field to true
+      // Current implementation: escrow context presence sets field to true
       expect(result.isValid, isTrue);
-      expect(result.fields['escrowProof']?.ok, isTrue);
+      expect(result.fields['escrow']?.ok, isTrue);
     });
   });
 }

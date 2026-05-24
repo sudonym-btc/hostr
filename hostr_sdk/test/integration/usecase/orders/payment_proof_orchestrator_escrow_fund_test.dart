@@ -181,7 +181,10 @@ Future<void> _runSignedInPaymentProofCase({
   required _PaymentProofCase testCase,
   required String label,
 }) async {
-  await hostr.identityClaims.ensureEvmAddress();
+  await hostr.escrowMethods.ensureEscrowMethod(
+    bytecodeHashes: {fixture.escrowService.contractBytecodeHash},
+    trustedEscrowPubkeys: [fixture.escrowService.pubKey],
+  );
   await hostr.paymentProofOrchestrator.reset();
   await hostr.paymentProofOrchestrator.start();
 
@@ -332,7 +335,7 @@ Future<void> _runSignedInPaymentProofCase({
       ),
     );
     expect(
-      published.proof?.escrowProof?.txHash.toLowerCase(),
+      published.proof?.evmParams?.txHash.toLowerCase(),
       equals(txHash!.toLowerCase()),
       reason: 'Published proof must reference the completed escrow tx',
     );
@@ -525,9 +528,6 @@ Future<_EscrowFixture> _seedEscrowFixture(
   await hostr.ndk.relays.closeAllTransports();
 
   await hostr.auth.signin(host.privateKey);
-  if (host.identityClaims != null) {
-    await hostr.identityClaims.upsert(host.identityClaims!);
-  }
   await hostr.metadata.upsert(host.profile);
   await hostr.metadata.ensureSellerConfig(host.keyPair.publicKey);
   final hostEscrowMethod = await hostr.escrowMethods.myMethod();
@@ -554,7 +554,7 @@ Future<_EscrowFixture> _seedEscrowFixture(
       location: 'San Salvador, El Salvador',
       type: ListingType.apartment,
       negotiable: negotiable,
-      instantBook: false,
+      autoAccept: true,
       createdAt: createdAt++,
       specifications: Specifications({
         'max_guests': 2,
@@ -850,8 +850,7 @@ Future<void> _expectProofReadableFromRelay({
             tradeId: tradeId,
             sellerPubkey: sellerPubkey,
           ) &&
-          order.proof?.escrowProof?.txHash.toLowerCase() ==
-              txHash.toLowerCase(),
+          order.proof?.evmParams?.txHash.toLowerCase() == txHash.toLowerCase(),
     )) {
       return;
     }
@@ -871,7 +870,7 @@ bool _isBuyerEscrowProofOrder({
   return order.getDtag() == tradeId &&
       order.isCommit &&
       order.pubKey != sellerPubkey &&
-      order.proof?.escrowProof != null;
+      order.proof?.hasEscrowPaymentProof == true;
 }
 
 String _snapshot(Hostr hostr, String tradeId) {
@@ -896,7 +895,7 @@ String _describeOrders(Iterable<Order> orders, String sellerPubkey) {
         (order) =>
             '${order.pubKey.substring(0, 8)}'
             ':${order.stage.name}'
-            ':proof=${order.proof?.escrowProof?.txHash}'
+            ':proof=${order.proof?.evmParams?.txHash}'
             ':seller=${sellerPubkey.isNotEmpty && order.pubKey == sellerPubkey}',
       )
       .join(',');

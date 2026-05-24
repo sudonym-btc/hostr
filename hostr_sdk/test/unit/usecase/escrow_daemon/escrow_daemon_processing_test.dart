@@ -383,6 +383,7 @@ class _Harness {
         verifyOrderGroup:
             (
               group, {
+              required listing,
               required forceValidateSelfSigned,
               required escrowVerification,
             }) async {
@@ -454,19 +455,11 @@ EscrowMethod _escrowMethod() => EscrowMethod.fromNostrEvent(
   ),
 );
 
-PaymentProof _paymentProof() => PaymentProof(
-  hoster: Metadata(
-    pubKey: MockKeys.hoster.publicKey,
-    name: 'Host',
-    displayName: 'Host',
-  ).toEvent(),
+PaymentProof _paymentProof() => PaymentProof.evm(
   listing: _listing(),
-  zapProof: null,
-  escrowProof: EscrowProof(
-    sellerEscrowMethods: _escrowMethod(),
-    escrowService: _escrowService(),
-    params: EvmEscrowProofParams(txHash: '0xabc'),
-  ),
+  txHash: '0xabc',
+  sellerEscrowMethod: _escrowMethod(),
+  escrowService: _escrowService(),
 );
 
 List<PTag> _participants() => [

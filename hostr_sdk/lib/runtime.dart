@@ -119,7 +119,6 @@ class HostrSession {
   SwapOutTracker get swapOutTracker => hostr.swapOutTracker;
   BackgroundWorker get backgroundWorker => hostr.backgroundWorker;
   Heartbeats get heartbeats => hostr.heartbeats;
-  IdentityClaimsUseCase get identityClaims => hostr.identityClaims;
   UserSubscriptions get userSubscriptions => hostr.userSubscriptions;
   EscrowDaemon get escrowDaemon => hostr.escrowDaemon;
   AccountSeedStore get accountSeedStore => hostr.accountSeedStore;

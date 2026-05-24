@@ -323,8 +323,8 @@ class RelaySeeder {
       final proof = order.proof;
       if (proof == null) continue;
 
-      final usesEscrow = proof.escrowProof != null;
-      final usesZap = proof.zapProof != null;
+      final usesEscrow = proof.hasEscrowPaymentProof;
+      final usesZap = proof.zapParams != null;
       final guest = userByPubkey[order.pubKey];
       final host = userByPubkey[proof.listing.pubKey];
 

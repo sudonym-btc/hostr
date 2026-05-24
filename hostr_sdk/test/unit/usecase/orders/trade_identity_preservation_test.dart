@@ -194,7 +194,7 @@ Listing _listing() => _f.listing(
   type: ListingType.house,
   specifications: Specifications(),
   negotiable: true,
-  allowSelfSignedOrder: true,
+  autoAccept: true,
 );
 
 void main() {

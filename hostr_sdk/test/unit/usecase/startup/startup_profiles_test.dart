@@ -11,7 +11,6 @@ import 'package:hostr_sdk/usecase/calendar/calendar.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/account_seed_store.dart';
 import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart';
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart';
@@ -107,7 +106,6 @@ void main() {
         final messaging = usecase_mocks.MockMessaging();
         final orders = usecase_mocks.MockOrders();
         final listings = _FakeListings();
-        final identityClaims = _FakeIdentityClaims();
 
         when(
           auth.activeKeyPair,
@@ -135,7 +133,6 @@ void main() {
           accountSeedStore: seedStore,
           metadata: metadata,
           listings: listings,
-          identityClaims: identityClaims,
           userSubscriptions: userSubscriptions,
           paymentProofOrchestrator: paymentProof,
           fundsMonitor: fundsMonitor,
@@ -171,7 +168,6 @@ void main() {
         verifyNever(metadata.loadMetadata('user-pubkey', forceRefresh: true));
         verifyNever(metadata.ensureSellerConfig('user-pubkey'));
         expect(listings.queriedAuthors, ['user-pubkey']);
-        expect(identityClaims.ensureCalls, 0);
       },
     );
 
@@ -190,7 +186,6 @@ void main() {
       final messaging = usecase_mocks.MockMessaging();
       final orders = usecase_mocks.MockOrders();
       final listings = _FakeListings();
-      final identityClaims = _FakeIdentityClaims();
       final snapshots = <StartupSnapshot>[];
 
       when(
@@ -215,7 +210,6 @@ void main() {
         accountSeedStore: seedStore,
         metadata: metadata,
         listings: listings,
-        identityClaims: identityClaims,
         userSubscriptions: userSubscriptions,
         paymentProofOrchestrator: paymentProof,
         fundsMonitor: fundsMonitor,
@@ -249,7 +243,6 @@ void main() {
       expect(backgroundWorker.watchCalls, 0);
       expect(calendar.starts, 0);
       expect(listings.queriedAuthors, ['user-pubkey']);
-      expect(identityClaims.ensureCalls, 0);
       verifyNever(metadata.loadMetadata('user-pubkey', forceRefresh: true));
     });
 
@@ -267,7 +260,6 @@ void main() {
       final messaging = usecase_mocks.MockMessaging();
       final orders = usecase_mocks.MockOrders();
       final listings = _FakeListings()..events = [_listing('user-pubkey')];
-      final identityClaims = _FakeIdentityClaims();
       final refreshed = _profile('user-pubkey');
 
       when(
@@ -298,7 +290,6 @@ void main() {
         accountSeedStore: seedStore,
         metadata: metadata,
         listings: listings,
-        identityClaims: identityClaims,
         userSubscriptions: userSubscriptions,
         paymentProofOrchestrator: paymentProof,
         fundsMonitor: fundsMonitor,
@@ -330,7 +321,6 @@ void main() {
       ).called(1);
       verify(metadata.ensureSellerConfig('user-pubkey')).called(1);
       expect(listings.queriedAuthors, ['user-pubkey']);
-      expect(identityClaims.ensureCalls, 0);
     });
   });
 }
@@ -405,16 +395,6 @@ class _FakeListings extends Fake implements Listings {
   Future<List<Listing>> list(Filter f, {String? name}) async {
     queriedAuthors.addAll(f.authors ?? const []);
     return events;
-  }
-}
-
-class _FakeIdentityClaims extends Fake implements IdentityClaimsUseCase {
-  int ensureCalls = 0;
-
-  @override
-  Future<IdentityClaims?> ensureEvmAddress() async {
-    ensureCalls++;
-    return null;
   }
 }
 

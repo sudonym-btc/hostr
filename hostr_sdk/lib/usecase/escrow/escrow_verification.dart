@@ -1,5 +1,16 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:models/main.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:web3dart/web3dart.dart'
+    show
+        MsgSignature,
+        bytesToUnsignedInt,
+        ecRecover,
+        keccak256,
+        publicKeyToAddress;
 
 import '../../util/main.dart';
 import '../evm/evm.dart';
@@ -64,17 +75,23 @@ class EscrowVerification {
           );
         }
 
-        final escrowProof = proof.escrowProof;
-        if (escrowProof == null) {
+        final evmParams = proof.evmParams;
+        if (evmParams == null) {
           return const EscrowVerificationResult.invalid(
-            'No escrow proof in payment proof',
+            'No EVM payment proof in order proof',
+          );
+        }
+        final escrow = proof.escrow;
+        if (escrow == null) {
+          return const EscrowVerificationResult.invalid(
+            'No escrow context in order proof',
           );
         }
 
-        final proofError = _validateEscrowProof(escrowProof, order);
+        final proofError = _validateEscrowContext(escrow, order);
         if (proofError != null) return proofError;
 
-        final contract = _resolveContract(escrowProof);
+        final contract = _resolveContract(escrow);
 
         final tradeId = order.getDtag();
         if (tradeId == null || tradeId.isEmpty) {
@@ -86,7 +103,7 @@ class EscrowVerification {
         final fundedOrError = await _queryFundedEvent(
           contract,
           tradeId,
-          escrowProof.txHash,
+          evmParams.txHash,
         );
         if (fundedOrError is EscrowVerificationResult) return fundedOrError;
         final fundedEvent = fundedOrError as EscrowFundedEvent;
@@ -95,7 +112,7 @@ class EscrowVerification {
           fundedEvent: fundedEvent,
           order: order,
           proof: proof,
-          escrowProof: escrowProof,
+          escrow: escrow,
         );
       });
 
@@ -103,32 +120,36 @@ class EscrowVerification {
 
   /// Validates the escrow proof structure: pubkey match, signature, contract
   /// and service inclusion in the host's escrow methods.
-  EscrowVerificationResult? _validateEscrowProof(
-    EscrowProof escrowProof,
+  EscrowVerificationResult? _validateEscrowContext(
+    EscrowPaymentContext escrow,
     Order order,
   ) {
-    if (escrowProof.sellerEscrowMethods.pubKey !=
+    if (escrow.sellerEscrowMethod.pubKey !=
         getPubKeyFromAnchor(order.parsedTags.listingAnchor)) {
       return const EscrowVerificationResult.invalid(
         'Escrow proof is for a different listing (pubkey mismatch)',
       );
     }
 
-    if (!escrowProof.sellerEscrowMethods.valid()) {
+    if (!escrow.sellerEscrowMethod.valid()) {
       return const EscrowVerificationResult.invalid(
         'Invalid signature on escrow methods',
       );
     }
 
-    final escrowService = escrowProof.escrowService;
-    if (escrowService.escrowType != EscrowType.EVM ||
-        escrowProof.params is! EvmEscrowProofParams) {
+    final evmAddressProofError = _validateSellerEvmAddressProof(
+      escrow.sellerEscrowMethod,
+    );
+    if (evmAddressProofError != null) return evmAddressProofError;
+
+    final escrowService = escrow.escrowService;
+    if (escrowService.escrowType.paymentMethod != PaymentMethod.evm) {
       return const EscrowVerificationResult.invalid(
-        'Escrow proof params are not valid EVM params',
+        'Escrow context is not valid for an EVM payment proof',
       );
     }
 
-    final supportedContractHashes = escrowProof.sellerEscrowMethods
+    final supportedContractHashes = escrow.sellerEscrowMethod
         .getTags('c')
         .map((element) => element.toLowerCase());
 
@@ -140,7 +161,7 @@ class EscrowVerification {
       );
     }
 
-    if (escrowProof.sellerEscrowMethods
+    if (escrow.sellerEscrowMethod
         .getTags('p')
         .where((element) => element == escrowService.pubKey)
         .isEmpty) {
@@ -153,8 +174,8 @@ class EscrowVerification {
   }
 
   /// Resolves the on-chain contract from the escrow proof's service selection.
-  SupportedEscrowContract _resolveContract(EscrowProof escrowProof) {
-    final escrowService = escrowProof.escrowService;
+  SupportedEscrowContract _resolveContract(EscrowPaymentContext escrow) {
+    final escrowService = escrow.escrowService;
     final configuredChain = evm.getChainForEscrowService(escrowService);
     return configuredChain.escrow.getSupportedEscrowContract(escrowService);
   }
@@ -192,7 +213,7 @@ class EscrowVerification {
     required EscrowFundedEvent fundedEvent,
     required Order order,
     required PaymentProof proof,
-    required EscrowProof escrowProof,
+    required EscrowPaymentContext escrow,
   }) {
     final expectedAmount = order.resolveExpectedAmount(listing: proof.listing);
 
@@ -202,13 +223,13 @@ class EscrowVerification {
 
     final bindingError = _verifyFundedEventBinding(
       fundedEvent: fundedEvent,
-      escrowProof: escrowProof,
+      escrow: escrow,
       onChainAmount: onChainAmount,
     );
     if (bindingError != null) return bindingError;
 
     // Verify the host accepts this on-chain token for the denomination.
-    if (!escrowProof.sellerEscrowMethods.acceptsToken(
+    if (!escrow.sellerEscrowMethod.acceptsToken(
       denomination,
       onChainAmount.token.tagId,
     )) {
@@ -295,10 +316,10 @@ class EscrowVerification {
 
   EscrowVerificationResult? _verifyFundedEventBinding({
     required EscrowFundedEvent fundedEvent,
-    required EscrowProof escrowProof,
+    required EscrowPaymentContext escrow,
     required TokenAmount onChainAmount,
   }) {
-    final service = escrowProof.escrowService;
+    final service = escrow.escrowService;
 
     if (fundedEvent.chainId != service.chainId) {
       return EscrowVerificationResult.invalid(
@@ -322,6 +343,17 @@ class EscrowVerification {
       );
     }
 
+    final seller = fundedEvent.seller?.eip55With0x;
+    final expectedSeller = escrow.sellerEscrowMethod.evmAddress;
+    if (seller == null ||
+        expectedSeller == null ||
+        !_sameAddress(seller, expectedSeller)) {
+      return EscrowVerificationResult.invalid(
+        'Escrow funding seller ${seller ?? 'missing'} does not match '
+        'seller escrow method EVM address ${expectedSeller ?? 'missing'}',
+      );
+    }
+
     final tokenAddress = onChainAmount.token.isERC20
         ? onChainAmount.token.address
         : 'native';
@@ -338,6 +370,82 @@ class EscrowVerification {
     }
 
     return null;
+  }
+
+  EscrowVerificationResult? _validateSellerEvmAddressProof(
+    EscrowMethod method,
+  ) {
+    final address = method.evmAddress;
+    final proof = method.evmAddressProof;
+    if (address == null || address.isEmpty) {
+      return const EscrowVerificationResult.invalid(
+        'Seller escrow method is missing an EVM address proof',
+      );
+    }
+    if (proof == null || proof.isEmpty) {
+      return const EscrowVerificationResult.invalid(
+        'Seller escrow method is missing an EIP-191 EVM address proof',
+      );
+    }
+    if (!_validEvmAddressProof(
+      nostrPubkey: method.pubKey,
+      evmAddress: address,
+      proof: proof,
+    )) {
+      return const EscrowVerificationResult.invalid(
+        'Invalid EVM address proof on seller escrow method',
+      );
+    }
+    return null;
+  }
+
+  bool _validEvmAddressProof({
+    required String nostrPubkey,
+    required String evmAddress,
+    required String proof,
+  }) {
+    try {
+      final signature = _parseMsgSignature(proof);
+      final message = evmAddressOwnershipMessage(
+        nostrPubkey: nostrPubkey,
+        evmAddress: evmAddress,
+      );
+      final recoveredPublicKey = ecRecover(
+        _personalMessageHash(message),
+        signature,
+      );
+      final recoveredAddress = EthereumAddress(
+        publicKeyToAddress(_leftPad(recoveredPublicKey, 64)),
+      ).eip55With0x;
+      return _sameAddress(recoveredAddress, evmAddress);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Uint8List _personalMessageHash(String message) {
+    final payload = utf8.encode(message);
+    final prefix = ascii.encode(
+      '\x19Ethereum Signed Message:\n${payload.length}',
+    );
+    return keccak256(Uint8List.fromList([...prefix, ...payload]));
+  }
+
+  MsgSignature _parseMsgSignature(String proof) {
+    final signature = parseEvmSignature(proof);
+    return MsgSignature(
+      bytesToUnsignedInt(signature.r),
+      bytesToUnsignedInt(signature.s),
+      signature.v.toInt(),
+    );
+  }
+
+  Uint8List _leftPad(Uint8List bytes, int length) {
+    if (bytes.length == length) return bytes;
+    if (bytes.length > length) {
+      return Uint8List.fromList(bytes.sublist(bytes.length - length));
+    }
+    return Uint8List(length)..setRange(length - bytes.length, length, bytes);
   }
 
   bool _sameAddress(String left, String right) =>

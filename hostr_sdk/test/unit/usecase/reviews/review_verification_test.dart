@@ -19,8 +19,7 @@ import 'package:mockito/mockito.dart';
 import 'package:models/main.dart';
 import 'package:models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
-import 'package:ndk/ndk.dart'
-    show Filter, Nip01Event, Nip01EventModel, Nip01Utils;
+import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip01Utils;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 
@@ -312,25 +311,11 @@ PaymentProof _escrowPaymentProof({required Listing listing}) {
     privateKey: MockKeys.hoster.privateKey!,
   );
 
-  return PaymentProof(
-    hoster: Nip01EventModel.fromEntity(
-      Nip01Utils.signWithPrivateKey(
-        event: Nip01Event(
-          kind: 0,
-          pubKey: MockKeys.hoster.publicKey,
-          tags: const [],
-          content: '',
-        ),
-        privateKey: MockKeys.hoster.privateKey!,
-      ),
-    ),
+  return PaymentProof.evm(
     listing: listing,
-    zapProof: null,
-    escrowProof: EscrowProof(
-      escrowService: escrowService,
-      sellerEscrowMethods: EscrowMethod.fromNostrEvent(methodEvent),
-      params: EvmEscrowProofParams(txHash: '0xabc123'),
-    ),
+    txHash: '0xabc123',
+    escrowService: escrowService,
+    sellerEscrowMethod: EscrowMethod.fromNostrEvent(methodEvent),
   );
 }
 

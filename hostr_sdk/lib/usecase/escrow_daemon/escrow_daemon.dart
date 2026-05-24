@@ -50,6 +50,7 @@ typedef EscrowOrderExistingMessages =
 typedef EscrowOrderGroupVerifier =
     Future<Validation<OrderGroup>> Function(
       OrderGroup group, {
+      required Listing? listing,
       required bool forceValidateSelfSigned,
       required EscrowVerification escrowVerification,
     });
@@ -728,11 +729,13 @@ class EscrowDaemon {
 
   static Future<Validation<OrderGroup>> _defaultVerifyOrderGroup(
     OrderGroup group, {
+    required Listing? listing,
     required bool forceValidateSelfSigned,
     required EscrowVerification escrowVerification,
   }) {
     return OrderGroups.verifyGroupOnChain(
       group,
+      listing: listing,
       forceValidateSelfSigned: forceValidateSelfSigned,
       escrowVerification: escrowVerification,
     );
@@ -1024,14 +1027,16 @@ class EscrowDaemon {
     final buyer = group.buyerOrder;
     if (buyer == null) return;
     if (buyer.stage != OrderStage.commit) return;
-    if (buyer.proof?.escrowProof == null) return;
+    if (buyer.proof?.hasEscrowPaymentProof != true) return;
 
     final tradeId = group.tradeId;
     _logger.i('Processing order group: trade=$tradeId');
 
     try {
+      final listing = await _listings.getOneByAnchor(group.listingAnchor);
       final result = await _verifyOrderGroup(
         group,
+        listing: listing,
         forceValidateSelfSigned: true,
         escrowVerification: _escrowVerification,
       );

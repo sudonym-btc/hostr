@@ -125,15 +125,11 @@ class PaymentProofOrchestrator {
       tradeId: tradeId,
       participants: participants,
       source: 'completed swap $transactionHash',
-      buildProof: (listing, profile) => PaymentProof(
+      buildProof: (listing, profile) => PaymentProof.evm(
         listing: listing,
-        hoster: profile,
-        zapProof: null,
-        escrowProof: EscrowProof(
-          sellerEscrowMethods: escrowService.sellerMethods,
-          escrowService: escrowService.service,
-          params: EvmEscrowProofParams(txHash: transactionHash),
-        ),
+        txHash: transactionHash,
+        sellerEscrowMethod: escrowService.sellerMethods,
+        escrowService: escrowService.service,
       ),
     );
   });
@@ -146,20 +142,24 @@ class PaymentProofOrchestrator {
     await _publishProofForTrade(
       tradeId: tradeId,
       source: 'payment event $funded',
-      buildProof: (listing, profile) => PaymentProof(
-        listing: listing,
-        hoster: profile,
-        zapProof: funded is ZapFundedEvent
-            ? ZapProof(receipt: Nip01EventModel.fromEntity(funded.event))
-            : null,
-        escrowProof: funded is EscrowFundedEvent
-            ? EscrowProof(
-                sellerEscrowMethods: funded.escrowService!.sellerMethods,
-                escrowService: funded.escrowService!.service,
-                params: EvmEscrowProofParams(txHash: funded.transactionHash),
-              )
-            : null,
-      ),
+      buildProof: (listing, profile) {
+        if (funded is ZapFundedEvent) {
+          return PaymentProof.zap(
+            listing: listing,
+            receipt: Nip01EventModel.fromEntity(funded.event),
+            recipientProfile: profile,
+          );
+        }
+        if (funded is EscrowFundedEvent) {
+          return PaymentProof.evm(
+            listing: listing,
+            txHash: funded.transactionHash,
+            sellerEscrowMethod: funded.escrowService!.sellerMethods,
+            escrowService: funded.escrowService!.service,
+          );
+        }
+        return PaymentProof(listing: listing, paymentProof: null);
+      },
     );
   });
 

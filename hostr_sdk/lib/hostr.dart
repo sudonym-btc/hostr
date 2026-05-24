@@ -53,7 +53,6 @@ class Hostr {
   SwapOutTracker get swapOutTracker => scope<SwapOutTracker>();
   BackgroundWorker get backgroundWorker => scope<BackgroundWorker>();
   Heartbeats get heartbeats => scope<Heartbeats>();
-  IdentityClaimsUseCase get identityClaims => scope<IdentityClaimsUseCase>();
   UserSubscriptions get userSubscriptions => scope<UserSubscriptions>();
   EscrowDaemon get escrowDaemon => scope<EscrowDaemon>();
   AccountSeedStore get accountSeedStore => scope<AccountSeedStore>();

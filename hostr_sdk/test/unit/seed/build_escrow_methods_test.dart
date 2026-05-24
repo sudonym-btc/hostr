@@ -37,6 +37,8 @@ void main() {
         );
         expect(method.supportedContractBytecodeHashes, isNotEmpty);
         expect(method.acceptedPaymentForms, isNotEmpty);
+        expect(method.evmAddress, startsWith('0x'));
+        expect(method.evmAddressProof, startsWith('0x'));
         expect(method.acceptedPaymentForms.map((form) => form.appId).toSet(), {
           'hostr',
         });

@@ -8,7 +8,6 @@ import 'package:hostr_sdk/usecase/blossom/blossom.dart';
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart';
 import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/identity_claims/identity_claims.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
@@ -46,14 +45,6 @@ class _RecordingEvm extends Fake implements Evm {
 
   @override
   List<EvmChain> get configuredChains => const [];
-}
-
-class _FakeIdentityClaimsUseCase extends Fake
-    implements IdentityClaimsUseCase {}
-
-class _NoopIdentityClaimsUseCase extends Fake implements IdentityClaimsUseCase {
-  @override
-  Future<IdentityClaims?> ensureEvmAddress() async => null;
 }
 
 class _FakeHostrConfig extends Fake implements HostrConfig {}
@@ -176,7 +167,6 @@ class _TestMetadataUseCase extends MetadataUseCase {
         escrowMethods: _FakeEscrowMethods(),
         blossom: _FakeBlossomUseCase(),
         evm: _FakeEvm(),
-        identityClaims: _FakeIdentityClaimsUseCase(),
         config: _FakeHostrConfig(),
         requests: _FakeRequests(),
         logger: CustomLogger(),
@@ -239,7 +229,6 @@ void main() {
           escrowMethods: _FakeEscrowMethods(),
           blossom: _FakeBlossomUseCase(),
           evm: _FakeEvm(),
-          identityClaims: _FakeIdentityClaimsUseCase(),
           config: _MetadataDiscoveryHostrConfig(),
           requests: requests,
           logger: CustomLogger(),
@@ -352,7 +341,6 @@ void main() {
         escrowMethods: escrowMethods,
         blossom: _FakeBlossomUseCase(),
         evm: evm,
-        identityClaims: _NoopIdentityClaimsUseCase(),
         config: _SellerConfigHostrConfig(),
         requests: _FakeRequests(),
         logger: CustomLogger(),

@@ -10,7 +10,7 @@ import '../../util/custom_logger.dart';
 import '../../util/stream_status.dart';
 import '../auth/auth.dart';
 import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../identity_claims/identity_claims.dart';
+import '../escrow_methods/escrows_methods.dart';
 import '../listings/listings.dart';
 import '../messaging/escrow_trade_thread_resolver.dart';
 import '../messaging/thread/state.dart';
@@ -81,7 +81,7 @@ class Trade extends Cubit<TradeState> {
   final Auth _auth;
   final Listings _listings;
   final MetadataUseCase _metadata;
-  final IdentityClaimsUseCase _identityClaims;
+  final EscrowMethods _escrowMethods;
   final UserSubscriptions _userSubscriptions;
   final OrderGroups _orderGroups;
   final Threads _threads;
@@ -150,7 +150,7 @@ class Trade extends Cubit<TradeState> {
     required Auth auth,
     required Listings listings,
     required MetadataUseCase metadata,
-    required IdentityClaimsUseCase identityClaims,
+    required EscrowMethods escrowMethods,
     required UserSubscriptions userSubscriptions,
     required OrderGroups orderGroups,
     required Threads threads,
@@ -161,7 +161,7 @@ class Trade extends Cubit<TradeState> {
        _auth = auth,
        _listings = listings,
        _metadata = metadata,
-       _identityClaims = identityClaims,
+       _escrowMethods = escrowMethods,
        _userSubscriptions = userSubscriptions,
        _orderGroups = orderGroups,
        _threads = threads,
@@ -306,7 +306,7 @@ class Trade extends Cubit<TradeState> {
     _listing = fetchedListing;
 
     _hostProfile = await _metadata.loadMetadata(sellerPubkey);
-    _sellerEvmAddress = await _identityClaims.loadEvmAddress(sellerPubkey);
+    _sellerEvmAddress = await _escrowMethods.loadEvmAddress(sellerPubkey);
 
     _wirePipeline();
   });

@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart' show kNostrKindIdentityClaims;
 import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
@@ -28,10 +27,6 @@ String _shortHex(String? value) {
   if (value == null) return 'null';
   if (value.length <= 16) return value;
   return '${value.substring(0, 8)}...${value.substring(value.length - 8)}';
-}
-
-String _nostrEventDebugJson(Nip01Event event) {
-  return jsonEncode(Nip01EventModel.fromEntity(event).toJson());
 }
 
 String _signEventDebugSummary(Nip01Event event) {
@@ -572,7 +567,6 @@ class Auth {
     }
 
     _logger.d('signEvent input: ${_signEventDebugSummary(event)}');
-    _logIdentityClaimEventJson('signEvent input event', event);
 
     final eventToSign = event.id.isEmpty
         ? event.copyWith(id: Nip01Utils.calculateId(event))
@@ -580,10 +574,6 @@ class Auth {
     if (!identical(eventToSign, event)) {
       _logger.d(
         'signEvent normalized input id: ${_signEventDebugSummary(eventToSign)}',
-      );
-      _logIdentityClaimEventJson(
-        'signEvent normalized input event',
-        eventToSign,
       );
     }
 
@@ -612,7 +602,6 @@ class Auth {
     }
 
     _logger.d('signEvent output: ${_signEventDebugSummary(signed)}');
-    _logIdentityClaimEventJson('signEvent output event', signed);
 
     final recalculatedId = Nip01Utils.calculateId(signed);
     if (signed.id != recalculatedId) {
@@ -625,11 +614,6 @@ class Auth {
     }
     return signed;
   });
-
-  void _logIdentityClaimEventJson(String label, Nip01Event event) {
-    if (event.kind != kNostrKindIdentityClaims) return;
-    _logger.d('$label JSON: ${_nostrEventDebugJson(event)}');
-  }
 
   // ---------------------------------------------------------------------------
   // HD wallet – EVM key derivation

@@ -27,7 +27,6 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   9734, // NIP-57 zap request.
   9735, // NIP-57 zap receipt.
   10008, // NIP-58 profile badges.
-  10011, // NIP-39 external identity claims.
   10017, // Hostr received heartbeat.
   10050, // NIP-51/NIP-17 DM relay list.
   13194, // NIP-47 NWC info event.

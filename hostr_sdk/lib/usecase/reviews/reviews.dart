@@ -137,6 +137,7 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
         ? null
         : await OrderGroups.verifyGroupOnChain(
             OrderGroup(orders: groupOrders),
+            listing: results[1] as Listing?,
             escrowVerification: _escrowVerification,
           );
 

@@ -13,7 +13,7 @@ extension OrderParticipantRolePubkeys on Order {
       case 'escrow':
         final escrowPubkey =
             parsedTags.getTagValueByMarker('p', 'escrow') ??
-            proof?.escrowProof?.escrowService.escrowPubkey;
+            proof?.escrow?.escrowService.escrowPubkey;
         if (escrowPubkey != null && escrowPubkey.isNotEmpty) {
           return escrowPubkey;
         }

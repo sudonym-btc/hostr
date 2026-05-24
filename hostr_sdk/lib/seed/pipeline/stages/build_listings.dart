@@ -69,7 +69,7 @@ List<Listing> buildListings({
       // alter listing prices or other on-chain-relevant attributes.
       final lr = _listingRng(ctx.seed, listingIndex);
 
-      final instantBook =
+      final autoAccept =
           host.hasEvm &&
           lr.nextDouble() < config.threadStages.paidViaEscrowRatio;
 
@@ -107,7 +107,7 @@ List<Listing> buildListings({
             ),
         ],
         quantity: 1 + lr.nextInt(2),
-        instantBook: instantBook,
+        autoAccept: autoAccept,
         negotiable: listingIndex.isEven,
         extraTags: [
           ['d', count.toString()],

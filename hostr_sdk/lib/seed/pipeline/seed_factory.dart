@@ -77,18 +77,8 @@ class SeedFactory {
     createdAt: createdAt,
   );
 
-  Future<List<IdentityClaims>> buildIdentityClaims(List<SeedUser> users) =>
-      stage_profiles.buildIdentityClaims(
-        ctx: _ctx,
-        users: users,
-        factory: _entities,
-      );
-
   Future<ProfileMetadata> buildEscrowProfile() => stage_profiles
       .buildEscrowProfile(ctx: _ctx, config: config, factory: _entities);
-
-  Future<IdentityClaims> buildEscrowIdentityClaims() =>
-      stage_profiles.buildEscrowIdentityClaims(ctx: _ctx, factory: _entities);
 
   Future<List<EscrowService>> buildEscrowServices({
     String? contractAddress,
@@ -193,10 +183,6 @@ class SeedFactory {
       await buildEscrowProfile(),
     ];
     final accountSeeds = await buildAccountSeeds(users);
-    final identityClaims = [
-      ...await buildIdentityClaims(users),
-      await buildEscrowIdentityClaims(),
-    ];
     final escrowServices = await buildEscrowServices();
     final escrowMethods = await buildEscrowMethods(users);
 
@@ -220,7 +206,6 @@ class SeedFactory {
       users: users,
       profiles: profiles,
       accountSeeds: accountSeeds,
-      identityClaims: identityClaims,
       listings: listings,
       escrowServices: escrowServices,
       escrowMethods: escrowMethods,
@@ -255,26 +240,15 @@ class SeedFactory {
   }) {
     final PaymentProof? proof;
     if (withEscrowProof && escrowService != null && escrowMethod != null) {
-      proof = PaymentProof(
-        hoster: hostProfile,
+      proof = PaymentProof.evm(
         listing: thread.listing,
-        zapProof: null,
-        escrowProof: EscrowProof(
-          escrowService: escrowService,
-          sellerEscrowMethods: escrowMethod,
-          params: EvmEscrowProofParams(
-            txHash:
-                '0x${List.generate(64, (i) => ((thread.id.codeUnitAt(i % thread.id.length) + i) % 16).toRadixString(16)).join()}',
-          ),
-        ),
+        txHash:
+            '0x${List.generate(64, (i) => ((thread.id.codeUnitAt(i % thread.id.length) + i) % 16).toRadixString(16)).join()}',
+        escrowService: escrowService,
+        sellerEscrowMethod: escrowMethod,
       );
     } else {
-      proof = PaymentProof(
-        hoster: hostProfile,
-        listing: thread.listing,
-        zapProof: null,
-        escrowProof: null,
-      );
+      proof = PaymentProof(listing: thread.listing, paymentProof: null);
     }
 
     return _entities.order(
