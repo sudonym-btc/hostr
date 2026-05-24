@@ -866,9 +866,6 @@ Future<_GodFixtures> _seedFixtures(IntegrationTestHarness harness) async {
     keyPair: host.keyPair,
     body: () async {
       await hostr.metadata.upsert(host.profile);
-      if (host.identityClaims != null) {
-        await hostr.identityClaims.upsert(host.identityClaims!);
-      }
       await hostr.escrowMethods.upsert(hostEscrowMethod);
     },
   );
@@ -900,7 +897,7 @@ Future<_GodFixtures> _seedFixtures(IntegrationTestHarness harness) async {
       type: type,
       specifications: specs,
       negotiable: negotiable,
-      instantBook: false,
+      autoAccept: true,
       createdAt: listingCreatedAt++,
       images: ['https://picsum.photos/seed/god-$suffix/1200/800'],
     );
@@ -1184,7 +1181,10 @@ Future<void> _ensureBuyerEscrowPrerequisites({
   required Hostr hostr,
   required _GodFixtures fixtures,
 }) async {
-  await hostr.identityClaims.ensureEvmAddress();
+  await hostr.escrowMethods.ensureEscrowMethod(
+    bytecodeHashes: {fixtures.escrowService.contractBytecodeHash},
+    trustedEscrowPubkeys: [fixtures.escrowService.pubKey],
+  );
   await _assertMutualEscrowAvailable(hostr: hostr, fixtures: fixtures);
 }
 
@@ -3527,7 +3527,7 @@ String _reservationGroupsSnapshot(WidgetTester tester, String prefix) {
               '${reservation.pubKey.substring(0, 8)}'
               '/${reservation.stage.name}'
               '/proof=${reservation.proof != null}'
-              '/escrow=${reservation.proof?.escrowProof != null}',
+              '/escrow=${reservation.proof?.hasEscrowPaymentProof == true}',
         )
         .join(',');
     return '${group.tradeId}=$type$reason [$reservations]';

@@ -52,7 +52,6 @@ String signerRequestEventKindDescription(int? kind) {
     kNostrKindEscrowService => 'escrow service advertisement',
     kNostrKindEscrowMethod => 'escrow payment methods',
     kNostrKindEscrowServiceSelected => 'escrow selection',
-    kNostrKindIdentityClaims => 'identity claim',
     kNostrKindLegacyDM => 'legacy direct message',
     kNostrKindDM => 'direct message',
     kNostrKindJsonMessage => 'Hostr message',

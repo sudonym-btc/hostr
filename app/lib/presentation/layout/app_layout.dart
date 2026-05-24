@@ -64,13 +64,30 @@ class AppNavigationDestination {
 
   /// Optional reactive badge count shown on this nav item.
   final Stream<int>? badgeStream;
+  final int badgeInitialCount;
+  final AppNavigationBadgeTone badgeTone;
 
   const AppNavigationDestination({
     required this.label,
     required this.icon,
     required this.route,
     this.badgeStream,
+    this.badgeInitialCount = 0,
+    this.badgeTone = AppNavigationBadgeTone.alert,
   });
+}
+
+enum AppNavigationBadgeTone { alert, muted }
+
+int _navigationListCount<T>(StreamWithStatus<List<T>> source) {
+  final snapshots = source.items;
+  return snapshots.isEmpty ? 0 : snapshots.last.length;
+}
+
+Stream<int> _navigationListCountStream<T>(StreamWithStatus<List<T>> source) {
+  return source.itemsStream
+      .map((snapshots) => snapshots.isEmpty ? 0 : snapshots.last.length)
+      .distinct();
 }
 
 List<AppNavigationDestination> buildAppNavigationDestinations({
@@ -99,10 +116,17 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
         icon: Icons.list,
         route: MyListingsRoute(),
       ),
-      const AppNavigationDestination(
+      AppNavigationDestination(
         label: 'Bookings',
         icon: Icons.calendar_today,
         route: HostingsRoute(),
+        badgeStream: _navigationListCountStream(
+          getIt<Hostr>().userSubscriptions.myHostingsList$,
+        ),
+        badgeInitialCount: _navigationListCount(
+          getIt<Hostr>().userSubscriptions.myHostingsList$,
+        ),
+        badgeTone: AppNavigationBadgeTone.muted,
       ),
       AppNavigationDestination(
         label: 'Inbox',
@@ -124,10 +148,17 @@ List<AppNavigationDestination> buildAppNavigationDestinations({
       icon: Icons.travel_explore,
       route: ExploreRoute(),
     ),
-    const AppNavigationDestination(
+    AppNavigationDestination(
       label: 'Trips',
       icon: Icons.flight,
       route: TripsRoute(),
+      badgeStream: _navigationListCountStream(
+        getIt<Hostr>().userSubscriptions.myTripsList$,
+      ),
+      badgeInitialCount: _navigationListCount(
+        getIt<Hostr>().userSubscriptions.myTripsList$,
+      ),
+      badgeTone: AppNavigationBadgeTone.muted,
     ),
     AppNavigationDestination(
       label: 'Inbox',

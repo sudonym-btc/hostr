@@ -91,15 +91,24 @@ class _AppShellScreenState extends State<AppShellScreen>
 
   /// Wraps [icon] with a [Badge] that reactively shows a count from
   /// [badgeStream]. Returns the icon unchanged when no stream is provided.
-  Widget _badgedIcon({required Widget icon, Stream<int>? badgeStream}) {
+  Widget _badgedIcon({
+    required Widget icon,
+    Stream<int>? badgeStream,
+    int initialCount = 0,
+    AppNavigationBadgeTone badgeTone = AppNavigationBadgeTone.alert,
+  }) {
     if (badgeStream == null) return icon;
     return StreamBuilder<int>(
       stream: badgeStream,
-      initialData: 0,
+      initialData: initialCount,
       builder: (context, snapshot) {
+        final theme = Theme.of(context);
         final count = snapshot.data ?? 0;
+        final isMuted = badgeTone == AppNavigationBadgeTone.muted;
         return Badge(
           isLabelVisible: count > 0,
+          backgroundColor: isMuted ? theme.colorScheme.outlineVariant : null,
+          textColor: isMuted ? theme.colorScheme.onSurface : null,
           label: Text(count.toString()),
           child: icon,
         );
@@ -295,7 +304,12 @@ class _AppShellScreenState extends State<AppShellScreen>
       icon = Icon(destination.icon, size: size);
     }
 
-    return _badgedIcon(icon: icon, badgeStream: destination.badgeStream);
+    return _badgedIcon(
+      icon: icon,
+      badgeStream: destination.badgeStream,
+      initialCount: destination.badgeInitialCount,
+      badgeTone: destination.badgeTone,
+    );
   }
 
   String _resolveDestinationLabel(
