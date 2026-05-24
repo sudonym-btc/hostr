@@ -1599,7 +1599,10 @@ class HostrDaemon {
       quantity: _optionalInt(patch['quantity']),
       active: _optionalBool(patch['active']),
       negotiable: _optionalBool(patch['negotiable']),
-      instantBook: _optionalBool(patch['instantBook']),
+      autoAccept: _optionalBool(patch['autoAccept']),
+      minDuration: patch.containsKey('minDuration')
+          ? optionalIsoDuration(patch['minDuration'], 'minDuration')
+          : null,
       prices: patchPrices,
       images: materialized?.urls,
       imageMetas: materialized?.metas,
@@ -1615,6 +1618,18 @@ class HostrDaemon {
       clearMinPaymentAmount:
           patch['minPaymentAmount'] == null &&
           patch.containsKey('minPaymentAmount'),
+      maxDisputePeriod: _optionalInt(patch['maxDisputePeriod']),
+      clearMaxDisputePeriod:
+          patch['maxDisputePeriod'] == null &&
+          patch.containsKey('maxDisputePeriod'),
+      cancellationPolicy:
+          patch.containsKey('cancellationPolicy') ||
+              patch.containsKey('cancellationPolicies')
+          ? parseCancellationPolicies(
+              patch['cancellationPolicy'] ?? patch['cancellationPolicies'],
+              'cancellationPolicy',
+            )
+          : null,
       specifications: patch['specifications'] is Map || patch['specs'] is Map
           ? buildSpecifications(patch)
           : null,
@@ -1882,7 +1897,6 @@ class HostrDaemon {
       messaging: session.messaging,
       escrow: session.escrow,
       escrows: session.escrows,
-      identityClaims: session.identityClaims,
       metadata: session.metadata,
       evm: session.evm,
       userSubscriptions: session.userSubscriptions,
@@ -2453,15 +2467,11 @@ class HostrDaemon {
     final committed = await hostr.orders.createSelfSigned(
       activeKeyPair: activeKeyPair,
       negotiateOrder: order,
-      proof: PaymentProof(
+      proof: PaymentProof.evm(
         listing: listing,
-        hoster: profile,
-        zapProof: null,
-        escrowProof: EscrowProof(
-          escrowService: selectedEscrow.service,
-          sellerEscrowMethods: selectedEscrow.sellerMethods,
-          params: EvmEscrowProofParams(txHash: swapState.data.claimTxHash!),
-        ),
+        txHash: swapState.data.claimTxHash!,
+        escrowService: selectedEscrow.service,
+        sellerEscrowMethod: selectedEscrow.sellerMethods,
       ),
     );
     await _persistPaymentContext(
@@ -4608,7 +4618,6 @@ class SignerRequestNotificationBridge {
       kNostrKindEscrowService => 'escrow service advertisement',
       kNostrKindEscrowMethod => 'escrow payment methods',
       kNostrKindEscrowServiceSelected => 'escrow selection',
-      kNostrKindIdentityClaims => 'identity claim',
       kNostrKindLegacyDM => 'legacy direct message',
       kNostrKindDM => 'direct message',
       kNostrKindJsonMessage => 'Hostr message',
@@ -5625,7 +5634,7 @@ Future<Map<String, Object?>> _swapWatchJson({
     'state': stateJson,
     'stateName': state.stateName,
     'isTerminal': state.isTerminal,
-    'escrowProofAvailable': claimTxHash?.isNotEmpty == true,
+    'paymentProofAvailable': claimTxHash?.isNotEmpty == true,
     if (claimTxHash?.isNotEmpty == true) 'claimTxHash': claimTxHash,
     if (shouldLookupOrder)
       'orderLookup': await _orderLookupByTradeId(
@@ -5864,17 +5873,6 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
     );
   }
 
-  final sellerEvmAddress = await hostr.identityClaims.loadEvmAddress(
-    sellerPubkey,
-  );
-  if (sellerEvmAddress == null || sellerEvmAddress.isEmpty) {
-    throw HostrCliException(
-      'seller_evm_address_not_found',
-      'Seller EVM identity claim was not found.',
-      details: {'sellerPubkey': sellerPubkey},
-    );
-  }
-
   final mutual = await hostr.escrows.determineMutualEscrow(
     hostr.auth.getActiveKey().publicKey,
     sellerPubkey,
@@ -5888,6 +5886,14 @@ Future<_EscrowFundingPlan> _buildEscrowFundingPlan({
         'sellerMethod': mutual.sellerMethod?.id,
         'buyerMethod': mutual.buyerMethod?.id,
       },
+    );
+  }
+  final sellerEvmAddress = mutual.sellerMethod!.evmAddress;
+  if (sellerEvmAddress == null || sellerEvmAddress.isEmpty) {
+    throw HostrCliException(
+      'seller_evm_address_not_found',
+      'Seller EVM address was not found on escrow method.',
+      details: {'sellerPubkey': sellerPubkey},
     );
   }
 

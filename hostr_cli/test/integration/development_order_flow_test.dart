@@ -161,7 +161,7 @@ void main() {
               '--swap-id',
               swapId,
             ], timeout: const Duration(minutes: 5));
-            expect(watched['escrowProofAvailable'], isTrue);
+            expect(watched['paymentProofAvailable'], isTrue);
             expect(watched['claimTxHash'], isNotEmpty);
 
             await paymentFuture.timeout(const Duration(minutes: 1));

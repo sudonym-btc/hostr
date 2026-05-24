@@ -69,7 +69,7 @@ Use these in ChatGPT developer mode on web and mobile before submitting:
 2. `Show availability for this listing from August 1 to August 3`
    Expected: calls `hostr_listings_availability`; preserves date-only values as `2026-08-01T00:00:00Z` style values when dates are in 2026.
 
-3. `Book this instant-book stay for two nights`
+3. `Book this auto-accept stay for two nights`
    Expected: asks for missing listing/date/price details if needed; calls `hostr_orders_bookAndPay` only after intent is concrete; if payment is required, shows only the QR/invoice to the user and then calls `hostr_swaps_watch`.
 
 4. `Create a listing for my spare room`

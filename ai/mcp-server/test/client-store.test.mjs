@@ -693,7 +693,7 @@ test("tool descriptions omit repeated boilerplate", () => {
   const description = __testing.toolDescription({
     id: "hostr.orders.bookAndPay",
     description: [
-      "Book and pay for an instant-book order.",
+      "Book and pay for an auto-accept order.",
       "MCP driving notes: long common notes.",
       "Read-only behavior: common read notes.",
       "Write behavior: common write notes.",
@@ -840,7 +840,7 @@ test("completed swap with proof but no order is order pending", async () => {
         },
         stateName: "completed",
         isTerminal: true,
-        escrowProofAvailable: true,
+        paymentProofAvailable: true,
         claimTxHash: "0xabc",
         orderLookup: {
           tradeId: "trade-123",

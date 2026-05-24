@@ -1546,8 +1546,8 @@ const listingFlags = (listing: Record<string, unknown>): string[] => {
   if (rentOrBuy === "rent" || rentOrBuy === "buy") {
     flags.push(rentOrBuy);
   }
-  if (boolValue(listing.instantBook) === true) {
-    flags.push("instant book");
+  if (boolValue(listing.autoAccept) === true) {
+    flags.push("auto-accept");
   }
   const negotiable = boolValue(listing.negotiable);
   if (negotiable === true) {
@@ -2870,6 +2870,7 @@ const swapWatchInfo = (
       ));
   const foundOrder = orderLookup?.found === true;
   const proofAvailable =
+    data.paymentProofAvailable === true ||
     data.escrowProofAvailable === true ||
     stringValue(data.claimTxHash) !== null ||
     stringValue(state?.claimTxHash) !== null ||
@@ -3677,7 +3678,7 @@ const toolResponse = async (
     : actionId === "hostr.session.connect" && resultData.authenticated === true
       ? [
           "The Hostr account is connected. Continue the user's original Hostr request using details already present in the conversation.",
-          "If the user asked to book or reserve a stay with a destination and dates but no listing link, search Hostr listings in that destination, check availability for the requested dates, then continue the booking flow for a suitable active instant-book listing.",
+          "If the user asked to book or reserve a stay with a destination and dates but no listing link, search Hostr listings in that destination, check availability for the requested dates, then continue the booking flow for a suitable active auto-accept listing.",
         ]
       : undefined;
   const sessionConnectDisplay = sessionConnectPending

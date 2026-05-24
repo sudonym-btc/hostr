@@ -15,9 +15,19 @@ void main() {
             'description': 'A quiet room',
             'type': 'room',
             'negotiable': true,
+            'autoAccept': false,
+            'minDuration': 'P2D',
             'guests': 2,
             'beds': 1,
             'bathrooms': 1,
+            'maxDisputePeriod': 86400,
+            'cancellationPolicy': [
+              {
+                'secondsBeforeStart': 172800,
+                'secondsAfterOrder': 3600,
+                'refundFraction': 1.0,
+              },
+            ],
             'price': {
               'amount': {'value': '100000', 'currency': 'BTC', 'unit': 'sats'},
               'frequency': 'night',
@@ -50,6 +60,19 @@ void main() {
         expect(listing.rentOrBuy, RentOrBuy.rent);
         expect(listing.parsedTags.getTags('M'), ['rent']);
         expect(listing.negotiable, isTrue);
+        expect(listing.autoAccept, isFalse);
+        expect(listing.minDuration, 'P2D');
+        expect(listing.tags, contains(equals(['minDuration', 'P2D'])));
+        expect(listing.maxDisputePeriod, 86400);
+        expect(
+          listing.cancellationPolicy.single.durationBeforeStart,
+          const Duration(seconds: 172800),
+        );
+        expect(
+          listing.cancellationPolicy.single.durationAfterOrder,
+          const Duration(seconds: 3600),
+        );
+        expect(listing.cancellationPolicy.single.refundFraction, 1.0);
         expect(listingSummary(listing), containsPair('negotiable', true));
       },
     );
@@ -74,6 +97,35 @@ void main() {
       expect(listing.prices.single.frequency, isNull);
       expect(listing.rentOrBuy, RentOrBuy.buy);
       expect(listing.parsedTags.getTags('M'), ['buy']);
+      expect(listing.tags.where((tag) => tag.first == 'minDuration'), isEmpty);
+    });
+
+    test('rejects numeric minDuration input', () {
+      expect(
+        () => buildListingFromInput(
+          pubkey: 'f' * 64,
+          input: {
+            'title': 'Garden room',
+            'description': 'A quiet room',
+            'type': 'room',
+            'minDuration': 2,
+            'price': {
+              'amount': {'value': '100000', 'currency': 'BTC', 'unit': 'sats'},
+              'frequency': 'night',
+            },
+          },
+          images: const ['https://hostr.network/a.jpg'],
+          imageMetas: const [IMeta(url: 'https://hostr.network/a.jpg')],
+          h3Tags: const [H3Tag(index: '599685771850416127', resolution: 15)],
+        ),
+        throwsA(
+          isA<HostrCliException>().having(
+            (e) => e.code,
+            'code',
+            'invalid_duration',
+          ),
+        ),
+      );
     });
 
     test('rejects mixed listing currencies', () {
@@ -98,6 +150,35 @@ void main() {
             (e) => e.code,
             'code',
             'mixed_currencies',
+          ),
+        ),
+      );
+    });
+
+    test('rejects cancellation policy without a time condition', () {
+      expect(
+        () => buildListingFromInput(
+          pubkey: 'f' * 64,
+          input: {
+            'title': 'Garden room',
+            'description': 'A quiet room',
+            'type': 'room',
+            'cancellationPolicy': [
+              {'refundFraction': 1.0},
+            ],
+            'price': {
+              'amount': {'value': '100000', 'currency': 'BTC', 'unit': 'sats'},
+            },
+          },
+          images: const ['https://hostr.network/a.jpg'],
+          imageMetas: const [IMeta(url: 'https://hostr.network/a.jpg')],
+          h3Tags: const [H3Tag(index: '599685771850416127', resolution: 15)],
+        ),
+        throwsA(
+          isA<HostrCliException>().having(
+            (e) => e.code,
+            'code',
+            'invalid_cancellation_policy',
           ),
         ),
       );

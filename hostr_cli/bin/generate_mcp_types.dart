@@ -143,6 +143,11 @@ String _zodForSchema(Map<String, Object?> schema) {
       if (schema['minimum'] != null) expr = '$expr.min(${schema['minimum']})';
       if (schema['maximum'] != null) expr = '$expr.max(${schema['maximum']})';
       break;
+    case 'number':
+      expr = 'z.number()';
+      if (schema['minimum'] != null) expr = '$expr.min(${schema['minimum']})';
+      if (schema['maximum'] != null) expr = '$expr.max(${schema['maximum']})';
+      break;
     case 'boolean':
       expr = 'z.boolean()';
       break;

@@ -19,12 +19,30 @@ Map<String, Object?> listingSummary(Listing listing) => {
   'description': listing.description,
   'active': listing.active,
   'negotiable': listing.negotiable,
+  'autoAccept': listing.autoAccept,
+  if (listing.minDuration != null) 'minDuration': listing.minDuration,
   'type': listing.listingType.name,
   'rentOrBuy': listing.rentOrBuy.name,
   'images': listing.images,
   'prices': listing.prices.map(priceJson).toList(),
   'specifications': listing.specifications.toMap(),
   'location': listing.location,
+  if (listing.securityDeposit != null)
+    'securityDeposit': amountJson(listing.securityDeposit!),
+  if (listing.minPaymentAmount != null)
+    'minPaymentAmount': amountJson(listing.minPaymentAmount!),
+  'maxDisputePeriod': listing.maxDisputePeriod,
+  'cancellationPolicy': listing.cancellationPolicy
+      .map(
+        (policy) => {
+          if (policy.durationBeforeStart != null)
+            'secondsBeforeStart': policy.durationBeforeStart!.inSeconds,
+          if (policy.durationAfterOrder != null)
+            'secondsAfterOrder': policy.durationAfterOrder!.inSeconds,
+          'refundFraction': policy.refundFraction,
+        },
+      )
+      .toList(),
   'tags': listing.tags,
 };
 
@@ -74,6 +92,10 @@ Listing buildListingFromInput({
     input['minPaymentAmount'],
     'minPaymentAmount',
   );
+  final cancellationPolicy = parseCancellationPolicies(
+    input['cancellationPolicy'] ?? input['cancellationPolicies'],
+    'cancellationPolicy',
+  );
   assertSingleDenomination([
     ...prices.map((price) => price.amount),
     ?securityDeposit,
@@ -95,13 +117,15 @@ Listing buildListingFromInput({
     specifications: buildSpecifications(input),
     active: optionalBool(input['active']) ?? true,
     negotiable: optionalBool(input['negotiable']) ?? false,
-    minStay: optionalInt(input['minStay']) ?? 1,
+    minDuration: optionalIsoDuration(input['minDuration'], 'minDuration'),
     checkIn: input['checkIn']?.toString() ?? '15:0',
     checkOut: input['checkOut']?.toString() ?? '11:0',
     quantity: optionalInt(input['quantity']) ?? 1,
-    instantBook: optionalBool(input['instantBook']) ?? true,
+    autoAccept: optionalBool(input['autoAccept']) ?? true,
     securityDeposit: securityDeposit,
     minPaymentAmount: minPaymentAmount,
+    maxDisputePeriod: optionalInt(input['maxDisputePeriod']),
+    cancellationPolicy: cancellationPolicy,
     extraTags: h3Tags.map((tag) => ['g', tag.index]).toList(),
   );
 }
@@ -197,6 +221,59 @@ Frequency? parseFrequency(String? input) {
 DenominatedAmount? parseOptionalAmount(dynamic value, String path) {
   if (value == null) return null;
   return parseAmount(value, path);
+}
+
+List<CancellationPolicy> parseCancellationPolicies(dynamic value, String path) {
+  if (value == null) return const [];
+  final items = value is List ? value : [value];
+  return [
+    for (var i = 0; i < items.length; i++)
+      _parseCancellationPolicy(items[i], '$path[$i]'),
+  ];
+}
+
+CancellationPolicy _parseCancellationPolicy(dynamic value, String path) {
+  if (value is! Map) {
+    throw HostrCliException(
+      'invalid_cancellation_policy',
+      'Cancellation policy at "$path" must be an object.',
+      path: path,
+      exitCode: 64,
+    );
+  }
+  final map = Map<String, dynamic>.from(value);
+  final secondsBeforeStart = optionalInt(map['secondsBeforeStart']);
+  final secondsAfterOrder = optionalInt(map['secondsAfterOrder']);
+  final refundFraction = double.tryParse(
+    map['refundFraction']?.toString() ?? '',
+  );
+  if ((secondsBeforeStart == null && secondsAfterOrder == null) ||
+      (secondsBeforeStart != null && secondsBeforeStart < 0) ||
+      (secondsAfterOrder != null && secondsAfterOrder < 0)) {
+    throw HostrCliException(
+      'invalid_cancellation_policy',
+      'Cancellation policy at "$path" must include non-negative secondsBeforeStart or secondsAfterOrder.',
+      path: path,
+      exitCode: 64,
+    );
+  }
+  if (refundFraction == null || refundFraction < 0 || refundFraction > 1) {
+    throw HostrCliException(
+      'invalid_cancellation_policy',
+      'Cancellation policy at "$path" must include refundFraction from 0.0 to 1.0.',
+      path: path,
+      exitCode: 64,
+    );
+  }
+  return CancellationPolicy(
+    durationBeforeStart: secondsBeforeStart == null
+        ? null
+        : Duration(seconds: secondsBeforeStart),
+    durationAfterOrder: secondsAfterOrder == null
+        ? null
+        : Duration(seconds: secondsAfterOrder),
+    refundFraction: refundFraction,
+  );
 }
 
 DenominatedAmount parseAmount(dynamic value, String path) {
@@ -618,6 +695,33 @@ int? optionalInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
   return int.tryParse(value.toString());
+}
+
+String? optionalIsoDuration(dynamic value, String path) {
+  if (value == null) return null;
+  if (value is! String) {
+    throw HostrCliException(
+      'invalid_duration',
+      '$path must be an ISO 8601 duration string such as P2D or P1W.',
+      path: path,
+      exitCode: 64,
+    );
+  }
+  final trimmed = value.trim();
+  final pattern = RegExp(
+    r'^P(?:(?:\d+(?:[.,]\d+)?W)|(?:(?:\d+(?:[.,]\d+)?Y)?(?:\d+(?:[.,]\d+)?M)?(?:\d+(?:[.,]\d+)?D)?(?:T(?=\d)(?:\d+(?:[.,]\d+)?H)?(?:\d+(?:[.,]\d+)?M)?(?:\d+(?:[.,]\d+)?S)?)?))$',
+  );
+  if (trimmed.isEmpty ||
+      !RegExp(r'\d').hasMatch(trimmed) ||
+      !pattern.hasMatch(trimmed)) {
+    throw HostrCliException(
+      'invalid_duration',
+      '$path must be an ISO 8601 duration string such as P2D or P1W.',
+      path: path,
+      exitCode: 64,
+    );
+  }
+  return trimmed;
 }
 
 bool? optionalBool(dynamic value) {

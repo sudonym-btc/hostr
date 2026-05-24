@@ -217,13 +217,15 @@ class HostrListingsCreateInput {
     this.bathrooms,
     this.active,
     this.negotiable,
-    this.instantBook,
-    this.minStay,
+    this.autoAccept,
+    this.minDuration,
     this.checkIn,
     this.checkOut,
     this.quantity,
     this.securityDeposit,
     this.minPaymentAmount,
+    this.maxDisputePeriod,
+    this.cancellationPolicy = const [],
     this.h3FinestResolution,
     this.h3MaxTags,
     this.h3Tags = const [],
@@ -244,13 +246,15 @@ class HostrListingsCreateInput {
   final int? bathrooms;
   final bool? active;
   final bool? negotiable;
-  final bool? instantBook;
-  final int? minStay;
+  final bool? autoAccept;
+  final String? minDuration;
   final String? checkIn;
   final String? checkOut;
   final int? quantity;
   final HostrAmountInput? securityDeposit;
   final HostrAmountInput? minPaymentAmount;
+  final int? maxDisputePeriod;
+  final List<Map<String, dynamic>> cancellationPolicy;
   final int? h3FinestResolution;
   final int? h3MaxTags;
   final List<String> h3Tags;
@@ -292,8 +296,8 @@ class HostrListingsCreateInput {
       bathrooms: _optionalInt(json['bathrooms']),
       active: _optionalBool(json['active']),
       negotiable: _optionalBool(json['negotiable']),
-      instantBook: _optionalBool(json['instantBook']),
-      minStay: _optionalInt(json['minStay']),
+      autoAccept: _optionalBool(json['autoAccept']),
+      minDuration: _optionalString(json['minDuration']),
       checkIn: _optionalString(json['checkIn']),
       checkOut: _optionalString(json['checkOut']),
       quantity: _optionalInt(json['quantity']),
@@ -307,6 +311,10 @@ class HostrListingsCreateInput {
               Map<String, dynamic>.from(json['minPaymentAmount']),
             )
           : null,
+      maxDisputePeriod: _optionalInt(json['maxDisputePeriod']),
+      cancellationPolicy: _optionalMapList(
+        json['cancellationPolicy'] ?? json['cancellationPolicies'],
+      ),
       h3FinestResolution: _optionalInt(json['h3FinestResolution']),
       h3MaxTags: _optionalInt(json['h3MaxTags']),
       h3Tags: _optionalStringList(json['h3Tags']),
@@ -329,14 +337,16 @@ class HostrListingsCreateInput {
     if (bathrooms != null) 'bathrooms': bathrooms,
     if (active != null) 'active': active,
     if (negotiable != null) 'negotiable': negotiable,
-    if (instantBook != null) 'instantBook': instantBook,
-    if (minStay != null) 'minStay': minStay,
+    if (autoAccept != null) 'autoAccept': autoAccept,
+    if (minDuration != null) 'minDuration': minDuration,
     if (checkIn != null) 'checkIn': checkIn,
     if (checkOut != null) 'checkOut': checkOut,
     if (quantity != null) 'quantity': quantity,
     if (securityDeposit != null) 'securityDeposit': securityDeposit!.toJson(),
     if (minPaymentAmount != null)
       'minPaymentAmount': minPaymentAmount!.toJson(),
+    if (maxDisputePeriod != null) 'maxDisputePeriod': maxDisputePeriod,
+    if (cancellationPolicy.isNotEmpty) 'cancellationPolicy': cancellationPolicy,
     if (h3FinestResolution != null) 'h3FinestResolution': h3FinestResolution,
     if (h3MaxTags != null) 'h3MaxTags': h3MaxTags,
     if (h3Tags.isNotEmpty) 'h3Tags': h3Tags,
@@ -1236,13 +1246,13 @@ class HostrActionSpec {
       case 'hostr.listings.orderGroups':
         return 'Use when the user asks why dates are unavailable, wants booking history/conflicts for a listing, or needs order context before changing availability-sensitive plans.';
       case 'hostr.orders.bookAndPay':
-        return 'Primary guest booking flow: use this when the user says book, reserve, make a order, create a order, or otherwise clearly wants an instant-book stay at or above the listed price. If the user says guest, my guest account, my trip, or similar, make sure the active account is the guest account first by using session account tools; do not book from an unrelated host or escrow account just because it is already active. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. The committed order and escrow trade are intentionally published under Hostr-created per-trade temporary pubkeys for privacy, so the buyer/order pubkey may differ from the active logged-in Hostr account. Treat that as normal and never describe it as an identity mismatch. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and orderWaitSeconds to monitor payment/proof/order completion. Do not stop after displaying the invoice or wait for the user to say they paid. orderWaitSeconds is intentionally short and capped below MCP client timeouts; if watch times out before the swap or order returns, call hostr_swaps_watch again with the returned retry arguments. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed order appears. Do not call hostr_orders_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
+        return 'Primary guest booking flow: use this when the user says book, reserve, make a order, create a order, or otherwise clearly wants an auto-accept stay at or above the listed price. If the user says guest, my guest account, my trip, or similar, make sure the active account is the guest account first by using session account tools; do not book from an unrelated host or escrow account just because it is already active. It creates the private offer, prepares escrow funding, returns external Lightning payment details when needed, and keeps the daemon-side book-and-pay operation alive. The committed order and escrow trade are intentionally published under Hostr-created per-trade temporary pubkeys for privacy, so the buyer/order pubkey may differ from the active logged-in Hostr account. Treat that as normal and never describe it as an identity mismatch. If invoice/QR are returned, show only the invoice string and QR image visibly in the payment prompt; keep internal tradeId and swapId hidden from the user-facing payment message. The next assistant action after rendering the payment prompt must be hostr_swaps_watch with swapId, tradeId, and orderWaitSeconds to monitor payment/proof/order completion. Do not stop after displaying the invoice or wait for the user to say they paid. orderWaitSeconds is intentionally short and capped below MCP client timeouts; if watch times out before the swap or order returns, call hostr_swaps_watch again with the returned retry arguments. When watch completes or cannot find the swap, call hostr_trips_list with the same tradeId until the committed order appears. Do not call hostr_orders_commit for this normal path; proof publication is owned by the global payment proof orchestrator.';
       case 'hostr.orders.negotiateOffer':
-        return 'Negotiation-only flow: use for explicit offers, counteroffers, price/date negotiation, or non-instant-book order proposals. Do not use this for straightforward "book/reserve" intents on instant-book listings; use hostr_orders_bookAndPay there. Preview with dryRun=true, then send the private negotiation event with dryRun=false only after approval.';
+        return 'Negotiation-only flow: use for explicit offers, counteroffers, price/date negotiation, or non-auto-accept order proposals. Do not use this for straightforward "book/reserve" intents on auto-accept listings; use hostr_orders_bookAndPay there. Preview with dryRun=true, then send the private negotiation event with dryRun=false only after approval.';
       case 'hostr.orders.negotiateAccept':
         return 'Use when the user wants to accept the latest private negotiated offer in a known trade thread. If tradeId is unknown, call hostr_updates, hostr_thread_view, hostr_trips_list, or hostr_bookings_list first to identify the trade.';
       case 'hostr.orders.pay':
-        return 'Manual recovery/debug payment flow only. Normal AI-initiated instant-book payment should use hostr_orders_bookAndPay. Use this when a negotiated or partially completed trade already exists and the user explicitly wants to create or inspect escrow funding for that trade.';
+        return 'Manual recovery/debug payment flow only. Normal AI-initiated auto-accept payment should use hostr_orders_bookAndPay. Use this when a negotiated or partially completed trade already exists and the user explicitly wants to create or inspect escrow funding for that trade.';
       case 'hostr.orders.commit':
         return 'Manual recovery/debug commit flow only. Do not use after hostr_orders_bookAndPay; that path relies on the global payment proof orchestrator. Use only when a swap proof already exists for a trade and the user explicitly needs to preview or publish the public commit-stage order.';
       case 'hostr.orders.cancel':
@@ -1694,8 +1704,11 @@ export interface HostrListingsListInput {
         'bathrooms': {'type': 'integer', 'minimum': 0},
         'active': {'type': 'boolean'},
         'negotiable': {'type': 'boolean'},
-        'instantBook': {'type': 'boolean'},
-        'minStay': {'type': 'integer', 'minimum': 1},
+        'autoAccept': {'type': 'boolean'},
+        'minDuration': {
+          'type': 'string',
+          'description': 'ISO 8601 duration, e.g. P2D, P1W, P1M, or P1Y.',
+        },
         'checkIn': {'type': 'string'},
         'checkOut': {'type': 'string'},
         'quantity': {'type': 'integer', 'minimum': 1},
@@ -1732,6 +1745,27 @@ export interface HostrListingsListInput {
               'type': 'integer',
               'minimum': 0,
               'description': _amountDecimalsDescription,
+            },
+          },
+        },
+        'maxDisputePeriod': {
+          'type': 'integer',
+          'minimum': 0,
+          'description':
+              'Maximum time in seconds after the order end date that escrow dispute resolution may remain open.',
+        },
+        'cancellationPolicy': {
+          'type': 'array',
+          'description':
+              'Refund rules based on how far before the order start or after order creation the buyer cancels. Each rule must include secondsBeforeStart, secondsAfterOrder, or both.',
+          'items': {
+            'type': 'object',
+            'additionalProperties': false,
+            'required': ['refundFraction'],
+            'properties': {
+              'secondsBeforeStart': {'type': 'integer', 'minimum': 0},
+              'secondsAfterOrder': {'type': 'integer', 'minimum': 0},
+              'refundFraction': {'type': 'number', 'minimum': 0, 'maximum': 1},
             },
           },
         },
@@ -1895,13 +1929,20 @@ export interface HostrListingsCreateInput {
   bathrooms?: number;
   active?: boolean;
   negotiable?: boolean;
-  instantBook?: boolean;
-  minStay?: number;
+  autoAccept?: boolean;
+  /** ISO 8601 duration, e.g. P2D, P1W, P1M, or P1Y. */
+  minDuration?: string;
   checkIn?: string;
   checkOut?: string;
   quantity?: number;
   securityDeposit?: HostrAmountInput;
   minPaymentAmount?: HostrAmountInput;
+  maxDisputePeriod?: number;
+  cancellationPolicy?: Array<{
+    secondsBeforeStart?: number;
+    secondsAfterOrder?: number;
+    refundFraction: number;
+  }>;
   h3Tags?: string[];
   h3FinestResolution?: number;
   h3MaxTags?: number;
@@ -1932,7 +1973,7 @@ export interface HostrListingsCreateInput {
         'patch': {
           'type': 'object',
           'description':
-              'Listing fields to change. Supports title, description, address, type, images, prices, specifications, guests, beds, bedrooms, bathrooms, active, negotiable, instantBook, quantity, securityDeposit, and minPaymentAmount. patch.specifications uses the same canonical listing specifications/amenities map as hostr_listings_create; use wireless_internet for Wi-Fi/wifi/WIFI.',
+              'Listing fields to change. Supports title, description, address, type, images, prices, specifications, guests, beds, bedrooms, bathrooms, active, negotiable, autoAccept, minDuration, quantity, securityDeposit, minPaymentAmount, maxDisputePeriod, and cancellationPolicy. patch.specifications uses the same canonical listing specifications/amenities map as hostr_listings_create; use wireless_internet for Wi-Fi/wifi/WIFI.',
         },
         'dryRun': {
           'type': 'boolean',
@@ -2028,7 +2069,7 @@ export interface HostrListingsAvailabilityInput {
     id: 'hostr.orders.negotiateOffer',
     title: 'Create Order Negotiation Offer',
     description:
-        'Create only a private negotiate-stage order offer. Use this for explicit negotiation/counteroffer requests, not for user intents like "book", "reserve", "make a order", or instant-book at the listed price; those must use hostr_orders_bookAndPay instead.',
+        'Create only a private negotiate-stage order offer. Use this for explicit negotiation/counteroffer requests, not for user intents like "book", "reserve", "make a order", or auto-accept at the listed price; those must use hostr_orders_bookAndPay instead.',
     inputTypeName: 'HostrOrdersOfferInput',
     readOnly: false,
     inputSchema: {
@@ -2130,7 +2171,7 @@ export interface HostrOrdersOfferInput {
     title: 'Start Order Payment',
     description:
         'Use this foreground handoff tool whenever the user says to '
-        'book, reserve, make, or create a order for an instant-book '
+        'book, reserve, make, or create a order for an auto-accept '
         'listing at or above the listed price. It creates the private '
         'order offer and escrow funding swap. $_orderDateOnlyRule '
         'Order privacy: Hostr intentionally publishes committed '
@@ -2166,7 +2207,7 @@ export interface HostrOrdersOfferInput {
       'properties': {
         'listingAnchor': {
           'type': 'string',
-          'description': 'Listing naddr/a-tag anchor to instant-book.',
+          'description': 'Naddr/a-tag anchor for the auto-accept listing.',
         },
         'start': {
           'type': 'string',
@@ -2217,7 +2258,7 @@ export interface HostrOrdersOfferInput {
     },
     typescriptInput: '''
 export interface HostrOrderBookAndPayInput {
-  /** Listing naddr/a-tag anchor to instant-book. */
+  /** Naddr/a-tag anchor for the auto-accept listing. */
   listingAnchor: string;
   /** Order start calendar date encoded as YYYY-MM-DDT00:00:00Z. Do not timezone-convert date-only order inputs. */
   start: string;
@@ -3431,7 +3472,7 @@ export interface HostrSwapsRecoverAllInput {
       )
       ..writeln()
       ..writeln(
-        'Most write tools default to preview mode. Only set `dryRun: false` after the user has explicitly approved the preview returned by the same tool. `hostr_orders_bookAndPay` is the correct foreground handoff tool when the user asks to book, reserve, make, or create a order for an instant-book listing at or above the listed price. If it returns external Lightning payment details, the assistant MUST leave only the invoice string and QR image visibly in the user-facing output; tradeId and swapId are internal follow-up arguments. The next assistant action after rendering the QR and invoice must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. `orderWaitSeconds` is capped below MCP client timeouts. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
+        'Most write tools default to preview mode. Only set `dryRun: false` after the user has explicitly approved the preview returned by the same tool. `hostr_orders_bookAndPay` is the correct foreground handoff tool when the user asks to book, reserve, make, or create a order for an auto-accept listing at or above the listed price. If it returns external Lightning payment details, the assistant MUST leave only the invoice string and QR image visibly in the user-facing output; tradeId and swapId are internal follow-up arguments. The next assistant action after rendering the QR and invoice must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. `orderWaitSeconds` is capped below MCP client timeouts. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; proof publication is owned by the global Hostr payment proof orchestrator.',
       )
       ..writeln()
       ..writeln('## Order date semantics')
@@ -3457,7 +3498,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Search and reserve workflow')
       ..writeln()
       ..writeln(
-        'Call `hostr_listings_search`, then `hostr_listings_availability`. For user phrasing such as "book", "reserve", "make me a order", or "create a order" on an instant-book stay where the amount is at or above the listing price, call `hostr_orders_bookAndPay`. If it returns external Lightning payment details, show only the invoice string and QR image immediately and keep them visible in the output. Do not show internal tradeId or swapId in the payment prompt. The next assistant action after rendering the payment prompt must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; proof publication is owned by the global Hostr payment proof orchestrator. Do not stop after `hostr_orders_negotiateOffer` for this intent. For explicit negotiation-only requests, call `hostr_orders_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage order DM.',
+        'Call `hostr_listings_search`, then `hostr_listings_availability`. For user phrasing such as "book", "reserve", "make me a order", or "create a order" on an auto-accept stay where the amount is at or above the listing price, call `hostr_orders_bookAndPay`. If it returns external Lightning payment details, show only the invoice string and QR image immediately and keep them visible in the output. Do not show internal tradeId or swapId in the payment prompt. The next assistant action after rendering the payment prompt must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds`; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; proof publication is owned by the global Hostr payment proof orchestrator. Do not stop after `hostr_orders_negotiateOffer` for this intent. For explicit negotiation-only requests, call `hostr_orders_negotiateOffer` with `dryRun: true`; repeat with `dryRun: false` to send the private negotiate-stage order DM.',
       )
       ..writeln()
       ..writeln('### Negotiation workflow')
@@ -3469,7 +3510,7 @@ export interface HostrSwapsRecoverAllInput {
       ..writeln('### Payment workflow')
       ..writeln()
       ..writeln(
-        'For normal AI-initiated instant-book payment, use `hostr_orders_bookAndPay`. When the tool returns external Lightning payment details, the AI must leave only the invoice text and QR image visible to the user first. The next assistant action must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds` to monitor payment/proof/order completion while the daemon continues the book-and-pay operation in the background; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; payment proof publication is owned by the global Hostr payment proof orchestrator. Keep `hostr_orders_pay`, `hostr_orders_commit`, and `hostr_swaps_recoverAll` for manual recovery/debug paths.',
+        'For normal AI-initiated auto-accept payment, use `hostr_orders_bookAndPay`. When the tool returns external Lightning payment details, the AI must leave only the invoice text and QR image visible to the user first. The next assistant action must be the read-only `hostr_swaps_watch` with the returned `swapId`, `tradeId`, and `orderWaitSeconds` to monitor payment/proof/order completion while the daemon continues the book-and-pay operation in the background; do not stop after displaying the invoice or wait for the user to say they paid. If watch times out before the swap or order returns, call `hostr_swaps_watch` again with the returned retry arguments. When watch completes or cannot find the swap, call `hostr_trips_list` with the same `tradeId` until the committed order appears, then show a order card. Do not call `hostr_orders_commit`; payment proof publication is owned by the global Hostr payment proof orchestrator. Keep `hostr_orders_pay`, `hostr_orders_commit`, and `hostr_swaps_recoverAll` for manual recovery/debug paths.',
       )
       ..writeln()
       ..writeln('### Messaging workflow')
@@ -3625,4 +3666,13 @@ List<String> _optionalStringList(dynamic value) {
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
       .toList();
+}
+
+List<Map<String, dynamic>> _optionalMapList(dynamic value) {
+  if (value == null) return const [];
+  final items = value is List ? value : [value];
+  return [
+    for (final item in items)
+      if (item is Map) Map<String, dynamic>.from(item),
+  ];
 }

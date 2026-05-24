@@ -672,7 +672,7 @@ function buildSmokePrompt() {
 }
 
 function buildHostListingSetupPrompt() {
-  return `Hostr, in Hostr I'm hosting now. Please publish my spare room at Plaza Libertad, San Salvador, El Salvador. Call it "City Center Spare Room". It's a simple private room near the city center for one guest, with one bed, one bedroom, one bathroom, and instant booking is fine. Charge 10 USD per night. Use this photo: https://placehold.co/800x600.jpg`;
+  return `Hostr, in Hostr I'm hosting now. Please publish my spare room at Plaza Libertad, San Salvador, El Salvador. Call it "City Center Spare Room". It's a simple private room near the city center for one guest, with one bed, one bedroom, one bathroom, and auto-accepting is fine. Charge 10 USD per night. Use this photo: https://placehold.co/800x600.jpg`;
 }
 
 function buildFullGuestPrompt(version = "canonical") {
@@ -1621,7 +1621,7 @@ function smokeObservedListing() {
     const resultText = summarizeToolResult(call.result);
     return (
       !/No matching Hostr listings found/i.test(resultText) &&
-      /(Open listing|Price:|instant-book|instantBook|active)/i.test(resultText)
+      /(Open listing|Price:|auto-accept|autoAccept|active)/i.test(resultText)
     );
   });
 }
