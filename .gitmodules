@@ -37,3 +37,6 @@
 	path = dependencies/marketplace-evm-contracts
 	url = git@github.com:sudonym-btc/marketplace-evm-contracts.git
 	branch = main
+[submodule "dependencies/marketplace-evm-stack"]
+	path = dependencies/marketplace-evm-stack
+	url = git@github.com:sudonym-btc/marketplace-evm-stack.git
