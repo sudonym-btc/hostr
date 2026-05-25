@@ -29,9 +29,9 @@
 	path = dependencies/nostr-tools
 	url = git@github.com:sudonym-btc/nostr-tools.git
 	branch = marketplace
-[submodule "dependencies/marketplace-evm"]
-	path = dependencies/marketplace-evm
-	url = git@github.com:sudonym-btc/marketplace-evm.git
+[submodule "dependencies/marketplace-evm-ts"]
+	path = dependencies/marketplace-evm-ts
+	url = git@github.com:sudonym-btc/marketplace-evm-ts.git
 	branch = main
 [submodule "dependencies/marketplace-evm-contracts"]
 	path = dependencies/marketplace-evm-contracts
