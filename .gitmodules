@@ -5,38 +5,11 @@
 [submodule "dependencies/boltz-regtest"]
 	path = dependencies/boltz-regtest
 	url = git@github.com:BoltzExchange/regtest.git
-[submodule "dependencies/nips/accommodation-nip"]
-	path = dependencies/nips/accommodation-nip
-	url = git@github.com:sudonym-btc/accommodation-nip.git
-[submodule "dependencies/nips/order-nip"]
-	path = dependencies/nips/order-nip
-	url = git@github.com:sudonym-btc/order-nip.git
-[submodule "dependencies/nips/escrow-nip"]
-	path = dependencies/nips/escrow-nip
-	url = git@github.com:sudonym-btc/escrow-nip.git
 [submodule "ai/codex-marketplace"]
 	path = ai/codex-marketplace
 	url = git@github.com:sudonym-btc/hostr-codex.git
 	branch = development
-[submodule "dependencies/nips/marketplace-listing-nip"]
-	path = dependencies/nips/marketplace-listing-nip
-	url = git@github.com:sudonym-btc/marketplace-listing-nip.git
-[submodule "dependencies/ndk"]
-	path = dependencies/ndk
-	url = git@github.com:sudonym-btc/ndk.git
-	branch = marketplace
-[submodule "dependencies/nostr-tools"]
-	path = dependencies/nostr-tools
-	url = git@github.com:sudonym-btc/nostr-tools.git
-	branch = marketplace
-[submodule "dependencies/marketplace-evm-ts"]
-	path = dependencies/marketplace-evm-ts
-	url = git@github.com:sudonym-btc/marketplace-evm-ts.git
+[submodule "dependencies/nmdk"]
+	path = dependencies/nmdk
+	url = git@github.com:sudonym-btc/nmdk.git
 	branch = main
-[submodule "dependencies/marketplace-evm-contracts"]
-	path = dependencies/marketplace-evm-contracts
-	url = git@github.com:sudonym-btc/marketplace-evm-contracts.git
-	branch = main
-[submodule "dependencies/marketplace-evm-stack"]
-	path = dependencies/marketplace-evm-stack
-	url = git@github.com:sudonym-btc/marketplace-evm-stack.git
