@@ -8,16 +8,16 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
-import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
-import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
+import 'package:marketplace_evm/datasources/contracts/boltz/TestERC20.g.dart';
+import 'package:marketplace_evm/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';

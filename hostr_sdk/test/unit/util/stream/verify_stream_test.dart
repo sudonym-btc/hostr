@@ -1,10 +1,11 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/util/main.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 
 Order _order({

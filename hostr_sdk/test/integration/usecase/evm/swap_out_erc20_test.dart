@@ -1,8 +1,8 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:marketplace_evm/marketplace_evm.dart';
+import 'package:marketplace_evm/datasources/contracts/boltz/TestERC20.g.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:test/test.dart';
@@ -216,7 +216,7 @@ void main() {
         final userKey = await hostr.auth.hd.getActiveEvmKey();
         await anvil.setBalance(
           address: userKey.address.eip55With0x,
-          amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+          amountWei: rbtcFromSats(BigInt.from(100000)).value,
         );
 
         // Mint ERC-20 to user via deployer.

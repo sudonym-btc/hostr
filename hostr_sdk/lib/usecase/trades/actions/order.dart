@@ -1,7 +1,7 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-import '../../../util/main.dart';
 import '../../orders/orders.dart';
 import '../trade.dart';
 import 'trade_action_resolver.dart';

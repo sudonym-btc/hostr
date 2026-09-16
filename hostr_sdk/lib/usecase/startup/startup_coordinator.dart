@@ -31,14 +31,11 @@ class StartupCoordinator {
   Future<void> _authTransitionQueue = Future<void>.value();
 
   StartupCoordinator({
-    required Auth auth,
-    required PublicStartupProfile publicProfile,
-    required UserStartupProfile userProfile,
-    required BackgroundStartupProfile backgroundProfile,
-  }) : _auth = auth,
-       _publicProfile = publicProfile,
-       _userProfile = userProfile,
-       _backgroundProfile = backgroundProfile;
+    required this._auth,
+    required this._publicProfile,
+    required this._userProfile,
+    required this._backgroundProfile,
+  });
 
   ValueStream<StartupSnapshot> get snapshots => _snapshots;
 

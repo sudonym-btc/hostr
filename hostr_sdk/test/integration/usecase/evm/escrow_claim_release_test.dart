@@ -1,14 +1,14 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
-import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
+import 'package:marketplace_evm/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart';
@@ -175,8 +175,9 @@ Future<void> _fundTradeWithoutSwap({
     escrowService,
   );
 
-  final amount = await configuredChain.resolveAmountInFundingToken(
+  final amount = configuredChain.scaleToToken(
     trade.negotiateOrder.amount!,
+    await configuredChain.resolveBridgeToken(),
   );
   const zeroAddress = '0x0000000000000000000000000000000000000000';
   final feeValue = escrowService.escrowFee(

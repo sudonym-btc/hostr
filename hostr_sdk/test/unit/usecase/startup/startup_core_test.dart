@@ -3,7 +3,7 @@ library;
 
 import 'dart:async';
 
-import 'package:hostr_sdk/usecase/evm/evm.dart';
+import 'package:marketplace_evm/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/startup/startup_core.dart';
 import 'package:mockito/mockito.dart';

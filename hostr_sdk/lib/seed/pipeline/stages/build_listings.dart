@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../entity_factory.dart';
 import '../seed_context.dart';

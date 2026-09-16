@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:coinlib/coinlib.dart' as coinlib;
 import 'package:convert/convert.dart' as convert;
-import 'package:models/bip340.dart';
-import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
+import 'package:marketplace_models/bip340.dart';
+import 'package:marketplace_models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';

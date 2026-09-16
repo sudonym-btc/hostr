@@ -1,19 +1,14 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:convert';
 
 import 'package:convert/convert.dart';
 import 'package:hostr_sdk/seed/seed.dart';
-import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import 'package:hostr_sdk/usecase/evm/capabilities/escrow_capability.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/evm.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show BlockInformation, EthereumAddress;

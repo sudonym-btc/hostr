@@ -1,7 +1,10 @@
+import 'package:marketplace_evm/ports.dart';
+
+
 import 'package:injectable/injectable.dart' hide Order;
 
 import '../../config.dart';
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../auth/auth.dart';
 import '../lnurl/lnurl.dart';
 import '../metadata/metadata.dart';
@@ -9,8 +12,8 @@ import '../nwc/nwc.dart';
 import '../zaps/zaps.dart';
 import 'operations/bolt11_operation.dart';
 import 'operations/lnurl_operation.dart';
-import 'operations/pay_models.dart';
-import 'operations/pay_operation.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_models.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_operation.dart';
 import 'operations/zap_operation.dart';
 
 enum AutomaticInvoiceDestinationType {
@@ -20,9 +23,11 @@ enum AutomaticInvoiceDestinationType {
   invalidProfileLightningAddress,
 }
 
-class AutomaticInvoiceDestination {
+class AutomaticInvoiceDestination implements EvmAutomaticInvoiceDestination {
   final AutomaticInvoiceDestinationType type;
+  @override
   final String? label;
+  @override
   final String? error;
 
   const AutomaticInvoiceDestination._({
@@ -52,20 +57,14 @@ class AutomaticInvoiceDestination {
         error: 'Cannot run with invalid profile lightning address',
       );
 
+  @override
   bool get canCreateAutomatically =>
       type == AutomaticInvoiceDestinationType.nwc ||
       type == AutomaticInvoiceDestinationType.profileLightningAddress;
 }
 
-class CreatedLightningInvoice {
-  final String invoice;
-  final String source;
-
-  const CreatedLightningInvoice({required this.invoice, required this.source});
-}
-
 @Singleton()
-class Payments {
+class Payments implements EvmPayments {
   final CustomLogger _logger;
   late final Zaps _zaps;
   late final Nwc _nwc;
@@ -75,20 +74,14 @@ class Payments {
   final HostrConfig _config;
 
   Payments({
-    required Zaps zaps,
-    required Nwc nwc,
-    required LnurlUseCase lnurl,
+    required this._zaps,
+    required this._nwc,
+    required this._lnurl,
     required CustomLogger logger,
-    required MetadataUseCase metadata,
-    required Auth auth,
-    required HostrConfig config,
-  }) : _zaps = zaps,
-       _nwc = nwc,
-       _lnurl = lnurl,
-       _metadata = metadata,
-       _auth = auth,
-       _config = config,
-       _logger = logger.scope('payments');
+    required this._metadata,
+    required this._auth,
+    required this._config,
+  }) : _logger = logger.scope('payments');
 
   Future<String?> getMyInvoice(int amountSats, {String? description}) async =>
       (await getMyInvoiceWithSource(
@@ -96,6 +89,7 @@ class Payments {
         description: description,
       ))?.invoice;
 
+  @override
   Future<CreatedLightningInvoice?> getMyInvoiceWithSource(
     int amountSats, {
     String? description,
@@ -125,6 +119,7 @@ class Payments {
     );
   });
 
+  @override
   Future<AutomaticInvoiceDestination> resolveAutomaticInvoiceDestination({
     bool verifyLightningAddress = true,
   }) => _logger.span('resolveAutomaticInvoiceDestination', () async {
@@ -226,6 +221,7 @@ class Payments {
     }
   });
 
+  @override
   PayOperation pay(PayParameters params) => _logger.spanSync('pay', () {
     if (params is Bolt11PayParameters) {
       return Bolt11PayOperation(params: params, nwc: _nwc, logger: _logger);

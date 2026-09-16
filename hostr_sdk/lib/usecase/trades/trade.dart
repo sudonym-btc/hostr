@@ -2,14 +2,14 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../util/custom_logger.dart';
-import '../../util/stream_status.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 import '../auth/auth.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../escrow_methods/escrows_methods.dart';
 import '../listings/listings.dart';
 import '../messaging/escrow_trade_thread_resolver.dart';
@@ -21,7 +21,7 @@ import '../order_groups/order_group_participant_resolver.dart';
 import '../order_groups/order_groups.dart';
 import '../order_requests/order_requests.dart';
 import '../orders/orders.dart';
-import '../trade_account_allocator/trade_account_allocator.dart';
+import 'package:marketplace_evm/usecase/trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'actions/payment.dart';
 import 'actions/order.dart';
@@ -147,27 +147,19 @@ class Trade extends Cubit<TradeState> {
   Trade({
     @factoryParam required this.context,
     required CustomLogger logger,
-    required Auth auth,
-    required Listings listings,
-    required MetadataUseCase metadata,
-    required EscrowMethods escrowMethods,
+    required this._auth,
+    required this._listings,
+    required this._metadata,
+    required this._escrowMethods,
     required UserSubscriptions userSubscriptions,
-    required OrderGroups orderGroups,
+    required this._orderGroups,
     required Threads threads,
-    required TradeAccountAllocator tradeAccountAllocator,
-    required OrderRequests orderRequests,
-    required Orders orders,
+    required this._tradeAccountAllocator,
+    required this._orderRequests,
+    required this._orders,
   }) : _logger = logger.scope('trade'),
-       _auth = auth,
-       _listings = listings,
-       _metadata = metadata,
-       _escrowMethods = escrowMethods,
        _userSubscriptions = userSubscriptions,
-       _orderGroups = orderGroups,
        _threads = threads,
-       _tradeAccountAllocator = tradeAccountAllocator,
-       _orderRequests = orderRequests,
-       _orders = orders,
        thread = threads.findTradeThread(
          tradeId: context.tradeId,
          participants: context.participants,

@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:mockito/annotations.dart';
 
 import '../usecase/main.dart';

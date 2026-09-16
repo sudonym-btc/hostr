@@ -79,14 +79,11 @@ class BroadcastIsolate {
   final StreamController<Object> _controller;
 
   BroadcastIsolate._({
-    required Isolate isolate,
-    required SendPort sendPort,
+    required this._isolate,
+    required this._sendPort,
     required StreamController<Object> controller,
-    required StreamSubscription<Object> subscription,
-  }) : _isolate = isolate,
-       _sendPort = sendPort,
-       _controller = controller,
-       _subscription = subscription,
+    required this._subscription,
+  }) : _controller = controller,
        results = controller.stream;
 
   /// Spawns the broadcast isolate and waits until it has connected to
@@ -300,8 +297,7 @@ class _RelayAck {
 }
 
 class _RelayAckTracker {
-  _RelayAckTracker(this._socket, {required void Function(String) log})
-    : _log = log {
+  _RelayAckTracker(this._socket, {required this._log}) {
     _subscription = _socket.listen(
       _handleMessage,
       onError: (Object error, StackTrace stackTrace) {

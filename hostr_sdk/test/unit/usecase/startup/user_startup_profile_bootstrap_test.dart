@@ -5,7 +5,7 @@ import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/startup/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/entities.dart';
 import 'package:test/test.dart';
 

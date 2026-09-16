@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart' hide Order;
 
-import '../../util/custom_logger.dart';
-import '../../util/http_client_factory.dart';
-import '../../util/trace_context.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/http_client_factory.dart';
+import 'package:marketplace_evm/util/trace_context.dart';
 
 @Singleton()
 class Location {
@@ -19,14 +19,12 @@ class Location {
   ];
   static const _nominatimUserAgent = 'hostr-sdk/1.0 (+https://hostr.network)';
 
-  Location({required CustomLogger logger, @ignoreParam http.Client? client})
-    : _logger = logger,
-      _client = client ?? createPlatformHttpClient();
+  Location({required this._logger, @ignoreParam http.Client? client})
+    : _client = client ?? createPlatformHttpClient();
 
   Future<List<LocationSuggestion>> suggestions(
     String input, {
     int limit = 5,
-    bool preferBroadResults = true,
     Set<String>? featureTypes,
   }) => _logger.span('suggestions', () async {
     final query = input.trim();
@@ -75,10 +73,6 @@ class Location {
           ),
         )
         .toList();
-
-    if (preferBroadResults) {
-      // preserved for backward compatibility; no-op by design.
-    }
 
     return mapped.length > limit ? mapped.take(limit).toList() : mapped;
   });

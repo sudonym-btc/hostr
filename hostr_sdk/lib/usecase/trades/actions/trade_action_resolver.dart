@@ -1,7 +1,7 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-import '../../../util/stream_status.dart';
-import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../../messaging/thread/state.dart';
 import '../trade.dart';
 import 'payment.dart';

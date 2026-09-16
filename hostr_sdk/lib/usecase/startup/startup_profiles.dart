@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
@@ -7,7 +8,6 @@ import '../auth/auth.dart';
 import '../background_worker/background_worker.dart';
 import '../calendar/calendar.dart';
 import '../deterministic_keys/account_seed_store.dart';
-import '../evm/operations/funds_monitor/funds_monitor_service.dart';
 import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
@@ -24,7 +24,7 @@ import 'user_startup_profile_bootstrap.dart';
 class PublicStartupProfile implements StartupProfile {
   final StartupCore _core;
 
-  PublicStartupProfile({required StartupCore core}) : _core = core;
+  PublicStartupProfile({required this._core});
 
   @override
   StartupScope get scope => StartupScope.public;
@@ -71,12 +71,10 @@ class BackgroundStartupProfile implements StartupProfile {
   final Relays _relays;
 
   BackgroundStartupProfile({
-    required StartupCore core,
-    required Auth auth,
-    required Relays relays,
-  }) : _core = core,
-       _auth = auth,
-       _relays = relays;
+    required this._core,
+    required this._auth,
+    required this._relays,
+  });
 
   @override
   StartupScope get scope => StartupScope.background;
@@ -151,36 +149,22 @@ class UserStartupProfile implements StartupProfile {
   late final UserStartupProfileBootstrapper _profileBootstrapper;
 
   UserStartupProfile({
-    required StartupCore core,
-    required Auth auth,
-    required HostrConfig config,
-    required Relays relays,
-    required AccountSeedStore accountSeedStore,
-    required MetadataUseCase metadata,
-    required Listings listings,
-    required UserSubscriptions userSubscriptions,
-    required PaymentProofOrchestrator paymentProofOrchestrator,
-    required FundsMonitorService fundsMonitor,
-    required Nwc nwc,
-    required BackgroundWorker backgroundWorker,
-    required Calendar calendar,
-    required Messaging messaging,
-    required Orders orders,
-  }) : _core = core,
-       _auth = auth,
-       _config = config,
-       _relays = relays,
-       _accountSeedStore = accountSeedStore,
-       _metadata = metadata,
-       _listings = listings,
-       _userSubscriptions = userSubscriptions,
-       _paymentProofOrchestrator = paymentProofOrchestrator,
-       _fundsMonitor = fundsMonitor,
-       _nwc = nwc,
-       _backgroundWorker = backgroundWorker,
-       _calendar = calendar,
-       _messaging = messaging,
-       _orders = orders {
+    required this._core,
+    required this._auth,
+    required this._config,
+    required this._relays,
+    required this._accountSeedStore,
+    required this._metadata,
+    required this._listings,
+    required this._userSubscriptions,
+    required this._paymentProofOrchestrator,
+    required this._fundsMonitor,
+    required this._nwc,
+    required this._backgroundWorker,
+    required this._calendar,
+    required this._messaging,
+    required this._orders,
+  }) {
     _profileBootstrapper = UserStartupProfileBootstrapper(
       metadata: _metadata,
       listings: _listings,
@@ -274,8 +258,6 @@ class UserStartupProfile implements StartupProfile {
 
       final inboxFuture = tracker.runOptional(StartupItemId.inbox, () async {
         await hasNip65Future;
-        context.token.throwIfCancelled();
-        await _auth.ensureNip42AuthForHostrRelay();
         context.token.throwIfCancelled();
         await _userSubscriptions.start();
         return _userSubscriptions.isLive

@@ -166,8 +166,8 @@ class StartupTracker {
   StartupTracker({
     required this.scope,
     required List<StartupItemProgress> items,
-    required StartupLaunchContext context,
-  }) : _context = context {
+    required this._context,
+  }) {
     _snapshot = StartupSnapshot(scope: scope, items: items);
     _context.emit(_snapshot);
   }

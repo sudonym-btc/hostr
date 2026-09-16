@@ -1,9 +1,7 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-import '../../util/main.dart';
-import '../escrow/escrow_verification.dart';
-import '../evm/evm.dart';
 import '../listings/listings.dart';
 import '../order_transitions/order_transitions.dart';
 import '../orders/orders.dart';
@@ -154,16 +152,12 @@ class TradeAudit {
   );
 
   TradeAudit({
-    required Orders orders,
-    required OrderTransitions transitions,
-    required Listings listings,
-    required CustomLogger logger,
-    required Evm evm,
-  }) : _orders = orders,
-       _transitions = transitions,
-       _listings = listings,
-       _logger = logger,
-       _evm = evm;
+    required this._orders,
+    required this._transitions,
+    required this._listings,
+    required this._logger,
+    required this._evm,
+  });
 
   /// Run the full audit for [tradeId] and return a structured result.
   Future<TradeAuditResult> audit(String tradeId) => logger.span(

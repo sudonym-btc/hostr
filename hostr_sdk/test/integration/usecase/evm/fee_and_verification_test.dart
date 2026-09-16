@@ -18,14 +18,14 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:math';
 
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
-import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:marketplace_evm/datasources/contracts/boltz/TestERC20.g.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
@@ -129,7 +129,7 @@ void main() {
       final evmKey = await hostr.auth.hd.getActiveEvmKey();
       await harness.anvilRootstock.setBalance(
         address: evmKey.address.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(1000000)).value,
       );
       final swapLimits = await configured.swaps!.getSwapInLimits();
       final amount =
@@ -266,7 +266,7 @@ void main() {
 
       await harness.anvilRootstock.setBalance(
         address: (await hostr.auth.hd.getActiveEvmKey()).address.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(1000000)).value,
       );
 
       await hostr.evm.init();
@@ -278,7 +278,7 @@ void main() {
       // (20% + 10 000) pushes lock + gas above the available balance.
       final nativeToken = Token.native(rskChain.config.chainId);
       final requestedAmount = TokenAmount(
-        value: rbtcFromSats(BigInt.from(500000)).getInWei,
+        value: rbtcFromSats(BigInt.from(500000)).value,
         token: nativeToken,
       );
 
@@ -351,13 +351,13 @@ void main() {
       final smartAccountAddr = await configured.getAccountAddress(userKey);
       await anvil.setBalance(
         address: userKey.address.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(500000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(500000)).value,
       );
       // The AA UserOp sender is the smart account — fund it with native
       // gas as well so the EntryPoint can pre-fund execution.
       await anvil.setBalance(
         address: smartAccountAddr.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(500000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(500000)).value,
       );
 
       await anvil.setBalance(

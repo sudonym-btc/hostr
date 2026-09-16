@@ -1,11 +1,11 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/coinlib_gift_wrap.dart';
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../auth/auth.dart';
-import '../trade_account_allocator/trade_account_allocator.dart';
+import 'package:marketplace_evm/usecase/trade_account_allocator/trade_account_allocator.dart';
 import 'order_participant_tags.dart';
 
 typedef OrderParticipantLocalDecryptor =
@@ -137,16 +137,13 @@ class DefaultOrderParticipantKeyring implements OrderParticipantKeyring {
   final Map<String, Future<KeyPair?>> _tradeKeyCache = {};
 
   DefaultOrderParticipantKeyring({
-    required Auth auth,
-    required TradeAccountAllocator tradeAccountAllocator,
-    Ndk? ndk,
+    required this._auth,
+    required this._tradeAccountAllocator,
+    this._ndk,
     CustomLogger? logger,
     OrderParticipantLocalDecryptor? localDecrypt,
-    OrderParticipantActiveSignerDecryptor? activeSignerDecrypt,
-  }) : _auth = auth,
-       _tradeAccountAllocator = tradeAccountAllocator,
-       _ndk = ndk,
-       _logger = logger?.scope('order-participant-keyring'),
+    this._activeSignerDecrypt,
+  }) : _logger = logger?.scope('order-participant-keyring'),
        _localDecrypt =
            localDecrypt ??
            (({
@@ -157,8 +154,7 @@ class DefaultOrderParticipantKeyring implements OrderParticipantKeyring {
              ciphertext,
              recipientPrivateKey,
              senderPubkey,
-           )),
-       _activeSignerDecrypt = activeSignerDecrypt;
+           ));
 
   @override
   Future<bool> controlsPubkey({
@@ -232,13 +228,13 @@ class DefaultOrderParticipantKeyring implements OrderParticipantKeyring {
       if (recipientPubkey == activePubkey) {
         final privateKey = _auth.activeKeyPair?.privateKey;
         if (privateKey != null && privateKey.isNotEmpty) {
-          return _localDecrypt(
+          return await _localDecrypt(
             ciphertext: ciphertext,
             recipientPrivateKey: privateKey,
             senderPubkey: senderPubkey,
           );
         }
-        return _decryptWithActiveSigner(
+        return await _decryptWithActiveSigner(
           ciphertext: ciphertext,
           senderPubkey: senderPubkey,
         );
@@ -249,7 +245,7 @@ class DefaultOrderParticipantKeyring implements OrderParticipantKeyring {
       if (tradeKey?.publicKey == recipientPubkey &&
           privateKey != null &&
           privateKey.isNotEmpty) {
-        return _localDecrypt(
+        return await _localDecrypt(
           ciphertext: ciphertext,
           recipientPrivateKey: privateKey,
           senderPubkey: senderPubkey,
@@ -289,7 +285,7 @@ class DefaultOrderParticipantKeyring implements OrderParticipantKeyring {
         final accountIndex = await _tradeAccountAllocator
             .tryFindTradeAccountIndexByTradeId(tradeId);
         if (accountIndex == null) return null;
-        return _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
+        return await _auth.hd.getTradeKeyPair(accountIndex: accountIndex);
       } catch (error, stackTrace) {
         _logger?.w(
           'Failed to resolve participant trade key for $tradeId',

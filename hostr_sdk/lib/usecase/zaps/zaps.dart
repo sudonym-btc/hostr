@@ -1,13 +1,11 @@
-import 'package:injectable/injectable.dart' hide Order;
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:ndk/ndk.dart' hide Nwc, Requests;
 
 import '../../config.dart';
-import '../../injection.dart';
 import '../../util/main.dart';
 import '../nwc/nwc.dart';
 import '../requests/requests.dart';
 
-@Singleton(env: Env.allButTestAndMock)
 class Zaps {
   final Nwc nwc;
   final Ndk ndk;
@@ -18,12 +16,10 @@ class Zaps {
   Zaps({
     required this.nwc,
     required this.ndk,
-    HostrConfig? config,
-    Requests? requests,
+    this._config,
+    this._requests,
     CustomLogger? logger,
-  }) : _config = config,
-       _requests = requests,
-       _logger = (logger ?? CustomLogger()).scope('zaps');
+  }) : _logger = (logger ?? CustomLogger()).scope('zaps');
 
   List<String> _zapReceiptRelays() => _config?.bootstrapRelays ?? const [];
 
@@ -104,7 +100,6 @@ class Zaps {
   }
 }
 
-@Singleton(as: Zaps, env: [Env.test, Env.mock])
 class MockZaps extends Zaps {
   MockZaps({
     required super.nwc,

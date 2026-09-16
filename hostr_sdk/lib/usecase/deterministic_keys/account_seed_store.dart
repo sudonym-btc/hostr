@@ -1,13 +1,13 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:convert/convert.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
-import '../../util/main.dart';
 import '../../util/deterministic_key_derivation.dart';
 import '../../config.dart';
 import '../auth/auth.dart';
@@ -30,18 +30,13 @@ class AccountSeedStore {
   String? _activeSeedHex;
 
   AccountSeedStore({
-    required Auth auth,
-    required Ndk ndk,
-    required Requests requests,
-    required AccountSeedStorage storage,
+    required this._auth,
+    required this._ndk,
+    required this._requests,
+    required this._storage,
     required CustomLogger logger,
-    required HostrConfig config,
-  }) : _auth = auth,
-       _ndk = ndk,
-       _requests = requests,
-       _storage = storage,
-       _logger = logger.scope('account-seed'),
-       _config = config;
+    required this._config,
+  }) : _logger = logger.scope('account-seed');
 
   Future<void> ensureReady({String? pubkey}) async {
     await getActiveSeedHex(pubkey: pubkey);

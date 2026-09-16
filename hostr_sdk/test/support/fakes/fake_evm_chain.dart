@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'package:hostr_sdk/datasources/contracts/boltz/EtherSwap.g.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:marketplace_evm/datasources/contracts/boltz/EtherSwap.g.dart';
+import 'package:marketplace_evm/usecase/evm/chain/evm_chain.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:wallet/wallet.dart';
 import 'package:web3dart/web3dart.dart';

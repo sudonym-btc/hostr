@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/ndk.dart' hide Requests;
 import 'package:wallet/wallet.dart' show EthereumAddress;
@@ -10,9 +10,9 @@ import 'package:wallet/wallet.dart' show EthereumAddress;
 import '../../config.dart';
 import '../blossom/blossom.dart';
 import '../crud.usecase.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../escrow_methods/escrows_methods.dart';
-import '../evm/evm.dart';
+import 'package:marketplace_evm/usecase/evm/evm.dart';
 import '../relays/relays.dart';
 
 @visibleForTesting
@@ -53,26 +53,20 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
   final Map<String, Future<void>> _inFlightSellerConfigs = {};
 
   MetadataUseCase({
-    required Ndk ndk,
-    required Relays relays,
-    required EscrowMethods escrowMethods,
-    required BlossomUseCase blossom,
-    required Evm evm,
-    required HostrConfig config,
+    required this._ndk,
+    required this._relays,
+    required this._escrowMethods,
+    required this._blossom,
+    required this._evm,
+    required this._config,
     required super.requests,
     required super.logger,
-  }) : _ndk = ndk,
-       _relays = relays,
-       _escrowMethods = escrowMethods,
-       _blossom = blossom,
-       _evm = evm,
-       _config = config,
-       super(kind: Metadata.kKind);
+  }) : super(kind: Metadata.kKind);
 
   @override
   Future<void> afterUpsert(UpsertResult<ProfileMetadata> result) async {
     final event = result.event;
-    await _ndk.config.cache.saveMetadata(event.metadata);
+    await _ndk.config.cache.saveEvent(event);
     _inFlightLoads.removeWhere((key, _) => key.startsWith('${event.pubKey}|'));
     // Fire-and-forget: ensure all user config is up-to-date now that
     // the profile has been saved and relays are connected.
@@ -168,7 +162,7 @@ class MetadataUseCase extends CrudUseCase<ProfileMetadata> {
     }
 
     if (latest != null) {
-      await _ndk.config.cache.saveMetadata(latest.metadata);
+      await _ndk.config.cache.saveEvent(latest);
     }
     return latest;
   }

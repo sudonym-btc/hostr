@@ -1,6 +1,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/config.dart';
@@ -9,15 +10,13 @@ import 'package:hostr_sdk/usecase/background_worker/background_worker.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/calendar/calendar.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/account_seed_store.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
-import 'package:hostr_sdk/usecase/evm/operations/funds_monitor/funds_monitor_service.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/startup/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/entities.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
@@ -114,7 +113,6 @@ void main() {
         when(
           relays.loadNip65Hints('user-pubkey'),
         ).thenAnswer((_) async => false);
-        when(auth.ensureNip42AuthForHostrRelay()).thenAnswer((_) async {});
         when(
           metadata.loadMetadata('user-pubkey', forceRefresh: false),
         ).thenAnswer((_) async => null);
@@ -267,7 +265,6 @@ void main() {
       ).thenReturn(KeyPair('privkey', 'user-pubkey', null, null));
       when(auth.activePubkey).thenReturn('user-pubkey');
       when(relays.loadNip65Hints('user-pubkey')).thenAnswer((_) async => true);
-      when(auth.ensureNip42AuthForHostrRelay()).thenAnswer((_) async {});
       when(
         metadata.loadMetadata('user-pubkey', forceRefresh: false),
       ).thenAnswer((_) async => null);

@@ -1,14 +1,14 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/usecase/gift_wraps/gift_wraps.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as hostr_requests;
-import 'package:hostr_sdk/util/main.dart';
 import 'package:hostr_sdk/config.dart' show HostrConfig;
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;

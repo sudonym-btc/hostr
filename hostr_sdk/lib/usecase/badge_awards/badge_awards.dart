@@ -1,5 +1,5 @@
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../crud.usecase.dart';
 

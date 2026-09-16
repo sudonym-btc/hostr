@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
 import '../order_groups/order_group_participant_resolver.dart';
@@ -78,16 +78,12 @@ class Calendar {
   static const _calendarName = 'Hostr';
 
   Calendar({
-    required UserSubscriptions userSubscriptions,
-    required Listings listings,
-    required MetadataUseCase metadata,
-    required CustomLogger logger,
-    required CalendarPort port,
-  }) : _userSubscriptions = userSubscriptions,
-       _listings = listings,
-       _metadata = metadata,
-       _logger = logger,
-       _port = port;
+    required this._userSubscriptions,
+    required this._listings,
+    required this._metadata,
+    required this._logger,
+    required this._port,
+  });
 
   Future<void> start() => _logger.span('start', () async {
     if (_started) return;

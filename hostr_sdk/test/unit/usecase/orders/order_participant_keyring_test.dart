@@ -4,10 +4,10 @@ library;
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
 import 'package:hostr_sdk/usecase/orders/order_participant_keyring.dart';
-import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator.dart';
+import 'package:marketplace_evm/usecase/trade_account_allocator/trade_account_allocator.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 

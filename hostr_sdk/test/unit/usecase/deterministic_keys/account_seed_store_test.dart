@@ -1,6 +1,7 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -8,14 +9,12 @@ import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/datasources/app_database.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/account_seed_store.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/storage/storage.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
     show

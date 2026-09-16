@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
-import 'package:hostr_sdk/util/http_client_factory.dart';
+import 'package:marketplace_evm/util/http_client_factory.dart';
 
 class SignetImportedKey {
   final String keyName;
@@ -68,16 +68,12 @@ class SignetBunkerException implements Exception {
 /// here so CLI code does not have to know about Signet's browser-facing API.
 class SignetBunkerClient {
   SignetBunkerClient({
-    required Uri baseUri,
+    required this._baseUri,
     http.Client? httpClient,
-    Duration requestTimeout = const Duration(seconds: 20),
-    int maxRateLimitRetries = 6,
-    int maxTransientRetries = 6,
-  }) : _baseUri = baseUri,
-       _requestTimeout = requestTimeout,
-       _maxRateLimitRetries = maxRateLimitRetries,
-       _maxTransientRetries = maxTransientRetries,
-       _client = httpClient ?? createPlatformHttpClient(),
+    this._requestTimeout = const Duration(seconds: 20),
+    this._maxRateLimitRetries = 6,
+    this._maxTransientRetries = 6,
+  }) : _client = httpClient ?? createPlatformHttpClient(),
        _ownsClient = httpClient == null {
     _enableBrowserCredentials(_client);
   }

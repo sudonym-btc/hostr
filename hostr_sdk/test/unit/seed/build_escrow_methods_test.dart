@@ -5,7 +5,7 @@ import 'package:hostr_sdk/seed/pipeline/seed_factory.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/pipeline/seeder.dart';
 import 'package:hostr_sdk/seed/pipeline/sink/test_sink.dart';
-import 'package:models/stubs/main.dart' show MockKeys;
+import 'package:marketplace_models/stubs/main.dart' show MockKeys;
 import 'package:test/test.dart';
 
 void main() {

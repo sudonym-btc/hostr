@@ -1,3 +1,5 @@
+import 'package:marketplace_evm/marketplace_evm.dart' show OperationStateStore;
+
 import 'package:sqlite3/common.dart';
 
 /// Central SQLite database wrapper with versioned schema migrations.
@@ -58,19 +60,8 @@ class AppDatabase {
   // ── V1 — initial unified schema ──────────────────────────────────────
 
   void _v1() {
-    // Operations (previously created by OperationStateStore)
-    db.execute('''
-      CREATE TABLE IF NOT EXISTS operations (
-        pubkey      TEXT    NOT NULL,
-        namespace   TEXT    NOT NULL,
-        id          TEXT    NOT NULL,
-        state       TEXT,
-        is_terminal INTEGER NOT NULL DEFAULT 0,
-        updated_at  TEXT,
-        data        TEXT    NOT NULL,
-        PRIMARY KEY (pubkey, namespace, id)
-      )
-    ''');
+    // The driver owns its persisted operation schema.
+    OperationStateStore.ensureSchema(db);
 
     // Typed user config — one row per (pubkey, key) pair.
     // Replaces the JSON-blob-in-KeyValueStorage approach.

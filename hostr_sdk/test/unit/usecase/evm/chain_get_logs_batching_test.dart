@@ -3,17 +3,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
+import 'package:marketplace_evm/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/escrow_event_scanner.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_quote_service.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/escrow_event_scanner.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:marketplace_evm/usecase/evm/chain/evm_chain.dart';
+import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_quote_service.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.dart';
 import 'package:hostr_sdk/usecase/payments/payments.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
-import 'package:hostr_sdk/util/stream_status.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 import 'package:http/http.dart' as http;
 import 'package:mockito/mockito.dart';
 import 'package:test/test.dart';
@@ -583,7 +583,7 @@ FilterEvent _tradeCreatedLog({
     address: _contractAddress,
     blockHash: '0x${'b'.padLeft(64, '0')}',
     blockNum: blockNumber,
-    data: bytesToHex(_encodeTradeCreatedData(), include0x: true),
+    data: bytesToHex(_encodeTradeCreatedData(event), include0x: true),
     logIndex: 0,
     topics: [
       bytesToHex(event.signature, padToEvenLength: true, include0x: true),
@@ -599,23 +599,31 @@ FilterEvent _tradeCreatedLog({
 String _indexedAddressTopic(EthereumAddress address) =>
     '0x${address.without0x.padLeft(64, '0')}';
 
-Uint8List _encodeTradeCreatedData() {
+Uint8List _encodeTradeCreatedData(ContractEvent event) {
+  // Encode the fixture against the canonical generated ABI. Named values keep
+  // new contract fields explicit without duplicating tuple order or ABI types.
+  final values = <String, Object>{
+    'seller': _sellerAddress,
+    'buyer': _buyerAddress,
+    'paymentAmount': BigInt.from(100),
+    'bondAmount': BigInt.zero,
+    'unlockAt': BigInt.zero,
+    'timeoutClaimant': _sellerAddress,
+    'escrowFee': BigInt.zero,
+    'contextHash': Uint8List(32),
+    'recycleCovenantHash': Uint8List(32),
+  };
+  final fields = event.components
+      .where((component) => !component.indexed)
+      .toList();
+  expect(
+    fields.map((field) => field.parameter.name),
+    unorderedEquals(values.keys),
+  );
   final sink = LengthTrackingByteSink();
-  const TupleType([
-    AddressType(),
-    AddressType(),
-    UintType(),
-    UintType(),
-    UintType(),
-    UintType(),
-  ]).encode([
-    _sellerAddress,
-    _buyerAddress,
-    BigInt.from(100),
-    BigInt.zero,
-    BigInt.zero,
-    BigInt.zero,
-  ], sink);
+  TupleType(
+    fields.map((field) => field.parameter.type).toList(),
+  ).encode(fields.map((field) => values[field.parameter.name]!).toList(), sink);
   return sink.asBytes();
 }
 

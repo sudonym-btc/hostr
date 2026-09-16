@@ -1,5 +1,5 @@
-import 'package:hostr_sdk/datasources/boltz/boltz.dart';
-import 'package:hostr_sdk/datasources/swagger_generated/boltz.swagger.dart';
+import 'package:marketplace_evm/datasources/boltz/boltz.dart';
+import 'package:marketplace_evm/datasources/swagger_generated/boltz.swagger.dart';
 import 'package:mockito/mockito.dart';
 
 /// Fake Boltz client that returns pre-configured swap statuses and

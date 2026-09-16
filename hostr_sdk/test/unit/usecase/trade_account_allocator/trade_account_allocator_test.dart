@@ -5,18 +5,18 @@ import 'dart:async';
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/evm.dart';
+import 'package:marketplace_evm/usecase/evm/chain/evm_chain.dart';
+import 'package:marketplace_evm/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_allocator_impl.dart';
 import 'package:hostr_sdk/usecase/trade_account_allocator/trade_account_cache.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
-import 'package:hostr_sdk/util/stream_status.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
@@ -30,9 +30,7 @@ class _FakeAuth extends Fake implements Auth {
   int _maxAccountIndex = -1;
   final KeyPair? _keyPair;
 
-  _FakeAuth({KeyPair? keyPair, int maxAccountIndex = -1})
-    : _keyPair = keyPair,
-      _maxAccountIndex = maxAccountIndex;
+  _FakeAuth({this._keyPair, this._maxAccountIndex = -1});
 
   @override
   KeyPair? get activeKeyPair => _keyPair;

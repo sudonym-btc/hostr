@@ -1,6 +1,7 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
@@ -8,8 +9,8 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/seed/signet_bunker_client.dart';
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs.dart';
 import 'package:ndk/ndk.dart' show Filter;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';

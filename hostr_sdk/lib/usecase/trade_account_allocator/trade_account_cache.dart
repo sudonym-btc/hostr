@@ -1,7 +1,7 @@
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:wallet/wallet.dart' as bip;
 
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../auth/auth.dart';
 import '../deterministic_keys/deterministic_keys.dart';
 
@@ -75,12 +75,10 @@ class TradeAccountCache {
   final Map<String, int> _byEvmAddress = {};
 
   TradeAccountCache({
-    required Auth auth,
-    required DeterministicKeys hd,
+    required this._auth,
+    required this._hd,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _hd = hd,
-       _logger = logger.scope('trade-account-cache');
+  }) : _logger = logger.scope('trade-account-cache');
 
   // ══════════════════════════════════════════════════════════════════════
   // Public API

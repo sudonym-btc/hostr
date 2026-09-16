@@ -1,12 +1,13 @@
-import 'dart:convert';
+import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
+
+import 'package:marketplace_evm/util/evm_address_ownership.dart';
+
 import 'dart:math';
 
-import 'package:convert/convert.dart';
-import 'package:hostr_sdk/config.dart' show CoinlibEventSigner;
 import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
@@ -1029,9 +1030,9 @@ class EntityFactory {
     ];
 
     final evmKey = await deriveEvmKey(signer.privateKey!);
-    final evmAddress = evmKey.address.eip55With0x;
-    final evmProof =
-        '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(evmAddressOwnershipMessage(nostrPubkey: signer.publicKey, evmAddress: evmAddress))))}';
+    final claim = signEvmAddressOwnership(evmKey: evmKey, nostrPubkey: signer.publicKey);
+    final evmAddress = claim.address;
+    final evmProof = claim.proof;
 
     final resolvedHash =
         multiEscrowBytecodeHash ?? '0xMockMultiEscrowBytecodeHash';

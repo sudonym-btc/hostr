@@ -1,4 +1,4 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import '../listings/listings.dart';
@@ -27,10 +27,9 @@ class UserStartupProfileBootstrapper {
   final Listings _listings;
 
   UserStartupProfileBootstrapper({
-    required MetadataUseCase metadata,
-    required Listings listings,
-  }) : _metadata = metadata,
-       _listings = listings;
+    required this._metadata,
+    required this._listings,
+  });
 
   Future<UserStartupProfileBootstrapResult> run({
     required String pubkey,

@@ -1,7 +1,7 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/usecase/evm/operations/swap_in/swap_in_models.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_in/swap_in_models.dart';
 import 'package:test/test.dart';
 
 void main() {

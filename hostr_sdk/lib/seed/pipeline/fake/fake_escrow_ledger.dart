@@ -1,4 +1,4 @@
-import 'package:models/main.dart' show Token;
+import 'package:marketplace_models/main.dart' show Token;
 
 import '../seed_pipeline_models.dart';
 import '../sink/seed_sink.dart';

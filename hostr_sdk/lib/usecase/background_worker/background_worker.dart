@@ -1,47 +1,20 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
+
+
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
 import '../../datasources/notification_log.dart';
-import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../evm/evm.dart';
-import '../evm/operations/funds_monitor/funds_monitor_service.dart';
-import '../evm/operations/operation_state_store.dart';
 import '../heartbeat/heartbeat.dart';
 import '../listings/listings.dart';
 import '../metadata/metadata.dart';
 import '../order_groups/order_group_participant_resolver.dart';
 import '../user_subscriptions/user_subscriptions.dart';
-
-/// A single notification to show or update in the OS notification tray.
-class BackgroundNotification {
-  static const String fallbackPayload = 'hostr://root';
-
-  /// Stable identifier for this notification — used to update the same OS
-  /// notification across progressive state changes (e.g. swap → deposit).
-  final String operationId;
-
-  /// Human-readable body text.
-  final String body;
-
-  /// Opaque deep-link payload forwarded to the app when the user taps the
-  /// notification.
-  final String payload;
-
-  const BackgroundNotification({
-    required this.operationId,
-    required this.body,
-    this.payload = fallbackPayload,
-  });
-}
-
-/// Callback for real-time notification updates during background recovery.
-typedef OnBackgroundProgress =
-    void Function(BackgroundNotification notification);
 
 /// Result of a single background worker run, containing all notifications
 /// that should be surfaced to the user.
@@ -114,26 +87,17 @@ class BackgroundWorker {
   int _latestHeartbeatCreatedAt = 0;
 
   BackgroundWorker({
-    required Auth auth,
-    required UserSubscriptions userSubscriptions,
-    required Heartbeats heartbeats,
-    required Evm evm,
-    required FundsMonitorService fundsMonitor,
-    required Listings listings,
-    required MetadataUseCase metadata,
-    required OperationStateStore operationStore,
-    required NotificationLog notificationLog,
+    required this._auth,
+    required this._userSubscriptions,
+    required this._heartbeats,
+    required this._evm,
+    required this._fundsMonitor,
+    required this._listings,
+    required this._metadata,
+    required this._operationStore,
+    required this._notificationLog,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _userSubscriptions = userSubscriptions,
-       _heartbeats = heartbeats,
-       _evm = evm,
-       _fundsMonitor = fundsMonitor,
-       _listings = listings,
-       _metadata = metadata,
-       _operationStore = operationStore,
-       _notificationLog = notificationLog,
-       _logger = logger.scope('bg-worker');
+  }) : _logger = logger.scope('bg-worker');
 
   Future<void> watch({OnBackgroundProgress? onProgress}) =>
       _logger.span('watch', () async {

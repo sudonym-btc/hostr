@@ -1,15 +1,13 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:wallet/wallet.dart' as bip;
 
-import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../deterministic_keys/deterministic_keys.dart';
-import '../evm/evm.dart';
 import '../messaging/threads.dart';
 import '../orders/orders.dart';
-import 'trade_account_allocator.dart';
 import 'trade_account_cache.dart';
 
 @Singleton(as: TradeAccountAllocator)
@@ -23,20 +21,14 @@ class TradeAccountAllocatorImpl implements TradeAccountAllocator {
   final CustomLogger _logger;
 
   TradeAccountAllocatorImpl({
-    required Auth auth,
-    required DeterministicKeys hd,
-    required Evm evm,
-    required Orders orders,
-    required Threads threads,
-    required TradeAccountCache cache,
+    required this._auth,
+    required this._hd,
+    required this._evm,
+    required this._orders,
+    required this._threads,
+    required this._cache,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _hd = hd,
-       _evm = evm,
-       _orders = orders,
-       _threads = threads,
-       _cache = cache,
-       _logger = logger.scope('trade_account_allocator');
+  }) : _logger = logger.scope('trade_account_allocator');
 
   @override
   Future<int> reserveNextTradeIndex() =>

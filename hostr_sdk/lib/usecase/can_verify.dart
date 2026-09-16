@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 
 import '../util/main.dart';

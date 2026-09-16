@@ -5,8 +5,8 @@ import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/trades/actions/order_request.dart';
 import 'package:hostr_sdk/usecase/trades/actions/trade_action_resolver.dart';
 import 'package:hostr_sdk/usecase/trades/trade.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:test/test.dart';
 
 final _f = EntityFactory();

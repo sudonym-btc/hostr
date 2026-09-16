@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:ndk/ndk.dart' show Nip01Event;
 
-import 'stream_status.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 import 'validation_stream.dart';
 
 /// Verifies items from a [StreamWithStatus] individually as they arrive.

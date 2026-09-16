@@ -1,20 +1,21 @@
+import 'package:marketplace_evm/funds_monitor_ports.dart';
+
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 
 import '../crud.usecase.dart';
 import '../escrow_methods/escrows_methods.dart';
 
 @Singleton()
-class Escrows extends CrudUseCase<EscrowService> {
+class Escrows extends CrudUseCase<EscrowService> implements EvmEscrowDirectory {
   final EscrowMethods _escrowMethods;
 
   Escrows({
     required super.requests,
     required super.logger,
-    required EscrowMethods escrowMethods,
-  }) : _escrowMethods = escrowMethods,
-       super(kind: EscrowService.kinds[0]);
+    required this._escrowMethods,
+  }) : super(kind: EscrowService.kinds[0]);
 
   Future<MutualEscrowResult> determineMutualEscrow(
     String buyerPubkey,

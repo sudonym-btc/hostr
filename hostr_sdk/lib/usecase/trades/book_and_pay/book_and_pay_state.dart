@@ -1,7 +1,7 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01EventModel;
 
-import '../../evm/operations/swap_in/swap_in_state.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_in/swap_in_state.dart';
 
 sealed class BookAndPayState {
   const BookAndPayState();

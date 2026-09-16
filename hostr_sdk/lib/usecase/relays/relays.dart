@@ -1,17 +1,14 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
-import 'package:injectable/injectable.dart' hide Order;
 import 'package:ndk/entities.dart';
 import 'package:ndk/ndk.dart' hide Requests;
 
 import '../../config.dart';
-import '../../injection.dart';
-import '../../util/main.dart';
 import '../requests/requests.dart';
 import '../storage/storage.dart';
 import 'relay_preflight.dart';
 
-@Singleton(env: Env.allButTestAndMock)
 class Relays {
   final CustomLogger _logger;
   final Ndk _ndk;
@@ -36,16 +33,12 @@ class Relays {
   static const _developmentRelay = 'wss://relay.hostr.development';
 
   Relays({
-    required Ndk ndk,
-    required RelayStorage relayStorage,
+    required this._ndk,
+    required this._relayStorage,
     required CustomLogger logger,
-    HostrConfig? config,
-    Requests? requests,
-  }) : _ndk = ndk,
-       _relayStorage = relayStorage,
-       _config = config,
-       _requests = requests,
-       _logger = logger.scope('relays');
+    this._config,
+    this._requests,
+  }) : _logger = logger.scope('relays');
 
   /// Returns a relay URL hint for the given [pubkey] by looking up their
   /// NIP-65 write relays. Returns the first write relay found, or empty
@@ -236,7 +229,7 @@ class Relays {
     );
   }
 
-  Stream<Map<String, RelayConnectivity<dynamic>>> connectivity() {
+  Stream<List<RelayConnectivity<dynamic>>> connectivity() {
     return _ndk.relays.relayConnectivityChanges;
   }
 
@@ -425,7 +418,6 @@ class Relays {
   });
 }
 
-@Singleton(as: Relays, env: [Env.test, Env.mock])
 class MockRelays extends Relays {
   MockRelays({
     required super.ndk,

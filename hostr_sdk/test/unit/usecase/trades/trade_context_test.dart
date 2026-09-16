@@ -2,7 +2,7 @@
 library;
 
 import 'package:hostr_sdk/usecase/trades/trade.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,15 +1,14 @@
-import 'dart:convert';
+import 'package:marketplace_evm/util/evm_address_ownership.dart';
 
-import 'package:convert/convert.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event, Nip51List;
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
 
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
-import '../evm/evm.dart';
+import 'package:marketplace_evm/usecase/evm/evm.dart';
 
 @Singleton()
 class EscrowMethods extends CrudUseCase<EscrowMethod> {
@@ -19,11 +18,9 @@ class EscrowMethods extends CrudUseCase<EscrowMethod> {
   EscrowMethods({
     required super.requests,
     required super.logger,
-    required Auth auth,
-    required Evm evm,
-  }) : _auth = auth,
-       _evm = evm,
-       super(kind: EscrowMethod.kinds[0]);
+    required this._auth,
+    required this._evm,
+  }) : super(kind: EscrowMethod.kinds[0]);
 
   Future<EscrowMethod?> myMethod() async {
     final keyPair = _auth.activeKeyPair;
@@ -261,14 +258,11 @@ _EvmMethodClaim _evmMethodClaimFor({
   required EthPrivateKey evmKey,
   required String nostrPubkey,
 }) {
-  final address = evmKey.address.eip55With0x;
-  final message = evmAddressOwnershipMessage(
+  final claim = signEvmAddressOwnership(
+    evmKey: evmKey,
     nostrPubkey: nostrPubkey,
-    evmAddress: address,
   );
-  final proof =
-      '0x${hex.encode(evmKey.signPersonalMessageToUint8List(utf8.encode(message)))}';
-  return _EvmMethodClaim(address: address, proof: proof);
+  return _EvmMethodClaim(address: claim.address, proof: claim.proof);
 }
 
 bool _sameAddress(String? a, String b) => a?.toLowerCase() == b.toLowerCase();

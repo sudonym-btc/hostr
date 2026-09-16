@@ -2,7 +2,7 @@
 library;
 
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
-import 'package:models/secp256k1.dart';
+import 'package:marketplace_models/secp256k1.dart';
 import 'package:test/test.dart';
 
 void main() {

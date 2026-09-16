@@ -1,15 +1,14 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
+
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart'
     show Filter, Ndk, Nip01Event, Nip01EventModel, ZapReceipt;
 import 'package:rxdart/rxdart.dart';
 
-import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../escrow/escrow.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../gift_wraps/gift_wraps.dart';
 import '../heartbeat/heartbeat.dart';
 import '../messaging/threads.dart';
@@ -20,7 +19,6 @@ import '../order_transitions/order_transitions.dart';
 import '../orders/order_participant_keyring.dart';
 import '../orders/orders.dart';
 import '../reviews/reviews.dart';
-import '../trade_account_allocator/trade_account_allocator.dart';
 import '../zaps/zaps.dart';
 
 /// User-scoped subscription manager.
@@ -49,7 +47,7 @@ import '../zaps/zaps.dart';
 /// | [myReviews$]       | `kinds=[31555], authors=[myPubkey]`  | No (static) |
 /// | [paymentEvents$]   | kind 9735 + EVM contract queries     | Dynamic (combine) |
 @Singleton()
-class UserSubscriptions {
+class UserSubscriptions implements EvmPaymentEvents {
   final Auth _auth;
   final GiftWraps _giftWraps;
   final Heartbeats _heartbeats;
@@ -63,26 +61,17 @@ class UserSubscriptions {
   final CustomLogger _logger;
 
   UserSubscriptions({
-    required Auth auth,
-    required GiftWraps giftWraps,
-    required Heartbeats heartbeats,
-    required Orders orders,
-    required OrderTransitions transitions,
-    required OrderGroups orderGroups,
-    required Reviews reviews,
-    required Zaps zaps,
-    required EscrowUseCase escrow,
+    required this._auth,
+    required this._giftWraps,
+    required this._heartbeats,
+    required this._orders,
+    required this._transitions,
+    required this._orderGroups,
+    required this._reviews,
+    required this._zaps,
+    required this._escrow,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _giftWraps = giftWraps,
-       _heartbeats = heartbeats,
-       _orders = orders,
-       _transitions = transitions,
-       _orderGroups = orderGroups,
-       _reviews = reviews,
-       _zaps = zaps,
-       _escrow = escrow,
-       _logger = logger.scope('subscriptions');
+  }) : _logger = logger.scope('subscriptions');
 
   // ── Public streams ────────────────────────────────────────────────────
   //
@@ -169,6 +158,7 @@ class UserSubscriptions {
   _giftwrapSource$; // NDK subscription, held for cleanup
 
   /// Combined payment events (zaps + escrow) across all trades.
+  @override
   final StreamWithStatus<PaymentEvent> paymentEvents$ =
       StreamWithStatus<PaymentEvent>();
 

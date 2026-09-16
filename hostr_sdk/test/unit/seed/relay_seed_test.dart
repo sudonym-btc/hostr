@@ -4,7 +4,7 @@ library;
 import 'package:hostr_sdk/seed/pipeline/seed_context.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_models.dart';
 import 'package:hostr_sdk/seed/relay_seed.dart';
-import 'package:models/stubs/main.dart' show MockKeys;
+import 'package:marketplace_models/stubs/main.dart' show MockKeys;
 import 'package:test/test.dart';
 
 void main() {

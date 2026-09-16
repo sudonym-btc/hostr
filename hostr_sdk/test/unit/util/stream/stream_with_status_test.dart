@@ -3,7 +3,7 @@ library;
 
 import 'dart:async';
 
-import 'package:hostr_sdk/util/stream_status.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 import 'package:test/test.dart';
 
 void main() {

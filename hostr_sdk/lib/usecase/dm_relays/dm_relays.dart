@@ -1,13 +1,13 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/entities.dart' show Nip01Event, UserRelayList;
 import 'package:ndk/ndk.dart' show Filter, Ndk;
 
 import '../../config.dart' show HostrConfig;
-import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../relays/relays.dart';
 import '../requests/requests.dart';
@@ -53,18 +53,13 @@ class DmRelays {
   final CustomLogger _logger;
 
   DmRelays({
-    required Ndk ndk,
-    required Requests requests,
-    required Relays relays,
-    required Auth auth,
-    required HostrConfig config,
+    required this._ndk,
+    required this._requests,
+    required this._relays,
+    required this._auth,
+    required this._config,
     required CustomLogger logger,
-  }) : _ndk = ndk,
-       _requests = requests,
-       _relays = relays,
-       _auth = auth,
-       _config = config,
-       _logger = logger.scope('dmRelays');
+  }) : _logger = logger.scope('dmRelays');
 
   Future<List<String>> relaysFor(
     String pubkey, {

@@ -1,9 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
+import 'package:marketplace_evm/eoa_escrow.dart';
+import 'package:wallet/wallet.dart' show EthereumAddress;
+import 'package:web3dart/web3dart.dart';
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/stubs/main.dart' show MockKeys;
+import 'package:marketplace_models/stubs/main.dart' show MockKeys;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../config/generated/test_env.g.dart' as env;
@@ -23,10 +25,6 @@ class RelaySeeder {
     print('Seeding ${config.relayUrl} (pipeline)...');
     print(const JsonEncoder.withIndent('  ').convert(config.toJson()));
     final contractAddress = env.evmConfig.chains.first.escrowContractAddress!;
-    await _ensureContractIsDeployed(
-      rpcUrl: config.rpcUrl,
-      contractAddress: contractAddress,
-    );
     print('Using contract address: $contractAddress');
 
     // ── Resolve real bytecode hash from deployed contract ────────────
@@ -227,87 +225,20 @@ class RelaySeeder {
   String _signetKeyPrefix(SeedPipelineConfig config) =>
       '$_signetGeneratedKeyPrefix${config.seed}-';
 
-  Future<void> _ensureContractIsDeployed({
-    required String rpcUrl,
-    required String contractAddress,
-  }) async {
-    final code = await _ethGetCode(rpcUrl: rpcUrl, address: contractAddress);
-    final normalized = code.trim().toLowerCase();
-    final isEmptyCode = RegExp(r'^0x0*$').hasMatch(normalized);
-
-    if (isEmptyCode) {
-      throw StateError(
-        'Escrow contract not deployed at $contractAddress on $rpcUrl. '
-        'Deployment file exists, but address has no contract code. '
-        'Deploy contracts first (or refresh deployment artifacts) before seeding.',
-      );
-    }
-  }
-
-  Future<String> _ethGetCode({
-    required String rpcUrl,
-    required String address,
-  }) async {
-    final httpClient = HttpClient();
-    try {
-      final uri = Uri.parse(rpcUrl);
-      final request = await httpClient.postUrl(uri);
-      request.headers.contentType = ContentType.json;
-      request.write(
-        jsonEncode({
-          'jsonrpc': '2.0',
-          'id': 1,
-          'method': 'eth_getCode',
-          'params': [address, 'latest'],
-        }),
-      );
-
-      final response = await request.close();
-      final body = await utf8.decodeStream(response);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw StateError(
-          'RPC eth_getCode failed with HTTP ${response.statusCode}: $body',
-        );
-      }
-
-      final decoded = jsonDecode(body);
-      if (decoded is! Map) {
-        throw StateError('Invalid eth_getCode response: $body');
-      }
-
-      final map = Map<String, dynamic>.from(decoded);
-      final error = map['error'];
-      if (error != null) {
-        throw StateError('RPC eth_getCode error: $error');
-      }
-
-      final result = map['result'];
-      if (result is! String) {
-        throw StateError('Invalid eth_getCode result: $result');
-      }
-
-      return result;
-    } finally {
-      httpClient.close(force: true);
-    }
-  }
-
-  /// Derive the SHA-256 hash of the deployed MultiEscrow runtime bytecode
-  /// by fetching the on-chain code and hashing it.
   Future<String> _resolveMultiEscrowBytecodeHash({
     required String rpcUrl,
     required String contractAddress,
   }) async {
-    final hexCode = await _ethGetCode(rpcUrl: rpcUrl, address: contractAddress);
-    // Convert the 0x-prefixed hex string to bytes for hashing.
-    final bytesString = hexCode.startsWith('0x')
-        ? hexCode.substring(2)
-        : hexCode;
-    final bytes = <int>[];
-    for (var i = 0; i < bytesString.length; i += 2) {
-      bytes.add(int.parse(bytesString.substring(i, i + 2), radix: 16));
+    final client = Web3Client(rpcUrl, http.Client());
+    try {
+      return await readContractBytecodeHash(
+        client: client,
+        address: EthereumAddress.fromHex(contractAddress),
+        requireDeployed: true,
+      );
+    } finally {
+      await client.dispose();
     }
-    return sha256.convert(bytes).toString();
   }
 
   Future<void> _printPipelineUsersByRole(SeedPipelineData data) async {

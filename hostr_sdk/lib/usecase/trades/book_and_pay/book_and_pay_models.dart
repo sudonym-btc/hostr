@@ -1,4 +1,4 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class BookAndPayInput {
   const BookAndPayInput({

@@ -1,13 +1,13 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/order_groups/order_group_participant_resolver.dart';
 import 'package:hostr_sdk/usecase/orders/order_participant_keyring.dart';
 import 'package:hostr_sdk/usecase/orders/order_participant_tags.dart';
-import 'package:hostr_sdk/util/main.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:test/test.dart';
 
 class _FakeParticipantKeyring implements OrderParticipantKeyring {

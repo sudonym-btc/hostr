@@ -3,9 +3,8 @@ import 'dart:math';
 import 'package:hostr_sdk/config.dart'
     show
         CoinlibEventSigner,
-        CoinlibEventSignerFactory,
-        CoinlibNip44Cryptography;
-import 'package:models/main.dart';
+        CoinlibEventSignerFactory;
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import '../entity_factory.dart';
@@ -283,11 +282,9 @@ Ndk _createGiftWrapNdk() => Ndk(
   NdkConfig(
     eventVerifier: Bip340EventVerifier(),
     eventSignerFactory: const CoinlibEventSignerFactory(),
-    nip44Cryptography: CoinlibNip44Cryptography(),
     cache: MemCacheManager(),
     engine: NdkEngine.JIT,
     bootstrapRelays: [], // No relay needed — gift-wrapping is local crypto.
-    eagerAuth: false,
   ),
 );
 

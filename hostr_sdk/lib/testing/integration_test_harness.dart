@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -6,9 +7,9 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:hydrated_bloc/hydrated_bloc.dart' as hydrated;
 import 'package:logger/logger.dart';
-import 'package:models/bip340.dart';
-import 'package:models/nostr_kinds.dart';
-import 'package:models/stubs/keypairs.dart';
+import 'package:marketplace_models/bip340.dart';
+import 'package:marketplace_models/nostr_kinds.dart';
+import 'package:marketplace_models/stubs/keypairs.dart';
 import 'package:ndk/ndk.dart' hide ConsoleOutput;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:web3dart/web3dart.dart' show EthPrivateKey;
@@ -20,8 +21,7 @@ import '../hostr.dart';
 import '../injection.dart';
 import '../seed/seed.dart';
 import '../util/deterministic_key_derivation.dart';
-import '../util/http_client_factory.dart';
-import '../util/main.dart';
+import 'package:marketplace_evm/util/http_client_factory.dart';
 import 'in_memory_hydrated_storage.dart';
 import 'platform_environment.dart';
 
@@ -55,7 +55,7 @@ class IntegrationTestHarness {
 
   /// Whether this harness created the [hostr] instance (and therefore
   /// owns its lifecycle).  When `false`, [dispose] will skip
-  /// `hostr.dispose()` and `getIt.reset()`.
+  /// `hostr.dispose()`.
   final bool _ownsHostr;
 
   /// Pubkeys of NWC app connections created during this harness lifetime.
@@ -74,8 +74,8 @@ class IntegrationTestHarness {
     required this.albyHub,
     required this.seeds,
     this.fundedKeys = const [],
-    bool ownsHostr = true,
-  }) : _ownsHostr = ownsHostr;
+    this._ownsHostr = true,
+  });
 
   static const bootstrapRelays = env.bootstrapRelays;
   static const bootstrapBlossom = env.blossomUrl;
@@ -161,7 +161,7 @@ class IntegrationTestHarness {
     final fundFutures = <Future>[];
     for (final key in fundKeys) {
       final address = (await deriveEvmKey(key.privateKey!)).address.eip55With0x;
-      final amount = rbtcFromSats(BigInt.from(1000000)).getInWei;
+      final amount = rbtcFromSats(BigInt.from(1000000)).value;
       fundFutures.add(anvil.setBalance(address: address, amountWei: amount));
       fundFutures.add(
         anvilRootstock.setBalance(address: address, amountWei: amount),
@@ -594,12 +594,9 @@ setTimeout(() => { process.stderr.write('timeout'); process.exit(1); }, 15000);
     }
   }
 
-  Future<void> dispose({bool resetGetIt = true}) async {
+  Future<void> dispose() async {
     if (_ownsHostr) {
       await hostr.dispose();
-      if (resetGetIt) {
-        await getIt.reset();
-      }
     }
 
     // Tear down NWC app connections on AlbyHub to free relay subscription
@@ -642,7 +639,7 @@ setTimeout(() => { process.stderr.write('timeout'); process.exit(1); }, 15000);
     );
     final evmKey = await hostr.auth.hd.getActiveEvmKey();
     final evmAddress = evmKey.address.eip55With0x;
-    final amount = fundAmountWei ?? rbtcFromSats(BigInt.from(1000000)).getInWei;
+    final amount = fundAmountWei ?? rbtcFromSats(BigInt.from(1000000)).value;
     await Future.wait([
       anvil.setBalance(address: evmAddress, amountWei: amount),
       anvilRootstock.setBalance(address: evmAddress, amountWei: amount),

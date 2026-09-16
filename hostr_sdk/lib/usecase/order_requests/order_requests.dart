@@ -1,6 +1,6 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/coinlib_gift_wrap.dart';
@@ -8,7 +8,7 @@ import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../relays/relays.dart';
 import '../orders/order_participant_tags.dart';
-import '../trade_account_allocator/trade_account_allocator.dart';
+import 'package:marketplace_evm/usecase/trade_account_allocator/trade_account_allocator.dart';
 
 /// Use-case for creating negotiate-stage [Order] events (formerly
 /// "order requests"). The class name is kept for DI compatibility but
@@ -21,13 +21,10 @@ class OrderRequests extends CrudUseCase<Order> {
   OrderRequests({
     required super.requests,
     required super.logger,
-    required Auth auth,
-    required TradeAccountAllocator tradeAccountAllocator,
-    required Relays relays,
-  }) : _auth = auth,
-       _tradeAccountAllocator = tradeAccountAllocator,
-       _relays = relays,
-       super(kind: Order.kinds[0]);
+    required this._auth,
+    required this._tradeAccountAllocator,
+    required this._relays,
+  }) : super(kind: Order.kinds[0]);
 
   @override
   Future<void> beforeUpsert(Order event) async {

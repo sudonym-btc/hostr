@@ -1,16 +1,15 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Ndk, Nip01Event;
 
 import '../../config.dart' show CoinlibEventSigner, HostrConfig;
 import '../../util/coinlib_gift_wrap.dart';
-import '../../util/main.dart';
 import '../crud.usecase.dart';
 
 bool _isCompletionStatus(StreamStatus status) =>
@@ -96,19 +95,16 @@ StreamWithStatus<Nip01Event> parseGiftWrapsConcurrently({
 ///
 /// Read operations expose parsed inner events from wrapped `1059` events.
 /// Callers can then use `.whereType<T>()` on the returned stream.
-@Singleton()
 class GiftWraps extends CrudUseCase<Nip01Event> {
   final Ndk _ndk;
   final HostrConfig? _config;
 
   GiftWraps({
-    required Ndk ndk,
+    required this._ndk,
     required super.requests,
     required super.logger,
-    HostrConfig? config,
-  }) : _ndk = ndk,
-       _config = config,
-       super(kind: kNostrKindGiftWrap);
+    this._config,
+  }) : super(kind: kNostrKindGiftWrap);
 
   /// Wraps a rumor/event for [recipientPubkey] without broadcasting it.
   ///

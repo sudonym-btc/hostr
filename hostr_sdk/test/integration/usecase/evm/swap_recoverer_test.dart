@@ -1,12 +1,11 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:math';
 
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart';
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 
 import '../../../support/integration_test_harness.dart';
@@ -37,7 +36,7 @@ void main() {
       appNamePrefix: 'swap-recover-empty',
     );
 
-    final recoverer = getIt<SwapRecoverer>();
+    final recoverer = harness.hostr.scope<SwapRecoverer>();
     final resolved = await recoverer.recoverAll();
 
     expect(resolved, 0);
@@ -56,7 +55,7 @@ void main() {
     final evmKey = await hostr.auth.hd.getActiveEvmKey();
     await harness.anvilRootstock.setBalance(
       address: evmKey.address.eip55With0x,
-      amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+      amountWei: rbtcFromSats(BigInt.from(100000)).value,
     );
     final swapLimits = await configured.swaps!.getSwapInLimits();
     final amount =
@@ -78,7 +77,7 @@ void main() {
     expect(swapIn.state, isA<SwapInCompleted>());
 
     // Now recover — should find the terminal entry and skip it.
-    final recoverer = getIt<SwapRecoverer>();
+    final recoverer = harness.hostr.scope<SwapRecoverer>();
     final resolved = await recoverer.recoverAll();
 
     expect(resolved, 0);
@@ -97,7 +96,7 @@ void main() {
     final evmKey = await hostr.auth.hd.getActiveEvmKey();
     await harness.anvilRootstock.setBalance(
       address: evmKey.address.eip55With0x,
-      amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+      amountWei: rbtcFromSats(BigInt.from(100000)).value,
     );
     final swapLimits = await configured.swaps!.getSwapInLimits();
     final amount =
@@ -122,7 +121,7 @@ void main() {
 
     // 2. Rewrite the store entry to "funded" — simulating a crash after
     //    Boltz locked on-chain but before we claimed.
-    final store = getIt<OperationStateStore>();
+    final store = harness.hostr.scope<OperationStateStore>();
     final fundedState = SwapInFunded(
       completedData.copyWith(
         claimTxHash: null,
@@ -138,7 +137,7 @@ void main() {
 
     // 3. Recover — the claim event is already on-chain, so recovery should
     //    find it and advance to completed.
-    final recoverer = getIt<SwapRecoverer>();
+    final recoverer = harness.hostr.scope<SwapRecoverer>();
     final resolved = await recoverer.recoverAll();
 
     expect(resolved, 1);

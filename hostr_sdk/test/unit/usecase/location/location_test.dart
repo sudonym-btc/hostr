@@ -4,7 +4,7 @@ library;
 import 'dart:convert';
 
 import 'package:hostr_sdk/usecase/location/location.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';

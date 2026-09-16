@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
-import '../../util/http_client_factory.dart';
+import 'package:marketplace_evm/util/http_client_factory.dart';
 
 class AlbyHubClient {
   final Uri baseUri;

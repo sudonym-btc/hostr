@@ -1,4 +1,4 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../entity_factory.dart';
 import '../seed_pipeline_models.dart';

@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:typed_data';
 
 import 'package:injectable/injectable.dart' hide Order;
@@ -5,7 +6,6 @@ import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart';
 
 import '../../config.dart';
-import '../../util/main.dart';
 import '../requests/requests.dart';
 
 /// Wraps NDK's [Blossom] use case with hostr-specific conveniences such as
@@ -18,12 +18,10 @@ class BlossomUseCase {
   final CustomLogger _logger;
 
   BlossomUseCase({
-    required Ndk ndk,
-    required HostrConfig config,
-    required CustomLogger logger,
-  }) : _ndk = ndk,
-       _config = config,
-       _logger = logger;
+    required this._ndk,
+    required this._config,
+    required this._logger,
+  });
 
   // ---------------------------------------------------------------------------
   // ensureBlossomServer

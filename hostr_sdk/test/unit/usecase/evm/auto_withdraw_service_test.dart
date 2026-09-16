@@ -5,14 +5,14 @@ import 'dart:async';
 
 import 'package:hostr_sdk/datasources/app_database.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
-import 'package:hostr_sdk/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
-import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
+import 'package:marketplace_evm/usecase/evm/operations/auto_withdraw/auto_withdraw_service.dart';
+import 'package:marketplace_evm/usecase/evm/operations/operation_state_store.dart';
 import 'package:hostr_sdk/usecase/user_config/hostr_user_config.dart';
 import 'package:hostr_sdk/usecase/user_config/user_config_store.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
-import 'package:hostr_sdk/util/token_amount_ext.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/token_amount_ext.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:sqlite3/common.dart';
 import 'package:sqlite3/sqlite3.dart' as native_sqlite3;
 import 'package:test/test.dart';
@@ -52,6 +52,7 @@ class GateHarness {
     final mockAuth = MockAuth();
     final fakeUser = Bip340.fromPrivateKey('1' * 64);
     when(mockAuth.activeKeyPair).thenAnswer((_) => fakeUser);
+    when(mockAuth.activePubkey).thenAnswer((_) => fakeUser.publicKey);
     stateStore = OperationStateStore(db, CustomLogger(), mockAuth);
     userConfigStore = UserConfigStore(db, CustomLogger(), mockAuth);
     logger = CustomLogger();
@@ -90,9 +91,9 @@ class GateHarness {
     final netAmount = balance - totalFees;
     if (netAmount <= TokenAmount.zero(rbtc)) return false;
 
-    final feeRatio = totalFees.getInSats == BigInt.zero
+    final feeRatio = totalFees.inSats == BigInt.zero
         ? 0.0
-        : totalFees.getInSats.toDouble() / balance.getInSats.toDouble();
+        : totalFees.inSats.toDouble() / balance.inSats.toDouble();
     if (feeRatio > AutoWithdrawService.maxFeeRatio) return false;
 
     // All gates passed

@@ -1,11 +1,11 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:math';
 
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 
 import '../../../support/integration_test_harness.dart';
@@ -40,7 +40,7 @@ void main() {
       final evmKey = await hostr.auth.hd.getActiveEvmKey();
       await harness.anvilRootstock.setBalance(
         address: evmKey.address.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(100000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(100000)).value,
       );
 
       final swapLimits = await configured.swaps!.getSwapInLimits();
@@ -86,7 +86,7 @@ void main() {
       // The Boltz reverse swap must deliver at least the requested sats.
       final completedData = (swapIn.state as SwapInCompleted).data;
       final deliveredSats = BigInt.from(completedData.onchainAmountSat);
-      final requestedSats = amount.getInSats;
+      final requestedSats = amount.inSats;
       expect(
         deliveredSats,
         greaterThanOrEqualTo(requestedSats),

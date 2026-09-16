@@ -1,20 +1,17 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
-import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01EventModel;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../config.dart';
-import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../listings/listings.dart';
 import '../messaging/thread/thread.dart';
 import '../messaging/threads.dart';
 import '../metadata/metadata.dart';
 import '../orders/orders.dart';
-import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 
 typedef _ProofBuilder =
@@ -26,7 +23,6 @@ typedef _ProofBuilder =
 ///
 /// - The user is the **guest** (not the listing host).
 /// - No buyer order has been published yet for that trade.
-@Singleton()
 class PaymentProofOrchestrator {
   final UserSubscriptions _userSubs;
   final Threads _threads;
@@ -45,24 +41,16 @@ class PaymentProofOrchestrator {
   bool _started = false;
 
   PaymentProofOrchestrator({
-    required UserSubscriptions userSubs,
-    required Threads threads,
-    required Auth auth,
-    required Orders orders,
-    required Listings listings,
-    required MetadataUseCase metadata,
+    required this._userSubs,
+    required this._threads,
+    required this._auth,
+    required this._orders,
+    required this._listings,
+    required this._metadata,
     required CustomLogger logger,
-    HostrConfig? config,
-    TradeAccountAllocator? tradeAccountAllocator,
-  }) : _userSubs = userSubs,
-       _threads = threads,
-       _auth = auth,
-       _orders = orders,
-       _listings = listings,
-       _metadata = metadata,
-       _config = config,
-       _tradeAccountAllocator = tradeAccountAllocator,
-       _logger = logger.scope('payment-proof');
+    this._config,
+    this._tradeAccountAllocator,
+  }) : _logger = logger.scope('payment-proof');
 
   Future<void> start() => _logger.span('start', () async {
     if (_started) return;

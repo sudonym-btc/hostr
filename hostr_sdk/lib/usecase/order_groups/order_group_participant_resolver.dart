@@ -1,6 +1,6 @@
-import 'package:models/main.dart';
+import 'package:marketplace_evm/marketplace_evm.dart';
+import 'package:marketplace_models/main.dart';
 
-import '../../util/main.dart';
 import '../orders/order_participant_keyring.dart';
 import '../orders/order_participant_tags.dart';
 
@@ -218,8 +218,8 @@ class OrderGroupParticipantResolver {
   final OrderParticipantKeyring _keyring;
 
   const OrderGroupParticipantResolver({
-    required OrderParticipantKeyring keyring,
-  }) : _keyring = keyring;
+    required this._keyring,
+  });
 
   Future<ResolvedOrderGroupParticipants> resolve(OrderGroup group) =>
       resolveOrderGroupParticipants(group: group, keyring: _keyring);

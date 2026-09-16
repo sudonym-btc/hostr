@@ -1447,8 +1447,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Get Pay To Install Invoice',
-      operationId:
-          'get_pay_to_install_invoice_api_v1_extension__ext_id__invoice_install_put',
+      operationId: 'get_pay_to_install_invoice_api_v1_extension__ext_id__invoice_install_put',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -1478,8 +1477,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Get Pay To Enable Invoice',
-      operationId:
-          'get_pay_to_enable_invoice_api_v1_extension__ext_id__invoice_enable_put',
+      operationId: 'get_pay_to_enable_invoice_api_v1_extension__ext_id__invoice_enable_put',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -1510,8 +1508,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Get Extension Release',
-      operationId:
-          'get_extension_release_api_v1_extension_release__org___repo___tag_name__get',
+      operationId: 'get_extension_release_api_v1_extension_release__org___repo___tag_name__get',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -1680,8 +1677,7 @@ final class _$Lnbits extends Lnbits {
     String? usr,
     required ExtensionData? body,
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
-      description:
-          'This endpoint generates a zip file for the extension based on the provided data.',
+      description: 'This endpoint generates a zip file for the extension based on the provided data.',
       summary: 'Build and download extension zip.',
       operationId: 'api_build_extension_api_v1_extension_builder_zip_post',
       consumes: [],
@@ -1710,8 +1706,7 @@ final class _$Lnbits extends Lnbits {
     String? usr,
     required ExtensionData? body,
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
-      description:
-          '''This endpoint generates a zip file for the extension based on the provided data.
+      description: '''This endpoint generates a zip file for the extension based on the provided data.
         If `deploy` is set to true, the extension will be installed and activated.''',
       summary: 'Build extension based on provided config.',
       operationId: 'api_deploy_extension_api_v1_extension_builder_deploy_post',
@@ -1928,8 +1923,7 @@ final class _$Lnbits extends Lnbits {
   Future<Response<Payment>> _apiV1PaymentsPost({
     required CreateInvoice? body,
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
-      description:
-          '''This endpoint can be used both to generate and pay a BOLT11 invoice.
+      description: '''This endpoint can be used both to generate and pay a BOLT11 invoice.
         To generate a new invoice for receiving funds into the authorized account,
         specify at least the first four fields in the POST body: `out: false`,
         `amount`, `unit`, and `memo`. To pay an arbitrary invoice from the funds
@@ -2103,8 +2097,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Get Payments History For All Users',
-      operationId:
-          'Get_payments_history_for_all_users_api_v1_payments_stats_wallets_get',
+      operationId: 'Get_payments_history_for_all_users_api_v1_payments_stats_wallets_get',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -2491,8 +2484,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Api Payment Pay With Nfc',
-      operationId:
-          'api_payment_pay_with_nfc_api_v1_payments__payment_request__pay_with_nfc_post',
+      operationId: 'api_payment_pay_with_nfc_api_v1_payments__payment_request__pay_with_nfc_post',
       consumes: [],
       produces: [],
       security: [],
@@ -2669,8 +2661,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Api Reject Wallet Invitation',
-      operationId:
-          'api_reject_wallet_invitation_api_v1_wallet_share_invite__share_request_id__delete',
+      operationId: 'api_reject_wallet_invitation_api_v1_wallet_share_invite__share_request_id__delete',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -2722,8 +2713,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Api Delete Wallet Share Permissions',
-      operationId:
-          'api_delete_wallet_share_permissions_api_v1_wallet_share__share_request_id__delete',
+      operationId: 'api_delete_wallet_share_permissions_api_v1_wallet_share__share_request_id__delete',
       consumes: [],
       produces: [],
       security: ["APIKeyHeader", "APIKeyQuery"],
@@ -2799,8 +2789,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Api Put Stored Paylinks',
-      operationId:
-          'api_put_stored_paylinks_api_v1_wallet_stored_paylinks__wallet_id__put',
+      operationId: 'api_put_stored_paylinks_api_v1_wallet_stored_paylinks__wallet_id__put',
       consumes: [],
       produces: [],
       security: ["APIKeyHeader", "APIKeyQuery"],
@@ -3529,8 +3518,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Give Or Revoke Admin Permsisions To A User',
-      operationId:
-          'Give_or_revoke_admin_permsisions_to_a_user_users_api_v1_user__user_id__admin_get',
+      operationId: 'Give_or_revoke_admin_permsisions_to_a_user_users_api_v1_user__user_id__admin_get',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -3586,8 +3574,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Create A New Wallet For User',
-      operationId:
-          'Create_a_new_wallet_for_user_users_api_v1_user__user_id__wallet_post',
+      operationId: 'Create_a_new_wallet_for_user_users_api_v1_user__user_id__wallet_post',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -3617,8 +3604,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Reactivate Deleted Wallet',
-      operationId:
-          'Reactivate_deleted_wallet_users_api_v1_user__user_id__wallet__wallet__undelete_put',
+      operationId: 'Reactivate_deleted_wallet_users_api_v1_user__user_id__wallet__wallet__undelete_put',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -3647,8 +3633,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Soft delete (only sets a flag) all user wallets.',
-      operationId:
-          'Delete_all_wallets_for_user_users_api_v1_user__user_id__wallets_delete',
+      operationId: 'Delete_all_wallets_for_user_users_api_v1_user__user_id__wallets_delete',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -3675,10 +3660,8 @@ final class _$Lnbits extends Lnbits {
     String? usr,
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
-      summary:
-          'First time it is called it does a soft delete (only sets a flag).The second time it is called will delete the entry from the DB',
-      operationId:
-          'Delete_wallet_by_id_users_api_v1_user__user_id__wallet__wallet__delete',
+      summary: 'First time it is called it does a soft delete (only sets a flag).The second time it is called will delete the entry from the DB',
+      operationId: 'Delete_wallet_by_id_users_api_v1_user__user_id__wallet__wallet__delete',
       consumes: [],
       produces: [],
       security: ["OAuth2PasswordBearer", "HTTPBearer"],
@@ -4106,8 +4089,7 @@ final class _$Lnbits extends Lnbits {
     SwaggerMetaData swaggerMetaData = const SwaggerMetaData(
       description: '',
       summary: 'Cancel Subscription',
-      operationId:
-          'cancel_subscription_api_v1_fiat__provider__subscription__subscription_id__delete',
+      operationId: 'cancel_subscription_api_v1_fiat__provider__subscription__subscription_id__delete',
       consumes: [],
       produces: [],
       security: ["APIKeyHeader", "APIKeyQuery"],

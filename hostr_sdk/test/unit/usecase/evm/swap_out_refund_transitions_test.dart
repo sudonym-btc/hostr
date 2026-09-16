@@ -1,21 +1,21 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/datasources/boltz/boltz_chain_info.dart';
-import 'package:hostr_sdk/injection.dart';
+import 'package:get_it/get_it.dart';
+import 'package:marketplace_evm/datasources/boltz/boltz_chain_info.dart';
 import 'package:hostr_sdk/mocks/usecase_mocks.mocks.dart';
-import 'package:hostr_sdk/usecase/evm/capabilities/boltz_swap_provider.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/chain/operations/swap_out/swap_out_operation.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
-import 'package:hostr_sdk/usecase/evm/evm_call.dart';
-import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_models.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_operation.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_out/swap_out_state.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_out_tracker.dart';
-import 'package:hostr_sdk/usecase/evm/operations/swap_quote_service.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:marketplace_evm/usecase/evm/capabilities/boltz_swap_provider.dart';
+import 'package:marketplace_evm/usecase/evm/chain/evm_chain.dart';
+import 'package:marketplace_evm/usecase/evm/chain/operations/swap_out/swap_out_operation.dart';
+import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';
+import 'package:marketplace_evm/usecase/evm/evm_call.dart';
+import 'package:marketplace_evm/usecase/evm/operations/operation_state_store.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_out/swap_out_models.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_out/swap_out_operation.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_out/swap_out_state.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_out_tracker.dart';
+import 'package:marketplace_evm/usecase/evm/operations/swap_quote_service.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
@@ -23,19 +23,21 @@ import 'package:web3dart/web3dart.dart';
 
 import '../../../support/fakes/fake_boltz_client.dart';
 
+final testScope = GetIt.asNewInstance();
+
 void main() {
   late CustomLogger logger;
   late SwapOutTracker tracker;
   late List<EvmSwapOutOperation> operations;
 
   setUp(() async {
-    await getIt.reset();
+    await testScope.reset();
     logger = CustomLogger();
     tracker = SwapOutTracker(logger);
     operations = [];
 
-    getIt.registerSingleton<OperationStateStore>(_FakeOperationStateStore());
-    getIt.registerSingleton<SwapOutTracker>(tracker);
+    testScope.registerSingleton<OperationStateStore>(_FakeOperationStateStore());
+    testScope.registerSingleton<SwapOutTracker>(tracker);
   });
 
   tearDown(() async {
@@ -43,7 +45,7 @@ void main() {
       await operation.close();
     }
     await tracker.dispose();
-    await getIt.reset();
+    await testScope.reset();
   });
 
   test('uses cooperative refund signature when Boltz provides one', () async {
@@ -178,8 +180,8 @@ _SwapOutRefundFixture _buildOperation({
     payments: MockPayments(),
     params: SwapOutParams(evmKey: evmKey, accountIndex: 0),
     initialState: SwapOutFunded(data),
-    store: getIt<OperationStateStore>(),
-    tracker: getIt<SwapOutTracker>(),
+    store: testScope<OperationStateStore>(),
+    tracker: testScope<SwapOutTracker>(),
   );
 
   return _SwapOutRefundFixture(operation: operation, chain: chain);

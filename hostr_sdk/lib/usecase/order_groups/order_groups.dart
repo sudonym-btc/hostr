@@ -1,13 +1,11 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:collection';
 
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
-import '../../util/main.dart';
-import '../escrow/escrow_verification.dart';
-import '../evm/evm.dart';
 import '../orders/order_participant_tags.dart';
 import '../orders/orders.dart';
 
@@ -44,12 +42,10 @@ class OrderGroups {
   );
 
   OrderGroups({
-    required Orders orders,
+    required this._orders,
     required CustomLogger logger,
-    required Evm evm,
-  }) : _orders = orders,
-       _logger = logger.scope('order-groups'),
-       _evm = evm;
+    required this._evm,
+  }) : _logger = logger.scope('order-groups');
 
   // ── Public API ──────────────────────────────────────────────────────
 

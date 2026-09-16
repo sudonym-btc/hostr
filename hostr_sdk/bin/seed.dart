@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/seed/relay_seed.dart';
-import 'package:models/secp256k1.dart'
+import 'package:marketplace_models/secp256k1.dart'
     show describeSecp256k1Backend, loadSecp256k1Backend;
 
 /// Allow self-signed certificates so the seeder can connect to local

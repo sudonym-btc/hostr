@@ -1,8 +1,8 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_evm/usecase/evm/chain/evm_chain.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:test/test.dart';
 

@@ -1,16 +1,15 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import '../../util/coinlib_gift_wrap.dart';
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import 'order_participant_authorization.dart';
 import 'order_participant_tags.dart';
 
 class OrderParticipantAuthorizationResolver {
   final CustomLogger? _logger;
 
-  const OrderParticipantAuthorizationResolver({CustomLogger? logger})
-    : _logger = logger;
+  const OrderParticipantAuthorizationResolver({this._logger});
 
   Future<String?> tryDecryptAuthorization({
     required Order order,

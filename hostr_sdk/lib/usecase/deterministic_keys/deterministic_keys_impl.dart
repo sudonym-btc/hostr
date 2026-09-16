@@ -3,7 +3,7 @@ import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart';
 
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../../util/deterministic_key_derivation.dart';
 import '../auth/auth.dart';
 import 'account_seed_store.dart';
@@ -17,12 +17,10 @@ class DeterministicKeysImpl implements DeterministicKeys {
   final Map<String, DeterministicKeyDerivation> _derivationCache = {};
 
   DeterministicKeysImpl({
-    required Auth auth,
-    required AccountSeedStore seedStore,
+    required this._auth,
+    required this._seedStore,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _seedStore = seedStore,
-       _logger = logger.scope('deterministic_keys');
+  }) : _logger = logger.scope('deterministic_keys');
 
   Future<DeterministicKeyDerivation> _activeDerivation() async {
     final seedHex = await _seedStore.getActiveSeedHex(

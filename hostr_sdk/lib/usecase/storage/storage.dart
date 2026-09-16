@@ -16,12 +16,10 @@ abstract class StringListStorage {
   Auth get auth => _auth;
 
   StringListStorage({
-    required Storage<List<String>> storage,
-    List<String> defaults = const [],
-    required Auth auth,
-  }) : _storage = storage,
-       _defaults = defaults,
-       _auth = auth;
+    required this._storage,
+    this._defaults = const [],
+    required this._auth,
+  });
 
   String? _currentUserKey() => auth.activePubkey;
 

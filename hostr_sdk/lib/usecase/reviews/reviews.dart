@@ -1,9 +1,9 @@
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../can_verify.dart';
 import '../crud.usecase.dart';
-import '../escrow/escrow_verification.dart';
+import 'package:marketplace_evm/usecase/escrow/escrow_verification.dart';
 import '../listings/listings.dart';
 import '../order_groups/order_groups.dart';
 import '../orders/order_participant_tags.dart';
@@ -33,13 +33,10 @@ class Reviews extends CrudUseCase<Review> with CanVerify<Review, ReviewDeps> {
   Reviews({
     required super.requests,
     required super.logger,
-    required Orders orders,
-    required Listings listings,
-    required EscrowVerification escrowVerification,
-  }) : _orders = orders,
-       _listings = listings,
-       _escrowVerification = escrowVerification,
-       super(kind: Review.kinds[0]);
+    required this._orders,
+    required this._listings,
+    required this._escrowVerification,
+  }) : super(kind: Review.kinds[0]);
 
   bool _reviewAuthorMatchesOrderParticipant({
     required Review review,

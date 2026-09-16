@@ -62,7 +62,7 @@ class Verification {
   final Ndk _ndk;
   late final Lnurl _lnurl;
 
-  Verification({required Ndk ndk}) : _ndk = ndk {
+  Verification({required this._ndk}) {
     _lnurl = Lnurl(
       transport: LnurlTransportHttpImpl(HttpRequestDS(http.Client())),
     );

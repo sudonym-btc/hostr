@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:ndk/ndk.dart' hide Zaps;
 
-import '../../../util/stream_status.dart';
-import '../../../util/token_amount_ext.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
+import 'package:marketplace_evm/util/token_amount_ext.dart';
 import '../../auth/auth.dart';
 import '../../lnurl/lnurl.dart';
 import '../../zaps/zaps.dart';
-import 'pay_models.dart';
-import 'pay_operation.dart';
-import 'pay_state.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_models.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_operation.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_state.dart';
 
 // Callback/completed details are defined in LnUrlWorkflow
 
@@ -98,7 +98,7 @@ class ZapPayOperation
       pubKey: activeKeyPair.publicKey,
       tags: [
         ['p', zapTargetPubKey],
-        ['amount', (params.amount!.getInSats.toInt() * 1000).toString()],
+        ['amount', (params.amount!.inSats.toInt() * 1000).toString()],
         ['relays', ...relayTags],
         ['lnurl', params.to],
         if (params.event?.id != null) ['e', params.event!.id],
@@ -129,7 +129,7 @@ class ZapPayOperation
     logger.d('Fetching invoice for zap with params: ${state.params}');
     final invoice = await lnurl.fetchInvoice(
       lnurlResponse: (resolvedDetails as ZapResolvedDetails).response,
-      amountSats: params.amount!.getInSats.toInt(),
+      amountSats: params.amount!.inSats.toInt(),
       zapRequest: normalizedZapRequest,
     );
     logger.i('Fetched invoice for zap: $invoice');

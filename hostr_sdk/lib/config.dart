@@ -1,4 +1,8 @@
-import 'package:models/secp256k1.dart';
+import 'package:marketplace_evm/funds_monitor_ports.dart';
+
+import 'package:marketplace_evm/ports.dart';
+
+import 'package:marketplace_models/secp256k1.dart';
 import 'package:ndk/ndk.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -6,10 +10,10 @@ import 'datasources/app_database.dart';
 import 'datasources/app_database_platform.dart';
 import 'datasources/storage.dart';
 import 'usecase/calendar/calendar.dart';
-import 'usecase/evm/config/evm_config.dart';
+import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';
 import 'util/coinlib_gift_wrap.dart';
-import 'util/custom_logger.dart';
-import 'util/telemetry.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/telemetry.dart';
 
 EventVerifier _defaultEventVerifier() {
   return CoinlibVerifier();
@@ -19,13 +23,9 @@ LocalEventSignerFactory _defaultEventSignerFactory() {
   return const CoinlibEventSignerFactory();
 }
 
-Nip44Cryptography _defaultNip44Cryptography() {
-  return CoinlibNip44Cryptography();
-}
-
 /// Fast secp256k1-backed BIP-340 verifier.
 ///
-/// This uses the shared `models` secp256k1 engine, which can use a fast
+/// This uses the shared `marketplace_models` secp256k1 engine, which can use a fast
 /// backend when available and otherwise falls back to the pure-Dart verifier.
 class CoinlibVerifier implements EventVerifier {
   CoinlibVerifier();
@@ -50,7 +50,7 @@ class CoinlibVerifier implements EventVerifier {
 
 /// Fast secp256k1-backed BIP-340 event signer.
 ///
-/// Uses the shared `models` secp256k1 engine (native/WASM via coinlib)
+/// Uses the shared `marketplace_models` secp256k1 engine (native/WASM via coinlib)
 /// for Schnorr signing and the configured crypto provider for the NIP-44
 /// fast paths instead of the pure-Dart `bip340` + `elliptic` packages.
 ///
@@ -59,19 +59,12 @@ class CoinlibVerifier implements EventVerifier {
 /// `web/nostr_crypto.js`, which is significantly faster than the Dart debug
 /// crypto stack for giftwrap operations.
 ///
-/// NIP-04 legacy encrypt/decrypt are still delegated to [Bip340EventSigner]
-/// as NIP-04 is deprecated and not on the hot path.
-class CoinlibEventSigner implements EventSigner {
-  CoinlibEventSigner({required this.privateKey, required this.publicKey})
-    : _nip04Delegate = Bip340EventSigner(
-        privateKey: privateKey,
-        publicKey: publicKey,
-      );
+/// Direct message encryption uses NIP-44.
+class CoinlibEventSigner extends EventSigner {
+  CoinlibEventSigner({required this.privateKey, required this.publicKey});
 
   final String? privateKey;
   final String publicKey;
-  // Only kept for legacy NIP-04 encrypt/decrypt.
-  final Bip340EventSigner _nip04Delegate;
 
   @override
   Future<Nip01Event> sign(Nip01Event event) async {
@@ -90,11 +83,11 @@ class CoinlibEventSigner implements EventSigner {
 
   @override
   Future<String?> decrypt(String msg, String destPubKey, {String? id}) =>
-      _nip04Delegate.decrypt(msg, destPubKey, id: id);
+      Future.error(UnsupportedError('Use decryptNip44 for direct messages'));
 
   @override
   Future<String?> encrypt(String msg, String destPubKey, {String? id}) =>
-      _nip04Delegate.encrypt(msg, destPubKey, id: id);
+      Future.error(UnsupportedError('Use encryptNip44 for direct messages'));
 
   @override
   Future<String?> encryptNip44({
@@ -129,7 +122,6 @@ class CoinlibEventSigner implements EventSigner {
 
   @override
   Future<void> dispose() async {
-    await _nip04Delegate.dispose();
     await _pendingRequestsController.close();
   }
 }
@@ -169,29 +161,6 @@ class CoinlibEventSignerFactory implements LocalEventSignerFactory {
   }
 }
 
-/// Fast NIP-44 cryptography backed by Hostr's configured crypto provider.
-class CoinlibNip44Cryptography implements Nip44Cryptography {
-  CoinlibNip44Cryptography();
-
-  @override
-  Future<String> encrypt({
-    required String plaintext,
-    required String privateKey,
-    required String publicKey,
-  }) {
-    return coinlibEncryptNip44(plaintext, privateKey, publicKey);
-  }
-
-  @override
-  Future<String> decrypt({
-    required String ciphertext,
-    required String privateKey,
-    required String publicKey,
-  }) {
-    return coinlibDecryptNip44(ciphertext, privateKey, publicKey);
-  }
-}
-
 /// Test-only verifier that accepts every event immediately.
 ///
 /// Useful for profiling whether time is being spent in NDK signature
@@ -216,13 +185,15 @@ typedef ShowNotification =
       String? payload,
     });
 
-class HostrConfig {
+class HostrConfig implements EvmDriverConfig, EvmFundsConfig {
   static const _developmentRelay = 'wss://relay.hostr.development';
 
   final List<String> bootstrapRelays;
   final List<String> bootstrapBlossom;
+  @override
   final List<String> bootstrapEscrowPubkeys;
   final String hostrRelay;
+  @override
   final EvmConfig evmConfig;
   final NdkConfig ndkConfig;
   final HostrSDKStorage storage;
@@ -233,7 +204,6 @@ class HostrConfig {
   final CalendarPort? calendarPort;
   final EventVerifier eventVerifier;
   final LocalEventSignerFactory eventSignerFactory;
-  final Nip44Cryptography nip44Cryptography;
   final bool syncAccountSeedRemotely;
 
   static List<String> _ndkBootstrapRelays({
@@ -272,7 +242,6 @@ class HostrConfig {
     this.syncAccountSeedRemotely = true,
     EventVerifier? eventVerifier,
     LocalEventSignerFactory? eventSignerFactory,
-    Nip44Cryptography? nip44Cryptography,
     KeyValueStorage? storage,
     AppDatabase? appDatabase,
     NdkConfig? ndk,
@@ -285,20 +254,16 @@ class HostrConfig {
        ),
        eventVerifier = eventVerifier ?? _defaultEventVerifier(),
        eventSignerFactory = eventSignerFactory ?? _defaultEventSignerFactory(),
-       nip44Cryptography = nip44Cryptography ?? _defaultNip44Cryptography(),
        ndkConfig =
            ndk ??
            NdkConfig(
              eventVerifier: eventVerifier ?? _defaultEventVerifier(),
              eventSignerFactory:
                  eventSignerFactory ?? _defaultEventSignerFactory(),
-             nip44Cryptography:
-                 nip44Cryptography ?? _defaultNip44Cryptography(),
              cache: MemCacheManager(),
              fetchedRangesEnabled: true,
              engine: NdkEngine.JIT,
              defaultQueryTimeout: Duration(seconds: 10),
-             eagerAuth: false,
              // NDK eagerly opens sockets for every bootstrap relay and owns
              // their reconnect loops. Keep that eager pool to the canonical
              // Hostr relay; other configured relays remain available for
@@ -339,7 +304,6 @@ class HostrConfig {
       evmConfig: evmConfig,
       eventVerifier: eventVerifier,
       eventSignerFactory: eventSignerFactory,
-      nip44Cryptography: nip44Cryptography,
       storage: storage ?? keyValueStorage,
       appDatabase: appDatabase ?? this.appDatabase,
       ndk: ndk ?? ndkConfig,

@@ -1,6 +1,6 @@
 import 'package:injectable/injectable.dart' hide Order;
 
-import '../evm/evm.dart';
+import 'package:marketplace_evm/usecase/evm/evm.dart';
 import '../relays/relays.dart';
 
 @Singleton()
@@ -10,9 +10,7 @@ class StartupCore {
   Future<void>? _relayReady;
   Future<void>? _evmReady;
 
-  StartupCore({required Relays relays, required Evm evm})
-    : _relays = relays,
-      _evm = evm;
+  StartupCore({required this._relays, required this._evm});
 
   Future<void> ensureRelaysReady({
     // Keep this comfortably above the relay reconnect backoff so one unlucky

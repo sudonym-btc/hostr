@@ -2,8 +2,8 @@ import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart' hide Order;
 
 import '../../../injection.dart';
-import 'pay_models.dart';
-import 'pay_operation.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_models.dart';
+import 'package:marketplace_evm/usecase/payments/operations/pay_operation.dart';
 
 @Injectable(env: Env.allButTestAndMock)
 class Bolt11PayOperation

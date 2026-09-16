@@ -18,6 +18,7 @@
 @Tags(['integration', 'docker'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -28,8 +29,8 @@ import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';

@@ -1,7 +1,7 @@
 import 'package:injectable/injectable.dart' hide Order;
 
-import '../../../util/stream_status.dart';
-import '../../escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import '../trade.dart';
 import 'trade_action_resolver.dart';
 

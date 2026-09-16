@@ -1,13 +1,13 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/state.dart';
 import 'package:hostr_sdk/usecase/trades/actions/trade_action_resolver.dart';
 import 'package:hostr_sdk/usecase/trades/trade.dart';
-import 'package:hostr_sdk/util/main.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event, Nip01Utils;
 import 'package:test/test.dart';
 

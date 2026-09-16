@@ -1,14 +1,14 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../util/coinlib_gift_wrap.dart';
-import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../can_verify.dart';
 import '../crud.usecase.dart';
@@ -52,17 +52,12 @@ class Orders extends CrudUseCase<Order> implements CanVerify<Order, OrderDeps> {
   Orders({
     required super.requests,
     required super.logger,
-    required Messaging messaging,
-    required Auth auth,
-    required OrderTransitions transitions,
-    required Listings listings,
-    required Relays relays,
-  }) : _messaging = messaging,
-       _auth = auth,
-       _transitions = transitions,
-       _listings = listings,
-       _relays = relays,
-       super(kind: Order.kinds[0]);
+    required this._messaging,
+    required this._auth,
+    required this._transitions,
+    required this._listings,
+    required this._relays,
+  }) : super(kind: Order.kinds[0]);
 
   int _nextReplacementCreatedAt(Order existing) {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;

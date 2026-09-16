@@ -1,13 +1,12 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/datasources/app_database.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/nwc/nwc.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/zaps/zaps.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:ndk/ndk.dart' hide Nwc, Requests, Zaps;
 import 'package:sqlite3/sqlite3.dart' as sqlite3;

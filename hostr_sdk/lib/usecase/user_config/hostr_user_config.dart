@@ -1,3 +1,5 @@
+import 'package:marketplace_evm/funds_monitor_ports.dart';
+
 import 'package:equatable/equatable.dart';
 
 /// The user's app mode — host or guest.
@@ -18,11 +20,12 @@ enum AppMode {
 /// sensible default so a fresh install starts with a valid config.
 ///
 /// Use [copyWith] to produce a modified copy — never mutate in place.
-class HostrUserConfig extends Equatable {
+class HostrUserConfig extends Equatable implements EvmUserPreferences {
   /// Whether the user is in host or guest mode.
   final AppMode mode;
 
   /// Whether EVM auto-withdrawal is enabled.
+  @override
   final bool autoWithdrawEnabled;
 
   const HostrUserConfig({

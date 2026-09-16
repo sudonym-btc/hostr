@@ -1,15 +1,13 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 
 import '../../auth/auth.dart';
 import '../../deterministic_keys/account_seed_store.dart';
-import '../../escrow/main.dart';
 import '../../escrows/escrows.dart';
-import '../../evm/evm.dart';
-import '../../evm/operations/swap_in/swap_in_state.dart';
 import '../../listings/listings.dart';
 import '../../messaging/thread.dart';
 import '../../messaging/messaging.dart';
@@ -17,39 +15,26 @@ import '../../metadata/metadata.dart';
 import '../../order_requests/order_requests.dart';
 import '../../orders/orders.dart';
 import '../../user_subscriptions/user_subscriptions.dart';
-import '../../../util/main.dart';
 import '../payment_proof_orchestrator.dart';
 import 'book_and_pay_models.dart';
 import 'book_and_pay_state.dart';
 
 class BookAndPayOperation extends Cubit<BookAndPayState> {
   BookAndPayOperation({
-    required AccountSeedStore accountSeedStore,
-    required Auth auth,
-    required Listings listings,
-    required Orders orders,
-    required OrderRequests orderRequests,
-    required Messaging messaging,
-    required EscrowUseCase escrow,
-    required Escrows escrows,
-    required MetadataUseCase metadata,
-    required Evm evm,
-    required UserSubscriptions userSubscriptions,
-    required PaymentProofOrchestrator paymentProofOrchestrator,
+    required this._accountSeedStore,
+    required this._auth,
+    required this._listings,
+    required this._orders,
+    required this._orderRequests,
+    required this._messaging,
+    required this._escrow,
+    required this._escrows,
+    required this._metadata,
+    required this._evm,
+    required this._userSubscriptions,
+    required this._paymentProofOrchestrator,
     required CustomLogger logger,
-  }) : _accountSeedStore = accountSeedStore,
-       _auth = auth,
-       _listings = listings,
-       _orders = orders,
-       _orderRequests = orderRequests,
-       _messaging = messaging,
-       _escrow = escrow,
-       _escrows = escrows,
-       _metadata = metadata,
-       _evm = evm,
-       _userSubscriptions = userSubscriptions,
-       _paymentProofOrchestrator = paymentProofOrchestrator,
-       _logger = logger.scope('book-and-pay'),
+  }) : _logger = logger.scope('book-and-pay'),
        super(const BookAndPayInitial());
 
   final AccountSeedStore _accountSeedStore;

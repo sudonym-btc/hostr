@@ -1,19 +1,17 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/usecase/blossom/blossom.dart';
 import 'package:hostr_sdk/usecase/escrow_methods/escrows_methods.dart';
-import 'package:hostr_sdk/usecase/evm/evm.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
 import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/relays/relays.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart'
     show
         Filter,

@@ -1,8 +1,8 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
-import 'package:hostr_sdk/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/state.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
@@ -12,10 +12,9 @@ import 'package:hostr_sdk/usecase/requests/expandable_subscription.dart';
 import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/trades/payment_proof_orchestrator.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:test/test.dart';

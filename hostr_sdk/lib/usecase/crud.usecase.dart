@@ -1,8 +1,9 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:meta/meta.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart'
     show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Nip01Event, Filter;
@@ -36,14 +37,11 @@ class CrudUseCase<T extends Nip01Event> {
   Stream<T> get updates => _updates.stream;
 
   CrudUseCase({
-    required Requests requests,
-    required int kind,
-    int? draftKind,
+    required this._requests,
+    required this._kind,
+    this._draftKind,
     required CustomLogger logger,
-  }) : _requests = requests,
-       _kind = kind,
-       _draftKind = draftKind,
-       _logger = logger.scope('$T');
+  }) : _logger = logger.scope('$T');
 
   /// Notify listeners that an entity was mutated. Call this from external
   /// code (e.g. controllers that bypass [create]/[upsert]/[delete]) to

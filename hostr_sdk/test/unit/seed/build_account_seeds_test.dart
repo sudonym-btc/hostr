@@ -7,7 +7,7 @@ import 'package:hostr_sdk/seed/pipeline/seed_factory.dart';
 import 'package:hostr_sdk/seed/pipeline/seed_pipeline_config.dart';
 import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:test/test.dart';
 

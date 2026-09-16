@@ -3,9 +3,9 @@ library;
 
 import 'dart:async';
 
-import 'package:hostr_sdk/usecase/evm/operations/operation_machine.dart';
-import 'package:hostr_sdk/usecase/evm/operations/operation_state_store.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:marketplace_evm/usecase/evm/operations/operation_machine.dart';
+import 'package:marketplace_evm/usecase/evm/operations/operation_state_store.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import 'package:mockito/mockito.dart';
 import 'package:test/test.dart';
 

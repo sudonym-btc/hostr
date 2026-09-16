@@ -1,3 +1,5 @@
+import 'package:marketplace_evm/ports.dart';
+
 // ignore_for_file: experimental_member_use
 
 import 'package:injectable/injectable.dart' hide Order;
@@ -8,12 +10,12 @@ import 'package:ndk/ndk.dart' hide Nwc;
 import 'package:rxdart/rxdart.dart';
 
 import '../../injection.dart';
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../storage/storage.dart';
 import 'nwc.cubit.dart';
 
 @Singleton(env: Env.allButTestAndMock)
-class Nwc {
+class Nwc implements EvmNwc {
   final CustomLogger _logger;
   final NwcStorage _nwcStorage;
   final Ndk _ndk;
@@ -95,6 +97,7 @@ class Nwc {
         return null;
       });
 
+  @override
   NwcConnection? getActiveConnection() =>
       _logger.spanSync('getActiveConnection', () {
         return getActiveConnectionCubit()?.connection;
@@ -126,6 +129,7 @@ class Nwc {
     return _ndk.nwc.getInfo(connection);
   }
 
+  @override
   Future<PayInvoiceResponse> payInvoice(
     NwcConnection connection,
     String invoice,

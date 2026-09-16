@@ -1,9 +1,9 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
-import '../../util/main.dart';
 import '../crud.usecase.dart';
 
 /// CRUD use-case for append-only [OrderTransition] events.
@@ -18,9 +18,8 @@ class OrderTransitions extends CrudUseCase<OrderTransition> {
   OrderTransitions({
     required super.requests,
     required super.logger,
-    required Ndk ndk,
-  }) : _ndk = ndk,
-       super(kind: OrderTransition.kinds[0]);
+    required this._ndk,
+  }) : super(kind: OrderTransition.kinds[0]);
 
   /// Broadcast a transition event and return it.
   ///

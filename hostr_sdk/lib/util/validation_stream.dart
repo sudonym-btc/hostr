@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-import 'stream_status.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 
-export 'package:models/main.dart' show Validation, Valid, Invalid, Unvalidated;
+export 'package:marketplace_models/main.dart' show Validation, Valid, Invalid, Unvalidated;
 
 StreamWithStatus<Validation<T>> validateStream<T>({
   required StreamWithStatus<T> source,

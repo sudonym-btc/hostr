@@ -1,13 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../../../injection.dart';
-import '../../../util/main.dart';
 import '../../lnurl/lnurl.dart';
-import 'pay_models.dart';
-import 'pay_operation.dart';
-import 'pay_state.dart';
 
 @Injectable(env: Env.allButTestAndMock)
 class LnurlPayOperation
@@ -71,7 +68,7 @@ class LnurlPayOperation
 
     final invoiceResponse = await lnurl.fetchInvoice(
       lnurlResponse: resolvedState.details.response,
-      amountSats: state.params.amount!.getInSats.toInt(),
+      amountSats: state.params.amount!.inSats.toInt(),
       comment: state.params.comment,
     );
     if (invoiceResponse == null || invoiceResponse.invoice.isEmpty) {

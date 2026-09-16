@@ -1,8 +1,10 @@
+import 'package:marketplace_evm/funds_monitor_ports.dart';
+
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:rxdart/rxdart.dart';
 import 'package:sqlite3/common.dart';
 
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../auth/auth.dart';
 import 'hostr_user_config.dart';
 
@@ -31,7 +33,7 @@ import 'hostr_user_config.dart';
 /// No SQL migration is needed — the generic `(pubkey, key, value)` schema
 /// accommodates any number of keys.
 @singleton
-class UserConfigStore {
+class UserConfigStore implements EvmUserPreferencesStore {
   // ── Config key constants ────────────────────────────────────────────────
 
   static const _kMode = 'mode';
@@ -83,6 +85,7 @@ class UserConfigStore {
   });
 
   /// The current config. Triggers [initialize] if not yet loaded.
+  @override
   Future<HostrUserConfig> get state async {
     await initialize();
     return _cache!;

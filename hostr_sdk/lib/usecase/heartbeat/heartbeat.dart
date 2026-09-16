@@ -1,11 +1,11 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 
-import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../crud.usecase.dart';
 import '../requests/requests.dart';
@@ -37,11 +37,9 @@ class Heartbeats extends CrudUseCase<ReceivedHeartbeat> {
   Heartbeats.withDebounce({
     required super.requests,
     required super.logger,
-    required Auth auth,
-    Duration debounceDuration = defaultDebounceDuration,
-  }) : _auth = auth,
-       _debounceDuration = debounceDuration,
-       super(kind: ReceivedHeartbeat.kinds[0]);
+    required this._auth,
+    this._debounceDuration = defaultDebounceDuration,
+  }) : super(kind: ReceivedHeartbeat.kinds[0]);
 
   Future<ReceivedHeartbeat> requestUpsertCurrent({
     int? createdAt,

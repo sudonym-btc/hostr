@@ -1,10 +1,10 @@
 @Tags(['integration', 'docker'])
 library;
 
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/data_layer/data_sources/http_request.dart';
 import 'package:ndk/data_layer/repositories/lnurl_http_impl.dart';
 import 'package:ndk/domain_layer/usecases/lnurl/lnurl.dart';
@@ -62,7 +62,7 @@ void main() {
     final userKey = await hostr.auth.hd.getActiveEvmKey();
     await harness.anvilRootstock.setBalance(
       address: userKey.address.eip55With0x,
-      amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
+      amountWei: rbtcFromSats(BigInt.from(1000000)).value,
     );
 
     // Use explicit amount instead of swapOutAll to avoid the full-balance
@@ -123,7 +123,7 @@ void main() {
       final userKey = await harness.hostr.auth.hd.getActiveEvmKey();
       await harness.anvilRootstock.setBalance(
         address: userKey.address.eip55With0x,
-        amountWei: rbtcFromSats(BigInt.from(1000000)).getInWei,
+        amountWei: rbtcFromSats(BigInt.from(1000000)).value,
       );
 
       // ── Attempt 1: submit an invalid invoice → swap fails ──────────
@@ -165,7 +165,7 @@ void main() {
 
       // Extract the exact amount Boltz requires and fetch a real invoice.
       final required$ = swapOut1.state as SwapOutExternalInvoiceRequired;
-      final requiredSats = required$.invoiceAmount.getInSats.toInt();
+      final requiredSats = required$.invoiceAmount.inSats.toInt();
       final validInvoice = await _fetchLnurlInvoice(requiredSats);
 
       swapOut1.submitExternalInvoice(validInvoice);

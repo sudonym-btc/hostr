@@ -1,5 +1,5 @@
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 
 import '../../../util/deterministic_key_derivation.dart';
 import '../entity_factory.dart';

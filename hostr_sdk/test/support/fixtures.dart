@@ -24,4 +24,4 @@ export 'package:hostr_sdk/seed/seed.dart'
         TestSeedHelper,
         TestTrade,
         ThreadStageSpec;
-export 'package:models/stubs/main.dart' show MockKeys;
+export 'package:marketplace_models/stubs/main.dart' show MockKeys;

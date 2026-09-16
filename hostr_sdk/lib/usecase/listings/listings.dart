@@ -1,5 +1,5 @@
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Filter;
 
 import '../../util/main.dart';
@@ -13,9 +13,8 @@ class Listings extends CrudUseCase<Listing> {
   Listings({
     required super.requests,
     required super.logger,
-    required MetadataUseCase metadata,
-  }) : _metadata = metadata,
-       super(kind: Listing.kinds[0]);
+    required this._metadata,
+  }) : super(kind: Listing.kinds[0]);
 
   @override
   Future<List<Listing>> list(Filter f, {String? name}) =>

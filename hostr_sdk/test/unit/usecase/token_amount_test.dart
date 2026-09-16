@@ -1,8 +1,8 @@
 @Tags(['unit'])
 library;
 
-import 'package:hostr_sdk/util/token_amount_ext.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_evm/util/token_amount_ext.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 
 // ── Shared tokens ──────────────────────────────────────────────────────
@@ -242,17 +242,17 @@ void main() {
     });
   });
 
-  group('TokenAmountEvmExt — getInMSats', () {
+  group('TokenAmountEvmExt — inMillisats', () {
     test('8-decimal → sats × 1000', () {
       final amt = TokenAmount(value: BigInt.from(5), token: _btc);
-      expect(amt.getInMSats, BigInt.from(5000));
+      expect(amt.inMillisats, BigInt.from(5000));
     });
 
     test('18-decimal → divides by 10^7', () {
       // 10^18 wei = 1 RBTC = 10^8 sats = 10^11 msats.
       final oneRbtc = BigInt.from(10).pow(18);
       final amt = TokenAmount(value: oneRbtc, token: _rbtc);
-      expect(amt.getInMSats, BigInt.from(10).pow(11));
+      expect(amt.inMillisats, BigInt.from(10).pow(11));
     });
   });
 
