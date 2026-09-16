@@ -8,7 +8,7 @@
 [submodule "ai/codex-marketplace"]
 	path = ai/codex-marketplace
 	url = git@github.com:sudonym-btc/hostr-codex.git
-	branch = development
+	branch = main
 [submodule "dependencies/nmdk"]
 	path = dependencies/nmdk
 	url = git@github.com:sudonym-btc/nmdk.git
