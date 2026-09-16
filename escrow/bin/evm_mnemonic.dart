@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
-import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
+import 'package:marketplace_models/secp256k1.dart' show loadSecp256k1Backend;
 
 /// Derives and prints the BIP-39 mnemonic + EVM address from a Nostr private
 /// key (hex).  The mnemonic can be imported directly into MetaMask.

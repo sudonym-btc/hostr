@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:io';
 
 import 'package:escrow/daemon/handlers.dart';
@@ -7,8 +8,8 @@ import 'package:escrow/injection.dart';
 import 'package:escrow/shared/socket_config.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:logger/logger.dart';
-import 'package:models/main.dart' show EscrowFee;
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart' show EscrowFee;
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 
 /// Allow self-signed certificates so the daemon can connect to local

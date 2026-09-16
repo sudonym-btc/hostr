@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 void main(List<String> args) {
   final hex =

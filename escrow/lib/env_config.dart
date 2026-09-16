@@ -6,7 +6,7 @@ import 'package:hostr_sdk/config/generated/production_env.g.dart'
     as production_env;
 import 'package:hostr_sdk/config/generated/staging_env.g.dart' as staging_env;
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as test_env;
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
+import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';
 
 /// Runtime-resolved environment configuration.
 ///

@@ -1,12 +1,12 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:escrow/build_info.dart';
 import 'package:escrow/shared/protocol.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Filter, Metadata, Ndk, Nip01Event;
 import 'package:web3dart/web3dart.dart' show BlockNum;
 
@@ -571,18 +571,8 @@ class DaemonHandler {
       Filter(authors: [pubkey]),
     );
 
-    // Deduplicate by contract address, keeping the newest event per contract.
-    // This handles legacy events that were published without a 'd' tag.
-    final byContract = <String, EscrowService>{};
-    for (final s in services) {
-      final existing = byContract[s.contractAddress];
-      if (existing == null || s.createdAt > existing.createdAt) {
-        byContract[s.contractAddress] = s;
-      }
-    }
-
     return {
-      'services': byContract.values
+      'services': services
           .map((s) => ServiceSummary(
                 id: s.id,
                 params: s.parsedContent.params.toJson(),
@@ -612,16 +602,9 @@ class DaemonHandler {
     final existing = await hostr.escrows.getById(serviceId);
     final old = existing.parsedContent;
 
-    // Ensure the 'd' tag is present so relays replace the previous event.
-    final existingTags =
-        existing.tags.map((t) => List<String>.from(t)).toList();
-    if (!existingTags.any((t) => t.isNotEmpty && t[0] == 'd')) {
-      existingTags.add(['d', old.params.contractAddress]);
-    }
-
     final updated = EscrowService(
       pubKey: existing.pubKey,
-      tags: EventTags(existingTags),
+      tags: EventTags(existing.tags),
       content: EscrowServiceContent(
         pubkey: old.pubkey,
         type: old.type,

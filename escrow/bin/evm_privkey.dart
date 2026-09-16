@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:convert/convert.dart' as convert;
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
-import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
+import 'package:marketplace_models/secp256k1.dart' show loadSecp256k1Backend;
 
 /// Derives the EVM private key (hex) from a Nostr private key using the
 /// standard deterministic derivation (HKDF → BIP-39 → m/44'/60'/0'/0/0).

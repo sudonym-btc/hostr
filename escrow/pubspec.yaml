@@ -4,39 +4,32 @@ version: 1.0.0
 publish_to: none
 
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.13.0
 
 executables:
   escrow_daemon: bin/daemon
 
 dependencies:
-  args: ^2.7.0
-  get_it: ^9.2.0
-  injectable: ^2.7.1+4
-  http: ^1.6.0 
-  json_rpc_2: ^4.0.0
-  stream_channel: ^2.1.2
-  models:
-    path: ../models
+  logger: ^2.8.0
+  hydrated_bloc: ^11.0.0
+  convert: ^3.1.2
+  marketplace_evm:
+    path: ../dependencies/nmdk/packages/marketplace_evm
+  get_it: ^9.2.1
+  json_rpc_2: ^4.1.0
+  stream_channel: ^2.1.4
+  marketplace_models:
+    path: ../dependencies/nmdk/packages/marketplace_models
   hostr_sdk:
     path: ../hostr_sdk
-  ndk: ^0.7.1-dev.19
-  h3_dart: ^0.7.0
-  artisanal: ^0.2.0+1
-  dart_console: ^4.1.0
-  interact_cli: ^2.4.0
-  web3dart: ^3.0.2
+  ndk: ^0.9.3
+  web3dart: ^3.0.3
   wallet: ^0.0.18
-  crypto: ^3.0.7
-
-dependency_overrides:
-  ndk:
-    git:
-      url: https://github.com/sudonym-btc/ndk.git
-      ref: feat/hostr-fixes
-      path: packages/ndk
-  pointycastle: ^4.0.0
-  js: ^0.7.2
 
 dev_dependencies:
-  test: ^1.29.0
+  test: ^1.32.0
+
+# Coinlib 5 uses only RIPEMD160Digest.process, unchanged in PointyCastle 4.
+# Web3dart 3 and wallet 0.0.18 require PointyCastle 4.
+dependency_overrides:
+  pointycastle: ^4.0.0

@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:io';
 
 import 'package:get_it/get_it.dart';
@@ -64,7 +65,6 @@ Future<void> setupInjection({
         engine: NdkEngine.RELAY_SETS,
         bootstrapRelays: [env.relayUrl],
         defaultQueryTimeout: const Duration(seconds: 10),
-        eagerAuth: false,
       ),
       syncAccountSeedRemotely: true,
       telemetry: Telemetry(
@@ -82,7 +82,6 @@ Future<void> setupInjection({
   );
   getIt.registerSingleton<HostrRuntime>(runtime);
   final session = await runtime.foregroundSession();
-  session.hostr.escrowDaemon.setLegacyDmBootstrapRelays(env.bootstrapRelays);
   getIt.registerSingleton<HostrSession>(session);
   getIt.registerSingleton<Hostr>(session.hostr);
 }

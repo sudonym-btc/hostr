@@ -1,4 +1,4 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// Generates a fresh Nostr private key (hex) and prints it to stdout.
 ///

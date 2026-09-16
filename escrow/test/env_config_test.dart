@@ -24,7 +24,7 @@ void main() {
   });
 
   group('EnvConfig.forEnvironment', () {
-    test('includes public bootstrap relays for staging legacy DMs', () {
+    test('includes public bootstrap relays for staging discovery', () {
       final config = EnvConfig.forEnvironment('staging');
 
       expect(config.relayUrl, 'wss://relay.staging.hostr.network');
@@ -32,7 +32,7 @@ void main() {
       expect(config.bootstrapRelays, contains('wss://relay.damus.io'));
     });
 
-    test('includes public bootstrap relays for production legacy DMs', () {
+    test('includes public bootstrap relays for production discovery', () {
       final config = EnvConfig.forEnvironment('prod');
 
       expect(config.relayUrl, 'wss://relay.hostr.network');

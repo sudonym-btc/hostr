@@ -1,8 +1,8 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:hostr_sdk/hostr_sdk.dart' show CustomLogger;
 import 'package:json_rpc_2/json_rpc_2.dart' as json_rpc;
 import 'package:stream_channel/stream_channel.dart';
 
