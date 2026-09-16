@@ -171,7 +171,7 @@ seed_relay() {
     fi
 
     if { [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; } && [ -z "${SEED_SIGNET_BUNKER_URL:-}" ]; then
-        export SEED_SIGNET_BUNKER_URL="https://bunker-nostr.hostr.development"
+        export SEED_SIGNET_BUNKER_URL="https://bunker.${DOMAIN:-hostr.development}"
     fi
     
     (

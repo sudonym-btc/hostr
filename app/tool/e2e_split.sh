@@ -21,6 +21,8 @@ browser_cache_dir="${HOSTR_BROWSER_CACHE_DIR:-$repo_root/.cache/chrome-for-testi
 runner_lock_dir="${HOSTR_E2E_LOCK_DIR:-/tmp/hostr_e2e_runner.lock}"
 restart_signet_enabled="${HOSTR_DRIVE_RESTART_SIGNET:-1}"
 restart_escrow_enabled="${HOSTR_DRIVE_RESTART_ESCROW:-1}"
+domain="${DOMAIN:-hostr.development}"
+signet_bunker_url="${HOSTR_SIGNET_BUNKER_URL:-https://bunker.${domain}}"
 chromedriver_pid=""
 chromedriver_port=""
 chrome_profile_dir=""
@@ -280,7 +282,7 @@ cleanup_signet_test_apps() {
   cookie_file="$(mktemp)"
   csrf_token="$(
     { curl -sk --max-time 5 -c "$cookie_file" \
-      https://bunker-nostr.hostr.development/csrf-token || true; } |
+      "$signet_bunker_url/csrf-token" || true; } |
       jq -r '(.csrfToken // .token // "") | tostring'
   )"
 
@@ -298,11 +300,11 @@ cleanup_signet_test_apps() {
       -b "$cookie_file" \
       -H "x-csrf-token: $csrf_token" \
       -X POST \
-      "https://bunker-nostr.hostr.development/apps/${app_id}/revoke" \
+      "$signet_bunker_url/apps/${app_id}/revoke" \
       >/dev/null || true
   done < <(
     { curl -sk --max-time 5 -b "$cookie_file" \
-      https://bunker-nostr.hostr.development/apps || true; } |
+      "$signet_bunker_url/apps" || true; } |
       jq -r '
         def e2e_key:
           startswith("hostr-bunker-") or
@@ -322,8 +324,8 @@ cleanup_signet_test_apps() {
 signet_is_ready() {
   local health_body csrf_body
 
-  health_body="$(curl -sk --max-time 5 https://bunker-nostr.hostr.development/health || true)"
-  csrf_body="$(curl -sk --max-time 5 https://bunker-nostr.hostr.development/csrf-token || true)"
+  health_body="$(curl -sk --max-time 5 "$signet_bunker_url/health" || true)"
+  csrf_body="$(curl -sk --max-time 5 "$signet_bunker_url/csrf-token" || true)"
 
   if command -v jq >/dev/null 2>&1; then
     printf '%s' "$health_body" | jq -e \

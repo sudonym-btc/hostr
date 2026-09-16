@@ -25,8 +25,7 @@ class SignetTestController {
     Uri? baseUri,
     Duration requestTimeout = const Duration(seconds: 20),
   }) : _client = SignetBunkerClient(
-         baseUri:
-             baseUri ?? Uri.parse('https://bunker-nostr.hostr.development/'),
+         baseUri: baseUri ?? Uri.parse('https://bunker.hostr.development/'),
          requestTimeout: requestTimeout,
        );
 

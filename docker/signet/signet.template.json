@@ -4,9 +4,9 @@
   },
   "authPort": 3000,
   "authHost": "0.0.0.0",
-  "baseUrl": "https://bunker-nostr.__DOMAIN__",
+  "baseUrl": "https://bunker.__DOMAIN__",
   "allowedOrigins": [
-    "https://bunker-nostr.__DOMAIN__",
+    "https://bunker.__DOMAIN__",
     "http://localhost:4174",
     "http://127.0.0.1:4174"
   ],

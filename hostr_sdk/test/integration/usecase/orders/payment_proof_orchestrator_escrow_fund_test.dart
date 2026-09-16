@@ -2,6 +2,7 @@
 library;
 
 import 'package:marketplace_evm/marketplace_evm.dart';
+
 import 'dart:async';
 
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
@@ -373,7 +374,7 @@ Future<_BunkerBuyerSession> _signInBunkerBuyer({
   required String label,
 }) async {
   final signet = SignetBunkerClient(
-    baseUri: Uri.parse('https://bunker-nostr.hostr.development/'),
+    baseUri: Uri.parse('https://bunker.hostr.development/'),
     maxRateLimitRetries: 12,
   );
   final keyName =

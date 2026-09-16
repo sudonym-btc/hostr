@@ -89,7 +89,7 @@ Future<void> _withBunkerSignedIn({
   required Future<void> Function(String bunkerUri) body,
 }) async {
   final signet = SignetBunkerClient(
-    baseUri: Uri.parse('https://bunker-nostr.hostr.development/'),
+    baseUri: Uri.parse('https://bunker.hostr.development/'),
     maxRateLimitRetries: 12,
   );
   final keyName = '$_keyPrefix-${DateTime.now().microsecondsSinceEpoch}';

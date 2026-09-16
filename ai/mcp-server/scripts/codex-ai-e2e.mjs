@@ -48,7 +48,7 @@ const codexBin = resolveCodexBin();
 
 const signetBaseUrl =
   process.env.HOSTR_AI_E2E_SIGNET_URL ??
-  "https://bunker-nostr.hostr.development";
+  "https://bunker.hostr.development";
 const albyBaseUrl =
   process.env.HOSTR_AI_E2E_ALBY_URL ?? "https://alby.hostr.development";
 const albyPassword = process.env.ALBYHUB_PASSWORD ?? "Testing123!";
