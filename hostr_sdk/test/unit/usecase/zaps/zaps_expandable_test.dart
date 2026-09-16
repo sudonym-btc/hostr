@@ -1,6 +1,8 @@
 @Tags(['unit'])
 library;
 
+import 'dart:async';
+
 import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/datasources/app_database.dart';
@@ -37,10 +39,16 @@ void main() {
       debounceDuration: Duration.zero,
     );
 
+    addTearDown(() async {
+      await subscription.close();
+      await filters.close();
+    });
+
     await zaps.startExpandableZapReceipts(subscription, filters);
+    final initialLiveSubscription = requests.nextLiveSubscription;
     filters.add(Filter(pTags: const ['seller-a'], eTags: const ['trade-1']));
     filters.addStatus(StreamStatusLive());
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await initialLiveSubscription;
 
     expect(requests.queryFilters, hasLength(1));
     expect(requests.liveFilters, hasLength(1));
@@ -50,22 +58,20 @@ void main() {
     expect(requests.queryFilters.single.pTags, const ['seller-a']);
     expect(requests.queryFilters.single.eTags, const ['trade-1']);
 
+    final expandedLiveSubscription = requests.nextLiveSubscription;
     filters.add(
       Filter(
         pTags: const ['seller-a', 'seller-b'],
         eTags: const ['trade-1', 'trade-2'],
       ),
     );
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await expandedLiveSubscription;
 
     expect(requests.queryFilters, hasLength(2));
     expect(requests.liveFilters, hasLength(2));
     expect(requests.queryFilters.last.kinds, const [ZapReceipt.kKind]);
     expect(requests.queryFilters.last.pTags, const ['seller-a', 'seller-b']);
     expect(requests.queryFilters.last.eTags, const ['trade-1', 'trade-2']);
-
-    await subscription.close();
-    await filters.close();
   });
 }
 
@@ -78,6 +84,9 @@ class _CapturingRequests extends Fake implements Requests {
   final List<List<String>?> queryRelays = [];
   final List<Filter> liveFilters = [];
   final List<List<String>?> liveRelays = [];
+  Completer<void> _nextLiveSubscription = Completer<void>();
+
+  Future<void> get nextLiveSubscription => _nextLiveSubscription.future;
 
   @override
   Stream<T> query<T extends Nip01Event>({
@@ -103,6 +112,8 @@ class _CapturingRequests extends Fake implements Requests {
   }) {
     liveFilters.add(filter);
     liveRelays.add(relays);
+    _nextLiveSubscription.complete();
+    _nextLiveSubscription = Completer<void>();
     return LiveSubscriptionHandle(() async {}, name);
   }
 }
