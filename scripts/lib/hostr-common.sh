@@ -57,6 +57,7 @@ hostr_load_env() {
     source "$repo_root/.env"
     source "$repo_root/.env.$environment"
     set +a
+    export HOSTR_ENVIRONMENT="$environment"
 }
 
 hostr_ensure_certs() {

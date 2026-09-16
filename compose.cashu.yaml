@@ -126,7 +126,7 @@ services:
       MARKETPLACE_CASHU_LND_MINT_CONTAINER_RPC_SERVER: lnd:${LIGHTNING_RPC_PORT}
       MARKETPLACE_CASHU_LND_BUYER_CONTAINER_REST_URL: https://lnd-1:8081
       MARKETPLACE_CASHU_LND_BUYER_CONTAINER_RPC_SERVER: lnd-1:10009
-      MARKETPLACE_CASHU_PAY_INVOICE_COMMAND: docker compose exec -T lnd-1 lncli --network=regtest --lnddir=/app/lnd payinvoice --force --fee_limit=1000 <bolt11>
+      MARKETPLACE_CASHU_PAY_INVOICE_COMMAND: ./scripts/compose.sh ${HOSTR_ENVIRONMENT:-local} exec -T lnd-1 lncli --network=regtest --lnddir=/app/lnd payinvoice --force --fee_limit=1000 <bolt11>
     entrypoint: ["sh", "/scripts/write-config.sh"]
 
   stack-ready:
