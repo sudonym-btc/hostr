@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/route/pending_navigation.dart';

@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:collection';
 
@@ -6,7 +7,7 @@ import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// A service that preloads and caches images, supporting both regular network
 /// URLs and Blossom SHA-256 hashes that require server-list resolution first.
@@ -213,7 +214,7 @@ class ImagePreloader {
       final list = _normaliseServerList(servers);
       if (list.isNotEmpty) {
         completer.complete(list);
-        return completer.future;
+        return await completer.future;
       }
 
       final fallback = _normaliseServerList(hostr.config.bootstrapBlossom);
@@ -222,7 +223,7 @@ class ImagePreloader {
           'Blossom server list empty for $pubkey; falling back to configured Hostr Blossom servers: $fallback',
         );
         completer.complete(fallback);
-        return completer.future;
+        return await completer.future;
       }
 
       completer.complete(list);
@@ -245,7 +246,7 @@ class ImagePreloader {
       _pendingServerLookups.remove(pubkey);
     }
 
-    return completer.future;
+    return await completer.future;
   }
 
   List<String> _normaliseServerList(Iterable<String>? servers) {

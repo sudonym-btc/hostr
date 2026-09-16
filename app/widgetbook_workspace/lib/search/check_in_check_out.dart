@@ -7,6 +7,7 @@ Widget defaultUseCase(BuildContext context) {
   return Align(
     alignment: Alignment.center,
     child: DateRangeButtons(
+      onTap: () {},
       selectedDateRange: DateTimeRange(
         start: DateTime.now(),
         end: DateTime.now().add(Duration(days: 1)),

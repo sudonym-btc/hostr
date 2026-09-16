@@ -9,7 +9,7 @@ import 'package:hostr/logic/forms/text_field_controller.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
 import 'package:hostr/presentation/forms/search/location_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class EditListingController extends UpsertFormController {
   Listing? l;

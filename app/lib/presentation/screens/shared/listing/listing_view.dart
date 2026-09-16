@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,7 +13,7 @@ import 'package:hostr/presentation/component/widgets/badges_widget.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 import 'block_dates.dart';

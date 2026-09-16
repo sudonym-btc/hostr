@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import '../amount/amount_input.dart';

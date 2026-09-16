@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ThreadMessageWidget extends StatelessWidget {
   final Message item;

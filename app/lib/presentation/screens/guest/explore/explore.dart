@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/screens/guest/explore/explore_view.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 @RoutePage()
 class ExploreScreen extends StatelessWidget {

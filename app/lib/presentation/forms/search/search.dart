@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/form_label.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import 'date_range_buttons.dart';
 import 'location_input.dart';
@@ -67,7 +67,13 @@ class _SearchFormState extends State<SearchForm> {
           Gap.vertical.md(),
           SizedBox(
             width: double.infinity,
-            child: DateRangeButtons(controller: _c.dateRangeField),
+            child: ListenableBuilder(
+              listenable: _c.dateRangeField,
+              builder: (context, _) => DateRangeButtons(
+                selectedDateRange: _c.dateRangeField.dateRange,
+                onTap: () => _c.dateRangeField.pick(context),
+              ),
+            ),
           ),
           Gap.vertical.lg(),
 

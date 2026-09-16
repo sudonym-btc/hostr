@@ -1,9 +1,9 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:bolt11_decoder/bolt11_decoder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 
 const _testBolt11 =
     'lnbc10u1pdsw4dkpp5mmlhfpcw4rj0scnyqmw02yvwpn4h6d40wyep3yew8l954sfl6ucqdqq'

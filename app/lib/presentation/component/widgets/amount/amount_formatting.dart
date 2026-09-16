@@ -1,7 +1,8 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:intl/intl.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 var format = (bool fiat) => NumberFormat.currency(
   locale: "en_US",

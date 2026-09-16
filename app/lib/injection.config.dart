@@ -9,6 +9,7 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:hostr/config/env/base.config.dart' as _i467;
 import 'package:hostr/config/env/development.config.dart' as _i598;
@@ -23,7 +24,7 @@ import 'package:hostr/data/sources/local/mode_storage.dart' as _i640;
 import 'package:hostr/data/sources/local/secure_storage.dart' as _i311;
 import 'package:hostr/route/pending_navigation.dart' as _i240;
 import 'package:injectable/injectable.dart' as _i526;
-import 'package:models/util/location/h3.dart' as _i854;
+import 'package:marketplace_models/util/location/h3.dart' as _i525;
 
 const String _test = 'test';
 const String _mock = 'mock';
@@ -47,7 +48,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i236.StagingConfig(),
       registerFor: {_staging},
     );
-    gh.singleton<_i854.H3Engine>(() => _i175.H3EngineIml());
     gh.singleton<_i311.SecureStorage>(
       () => _i311.ImplSecureStorage(),
       registerFor: {_dev, _staging, _prod},
@@ -64,6 +64,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i311.MockSecureStorage(),
       registerFor: {_test, _mock},
     );
+    gh.singleton<_i525.H3Engine>(() => _i175.H3EngineIml());
     gh.factory<_i575.GoogleMaps>(
       () => _i575.GoogleMapsImpl(),
       registerFor: {_dev, _staging, _prod},

@@ -171,10 +171,9 @@ class AppChip extends StatelessWidget {
     this.backgroundColor,
     this.shape,
     this.onTap,
-    required _ChipVariant variant,
-    required _ChipSize size,
-  }) : _variant = variant,
-       _size = size;
+    required this._variant,
+    required this._size,
+  });
 
   // ─── Variant factory handles ────────────────────────────────
   // Each is a callable const object so both of these work:

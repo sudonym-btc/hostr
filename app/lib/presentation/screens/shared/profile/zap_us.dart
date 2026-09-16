@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/env/base.config.dart';

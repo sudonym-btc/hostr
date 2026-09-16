@@ -245,9 +245,7 @@ class _FollowUsModalState extends State<_FollowUsModal> {
     final result = await hostr.requests.broadcastEvent(
       event: preview.update.event,
     );
-    await hostr.ndk.config.cache.saveContactList(
-      ContactList.fromEvent(result.event),
-    );
+    await hostr.ndk.config.cache.saveEvent(result.event);
 
     if (!mounted) return;
     navigator.pop();

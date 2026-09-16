@@ -7,7 +7,7 @@ import 'package:hostr/presentation/component/providers/nostr/badge_definition.pr
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
 /// Widget to display badges for a listing or a host pubkey.

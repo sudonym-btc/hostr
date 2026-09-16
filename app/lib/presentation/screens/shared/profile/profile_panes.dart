@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
@@ -13,9 +14,8 @@ import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wallet/wallet.dart' show EthereumAddress;
 
 import 'dev.dart';
 import 'mode_toggle.dart';
@@ -354,29 +354,7 @@ class _FundsItemTile extends StatelessWidget {
   }
 
   Future<void> _initiateWithdraw(BuildContext context) async {
-    // Build swap-out params the same way as FundsMonitorService._swapOutParams
-    Map<String, Call>? preLockCalls;
-    if (item.isEscrowLocked) {
-      final destination = await item.chain.getAccountAddress(item.keypair);
-      final tokenAddress = EthereumAddress.fromHex(item.token.address);
-      preLockCalls = {
-        'withdraw': item.contract!.withdraw(
-          WithdrawArgs(
-            token: tokenAddress,
-            ethKey: item.keypair,
-            beneficiary: item.keypair.address,
-            destination: destination,
-          ),
-        ),
-      };
-    }
-
-    final params = SwapOutParams(
-      evmKey: item.keypair,
-      accountIndex: item.accountIndex,
-      amountSpec: item.isEscrowLocked ? AmountSpec.input(item.balance) : null,
-      preLockCalls: preLockCalls,
-    );
+    final params = await item.swapOutParams();
 
     final swapOp = item.chain.swapOut(params: params);
     late final StreamSubscription<SwapOutState> refreshSub;
@@ -703,11 +681,11 @@ class _SwapOutTile extends StatelessWidget {
             menuItems: [
               _SwapTxMenuItem(
                 label: 'View Lock Tx',
-                uri: _txExplorerUri(operation.chain.config, data?.fundTxHash),
+                uri: _txExplorerUri(operation.chain.config, data?.lockTxHash),
               ),
               _SwapTxMenuItem(
                 label: 'View Refund Tx',
-                uri: _txExplorerUri(operation.chain.config, data?.refundTxHash),
+                uri: _txExplorerUri(operation.chain.config, data?.resolutionTxHash),
               ),
             ],
           ),

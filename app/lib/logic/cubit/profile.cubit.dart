@@ -1,7 +1,8 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Metadata, Nip01Event;
 
 /// Cubit responsible for loading and caching a single user's profile metadata.

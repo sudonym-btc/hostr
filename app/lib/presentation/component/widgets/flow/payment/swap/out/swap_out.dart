@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -5,8 +6,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
@@ -337,7 +337,7 @@ class _SwapOutExternalInvoiceWidgetState
         children: [
           Text(
             AppLocalizations.of(context)!.swapOutExternalInvoiceInstructions(
-              widget.invoiceAmount.getInSats.toInt(),
+              widget.invoiceAmount.inSats.toInt(),
             ),
             style: Theme.of(context).textTheme.bodyMedium,
           ),

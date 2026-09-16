@@ -1,7 +1,7 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/theme.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:toastification/toastification.dart';
 
 typedef NotificationOverlayStateProvider = OverlayState? Function();

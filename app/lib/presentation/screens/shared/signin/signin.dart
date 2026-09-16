@@ -201,8 +201,6 @@ class SignInScreenState extends State<SignInScreen> {
         'sign_event',
         'nip44_encrypt',
         'nip44_decrypt',
-        'nip04_encrypt',
-        'nip04_decrypt',
       ],
     );
   }

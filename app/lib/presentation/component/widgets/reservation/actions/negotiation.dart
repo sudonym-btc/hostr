@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/_localization/app_localizations.dart';
@@ -13,7 +14,7 @@ import 'package:hostr/presentation/component/widgets/ui/app_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/future_button.dart';
 import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class NegotiationWidget extends StatelessWidget {
   final TradeReady tradeState;

@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:blurhash_dart/blurhash_dart.dart';
@@ -9,9 +10,8 @@ import 'package:hostr/data/sources/image_preloader.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/image_load_error.dart';
 import 'package:hostr/presentation/component/widgets/ui/image_loading_shimmer.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:image/image.dart' as img;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class BlossomImage extends StatefulWidget {
   final String image;

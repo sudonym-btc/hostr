@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,7 +9,7 @@ import 'package:hostr/presentation/component/widgets/reservation/actions/negotia
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'actions/commit.dart';

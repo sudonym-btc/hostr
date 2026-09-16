@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/listing/listing_list_item.dart';
 import 'package:hostr/presentation/screens/shared/listing/listing_view.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 Price _price() => Price(
   amount: DenominatedAmount(

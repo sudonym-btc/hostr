@@ -20,7 +20,7 @@ import 'package:hostr/logic/forms/listing_price_field_controller.dart'
 import 'package:hostr/presentation/component/widgets/amount/amount_formatting.dart';
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 export 'amount_formatting.dart';
 

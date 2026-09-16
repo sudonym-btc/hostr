@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 DateTimeRange? _normalizeDateRange(DateTimeRange? range) {
   if (range == null) return null;

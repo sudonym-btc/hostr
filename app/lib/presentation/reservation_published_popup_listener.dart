@@ -6,7 +6,7 @@ import 'package:hostr/presentation/component/widgets/reservation/trade_header.da
 import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ReservationPublishedPopupListener extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;

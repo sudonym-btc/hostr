@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/core/util/thousands_separator_formatter.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:hostr/logic/forms/listing_price_field_controller.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// Manages an optional [DenominatedAmount] field that supports any
 /// denomination (BTC, USD, ETH, …).

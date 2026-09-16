@@ -1,7 +1,7 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:timelines_plus/timelines_plus.dart';
 
 import 'payment_timeline_item.dart';

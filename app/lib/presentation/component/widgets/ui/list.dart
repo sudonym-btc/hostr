@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,7 +9,6 @@ import 'package:hostr/logic/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/animated_list_item.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr/presentation/component/widgets/ui/padding.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:ndk/ndk.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 

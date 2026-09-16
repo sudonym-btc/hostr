@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class BlockedReservations extends StatelessWidget {

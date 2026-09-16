@@ -11,7 +11,7 @@ import 'package:hostr/presentation/component/widgets/ui/status_stream_list.dart'
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 @RoutePage()
 class MyListingsScreen extends StatefulWidget {

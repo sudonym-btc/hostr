@@ -1,6 +1,6 @@
 import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// Well-known decimal precision for each denomination.
 ///

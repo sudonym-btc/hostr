@@ -1,10 +1,11 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/payment.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../../modal_bottom_sheet.dart';
 import '../escrow/fund/escrow_fund.dart';

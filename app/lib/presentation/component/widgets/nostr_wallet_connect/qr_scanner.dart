@@ -1,8 +1,8 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class NwcQrScannerWidget extends StatefulWidget {

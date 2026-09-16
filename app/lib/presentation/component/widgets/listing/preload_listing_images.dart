@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/data/sources/image_preloader.dart';
 import 'package:hostr/injection.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// A widget that eagerly preloads all images for a [Listing] into Flutter's
 /// image cache as soon as it is inserted into the tree.

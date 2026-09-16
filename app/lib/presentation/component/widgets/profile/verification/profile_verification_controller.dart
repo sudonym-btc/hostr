@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// Encapsulates NIP-05 and LUD-16 verification logic for a profile.
 ///

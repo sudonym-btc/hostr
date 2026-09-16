@@ -7,7 +7,7 @@ import 'package:hostr/presentation/layout/app_layout.dart' as app_layout;
 import 'package:hostr/presentation/screens/shared/listing/edit_listing.controller.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_inputs.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class EditListingView extends StatefulWidget {
   final String? a;

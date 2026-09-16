@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -12,7 +13,7 @@ import 'package:hostr/presentation/in_app_notification_toast.dart';
 import 'package:hostr/route/notification_deep_link_handler.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:models/main.dart'
+import 'package:marketplace_models/main.dart'
     show
         H3Engine,
         describeH3BackendSelection,

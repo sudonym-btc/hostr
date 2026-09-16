@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/thread_view.dart';

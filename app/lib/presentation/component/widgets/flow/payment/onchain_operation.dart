@@ -1,10 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
 import 'package:hostr/presentation/component/widgets/ui/asymptotic_progress_bar.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../ui/gap.dart';
 import '../modal_bottom_sheet.dart';

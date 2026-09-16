@@ -83,9 +83,8 @@ class StartupGateCubit extends Cubit<StartupGateState> {
   final StartupCoordinator _startup;
   late final StreamSubscription<StartupSnapshot> _startupSub;
 
-  StartupGateCubit({required StartupCoordinator startup})
-    : _startup = startup,
-      super(const StartupGateInitial()) {
+  StartupGateCubit({required this._startup})
+    : super(const StartupGateInitial()) {
     _startupSub = _startup.snapshots.listen(_onSnapshot);
   }
 

@@ -3,7 +3,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_popup.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ProfileHeaderWidget extends StatefulWidget {
   final ProfileMetadata? profile;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_formatting.dart';
 import 'package:hostr/presentation/component/widgets/listing/price.dart';
 import 'package:hostr/presentation/main.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class PriceTagWidget extends StatelessWidget {
   final Price price;

@@ -1,7 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/screens/shared/listing/edit_listing_view.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 @RoutePage()
 class EditListingScreen extends StatelessWidget {

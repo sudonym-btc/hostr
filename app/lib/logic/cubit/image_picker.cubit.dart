@@ -1,9 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show BlobDescriptor;
 
 import 'image_picker_web_gallery_stub.dart'

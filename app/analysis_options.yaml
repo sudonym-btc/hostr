@@ -32,6 +32,12 @@ analyzer:
   exclude: 
     - '**/*.g.dart'
     - '**/*.swagger.dart'
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
 language:
   enable-experiments: 
     - super-parameters

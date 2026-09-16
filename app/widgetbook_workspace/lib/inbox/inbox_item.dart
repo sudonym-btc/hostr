@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/inbox/inbox_item.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import '../seed_data.dart';

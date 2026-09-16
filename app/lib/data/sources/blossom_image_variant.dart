@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class BlossomImageVariantHint {
   final int? maxBytes;

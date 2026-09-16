@@ -5,7 +5,7 @@ import 'package:hostr/core/util/npub_formatter.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class InboxItemView extends StatelessWidget {
   final List<String> counterparties;

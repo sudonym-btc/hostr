@@ -3,7 +3,7 @@ import 'package:hostr/export.dart';
 import 'package:hostr/logic/forms/amount_field_controller.dart';
 import 'package:hostr/presentation/component/widgets/badges_widget.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:widgetbook_annotation/widgetbook_annotation.dart' as widgetbook;
 
 import '../seed_data.dart';
@@ -146,9 +146,8 @@ class _ShowcasePanel extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
             Gap.vertical.md(),
             child,
@@ -430,9 +429,8 @@ class _FallbackBadgeAwardChip extends StatelessWidget {
             Gap.horizontal.xs(),
             Text(
               'Badge',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -474,17 +472,22 @@ class _DateRangeButtonSamples extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          DateRangeButtons(selectedDateRange: selectedRange),
-          Gap.vertical.md(),
-          DateRangeButtons(selectedDateRange: selectedRange, small: true),
+          DateRangeButtons(onTap: () {}, selectedDateRange: selectedRange),
           Gap.vertical.md(),
           DateRangeButtons(
+            onTap: () {},
+            selectedDateRange: selectedRange,
+            small: true,
+          ),
+          Gap.vertical.md(),
+          DateRangeButtons(
+            onTap: () {},
             selectedDateRange: selectedRange,
             single: true,
             small: true,
           ),
           Gap.vertical.md(),
-          const DateRangeButtons(single: true),
+          DateRangeButtons(onTap: () {}, single: true),
         ],
       ),
     );
@@ -534,12 +537,10 @@ class _AmountTapInputSamplesState extends State<_AmountTapInputSamples> {
 
   @override
   Widget build(BuildContext context) {
-    final reserveTextStyle = Theme.of(
-      context,
-    ).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold);
-    final paymentTextStyle = Theme.of(
-      context,
-    ).textTheme.displayMedium!.copyWith(fontWeight: FontWeight.bold);
+    final reserveTextStyle = Theme.of(context).textTheme.titleMedium!
+        .copyWith(fontWeight: FontWeight.bold);
+    final paymentTextStyle = Theme.of(context).textTheme.displayMedium!
+        .copyWith(fontWeight: FontWeight.bold);
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 620),
@@ -610,9 +611,8 @@ class _AmountTapInputSample extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           Gap.vertical.xs(),
           child,

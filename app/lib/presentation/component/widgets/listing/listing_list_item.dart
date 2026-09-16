@@ -10,7 +10,7 @@ import 'package:hostr/presentation/component/providers/nostr/listing_dependencie
 import 'package:hostr/presentation/component/widgets/listing/listing_carousel.dart';
 import 'package:hostr/presentation/component/widgets/listing/preload_listing_images.dart';
 import 'package:hostr/router.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import 'price_tag.dart';
 

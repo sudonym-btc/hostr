@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,7 +9,7 @@ import 'package:hostr/presentation/component/widgets/flow/payment/onchain_operat
 import 'package:hostr/presentation/component/widgets/flow/payment/swap/in/swap_in.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../../../../amount/amount_input.dart';
 import '../../../modal_bottom_sheet.dart';
@@ -92,7 +93,7 @@ class _EscrowFundWidgetState extends State<EscrowFundWidget> {
     final swapParams = await preparer.prepare();
     debugPrint(
       'EscrowFundWidget._onConfirm: prepared swap amount='
-      '${swapParams.amount.getInSats} token=${swapParams.amount.token.tagId}',
+      '${swapParams.amount.inSats} token=${swapParams.amount.token.tagId}',
     );
 
     // Create the swap operation (self-registers in SwapInTracker).

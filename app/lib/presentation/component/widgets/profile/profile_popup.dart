@@ -8,7 +8,7 @@ import 'package:hostr/presentation/component/widgets/badges_widget.dart';
 import 'package:hostr/presentation/component/widgets/profile/verification/main.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
 /// A popup card that displays profile information with verification badges.

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/logic/forms/form_field_controller.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class LocationController extends FormFieldController {
   final TextEditingController textController;

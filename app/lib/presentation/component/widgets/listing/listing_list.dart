@@ -4,7 +4,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 class ListingsWidget extends StatefulWidget {

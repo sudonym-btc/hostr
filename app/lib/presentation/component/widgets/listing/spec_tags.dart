@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 Color getColorForSpec(BuildContext context, String spec) {
   return AppSurface.stepped(context, 2);
@@ -72,7 +72,3 @@ class SpecificationsWidget extends StatelessWidget {
     );
   }
 }
-
-/// Backwards-compatible alias.
-@Deprecated('Use SpecificationsWidget instead')
-typedef AmenityTagsWidget = SpecificationsWidget;

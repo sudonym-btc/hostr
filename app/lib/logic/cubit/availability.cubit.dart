@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import 'date_range.cubit.dart';
 

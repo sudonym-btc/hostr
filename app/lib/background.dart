@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -67,9 +68,9 @@ Future<bool> executeBackgroundTask(
       );
     }
 
-    return Future.value(true);
+    return true;
   } catch (e) {
     logger.e('Error executing background task: $e');
-    return Future.value(false);
+    return false;
   }
 }

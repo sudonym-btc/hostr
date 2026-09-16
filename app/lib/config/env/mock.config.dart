@@ -1,6 +1,6 @@
-import 'package:hostr_sdk/hostr_sdk.dart';
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:injectable/injectable.dart';
-import 'package:models/stubs/keypairs.dart';
+import 'package:marketplace_models/stubs/keypairs.dart';
 
 import '../../../injection.dart';
 import 'base.config.dart';

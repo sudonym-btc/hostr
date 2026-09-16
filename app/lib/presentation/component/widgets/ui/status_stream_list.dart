@@ -1,8 +1,8 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_loading_indicator.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'emty_results.dart';

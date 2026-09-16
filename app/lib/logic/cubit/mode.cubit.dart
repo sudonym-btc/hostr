@@ -27,9 +27,8 @@ class ModeCubit extends Cubit<ModeCubitState> {
   final UserConfigStore _configStore;
   StreamSubscription<HostrUserConfig>? _sub;
 
-  ModeCubit({required UserConfigStore configStore})
-    : _configStore = configStore,
-      super(ModeInitial());
+  ModeCubit({required this._configStore})
+    : super(ModeInitial());
 
   /// Load persisted mode and start listening for external changes.
   Future<void> load() async {

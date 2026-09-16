@@ -9,7 +9,7 @@ import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/presentation/screens/guest/explore/filters.dart';
 import 'package:hostr/presentation/screens/guest/explore/map_view.cubit.dart';
 import 'package:hostr/router.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ExploreView extends StatefulWidget {
   const ExploreView({super.key});

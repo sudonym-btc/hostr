@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/route/listing_reservation_route.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 void main() {
   group('listing reservation route query helpers', () {

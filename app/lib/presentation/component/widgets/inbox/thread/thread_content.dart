@@ -7,7 +7,7 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/message/messag
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/reservation_request/reservation_request.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:provider/provider.dart';
 
 class ThreadContent extends StatefulWidget {

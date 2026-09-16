@@ -40,10 +40,14 @@ class _BlockDatesWidgetState extends State<BlockDatesWidget> {
         children: [
           SizedBox(
             width: double.infinity,
-            child: DateRangeButtons(
-              controller: dateRangeController,
-              startText: 'Start',
-              endText: 'End',
+            child: ListenableBuilder(
+              listenable: dateRangeController,
+              builder: (context, _) => DateRangeButtons(
+                selectedDateRange: dateRangeController.dateRange,
+                onTap: () => dateRangeController.pick(context),
+                startText: 'Start',
+                endText: 'End',
+              ),
             ),
           ),
         ],

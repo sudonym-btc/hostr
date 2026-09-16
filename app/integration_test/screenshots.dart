@@ -37,7 +37,7 @@ import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/testing/integration_test_harness.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
-import 'package:models/main.dart' show Listing;
+import 'package:marketplace_models/main.dart' show Listing;
 
 import 'support/http_overrides_stub.dart'
     if (dart.library.io) 'support/http_overrides_io.dart';

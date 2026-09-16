@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/amount/amount_input.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 void main() {
   group('AmountInputWidget', () {

@@ -45,25 +45,26 @@ class RelayConnectivityState extends Equatable {
 /// Cubit that monitors relay connectivity and emits aggregate state.
 class RelayConnectivityCubit extends Cubit<RelayConnectivityState> {
   final Hostr _hostr;
-  StreamSubscription<Map<String, RelayConnectivity<dynamic>>>? _subscription;
+  StreamSubscription<List<RelayConnectivity<dynamic>>>? _subscription;
 
-  RelayConnectivityCubit({required Hostr hostr})
-    : _hostr = hostr,
-      super(const RelayConnectivityState()) {
+  RelayConnectivityCubit({required this._hostr})
+    : super(const RelayConnectivityState()) {
     _subscribe();
   }
 
   void _subscribe() {
     _subscription = _hostr.relays.connectivity().listen(
-      (connectivityMap) {
+      (connections) {
         final hostrRelay = _hostr.config.hostrRelay;
-        final total = connectivityMap.length;
-        final connected = connectivityMap.values
-            .where((c) => c.relayTransport?.isOpen() == true)
-            .length;
+        final relayUrls = connections.map((connection) => connection.url).toSet();
+        final connectedUrls = connections
+            .where((connection) => connection.relayTransport?.isOpen() == true)
+            .map((connection) => connection.url)
+            .toSet();
+        final total = relayUrls.length;
+        final connected = connectedUrls.length;
         final hostrRelayConnected =
-            hostrRelay.isEmpty ||
-            connectivityMap[hostrRelay]?.relayTransport?.isOpen() == true;
+            hostrRelay.isEmpty || connectedUrls.contains(hostrRelay);
 
         emit(
           RelayConnectivityState(

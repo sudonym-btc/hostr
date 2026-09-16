@@ -1,7 +1,7 @@
 import 'package:coinlib_flutter/coinlib_flutter.dart' as coinlib_flutter;
 import 'package:h3_flutter/h3_flutter.dart';
-import 'package:models/main.dart' show setSecp256k1LoaderOverride;
-import 'package:models/util/location/h3.dart'
+import 'package:marketplace_models/main.dart' show setSecp256k1LoaderOverride;
+import 'package:marketplace_models/util/location/h3.dart'
     show H3BackendKind, getH3BackendSelection, setH3FactoryOverride;
 
 const _flutterH3OverrideLabel = 'h3_flutter.H3Factory.load()';

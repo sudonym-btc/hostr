@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:hostr_sdk/seed/signet_bunker_client.dart';
-import 'package:models/bip340.dart';
+import 'package:marketplace_models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 
 class SignetTestUser {

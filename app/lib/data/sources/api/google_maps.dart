@@ -1,10 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:hostr/config/main.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 

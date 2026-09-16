@@ -9,7 +9,7 @@ import 'package:hostr/data/sources/api/google_maps.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import 'location_controller.dart';
 
@@ -522,7 +522,7 @@ class LocationFieldState extends State<LocationField> {
             opacity: animation,
             child: SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1,
+              alignment: Alignment.topCenter,
               child: child,
             ),
           ),

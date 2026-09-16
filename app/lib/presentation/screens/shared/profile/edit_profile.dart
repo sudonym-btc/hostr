@@ -11,7 +11,7 @@ import 'package:hostr/presentation/screens/shared/profile/edit_profile.controlle
 import 'package:hostr/route/pending_navigation.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import '../listing/image_picker.dart';
 import 'welcome_pane.dart';

@@ -1,5 +1,5 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:auto_route/auto_route.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 
 class HostGuard extends AutoRouteGuard {
   CustomLogger logger = CustomLogger();

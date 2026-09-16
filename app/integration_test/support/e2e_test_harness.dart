@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
@@ -22,19 +23,17 @@ import 'package:hostr/route/pending_navigation.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr/setup.dart';
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as env;
-import 'package:hostr_sdk/datasources/contracts/boltz/TestERC20.g.dart';
-import 'package:hostr_sdk/datasources/contracts/escrow/MultiEscrow.g.dart';
+import 'package:marketplace_evm/datasources/contracts/boltz/TestERC20.g.dart';
+import 'package:marketplace_evm/datasources/contracts/escrow/MultiEscrow.g.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart' as sdk_di;
 import 'package:hostr_sdk/testing/integration_test_harness.dart';
-import 'package:hostr_sdk/usecase/payments/constants.dart';
 import 'package:hostr_sdk/util/deterministic_key_derivation.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:logger/logger.dart';
 import 'package:mocktail_image_network/mocktail_image_network.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/keypairs.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/keypairs.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:wallet/wallet.dart';
@@ -154,7 +153,6 @@ void runE2eTests({
       await harness.dispose();
     }
     await getIt.reset();
-    await sdk_di.getIt.reset();
     IntegrationTestHarness.resetLogLevel();
   });
 
@@ -2308,7 +2306,7 @@ Future<void> _publishProfileFor(
     keyPair: keyPair,
     body: () async {
       await harness.hostr.metadata.upsert(profile);
-      await harness.hostr.ndk.config.cache.saveMetadata(profile.metadata);
+      await harness.hostr.ndk.config.cache.saveEvent(profile);
     },
   );
   final readback = await _withE2eNip42Signer(
@@ -2387,16 +2385,9 @@ Future<void> _authenticateE2eNip42FixtureAccount(
   final relay = hostr.config.hostrRelay.trim();
   if (relay.isEmpty) return;
 
-  // The dev relay enforces that the authenticated connection identity matches
-  // the event author. Fixture setup publishes as several deterministic keys, so
-  // each fixture author gets a fresh socket before its AUTH event.
+  // The next write authenticates as its author through NDK. Close the
+  // previous fixture's socket before switching the writing identity.
   await _closeE2eHostrRelayTransport(hostr);
-  await hostr.ndk.relays.ensureAuthenticated(
-    relayUrl: relay,
-    account: account,
-    timeout: const Duration(seconds: 30),
-    challengeTimeout: const Duration(seconds: 5),
-  );
 }
 
 Future<void> _closeE2eHostrRelayTransport(Hostr hostr) async {
@@ -4658,29 +4649,7 @@ Future<String> _describeAutoWithdrawState(Hostr hostr) async {
 }
 
 Future<SwapQuote> _quoteFundsItem(FundsItem item) async {
-  Map<String, Call>? preLockCalls;
-  if (item.isEscrowLocked) {
-    final destination = await item.chain.getAccountAddress(item.keypair);
-    final tokenAddress = EthereumAddress.fromHex(item.token.address);
-    preLockCalls = {
-      'withdraw': item.contract!.withdraw(
-        WithdrawArgs(
-          token: tokenAddress,
-          ethKey: item.keypair,
-          beneficiary: item.keypair.address,
-          destination: destination,
-        ),
-      ),
-    };
-  }
-  return item.chain.swapOutQuote(
-    params: SwapOutParams(
-      evmKey: item.keypair,
-      accountIndex: item.accountIndex,
-      amountSpec: AmountSpec.input(item.balance),
-      preLockCalls: preLockCalls,
-    ),
-  );
+  return item.chain.swapOutQuote(params: await item.swapOutParams());
 }
 
 Future<void> _editProfile(
@@ -6034,7 +6003,6 @@ Future<void> _assertBunkerRestoreFailureAndRetry({
   await tester.pumpWidget(const SizedBox.shrink());
   await getIt<Hostr>().dispose();
   await getIt.reset();
-  await sdk_di.getIt.reset();
   await initCore(Env.dev);
   router = AppRouter();
   await tester.pumpWidget(MyApp(appRouter: router, restorationScopeId: null));

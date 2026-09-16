@@ -1,9 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -62,7 +63,7 @@ class _ProfileProviderState extends SingleChildState<ProfileProvider> {
         .connectivity()
         .debounceTime(const Duration(seconds: 2))
         .listen((relays) {
-          final urls = relays.keys.toSet();
+          final urls = relays.map((connection) => connection.url).toSet();
           if (_knownRelayUrls != null &&
               urls.difference(_knownRelayUrls!).isNotEmpty) {
             if (!mounted) return;

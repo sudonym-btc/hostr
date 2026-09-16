@@ -1,10 +1,11 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:hostr/config/constants.dart';
 import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 const _showDustFundItems = kDebugMode;
 

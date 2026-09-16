@@ -53,9 +53,8 @@ class NwcConnectivityCubit extends Cubit<NwcConnectivityState> {
   final Map<NwcCubit, StreamSubscription<NwcCubitState>> _cubitSubscriptions =
       {};
 
-  NwcConnectivityCubit({required Hostr hostr})
-    : _hostr = hostr,
-      super(const NwcConnectivityState()) {
+  NwcConnectivityCubit({required this._hostr})
+    : super(const NwcConnectivityState()) {
     _subscribe();
   }
 

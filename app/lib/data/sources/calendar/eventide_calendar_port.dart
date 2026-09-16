@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:ui';
 
 import 'package:eventide/eventide.dart';
@@ -16,9 +17,8 @@ class EventideCalendarPort implements CalendarPort {
   String? _calendarName;
   final Map<String, ETEvent> _eventsByTradeId = {};
 
-  EventideCalendarPort({Eventide? eventide, required CustomLogger logger})
-    : _eventide = eventide ?? Eventide(),
-      _logger = logger;
+  EventideCalendarPort({Eventide? eventide, required this._logger})
+    : _eventide = eventide ?? Eventide();
 
   bool get _isSupportedPlatform =>
       !kIsWeb &&

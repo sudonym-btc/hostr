@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_avatar.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_list_item.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class TrustedEscrowListItemWidget extends StatelessWidget {
   final ProfileMetadata? profile;

@@ -17,7 +17,7 @@ class RelayListWidget extends StatefulWidget {
 
 class RelayListWidgetState extends State<RelayListWidget> {
   late final Future<List<String>> _storedRelaysFuture;
-  late final Stream<Map<String, RelayConnectivity>> _connectivity$;
+  late final Stream<List<RelayConnectivity>> _connectivity$;
 
   @override
   void initState() {
@@ -63,7 +63,7 @@ class RelayListWidgetState extends State<RelayListWidget> {
 
                 // Deduplicate by URL
                 final seen = <String>{};
-                final deduplicated = snapshot.data!.values.where((c) {
+                final deduplicated = snapshot.data!.where((c) {
                   return seen.add(c.url);
                 }).toList();
 

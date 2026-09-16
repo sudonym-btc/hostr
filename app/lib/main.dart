@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,7 +7,6 @@ import 'package:hostr/app.dart';
 import 'package:hostr/background.dart';
 import 'package:hostr/injection.dart' show Env;
 import 'package:hostr/setup.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Export items from our app such that they can be used by widgetbook.

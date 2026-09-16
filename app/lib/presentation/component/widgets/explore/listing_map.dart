@@ -9,7 +9,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/component/widgets/explore/listing_map_controller.dart';
 import 'package:hostr/presentation/component/widgets/explore/map_style.dart';
 import 'package:hostr/presentation/component/widgets/explore/price_marker.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 export 'listing_map_controller.dart';
 
@@ -202,17 +202,7 @@ class _ListingMapState extends State<ListingMap> with WidgetsBindingObserver {
 
   bool _usesCloudStyle() => _configuredMapId().isNotEmpty;
 
-  bool _usesAdvancedMarkers() {
-    // AdvancedMarkerElement currently corrupts marker projection on web when a
-    // listing-detail map is pushed over the still-mounted explore map. On
-    // return, explore markers keep their ids but collapse to the detail map's
-    // marker position, and this coincides with CanvasKit context-loss errors.
-    // Keep legacy Marker rendering until the web platform-view/advanced-marker
-    // issue is understood.
-    //
-    // return _usesCloudStyle();
-    return false;
-  }
+  bool _usesAdvancedMarkers() => _usesCloudStyle();
 
   void _resetCloudMapControllerForAppearanceChange() {
     if (!_usesCloudStyle()) return;

@@ -6,7 +6,7 @@ import 'package:hostr/presentation/component/widgets/inbox/thread/message/messag
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
 const kSignerApprovalDelay = Duration(seconds: 2);
@@ -52,7 +52,6 @@ String signerRequestEventKindDescription(int? kind) {
     kNostrKindEscrowService => 'escrow service advertisement',
     kNostrKindEscrowMethod => 'escrow payment methods',
     kNostrKindEscrowServiceSelected => 'escrow selection',
-    kNostrKindLegacyDM => 'legacy direct message',
     kNostrKindDM => 'direct message',
     kNostrKindJsonMessage => 'Hostr message',
     kNostrKindSeenStatus => 'seen status',
@@ -410,8 +409,8 @@ class _SignerRequestDetailsState extends State<_SignerRequestDetails> {
   String _methodLabel(String value) {
     return switch (value) {
       'sign_event' => 'Sign approval',
-      'nip04_encrypt' || 'nip44_encrypt' => 'Encrypt message',
-      'nip04_decrypt' || 'nip44_decrypt' => 'Decrypt message',
+      'nip44_encrypt' => 'Encrypt message',
+      'nip44_decrypt' => 'Decrypt message',
       _ => value.replaceAll('_', ' '),
     };
   }

@@ -10,7 +10,7 @@ import 'package:hostr/injection.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// The navigation-chrome shell of the app.
 ///
@@ -151,7 +151,7 @@ class _AppShellScreenState extends State<AppShellScreen>
         parent: _navController,
         curve: kAnimationCurve,
       ),
-      axisAlignment: -1.0, // pin to top so it collapses downward
+      alignment: Alignment.topCenter, // pin to top so it collapses downward
       child: ClipRRect(
         borderRadius: AppBorderRadii.none,
         child: Container(

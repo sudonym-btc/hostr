@@ -4,45 +4,41 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  sdk: ^3.10.0
+  sdk: ^3.13.0
 
 dependencies:
+  marketplace_evm:
+    path: ../../dependencies/nmdk/packages/marketplace_evm
   bolt11_decoder: ^1.0.2
   flutter:
     sdk: flutter
-  widgetbook: ^3.21.0
-  widgetbook_annotation: ^3.10.0
+  widgetbook: ^3.25.0
+  widgetbook_annotation: ^3.11.0
   hostr:
     path: ../
   hostr_sdk:
     path: ../../hostr_sdk
-  models:
-    path: ../../models
-  web3dart: ^3.0.2
+  marketplace_models:
+    path: ../../dependencies/nmdk/packages/marketplace_models
+  web3dart: ^3.0.3
   rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  widgetbook_generator: ^3.21.0
-  build_runner: ^2.11.1
+  widgetbook_generator: ^3.24.0
+  build_runner: ^2.16.1
   shelf: ^1.4.2
   shelf_router: ^1.1.4
-  mockito: ^5.6.3
+  mockito: ^5.8.1
 
 
 flutter:
   uses-material-design: true
 
+
+# Coinlib 5 uses only RIPEMD160Digest.process, unchanged in PointyCastle 4.
+# Web3dart 3 and wallet 0.0.18 require PointyCastle 4.
 dependency_overrides:
-  intl: ^0.20.2
   pointycastle: ^4.0.0
-  js: ^0.7.2
-  ndk:
-    git:
-      url: https://github.com/sudonym-btc/ndk.git
-      ref: feat/hostr-fixes
-      path: packages/ndk
-  google_maps_flutter_web:
-    path: ../../dependencies/google_maps_flutter_web

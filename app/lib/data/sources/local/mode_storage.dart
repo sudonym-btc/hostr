@@ -1,5 +1,5 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr/injection.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:injectable/injectable.dart';
 
 import 'secure_storage.dart';

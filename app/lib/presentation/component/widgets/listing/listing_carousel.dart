@@ -4,7 +4,7 @@ import 'package:hostr/config/constants.dart';
 import 'package:hostr/data/sources/blossom_image_variant.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_carousel.dart';
 import 'package:hostr/presentation/screens/shared/listing/blossom_image.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ListingCarousel extends StatefulWidget {
   final Listing listing;

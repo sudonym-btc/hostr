@@ -7,7 +7,7 @@ import 'package:hostr/presentation/component/providers/nostr/profile.provider.da
 import 'package:hostr/presentation/component/widgets/flow/modal_bottom_sheet.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// Shows a [ModalBottomSheet] listing all [EscrowService] events published by
 /// the escrow operator identified by [pubkey].

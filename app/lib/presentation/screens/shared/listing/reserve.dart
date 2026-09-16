@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
@@ -13,7 +14,7 @@ import 'package:hostr/route/auth_gated_action.dart';
 import 'package:hostr/route/listing_reservation_route.dart';
 import 'package:hostr/router.dart';
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:rxdart/rxdart.dart';
 
 class Reserve extends StatefulWidget {

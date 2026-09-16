@@ -7,94 +7,87 @@ publish_to: 'none'
 version: 0.0.1
 
 environment:
-  sdk: ^3.10.0
+  sdk: ^3.13.0
 
 dependencies:
+  marketplace_evm:
+    path: ../dependencies/nmdk/packages/marketplace_evm
   auto_route: ^11.1.0
-  get_it: ^9.2.0
+  get_it: ^9.2.1
   collection: ^1.19.1
   bech32: ^0.2.2
   bolt11_decoder: ^1.0.2
-  injectable: ^2.7.1+4
-  validators: ^3.0.0
-  flutter_secure_storage: ^10.0.0
+  injectable: ^3.0.0
+  flutter_secure_storage: ^11.1.1
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.9
   flutter_localizations:
     sdk: flutter
-  google_maps_flutter: ^2.17.0
-  google_maps_flutter_web: ^0.6.1
-  sliding_up_panel: ^2.0.0+1
-  hydrated_bloc: ^10.1.1
+  google_maps_flutter: ^2.18.0
+  hydrated_bloc: ^11.0.0
   flutter_bloc: ^9.1.1
-  equatable: ^2.0.8
+  equatable: ^2.1.0
   carousel_slider: ^5.1.2
   timeago: ^3.7.1
-  path_provider: ^2.1.5
+  path_provider: ^2.1.6
   rxdart: ^0.28.0
   convert: ^3.1.2
   url_launcher: ^6.3.2
   flutter_launcher_icons: ^0.14.4
-  web3dart: ^3.0.2
+  web3dart: ^3.0.3
   wallet: ^0.0.18
-  logger: ^2.6.2
+  logger: ^2.8.0
   http: ^1.6.0
-  intl: ^0.20.2
-  uuid: ^4.5.2
-  # NIP04 deps
-  pointycastle: ^4.0.0
+  intl: ^0.20.3
   crypto: ^3.0.7
-  coinlib_flutter: ^4.0.0
-  chopper: ^8.5.0
-  json_annotation: ^4.10.0
+  coinlib_flutter: ^5.0.1
   qr_flutter: ^4.1.0
-  mobile_scanner: ^7.1.4
-  image_picker: ^1.2.1
-  image: ^4.8.0
+  mobile_scanner: ^7.4.2
+  image_picker: ^1.2.3
+  image: ^4.10.1
   blurhash_dart: ^1.2.1
-  models:
-    path: ../models
+  marketplace_models:
+    path: ../dependencies/nmdk/packages/marketplace_models
   hostr_sdk:
     path: ../hostr_sdk
-  webcrypto: ^0.6.0
-  ndk: ^0.7.1-dev.19
-  sqlite3: ^3.1.7
-  workmanager: ^0.9.0+3
-  permission_handler: ^12.0.1
-  provider: ^6.1.5
-  shared_preferences: ^2.5.4
-  flutter_local_notifications: ^20.1.0
+  webcrypto: ^0.6.1
+  ndk: ^0.9.3
+  # NDK 0.9.3 requires hooks 1; sqlite3 3.6 requires hooks 2.
+  sqlite3: ^3.5.2
+  workmanager: ^0.10.10
+  permission_handler: ^13.0.2
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.5
+  flutter_local_notifications: ^22.3.1
   date_count_down: ^4.0.0
-  timelines_plus: ^1.0.8
+  timelines_plus: ^2.0.1
   h3_flutter: ^0.7.1
-  faker: ^2.2.0
-  bip39_mnemonic: ^4.0.1
-  app_links: ^7.0.0
-  flutter_svg: ^2.2.0
+  bip39_mnemonic: ^4.1.0
+  app_links: ^7.2.1
   scrollable_positioned_list: ^0.3.8
-  google_fonts: ^8.0.2
-  eventide: ^2.1.1
+  eventide: ^2.4.0
   toastification: ^3.2.0
   web: ^1.1.1
     
 dev_dependencies:
-  mockito: ^5.6.3
-  mocktail: ^1.0.4
-  auto_route_generator: ^10.4.0
-  injectable_generator: ^2.12.0
-  build_runner: ^2.11.1 
+  mockito: ^5.8.1
+  mocktail: ^1.0.5
+  auto_route_generator: ^10.6.0
+  injectable_generator: ^3.1.3
+  build_runner: ^2.16.1
   flutter_test:
     sdk: flutter
   bloc_test: ^10.0.0
   flutter_lints: ^6.0.0
-  json_serializable: ^6.12.0
+  json_serializable: ^6.14.1
   integration_test:
     sdk: flutter
   shelf: ^1.4.2
   shelf_router: ^1.1.4
   flutter_driver:
     sdk: flutter
-  mocktail_image_network: ^1.2.0
+  mocktail_image_network: ^1.3.0
   image_picker_platform_interface: ^2.11.1
 
 
@@ -113,14 +106,8 @@ flutter:
         - asset: assets/fonts/inter/Inter-Italic-Variable.ttf
           style: italic
 
+
+# Coinlib 5 uses only RIPEMD160Digest.process, unchanged in PointyCastle 4.
+# Web3dart 3 and wallet 0.0.18 require PointyCastle 4.
 dependency_overrides:
-  ndk:
-    git:
-      url: https://github.com/sudonym-btc/ndk.git
-      ref: feat/hostr-fixes
-      path: packages/ndk
-  intl: ^0.20.2
   pointycastle: ^4.0.0
-  js: ^0.7.2
-  google_maps_flutter_web:
-    path: ../dependencies/google_maps_flutter_web

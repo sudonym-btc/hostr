@@ -3,7 +3,7 @@ import 'package:hostr/logic/forms/bool_field_controller.dart';
 import 'package:hostr/logic/forms/enum_field_controller.dart';
 import 'package:hostr/logic/forms/nullable_int_field_controller.dart';
 import 'package:hostr/logic/forms/upsert_form_controller.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart';
 
 import 'date_range_controller.dart';

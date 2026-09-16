@@ -1,9 +1,9 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:hostr/router.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/naddr.dart';
 import 'package:ndk/ndk.dart';
 
@@ -25,7 +25,7 @@ class NostrLinkHandler {
   /// Event kinds this app can handle via deep links.
   static const Set<int> supportedKinds = {kNostrKindListing};
 
-  NostrLinkHandler({required AppRouter router}) : _router = router;
+  NostrLinkHandler({required this._router});
 
   /// Start listening for incoming deep links.
   ///

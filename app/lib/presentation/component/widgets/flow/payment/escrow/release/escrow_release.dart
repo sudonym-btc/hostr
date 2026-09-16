@@ -1,6 +1,6 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hostr_sdk/hostr_sdk.dart';
 
 import '../../../modal_bottom_sheet.dart';
 import '../../onchain_operation.dart';

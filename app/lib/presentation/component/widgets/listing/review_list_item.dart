@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hostr/export.dart';
 import 'package:hostr/presentation/component/widgets/inbox/thread/message/message.dart';
 import 'package:hostr/presentation/component/widgets/listing/star_rating.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ReviewListItem extends StatelessWidget {
   final Review review;

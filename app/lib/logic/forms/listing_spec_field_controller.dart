@@ -1,5 +1,5 @@
 import 'package:hostr/logic/forms/form_field_controller.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 /// Manages the specifications selection state for a listing form.
 ///
@@ -105,6 +105,6 @@ class ListingSpecFieldController extends FormFieldController {
     for (final entry in _valuedSpecs.entries) {
       map[entry.key] = entry.value;
     }
-    return Specifications.fromJSON(map);
+    return Specifications.fromJson(map);
   }
 }

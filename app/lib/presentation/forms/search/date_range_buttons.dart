@@ -5,18 +5,9 @@ import 'package:hostr/presentation/app_spacing_theme.dart';
 import 'package:hostr/presentation/component/widgets/ui/gap.dart';
 import 'package:hostr/presentation/layout/app_layout.dart';
 
-import 'date_range_controller.dart';
 
 class DateRangeButtons extends StatelessWidget {
-  /// Preferred: pass a controller for full lifecycle management.
-  final DateRangeController? controller;
-
-  /// Legacy / convenience: called when the widget is tapped.
-  /// Ignored when [controller] is provided.
-  final Function? onTap;
-
-  /// Legacy / convenience: the range to display.
-  /// Ignored when [controller] is provided.
+  final VoidCallback onTap;
   final DateTimeRange? selectedDateRange;
 
   /// When true, uses a more compact layout with smaller padding,
@@ -33,25 +24,13 @@ class DateRangeButtons extends StatelessWidget {
 
   const DateRangeButtons({
     super.key,
-    this.controller,
-    this.onTap,
+    required this.onTap,
     this.selectedDateRange,
     this.small = false,
     this.single = false,
     this.startText,
     this.endText,
   });
-
-  DateTimeRange? get _effectiveRange =>
-      controller?.dateRange ?? selectedDateRange;
-
-  void _handleTap(BuildContext context) {
-    if (controller != null) {
-      controller!.pick(context);
-    } else {
-      onTap?.call();
-    }
-  }
 
   Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);
@@ -60,26 +39,26 @@ class DateRangeButtons extends StatelessWidget {
     final checkIn = _DateTile(
       icon: Icons.calendar_today,
       label: startText ?? 'Check in',
-      value: _effectiveRange != null
-          ? formatDate(_effectiveRange!.start)
+      value: selectedDateRange != null
+          ? formatDate(selectedDateRange!.start)
           : null,
       small: small,
       colorScheme: colorScheme,
       theme: theme,
-      onTap: () => _handleTap(context),
+      onTap: onTap,
     );
     final checkOut = _DateTile(
       icon: Icons.calendar_today,
       label: endText ?? 'Check out',
-      value: _effectiveRange != null ? formatDate(_effectiveRange!.end) : null,
+      value: selectedDateRange != null ? formatDate(selectedDateRange!.end) : null,
       small: small,
       colorScheme: colorScheme,
       theme: theme,
-      onTap: () => _handleTap(context),
+      onTap: onTap,
     );
 
     if (single) {
-      final range = _effectiveRange;
+      final range = selectedDateRange;
       final subtitle = range != null
           ? formatDateRangeShort(range, Localizations.localeOf(context))
           : null;
@@ -90,7 +69,7 @@ class DateRangeButtons extends StatelessWidget {
         small: small,
         colorScheme: colorScheme,
         theme: theme,
-        onTap: () => _handleTap(context),
+        onTap: onTap,
       );
     }
 
@@ -111,16 +90,8 @@ class DateRangeButtons extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (controller == null) {
-      return _buildContent(context);
-    }
+  Widget build(BuildContext context) => _buildContent(context);
 
-    return ListenableBuilder(
-      listenable: controller!,
-      builder: (context, _) => _buildContent(context),
-    );
-  }
 }
 
 class _DateTile extends StatelessWidget {

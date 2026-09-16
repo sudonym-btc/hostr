@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/logic/cubit/list/list.cubit.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 Listing _listing({
   required String pubKey,

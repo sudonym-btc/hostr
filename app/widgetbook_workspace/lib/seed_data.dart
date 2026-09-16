@@ -8,9 +8,9 @@ import 'package:hostr/injection.dart';
 import 'package:hostr_sdk/hostr.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/requests/in_memory.requests.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-export 'package:models/stubs/keypairs.dart' show MockKeys;
+export 'package:marketplace_models/stubs/keypairs.dart' show MockKeys;
 
 // ─── Lazy-initialised state ─────────────────────────────────────────────────
 

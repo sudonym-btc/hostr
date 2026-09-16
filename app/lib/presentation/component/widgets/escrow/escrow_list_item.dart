@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/widgets/ui/app_list_item.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class EscrowListItemWidget extends StatefulWidget {
   final EscrowService entity;

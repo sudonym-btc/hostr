@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -29,7 +30,7 @@ class NotificationDeepLinkHandler {
   StreamSubscription<String>? _subscription;
   String? _activePayload;
 
-  NotificationDeepLinkHandler({required AppRouter router}) : _router = router;
+  NotificationDeepLinkHandler({required this._router});
 
   void init() {
     _subscription ??= _notificationPayloadsController.stream.listen(

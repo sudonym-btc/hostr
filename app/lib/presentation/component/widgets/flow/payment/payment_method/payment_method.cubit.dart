@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:models/nostr/profile_metadata.dart';
+import 'package:marketplace_models/nostr/profile_metadata.dart';
 
 class PaymentMethodCubit extends Cubit<PaymentMethodState> {
   ProfileMetadata profileMetadata;

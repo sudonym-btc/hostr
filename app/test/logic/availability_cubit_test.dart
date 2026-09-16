@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hostr/logic/cubit/availability.cubit.dart';
 import 'package:hostr/logic/cubit/date_range.cubit.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 OrderGroup _reservationGroup({
   required DateTime start,

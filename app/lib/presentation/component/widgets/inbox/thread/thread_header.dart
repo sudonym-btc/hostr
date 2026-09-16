@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hostr/core/util/main.dart';
 import 'package:hostr/presentation/main.dart';
 import 'package:hostr_sdk/usecase/messaging/thread/thread.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 class ThreadHeaderWidget extends StatelessWidget {
   final Widget? trailing;

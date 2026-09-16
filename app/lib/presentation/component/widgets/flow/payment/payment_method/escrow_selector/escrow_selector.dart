@@ -4,7 +4,7 @@ import 'package:hostr/_localization/app_localizations.dart';
 import 'package:hostr/presentation/component/providers/nostr/profile.provider.dart';
 import 'package:hostr/presentation/component/widgets/profile/profile_chip.dart';
 import 'package:hostr/presentation/component/widgets/ui/main.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import 'escrow_selector.cubit.dart';
 
