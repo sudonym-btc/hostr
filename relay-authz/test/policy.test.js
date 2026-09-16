@@ -90,13 +90,26 @@ test('permits NIP-59 gift wraps from ephemeral author pubkeys when authenticated
   assert.deepEqual(decision, { decision: Decision.PERMIT });
 });
 
-test('permits order events from per-trade participant keys when authenticated', () => {
-  const decision = decideEventAdmission({
-    event: event({ kind: 32122 }),
-    authPubkey: Buffer.from(otherPubkey, 'hex'),
-  });
+test('permits order lifecycle events from per-trade participant keys when authenticated', () => {
+  for (const kind of [32122, 32123, 32124, 32125, 32126, 32127]) {
+    const decision = decideEventAdmission({
+      event: event({ kind }),
+      authPubkey: Buffer.from(otherPubkey, 'hex'),
+    });
 
-  assert.deepEqual(decision, { decision: Decision.PERMIT });
+    assert.deepEqual(decision, { decision: Decision.PERMIT });
+  }
+});
+
+test('permits order NIP helper, seed, and review event kinds when auth pubkey matches', () => {
+  for (const kind of [1327, 1328, 1329, 1330, 31555]) {
+    const decision = decideEventAdmission({
+      event: event({ kind }),
+      authPubkey: Buffer.from(pubkey, 'hex'),
+    });
+
+    assert.deepEqual(decision, { decision: Decision.PERMIT });
+  }
 });
 
 test('permits order transition events from per-trade participant keys when authenticated', () => {

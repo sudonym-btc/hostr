@@ -6,7 +6,12 @@ export const Decision = Object.freeze({
 
 export const DEFAULT_AUTHOR_MISMATCH_KINDS = Object.freeze([
   1059, // NIP-59 gift wrap: signed by an ephemeral wrapper key.
-  32122, // Hostr order: may be signed by a per-trade participant key.
+  32122, // Hostr order lifecycle events may be signed by per-trade keys.
+  32123,
+  32124,
+  32125,
+  32126,
+  32127,
   1326, // Hostr order transition: follows the order signer key.
 ]);
 
@@ -43,6 +48,11 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   30402, // NIP-99 Hostr accommodation listing.
   31555, // Marketplace product review.
   32122, // Hostr order.
+  32123, // Hostr payment.
+  32124, // Hostr payment ack.
+  32125, // Hostr payment settlement.
+  32126, // Hostr order cancel.
+  32127, // Hostr payment nack.
 ]);
 
 export const DEFAULT_AUTH_OPTIONAL_KINDS = Object.freeze([

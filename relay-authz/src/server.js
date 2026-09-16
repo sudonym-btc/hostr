@@ -5,13 +5,12 @@ import { dirname, join } from 'node:path';
 
 import {
   DEFAULT_ALLOWED_KINDS,
+  DEFAULT_AUTHOR_MISMATCH_KINDS,
+  DEFAULT_AUTH_OPTIONAL_KINDS,
   Decision,
   decideEventAdmission,
   normalizeHex,
 } from './policy.js';
-
-const defaultAuthorMismatchKinds = [1059, 32122, 1326];
-const defaultAuthOptionalKinds = [24133, 13194, 23194, 23195, 23197];
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const protoPath = join(__dirname, '..', 'proto', 'nauthz.proto');
@@ -34,12 +33,12 @@ const requireAuthorMatch = parseBool(
 );
 const authorMismatchKinds = parseKindList(
   process.env.RELAY_AUTHZ_AUTHOR_MISMATCH_KINDS,
-  defaultAuthorMismatchKinds,
+  DEFAULT_AUTHOR_MISMATCH_KINDS,
 );
 const authOptionalKinds = parseKindList(
   process.env.RELAY_AUTHZ_PUBLIC_WRITE_KINDS ??
     process.env.RELAY_AUTHZ_AUTH_OPTIONAL_KINDS,
-  defaultAuthOptionalKinds,
+  DEFAULT_AUTH_OPTIONAL_KINDS,
 );
 const allowedKinds = parseKindList(
   process.env.RELAY_AUTHZ_ALLOWED_KINDS,
