@@ -1,6 +1,21 @@
-import { loadFixture, time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { expect } from "chai";
 import hre from "hardhat";
+import fs from "node:fs";
+import { readCanonicalEscrowArtifact } from "../task/artifact.js";
+
+// This local fixture is only a mintable token. Escrow bytecode always comes
+// from the canonical NMDK artifact, never from a Hostr Solidity implementation.
+import solc from "solc";
+
+const { ethers, networkHelpers } = await hre.network.create('hardhat');
+const { time } = networkHelpers;
+const loadFixture = networkHelpers.loadFixture.bind(networkHelpers);
+const mockOutput = JSON.parse(solc.compile(JSON.stringify({
+  language: "Solidity",
+  sources: { "MockERC20.sol": { content: fs.readFileSync(new URL("./fixtures/MockERC20.sol", import.meta.url), "utf8") } },
+  settings: { outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } } },
+})));
+const mockArtifact = mockOutput.contracts["MockERC20.sol"].MockERC20;
 
 const RELEASE_TYPES = {
   Release: [
@@ -25,23 +40,25 @@ const WITHDRAW_TYPES = {
   Withdraw: [
     { name: "token", type: "address" },
     { name: "destination", type: "address" },
+    { name: "nonce", type: "uint256" },
   ],
 };
 
 describe("MultiEscrow", function () {
   async function deployFixture() {
-    const [deployer, buyer] = await hre.ethers.getSigners();
-    const seller = hre.ethers.Wallet.createRandom().connect(hre.ethers.provider);
-    const arbiter = hre.ethers.Wallet.createRandom().connect(hre.ethers.provider);
-    const MultiEscrow = await hre.ethers.getContractFactory("MultiEscrow");
-    const MockERC20 = await hre.ethers.getContractFactory("MockERC20");
-    const escrow = await MultiEscrow.connect(deployer).deploy();
-    const token = await MockERC20.deploy("Mock USDT", "USDT", 6);
+    const [deployer, buyer] = await ethers.getSigners();
+    const seller = ethers.Wallet.createRandom().connect(ethers.provider);
+    const arbiter = ethers.Wallet.createRandom().connect(ethers.provider);
+    const canonical = readCanonicalEscrowArtifact();
+    const MultiEscrow = new ethers.ContractFactory(canonical.abi, canonical.bytecode, deployer);
+    const MockERC20 = new ethers.ContractFactory(mockArtifact.abi, `0x${mockArtifact.evm.bytecode.object}`, deployer);
+    const escrow: any = await MultiEscrow.connect(deployer).deploy();
+    const token: any = await MockERC20.deploy("Mock USDT", "USDT", 6);
 
     for (const wallet of [seller, arbiter]) {
       await deployer.sendTransaction({
         to: wallet.address,
-        value: hre.ethers.parseEther("1"),
+        value: ethers.parseEther("1"),
       });
     }
 
@@ -49,9 +66,9 @@ describe("MultiEscrow", function () {
     const tokenAmount = 1_000_000n; // 1 USDT (6 decimals)
     await token.mint(buyer.address, tokenAmount * 10n); // 10 USDT
 
-    const amount = hre.ethers.parseEther("1");
-    const bondAmount = hre.ethers.parseEther("0.5");
-    const escrowFee = hre.ethers.parseEther("0.1");
+    const amount = ethers.parseEther("1");
+    const bondAmount = ethers.parseEther("0.5");
+    const escrowFee = ethers.parseEther("0.1");
     const erc20Amount = 1_000_000n; // 1 USDT
     const erc20BondAmount = 500_000n; // 0.5 USDT
     const erc20EscrowFee = 100_000n; // 0.1 USDT
@@ -105,7 +122,7 @@ describe("MultiEscrow", function () {
     unlockAt: number;
     label: string;
   }) {
-    const tradeId = hre.ethers.id(label);
+    const tradeId = ethers.id(label);
     await escrow
       .connect(buyer)
       .createTrade(
@@ -113,7 +130,7 @@ describe("MultiEscrow", function () {
         buyer.address,
         seller.address,
         arbiter.address,
-        hre.ethers.ZeroAddress,
+        ethers.ZeroAddress,
         amount,
         bondAmount,
         unlockAt,
@@ -146,7 +163,7 @@ describe("MultiEscrow", function () {
     unlockAt: number;
     label: string;
   }) {
-    const tradeId = hre.ethers.id(label);
+    const tradeId = ethers.id(label);
     const tokenAddress = await token.getAddress();
     await token.connect(buyer).approve(await escrow.getAddress(), amount + bondAmount);
     await escrow
@@ -194,12 +211,19 @@ describe("MultiEscrow", function () {
     token: string,
     destination: string
   ) {
-    return signer.signTypedData(domain, WITHDRAW_TYPES, { token, destination });
+    const escrow: any = await ethers.getContractAt(readCanonicalEscrowArtifact().abi, domain.verifyingContract);
+    const nonce = await escrow.withdrawNonces(signer.address);
+    return signer.signTypedData(domain, WITHDRAW_TYPES, { token, destination, nonce });
   }
 
   // ── Native RBTC tests ──────────────────────────────────────────────
 
   describe("Native RBTC trades", function () {
+    it("deploys the exact NMDK v7 artifact and exposes withdrawal nonces", async function () {
+      const { escrow, buyer, domain } = await loadFixture(deployFixture);
+      expect(domain.version).to.equal("7");
+      expect(await escrow.withdrawNonces(buyer.address)).to.equal(0n);
+    });
     it("release credits buyer balance", async function () {
       const { escrow, buyer, seller, arbiter, amount, bondAmount, escrowFee, futureUnlockAt, domain } =
         await loadFixture(deployFixture);
@@ -220,8 +244,8 @@ describe("MultiEscrow", function () {
       await escrow.releaseToCounterparty(tradeId, seller.address, sig);
 
       // Buyer should have balance credited (seller released → buyer receives)
-      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
-      const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
+      const buyerBal = await escrow.balances(buyer.address, ethers.ZeroAddress);
+      const arbiterBal = await escrow.balances(arbiter.address, ethers.ZeroAddress);
       expect(buyerBal).to.equal(amount + bondAmount - escrowFee);
       expect(arbiterBal).to.equal(escrowFee);
     });
@@ -246,9 +270,9 @@ describe("MultiEscrow", function () {
       await escrow.claim(tradeId, sig);
 
       // claim: payment-fee → seller, bond → buyer
-      const sellerBal = await escrow.balances(seller.address, hre.ethers.ZeroAddress);
-      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
-      const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
+      const sellerBal = await escrow.balances(seller.address, ethers.ZeroAddress);
+      const buyerBal = await escrow.balances(buyer.address, ethers.ZeroAddress);
+      const arbiterBal = await escrow.balances(arbiter.address, ethers.ZeroAddress);
       expect(sellerBal).to.equal(amount - escrowFee);
       expect(buyerBal).to.equal(bondAmount);
       expect(arbiterBal).to.equal(escrowFee);
@@ -281,9 +305,9 @@ describe("MultiEscrow", function () {
       const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
       await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
 
-      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(sellerPayment + sellerBond);
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(buyerPayment + buyerBond);
-      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+      expect(await escrow.balances(seller.address, ethers.ZeroAddress)).to.equal(sellerPayment + sellerBond);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(buyerPayment + buyerBond);
+      expect(await escrow.balances(arbiter.address, ethers.ZeroAddress)).to.equal(escrowFee);
     });
 
     it("withdraw sends native RBTC to destination", async function () {
@@ -307,32 +331,32 @@ describe("MultiEscrow", function () {
       await escrow.releaseToCounterparty(tradeId, seller.address, releaseSig);
 
       const expectedBuyerBal = amount + bondAmount - escrowFee;
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(expectedBuyerBal);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(expectedBuyerBal);
 
       // Withdraw buyer balance to buyer's own address
       const withdrawSig = await signWithdraw(
         buyer,
         domain,
-        hre.ethers.ZeroAddress,
+        ethers.ZeroAddress,
         buyer.address
       );
 
       await expect(
-        escrow.withdraw(hre.ethers.ZeroAddress, buyer.address, buyer.address, withdrawSig)
+        escrow.withdraw(ethers.ZeroAddress, buyer.address, buyer.address, withdrawSig)
       )
         .to.emit(escrow, "Withdrawn")
-        .withArgs(buyer.address, hre.ethers.ZeroAddress, buyer.address, expectedBuyerBal);
+        .withArgs(buyer.address, ethers.ZeroAddress, buyer.address, expectedBuyerBal);
 
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(0n);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(0n);
     });
 
     it("withdraw reverts when balance is zero", async function () {
       const { escrow, buyer, domain } = await loadFixture(deployFixture);
 
-      const sig = await signWithdraw(buyer, domain, hre.ethers.ZeroAddress, buyer.address);
+      const sig = await signWithdraw(buyer, domain, ethers.ZeroAddress, buyer.address);
 
       await expect(
-        escrow.withdraw(hre.ethers.ZeroAddress, buyer.address, buyer.address, sig)
+        escrow.withdraw(ethers.ZeroAddress, buyer.address, buyer.address, sig)
       ).to.be.revertedWithCustomError(escrow, "NothingToWithdraw");
     });
 
@@ -356,10 +380,10 @@ describe("MultiEscrow", function () {
       await escrow.releaseToCounterparty(tradeId, seller.address, releaseSig);
 
       // Seller tries to sign withdraw for buyer's balance
-      const badSig = await signWithdraw(seller, domain, hre.ethers.ZeroAddress, seller.address);
+      const badSig = await signWithdraw(seller, domain, ethers.ZeroAddress, seller.address);
 
       await expect(
-        escrow.withdraw(hre.ethers.ZeroAddress, buyer.address, seller.address, badSig)
+        escrow.withdraw(ethers.ZeroAddress, buyer.address, seller.address, badSig)
       ).to.be.revertedWithCustomError(escrow, "InvalidSignature");
     });
   });
@@ -394,7 +418,7 @@ describe("MultiEscrow", function () {
       await escrow.releaseToCounterparty(tradeId, seller.address, sig);
 
       const result = await escrow.balanceOf(buyer.address);
-      expect(result.tokens).to.deep.equal([hre.ethers.ZeroAddress]);
+      expect(result.tokens).to.deep.equal([ethers.ZeroAddress]);
       expect(result.amounts).to.deep.equal([amount + bondAmount - escrowFee]);
     });
 
@@ -451,7 +475,7 @@ describe("MultiEscrow", function () {
       expect(result.tokens.length).to.equal(2);
 
       const tokenAddress = await token.getAddress();
-      const nativeIdx = result.tokens.indexOf(hre.ethers.ZeroAddress);
+      const nativeIdx = result.tokens.indexOf(ethers.ZeroAddress);
       const erc20Idx = result.tokens.indexOf(tokenAddress);
       expect(nativeIdx).to.be.gte(0);
       expect(erc20Idx).to.be.gte(0);
@@ -478,8 +502,8 @@ describe("MultiEscrow", function () {
       const relSig = await signRelease(seller, domain, tradeId, seller.address);
       await escrow.releaseToCounterparty(tradeId, seller.address, relSig);
 
-      const wSig = await signWithdraw(buyer, domain, hre.ethers.ZeroAddress, buyer.address);
-      await escrow.withdraw(hre.ethers.ZeroAddress, buyer.address, buyer.address, wSig);
+      const wSig = await signWithdraw(buyer, domain, ethers.ZeroAddress, buyer.address);
+      await escrow.withdraw(ethers.ZeroAddress, buyer.address, buyer.address, wSig);
 
       const result = await escrow.balanceOf(buyer.address);
       expect(result.tokens).to.deep.equal([]);
@@ -689,7 +713,7 @@ describe("MultiEscrow", function () {
 
       await expect(
         escrow.connect(buyer).createTrade(
-          hre.ethers.id("erc20-with-value"),
+          ethers.id("erc20-with-value"),
           buyer.address,
           seller.address,
           arbiter.address,
@@ -748,8 +772,8 @@ describe("MultiEscrow", function () {
       const sig = await signRelease(seller, domain, tradeId, seller.address);
       await escrow.releaseToCounterparty(tradeId, seller.address, sig);
 
-      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
-      const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
+      const buyerBal = await escrow.balances(buyer.address, ethers.ZeroAddress);
+      const arbiterBal = await escrow.balances(arbiter.address, ethers.ZeroAddress);
       expect(buyerBal).to.equal(amount - escrowFee);
       expect(arbiterBal).to.equal(escrowFee);
     });
@@ -773,9 +797,9 @@ describe("MultiEscrow", function () {
       const sig = await signClaim(seller, domain, tradeId);
       await escrow.claim(tradeId, sig);
 
-      const sellerBal = await escrow.balances(seller.address, hre.ethers.ZeroAddress);
-      const buyerBal = await escrow.balances(buyer.address, hre.ethers.ZeroAddress);
-      const arbiterBal = await escrow.balances(arbiter.address, hre.ethers.ZeroAddress);
+      const sellerBal = await escrow.balances(seller.address, ethers.ZeroAddress);
+      const buyerBal = await escrow.balances(buyer.address, ethers.ZeroAddress);
+      const arbiterBal = await escrow.balances(arbiter.address, ethers.ZeroAddress);
       expect(sellerBal).to.equal(amount - escrowFee);
       expect(buyerBal).to.equal(0n); // no bond → nothing returned to buyer
       expect(arbiterBal).to.equal(escrowFee);
@@ -806,9 +830,9 @@ describe("MultiEscrow", function () {
       const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
       await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
 
-      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(sellerPayment);
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(buyerPayment);
-      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+      expect(await escrow.balances(seller.address, ethers.ZeroAddress)).to.equal(sellerPayment);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(buyerPayment);
+      expect(await escrow.balances(arbiter.address, ethers.ZeroAddress)).to.equal(escrowFee);
     });
 
     it("claim returns bond to buyer while payment goes to seller", async function () {
@@ -831,9 +855,9 @@ describe("MultiEscrow", function () {
       await escrow.claim(tradeId, sig);
 
       // payment - fee → seller, bond → buyer
-      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(amount - escrowFee);
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(bondAmount);
-      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+      expect(await escrow.balances(seller.address, ethers.ZeroAddress)).to.equal(amount - escrowFee);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(bondAmount);
+      expect(await escrow.balances(arbiter.address, ethers.ZeroAddress)).to.equal(escrowFee);
     });
 
     it("arbitrate splits payment and bond independently", async function () {
@@ -864,9 +888,9 @@ describe("MultiEscrow", function () {
       const sig = await signArbitrate(arbiter, domain, tradeId, paymentFactor, bondFactor);
       await escrow.arbitrate(tradeId, paymentFactor, bondFactor, sig);
 
-      expect(await escrow.balances(seller.address, hre.ethers.ZeroAddress)).to.equal(sellerPayment + sellerBond);
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(buyerPayment + buyerBond);
-      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+      expect(await escrow.balances(seller.address, ethers.ZeroAddress)).to.equal(sellerPayment + sellerBond);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(buyerPayment + buyerBond);
+      expect(await escrow.balances(arbiter.address, ethers.ZeroAddress)).to.equal(escrowFee);
     });
 
     it("release sends payment + bond to buyer", async function () {
@@ -889,8 +913,8 @@ describe("MultiEscrow", function () {
       await escrow.releaseToCounterparty(tradeId, seller.address, sig);
 
       // Release returns everything (minus fee) to buyer
-      expect(await escrow.balances(buyer.address, hre.ethers.ZeroAddress)).to.equal(amount + bondAmount - escrowFee);
-      expect(await escrow.balances(arbiter.address, hre.ethers.ZeroAddress)).to.equal(escrowFee);
+      expect(await escrow.balances(buyer.address, ethers.ZeroAddress)).to.equal(amount + bondAmount - escrowFee);
+      expect(await escrow.balances(arbiter.address, ethers.ZeroAddress)).to.equal(escrowFee);
     });
 
     it("ERC20 trade with bond: claim returns bond to buyer", async function () {

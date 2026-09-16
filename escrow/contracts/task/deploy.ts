@@ -1,9 +1,8 @@
-import { TransactionRequest } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
+import type { TransactionRequest } from 'ethers';
+import type { NetworkConnection } from 'hardhat/types/network';
 import fs from 'node:fs';
 import path from 'node:path';
-
-const ADDRESS_FILE = process.env.ADDRESS_FILE || 'contract-addresses.json';
+import { readCanonicalEscrowArtifact } from './artifact.js';
 
 type ContractAddresses = {
   MultiEscrow?: string;
@@ -12,7 +11,7 @@ type ContractAddresses = {
 type AddressConfig = Record<string, ContractAddresses>;
 
 function getAddressFilePath(): string {
-  return path.resolve(process.cwd(), ADDRESS_FILE);
+  return path.resolve(process.cwd(), process.env.ADDRESS_FILE || 'contract-addresses.json');
 }
 
 function readExistingConfig(): AddressConfig {
@@ -45,30 +44,31 @@ function canonicalNetworkName(chainId: number, networkName: string): string {
   }
 }
 
-async function resolveChainId(hre: HardhatRuntimeEnvironment): Promise<number> {
-  const configuredChainId = hre.network.config.chainId;
+async function resolveChainId(connection: NetworkConnection): Promise<number> {
+  const configuredChainId = connection.networkConfig.chainId;
   if (configuredChainId != null) {
     return Number(configuredChainId);
   }
 
-  const network = await hre.ethers.provider.getNetwork();
+  const network = await connection.ethers.provider.getNetwork();
   return Number(network.chainId);
 }
 
-export async function deployEscrow(hre: HardhatRuntimeEnvironment): Promise<void> {
-  const chainId = await resolveChainId(hre);
-  const networkName = canonicalNetworkName(chainId, hre.network.name);
+export async function deployEscrow(connection: NetworkConnection): Promise<void> {
+  const chainId = await resolveChainId(connection);
+  const networkName = canonicalNetworkName(chainId, connection.networkName);
   const networkKey = `${networkName}.${chainId}`;
 
-  const [deployer] = await hre.ethers.getSigners();
+  const [deployer] = await connection.ethers.getSigners();
   if (deployer == null) {
     throw new Error('No deployer account available. Set DEPLOYER_PRIVATE_KEY for the selected network.');
   }
 
-  const factory = await hre.ethers.getContractFactory('MultiEscrow', deployer);
+  const artifact = readCanonicalEscrowArtifact();
+  const factory = new connection.ethers.ContractFactory(artifact.abi, artifact.bytecode, deployer);
   const deployTx = (await factory.getDeployTransaction()) as TransactionRequest;
   const estimatedGas = await deployer.estimateGas(deployTx);
-  const latestBlock = await hre.ethers.provider.getBlock('latest');
+  const latestBlock = await connection.ethers.provider.getBlock('latest');
   const blockGasLimit = latestBlock?.gasLimit ?? estimatedGas;
   const paddedEstimate = (estimatedGas * 12n) / 10n;
   const safeGasLimit = paddedEstimate < blockGasLimit ? paddedEstimate : blockGasLimit - 100000n;
