@@ -1,11 +1,11 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/usecase/crud.usecase.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;

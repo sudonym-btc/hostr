@@ -1,10 +1,10 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon.dart';
-import 'package:hostr_sdk/util/main.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:test/test.dart';
 
 Order _order() => Order.create(

@@ -10,11 +10,11 @@ import 'package:hostr_sdk/config.dart';
 import 'package:hostr_sdk/injection.dart' show HostrScope;
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/auth/auth_identity_resolver.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
+import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart' as sdk_requests;
 import 'package:hostr_sdk/usecase/storage/storage.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
-import 'package:models/nostr_kinds.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -25,201 +25,180 @@ const _hexPrivKey =
 
 void main() {
   group('NIP-42 auth flow', () {
-    test(
-      'sign-in and signed-in startup share one AUTH after relay AUTH OK',
-      () async {
-        final relay = _Nip42Relay();
-        await relay.start();
-
-        final ndk = _ndkFor(relay.url);
-        final auth = _authFor(ndk: ndk, relayUrl: relay.url);
-        StreamSubscription<AuthState>? authSub;
-        final startupAuth = Completer<void>();
-
-        try {
-          authSub = auth.authState.listen((state) {
-            if (state is! LoggedIn || startupAuth.isCompleted) return;
-            startupAuth.complete(
-              auth.ensureNip42AuthForHostrRelay(
-                timeout: const Duration(seconds: 3),
-              ),
-            );
-          });
-
-          await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
-          await startupAuth.future.timeout(const Duration(seconds: 4));
-
-          expect(relay.authMessagesReceived, 1);
-        } finally {
-          await authSub?.cancel();
-          await auth.dispose();
-          await ndk.destroy();
-          await relay.stop();
-        }
-      },
-    );
-
-    test('listing writes reuse sign-in AUTH and do not prompt again', () async {
-      final relay = _Nip42Relay(requireAuthForEvents: true);
-      await relay.start();
-
-      final ndk = _ndkFor(relay.url);
-      final auth = _authFor(ndk: ndk, relayUrl: relay.url);
-      final requests = sdk_requests.Requests(
-        ndk: ndk,
-        logger: CustomLogger(),
-        auth: auth,
-        config: _hostrConfig(relay.url),
-      );
-
-      try {
+    test('sign-in alone does not authenticate a relay socket', () async {
+      await _withRelay((relay, auth, requests) async {
         await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
+        // Give unsolicited relay challenges a turn through the socket listener.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(relay.authMessagesReceived, 0);
+        expect(relay.acceptedEvents, isEmpty);
+      });
+    });
 
-        final listing = Nip01Event(
-          pubKey: auth.activePubkey!,
-          kind: kNostrKindListing,
-          tags: const [
-            ['d', 'listing-auth-test'],
-          ],
-          content: '{}',
-          createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-        );
-
-        await requests
-            .broadcastEvent(event: listing, relays: [relay.url])
-            .timeout(const Duration(seconds: 4));
+    test('first listing write authenticates once and later writes reuse its socket', () async {
+      await _withRelay((relay, auth, requests) async {
+        await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
+        expect(relay.authMessagesReceived, 0);
+        await _writeListing(requests, auth, relay.url, 'first');
+        expect(relay.authMessagesReceived, 1);
+        await _writeListing(requests, auth, relay.url, 'second');
 
         expect(relay.authMessagesReceived, 1);
-        expect(relay.eventMessagesReceived, 1);
-      } finally {
-        await auth.dispose();
-        await ndk.destroy();
-        await relay.stop();
-      }
-    });
-
-    test('account switches send a fresh AUTH for the new pubkey', () async {
-      final relay = _Nip42Relay(requireAuthForEvents: true);
-      await relay.start();
-
-      final ndk = _ndkFor(relay.url);
-      final auth = _authFor(ndk: ndk, relayUrl: relay.url);
-      final requests = sdk_requests.Requests(
-        ndk: ndk,
-        logger: CustomLogger(),
-        auth: auth,
-        config: _hostrConfig(relay.url),
-      );
-      final secondKey = Bip340.generatePrivateKey();
-
-      try {
-        await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
-        await auth
-            .signin(secondKey.privateKey!)
-            .timeout(const Duration(seconds: 4));
-
-        final profile = Nip01Event(
-          pubKey: secondKey.publicKey,
-          kind: kNostrKindProfile,
-          tags: const [],
-          content: '{}',
-          createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        expect(relay.authPubkeysReceived, [Bip340.getPublicKey(_hexPrivKey)]);
+        expect(relay.acceptedEvents, hasLength(2));
+        expect(
+          relay.acceptedEvents.map((e) => e.socketId).toSet(),
+          hasLength(1),
         );
-
-        await requests
-            .broadcastEvent(event: profile)
-            .timeout(const Duration(seconds: 4));
-
-        expect(relay.authMessagesReceived, 2);
-        expect(relay.authPubkeysReceived, [
+        expect(relay.acceptedEvents.map((e) => e.authPubkey).toSet(), {
           Bip340.getPublicKey(_hexPrivKey),
-          secondKey.publicKey,
-        ]);
-        expect(relay.eventMessagesReceived, 1);
-      } finally {
-        await auth.dispose();
-        await ndk.destroy();
-        await relay.stop();
-      }
+        });
+      });
     });
 
     test(
-      'logout closes authenticated relay socket before the next login',
+      'account switch authenticates the next write with the new identity',
       () async {
-        final relay = _Nip42Relay(requireAuthForEvents: true);
-        await relay.start();
-
-        final ndk = _ndkFor(relay.url);
-        final auth = _authFor(ndk: ndk, relayUrl: relay.url);
-        final secondKey = Bip340.generatePrivateKey();
-
-        try {
+        await _withRelay((relay, auth, requests) async {
+          final secondKey = Bip340.generatePrivateKey();
           await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
-          expect(relay.activeSocketCount, 1);
-
-          await auth.logout().timeout(const Duration(seconds: 4));
-          await _waitFor(
-            () => relay.activeSocketCount == 0,
-            timeout: const Duration(seconds: 2),
-          );
+          await _writeListing(requests, auth, relay.url, 'first-user');
+          expect(relay.authMessagesReceived, 1);
+          final oldSocket = relay.acceptedEvents.single.socketId;
 
           await auth
               .signin(secondKey.privateKey!)
               .timeout(const Duration(seconds: 4));
+          expect(relay.authMessagesReceived, 1);
+          await _writeListing(requests, auth, relay.url, 'second-user');
 
           expect(relay.authMessagesReceived, 2);
           expect(relay.authPubkeysReceived, [
             Bip340.getPublicKey(_hexPrivKey),
             secondKey.publicKey,
           ]);
-        } finally {
-          await auth.dispose();
-          await ndk.destroy();
-          await relay.stop();
-        }
+          expect(relay.acceptedEvents, hasLength(2));
+          expect(relay.acceptedEvents.last.socketId, isNot(oldSocket));
+          expect(relay.acceptedEvents.last.authPubkey, secondKey.publicKey);
+          expect(
+            relay.acceptedEvents.last.event['pubkey'],
+            secondKey.publicKey,
+          );
+        });
       },
     );
 
     test(
-      'temp-pubkey gift wraps reuse logged-in AUTH for Hostr relay writes',
+      'logout closes an authenticated socket before the next login and write',
       () async {
-        final relay = _Nip42Relay(requireAuthForEvents: true);
-        await relay.start();
-
-        final ndk = _ndkFor(relay.url);
-        final auth = _authFor(ndk: ndk, relayUrl: relay.url);
-        final requests = sdk_requests.Requests(
-          ndk: ndk,
-          logger: CustomLogger(),
-          auth: auth,
-          config: _hostrConfig(relay.url),
-        );
-        final tempKey = Bip340.generatePrivateKey();
-
-        try {
+        await _withRelay((relay, auth, requests) async {
+          final secondKey = Bip340.generatePrivateKey();
           await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
+          await _writeListing(requests, auth, relay.url, 'before-logout');
+          expect(relay.authMessagesReceived, 1);
+          expect(relay.activeSocketCount, 1);
+          final oldSocket = relay.acceptedEvents.single.socketId;
 
+          await auth.logout().timeout(const Duration(seconds: 4));
+          await _waitFor(
+            () => relay.activeSocketCount == 0,
+            timeout: const Duration(seconds: 2),
+          );
+          await auth
+              .signin(secondKey.privateKey!)
+              .timeout(const Duration(seconds: 4));
+          expect(relay.authMessagesReceived, 1);
+          await _writeListing(requests, auth, relay.url, 'after-logout');
+
+          expect(relay.authMessagesReceived, 2);
+          expect(relay.authPubkeysReceived, [
+            Bip340.getPublicKey(_hexPrivKey),
+            secondKey.publicKey,
+          ]);
+          expect(relay.acceptedEvents, hasLength(2));
+          expect(relay.acceptedEvents.last.socketId, isNot(oldSocket));
+          expect(relay.acceptedEvents.last.authPubkey, secondKey.publicKey);
+        });
+      },
+    );
+
+    test(
+      'ephemeral gift-wrap author authenticates with the logged-in identity',
+      () async {
+        await _withRelay((relay, auth, requests) async {
+          final ephemeralKey = Bip340.generatePrivateKey();
+          await auth.signin(_hexPrivKey).timeout(const Duration(seconds: 4));
           final giftWrap = _signedEvent(
-            key: tempKey,
+            key: ephemeralKey,
             kind: kNostrKindGiftWrap,
             content: 'encrypted gift wrap',
           );
-
           await requests
               .broadcastEvent(event: giftWrap, relays: [relay.url])
               .timeout(const Duration(seconds: 4));
 
           expect(relay.authMessagesReceived, 1);
-          expect(relay.eventMessagesReceived, 1);
-        } finally {
-          await auth.dispose();
-          await ndk.destroy();
-          await relay.stop();
-        }
+          expect(relay.authPubkeysReceived, [Bip340.getPublicKey(_hexPrivKey)]);
+          expect(relay.acceptedEvents, hasLength(1));
+          expect(
+            relay.acceptedEvents.single.event['pubkey'],
+            ephemeralKey.publicKey,
+          );
+          expect(
+            relay.acceptedEvents.single.authPubkey,
+            Bip340.getPublicKey(_hexPrivKey),
+          );
+          expect(
+            relay.acceptedEvents.single.authPubkey,
+            isNot(ephemeralKey.publicKey),
+          );
+        });
       },
     );
   });
 }
+
+Future<void> _withRelay(
+  Future<void> Function(_Nip42Relay, Auth, sdk_requests.Requests) action,
+) async {
+  final relay = _Nip42Relay(requireAuthForEvents: true);
+  await relay.start();
+  final ndk = _ndkFor(relay.url);
+  final auth = _authFor(ndk: ndk, relayUrl: relay.url);
+  final requests = sdk_requests.Requests(
+    ndk: ndk,
+    logger: CustomLogger(),
+    auth: auth,
+    config: _hostrConfig(relay.url),
+  );
+  try {
+    await action(relay, auth, requests);
+  } finally {
+    await auth.dispose();
+    await ndk.destroy();
+    await relay.stop();
+  }
+}
+
+Future<void> _writeListing(
+  sdk_requests.Requests requests,
+  Auth auth,
+  String relayUrl,
+  String id,
+) => requests
+    .broadcastEvent(
+      event: Nip01Event(
+        pubKey: auth.activePubkey!,
+        kind: kNostrKindListing,
+        tags: [
+          ['d', id],
+        ],
+        content: '{}',
+        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      ),
+      relays: [relayUrl],
+    )
+    .timeout(const Duration(seconds: 4));
 
 Future<void> _waitFor(
   bool Function() condition, {
@@ -326,6 +305,11 @@ class _Nip42Relay {
   final bool requireAuthForEvents;
   final _sockets = <WebSocket>{};
   final _authenticatedSockets = <WebSocket>{};
+  final _socketIds = <WebSocket, int>{};
+  final _authPubkeysBySocket = <WebSocket, String>{};
+  int _nextSocketId = 0;
+  final acceptedEvents =
+      <({int socketId, String? authPubkey, Map<String, dynamic> event})>[];
   HttpServer? _server;
 
   int authMessagesReceived = 0;
@@ -351,6 +335,7 @@ class _Nip42Relay {
 
   void _handleSocket(WebSocket socket) {
     _sockets.add(socket);
+    _socketIds[socket] = _nextSocketId++;
     socket.add(jsonEncode(['AUTH', 'challenge']));
     socket.listen(
       (message) {
@@ -361,7 +346,19 @@ class _Nip42Relay {
             authMessagesReceived++;
             _authenticatedSockets.add(socket);
             final event = decoded[1] as Map<String, dynamic>;
+            expect(event['kind'], 22242);
+            expect(event['tags'], contains(equals(['challenge', 'challenge'])));
+            expect(event['tags'], contains(equals(['relay', url])));
+            expect(
+              Bip340.verify(
+                event['id'] as String,
+                event['sig'] as String,
+                event['pubkey'] as String,
+              ),
+              isTrue,
+            );
             authPubkeysReceived.add(event['pubkey'] as String);
+            _authPubkeysBySocket[socket] = event['pubkey'] as String;
             socket.add(jsonEncode(['OK', event['id'], true, '']));
             return;
           case 'EVENT':
@@ -379,6 +376,11 @@ class _Nip42Relay {
               );
               return;
             }
+            acceptedEvents.add((
+              socketId: _socketIds[socket]!,
+              authPubkey: _authPubkeysBySocket[socket],
+              event: event,
+            ));
             socket.add(jsonEncode(['OK', event['id'], true, '']));
             return;
           case 'REQ':
@@ -390,6 +392,7 @@ class _Nip42Relay {
       onDone: () {
         _sockets.remove(socket);
         _authenticatedSockets.remove(socket);
+        _authPubkeysBySocket.remove(socket);
       },
     );
   }

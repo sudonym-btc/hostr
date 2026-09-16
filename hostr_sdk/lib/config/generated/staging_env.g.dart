@@ -2,7 +2,7 @@
 // Source: .env.staging
 // ignore_for_file: constant_identifier_names, avoid_escaping_inner_quotes
 
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
+import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';
 
 const boltzApiUrl = 'https://api.boltz.exchange/v2';
 const relayUrl = 'wss://relay.staging.hostr.network';

@@ -4,9 +4,9 @@ library;
 import 'dart:convert';
 
 import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
-import 'package:models/bip340.dart' as models_bip340;
-import 'package:models/nostr_kinds.dart';
-import 'package:models/secp256k1.dart';
+import 'package:marketplace_models/bip340.dart' as models_bip340;
+import 'package:marketplace_models/nostr_kinds.dart';
+import 'package:marketplace_models/secp256k1.dart';
 import 'package:ndk/data_layer/models/nip_01_event_model.dart';
 import 'package:ndk/domain_layer/entities/nip_01_utils.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;

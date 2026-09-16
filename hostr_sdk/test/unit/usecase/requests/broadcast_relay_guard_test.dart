@@ -3,7 +3,7 @@ library;
 
 import 'package:hostr_sdk/usecase/requests/requests.dart'
     show applyBroadcastRelayGuard;
-import 'package:models/nostr_kinds.dart';
+import 'package:marketplace_models/nostr_kinds.dart';
 import 'package:test/test.dart';
 
 const _hostrRelay = 'wss://relay.hostr.test';

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:models/bip340.dart';
+import 'package:marketplace_models/bip340.dart';
 import 'package:ndk/ndk.dart' show BunkerConnection;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 

@@ -1,11 +1,12 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
 import 'package:equatable/equatable.dart';
-import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/secp256k1.dart' show loadSecp256k1Backend;
+import 'package:marketplace_models/secp256k1.dart' show loadSecp256k1Backend;
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
@@ -13,9 +14,8 @@ import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' as bip;
 
 import '../../config.dart' show CoinlibEventSigner, HostrConfig;
-import '../../injection.dart' show HostrScope, getIt;
+import '../../injection.dart' show HostrScope;
 import '../../util/coinlib_gift_wrap.dart' show clearNip44ConvKeyCache;
-import '../../util/main.dart';
 import '../deterministic_keys/deterministic_keys.dart';
 import '../storage/storage.dart';
 import 'auth_identity_resolver.dart';
@@ -45,10 +45,7 @@ String _signEventDebugSummary(Nip01Event event) {
   ].join(' ');
 }
 
-@Singleton()
-class Auth {
-  static const _nip42AuthTimeout = Duration(seconds: 30);
-  static const _nip42ChallengeTimeout = Duration(seconds: 5);
+class Auth implements EvmAuth {
   final Ndk _ndk;
   final CustomLogger _logger;
   final AuthStorage _authStorage;
@@ -62,19 +59,14 @@ class Auth {
   ValueStream<BunkerSessionState> get bunkerSessionState =>
       _bunkerSessionController;
   AuthRecord? _authRecord;
-  _Nip42AuthInFlight? _nip42AuthInFlight;
 
   Auth({
-    required Ndk ndk,
-    required AuthStorage authStorage,
-    required CustomLogger logger,
-    required AuthIdentityResolver identityResolver,
-    HostrScope? scope,
-  }) : _ndk = ndk,
-       _authStorage = authStorage,
-       _logger = logger,
-       _identityResolver = identityResolver,
-       _scope = scope ?? HostrScope(getIt);
+    required this._ndk,
+    required this._authStorage,
+    required this._logger,
+    required this._identityResolver,
+    required this._scope,
+  });
 
   KeyPair? get activeKeyPair {
     final record = _authRecord;
@@ -82,6 +74,7 @@ class Auth {
     return record.keyPair ?? _publicOnlyKeyPair(record.publicKeyHex);
   }
 
+  @override
   String? get activePubkey =>
       _authRecord?.publicKeyHex ?? activeKeyPair?.publicKey;
 
@@ -93,17 +86,29 @@ class Auth {
       _bunkerSessionController.value is BunkerSessionRecoveryRequired;
   T service<T extends Object>() => _scope<T>();
 
+  @override
+  OperationStateStore get operationStateStore => _scope<OperationStateStore>();
+
+  @override
+  SwapInTracker get swapInTracker => _scope<SwapInTracker>();
+
+  @override
+  SwapOutTracker get swapOutTracker => _scope<SwapOutTracker>();
+
+  @override
+  void Function(String id, String message)? get onSwapProgress {
+    final show = _scope<HostrConfig>().showNotification;
+    if (show == null) return null;
+    return (id, message) {
+      unawaited(show(id: id.hashCode, title: 'Hostr', body: message));
+    };
+  }
+
   String? get activeMnemonic => isMnemonicBacked ? _authRecord?.secret : null;
 
   int? get activeNostrAccountIndex => _authRecord?.nostrAccountIndex;
 
   int get storedMaxAccountIndex => _authRecord?.maxAccountIndex ?? -1;
-
-  Future<void> ensureNip42AuthForHostrRelay({
-    Duration timeout = _nip42AuthTimeout,
-  }) {
-    return _ensureNip42AuthAfterAccountReady(timeout: timeout, failOpen: false);
-  }
 
   /// Generates a new mnemonic and stores it, clearing any previous keys.
   Future<void> signup() => _logger.span('signup', () async {
@@ -124,11 +129,13 @@ class Auth {
       return;
     }
     final record = await _identityResolver.prepareIdentity(input);
+    if (activePubkey != null && activePubkey != record.publicKeyHex) {
+      await _closeIdentityRelayConnections();
+    }
     await _authStorage.set([jsonEncode(record.toJson())]);
     _setAuthenticated(record);
     await _ensureNdkAccountsMatchAsync();
     _syncAuthState();
-    await _ensureNip42AuthAfterAccountReady();
   });
 
   Future<void> signinWithBunkerUrl(
@@ -232,7 +239,6 @@ class Auth {
     _setAuthenticated(record);
     await _ensureNdkAccountsMatchAsync();
     _syncAuthState();
-    await _ensureNip42AuthAfterAccountReady();
   }
 
   Future<AuthRecord> previewResolvedIdentity(
@@ -249,7 +255,7 @@ class Auth {
   Future<void> logout() => _logger.span('logout', () async {
     _logger.i('AuthService.logout');
     clearNip44ConvKeyCache();
-    await _resetNip42RelayAuthForLogout();
+    await _closeIdentityRelayConnections();
     await _authStorage.wipe();
     await _loadActiveKeyPair();
     await _ensureNdkAccountsMatchAsync();
@@ -263,90 +269,7 @@ class Auth {
     _syncAuthState();
   });
 
-  Future<void> _ensureNip42AuthAfterAccountReady({
-    Duration timeout = _nip42AuthTimeout,
-    bool failOpen = true,
-  }) async {
-    var account = _ndk.accounts.getLoggedAccount();
-    if (account == null || !account.signer.canSign()) {
-      final error = StateError(
-        'Cannot NIP-42 authenticate Hostr relay without a signable account',
-      );
-      if (failOpen) return;
-      throw error;
-    }
-
-    var inFlight = _nip42AuthInFlight;
-    if (inFlight != null && inFlight.pubkey == account.pubkey) {
-      return _awaitNip42Auth(inFlight.future, failOpen: failOpen);
-    }
-
-    // Same-account callers share a signer prompt; account switches must not.
-    // A relay connection has one effective NIP-42 identity, so reusing an old
-    // account's in-flight AUTH would make the next write fail author matching.
-    if (inFlight != null) {
-      await _awaitNip42Auth(inFlight.future, failOpen: true);
-      account = _ndk.accounts.getLoggedAccount();
-      if (account == null || !account.signer.canSign()) {
-        final error = StateError(
-          'Cannot NIP-42 authenticate Hostr relay without a signable account',
-        );
-        if (failOpen) return;
-        throw error;
-      }
-      inFlight = _nip42AuthInFlight;
-      if (inFlight != null && inFlight.pubkey == account.pubkey) {
-        return _awaitNip42Auth(inFlight.future, failOpen: failOpen);
-      }
-    }
-
-    final future = _runNip42AuthAfterAccountReady(account, timeout);
-    final marker = _Nip42AuthInFlight(pubkey: account.pubkey, future: future);
-    _nip42AuthInFlight = marker;
-
-    try {
-      await future;
-    } catch (_) {
-      if (!failOpen) rethrow;
-    } finally {
-      if (identical(_nip42AuthInFlight, marker)) {
-        _nip42AuthInFlight = null;
-      }
-    }
-  }
-
-  Future<void> _awaitNip42Auth(
-    Future<void> future, {
-    required bool failOpen,
-  }) async {
-    try {
-      await future;
-    } catch (_) {
-      if (!failOpen) rethrow;
-    }
-  }
-
-  Future<void> _runNip42AuthAfterAccountReady(
-    Account account,
-    Duration timeout,
-  ) async {
-    if (!_scope.isRegistered<HostrConfig>()) return;
-
-    final relays = _nip42AuthRelayTargets(_scope<HostrConfig>());
-    if (relays.isEmpty) return;
-
-    await Future.wait(
-      relays.map(
-        (relay) => _ensureNip42AuthOnRelay(
-          relay: relay,
-          account: account,
-          timeout: timeout,
-        ),
-      ),
-    );
-  }
-
-  List<String> _nip42AuthRelayTargets(HostrConfig config) {
+  List<String> _identityRelayTargets(HostrConfig config) {
     final primary = config.hostrRelay.trim();
     final candidates = primary.isNotEmpty
         ? [primary]
@@ -360,25 +283,10 @@ class Auth {
     ];
   }
 
-  Future<void> _ensureNip42AuthOnRelay({
-    required String relay,
-    required Account account,
-    required Duration timeout,
-  }) async {
-    await _ndk.relays.ensureAuthenticated(
-      relayUrl: relay,
-      account: account,
-      timeout: timeout,
-      challengeTimeout: _nip42ChallengeTimeout,
-    );
-    _logger.d('NIP-42 relay auth completed for $relay');
-  }
-
-  Future<void> _resetNip42RelayAuthForLogout() async {
-    _nip42AuthInFlight = null;
+  Future<void> _closeIdentityRelayConnections() async {
     if (!_scope.isRegistered<HostrConfig>()) return;
 
-    final relays = _nip42AuthRelayTargets(_scope<HostrConfig>());
+    final relays = _identityRelayTargets(_scope<HostrConfig>());
     await Future.wait(
       relays.map((relay) async {
         try {
@@ -396,19 +304,12 @@ class Auth {
     return activePubkey != null;
   });
 
-  /// Best-effort compatibility wrapper for older call sites/tests.
-  bool ensureNdkAccountsMatch() {
-    unawaited(_ensureNdkAccountsMatchAsync());
-    return true;
-  }
-
   Future<bool> retryBunkerSessionRestore() async {
     final restored = await _ensureNdkAccountsMatchAsync(
       forceBunkerRestore: true,
     );
     if (restored) {
       _syncAuthState(force: true);
-      unawaited(_ensureNip42AuthAfterAccountReady());
     }
     return restored;
   }
@@ -619,6 +520,7 @@ class Auth {
   // HD wallet – EVM key derivation
   // ---------------------------------------------------------------------------
 
+  @override
   DeterministicKeys get hd => _scope<DeterministicKeys>();
 
   // ---------------------------------------------------------------------------
@@ -704,13 +606,6 @@ class Auth {
     if (pubkey == null || pubkey.isEmpty) return null;
     return KeyPair.justPublicKey(pubkey);
   }
-}
-
-class _Nip42AuthInFlight {
-  final String pubkey;
-  final Future<void> future;
-
-  const _Nip42AuthInFlight({required this.pubkey, required this.future});
 }
 
 sealed class BunkerSessionState extends Equatable {

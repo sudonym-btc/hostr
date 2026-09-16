@@ -1,10 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:ndk/ndk.dart' show Ndk;
 import 'package:get_it/get_it.dart';
 
 import 'config.dart';
 import 'injection.dart';
 import 'usecase/main.dart';
-import 'util/custom_logger.dart' show CustomLogger;
 
 class Hostr {
   final HostrConfig config;
@@ -13,9 +13,7 @@ class Hostr {
 
   Hostr({required this.config, String environment = Env.prod})
     : logger = config.logger,
-      scope = createHostrScope(environment: environment, config: config) {
-    getIt = scope;
-  }
+      scope = createHostrScope(environment: environment, config: config);
   Ndk get ndk => scope<Ndk>();
   Auth get auth => scope<Auth>();
   Requests get requests => scope<Requests>();

@@ -1,27 +1,21 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:math';
 
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/main.dart';
-import 'package:ndk/ndk.dart' show Filter, Nip01Event;
+import 'package:marketplace_models/main.dart';
+import 'package:ndk/ndk.dart' show Filter;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wallet/wallet.dart' show EthereumAddress;
 import 'package:web3dart/web3dart.dart' show BlockNum;
 
-import '../../config.dart' show CoinlibEventSigner;
-import '../../util/main.dart';
 import '../auth/auth.dart';
-import '../escrow/escrow_verification.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../escrow/supported_escrow_contract/supported_escrow_contract_registry.dart';
 import '../escrows/escrows.dart';
-import '../evm/evm.dart';
 import '../listings/listings.dart';
 import '../messaging/messaging.dart';
 import '../metadata/metadata.dart';
-import '../requests/requests.dart';
 import '../order_groups/order_group_participant_resolver.dart';
 import '../order_groups/order_groups.dart';
 import '../orders/order_participant_keyring.dart';
@@ -35,13 +29,6 @@ typedef EscrowOrderNoticeSender =
       required String content,
       required List<List<String>> tags,
       required List<String> recipientPubkeys,
-    });
-
-typedef EscrowOrderLegacyNoticeSender =
-    Future<void> Function({
-      required String content,
-      required List<List<String>> tags,
-      required String recipientPubkey,
     });
 
 typedef EscrowOrderExistingMessages =
@@ -79,7 +66,6 @@ class EscrowOrderNotifier {
   final Future<Listing?> Function(String listingAnchor) loadListing;
   final Future<ProfileMetadata?> Function(String pubkey) loadMetadata;
   final EscrowOrderNoticeSender sendText;
-  final EscrowOrderLegacyNoticeSender sendLegacyText;
   final EscrowOrderExistingMessages existingMessagesForTrade;
   final CustomLogger _logger;
   final Set<String> _sentNoticeKeys = {};
@@ -90,7 +76,6 @@ class EscrowOrderNotifier {
     required this.loadListing,
     required this.loadMetadata,
     required this.sendText,
-    required this.sendLegacyText,
     required this.existingMessagesForTrade,
     required CustomLogger logger,
   }) : clock = clock ?? (() => DateTime.now().toUtc()),
@@ -252,19 +237,6 @@ class EscrowOrderNotifier {
       tags: tags,
       recipientPubkeys: [recipientPubkey],
     );
-    try {
-      await sendLegacyText(
-        content: content,
-        tags: tags,
-        recipientPubkey: recipientPubkey,
-      );
-    } catch (error, stackTrace) {
-      _logger.w(
-        'Legacy order notice failed: '
-        'trade=$tradeId role=$role recipient=$recipientPubkey error=$error',
-      );
-      _logger.d('$stackTrace');
-    }
     _sentNoticeKeys.add(noticeKey);
   }
 
@@ -417,7 +389,6 @@ class EscrowDaemon {
   final Listings _listings;
   final MetadataUseCase _metadata;
   final Messaging _messaging;
-  final Requests _requests;
   final Escrows _escrows;
   final Orders _orders;
   final UserSubscriptions _userSubscriptions;
@@ -438,7 +409,6 @@ class EscrowDaemon {
   final Map<String, OrderGroup> _orderGroups = {};
   final Map<String, Timer> _orderRetryTimers = {};
   PublishSubject<String>? _orderRetryTradeIds;
-  List<String> _legacyDmBootstrapRelays = const [];
 
   // ── Subscriptions ───────────────────────────────────────────────────────
   StreamSubscription? _eventSub;
@@ -450,30 +420,19 @@ class EscrowDaemon {
   static const _orderRetryDelay = Duration(seconds: 5);
 
   EscrowDaemon({
-    required Auth auth,
-    required Evm evm,
-    required Listings listings,
-    required MetadataUseCase metadata,
-    required Messaging messaging,
-    required Requests requests,
-    required Escrows escrows,
-    required Orders orders,
-    required UserSubscriptions userSubscriptions,
-    required EscrowVerification escrowVerification,
+    required this._auth,
+    required this._evm,
+    required this._listings,
+    required this._metadata,
+    required this._messaging,
+    required this._escrows,
+    required this._orders,
+    required this._userSubscriptions,
+    required this._escrowVerification,
     @ignoreParam EscrowOrderGroupVerifier? verifyOrderGroup,
     @ignoreParam EscrowDaemonClock? clock,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _evm = evm,
-       _listings = listings,
-       _metadata = metadata,
-       _messaging = messaging,
-       _requests = requests,
-       _escrows = escrows,
-       _orders = orders,
-       _userSubscriptions = userSubscriptions,
-       _escrowVerification = escrowVerification,
-       _verifyOrderGroup = verifyOrderGroup ?? _defaultVerifyOrderGroup,
+  }) : _verifyOrderGroup = verifyOrderGroup ?? _defaultVerifyOrderGroup,
        _logger = logger.scope('escrow-daemon') {
     _orderNotifier = EscrowOrderNotifier(
       escrowKeyPair: () => _auth.activeKeyPair!,
@@ -491,61 +450,7 @@ class EscrowDaemon {
               recipientPubkeys: recipientPubkeys,
             );
           },
-      sendLegacyText:
-          ({required content, required tags, required recipientPubkey}) async {
-            await _sendLegacyDm(
-              content: content,
-              tags: tags,
-              recipientPubkey: recipientPubkey,
-            );
-          },
       logger: _logger,
-    );
-  }
-
-  void setLegacyDmBootstrapRelays(List<String> relays) {
-    _legacyDmBootstrapRelays = [
-      ...{
-        for (final relay in relays)
-          if (relay.trim().isNotEmpty) relay.trim(),
-      },
-    ];
-  }
-
-  Future<void> _sendLegacyDm({
-    required String content,
-    required List<List<String>> tags,
-    required String recipientPubkey,
-  }) async {
-    final keyPair = _auth.activeKeyPair!;
-    final signer = CoinlibEventSigner(
-      privateKey: keyPair.privateKey,
-      publicKey: keyPair.publicKey,
-    );
-    final encrypted = await signer.encrypt(content, recipientPubkey);
-    if (encrypted == null) {
-      throw StateError('Failed to encrypt legacy DM for $recipientPubkey');
-    }
-
-    final relays = [
-      ...{
-        ...await _messaging.recipientMessageRelays(recipientPubkey),
-        ..._legacyDmBootstrapRelays,
-      },
-    ];
-
-    await _requests.broadcastEvent(
-      event: Nip01Event(
-        pubKey: keyPair.publicKey,
-        kind: kNostrKindLegacyDM,
-        tags: [
-          ['p', recipientPubkey],
-          ...tags,
-        ],
-        content: encrypted,
-        createdAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      ),
-      relays: relays,
     );
   }
 

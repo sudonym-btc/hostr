@@ -1,10 +1,10 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:math';
 
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 
 import '../../datasources/nostr/mock.relay.dart' show matchEvent;
-import '../../util/main.dart';
 import 'requests.dart';
 
 /// A long-lived [StreamWithStatus] whose underlying Nostr filter is driven
@@ -83,37 +83,27 @@ class ExpandableSubscription<T extends Nip01Event> {
   bool _closed = false;
 
   ExpandableSubscription({
-    required Requests requests,
-    required CustomLogger logger,
-    required String name,
+    required this._requests,
+    required this._logger,
+    required this._name,
     required StreamWithStatus<Filter> filterSource,
-    Stream<T>? localUpdates,
-    List<String>? relays,
-    Duration debounceDuration = const Duration(milliseconds: 500),
-  }) : _requests = requests,
-       _logger = logger,
-       _name = name,
-       _localUpdates = localUpdates,
-       _relays = relays,
-       _debounceDuration = debounceDuration {
+    this._localUpdates,
+    this._relays,
+    this._debounceDuration = const Duration(milliseconds: 500),
+  }) {
     _subscribeToFilterSource(filterSource);
   }
 
   /// Creates an idle subscription that is not yet connected to a filter
   /// source. Call [restart] to begin.
   ExpandableSubscription.idle({
-    required Requests requests,
-    required CustomLogger logger,
-    required String name,
-    Stream<T>? localUpdates,
-    List<String>? relays,
-    Duration debounceDuration = const Duration(milliseconds: 500),
-  }) : _requests = requests,
-       _logger = logger,
-       _name = name,
-       _localUpdates = localUpdates,
-       _relays = relays,
-       _debounceDuration = debounceDuration;
+    required this._requests,
+    required this._logger,
+    required this._name,
+    this._localUpdates,
+    this._relays,
+    this._debounceDuration = const Duration(milliseconds: 500),
+  });
 
   // ── Public API ──────────────────────────────────────────────────────
 

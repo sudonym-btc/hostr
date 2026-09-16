@@ -1,13 +1,15 @@
 @Tags(['unit'])
 library;
 
+import 'package:get_it/get_it.dart';
+import 'package:hostr_sdk/injection.dart' show HostrScope;
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/auth/auth_identity_resolver.dart';
 import 'package:hostr_sdk/usecase/storage/storage.dart';
-import 'package:hostr_sdk/util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import 'package:ndk/ndk.dart';
 import 'package:test/test.dart';
 
@@ -308,6 +310,7 @@ void main() {
       final signer = _DisposableSigner('aabb' * 16);
       ndk.accounts.loginExternalSigner(signer: signer);
       final auth = Auth(
+        scope: HostrScope(GetIt.asNewInstance()),
         ndk: ndk,
         authStorage: _MemoryAuthStorage(),
         logger: CustomLogger(),
@@ -355,7 +358,7 @@ class _MemoryAuthStorage implements AuthStorage {
   }
 }
 
-class _DisposableSigner implements EventSigner {
+class _DisposableSigner extends EventSigner {
   _DisposableSigner(this.pubkey);
 
   final String pubkey;

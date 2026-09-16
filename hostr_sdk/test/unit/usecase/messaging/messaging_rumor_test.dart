@@ -1,14 +1,16 @@
 @Tags(['unit'])
 library;
 
+import 'package:get_it/get_it.dart';
+import 'package:hostr_sdk/injection.dart' show HostrScope;
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/seed/seed.dart';
 import 'package:hostr_sdk/usecase/dm_relays/dm_relays.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Accounts, Ndk;
 import 'package:test/test.dart';
 
@@ -35,6 +37,7 @@ void main() {
       _FakeRequests(),
       _FakeDmRelays(),
       CustomLogger(),
+      HostrScope(GetIt.asNewInstance()),
     );
   });
 

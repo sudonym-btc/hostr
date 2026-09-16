@@ -1,12 +1,12 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon.dart';
 import 'package:hostr_sdk/usecase/orders/order_participant_tags.dart';
 import 'package:hostr_sdk/util/coinlib_gift_wrap.dart';
-import 'package:hostr_sdk/util/main.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Metadata;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
@@ -20,18 +20,6 @@ class _SentNotice {
     required this.content,
     required this.tags,
     required this.recipientPubkeys,
-  });
-}
-
-class _SentLegacyNotice {
-  final String content;
-  final List<List<String>> tags;
-  final String recipientPubkey;
-
-  const _SentLegacyNotice({
-    required this.content,
-    required this.tags,
-    required this.recipientPubkey,
   });
 }
 
@@ -124,12 +112,11 @@ Future<OrderParticipantTagPlan> _participantTags({
       identityKeyPair: draft.role == 'seller' ? sellerIdentity : buyerIdentity,
       draft: draft,
     ),
-    encryptAuthorization:
-        ({
-          required plaintext,
-          required senderPrivateKey,
-          required recipientPubkey,
-        }) => coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
+    encryptAuthorization: ({
+      required plaintext,
+      required senderPrivateKey,
+      required recipientPubkey,
+    }) => coinlibEncryptNip44(plaintext, senderPrivateKey, recipientPubkey),
   );
 }
 
@@ -209,13 +196,11 @@ TextMessage _existingNotice({
 void main() {
   group('EscrowOrderNotifier', () {
     late List<_SentNotice> sent;
-    late List<_SentLegacyNotice> sentLegacy;
     late List<TextMessage> existing;
     late EscrowOrderNotifier notifier;
 
     setUp(() {
       sent = [];
-      sentLegacy = [];
       existing = [];
       notifier = EscrowOrderNotifier(
         escrowKeyPair: () => MockKeys.escrow,
@@ -248,20 +233,6 @@ void main() {
                 ),
               );
             },
-        sendLegacyText:
-            ({
-              required content,
-              required tags,
-              required recipientPubkey,
-            }) async {
-              sentLegacy.add(
-                _SentLegacyNotice(
-                  content: content,
-                  tags: tags,
-                  recipientPubkey: recipientPubkey,
-                ),
-              );
-            },
         logger: CustomLogger(),
       );
     });
@@ -274,15 +245,12 @@ void main() {
         await notifier.notifyOrder(group);
 
         expect(sent, hasLength(2));
-        expect(sentLegacy, hasLength(2));
+
         expect(sent.map((n) => n.recipientPubkeys.single).toSet(), {
           MockKeys.guest.publicKey,
           MockKeys.reviewer.publicKey,
         });
-        expect(sentLegacy.map((n) => n.recipientPubkey).toSet(), {
-          MockKeys.guest.publicKey,
-          MockKeys.reviewer.publicKey,
-        });
+
         expect(
           sent
               .singleWhere(
@@ -304,25 +272,7 @@ void main() {
           'Payment has been paid and is sitting in escrow. Please login to '
           'https://hostr.network to confirm the booking with the guest.',
         );
-        expect(
-          sentLegacy
-              .singleWhere((n) => n.recipientPubkey == MockKeys.guest.publicKey)
-              .content,
-          'You successfully reserved Lake House $_defaultOrderRange, '
-          "hosted by Maya. Your payment is safely in escrow. We've reached "
-          'out to the host to confirm, and they should be in touch soon. If '
-          'they do not confirm in a timely manner, you can be refunded.',
-        );
-        expect(
-          sentLegacy
-              .singleWhere(
-                (n) => n.recipientPubkey == MockKeys.reviewer.publicKey,
-              )
-              .content,
-          'A order was placed for Lake House $_defaultOrderRange. '
-          'Payment has been paid and is sitting in escrow. Please login to '
-          'https://hostr.network to confirm the booking with the guest.',
-        );
+
         expect(
           sent
               .expand((n) => n.tags)
@@ -348,19 +298,6 @@ void main() {
           sent.expand((n) => n.tags).any((tag) => tag.first == 'conversation'),
           isFalse,
         );
-        expect(
-          sentLegacy.expand((n) => n.tags),
-          containsAll([
-            ['tradeId', 'trade-123'],
-            ['tradeId', 'trade-123'],
-          ]),
-        );
-        expect(
-          sentLegacy
-              .expand((n) => n.tags)
-              .any((tag) => tag.first == 'conversation'),
-          isFalse,
-        );
       },
     );
 
@@ -375,15 +312,11 @@ void main() {
           MockKeys.guest.publicKey,
           MockKeys.hoster.publicKey,
         });
-        expect(sentLegacy.map((n) => n.recipientPubkey).toSet(), {
-          MockKeys.guest.publicKey,
-          MockKeys.hoster.publicKey,
-        });
       },
     );
 
     test(
-      'skips both delivery paths when NIP-17 notice already exists',
+      'skips delivery when NIP-17 notice already exists',
       () async {
         existing = [
           _existingNotice(
@@ -397,9 +330,9 @@ void main() {
         await notifier.notifyOrder(group);
 
         expect(sent, hasLength(1));
-        expect(sentLegacy, hasLength(1));
+
         expect(sent.single.recipientPubkeys.single, MockKeys.hoster.publicKey);
-        expect(sentLegacy.single.recipientPubkey, MockKeys.hoster.publicKey);
+
         expect(
           sent.single.tags.any(
             (tag) =>
@@ -430,10 +363,6 @@ void main() {
         MockKeys.guest.publicKey,
         MockKeys.hoster.publicKey,
       });
-      expect(sentLegacy.map((n) => n.recipientPubkey).toSet(), {
-        MockKeys.guest.publicKey,
-        MockKeys.hoster.publicKey,
-      });
     });
 
     test('does not treat inbound matching messages as already sent', () async {
@@ -453,10 +382,6 @@ void main() {
         MockKeys.guest.publicKey,
         MockKeys.hoster.publicKey,
       });
-      expect(sentLegacy.map((n) => n.recipientPubkey).toSet(), {
-        MockKeys.guest.publicKey,
-        MockKeys.hoster.publicKey,
-      });
     });
 
     test('does not notify anyone without a decryptable buyer proof', () async {
@@ -468,7 +393,6 @@ void main() {
       await notifier.notifyOrder(group);
 
       expect(sent, isEmpty);
-      expect(sentLegacy, isEmpty);
     });
 
     test('does not notify anyone when the order already ended', () async {
@@ -481,7 +405,6 @@ void main() {
       await notifier.notifyOrder(group);
 
       expect(sent, isEmpty);
-      expect(sentLegacy, isEmpty);
     });
 
     test('sends cancellation notice only to buyer', () async {
@@ -490,9 +413,9 @@ void main() {
       await notifier.notifyCancellation(group);
 
       expect(sent, hasLength(1));
-      expect(sentLegacy, hasLength(1));
+
       expect(sent.single.recipientPubkeys, [MockKeys.guest.publicKey]);
-      expect(sentLegacy.single.recipientPubkey, MockKeys.guest.publicKey);
+
       expect(
         sent.single.content,
         'Your order for Lake House $_defaultOrderRange could not '
@@ -522,7 +445,6 @@ void main() {
       await notifier.notifyCancellation(group);
 
       expect(sent, isEmpty);
-      expect(sentLegacy, isEmpty);
     });
   });
 }

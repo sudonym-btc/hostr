@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:injectable/injectable.dart' hide Order;
@@ -6,7 +7,6 @@ import 'package:ndk/ndk.dart' show Nip01Event, Filter, Ndk;
 
 import '../../datasources/nostr/mock.relay.dart';
 import '../../injection.dart';
-import '../../util/main.dart';
 import 'requests.dart';
 
 class _Subscription<T extends Nip01Event> {

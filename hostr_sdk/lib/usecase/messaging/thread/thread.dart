@@ -3,13 +3,13 @@ import 'dart:math' as math;
 
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
-import '../../../util/custom_logger.dart';
-import '../../../util/stream_status.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
+import 'package:marketplace_evm/util/stream_status.dart';
 import '../../auth/auth.dart';
 import '../../user_subscriptions/user_subscriptions.dart';
 import '../messaging.dart';
@@ -48,11 +48,9 @@ class Thread {
     @factoryParam this.anchor, {
     required CustomLogger logger,
     required Auth auth,
-    required Messaging messaging,
-    required UserSubscriptions userSubscriptions,
+    required this._messaging,
+    required this._userSubscriptions,
   }) : _auth = auth,
-       _messaging = messaging,
-       _userSubscriptions = userSubscriptions,
        _logger = logger.scope('thread'),
        state = BehaviorSubject<ThreadState>.seeded(
          ThreadState.initial(

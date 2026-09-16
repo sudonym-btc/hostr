@@ -1,19 +1,12 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/nostr_kinds.dart'
-    show
-        kHostrOnlyKinds,
-        kNostrKindConnect,
-        kNostrKindNWCInfo,
-        kNostrKindNWCNotification,
-        kNostrKindNWCRequest,
-        kNostrKindNWCResponse,
-        kNostrKindRelayAuthentication;
-import 'package:models/nostr_parser.dart';
+import 'package:marketplace_models/nostr_kinds.dart' show kHostrOnlyKinds;
+import 'package:marketplace_models/nostr_parser.dart';
 import 'package:ndk/entities.dart' show RelayBroadcastResponse;
 import 'package:ndk/ndk.dart'
     show Filter, LogOutput, Logger, Ndk, Nip01Event, Nip01Utils;
@@ -29,18 +22,6 @@ import '../auth/auth.dart';
 export 'expandable_subscription.dart';
 
 typedef NostrEventSigner = Future<Nip01Event> Function(Nip01Event event);
-
-const _kNostrKindCurrentNWCNotification = 23197;
-
-const _authOptionalHostrWriteKinds = <int>{
-  kNostrKindConnect,
-  kNostrKindNWCInfo,
-  kNostrKindNWCRequest,
-  kNostrKindNWCResponse,
-  kNostrKindNWCNotification,
-  _kNostrKindCurrentNWCNotification,
-  kNostrKindRelayAuthentication,
-};
 
 class BroadcastResult {
   final Nip01Event event;
@@ -156,17 +137,6 @@ Stream<T> parseNostrEventsForSdk<T extends Nip01Event>({
 
 bool hasSuccessfulBroadcast(List<RelayBroadcastResponse> responses) {
   return responses.any((response) => response.broadcastSuccessful);
-}
-
-bool shouldPreAuthHostrRelayForBroadcast({
-  required int eventKind,
-  required String hostrRelay,
-  List<String>? relays,
-}) {
-  final relay = hostrRelay.trim();
-  if (relay.isEmpty) return false;
-  if (_authOptionalHostrWriteKinds.contains(eventKind)) return false;
-  return relays == null || relays.contains(relay);
 }
 
 String formatBroadcastResponses(List<RelayBroadcastResponse> responses) {
@@ -292,11 +262,9 @@ class Requests extends RequestsModel {
   Requests({
     required Ndk ndk,
     required CustomLogger logger,
-    required Auth auth,
-    required HostrConfig config,
+    required this._auth,
+    required this._config,
   }) : _ndk = ndk,
-       _auth = auth,
-       _config = config,
        _logger = logger.scope('requests') {
     Logger.log.addOutput(_SubscriptionDebugOutput(ndk));
   }
@@ -597,11 +565,6 @@ class Requests extends RequestsModel {
       );
     }
 
-    await _preAuthHostrRelayForBroadcast(
-      event: eventToBroadcast,
-      relays: relays,
-    );
-
     _logger.d(
       'broadcast event: ${_broadcastEventDebugSummary(eventToBroadcast)}',
     );
@@ -613,40 +576,6 @@ class Requests extends RequestsModel {
       context: 'kind ${event.kind} ${event.id}',
     );
     return BroadcastResult(event: eventToBroadcast, responses: responses);
-  }
-
-  Future<void> _preAuthHostrRelayForBroadcast({
-    required Nip01Event event,
-    List<String>? relays,
-  }) async {
-    if (!shouldPreAuthHostrRelayForBroadcast(
-      eventKind: event.kind,
-      hostrRelay: _config.hostrRelay,
-      relays: relays,
-    )) {
-      return;
-    }
-
-    final activePubkey = _auth.activePubkey;
-    if (activePubkey != null && activePubkey == event.pubKey) {
-      // Bunker-backed signers need their NIP-46 response subscription alive to
-      // sign AUTH events. A proactive relay-auth reconnect can close that
-      // subscription, so let NDK's lazy auth-required retry sign on the current
-      // socket instead.
-      if (_auth.isBunkerBacked) return;
-      await _auth.ensureNip42AuthForHostrRelay();
-      return;
-    }
-
-    final authorAccount = _ndk.accounts.accounts[event.pubKey];
-    if (authorAccount == null || !authorAccount.signer.canSign()) return;
-    await _ndk.relays.closeTransport(_config.hostrRelay);
-    await _ndk.relays.ensureAuthenticated(
-      relayUrl: _config.hostrRelay,
-      account: authorAccount,
-      timeout: const Duration(seconds: 30),
-      challengeTimeout: const Duration(seconds: 5),
-    );
   }
 
   /// Opens a live-only NDK subscription (no query phase) and forwards

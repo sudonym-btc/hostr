@@ -3,8 +3,8 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:convert/convert.dart';
-import 'package:models/bip340.dart' as models_bip340;
-import 'package:models/secp256k1.dart';
+import 'package:marketplace_models/bip340.dart' as models_bip340;
+import 'package:marketplace_models/secp256k1.dart';
 import 'package:ndk/data_layer/models/nip_01_event_model.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip44/nip44.dart';

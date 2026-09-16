@@ -1,14 +1,14 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 

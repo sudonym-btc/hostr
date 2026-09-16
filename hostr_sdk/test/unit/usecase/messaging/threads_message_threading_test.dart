@@ -1,6 +1,8 @@
 @Tags(['unit'])
 library;
 
+import 'package:get_it/get_it.dart';
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
 import 'package:hostr_sdk/injection.dart';
@@ -9,10 +11,9 @@ import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
 import 'package:hostr_sdk/usecase/messaging/threads.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
-import 'package:hostr_sdk/util/main.dart';
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
@@ -107,6 +108,8 @@ String _cid(String tag, [List<String> extra = const []]) =>
       ...extra,
     ], conversationTag: tag);
 
+final testScope = GetIt.asNewInstance();
+
 void main() {
   late Threads threads;
   late _FakeUserSubscriptions userSubscriptions;
@@ -118,8 +121,8 @@ void main() {
     auth = _FakeAuth();
     messaging = _FakeMessaging();
 
-    await getIt.reset();
-    getIt.registerFactoryParam<Thread, String, dynamic>((anchor, _) {
+    await testScope.reset();
+    testScope.registerFactoryParam<Thread, String, dynamic>((anchor, _) {
       return Thread(
         anchor,
         logger: CustomLogger(),
@@ -130,6 +133,7 @@ void main() {
     });
 
     threads = Threads(
+      scope: HostrScope(testScope),
       auth: auth,
       userSubscriptions: userSubscriptions,
       logger: CustomLogger(),
@@ -138,7 +142,7 @@ void main() {
 
   tearDown(() async {
     await threads.stop();
-    await getIt.reset();
+    await testScope.reset();
   });
 
   test(

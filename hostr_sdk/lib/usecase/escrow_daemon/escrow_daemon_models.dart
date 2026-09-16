@@ -1,8 +1,8 @@
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:web3dart/web3dart.dart' show Web3Client;
 
-import '../escrow/supported_escrow_contract/supported_escrow_contract.dart';
-import '../evm/chain/evm_chain.dart';
+import 'package:marketplace_evm/usecase/escrow/supported_escrow_contract/supported_escrow_contract.dart';
+import 'package:marketplace_evm/usecase/evm/chain/evm_chain.dart';
 
 /// Status of a tracked escrow trade.
 enum TradeStatus { funded, arbitrated, released, claimed, unknown }

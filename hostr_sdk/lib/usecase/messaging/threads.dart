@@ -1,17 +1,15 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
-import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/ndk.dart' show Nip01Event;
 import 'package:rxdart/rxdart.dart';
 
-import '../../injection.dart' show HostrScope, getIt;
-import '../../util/main.dart';
+import '../../injection.dart' show HostrScope;
 import '../auth/auth.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'thread.dart';
 
-@Singleton()
 class Threads {
   final CustomLogger _logger;
   final Auth _auth;
@@ -61,14 +59,11 @@ class Threads {
   final Map<String, StreamSubscription> _threadStateSubscriptions = {};
 
   Threads({
-    required Auth auth,
-    required UserSubscriptions userSubscriptions,
+    required this._auth,
+    required this._userSubscriptions,
     required CustomLogger logger,
-    HostrScope? scope,
-  }) : _auth = auth,
-       _userSubscriptions = userSubscriptions,
-       _scope = scope ?? HostrScope(getIt),
-       _logger = logger.scope('threads') {
+    required this._scope,
+  }) : _logger = logger.scope('threads') {
     _statusSubscription = _userSubscriptions.giftwraps$.status
         .distinct((a, b) => a.runtimeType == b.runtimeType)
         .listen((status) {

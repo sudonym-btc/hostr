@@ -2,10 +2,10 @@ import 'dart:isolate';
 
 import 'package:bip39_mnemonic/bip39_mnemonic.dart';
 import 'package:injectable/injectable.dart' hide Order;
-import 'package:models/bip340.dart';
+import 'package:marketplace_models/bip340.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
 
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../../util/deterministic_key_derivation.dart';
 import 'auth_models.dart';
 

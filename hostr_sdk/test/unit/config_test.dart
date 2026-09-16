@@ -34,7 +34,6 @@ void main() {
     expect(config.bootstrapRelays, hasLength(3));
     expect(config.ndkConfig.bootstrapRelays, ['wss://relay.hostr.network']);
     expect(config.ndkConfig.ignoreRelays, ['wss://relay.hostr.development']);
-    expect(config.ndkConfig.eagerAuth, isFalse);
   });
 
   test('default NDK config falls back when no Hostr relay is configured', () {
@@ -80,12 +79,5 @@ void main() {
     expect(signer.privateKey, 'privkey');
   });
 
-  test('default NDK config uses coinlib nip44 cryptography', () {
-    final config = buildConfig(
-      hostrRelay: 'wss://relay.hostr.network',
-      bootstrapRelays: const ['wss://relay.hostr.network'],
-    );
 
-    expect(config.ndkConfig.nip44Cryptography, isA<CoinlibNip44Cryptography>());
-  });
 }

@@ -1,14 +1,13 @@
-import 'package:injectable/injectable.dart' hide Order;
 import 'package:meta/meta.dart' show visibleForTesting;
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/entities.dart' show UserRelayList;
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Ndk, Nip01Event;
 
 import '../../config.dart' show CoinlibEventSigner, HostrConfig;
-import '../../injection.dart' show HostrScope, getIt;
+import '../../injection.dart' show HostrScope;
 import '../../util/coinlib_gift_wrap.dart';
-import '../../util/custom_logger.dart';
+import 'package:marketplace_evm/util/custom_logger.dart';
 import '../dm_relays/dm_relays.dart';
 import '../relays/relays.dart';
 import '../requests/requests.dart';
@@ -39,7 +38,6 @@ List<String> resolveHostrOnlyGiftWrapBroadcastRelays({
   return [hostrRelay];
 }
 
-@Singleton()
 class Messaging {
   final Ndk _ndk;
   final Requests _requests;
@@ -53,16 +51,16 @@ class Messaging {
     Ndk ndk,
     Requests requests,
     DmRelays dmRelays,
-    CustomLogger logger, [
+    CustomLogger logger,
+    HostrScope scope, [
     HostrConfig? config,
     Relays? relays,
-    HostrScope? scope,
   ]) : _ndk = ndk,
        _requests = requests,
        _dmRelays = dmRelays,
        _config = config,
        _relays = relays,
-       _scope = scope ?? HostrScope(getIt),
+       _scope = scope,
        _logger = logger.scope('messaging');
 
   Future<Nip01Event> getRumour(
@@ -221,7 +219,7 @@ class Messaging {
   /// Relay targets for private messages to [recipientPubkey].
   ///
   /// This includes the Hostr/bootstrap relays plus the recipient's NIP-17 DM
-  /// relays and NIP-65 relay list when available. Escrow legacy NIP-04 copies
+  /// relays and NIP-65 relay list when available. Escrow notices
   /// use this so they are sent to relays the recipient is likely to monitor.
   Future<List<String>> recipientMessageRelays(String recipientPubkey) {
     return _giftWrapBroadcastRelays(recipientPubkey, allowExternalRelays: true);

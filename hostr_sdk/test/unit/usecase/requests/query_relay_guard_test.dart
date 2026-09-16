@@ -6,10 +6,9 @@ import 'package:hostr_sdk/usecase/requests/requests.dart'
         applyQueryRelayGuard,
         applyQueryRelayGuardForFilter,
         parseNostrEventsForSdk,
-        requestInFlightKeyFor,
-        shouldPreAuthHostrRelayForBroadcast;
-import 'package:models/main.dart' show ProfileMetadata;
-import 'package:models/nostr_kinds.dart';
+        requestInFlightKeyFor;
+import 'package:marketplace_models/main.dart' show ProfileMetadata;
+import 'package:marketplace_models/nostr_kinds.dart';
 import 'package:ndk/ndk.dart' show Filter, Nip01Event;
 import 'package:test/test.dart';
 
@@ -223,43 +222,4 @@ void main() {
     });
   });
 
-  group('shouldPreAuthHostrRelayForBroadcast', () {
-    test('requires pre-auth when a broadcast may touch the Hostr relay', () {
-      expect(
-        shouldPreAuthHostrRelayForBroadcast(
-          eventKind: kNostrKindListing,
-          hostrRelay: _hostrRelay,
-          relays: null,
-        ),
-        isTrue,
-      );
-      expect(
-        shouldPreAuthHostrRelayForBroadcast(
-          eventKind: kNostrKindListing,
-          hostrRelay: _hostrRelay,
-          relays: [_hostrRelay],
-        ),
-        isTrue,
-      );
-    });
-
-    test('does not pre-auth external-only or auth-optional broadcasts', () {
-      expect(
-        shouldPreAuthHostrRelayForBroadcast(
-          eventKind: kNostrKindListing,
-          hostrRelay: _hostrRelay,
-          relays: [_externalRelay],
-        ),
-        isFalse,
-      );
-      expect(
-        shouldPreAuthHostrRelayForBroadcast(
-          eventKind: kNostrKindConnect,
-          hostrRelay: _hostrRelay,
-          relays: [_hostrRelay],
-        ),
-        isFalse,
-      );
-    });
-  });
 }

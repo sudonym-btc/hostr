@@ -1,31 +1,25 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
-import '../../util/main.dart';
 import '../auth/auth.dart';
 import '../order_groups/order_group_participant_resolver.dart';
 import '../orders/order_participant_keyring.dart';
 import '../orders/orders.dart';
-import '../trade_account_allocator/trade_account_allocator.dart';
 import '../user_subscriptions/user_subscriptions.dart';
 import 'thread.dart';
 import 'threads.dart';
 
 class EscrowTradeThreadResolver {
   EscrowTradeThreadResolver({
-    required Auth auth,
-    required Orders orders,
-    required UserSubscriptions userSubscriptions,
-    required Threads threads,
-    required TradeAccountAllocator tradeAccountAllocator,
+    required this._auth,
+    required this._orders,
+    required this._userSubscriptions,
+    required this._threads,
+    required this._tradeAccountAllocator,
     required CustomLogger logger,
-  }) : _auth = auth,
-       _orders = orders,
-       _userSubscriptions = userSubscriptions,
-       _threads = threads,
-       _tradeAccountAllocator = tradeAccountAllocator,
-       _logger = logger.scope('escrow-trade-thread-resolver');
+  }) : _logger = logger.scope('escrow-trade-thread-resolver');
 
   final Auth _auth;
   final Orders _orders;

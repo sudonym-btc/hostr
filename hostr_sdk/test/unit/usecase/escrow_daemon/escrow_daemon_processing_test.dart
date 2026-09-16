@@ -1,20 +1,16 @@
 @Tags(['unit'])
 library;
 
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:hostr_sdk/usecase/auth/auth.dart';
 import 'package:hostr_sdk/usecase/crud.usecase.dart';
 import 'package:hostr_sdk/usecase/deterministic_keys/deterministic_keys.dart';
-import 'package:hostr_sdk/usecase/escrow/escrow_verification.dart';
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon.dart';
 import 'package:hostr_sdk/usecase/escrow_daemon/escrow_daemon_models.dart';
-import 'package:hostr_sdk/usecase/evm/capabilities/escrow_capability.dart';
-import 'package:hostr_sdk/usecase/evm/chain/evm_chain.dart';
-import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';
 import 'package:hostr_sdk/usecase/escrows/escrows.dart';
-import 'package:hostr_sdk/usecase/evm/evm.dart';
 import 'package:hostr_sdk/usecase/listings/listings.dart';
 import 'package:hostr_sdk/usecase/messaging/messaging.dart';
 import 'package:hostr_sdk/usecase/messaging/thread.dart';
@@ -23,18 +19,21 @@ import 'package:hostr_sdk/usecase/metadata/metadata.dart';
 import 'package:hostr_sdk/usecase/requests/requests.dart';
 import 'package:hostr_sdk/usecase/orders/orders.dart';
 import 'package:hostr_sdk/usecase/user_subscriptions/user_subscriptions.dart';
-import 'package:hostr_sdk/util/main.dart';
-import 'package:http/http.dart' as http;
 import 'package:mockito/mockito.dart';
-import 'package:models/main.dart';
-import 'package:models/stubs/main.dart';
+import 'package:marketplace_models/main.dart';
+import 'package:marketplace_models/stubs/main.dart';
 import 'package:ndk/domain_layer/entities/broadcast_state.dart';
 import 'package:ndk/ndk.dart' show Filter, Metadata, Nip01Event;
 import 'package:ndk/shared/nips/nip01/key_pair.dart';
 import 'package:test/test.dart';
 import 'package:wallet/wallet.dart' as bip;
 import 'package:web3dart/web3dart.dart'
-    show BlockNum, EthPrivateKey, Web3Client;
+    show
+        BlockNum,
+        ContractFunction,
+        DeployedContract,
+        EthPrivateKey,
+        Web3Client;
 
 final _listingAnchor =
     '30402:${MockKeys.hoster.publicKey}:daemon-processing-listing';
@@ -84,7 +83,7 @@ class _FakeEvm extends Fake implements Evm {
 }
 
 class _FakeEvmChain extends Fake implements EvmChain {
-  final _client = Web3Client('http://127.0.0.1:8545', http.Client());
+  final _client = _FakeWeb3Client();
 
   @override
   EvmChainConfig get config => const EvmChainConfig(
@@ -110,6 +109,33 @@ class _FakeEvmChain extends Fake implements EvmChain {
     bip.EthereumAddress address, {
     BlockNum? atBlock,
   }) async => Uint8List.fromList([1, 2, 3]);
+}
+
+class _FakeWeb3Client extends Fake implements Web3Client {
+  @override
+  Future<List<dynamic>> call({
+    bip.EthereumAddress? sender,
+    required DeployedContract contract,
+    required ContractFunction function,
+    required List<dynamic> params,
+    BlockNum? atBlock,
+  }) async {
+    expect(function.name, 'eip712Domain');
+    expect(params, isEmpty);
+    expect(
+      contract.address,
+      bip.EthereumAddress.fromHex('0x0000000000000000000000000000000000000001'),
+    );
+    return [
+      Uint8List.fromList([15]),
+      'Nostr MultiEscrow',
+      '7',
+      BigInt.from(30),
+      contract.address,
+      Uint8List(32),
+      <BigInt>[],
+    ];
+  }
 }
 
 class _FakeEscrows extends Fake implements Escrows {
@@ -231,7 +257,6 @@ class _BroadcastCall {
 class _FakeRequests extends Fake implements Requests {
   final broadcasts = <Nip01Event>[];
   final broadcastCalls = <_BroadcastCall>[];
-  bool failLegacyBroadcasts = false;
 
   @override
   Future<BroadcastResult> broadcastEvent({
@@ -244,9 +269,6 @@ class _FakeRequests extends Fake implements Requests {
         : event;
     broadcasts.add(eventToBroadcast);
     broadcastCalls.add(_BroadcastCall(event: eventToBroadcast, relays: relays));
-    if (failLegacyBroadcasts && eventToBroadcast.kind == kNostrKindLegacyDM) {
-      throw StateError('legacy broadcast failed');
-    }
     return BroadcastResult(
       event: eventToBroadcast,
       responses: [_successfulBroadcastResponse()],
@@ -373,8 +395,7 @@ class _Harness {
         listings: _FakeListings(),
         metadata: _FakeMetadata(),
         messaging: messaging,
-        requests: requests,
-        escrows: escrows,
+          escrows: escrows,
         orders: fakeOrders,
         userSubscriptions: _FakeUserSubscriptions(),
         escrowVerification: _FakeEscrowVerification(),
@@ -521,9 +542,7 @@ Iterable<_SentText> _noticesOf(_Harness harness, String noticeType) {
   );
 }
 
-String _recipientPubkey(_BroadcastCall call) {
-  return call.event.tags.firstWhere((tag) => tag[0] == 'p')[1];
-}
+
 
 void main() {
   group('EscrowDaemon order processing', () {
@@ -582,55 +601,10 @@ void main() {
           everyElement(contains('Lake House 1 Jun - 3 Jun')),
         );
         expect(
-          harness.requests.broadcasts.where(
-            (e) => e.kind == kNostrKindLegacyDM,
-          ),
-          hasLength(2),
+          harness.requests.broadcasts.where((event) => event.kind == 4),
+          isEmpty,
+          reason: 'Order notices must use NIP-17 gift wraps only',
         );
-        final legacyCalls = harness.requests.broadcastCalls
-            .where((call) => call.event.kind == kNostrKindLegacyDM)
-            .toList();
-        expect(legacyCalls.map(_recipientPubkey).toSet(), {
-          MockKeys.guest.publicKey,
-          MockKeys.hoster.publicKey,
-        });
-        for (final call in legacyCalls) {
-          final recipient = _recipientPubkey(call);
-          expect(call.relays, harness.messaging.recipientRelays[recipient]);
-        }
-      },
-    );
-
-    test(
-      'adds configured public bootstrap relays only to legacy notices',
-      () async {
-        harness = _Harness();
-        harness.daemon.setLegacyDmBootstrapRelays([
-          'wss://relay.primal.net',
-          'wss://bootstrap.test',
-        ]);
-        final buyer = _buyerOrder(tradeId: 'trade-legacy-relays');
-        harness.orders.seed([buyer]);
-
-        harness.daemon.startOrderListenerForTesting();
-        harness.orders.source.add(buyer);
-
-        await _waitUntil(
-          () => _noticesOf(harness, 'order_placed').length == 2,
-          reason: 'daemon did not send order placed notices',
-        );
-
-        final legacyCalls = harness.requests.broadcastCalls
-            .where((call) => call.event.kind == kNostrKindLegacyDM)
-            .toList();
-        expect(legacyCalls, hasLength(2));
-        for (final call in legacyCalls) {
-          final recipient = _recipientPubkey(call);
-          expect(call.relays, [
-            ...harness.messaging.recipientRelays[recipient]!,
-            'wss://relay.primal.net',
-          ]);
-        }
       },
     );
 
@@ -656,36 +630,6 @@ void main() {
         everyElement(contains('Lake House 30 Apr 2027 - 2 May 2027')),
       );
     });
-
-    test(
-      'does not fail order processing when legacy notice broadcast fails',
-      () async {
-        harness = _Harness();
-        harness.requests.failLegacyBroadcasts = true;
-        final buyer = _buyerOrder(tradeId: 'trade-legacy-failure');
-        harness.orders.seed([buyer]);
-
-        harness.daemon.startOrderListenerForTesting();
-        harness.orders.source.add(buyer);
-
-        await _waitUntil(
-          () => harness.orders.confirmed.length == 1,
-          reason: 'daemon did not publish escrow confirmation',
-        );
-        await _waitUntil(
-          () => _noticesOf(harness, 'order_placed').length == 2,
-          reason: 'daemon did not send modern order notices',
-        );
-
-        expect(harness.verifiedTradeIds, ['trade-legacy-failure']);
-        expect(
-          harness.requests.broadcastCalls.where(
-            (call) => call.event.kind == kNostrKindLegacyDM,
-          ),
-          hasLength(2),
-        );
-      },
-    );
 
     test(
       'cancels an invalid buyer order and notifies only the buyer',
@@ -714,20 +658,6 @@ void main() {
           MockKeys.guest.publicKey,
         ]);
         expect(_noticesOf(harness, 'order_placed'), isEmpty);
-        expect(
-          harness.requests.broadcasts.where(
-            (e) => e.kind == kNostrKindLegacyDM,
-          ),
-          hasLength(1),
-        );
-        final legacyCall = harness.requests.broadcastCalls.singleWhere(
-          (call) => call.event.kind == kNostrKindLegacyDM,
-        );
-        expect(_recipientPubkey(legacyCall), MockKeys.guest.publicKey);
-        expect(
-          legacyCall.relays,
-          harness.messaging.recipientRelays[MockKeys.guest.publicKey],
-        );
       },
     );
 
