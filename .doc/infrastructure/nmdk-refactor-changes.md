@@ -22,7 +22,7 @@ Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-
 - Production Hostr web build, native CLI and escrow bundles, and compiled CLI help smoke check passed.
 - 1,109 Dart tests passed: SDK 768, models 126, drivers 128, app 59, CLI 22, escrow service 6. Three CLI development-stack tests were skipped.
 - TypeScript package suites, shared conformance fixtures, installed-package smoke tests, marketplace app and documentation builds passed.
-- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 17; boundary guard: 15.
+- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 16 in the clean committed checkout; boundary guard: 15.
 - Clean-v7 initializer checks: six tests; the deployment regression verifies replacement of an old configured address.
 - All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.
 - NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.
@@ -69,4 +69,17 @@ Interval: **293 seconds**. Child repositories are committed before their consumi
 
 ## Preserved work
 
-Preexisting unrelated edits remain outside these feature commits. The user’s seed-kind correction is preserved in the relocated canonical model, and the NMDK gitlink advances from the user-selected checkout. The preexisting Cashu Compose addition remains staged; its dependent image updates stay in the working tree unless explicitly included. No changes are pushed.
+Preexisting unrelated edits remain outside these feature commits. The user’s seed-kind correction is preserved in the relocated canonical model, and the NMDK gitlink advances from the user-selected checkout. The preexisting Cashu Compose addition remains staged; its dependent image updates stay in the working tree unless explicitly included.
+
+## Publication fixes
+
+Verification in clean committed checkouts identified and corrected issues that the existing development workspace concealed:
+
+- Reconciled the two EVM stack checkouts onto one history. Replaced an unpublished upstream Boltz gitlink with a published revision and a stack-owned wallet readiness wrapper.
+- Removed the orphaned escrow specification gitlink and propagated the complete, recursively cloneable dependency graph.
+- Pinned npm 12 in Hostr so release tooling cannot shadow the required workspace package manager with npm 11.
+- Built NMDK workspace exports before their runtime tests import them. Updated the package consumer check to npm 12's JSON output format.
+- Made Compose structure and image checks independent of ignored local service environment files, while retaining runtime environment requirements.
+- Regenerated the missing optional Boltz transaction confirmation field from the canonical schema and refreshed immutable package documentation links.
+
+The clean-checkout verification also covers Widgetbook's production web build, all seven packed TypeScript packages in a blank consumer, documentation production output, and repeated Dart binding generation without tracked drift. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.
