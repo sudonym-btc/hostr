@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.6.0">
+
+    <!-- Primary Meta Tags -->
+    <title>NIP-XX</title>
+    <meta name="title" content="NIP-XX">
+    <meta name="description" content="draft optional">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/specifications/arbitration/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/specifications/arbitration/">
+    <meta property="og:title" content="NIP-XX">
+    <meta property="og:description" content="draft optional">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/specifications/arbitration/">
+    <meta name="twitter:title" content="NIP-XX">
+    <meta name="twitter:description" content="draft optional">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/specifications/arbitration.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.6.0.842850253091" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="nip-xx">NIP-XX</h1>
+<h2 id="arbitration-services">Arbitration Services</h2>
+<p><code translate="no" v-pre>draft</code> <code translate="no" v-pre>optional</code></p>
+<p>This NIP defines a protocol for decentralized arbitration services on Nostr, enabling trust-minimized commerce between buyers and sellers. Arbiters advertise their services, buyers and sellers declare their trusted arbiters, accepted arbitration policies, and accepted payment forms, and the protocol coordinates on-chain escrow settlement with arbitration capabilities.</p>
+<h2 id="terms">Terms</h2>
+<ul>
+<li><strong>Buyer</strong> — Nostr user making a payment for a good or service.</li>
+<li><strong>Seller</strong> — Nostr user providing a good or service.</li>
+<li><strong>Arbiter</strong> — Nostr user operating an arbitration service that can verify escrow funding and arbitrate disputes.</li>
+<li><strong>Trade</strong> — A single arbiter-backed transaction between a buyer and seller, mediated by an arbiter.</li>
+</ul>
+<h2 id="event-kinds">Event Kinds</h2>
+<retype-table copy-text="| Kind    | Name           | Type                      | Description                                                |
+| ------- | -------------- | ------------------------- | ---------------------------------------------------------- |
+| `17388` | Arbitration Methods | Replaceable               | User's accepted payment forms, trusted arbiters, and settlement address proofs |
+| `30303` | Arbitration Service | Parameterized replaceable | Arbiter's service advertisement                    |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Kind</th>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>17388</code></td>
+<td>Arbitration Methods</td>
+<td>Replaceable</td>
+<td>User&#x27;s accepted payment forms, trusted arbiters, and settlement address proofs</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>30303</code></td>
+<td>Arbitration Service</td>
+<td>Parameterized replaceable</td>
+<td>Arbiter&#x27;s service advertisement</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<h2 id="arbitration-service-kind30303">Arbitration Service (<code translate="no" v-pre>kind:30303</code>)</h2>
+<p>Published by arbiters to advertise their service. The <code translate="no" v-pre>d</code> tag is a stable service identifier chosen by the arbiter and MUST remain stable across updates to the same advertised service.</p>
+<h3 id="content">Content</h3>
+<p>JSON object:</p>
+<div id="content-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;pubkey&quot;: &quot;&lt;arbiter-nostr-pubkey&gt;&quot;,
+  &quot;type&quot;: &quot;EVM escrow&quot;,
+  &quot;policy&quot;: &quot;evm:sha256:&lt;sha256-of-runtime-bytecode&gt;&quot;,
+  &quot;maxDuration&quot;: 31536000,
+  &quot;fee&quot;: {
+    &quot;ppm&quot;: 10000,
+    &quot;base&quot;: &quot;0&quot;,
+    &quot;min&quot;: &quot;0&quot;,
+    &quot;max&quot;: &quot;0&quot;,
+    &quot;assetOverrides&quot;: {
+      &quot;native&quot;: {
+        &quot;ppm&quot;: 10000,
+        &quot;base&quot;: &quot;0&quot;,
+        &quot;min&quot;: &quot;0&quot;,
+        &quot;max&quot;: &quot;0&quot;,
+      },
+      &quot;0xdAC17F958D2ee523a2206206994597C13D831ec7&quot;: {
+        &quot;ppm&quot;: 10000,
+        &quot;base&quot;: &quot;50000&quot;,
+        &quot;min&quot;: &quot;10000&quot;,
+        &quot;max&quot;: &quot;1000000&quot;,
+      },
+    },
+  },
+  &quot;params&quot;: {
+    &quot;arbiterAddress&quot;: &quot;&lt;eip55-checksummed-address&gt;&quot;,
+    &quot;contractAddress&quot;: &quot;&lt;deployed-escrow-contract-address&gt;&quot;,
+    &quot;contractBytecodeHash&quot;: &quot;&lt;sha256-of-runtime-bytecode&gt;&quot;,
+    &quot;chainId&quot;: 30,
+  },
+}</code></pre>
+</doc-codeblock></div>
+<retype-table copy-text="| Field                  | Type    | Description                                                                                                                                         |
+| ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pubkey`               | string  | The arbiter's Nostr hex public key.                                                                                                         |
+| `type`                 | string  | Human-readable service type label only. Clients MUST NOT use this as the driver or trust matching key. |
+| `policy`               | string  | Canonical arbitration policy hash. This is the machine-readable value used to select a driver and to match seller `arbitrationMethods`. |
+| `maxDuration`          | integer | Maximum escrow lock duration in seconds.                                                                                                            |
+| `fee`                  | object  | Arbitration service fee policy.                                                                                                                      |
+| `params`               | object  | Policy-driver specific parameters. For an EVM escrow policy, see below.                                                                              |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>pubkey</code></td>
+<td>string</td>
+<td>The arbiter&#x27;s Nostr hex public key.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>type</code></td>
+<td>string</td>
+<td>Human-readable service type label only. Clients MUST NOT use this as the driver or trust matching key.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>policy</code></td>
+<td>string</td>
+<td>Canonical arbitration policy hash. This is the machine-readable value used to select a driver and to match seller <code translate="no" v-pre>arbitrationMethods</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>maxDuration</code></td>
+<td>integer</td>
+<td>Maximum escrow lock duration in seconds.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>fee</code></td>
+<td>object</td>
+<td>Arbitration service fee policy.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>params</code></td>
+<td>object</td>
+<td>Policy-driver specific parameters. For an EVM escrow policy, see below.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<p>Each <code translate="no" v-pre>kind:30303</code> arbitration service event advertises exactly one <code translate="no" v-pre>policy</code>.
+If the same arbiter supports multiple contracts, scripts, or settlement rules,
+the arbiter MUST publish one arbitration service event per policy.</p>
+<p>Clients use <code translate="no" v-pre>policy</code> to select the implementation driver, for example by
+choosing the local driver whose advertised policy list contains the service
+policy. For EVM escrow contracts, the policy SHOULD be derived from the runtime
+bytecode hash. For Cashu escrow or auction policies, the policy SHOULD be
+derived from the locking script or policy hash.</p>
+<h4 id="evm-params">EVM Params</h4>
+<p>When <code translate="no" v-pre>policy</code> identifies an EVM escrow contract, <code translate="no" v-pre>params</code> contains:</p>
+<retype-table copy-text="| Field                  | Type    | Description                                                                                                                       |
+| ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `arbiterAddress`       | string  | The operator's EVM address (EIP-55 checksum).                                                                                     |
+| `contractAddress`      | string  | Deployed escrow smart contract address.                                                                                           |
+| `contractBytecodeHash` | string  | SHA-256 hash of the contract's runtime bytecode. This value MUST match the EVM bytecode hash represented by `policy`. |
+| `chainId`              | integer | EVM chain ID (e.g. `30` for Rootstock mainnet).                                                                                   |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>arbiterAddress</code></td>
+<td>string</td>
+<td>The operator&#x27;s EVM address (EIP-55 checksum).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>contractAddress</code></td>
+<td>string</td>
+<td>Deployed escrow smart contract address.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>contractBytecodeHash</code></td>
+<td>string</td>
+<td>SHA-256 hash of the contract&#x27;s runtime bytecode. This value MUST match the EVM bytecode hash represented by <code translate="no" v-pre>policy</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>chainId</code></td>
+<td>integer</td>
+<td>EVM chain ID (e.g. <code translate="no" v-pre>30</code> for Rootstock mainnet).</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<h4 id="fee">Fee</h4>
+<p>The <code translate="no" v-pre>fee</code> object contains:</p>
+<retype-table copy-text="| Field            | Type    | Description                                                                                              |
+| ---------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `ppm`            | integer | Proportional fee in parts per million. `10000` = 1%.                                                     |
+| `base`           | string  | Flat base fee in the selected asset's smallest unit.                                                     |
+| `min`            | string  | Minimum fee floor in the selected asset's smallest unit. `0` = no floor.                                 |
+| `max`            | string  | Maximum fee cap in the selected asset's smallest unit. `0` = no maximum.                                 |
+| `assetOverrides` | object  | Optional complete fee overrides keyed by asset contract address, or `&quot;native&quot;` for the chain's native asset. |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>ppm</code></td>
+<td>integer</td>
+<td>Proportional fee in parts per million. <code translate="no" v-pre>10000</code> = 1%.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>base</code></td>
+<td>string</td>
+<td>Flat base fee in the selected asset&#x27;s smallest unit.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>min</code></td>
+<td>string</td>
+<td>Minimum fee floor in the selected asset&#x27;s smallest unit. <code translate="no" v-pre>0</code> = no floor.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>max</code></td>
+<td>string</td>
+<td>Maximum fee cap in the selected asset&#x27;s smallest unit. <code translate="no" v-pre>0</code> = no maximum.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>assetOverrides</code></td>
+<td>object</td>
+<td>Optional complete fee overrides keyed by asset contract address, or <code translate="no" v-pre>&quot;native&quot;</code> for the chain&#x27;s native asset.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<p>Each entry in <code translate="no" v-pre>assetOverrides</code> is a complete <code translate="no" v-pre>fee</code> object without its own <code translate="no" v-pre>assetOverrides</code>. When no override exists for a selected asset, clients use the top-level fee.</p>
+<p><strong>Fee calculation:</strong> <code translate="no" v-pre>fee = clamp(floor(amount × ppm / 1,000,000) + base, min, max)</code></p>
+<h3 id="tags">Tags</h3>
+<div id="tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;d&quot;, &quot;&lt;service-id&gt;&quot;]</code></pre>
+</doc-codeblock></div>
+<h2 id="arbitration-methods-kind17388">Arbitration Methods (<code translate="no" v-pre>kind:17388</code>)</h2>
+<p>Usually published by sellers to declare which arbitration services they trust, which arbitration policies they understand, which payment forms they accept, and which settlement addresses they control. When placing an order, buyers normally defer to the seller&#x27;s arbitration methods event and choose from the seller&#x27;s advertised arbiter, policy, and payment options.</p>
+<p>Buyers MAY publish their own arbitration methods event to advertise preferred arbitration services, understood policies, or accepted payment forms. When a buyer pays through an arbitration service used with a seller, the buyer SHOULD adopt that arbiter pubkey and policy in their own arbitration methods event so future counterparties can discover that trust relationship.</p>
+<p>This event is replaceable per pubkey. Implementations SHOULD publish at most one current arbitration methods event per user. The event content is empty.</p>
+<h3 id="tags-1">Tags</h3>
+<retype-table copy-text="| Tag | Format                                                   | Description                                                                                                                            |
+| --- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `p` | `[&quot;p&quot;, &quot;&lt;arbiter-pubkey&gt;&quot;]`                              | Trusted arbiter pubkey. Repeat for multiple.                                                                                           |
+| `c` | `[&quot;c&quot;, &quot;&lt;policy&gt;&quot;]`                               | Accepted arbitration policy hash. Repeat for multiple. This MUST match an arbitration service's `policy` field exactly.               |
+| `o` | `[&quot;o&quot;, &quot;&lt;denomination&gt;&quot;, &quot;&lt;asset-id&gt;&quot;, &quot;&lt;app-id?&gt;&quot;]` | Accepted payment form mapping a denomination to a concrete asset location. The optional fourth element scopes forms to an application. |
+| `i` | `[&quot;i&quot;, &quot;evm:address:&lt;address&gt;&quot;, &quot;eip191:&lt;signature&gt;&quot;]`   | EVM address ownership proof. Required when these arbitration methods are used for EVM escrow settlement.                                |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Tag</th>
+<th>Format</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>p</code></td>
+<td><code translate="no" v-pre>[&quot;p&quot;, &quot;&lt;arbiter-pubkey&gt;&quot;]</code></td>
+<td>Trusted arbiter pubkey. Repeat for multiple.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>c</code></td>
+<td><code translate="no" v-pre>[&quot;c&quot;, &quot;&lt;policy&gt;&quot;]</code></td>
+<td>Accepted arbitration policy hash. Repeat for multiple. This MUST match an arbitration service&#x27;s <code translate="no" v-pre>policy</code> field exactly.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>o</code></td>
+<td><code translate="no" v-pre>[&quot;o&quot;, &quot;&lt;denomination&gt;&quot;, &quot;&lt;asset-id&gt;&quot;, &quot;&lt;app-id?&gt;&quot;]</code></td>
+<td>Accepted payment form mapping a denomination to a concrete asset location. The optional fourth element scopes forms to an application.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>i</code></td>
+<td><code translate="no" v-pre>[&quot;i&quot;, &quot;evm:address:&lt;address&gt;&quot;, &quot;eip191:&lt;signature&gt;&quot;]</code></td>
+<td>EVM address ownership proof. Required when these arbitration methods are used for EVM escrow settlement.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<h4 id="evm-address-proof-tags">EVM Address Proof Tags</h4>
+<p>An arbitration methods event used for EVM escrow settlement MUST include an <code translate="no" v-pre>i</code> tag proving that the event author controls the EVM address that will receive seller-side settlement funds:</p>
+<div id="evm-address-proof-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;i&quot;, &quot;evm:address:0x1111111111111111111111111111111111111111&quot;, &quot;eip191:0x...&quot;]</code></pre>
+</doc-codeblock></div>
+<p>The address SHOULD be EIP-55 checksummed. The proof is an EIP-191 personal-sign signature by that EVM address over the exact UTF-8 payload below, with no trailing newline:</p>
+<div id="evm-address-proof-tags-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">EVM address ownership proof
+nostr:&lt;arbitration-methods-event-pubkey&gt;
+evm:address:&lt;eip55-address&gt;</code></pre>
+</doc-codeblock></div>
+<p>Implementations SHOULD publish at most one current <code translate="no" v-pre>evm:address:</code> tag per arbitration methods event. If more than one is present, consumers SHOULD use the last valid proof and ignore earlier EVM address tags.</p>
+<h4 id="payment-form-tags">Payment Form Tags</h4>
+<p>The <code translate="no" v-pre>o</code> tag maps a denomination code (e.g. <code translate="no" v-pre>&quot;BTC&quot;</code>, <code translate="no" v-pre>&quot;USD&quot;</code>) to a concrete asset identifier:</p>
+<div id="payment-form-tags-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-json"><code v-pre class="language-json">[&quot;o&quot;, &quot;BTC&quot;, &quot;30:0x0000000000000000000000000000000000000000&quot;, &quot;&lt;app-id&gt;&quot;]</code></pre>
+</doc-codeblock></div>
+<p>For EVM assets, the asset ID format is <code translate="no" v-pre>&lt;chainId&gt;:&lt;assetAddress&gt;</code>. The zero address (<code translate="no" v-pre>0x000...</code>) denotes the chain&#x27;s native asset. Non-EVM payment rails MAY use their own asset IDs, such as <code translate="no" v-pre>&quot;BTC&quot;</code> for Lightning-denominated BTC.</p>
+<p>When present, <code translate="no" v-pre>&lt;app-id&gt;</code> scopes the payment form to an application.</p>
+<h3 id="example">Example</h3>
+<div id="example-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;kind&quot;: 17388,
+  &quot;pubkey&quot;: &quot;&lt;seller-pubkey&gt;&quot;,
+  &quot;tags&quot;: [
+    [&quot;p&quot;, &quot;abc123...&quot;],
+    [&quot;p&quot;, &quot;def456...&quot;],
+    [&quot;c&quot;, &quot;evm:sha256:a1b2c3d4e5...&quot;],
+    [&quot;i&quot;, &quot;evm:address:0x1111111111111111111111111111111111111111&quot;, &quot;eip191:0x...&quot;],
+    [&quot;o&quot;, &quot;BTC&quot;, &quot;30:0x0000000000000000000000000000000000000000&quot;, &quot;example&quot;],
+    [&quot;o&quot;, &quot;USD&quot;, &quot;30:0xdAC17F958D2ee523a2206206994597C13D831ec7&quot;, &quot;example&quot;],
+  ],
+  &quot;content&quot;: &quot;&quot;,
+  // ...
+}</code></pre>
+</doc-codeblock></div>
+<h2 id="mutual-arbitration-resolution">Mutual Arbitration Resolution</h2>
+<p>When a buyer and seller wish to transact, their clients SHOULD automatically resolve a mutually trusted arbiter:</p>
+<ol>
+<li>Query both parties&#x27; <code translate="no" v-pre>kind:17388</code> (Arbitration Methods) events.</li>
+<li>Find the intersection of trusted arbiter pubkeys (<code translate="no" v-pre>p</code> tags).</li>
+<li>Find the intersection of supported arbitration policies (<code translate="no" v-pre>c</code> tags).</li>
+<li>Query <code translate="no" v-pre>kind:30303</code> (Arbitration Service) events from mutually trusted pubkeys whose <code translate="no" v-pre>policy</code> field matches a mutually supported policy.</li>
+<li>If no mutual match exists or the buyer doesn&#x27;t have preferred arbiters, fall back to the seller&#x27;s trusted arbiters.</li>
+</ol>
+<h2 id="on-chain-escrow-contract">On-Chain Escrow Contract</h2>
+<p>The actual implementation of an escrow contract is irrelevant to this protocol, as long as both buyer and seller publish that they recognize and accept the arbitration policy. For an EVM escrow contract, that policy is normally derived from the contract&#x27;s runtime bytecode hash. Once both parties advertise familiarity with a particular policy, clients can assume those parties know how to inspect, verify, and interact with contracts or scripts matching that policy.</p>
+<p>The following EVM contract lifecycle describes one compatible escrow implementation.</p>
+<p>The on-chain escrow contract manages funds with the following lifecycle:</p>
+<h3 id="trade-lifecycle">Trade Lifecycle</h3>
+<div id="trade-lifecycle-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-none"><code v-pre class="language-none">                ┌──── releaseToCounterparty ────┐
+                │                                ▼
+(empty) ── createTrade ──► funded ──► released / arbitrated / claimed
+                │                        ▲
+                │       ┌── arbitrate ───┘
+                │       │
+                └───────┼── claim (after unlockAt) ──► claimed</code></pre>
+</doc-codeblock></div>
+<h3 id="trade-structure">Trade Structure</h3>
+<p>Each on-chain trade is identified by a <code translate="no" v-pre>tradeId</code> (bytes32) and stores:</p>
+<retype-table copy-text="| Field       | Type    | Description                                                   |
+| ----------- | ------- | ------------------------------------------------------------- |
+| `buyer`     | address | The funding party.                                            |
+| `seller`    | address | The counterparty receiving goods/services.                    |
+| `arbiter`   | address | The arbiter's EVM address.                                    |
+| `asset`     | address | ERC-20 asset address, or `address(0)` for native asset.       |
+| `amount`    | uint256 | Total escrowed amount.                                        |
+| `unlockAt`  | uint256 | Unix timestamp after which the seller can claim unilaterally. |
+| `escrowFee` | uint256 | Flat fee in asset units, deducted at settlement.              |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>buyer</code></td>
+<td>address</td>
+<td>The funding party.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>seller</code></td>
+<td>address</td>
+<td>The counterparty receiving goods/services.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>arbiter</code></td>
+<td>address</td>
+<td>The arbiter&#x27;s EVM address.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>asset</code></td>
+<td>address</td>
+<td>ERC-20 asset address, or <code translate="no" v-pre>address(0)</code> for native asset.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>amount</code></td>
+<td>uint256</td>
+<td>Total escrowed amount.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>unlockAt</code></td>
+<td>uint256</td>
+<td>Unix timestamp after which the seller can claim unilaterally.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>escrowFee</code></td>
+<td>uint256</td>
+<td>Flat fee in asset units, deducted at settlement.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<p>For marketplace orders defined by the Orders NIP, the on-chain <code translate="no" v-pre>tradeId</code> MUST be
+the order group ID from the public <code translate="no" v-pre>kind:32122</code> order&#x27;s <code translate="no" v-pre>d</code> tag, not the private
+trade conversation id from the <code translate="no" v-pre>trade</code> tag. This binds escrowed funds to the
+final public participant tuple (buyer, seller, and arbiter) and prevents a proof
+for one participant set from being replayed into another order group.</p>
+<h3 id="operations">Operations</h3>
+<retype-table copy-text="| Operation               | Authorized Signer         | Description                                                                                            |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `createTrade`           | Buyer (msg.sender)        | Deposits funds. Native asset via `msg.value`; ERC-20 via `transferFrom`.                               |
+| `releaseToCounterparty` | Buyer OR Seller (EIP-712) | Voluntarily sends funds to the other party. If the buyer signs, funds go to the seller and vice versa. |
+| `claim`                 | Seller (EIP-712)          | Claims funds after `unlockAt` has passed.                                                              |
+| `arbitrate`             | Arbiter (EIP-712)         | Splits funds: `factor/1000` to seller, remainder to buyer. `factor` is `0`–`1000` (0.1% precision).    |
+| `withdraw`              | Beneficiary (EIP-712)     | Pulls settled funds using `Withdraw(token,destination,nonce)`; the contract consumes and increments the beneficiary nonce. |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Operation</th>
+<th>Authorized Signer</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>createTrade</code></td>
+<td>Buyer (msg.sender)</td>
+<td>Deposits funds. Native asset via <code translate="no" v-pre>msg.value</code>; ERC-20 via <code translate="no" v-pre>transferFrom</code>.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>releaseToCounterparty</code></td>
+<td>Buyer OR Seller (EIP-712)</td>
+<td>Voluntarily sends funds to the other party. If the buyer signs, funds go to the seller and vice versa.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>claim</code></td>
+<td>Seller (EIP-712)</td>
+<td>Claims funds after <code translate="no" v-pre>unlockAt</code> has passed.</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>arbitrate</code></td>
+<td>Arbiter (EIP-712)</td>
+<td>Splits funds: <code translate="no" v-pre>factor/1000</code> to seller, remainder to buyer. <code translate="no" v-pre>factor</code> is <code translate="no" v-pre>0</code>–<code translate="no" v-pre>1000</code> (0.1% precision).</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>withdraw</code></td>
+<td>Beneficiary (EIP-712)</td>
+<td>Pulls settled funds using <code translate="no" v-pre>Withdraw(token,destination,nonce)</code>; the contract consumes and increments the beneficiary nonce.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<p>All operations use EIP-712 typed-data signatures, enabling gas-sponsored relay
+(anyone can broadcast the transaction). The current MultiEscrow profile uses
+EIP-712 domain name <code translate="no" v-pre>Nostr MultiEscrow</code> and domain version <code translate="no" v-pre>7</code>. Withdraw
+authorizations MUST include the contract-reported beneficiary nonce and MUST be
+rejected after that nonce has been consumed.</p>
+<h3 id="settlement">Settlement</h3>
+<p>All settlements credit a <code translate="no" v-pre>balances[recipient][asset]</code> mapping (pull pattern) rather than performing direct transfers. This prevents reentrancy and enables batched withdrawals.</p>
+<h3 id="arbitration">Arbitration</h3>
+<p>When a dispute arises:</p>
+<ol>
+<li>Either party messages the arbiter via Nostr DMs.</li>
+<li>The arbiter reviews the trade context (order group ID, trade conversation id, role-tagged participants, the order&#x27;s embedded listing snapshot, payment proof, on-chain state).</li>
+<li>The operator submits an <code translate="no" v-pre>arbitrate</code> transaction with a <code translate="no" v-pre>factor</code> value:
+<ul>
+<li><code translate="no" v-pre>0</code> = full refund to buyer</li>
+<li><code translate="no" v-pre>1000</code> = all funds to seller</li>
+<li><code translate="no" v-pre>500</code> = 50/50 split</li>
+</ul>
+</li>
+<li><code translate="no" v-pre>amountAfterFee = amount - escrowFee</code></li>
+<li><code translate="no" v-pre>forwardAmount = (amountAfterFee × factor) / 1000</code> → credited to seller</li>
+<li><code translate="no" v-pre>amountAfterFee - forwardAmount</code> → credited to buyer</li>
+<li><code translate="no" v-pre>escrowFee</code> → credited to arbiter</li>
+</ol>
+<h2 id="arbitration-payment-proof-context">Arbitration Payment Proof Context</h2>
+<p>When an order is backed by an arbiter-mediated escrow, the Payment event
+contains generic payment evidence plus arbitration-specific verification
+context. The signed listing snapshot is carried by the linked Order event, not
+inside the payment proof:</p>
+<div id="arbitration-payment-proof-context-code-1" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;proof&quot;: {
+    &quot;paymentProof&quot;: {
+      &quot;driver&quot;: &quot;evm:multi-escrow&quot;,
+      &quot;terms&quot;: {
+        &quot;version&quot;: 1,
+        &quot;asset&quot;: {
+          &quot;value&quot;: &quot;50000&quot;,
+          &quot;denomination&quot;: &quot;BTC&quot;,
+          &quot;decimals&quot;: 8,
+          &quot;assetId&quot;: &quot;33:0x0000000000000000000000000000000000000000&quot;
+        },
+        &quot;parties&quot;: [
+          { &quot;role&quot;: &quot;buyer&quot;, &quot;id&quot;: &quot;&lt;buyer-payment-identity&gt;&quot; },
+          { &quot;role&quot;: &quot;seller&quot;, &quot;id&quot;: &quot;&lt;seller-payment-identity&gt;&quot; },
+          { &quot;role&quot;: &quot;arbiter&quot;, &quot;id&quot;: &quot;&lt;arbiter-payment-identity&gt;&quot; }
+        ],
+        &quot;lock&quot;: {
+          &quot;id&quot;: &quot;&lt;driver-lock-id&gt;&quot;,
+          &quot;policyId&quot;: &quot;evm:multi-escrow&quot;,
+          &quot;kind&quot;: &quot;contract&quot;,
+          &quot;amount&quot;: {
+            &quot;value&quot;: &quot;50000&quot;,
+            &quot;denomination&quot;: &quot;BTC&quot;,
+            &quot;decimals&quot;: 8,
+            &quot;assetId&quot;: &quot;33:0x0000000000000000000000000000000000000000&quot;
+          },
+          &quot;controls&quot;: [
+            { &quot;role&quot;: &quot;buyer&quot;, &quot;id&quot;: &quot;&lt;buyer-payment-identity&gt;&quot; },
+            { &quot;role&quot;: &quot;seller&quot;, &quot;id&quot;: &quot;&lt;seller-payment-identity&gt;&quot; },
+            { &quot;role&quot;: &quot;arbiter&quot;, &quot;id&quot;: &quot;&lt;arbiter-payment-identity&gt;&quot; }
+          ],
+          &quot;conditions&quot;: {
+            &quot;policyType&quot;: &quot;evm:multi-escrow&quot;,
+            &quot;chainId&quot;: 33,
+            &quot;contractAddress&quot;: &quot;&lt;deployed-escrow-contract-address&gt;&quot;,
+            &quot;contextHash&quot;: &quot;&lt;32-byte-context-hash&gt;&quot;,
+            &quot;recycleCovenantHash&quot;: &quot;&lt;32-byte-recycle-covenant-hash&gt;&quot;,
+            &quot;timeoutClaimantAddress&quot;: &quot;&lt;timeout-claimant-address&gt;&quot;,
+            &quot;unlockAt&quot;: &quot;1781067882&quot;,
+            &quot;escrowFee&quot;: {
+              &quot;value&quot;: &quot;0&quot;,
+              &quot;denomination&quot;: &quot;BTC&quot;,
+              &quot;decimals&quot;: 8,
+              &quot;assetId&quot;: &quot;33:0x0000000000000000000000000000000000000000&quot;
+            },
+            &quot;arbitration&quot;: { &quot;type&quot;: &quot;continuous&quot;, &quot;denominator&quot;: &quot;1000&quot; }
+          },
+          &quot;paths&quot;: []
+        }
+      },
+      &quot;params&quot;: {
+        &quot;txHash&quot;: &quot;&lt;evm-transaction-hash&gt;&quot;,
+        &quot;policyId&quot;: &quot;evm:multi-escrow&quot;,
+        &quot;policyType&quot;: &quot;evm:multi-escrow&quot;,
+        &quot;policyHash&quot;: &quot;&lt;sha256-of-runtime-bytecode&gt;&quot;,
+        &quot;contractBytecodeHash&quot;: &quot;&lt;sha256-of-runtime-bytecode&gt;&quot;,
+        &quot;chainId&quot;: 33,
+        &quot;contractAddress&quot;: &quot;&lt;deployed-escrow-contract-address&gt;&quot;,
+        &quot;tradeId&quot;: &quot;&lt;order-group-id&gt;&quot;,
+        &quot;buyerAddress&quot;: &quot;&lt;buyer-evm-address&gt;&quot;,
+        &quot;sellerAddress&quot;: &quot;&lt;seller-evm-address&gt;&quot;,
+        &quot;arbiterAddress&quot;: &quot;&lt;arbiter-evm-address&gt;&quot;,
+        &quot;assetAddress&quot;: &quot;&lt;asset-address&gt;&quot;,
+        &quot;value&quot;: &quot;50000&quot;,
+        &quot;paymentAmount&quot;: &quot;50000&quot;,
+        &quot;fundedValue&quot;: &quot;50000&quot;,
+        &quot;bondAmount&quot;: &quot;0&quot;,
+        &quot;escrowFee&quot;: &quot;0&quot;,
+        &quot;unlockAt&quot;: &quot;1781067882&quot;,
+        &quot;timeoutClaimantAddress&quot;: &quot;&lt;timeout-claimant-address&gt;&quot;,
+        &quot;contextHash&quot;: &quot;&lt;32-byte-context-hash&gt;&quot;,
+        &quot;recycleCovenantHash&quot;: &quot;&lt;32-byte-recycle-covenant-hash&gt;&quot;,
+        &quot;denomination&quot;: &quot;BTC&quot;,
+        &quot;decimals&quot;: 8
+      }
+    },
+    &quot;arbitration&quot;: {
+      &quot;arbitrationService&quot;: { &quot;...&quot;: &quot;ArbitrationService kind:30303 event JSON&quot; },
+      &quot;paymentMethod&quot;: { &quot;...&quot;: &quot;seller ArbitrationMethods kind:17388 event JSON&quot; }
+    }
+  }
+}</code></pre>
+</doc-codeblock></div>
+<p><code translate="no" v-pre>paymentProof.terms</code> is the application-independent lock statement: asset,
+parties, controls, amounts, and possible settlement paths. <code translate="no" v-pre>paymentProof.params</code>
+is specific to the payment driver and carries the method-specific evidence
+needed to verify that those terms are actually funded or locked. For EVM escrow
+drivers, <code translate="no" v-pre>params.txHash</code> is the transaction hash to verify. Clients MUST derive
+the actual funding facts from the transaction receipt and decoded logs, then
+compare them to the public or decrypted terms. <code translate="no" v-pre>proof.arbitration.arbitrationService</code>
+and <code translate="no" v-pre>proof.arbitration.paymentMethod</code> are context for interpreting that generic
+payment proof as satisfying the seller&#x27;s selected arbitration methods; they are
+not required for the payment proof to describe itself.</p>
+<p>After payment proof validation, arbiters MUST reconcile the verified payment
+terms against the linked Order event. The Order event SHOULD contain
+<code translate="no" v-pre>content.listing</code>, a full signed NIP-99 listing snapshot captured at purchase
+time. The arbiter derives expected price and listing terms from that snapshot,
+the order <code translate="no" v-pre>quantity</code>, <code translate="no" v-pre>start</code>, and <code translate="no" v-pre>end</code>, then compares them to the sum of
+accepted verified payment terms, including declared lock amount, asset,
+participants, settlement paths or arbitration conditions, optional security
+bond, optional escrow fee, and unlock/timeout terms.</p>
+<p>The Payment event MAY carry a sealed payment proof envelope instead of public
+proof content. In that case the arbiter MUST first resolve the matching
+<code translate="no" v-pre>payment_proof_key</code> tag for its pubkey, decrypt the sealed payload, verify that
+the decrypted proof hash matches the envelope <code translate="no" v-pre>proofId</code>, and then apply the
+method-specific checks below.</p>
+<p>Alternatively, the Payment event MAY leave <code translate="no" v-pre>paymentProof.driver</code> visible and
+encrypt only <code translate="no" v-pre>paymentProof.params</code>:</p>
+<div id="arbitration-payment-proof-context-code-2" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;paymentProof&quot;: {
+    &quot;driver&quot;: &quot;evm:multi-escrow&quot;,
+    &quot;params&quot;: {
+      &quot;encrypted&quot;: true,
+      &quot;version&quot;: 1,
+      &quot;scheme&quot;: &quot;nip44&quot;,
+      &quot;proofId&quot;: &quot;&lt;sha256-of-canonical-clear-params&gt;&quot;,
+      &quot;payload&quot;: &quot;&lt;sealed-payment-proof-params-payload&gt;&quot;
+    }
+  }
+}</code></pre>
+</doc-codeblock></div>
+<p>In that mode the arbiter MUST resolve a <code translate="no" v-pre>payment_proof_key</code> whose proof id
+matches the encrypted params <code translate="no" v-pre>proofId</code>, decrypt the params payload, verify the
+clear params hash, and then validate the payment from the clear params.</p>
+<p>The Payment event MAY also leave <code translate="no" v-pre>paymentProof.driver</code> and <code translate="no" v-pre>paymentProof.params</code>
+visible while sealing only <code translate="no" v-pre>paymentProof.terms</code>:</p>
+<div id="arbitration-payment-proof-context-code-3" class="codeblock-wrapper"><doc-codeblock>
+<div class="codeblock-title">jsonc</div>
+<pre translate="no" class="language-none"><code v-pre class="language-none">{
+  &quot;paymentProof&quot;: {
+    &quot;driver&quot;: &quot;evm:multi-escrow&quot;,
+    &quot;sealedTerms&quot;: {
+      &quot;version&quot;: 1,
+      &quot;mode&quot;: &quot;sealed:v1&quot;,
+      &quot;proofId&quot;: &quot;&lt;sha256-of-canonical-clear-terms&gt;&quot;,
+      &quot;payload&quot;: &quot;&lt;sealed-payment-terms-payload&gt;&quot;
+    },
+    &quot;params&quot;: {
+      &quot;txHash&quot;: &quot;&lt;evm-transaction-hash&gt;&quot;
+    }
+  }
+}</code></pre>
+</doc-codeblock></div>
+<p>In that mode the arbiter MUST resolve a <code translate="no" v-pre>payment_proof_key</code> whose proof id
+matches the sealed terms <code translate="no" v-pre>proofId</code>, decrypt the terms payload, verify the clear
+terms hash, and then validate that params prove those terms.</p>
+<h3 id="verification">Verification</h3>
+<p>Clients and arbiters MUST verify arbitration-backed payment proofs independently
+from linked order terms:</p>
+<ol>
+<li>Validate the <code translate="no" v-pre>arbitrationService</code> event signature and pubkey.</li>
+<li>Verify the seller&#x27;s <code translate="no" v-pre>arbitrationMethods</code> event lists the arbiter pubkey in a <code translate="no" v-pre>p</code> tag.</li>
+<li>Verify the seller&#x27;s <code translate="no" v-pre>arbitrationMethods</code> event lists the service policy in a <code translate="no" v-pre>c</code> tag.</li>
+<li>Verify the seller&#x27;s <code translate="no" v-pre>arbitrationMethods</code> event includes a valid EVM address ownership proof in an <code translate="no" v-pre>i</code> tag.</li>
+<li>Resolve clear <code translate="no" v-pre>paymentProof.terms</code> and <code translate="no" v-pre>paymentProof.params</code>, decrypting sealed terms or params first when needed.</li>
+<li>Query the transaction receipt for <code translate="no" v-pre>paymentProof.params.txHash</code> and decode the matching <code translate="no" v-pre>TradeCreated</code> event.</li>
+<li>Verify the decoded <code translate="no" v-pre>TradeCreated</code> fields match the self-contained payment terms.</li>
+<li>Verify the on-chain seller address matches the EVM address proven by the seller&#x27;s <code translate="no" v-pre>arbitrationMethods</code>.</li>
+<li>Verify the on-chain funded amount covers the declared lock amount and required settlement paths or arbitration condition in <code translate="no" v-pre>paymentProof.terms</code> (accounting for asset denomination and decimals).</li>
+<li>Verify the seller&#x27;s <code translate="no" v-pre>arbitrationMethods</code> accepts the on-chain asset for the payment denomination.
+Steps 1-10 are the payment-proof validation surface. Payment Ack and Payment
+Nack events MUST be based only on that surface and MUST NOT depend on the linked
+order, bid, or listing snapshot.</li>
+</ol>
+<p>Separately, clients and arbiters MAY verify the linked order terms:</p>
+<ol>
+<li>Verify the linked Order event contains a valid signed embedded listing snapshot whose event address matches the order <code translate="no" v-pre>a</code> tag.</li>
+<li>Derive the expected order price and listing requirements from the embedded listing snapshot and compare them to the order amount and normalized verified payment terms.</li>
+</ol>
+<h2 id="related-nips">Related NIPs</h2>
+<ul>
+<li><a href="https://github.com/nostr-protocol/nips/blob/master/01.md">NIP-01</a> — Event structure and parameterized replaceable events.</li>
+<li><a href="https://github.com/nostr-protocol/nips/blob/master/17.md">NIP-17</a> — Private message rumor kind <code translate="no" v-pre>14</code>.</li>
+<li><a href="https://github.com/nostr-protocol/nips/blob/master/44.md">NIP-44</a> — Encryption scheme.</li>
+<li><a href="https://github.com/nostr-protocol/nips/blob/master/59.md">NIP-59</a> — Gift wrap.</li>
+</ul>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../specifications/accommodation/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">NIP-​XX</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../specifications/auctions/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">NIP-​XX</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "NIP-XX", level: 2, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/specifications/arbitration.md" }</script>
+</body>
+</html>

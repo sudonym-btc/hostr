@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.5.3">
+    <meta name="generator" content="Retype 4.6.0">
 
     <!-- Primary Meta Tags -->
     <title>Hostr Daemon</title>
@@ -38,12 +38,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
+    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.6.0.842850253091" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -161,6 +161,13 @@ dart run bin/hostr_daemon.dart --stdio --env development</code></pre>
 </doc-codeblock></div>
 <p>The entry point is <a href="../../source/hostr_cli/bin/hostr_daemon.dart"><code translate="no" v-pre>hostr_cli/bin/hostr_daemon.dart</code></a>. It parses CLI options, creates a <code translate="no" v-pre>HostrCliRuntimeContext</code>, and starts <code translate="no" v-pre>HostrDaemonStdioServer</code>.</p>
 <p>Important options:</p>
+<retype-table copy-text="| Option | Purpose |
+| ------ | ------- |
+| `--stdio` | Serve newline-delimited JSON requests on stdin/stdout. This is the MCP mode. |
+| `--env` | Select `development`, `test`, `staging`, or `production` Hostr config. |
+| `--relay` | Override the Hostr relay URL. |
+| `--state-dir` | Directory for SQLite state and session/secret storage. |
+| `--allow-insecure-file-secrets` | Local-only file-backed secret storage escape hatch. |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -193,6 +200,7 @@ dart run bin/hostr_daemon.dart --stdio --env development</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <h2 id="runtime-state">Runtime State</h2>
 <p><code translate="no" v-pre>HostrCliRuntimeContext</code> builds the SDK runtime in <a href="../../source/hostr_cli/lib/src/context/hostr_cli_context.dart"><code translate="no" v-pre>hostr_cli/lib/src/context/hostr_cli_context.dart</code></a>.</p>
 <p>It creates:</p>
@@ -238,6 +246,15 @@ Docker:       /data/mcp</code></pre>
 </doc-codeblock></div>
 <p>Errors use the same <code translate="no" v-pre>id</code> with an <code translate="no" v-pre>error</code> object. Notifications omit <code translate="no" v-pre>id</code> and include <code translate="no" v-pre>method</code> plus <code translate="no" v-pre>params</code>.</p>
 <p>The supported daemon methods are implemented in <a href="../../source/hostr_cli/lib/src/daemon/stdio_daemon.dart"><code translate="no" v-pre>hostr_cli/lib/src/daemon/stdio_daemon.dart</code></a>:</p>
+<retype-table copy-text="| Method | Purpose |
+| ------ | ------- |
+| `describe` | Return the action catalog used by MCP resources and generated types. |
+| `visibleActions` | Return actions visible for an optional pubkey/session. |
+| `callAction` | Execute a Hostr action from the generated catalog. |
+| `uploadImage` | Upload image bytes through the best available Hostr/Blossom path. |
+| `startOAuthNostrConnect` | Start a Nostr Connect flow for OAuth login. |
+| `completeOAuthNostrConnect` | Wait for Nostr Connect approval and return the authenticated pubkey. |
+| `cancel` | Cooperatively cancel an in-flight request by request id. |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -278,6 +295,7 @@ Docker:       /data/mcp</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <h2 id="action-execution">Action Execution</h2>
 <p><code translate="no" v-pre>HostrDaemon</code> in <a href="../../source/hostr_cli/lib/src/daemon/hostr_daemon.dart"><code translate="no" v-pre>hostr_cli/lib/src/daemon/hostr_daemon.dart</code></a> owns action dispatch.</p>
 <p>The daemon:</p>
@@ -325,10 +343,10 @@ hostr.profile.lookup</code></pre>
                     </div>
             
                     <div class="w-1/2">
-                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../dependencies/nips/accommodation-nip/xx/">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../guides/getting_started/">
                             <span>
                                 <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
-                                <span class="block mt-1">NIP-​XX</span>
+                                <span class="block mt-1">Getting started</span>
                             </span>
                             <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                         </a>

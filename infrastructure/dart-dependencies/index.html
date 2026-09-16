@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.6.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Dart and Flutter dependency audit</title>
+    <meta name="title" content="Dart and Flutter dependency audit">
+    <meta name="description" content="Verified 2026-09-16 UTC against official pub.dev package metadata and the Flutter stable repository. The latest stable SDK is Flutter 3.47.4 / Dart 3.13.3, revision 9584c6713b324636289d067944a46fd6b49df14b.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/infrastructure/dart-dependencies/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/infrastructure/dart-dependencies/">
+    <meta property="og:title" content="Dart and Flutter dependency audit">
+    <meta property="og:description" content="Verified 2026-09-16 UTC against official pub.dev package metadata and the Flutter stable repository. The latest stable SDK is Flutter 3.47.4 / Dart 3.13.3, revision 9584c6713b324636289d067944a46fd6b49df14b.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/infrastructure/dart-dependencies/">
+    <meta name="twitter:title" content="Dart and Flutter dependency audit">
+    <meta name="twitter:description" content="Verified 2026-09-16 UTC against official pub.dev package metadata and the Flutter stable repository. The latest stable SDK is Flutter 3.47.4 / Dart 3.13.3, revision 9584c6713b324636289d067944a46fd6b49df14b.">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/infrastructure/dart-dependencies.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="dart-and-flutter-dependency-audit">Dart and Flutter dependency audit</h1>
+<p>Verified 2026-09-16 UTC against official pub.dev package metadata and the
+<a href="https://github.com/flutter/flutter/releases/tag/3.47.4">Flutter stable repository</a>.
+The latest stable SDK is <strong>Flutter 3.47.4 / Dart 3.13.3</strong>, revision
+<code translate="no" v-pre>9584c6713b324636289d067944a46fd6b49df14b</code>. Validation used the isolated
+<code translate="no" v-pre>/tmp/hostr-flutter-latest</code> installation; the globally installed SDK was untouched.
+All seven projects require Dart <code translate="no" v-pre>^3.13.0</code> and have refreshed dependency locks.</p>
+<p>Every current direct dependency uses the latest published stable release except
+Equatable, SQLite, and CLI QR, whose latest versions conflict with constraints
+in other current upstream packages. The complete direct dependency inventory
+below includes development dependencies. Path dependencies refer directly to
+<code translate="no" v-pre>marketplace_models</code>, <code translate="no" v-pre>marketplace_evm</code>, and <code translate="no" v-pre>hostr_sdk</code>; there is no <code translate="no" v-pre>models</code>
+compatibility package or NDK/Google Maps override.</p>
+<h2 id="upstream-constraints-and-the-single-override">Upstream constraints and the single override</h2>
+<ul>
+<li>
+<p>NDK <strong>0.9.3</strong> requires <code translate="no" v-pre>equatable ^2.0.8</code>, <code translate="no" v-pre>elliptic ^0.3.12</code>, and <code translate="no" v-pre>hooks ^1.0.0</code>.
+The resolved releases are Equatable <strong>2.1.0</strong>, Elliptic <strong>0.3.12</strong>, and Hooks
+<strong>1.0.3</strong>. SQLite <strong>3.5.2</strong> supports these hooks; newest SQLite <strong>3.6.0</strong>
+requires Hooks 2.2. This also constrains Code Assets <strong>1.0.0</strong>, Record Use
+<strong>0.6.0</strong>, Native Toolchain Rust <strong>1.0.4</strong>, and Native Toolchain C <strong>0.18.0</strong>.</p>
+</li>
+<li>
+<p>Latest ASCII QR <strong>1.0.1</strong> (via NDK) and QR Flutter <strong>4.1.0</strong> require QR 3.
+CLI therefore declares QR <strong>3.0.2</strong>, not newest QR 4.0.0.</p>
+</li>
+<li>
+<p>Latest BOLT11 Decoder <strong>1.0.2</strong> requires Decimal 2; resolved Decimal is <strong>2.3.3</strong>.</p>
+</li>
+<li>
+<p>Latest Chopper Generator <strong>8.7.0</strong> requires Analyzer <code translate="no" v-pre>&lt;14</code>. Generator projects
+resolve Analyzer <strong>13.3.0</strong>, shared analyzer <strong>103.0.0</strong>, and Source Gen <strong>4.2.4</strong>;
+pure model/CLI/service projects can resolve Analyzer 14.4.0.</p>
+</li>
+<li>
+<p>Flutter 3.47.4 pins Test API <strong>0.7.12</strong> and Material Color Utilities <strong>0.13.0</strong>.
+App tests resolve Test <strong>1.31.1</strong> / Test Core <strong>0.6.18</strong> / Package Config <strong>2.2.0</strong>;
+pure Dart projects use Test <strong>1.32.0</strong>. Flutter Launcher Icons <strong>0.14.4</strong>
+constrains CLI Util to <strong>0.4.2</strong>. Webcrypto <strong>0.6.1</strong> constrains Native Toolchain
+CMake to <strong>0.2.7</strong>. The app&#x27;s complete resolved graph selects Path Provider
+Foundation <strong>2.5.1</strong>; <code translate="no" v-pre>flutter pub outdated</code> reports it as the newest resolvable
+version for that graph (2.6.0 exists upstream).</p>
+</li>
+<li>
+<p><strong>PointyCastle 4.0.0 is the only dependency override.</strong> Coinlib <strong>5.0.0</strong> declares
+PointyCastle 3, while Web3dart <strong>3.0.3</strong> and Wallet <strong>0.0.18</strong> require 4. Coinlib&#x27;s
+only PointyCastle API use is <code translate="no" v-pre>RIPEMD160Digest().process</code>, unchanged in 4. The
+canonical models suite verifies HASH160 and official BIP32/BIP340 vectors in
+<code translate="no" v-pre>crypto_dependency_vectors_test.dart</code>; all three pass with Coinlib 5 + PC 4.</p>
+</li>
+</ul>
+<p>The published Web3dart Builders <strong>3.0.1</strong> still constrains Build 2, Dart Style 2,
+and Wallet 0.0.17. It cannot coexist with the latest Swagger/Chopper generators.
+The EVM package therefore declares a <strong>direct Git dependency</strong> on the maintained
+<a href="https://github.com/PatrickGeyer/web3dart_builders/commit/8622bd2cd434c6a6cad827265c52ec43457027f5">generator update</a>,
+exact revision <code translate="no" v-pre>8622bd2cd434c6a6cad827265c52ec43457027f5</code>, rather than a global
+generator override. It regenerates all six contract bindings successfully.</p>
+<p>Unused direct dependencies were removed, including old terminal UI libraries in
+the escrow service, unused app helpers, and the unused <code translate="no" v-pre>ndk_bip32_keys</code> declaration.
+NDK <strong>0.9.3</strong>, Google Maps Flutter <strong>2.18.0</strong>, and its web implementation <strong>0.6.3+1</strong>
+now come from the registry instead of local or Git forks.</p>
+<h2 id="validation">Validation</h2>
+<p>Dependency resolution and full compatible lock upgrades succeeded for all seven
+projects. Canonical model analysis and <strong>126 tests</strong> passed, including the new
+cryptography vectors; driver analysis and <strong>128 tests</strong> passed. Regeneration using
+Build Runner <strong>2.16.1</strong>, Swagger Generator <strong>4.1.1</strong>, Chopper <strong>8.7.0</strong>, and JSON
+Serializable <strong>6.14.1</strong> succeeded, and the generated-source drift check passed.
+These include current integer amount fixtures and 22 strict recovery/configuration
+serialization regressions. Five SDK tests also verify the NDK 0.9.3 lazy NIP42
+authentication lifecycle, socket reuse, identity changes, logout, and ephemeral
+gift-wrap authors. Hostr application build and integration validation are tracked
+separately in the payment-driver migration.</p>
+<p>To refresh the audit, query <code translate="no" v-pre>https://pub.dev/api/packages/&lt;package&gt;</code>, run
+<code translate="no" v-pre>dart pub upgrade</code> (or <code translate="no" v-pre>flutter pub upgrade</code>), then <code translate="no" v-pre>pub outdated --json</code> in each
+project. Do not force transitive majors past upstream constraints merely to make
+the outdated report empty.</p>
+<h2 id="direct-dependency-inventory">Direct dependency inventory</h2>
+<p><code translate="no" v-pre>=</code> means the resolved release is the current published stable release.
+App, Widgetbook, SDK, CLI, Escrow, Models, and EVM identify the consuming projects.</p>
+<retype-table copy-text="| Dependency | Resolved | Latest | Projects |
+| --- | --- | --- | --- |
+| `app_links` | 7.2.1 | = | App |
+| `args` | 2.7.0 | = | CLI |
+| `auto_route` | 11.1.0 | = | App |
+| `auto_route_generator` | 10.6.0 | = | App |
+| `bech32` | 0.2.2 | = | App |
+| `bip340` | 0.3.1 | = | SDK, Models |
+| `bip39_mnemonic` | 4.1.0 | = | App, SDK |
+| `bloc` | 9.2.1 | = | SDK, EVM |
+| `bloc_test` | 10.0.0 | = | App |
+| `blurhash_dart` | 1.2.1 | = | App |
+| `bolt11_decoder` | 1.0.2 | = | App, Widgetbook, SDK, EVM |
+| `build_runner` | 2.16.1 | = | App, Widgetbook, SDK, EVM |
+| `carousel_slider` | 5.1.2 | = | App |
+| `chopper` | 8.7.0 | = | SDK, EVM |
+| `chopper_generator` | 8.7.0 | = | SDK, EVM |
+| `coinlib` | 5.0.0 | = | SDK, Models |
+| `coinlib_flutter` | 5.0.1 | = | App |
+| `collection` | 1.19.1 | = | App, SDK, EVM |
+| `convert` | 3.1.2 | = | App, SDK, Escrow, Models, EVM |
+| `crypto` | 3.0.7 | = | App, SDK, CLI, Models, EVM |
+| `cupertino_icons` | 1.0.9 | = | App |
+| `date_count_down` | 4.0.0 | = | App |
+| `eip712` | 1.0.1 | = | EVM |
+| `equatable` | 2.1.0 | 3.0.0 | App, SDK |
+| `eventide` | 2.4.0 | = | App |
+| `faker` | 2.2.0 | = | Models |
+| `flutter_bloc` | 9.1.1 | = | App |
+| `flutter_launcher_icons` | 0.14.4 | = | App |
+| `flutter_lints` | 6.0.0 | = | App, Widgetbook |
+| `flutter_local_notifications` | 22.3.1 | = | App |
+| `flutter_secure_storage` | 11.1.1 | = | App |
+| `get_it` | 9.2.1 | = | App, SDK, Escrow |
+| `google_maps_flutter` | 2.18.0 | = | App |
+| `h3_dart` | 0.7.0 | = | Models |
+| `h3_flutter` | 0.7.1 | = | App |
+| `http` | 1.6.0 | = | App, SDK, EVM |
+| `hydrated_bloc` | 11.0.0 | = | App, SDK, Escrow |
+| `image` | 4.10.1 | = | App |
+| `image_picker` | 1.2.3 | = | App |
+| `image_picker_platform_interface` | 2.11.1 | = | App |
+| `injectable` | 3.0.0 | = | App, SDK, EVM |
+| `injectable_generator` | 3.1.3 | = | App, SDK |
+| `intl` | 0.20.3 | = | App |
+| `json_annotation` | 4.12.0 | = | SDK, EVM |
+| `json_rpc_2` | 4.1.0 | = | Escrow |
+| `json_serializable` | 6.14.1 | = | App, SDK, EVM |
+| `lints` | 6.1.0 | = | SDK, CLI, EVM |
+| `logger` | 2.8.0 | = | App, SDK, CLI, Escrow, Models, EVM |
+| `logging` | 1.3.0 | = | EVM |
+| `meta` | 1.19.0 | = | SDK, EVM |
+| `mime` | 2.1.0 | = | CLI |
+| `mobile_scanner` | 7.4.2 | = | App |
+| `mockito` | 5.8.1 | = | App, Widgetbook, SDK |
+| `mocktail` | 1.0.5 | = | App |
+| `mocktail_image_network` | 1.3.0 | = | App |
+| `ndk` | 0.9.3 | = | App, SDK, CLI, Escrow, Models, EVM |
+| `opentelemetry` | 0.18.11 | = | EVM |
+| `path` | 1.9.1 | = | CLI |
+| `path_provider` | 2.1.6 | = | App |
+| `permission_handler` | 13.0.2 | = | App |
+| `permissionless` | 0.4.1 | = | EVM |
+| `provider` | 6.1.5+1 | = | App |
+| `qr` | 3.0.2 | 4.0.0 | CLI |
+| `qr_flutter` | 4.1.0 | = | App |
+| `rxdart` | 0.28.0 | = | App, Widgetbook, SDK, EVM |
+| `scrollable_positioned_list` | 0.3.8 | = | App |
+| `shared_preferences` | 2.5.5 | = | App |
+| `shelf` | 1.4.2 | = | App, Widgetbook, SDK |
+| `shelf_router` | 1.1.4 | = | App, Widgetbook, SDK |
+| `sqlite3` | 3.5.2 | 3.6.0 | App, SDK, CLI, EVM |
+| `stream_channel` | 2.1.4 | = | Escrow |
+| `swagger_dart_code_generator` | 4.1.1 | = | SDK, EVM |
+| `test` | 1.32.0 | = | SDK, CLI, Escrow, Models, EVM |
+| `timeago` | 3.7.1 | = | App |
+| `timelines_plus` | 2.0.1 | = | App |
+| `toastification` | 3.2.0 | = | App |
+| `url_launcher` | 6.3.2 | = | App |
+| `wallet` | 0.0.18 | = | App, SDK, Escrow, EVM |
+| `web` | 1.1.1 | = | App |
+| `web3dart` | 3.0.3 | = | App, Widgetbook, SDK, Escrow, EVM |
+| `web3dart_builders` | 3.0.1 (Git revision above) | 3.0.1 (incompatible published constraints) | EVM |
+| `web_socket_channel` | 3.0.3 | = | EVM |
+| `webcrypto` | 0.6.1 | = | App |
+| `widgetbook` | 3.25.0 | = | Widgetbook |
+| `widgetbook_annotation` | 3.11.0 | = | Widgetbook |
+| `widgetbook_generator` | 3.24.0 | = | Widgetbook |
+| `workmanager` | 0.10.10 | = | App |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Dependency</th>
+<th>Resolved</th>
+<th>Latest</th>
+<th>Projects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>app_links</code></td>
+<td>7.2.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>args</code></td>
+<td>2.7.0</td>
+<td>=</td>
+<td>CLI</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>auto_route</code></td>
+<td>11.1.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>auto_route_generator</code></td>
+<td>10.6.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>bech32</code></td>
+<td>0.2.2</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>bip340</code></td>
+<td>0.3.1</td>
+<td>=</td>
+<td>SDK, Models</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>bip39_mnemonic</code></td>
+<td>4.1.0</td>
+<td>=</td>
+<td>App, SDK</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>bloc</code></td>
+<td>9.2.1</td>
+<td>=</td>
+<td>SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>bloc_test</code></td>
+<td>10.0.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>blurhash_dart</code></td>
+<td>1.2.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>bolt11_decoder</code></td>
+<td>1.0.2</td>
+<td>=</td>
+<td>App, Widgetbook, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>build_runner</code></td>
+<td>2.16.1</td>
+<td>=</td>
+<td>App, Widgetbook, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>carousel_slider</code></td>
+<td>5.1.2</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>chopper</code></td>
+<td>8.7.0</td>
+<td>=</td>
+<td>SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>chopper_generator</code></td>
+<td>8.7.0</td>
+<td>=</td>
+<td>SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>coinlib</code></td>
+<td>5.0.0</td>
+<td>=</td>
+<td>SDK, Models</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>coinlib_flutter</code></td>
+<td>5.0.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>collection</code></td>
+<td>1.19.1</td>
+<td>=</td>
+<td>App, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>convert</code></td>
+<td>3.1.2</td>
+<td>=</td>
+<td>App, SDK, Escrow, Models, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>crypto</code></td>
+<td>3.0.7</td>
+<td>=</td>
+<td>App, SDK, CLI, Models, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>cupertino_icons</code></td>
+<td>1.0.9</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>date_count_down</code></td>
+<td>4.0.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>eip712</code></td>
+<td>1.0.1</td>
+<td>=</td>
+<td>EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>equatable</code></td>
+<td>2.1.0</td>
+<td>3.0.0</td>
+<td>App, SDK</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>eventide</code></td>
+<td>2.4.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>faker</code></td>
+<td>2.2.0</td>
+<td>=</td>
+<td>Models</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>flutter_bloc</code></td>
+<td>9.1.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>flutter_launcher_icons</code></td>
+<td>0.14.4</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>flutter_lints</code></td>
+<td>6.0.0</td>
+<td>=</td>
+<td>App, Widgetbook</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>flutter_local_notifications</code></td>
+<td>22.3.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>flutter_secure_storage</code></td>
+<td>11.1.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>get_it</code></td>
+<td>9.2.1</td>
+<td>=</td>
+<td>App, SDK, Escrow</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>google_maps_flutter</code></td>
+<td>2.18.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>h3_dart</code></td>
+<td>0.7.0</td>
+<td>=</td>
+<td>Models</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>h3_flutter</code></td>
+<td>0.7.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>http</code></td>
+<td>1.6.0</td>
+<td>=</td>
+<td>App, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>hydrated_bloc</code></td>
+<td>11.0.0</td>
+<td>=</td>
+<td>App, SDK, Escrow</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>image</code></td>
+<td>4.10.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>image_picker</code></td>
+<td>1.2.3</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>image_picker_platform_interface</code></td>
+<td>2.11.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>injectable</code></td>
+<td>3.0.0</td>
+<td>=</td>
+<td>App, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>injectable_generator</code></td>
+<td>3.1.3</td>
+<td>=</td>
+<td>App, SDK</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>intl</code></td>
+<td>0.20.3</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>json_annotation</code></td>
+<td>4.12.0</td>
+<td>=</td>
+<td>SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>json_rpc_2</code></td>
+<td>4.1.0</td>
+<td>=</td>
+<td>Escrow</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>json_serializable</code></td>
+<td>6.14.1</td>
+<td>=</td>
+<td>App, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>lints</code></td>
+<td>6.1.0</td>
+<td>=</td>
+<td>SDK, CLI, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>logger</code></td>
+<td>2.8.0</td>
+<td>=</td>
+<td>App, SDK, CLI, Escrow, Models, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>logging</code></td>
+<td>1.3.0</td>
+<td>=</td>
+<td>EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>meta</code></td>
+<td>1.19.0</td>
+<td>=</td>
+<td>SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>mime</code></td>
+<td>2.1.0</td>
+<td>=</td>
+<td>CLI</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>mobile_scanner</code></td>
+<td>7.4.2</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>mockito</code></td>
+<td>5.8.1</td>
+<td>=</td>
+<td>App, Widgetbook, SDK</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>mocktail</code></td>
+<td>1.0.5</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>mocktail_image_network</code></td>
+<td>1.3.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>ndk</code></td>
+<td>0.9.3</td>
+<td>=</td>
+<td>App, SDK, CLI, Escrow, Models, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>opentelemetry</code></td>
+<td>0.18.11</td>
+<td>=</td>
+<td>EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>path</code></td>
+<td>1.9.1</td>
+<td>=</td>
+<td>CLI</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>path_provider</code></td>
+<td>2.1.6</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>permission_handler</code></td>
+<td>13.0.2</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>permissionless</code></td>
+<td>0.4.1</td>
+<td>=</td>
+<td>EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>provider</code></td>
+<td>6.1.5+1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>qr</code></td>
+<td>3.0.2</td>
+<td>4.0.0</td>
+<td>CLI</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>qr_flutter</code></td>
+<td>4.1.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>rxdart</code></td>
+<td>0.28.0</td>
+<td>=</td>
+<td>App, Widgetbook, SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>scrollable_positioned_list</code></td>
+<td>0.3.8</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>shared_preferences</code></td>
+<td>2.5.5</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>shelf</code></td>
+<td>1.4.2</td>
+<td>=</td>
+<td>App, Widgetbook, SDK</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>shelf_router</code></td>
+<td>1.1.4</td>
+<td>=</td>
+<td>App, Widgetbook, SDK</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>sqlite3</code></td>
+<td>3.5.2</td>
+<td>3.6.0</td>
+<td>App, SDK, CLI, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>stream_channel</code></td>
+<td>2.1.4</td>
+<td>=</td>
+<td>Escrow</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>swagger_dart_code_generator</code></td>
+<td>4.1.1</td>
+<td>=</td>
+<td>SDK, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>test</code></td>
+<td>1.32.0</td>
+<td>=</td>
+<td>SDK, CLI, Escrow, Models, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>timeago</code></td>
+<td>3.7.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>timelines_plus</code></td>
+<td>2.0.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>toastification</code></td>
+<td>3.2.0</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>url_launcher</code></td>
+<td>6.3.2</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>wallet</code></td>
+<td>0.0.18</td>
+<td>=</td>
+<td>App, SDK, Escrow, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>web</code></td>
+<td>1.1.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>web3dart</code></td>
+<td>3.0.3</td>
+<td>=</td>
+<td>App, Widgetbook, SDK, Escrow, EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>web3dart_builders</code></td>
+<td>3.0.1 (Git revision above)</td>
+<td>3.0.1 (incompatible published constraints)</td>
+<td>EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>web_socket_channel</code></td>
+<td>3.0.3</td>
+<td>=</td>
+<td>EVM</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>webcrypto</code></td>
+<td>0.6.1</td>
+<td>=</td>
+<td>App</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>widgetbook</code></td>
+<td>3.25.0</td>
+<td>=</td>
+<td>Widgetbook</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>widgetbook_annotation</code></td>
+<td>3.11.0</td>
+<td>=</td>
+<td>Widgetbook</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>widgetbook_generator</code></td>
+<td>3.24.0</td>
+<td>=</td>
+<td>Widgetbook</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>workmanager</code></td>
+<td>0.10.10</td>
+<td>=</td>
+<td>App</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../infrastructure/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Infrastructure</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../infrastructure/nmdk-refactor-changes/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">NMDK / Hostr refactor changes</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "Dart and Flutter dependency audit", level: 2, icon: "file", hasPrism: false, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/infrastructure/dart-dependencies.md" }</script>
+</body>
+</html>

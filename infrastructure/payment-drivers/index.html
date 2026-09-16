@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.6.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Payment driver boundary</title>
+    <meta name="title" content="Payment driver boundary">
+    <meta name="description" content="NMDK owns EVM escrow and Lightning swap mechanisms. Hostr supplies application identity, Lightning payment access, preferences and Nostr event subscriptions.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/infrastructure/payment-drivers/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/infrastructure/payment-drivers/">
+    <meta property="og:title" content="Payment driver boundary">
+    <meta property="og:description" content="NMDK owns EVM escrow and Lightning swap mechanisms. Hostr supplies application identity, Lightning payment access, preferences and Nostr event subscriptions.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/infrastructure/payment-drivers/">
+    <meta name="twitter:title" content="Payment driver boundary">
+    <meta name="twitter:description" content="NMDK owns EVM escrow and Lightning swap mechanisms. Hostr supplies application identity, Lightning payment access, preferences and Nostr event subscriptions.">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/infrastructure/payment-drivers.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.6.0.842850253091" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="payment-driver-boundary">Payment driver boundary</h1>
+<p>NMDK owns EVM escrow and Lightning swap mechanisms. Hostr supplies application
+identity, Lightning payment access, preferences and Nostr event subscriptions.
+The Flutter application renders driver state and initiates operations through
+the Hostr composition layer.</p>
+<h2 id="package-ownership">Package ownership</h2>
+<retype-table copy-text="| Location | Responsibility |
+| --- | --- |
+| `dependencies/nmdk/packages/marketplace_evm` | Dart swap lifecycle, recovery journal, EVM transport, transaction/contract calls, fee quotes, signing, escrow validation, balance discovery and automatic withdrawals |
+| `dependencies/nmdk/packages/marketplace_models` | Canonical Dart marketplace events, payment proofs, amounts and tokens |
+| `dependencies/nmdk/dependencies/marketplace-evm-ts` | TypeScript EVM driver |
+| `dependencies/nmdk/dependencies/marketplace-cashu-ts` | TypeScript Cashu driver |
+| `dependencies/nmdk/dependencies/marketplace-driver-interface-ts` | Common TypeScript payment policy contract |
+| `dependencies/nmdk/dependencies/marketplace-evm-contracts` | Solidity source and contract artifacts |
+| `hostr_sdk` | Identity, booking and messaging workflows, Nostr publication, driver construction and application adapters |
+| `app` | User interface and operation presentation |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>Location</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code translate="no" v-pre>dependencies/nmdk/packages/marketplace_evm</code></td>
+<td>Dart swap lifecycle, recovery journal, EVM transport, transaction/contract calls, fee quotes, signing, escrow validation, balance discovery and automatic withdrawals</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>dependencies/nmdk/packages/marketplace_models</code></td>
+<td>Canonical Dart marketplace events, payment proofs, amounts and tokens</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-ts</code></td>
+<td>TypeScript EVM driver</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-cashu-ts</code></td>
+<td>TypeScript Cashu driver</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-driver-interface-ts</code></td>
+<td>Common TypeScript payment policy contract</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-contracts</code></td>
+<td>Solidity source and contract artifacts</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>hostr_sdk</code></td>
+<td>Identity, booking and messaging workflows, Nostr publication, driver construction and application adapters</td>
+</tr>
+<tr>
+<td><code translate="no" v-pre>app</code></td>
+<td>User interface and operation presentation</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<p>Hostr imports <code translate="no" v-pre>package:marketplace_evm/...</code> and
+<code translate="no" v-pre>package:marketplace_models/...</code> directly. The former <code translate="no" v-pre>models</code> package and
+payment forwarding files in <code translate="no" v-pre>hostr_sdk</code> are removed. Each type and mechanism
+has one implementation in NMDK; no conversion or compatibility layer sits
+between the application and its drivers.</p>
+<h2 id="application-ports">Application ports</h2>
+<p><code translate="no" v-pre>marketplace_evm/ports.dart</code> defines key access, the active user, Lightning
+payments, driver configuration, operation factories and recovery progress.
+<code translate="no" v-pre>marketplace_evm/funds_monitor_ports.dart</code> defines payment events, escrow service
+discovery and withdrawal preferences. Hostr implements these contracts; NMDK
+must never import Hostr, depend on its service container, or reference a path
+outside its package.</p>
+<p>The balance monitor belongs to the driver because it combines token discovery,
+DEX quotes, fee and dust checks, settlement recovery and atomic escrow withdrawal
+with swap lockup. Its full implementation moves together. Hostr still owns the
+user&#x27;s withdrawal preference and the Nostr source of advertised escrow services.</p>
+<p>The Hostr escrow daemon remains an application consumer: it watches driver
+events, resolves booking participants and publishes booking notices. Contract
+encoding, ownership signatures, escrow settlement and event decoding remain in
+the driver. <code translate="no" v-pre>signEvmAddressOwnership</code> is the shared EIP-191 signing helper for
+normal operation and seed generation.</p>
+<h2 id="state-and-generation">State and generation</h2>
+<p>HD derivation paths, reserved account zero, trade IDs, operation namespaces,
+persistence formats and integer amount precision are defined by the canonical
+driver. Their conformance fixtures exercise the same definitions in each
+language.</p>
+<p>Generated bindings belong beside their canonical inputs in NMDK. Do not restore
+ABI or Boltz OpenAPI generation to Hostr. Hostr generators only produce
+application code. Sharing a JSON shape does not replace testing
+signatures, integer amount behavior or transaction encoding in both languages.</p>
+<p>NMDK&#x27;s <code translate="no" v-pre>scripts/generate-driver-bindings.mjs</code> reads the shared contract artifacts
+and Boltz OpenAPI source for both languages. Run <code translate="no" v-pre>npm run generate:drivers</code> from
+NMDK after changing those inputs; its check mode detects stale generated inputs.
+Use <code translate="no" v-pre>--dart</code> when invoking the generator directly to rebuild Dart bindings too.</p>
+<p>Hostr&#x27;s <code translate="no" v-pre>escrow/contracts</code> is a deployment wrapper for the same canonical
+artifact. Its validation command checks that input; the deployment task reads
+the canonical ABI and bytecode directly into an ethers factory before broadcasting. Compose supplies the NMDK contracts as a named build
+context. The contract regression tests execute against NMDK bytecode,
+including v7 withdrawal nonces, so local deployment cannot silently build the
+former Hostr contract version.</p>
+<h2 id="verification">Verification</h2>
+<p>From the Hostr repository root:</p>
+<div id="verification-code-1" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">node scripts/check-payment-boundary.mjs</code></pre>
+</doc-codeblock></div>
+<p>This fails if implementation or forwarding files return to the removed Hostr directories,
+if an NMDK Dart package depends on Hostr, if a driver import escapes its package,
+if application code encodes contract calls, if removed forwarding imports return,
+or if container builds omit the canonical path packages. The app, SDK and CLI
+may inspect driver states; only NMDK constructs swap transitions or writes the
+<code translate="no" v-pre>swap_in</code> and <code translate="no" v-pre>swap_out</code> journals. Hostr must not register an ABI builder,
+including a disabled one.</p>
+<p>Run package checks in addition to the boundary check:</p>
+<div id="verification-code-2" class="codeblock-wrapper"><doc-codeblock>
+<pre translate="no" class="language-bash"><code v-pre class="language-bash">cd dependencies/nmdk/packages/marketplace_evm
+dart analyze
+dart test
+cd ../../dependencies/marketplace-evm-ts
+npm run build
+npm test</code></pre>
+</doc-codeblock></div>
+<p>The standalone Dart monitor regression tests cover Boltz minimum amounts,
+DEX conversion before dust checks, event replay ordering and explicit live
+balance subscriptions. Ownership proof tests recover the signing address and
+reject a changed Nostr identity. Existing Hostr tests exercise the adapters and
+booking behavior through direct canonical package imports.</p>
+<p>For the consuming application, run <code translate="no" v-pre>dart test test/unit</code> from <code translate="no" v-pre>hostr_sdk</code>, then
+<code translate="no" v-pre>flutter test</code> and
+<code translate="no" v-pre>flutter build web --target lib/main_production.dart --no-wasm-dry-run</code> from <code translate="no" v-pre>app</code>. A successful
+web build checks that the extracted packages remain browser compatible. Live
+swap settlement tests additionally require the configured Boltz/EVM stack;
+report those separately from deterministic unit checks.</p>
+<h2 id="scope-of-language-parity">Scope of language parity</h2>
+<p>Both TypeScript and Dart now implement the EVM escrow and Lightning swap driver.
+Cashu remains a TypeScript driver. ABIs, Boltz wire models, integer amount models
+and EIP-712 signing contracts are generated from the same sources and checked
+against shared conformance fixtures. The TypeScript marketplace policy DTOs and
+NMDK&#x27;s Dart Nostr event serialization describe distinct product layers: changing those persisted
+formats changes the protocol; unreleased development data can be reset and reseeded. Their differences are recorded
+in NMDK&#x27;s <code translate="no" v-pre>DRIVER_CONTRACTS.md</code>.</p>
+<p>The canonical escrow artifact is version 7. Deployments and driver signing
+share that artifact&#x27;s domain and withdrawal nonce rules. The driver validates
+the deployed code and EIP-712 domain before use.</p>
+<h2 id="current-format-boundary">Current-format boundary</h2>
+<p>Removed imports, old recovery schemas, decimal-valued amount JSON and version 6
+escrow deployments are not accepted through fallback adapters. Current amount
+JSON uses an integer-unit string plus explicit denomination and precision.
+Recovery records require the operation and account identity fields written by
+the current driver. Hostr is not live, so this is a clean development cutover:
+reset disposable chains and local recovery journals, deploy the canonical v7
+artifact, refresh the generated address configuration and reseed events. No
+migration or v6 compatibility layer is required. Contract bytecode is immutable,
+so replacing v6 means a fresh deployment; Hostr&#x27;s deployment task overwrites the
+selected network&#x27;s recorded address. NMDK&#x27;s stack rejects stale contract domains
+before publishing trusted deployment configuration. These code changes do not
+perform a reset or erase existing development data.</p>
+<p>External Lightning invoice handoff also belongs to NMDK. Hostr CLI calls
+<code translate="no" v-pre>SwapInOperation.prepareExternalPayment()</code> instead of writing the swap journal.
+The driver validates the invoice and atomically persists its waiting state before
+returning it. Tests cover retries, recovery and competing internal dispatch.</p>
+<h2 id="upgrade-validation">Upgrade validation</h2>
+<p>Validated locally on Flutter 3.47.4 / Dart 3.13.3 and Node 26.8.2 / npm 12.0.2:</p>
+<ul>
+<li>
+<p>Production Hostr web build and 59 application tests.</p>
+</li>
+<li>
+<p>768 Hostr SDK tests, 126 canonical model tests and 128 Dart driver tests.</p>
+</li>
+<li>
+<p>22 CLI tests and six escrow service tests; three CLI tests require the live
+development stack and were skipped.</p>
+</li>
+<li>
+<p>Native CLI and escrow service bundles; compiled CLI help-command smoke check.</p>
+</li>
+<li>
+<p>Clean app, Widgetbook, SDK, CLI, escrow and canonical package analysis.</p>
+</li>
+<li>
+<p>TypeScript driver suites, generated-source conformance and package consumer smoke tests.</p>
+</li>
+<li>
+<p>31 deployment-contract tests, seven Foundry tests including fuzz coverage,
+39 MCP tests, 17 relay tests and 15 boundary guard regressions.</p>
+</li>
+<li>
+<p>All 75 Hostr/NMDK CI action steps use verified current release commits;
+both workflow collections pass Actionlint 1.7.12.</p>
+</li>
+</ul>
+<p>The <a href="../dart-dependencies/">dependency audit</a> records the remaining upstream
+version constraints. Live settlement and recreating disposable development
+databases are separate from these deterministic checks.</p>
+<h2 id="container-and-local-development-builds">Container and local development builds</h2>
+<p>The app, escrow daemon and MCP image copy <code translate="no" v-pre>marketplace_models</code> and
+<code translate="no" v-pre>marketplace_evm</code> to <code translate="no" v-pre>/workspace/dependencies/nmdk/packages</code> before resolving
+Dart dependencies. MCP bundles native libraries from
+<code translate="no" v-pre>marketplace_models/native</code>. The local escrow service binds both canonical
+<code translate="no" v-pre>lib</code> directories for development; it has no model facade mount.</p>
+<p>CI uses Flutter 3.47.4 with Dart 3.13.3 and Node 26.8.2 with npm 12.0.2. Native builds use Rust 1.98.1; application nginx uses
+the stable 1.30.4 release. Dependency lockfiles record the tested package
+versions; mechanism and contract changes are validated in their NMDK package.</p>
+<h2 id="development-service-versions">Development service versions</h2>
+<p>The September 2026 image refresh pins published image digests. The Boltz
+backend and generated OpenAPI source both target 3.13.0. The active stacks use
+Bitcoin Core 31.1, LND 0.21.3-beta (the project&#x27;s stable release naming), Foundry
+1.8.3, Nutshell 0.20.3, LNbits 1.6.1, Alby Hub 1.24.0, PostgreSQL 18.6 and Redis
+8.10.1. Proxy images use nginx-proxy 1.11.6 and acme-companion 2.8.2;
+observability uses LGTM 0.33.0 and Collector 0.160.0.</p>
+<p>The development Foundry services that write bind-mounted state explicitly run
+with their previous root UID. The current official Foundry image defaults to a
+different UID. Signet&#x27;s container build installs pnpm 12.4.2 explicitly because
+Node 26 no longer includes Corepack.</p>
+<p>Version exceptions are deliberate and verifiable: Fulmine 0.3.25 is the latest
+stable release (0.4.0 candidates are excluded); the Hostr relay stays at the
+current <code translate="no" v-pre>fix/nip42-compliance</code> branch head <code translate="no" v-pre>520d4c0</code>, which is ahead of its
+repository&#x27;s default branch. Boltz helper images and Pimlico development
+helpers publish rolling tags, so their resolved digests provide reproducibility.</p>
+<p>The refresh validates registry availability, Compose rendering, and disposable
+Bitcoin/LND/Foundry startup tooling. It does not claim a completed live swap or
+an upgrade of existing databases. No existing stack or persistent volume is
+started or reset by these checks. Recreate disposable development databases for
+the new Nutshell and PostgreSQL versions; no application migration layer is
+needed for this unreleased setup.</p>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../infrastructure/nmdk-refactor-changes/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">NMDK / Hostr refactor changes</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../infrastructure/driver-contracts/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Shared driver contracts</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "Payment driver boundary", level: 2, icon: "file", hasPrism: true, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/infrastructure/payment-drivers.md" }</script>
+</body>
+</html>

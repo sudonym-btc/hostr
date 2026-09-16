@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.5.3">
+    <meta name="generator" content="Retype 4.6.0">
 
     <!-- Primary Meta Tags -->
     <title>Infrastructure</title>
@@ -38,12 +38,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
+    <link href="../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
 
-    <script data-cfasync="false" src="../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
+    <script data-cfasync="false" src="../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../resources/js/prism.js?v=4.6.0.842850253091" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -154,6 +154,10 @@
                 <!-- Page content  -->
 <h1 id="infrastructure">Infrastructure</h1>
 <p>Infrastructure is split into <strong>two Terraform stacks</strong>:</p>
+<retype-table copy-text="| Stack           | Path                        | State                             | Purpose                                    |
+| --------------- | --------------------------- | --------------------------------- | ------------------------------------------ |
+| **Bootstrap**   | `infrastructure/bootstrap/` | Local (checked into `.gitignore`) | State bucket, DNS zones, MX, NS delegation |
+| **Environment** | `infrastructure/`           | GCS remote (per-env prefix)       | Compute VM, VPC, secrets, DNS A records    |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -180,6 +184,7 @@
 </tbody>
 </table>
 </div>
+</retype-table>
 <p>The compute stack deploys a <strong>single Compute Engine VM</strong> that runs Docker Compose
 for staging/production services (<code translate="no" v-pre>relay</code>, <code translate="no" v-pre>blossom</code>, <code translate="no" v-pre>escrow</code>) with
 <code translate="no" v-pre>compose.hosted.yaml</code> (Let&#x27;s Encrypt via <code translate="no" v-pre>acme-companion</code>).</p>
@@ -240,6 +245,14 @@ terraform output ci_workload_identity_provider
 terraform output ci_service_account_email</code></pre>
 </doc-codeblock></div>
 <p>Then set these as <strong>environment variables</strong> in GitHub:</p>
+<retype-table copy-text="| GitHub environment | Variable                         | Value                                            |
+| ------------------ | -------------------------------- | ------------------------------------------------ |
+| staging            | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `terraform output ci_workload_identity_provider` |
+| staging            | `GCP_SERVICE_ACCOUNT_EMAIL`      | `terraform output ci_service_account_email`      |
+| staging            | `TF_STATE_BUCKET`                | The GCS bucket from bootstrap                    |
+| production         | `GCP_WORKLOAD_IDENTITY_PROVIDER` | (same outputs from the production apply)         |
+| production         | `GCP_SERVICE_ACCOUNT_EMAIL`      | (same outputs from the production apply)         |
+| production         | `TF_STATE_BUCKET`                | The GCS bucket from bootstrap                    |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -283,6 +296,7 @@ terraform output ci_service_account_email</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <p>After that, the workflow can self-manage — subsequent <code translate="no" v-pre>terraform apply</code> runs
 update the WIF resources if needed.</p>
 <p>Bootstrap is <strong>not</strong> run in CI — it&#x27;s a one-time local operation.</p>
@@ -390,10 +404,10 @@ staging/production.</p>
                     </div>
             
                     <div class="w-1/2">
-                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../infrastructure/tailscale/">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../infrastructure/dart-dependencies/">
                             <span>
                                 <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
-                                <span class="block mt-1">Tailscale</span>
+                                <span class="block mt-1">Dart and Flutter dependency audit</span>
                             </span>
                             <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
                         </a>

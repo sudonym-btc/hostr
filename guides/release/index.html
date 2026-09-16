@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.5.3.831847283941">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
 
     <!-- See retype.com -->
-    <meta name="generator" content="Retype 4.5.3">
+    <meta name="generator" content="Retype 4.6.0">
 
     <!-- Primary Meta Tags -->
     <title>Release Guide</title>
@@ -38,12 +38,12 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../resources/css/retype.css?v=4.5.3.831847283941" rel="stylesheet">
+    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../resources/js/config.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
-    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.5.3" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.5.3.831847283941" data-turbo-eval="false" defer></script>
-    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.5.3.831847283941" defer></script>
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script id="prism-js" data-cfasync="false" src="../../resources/js/prism.js?v=4.6.0.842850253091" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -179,6 +179,12 @@ fix(sdk): handle relay disconnect gracefully
 chore(ci): update Flutter version to 3.41.1
 docs: add release guide</code></pre>
 </doc-codeblock></div>
+<retype-table copy-text="| Prefix                               | Version bump    |
+| ------------------------------------ | --------------- |
+| `feat:`                              | minor (`0.x.0`) |
+| `fix:`, `refactor:`, `perf:`         | patch (`0.0.x`) |
+| `feat!:` / `BREAKING CHANGE:` footer | major (`x.0.0`) |
+| `chore:`, `docs:`, `test:`, `ci:`    | no release      |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -207,6 +213,7 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <hr>
 <h2 id="pull-request-workflow">Pull Request Workflow</h2>
 <ol>
@@ -235,6 +242,15 @@ docs: add release guide</code></pre>
 <hr>
 <h2 id="environments">Environments</h2>
 <p>There are two deployed environments, each with their own backend, app build, and CI secrets.</p>
+<retype-table copy-text="|                        | Staging                          | Production                       |
+| ---------------------- | -------------------------------- | -------------------------------- |
+| **Backend**            | `staging.hostr.network`          | `hostr.network`                  |
+| **Flutter entrypoint** | `lib/main_staging.dart`          | `lib/main_production.dart`       |
+| **Dart env**           | `Env.staging`                    | `Env.prod`                       |
+| **Play Store track**   | `internal`                       | `production` (manual promotion)  |
+| **TestFlight**         | `staging` group                  | `production` group               |
+| **GitHub Environment** | `staging`                        | `production`                     |
+| **TLS**                | Let's Encrypt via acme-companion | Let's Encrypt via acme-companion |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -283,7 +299,14 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <h3 id="when-each-build-is-triggered">When each build is triggered</h3>
+<retype-table copy-text="| Event                                        | Staging build    | Production build |
+| -------------------------------------------- | ---------------- | ---------------- |
+| Merge to `main`                              | ✅ Automatically | ❌               |
+| GitHub Release published by semantic-release | ✅               | ✅               |
+| `workflow_dispatch` with `track: internal`   | Optionally       | —                |
+| `workflow_dispatch` with `track: production` | —                | Optionally       |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -317,6 +340,7 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <p>A production build is always preceded by a passing staging build (same release version).</p>
 <hr>
 <h2 id="ci-pipeline-overview">CI Pipeline Overview</h2>
@@ -346,6 +370,11 @@ docs: add release guide</code></pre>
 <code translate="no" v-pre>Settings → Environments → &lt;environment&gt; → Environment secrets</code></p>
 <h3 id="shared-both-environments">Shared (both environments)</h3>
 <p>These are identical values in both environments unless you use separate developer accounts per environment.</p>
+<retype-table copy-text="| Secret                          | How to obtain                                               |
+| ------------------------------- | ----------------------------------------------------------- |
+| `APP_STORE_CONNECT_ISSUER_ID`   | App Store Connect → Users &amp; Access → Integrations → Keys    |
+| `APP_STORE_CONNECT_KEY_ID`      | Same page — the key ID shown next to your API key           |
+| `APP_STORE_CONNECT_PRIVATE_KEY` | Contents of the `.p8` file downloaded when creating the key |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -370,7 +399,15 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <h3 id="android-per-environment">Android (per environment)</h3>
+<retype-table copy-text="| Secret                      | How to obtain                                                     |
+| --------------------------- | ----------------------------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`   | `base64 -i upload-keystore.jks \| pbcopy`                         |
+| `ANDROID_KEYSTORE_PASSWORD` | Password used when creating the keystore                          |
+| `ANDROID_KEY_ALIAS`         | Alias used when creating the keystore                             |
+| `ANDROID_KEY_PASSWORD`      | Key password (often same as keystore password)                    |
+| `GOOGLE_PLAY_CREDENTIALS`   | Service account JSON — paste the **contents** of the `.json` file |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -403,10 +440,16 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <blockquote>
 <p><span class="docs-emoji">&#x26A0;&#xFE0F;</span> Use separate upload keystores for staging and production. If a staging keystore is compromised, it cannot be used to push to the production track.</p>
 </blockquote>
 <h3 id="ios-per-environment">iOS (per environment)</h3>
+<retype-table copy-text="| Secret                            | How to obtain                                        |
+| --------------------------------- | ---------------------------------------------------- |
+| `IOS_DISTRIBUTION_CERT_BASE64`    | `base64 -i Certificates.p12 \| pbcopy`               |
+| `IOS_DISTRIBUTION_CERT_PASSWORD`  | Password set when exporting the `.p12` from Keychain |
+| `IOS_PROVISIONING_PROFILE_BASE64` | `base64 -i hostr_appstore.mobileprovision \| pbcopy` |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -431,10 +474,14 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <blockquote>
 <p>Staging and production share the same bundle ID (<code translate="no" v-pre>com.sudonym.hostr</code>), the same App Store Distribution certificate, and the same provisioning profile. They differ only in the Dart entrypoint (<code translate="no" v-pre>main_staging.dart</code> vs <code translate="no" v-pre>main_production.dart</code>), which sets the backend URL. Use separate TestFlight groups (e.g. &quot;Internal — Staging&quot; vs &quot;Internal — Production&quot;) to control who receives which build. The CI workflow overrides signing settings in <code translate="no" v-pre>Release.xcconfig</code> at build time — locally, the project defaults to Automatic signing for development.</p>
 </blockquote>
 <h3 id="cloud-deploy-per-environment">Cloud Deploy (per environment)</h3>
+<retype-table copy-text="| Secret                    | How to obtain                                            |
+| ------------------------- | -------------------------------------------------------- |
+| `GCP_SERVICE_ACCOUNT_KEY` | GCP Console → IAM → Service Accounts → create key (JSON) |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -451,7 +498,11 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <p>Repository/Environment variable required for Terraform remote state:</p>
+<retype-table copy-text="| Variable          | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `TF_STATE_BUCKET` | GCS bucket name created by `infrastructure/project` bootstrap. |">
 <div class="table-wrapper scrollbar overflow-hidden">
 <table class="comfortable">
 <thead>
@@ -468,6 +519,7 @@ docs: add release guide</code></pre>
 </tbody>
 </table>
 </div>
+</retype-table>
 <p>Deployment is executed by the <strong>Infrastructure Deploy</strong> workflow
 (<a href="../../source/github/workflows/infra_deploy.yaml">.github/workflows/infra_deploy.yaml</a>),
 which applies Terraform and then resets the compose VM to trigger the startup

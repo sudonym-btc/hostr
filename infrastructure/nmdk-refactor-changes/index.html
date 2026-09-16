@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="turbo-root" content="/hostr">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
+
+    <!-- See retype.com -->
+    <meta name="generator" content="Retype 4.6.0">
+
+    <!-- Primary Meta Tags -->
+    <title>NMDK / Hostr refactor changes</title>
+    <meta name="title" content="NMDK / Hostr refactor changes">
+    <meta name="description" content="Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-launch cutover: disposable development deployments and state can be recreated without a v6 compatibility or data-migration layer.">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://sudonym-btc.github.io/hostr/infrastructure/nmdk-refactor-changes/">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://sudonym-btc.github.io/hostr/sitemap.xml">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sudonym-btc.github.io/hostr/infrastructure/nmdk-refactor-changes/">
+    <meta property="og:title" content="NMDK / Hostr refactor changes">
+    <meta property="og:description" content="Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-launch cutover: disposable development deployments and state can be recreated without a v6 compatibility or data-migration layer.">
+    <meta property="og:site_name" content="Hostr">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sudonym-btc.github.io/hostr/infrastructure/nmdk-refactor-changes/">
+    <meta name="twitter:title" content="NMDK / Hostr refactor changes">
+    <meta name="twitter:description" content="Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-launch cutover: disposable development deployments and state can be recreated without a v6 compatibility or data-migration layer.">
+
+    <!-- Alternate Markdown -->
+    <link rel="alternate" type="text/markdown" href="https://sudonym-btc.github.io/hostr/infrastructure/nmdk-refactor-changes.md">
+
+    <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
+
+    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
+
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+</head>
+<body>
+    <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
+    <div class="absolute bottom-0 left-0" style="top: 5rem; right: 50%"></div>
+
+    <header id="retype-header" class="sticky top-0 z-30 flex w-full h-16 bg-header-bg border-b border-header-border md:h-20">
+        <div class="container relative flex items-center justify-between pr-6 grow md:justify-start">
+            <!-- Mobile menu button skeleton -->
+            <button v-cloak class="skeleton retype-mobile-menu-button flex items-center justify-center shrink-0 overflow-hidden dark:text-white focus:outline-hidden rounded-full w-10 h-10 ml-3.5 md:hidden"><svg xmlns="http://www.w3.org/2000/svg" class="mb-px shrink-0" width="24" height="24" viewBox="0 0 24 24" role="presentation" style="margin-bottom: 0px;"><g fill="currentColor"><path d="M2 4h20v2H2zM2 11h20v2H2zM2 18h20v2H2z"></path></g></svg></button>
+            <div v-cloak id="retype-sidebar-left-toggle-button"></div>
+    
+            <!-- Logo -->
+            <div class="flex items-center justify-between h-full py-2 md:w-75">
+                <div class="flex items-center px-2 md:px-6">
+                    <a id="retype-branding-logo" href="https://sudonym-btc.github.io/hostr/" class="flex items-center leading-snug text-2xl">
+                        <span class="w-10 mr-2 grow-0 shrink-0 overflow-hidden">
+                            <img class="max-h-10 md:inline-block" src="../../assets/images/logo/logo_no_text.svg" alt="" width="49" height="40">
+                        </span>
+                        <span class="dark:text-white font-bold line-clamp-1 md:line-clamp-2">Hostr</span>
+                    </a><span id="retype-branding-label" class="inline-flex mt-1 px-2 py-1 ml-4 text-xs font-medium leading-none items-center rounded-md bg-branding-label-bg text-branding-label-text ring-1 ring-branding-label-border ring-inset md:inline-block">Docs</span>
+                </div>
+    
+                <span class="hidden h-8 border-r md:inline-block border-base-border"></span>
+            </div>
+    
+            <div class="flex justify-between md:grow">
+                <!-- Top Nav -->
+                <nav id="retype-header-nav" class="hidden md:flex">
+                    <ul class="flex flex-col mb-4 md:pl-16 md:mb-0 md:flex-row md:items-center">
+                        <li class="mr-6">
+                            <a class="py-2 md:mb-0 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                        </li>
+    
+                    </ul>
+                </nav>
+    
+                <div v-cloak class="flex justify-end grow">
+                    <div id="retype-mobile-search-button"></div>
+                    <doc-search-desktop></doc-search-desktop>
+    
+                    <doc-theme-switch class="lg:ml-2"></doc-theme-switch>
+                    <doc-history></doc-history>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <div id="retype-container" class="container relative flex bg-white">
+        <!-- Sidebar Skeleton -->
+        <div v-cloak class="fixed flex flex-col shrink-0 duration-300 ease-in-out bg-sidebar-left-bg border-sidebar-left-border sidebar top-20 w-75 border-r h-screen md:sticky transition-transform skeleton">
+        
+            <div class="flex items-center h-16 px-6">
+                <input id="retype-filter-input-mock" class="w-full h-10 pl-8 px-3 py-2 transition-colors duration-200 ease-linear bg-filter-bg border border-filter-border rounded-lg shadow-none md:text-sm hover:border-filter-border-hover focus:outline-hidden focus:border-filter-border-focus placeholder-filter-placeholder" type="text">
+            </div>
+        
+            <div class="pl-6 mt-1 mb-4">
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+                <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            </div>
+        
+            <div class="shrink-0 mt-auto bg-transparent dark:border-base-border">
+                <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                    <span class="text-xs whitespace-nowrap">Powered by</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Sidebar component -->
+        <doc-sidebar v-cloak>
+            <template #sidebar-footer>
+                <div class="shrink-0 mt-auto border-t md:bg-transparent md:border-none dark:border-base-border">
+        
+                    <div class="py-3 px-6 md:hidden border-b dark:border-base-border">
+                        <nav>
+                            <ul class="flex flex-wrap justify-center items-center">
+                                <li class="mr-6">
+                                    <a class="block py-1 inline-flex items-center text-sm whitespace-nowrap transition-colors duration-200 ease-linear md:text-header-text font-header-text hover:text-header-text-hover" href="../../guides/getting_started/">Getting Started</a>
+                                </li>
+        
+                            </ul>
+                        </nav>
+                    </div>
+        
+                    <a class="flex items-center justify-center flex-nowrap h-16 text-gray-350 dark:text-dark-400 hover:text-gray-600 dark:hover:text-dark-300 transition-colors duration-150 ease-in docs-powered-by" target="_blank" href="https://retype.com/" rel="noopener">
+                        <span class="text-xs whitespace-nowrap">Powered by</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ml-2" fill="currentColor" width="96" height="20" overflow="visible"><path d="M0 0v20h13.59V0H0zm11.15 17.54H2.44V2.46h8.71v15.08zM15.8 20h2.44V4.67L15.8 2.22zM20.45 6.89V20h2.44V9.34z"/><g><path d="M40.16 8.44c0 1.49-.59 2.45-1.75 2.88l2.34 3.32h-2.53l-2.04-2.96h-1.43v2.96h-2.06V5.36h3.5c1.43 0 2.46.24 3.07.73s.9 1.27.9 2.35zm-2.48 1.1c.26-.23.38-.59.38-1.09 0-.5-.13-.84-.4-1.03s-.73-.28-1.39-.28h-1.54v2.75h1.5c.72 0 1.2-.12 1.45-.35zM51.56 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92h4.74v1.83h-6.79V5.36h6.64zM60.09 7.15v7.48h-2.06V7.15h-2.61V5.36h7.28v1.79h-2.61zM70.81 14.64h-2.06v-3.66l-3.19-5.61h2.23l1.99 3.45 1.99-3.45H74l-3.19 5.61v3.66zM83.99 6.19c.65.55.97 1.4.97 2.55s-.33 1.98-1 2.51-1.68.8-3.04.8h-1.23v2.59h-2.06V5.36h3.26c1.42 0 2.45.28 3.1.83zm-1.51 3.65c.25-.28.37-.69.37-1.22s-.16-.92-.48-1.14c-.32-.23-.82-.34-1.5-.34H79.7v3.12h1.38c.68 0 1.15-.14 1.4-.42zM95.85 5.36V7.2h-4.59v1.91h4.13v1.76h-4.13v1.92H96v1.83h-6.79V5.36h6.64z"/></g></svg>
+                    </a>
+                </div>
+            </template>
+        </doc-sidebar>
+
+        <div class="grow min-w-0 bg-body-bg">
+            <!-- Render "toolbar" template here on api pages --><!-- Render page content -->
+<div class="flex">
+    <div id="retype-main" class="min-w-0 p-4 grow md:px-16">
+        <main class="relative pb-12 lg:pt-2">
+            <div class="relative retype-markdown" id="retype-content">
+                <!-- Rendered if sidebar right is enabled -->
+                <div id="retype-sidebar-right-toggle"></div>
+                <doc-page-actions></doc-page-actions>
+
+                <!-- Page content  -->
+<h1 id="nmdk--hostr-refactor-changes">NMDK / Hostr refactor changes</h1>
+<p>Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-launch cutover: disposable development deployments and state can be recreated without a v6 compatibility or data-migration layer.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li><strong>Canonical Dart models:</strong> moved marketplace events, amounts, tokens, cryptography helpers and native assets from Hostr into NMDK. Deleted the Hostr model package and forwarding files.</li>
+<li><strong>Standalone Dart drivers:</strong> moved swaps, escrow, EVM transport/signing, durable operation state, recovery, fees and funds monitoring into NMDK behind typed application ports.</li>
+<li><strong>Shared contracts:</strong> Solidity defines contract bindings and EIP-712 signing rules; one pinned Boltz OpenAPI defines both REST clients; one amount schema defines strict TypeScript/Dart integer serialization. Shared fixtures cover precision, signatures, calldata and rejected formats.</li>
+<li><strong>TypeScript drivers:</strong> updated EVM, Cashu, marketplace interfaces, Nostr models and web application dependencies; removed duplicate amount definitions and stale lockfiles.</li>
+<li><strong>Current API only:</strong> removed compatibility imports, old amount aliases, legacy serialization fallbacks, duplicate NIP-04 notice delivery and proactive relay authentication. SDK instances have independent dependency scopes.</li>
+<li><strong>CLI payment handoff:</strong> the driver validates and atomically persists external invoice handoff. The CLI does not construct swap transitions or mutate the swap journal.</li>
+<li><strong>Clean v7 development deployment:</strong> Hostr deploys the canonical artifact afresh and replaces the selected network address. Both NMDK stack initializers reject stale deployed domains; reset/redeploy replaces immutable contract code.</li>
+<li><strong>Canonical deployment artifacts:</strong> Hardhat 3 deploys and tests NMDK artifacts directly. Removed nested contract snapshots; stack launchers mount the canonical package.</li>
+<li><strong>Flutter upgrades:</strong> current Flutter/Dart, NDK APIs, Maps plugin, generated code and application dependency updates. Removed the vendored Maps fork.</li>
+<li><strong>Reproducible tooling:</strong> upgraded npm packages, compilers, generators, pinned service images and CI action releases. Tooling requiring older TypeScript compiler APIs is isolated from the driver builds.</li>
+<li><strong>Boundary enforcement:</strong> CI rejects Hostr payment mechanisms, old imports, direct swap journal writes, duplicate contract/model sources and reverse NMDK dependencies.</li>
+<li><strong>Reliable preview test:</strong> isolated Blossom transport verifies that listing previews stage the original image once and reference the staged URL.</li>
+</ul>
+<h2 id="validation">Validation</h2>
+<ul>
+<li>Production Hostr web build, native CLI and escrow bundles, and compiled CLI help smoke check passed.</li>
+<li>1,109 Dart tests passed: SDK 768, models 126, drivers 128, app 59, CLI 22, escrow service 6. Three CLI development-stack tests were skipped.</li>
+<li>TypeScript package suites, shared conformance fixtures, installed-package smoke tests, marketplace app and documentation builds passed.</li>
+<li>Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 18 in the clean committed checkout; boundary guard: 15.</li>
+<li>Clean-v7 initializer checks: six tests; the deployment regression verifies replacement of an old configured address.</li>
+<li>All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.</li>
+<li>NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.</li>
+</ul>
+<p>See <a href="../payment-drivers/">payment driver ownership</a>, <a href="../dart-dependencies/">Dart dependency constraints</a>, and <a href="../driver-contracts/">cross-language contracts</a>.</p>
+<h2 id="feature-commit-schedule">Feature commit schedule</h2>
+<p>At the user’s request, author and committer dates are evenly spaced after the latest GitHub profile commit found: <a href="https://github.com/pats2sats/pats2sats.github.io/commit/a3f18f793a0e4fc8c8663ec5c7f5553bb72399ec">a3f18f793a0e</a>, 2026-09-15 19:27:24 UTC−6. These dates are assigned metadata; validation was performed during this refactor.</p>
+<p>Interval: <strong>293 seconds</strong>. Child repositories are committed before their consuming gitlinks.</p>
+<retype-table copy-text="| # | Repository | Date (UTC−6) | Feature |
+| --- | --- | --- | --- |
+| 1 | `dependencies/nmdk/dependencies/marketplace-driver-interface-ts` | 2026-09-15T19:32:17-06:00 | feat(models): generate one canonical marketplace amount contract |
+| 2 | `dependencies/nmdk/dependencies/marketplace-driver-interface-ts` | 2026-09-15T19:37:10-06:00 | build: upgrade TypeScript and use aggregate documentation tooling |
+| 3 | `dependencies/nmdk/dependencies/marketplace-evm-contracts` | 2026-09-15T19:42:03-06:00 | feat(contracts): generate shared signing types from the canonical escrow source |
+| 4 | `dependencies/nmdk/dependencies/marketplace-evm-contracts` | 2026-09-15T19:46:56-06:00 | build(contracts): upgrade Solidity and TypeScript and regenerate artifacts |
+| 5 | `dependencies/nmdk/dependencies/nostr-tools` | 2026-09-15T19:51:49-06:00 | refactor(marketplace): consume the shared amount contract |
+| 6 | `dependencies/nmdk/dependencies/nostr-tools` | 2026-09-15T19:56:42-06:00 | build: upgrade crypto dependencies and modernize lint and benchmark tooling |
+| 7 | `dependencies/nmdk/dependencies/marketplace-cashu-ts` | 2026-09-15T20:01:35-06:00 | build(cashu): upgrade the Cashu SDK and adapt signature fixtures |
+| 8 | `dependencies/nmdk/dependencies/marketplace-cashu-stack` | 2026-09-15T20:06:28-06:00 | build(cashu): refresh pinned mint and Lightning container images |
+| 9 | `dependencies/nmdk/dependencies/marketplace-evm-stack` | 2026-09-15T20:11:21-06:00 | feat(stack): deploy canonical v7 escrow and reject stale development contracts |
+| 10 | `dependencies/nmdk/dependencies/marketplace-evm-ts/test/stack` | 2026-09-15T20:16:14-06:00 | feat(stack): deploy canonical v7 escrow and reject stale development contracts |
+| 11 | `dependencies/nmdk/dependencies/marketplace-evm-ts` | 2026-09-15T20:21:07-06:00 | refactor(evm): consume generated Boltz and escrow signing contracts |
+| 12 | `dependencies/nmdk/dependencies/marketplace-evm-ts` | 2026-09-15T20:26:00-06:00 | build(evm): upgrade account abstraction and TypeScript tooling |
+| 13 | `dependencies/nmdk/dependencies/marketplace-app-ts` | 2026-09-15T20:30:53-06:00 | build(app): upgrade the marketplace web application toolchain |
+| 14 | `dependencies/nmdk/dependencies/marketplace-location-h3-ts` | 2026-09-15T20:35:46-06:00 | build(h3): upgrade TypeScript and shared documentation tooling |
+| 15 | `dependencies/nmdk/dependencies/marketplace-location-interface-ts` | 2026-09-15T20:40:39-06:00 | build(location): upgrade TypeScript and shared documentation tooling |
+| 16 | `dependencies/nmdk` | 2026-09-15T20:45:32-06:00 | feat(models): add canonical Dart marketplace models and cross-language amount fixtures |
+| 17 | `dependencies/nmdk` | 2026-09-15T20:50:25-06:00 | feat(dart): extract EVM and Lightning drivers with recovery and shared binding checks |
+| 18 | `dependencies/nmdk` | 2026-09-15T20:55:18-06:00 | build(stack): refresh aggregate service images and verification |
+| 19 | `dependencies/nmdk` | 2026-09-15T21:00:11-06:00 | build: upgrade and centralize the TypeScript workspace and CI toolchains |
+| 20 | `hostr` | 2026-09-15T21:05:04-06:00 | refactor(payments): consume canonical NMDK models and drivers |
+| 21 | `hostr` | 2026-09-15T21:09:57-06:00 | refactor(auth): isolate SDK scopes and use current NIP42 and NIP17 flows |
+| 22 | `hostr` | 2026-09-15T21:14:50-06:00 | refactor(app): use canonical models and current Flutter plugins |
+| 23 | `hostr` | 2026-09-15T21:19:43-06:00 | refactor(cli): delegate swap handoff and test staged listing previews |
+| 24 | `hostr` | 2026-09-15T21:24:36-06:00 | refactor(escrow): consume NMDK settlement and remove old event fallbacks |
+| 25 | `hostr` | 2026-09-15T21:29:29-06:00 | build(contracts): deploy canonical v7 artifacts with Hardhat 3 |
+| 26 | `hostr` | 2026-09-15T21:34:22-06:00 | build(deps): upgrade JavaScript packages and release tooling |
+| 27 | `hostr` | 2026-09-15T21:39:15-06:00 | build(containers): package canonical drivers and pin current services |
+| 28 | `hostr` | 2026-09-15T21:44:08-06:00 | ci: enforce driver boundaries with current toolchains and pinned actions |
+| 29 | `hostr` | 2026-09-15T21:49:01-06:00 | docs: document canonical drivers and the clean v7 development cutover |">
+<div class="table-wrapper scrollbar overflow-hidden">
+<table class="comfortable">
+<thead>
+<tr>
+<th>#</th>
+<th>Repository</th>
+<th>Date (UTC−6)</th>
+<th>Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-driver-interface-ts</code></td>
+<td>2026-09-15T19:32:17-06:00</td>
+<td>feat(models): generate one canonical marketplace amount contract</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-driver-interface-ts</code></td>
+<td>2026-09-15T19:37:10-06:00</td>
+<td>build: upgrade TypeScript and use aggregate documentation tooling</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-contracts</code></td>
+<td>2026-09-15T19:42:03-06:00</td>
+<td>feat(contracts): generate shared signing types from the canonical escrow source</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-contracts</code></td>
+<td>2026-09-15T19:46:56-06:00</td>
+<td>build(contracts): upgrade Solidity and TypeScript and regenerate artifacts</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/nostr-tools</code></td>
+<td>2026-09-15T19:51:49-06:00</td>
+<td>refactor(marketplace): consume the shared amount contract</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/nostr-tools</code></td>
+<td>2026-09-15T19:56:42-06:00</td>
+<td>build: upgrade crypto dependencies and modernize lint and benchmark tooling</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-cashu-ts</code></td>
+<td>2026-09-15T20:01:35-06:00</td>
+<td>build(cashu): upgrade the Cashu SDK and adapt signature fixtures</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-cashu-stack</code></td>
+<td>2026-09-15T20:06:28-06:00</td>
+<td>build(cashu): refresh pinned mint and Lightning container images</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-stack</code></td>
+<td>2026-09-15T20:11:21-06:00</td>
+<td>feat(stack): deploy canonical v7 escrow and reject stale development contracts</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-ts/test/stack</code></td>
+<td>2026-09-15T20:16:14-06:00</td>
+<td>feat(stack): deploy canonical v7 escrow and reject stale development contracts</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-ts</code></td>
+<td>2026-09-15T20:21:07-06:00</td>
+<td>refactor(evm): consume generated Boltz and escrow signing contracts</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-evm-ts</code></td>
+<td>2026-09-15T20:26:00-06:00</td>
+<td>build(evm): upgrade account abstraction and TypeScript tooling</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-app-ts</code></td>
+<td>2026-09-15T20:30:53-06:00</td>
+<td>build(app): upgrade the marketplace web application toolchain</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-location-h3-ts</code></td>
+<td>2026-09-15T20:35:46-06:00</td>
+<td>build(h3): upgrade TypeScript and shared documentation tooling</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code translate="no" v-pre>dependencies/nmdk/dependencies/marketplace-location-interface-ts</code></td>
+<td>2026-09-15T20:40:39-06:00</td>
+<td>build(location): upgrade TypeScript and shared documentation tooling</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code translate="no" v-pre>dependencies/nmdk</code></td>
+<td>2026-09-15T20:45:32-06:00</td>
+<td>feat(models): add canonical Dart marketplace models and cross-language amount fixtures</td>
+</tr>
+<tr>
+<td>17</td>
+<td><code translate="no" v-pre>dependencies/nmdk</code></td>
+<td>2026-09-15T20:50:25-06:00</td>
+<td>feat(dart): extract EVM and Lightning drivers with recovery and shared binding checks</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code translate="no" v-pre>dependencies/nmdk</code></td>
+<td>2026-09-15T20:55:18-06:00</td>
+<td>build(stack): refresh aggregate service images and verification</td>
+</tr>
+<tr>
+<td>19</td>
+<td><code translate="no" v-pre>dependencies/nmdk</code></td>
+<td>2026-09-15T21:00:11-06:00</td>
+<td>build: upgrade and centralize the TypeScript workspace and CI toolchains</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:05:04-06:00</td>
+<td>refactor(payments): consume canonical NMDK models and drivers</td>
+</tr>
+<tr>
+<td>21</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:09:57-06:00</td>
+<td>refactor(auth): isolate SDK scopes and use current NIP42 and NIP17 flows</td>
+</tr>
+<tr>
+<td>22</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:14:50-06:00</td>
+<td>refactor(app): use canonical models and current Flutter plugins</td>
+</tr>
+<tr>
+<td>23</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:19:43-06:00</td>
+<td>refactor(cli): delegate swap handoff and test staged listing previews</td>
+</tr>
+<tr>
+<td>24</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:24:36-06:00</td>
+<td>refactor(escrow): consume NMDK settlement and remove old event fallbacks</td>
+</tr>
+<tr>
+<td>25</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:29:29-06:00</td>
+<td>build(contracts): deploy canonical v7 artifacts with Hardhat 3</td>
+</tr>
+<tr>
+<td>26</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:34:22-06:00</td>
+<td>build(deps): upgrade JavaScript packages and release tooling</td>
+</tr>
+<tr>
+<td>27</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:39:15-06:00</td>
+<td>build(containers): package canonical drivers and pin current services</td>
+</tr>
+<tr>
+<td>28</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:44:08-06:00</td>
+<td>ci: enforce driver boundaries with current toolchains and pinned actions</td>
+</tr>
+<tr>
+<td>29</td>
+<td><code translate="no" v-pre>hostr</code></td>
+<td>2026-09-15T21:49:01-06:00</td>
+<td>docs: document canonical drivers and the clean v7 development cutover</td>
+</tr>
+</tbody>
+</table>
+</div>
+</retype-table>
+<h2 id="preserved-work">Preserved work</h2>
+<p>Preexisting unrelated edits remain outside these feature commits. The user’s seed-kind correction is preserved in the relocated canonical model, and the NMDK gitlink advances from the user-selected checkout. The preexisting Cashu Compose addition remains staged; its dependent image updates stay in the working tree unless explicitly included.</p>
+<h2 id="publication-fixes">Publication fixes</h2>
+<p>Verification in clean committed checkouts identified and corrected issues that the existing development workspace concealed:</p>
+<ul>
+<li>Reconciled the two EVM stack checkouts onto one history. Replaced an unpublished upstream Boltz gitlink with a published revision and a stack-owned wallet readiness wrapper.</li>
+<li>Removed the orphaned escrow specification gitlink and propagated the complete, recursively cloneable dependency graph.</li>
+<li>Pinned npm 12 in Hostr so release tooling cannot shadow the required workspace package manager with npm 11.</li>
+<li>Built NMDK workspace exports before their runtime tests import them. Updated the package consumer check to npm 12&#x27;s JSON output format.</li>
+<li>Made Compose structure and image checks independent of ignored local service environment files, while retaining runtime environment requirements.</li>
+<li>Regenerated the missing optional Boltz transaction confirmation field from the canonical schema and refreshed immutable package documentation links.</li>
+<li>Pinned Compose 5.5.1 through one checked installer for NMDK CI, integration and release jobs; rejected older local versions with installation guidance.</li>
+<li>Updated plugin validation to the current production plugin name and replaced broken documentation references with canonical NMDK specification links.</li>
+<li>Aligned Hostr relay admission with the canonical seed event kind, including authentication regression coverage. Removed obsolete seed, NIP-04 and NWC notification permissions from policy and deployment defaults.</li>
+<li>Updated Signet to 1.20.0 with one shared daemon/dashboard Dockerfile and current pnpm configuration. Its frozen SQLite dependency requires the latest Node 24 LTS patch; Hostr&#x27;s own Node packages remain on Node 26. Both images compile and pass isolated HTTP startup checks.</li>
+<li>Fixed cold Bitcoin startup by preserving the image&#x27;s executable path and matching container ownership to host data directories. A fresh Bitcoin 31.1 regtest instance initialized both wallets, mined 151 blocks and funded the test client; failures now print service logs before cleanup.</li>
+</ul>
+<p>The clean-checkout verification also covers Widgetbook&#x27;s production web build, all seven packed TypeScript packages in a blank consumer, both documentation production builds, repeated Dart binding generation without tracked drift, and the Linux MCP container build and daemon startup smoke check. A fresh recursive GitHub clone retrieved all 37 submodules and matched the verified repository trees. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.</p>
+
+                
+                <!-- Required only on API pages -->
+                <doc-toolbar-member-filter-no-results></doc-toolbar-member-filter-no-results>
+            </div>
+            <footer id="retype-content-footer" class="clear-both">
+            
+                <nav id="retype-nextprev" class="print:hidden flex mt-14">
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 h-full flex items-center break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-l-lg transition-colors duration-150 relative hover:z-5" href="../../infrastructure/dart-dependencies/">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mr-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19 11H7.41l5.29-5.29a.996.996 0 10-1.41-1.41l-7 7a1 1 0 000 1.42l7 7a1.024 1.024 0 001.42-.01.996.996 0 000-1.41L7.41 13H19c.55 0 1-.45 1-1s-.45-1-1-1z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                            <span>
+                                <span class="block text-xs font-normal text-base-text-muted">Previous</span>
+                                <span class="block mt-1">Dart and Flutter dependency audit</span>
+                            </span>
+                        </a>
+                    </div>
+            
+                    <div class="w-1/2">
+                        <a class="px-5 py-4 -mx-px h-full flex items-center justify-end break-normal font-medium text-body-link border border-base-border hover:border-base-border-hover rounded-r-lg transition-colors duration-150 relative hover:z-5" href="../../infrastructure/payment-drivers/">
+                            <span>
+                                <span class="block text-xs font-normal text-right text-base-text-muted">Next</span>
+                                <span class="block mt-1">Payment driver boundary</span>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ml-3" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" overflow="visible"><path d="M19.92 12.38a1 1 0 00-.22-1.09l-7-7a.996.996 0 10-1.41 1.41l5.3 5.3H5c-.55 0-1 .45-1 1s.45 1 1 1h11.59l-5.29 5.29a.996.996 0 000 1.41c.19.2.44.3.7.3s.51-.1.71-.29l7-7c.09-.09.16-.21.21-.33z" /><path fill="none" d="M0 0h24v24H0z" /></svg>
+                        </a>
+                    </div>
+                </nav>
+            </footer>
+        </main>
+
+        <div id="retype-page-footer" class="print:border-none border-t border-base-border pt-6 mb-8">
+            <footer class="flex flex-wrap items-center justify-between print:justify-center">
+                <div id="retype-footer-links" class="print:hidden">
+                    <ul class="flex flex-wrap items-center text-sm">
+                    </ul>
+                </div>
+                <div id="retype-copyright" class="print:justify-center py-2 text-footer-text font-footer-link text-sm leading-relaxed"></div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Rendered if sidebar right is enabled -->
+    <!-- Sidebar right skeleton-->
+    <div v-cloak class="fixed top-0 bottom-0 right-0 translate-x-full bg-sidebar-right-bg border-sidebar-right-border lg:sticky lg:border-l lg:shrink-0 lg:pt-6 lg:translate-x-0 sm:w-1/2 lg:w-64 lg:z-0 md:w-104 sidebar-right skeleton">
+        <div class="pl-5">
+            <div class="w-32 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-48 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+            <div class="w-40 h-3 mb-4 bg-skeleton-bg rounded-full loading"></div>
+        </div>
+    </div>
+
+    <!-- User should be able to hide sidebar right -->
+    <doc-sidebar-right v-cloak></doc-sidebar-right>
+</div>
+
+        </div>
+    </div>
+
+    <doc-search-mobile></doc-search-mobile>
+    <doc-back-to-top></doc-back-to-top>
+</div>
+
+
+    <div id="retype-overlay-target"></div>
+
+        <script data-cfasync="false">window.__DOCS__ = { "title": "NMDK / Hostr refactor changes", level: 2, icon: "file", hasPrism: false, hasInstagram: false, hasMermaid: false, hasMath: false, tocDepth: 23, "md": "/infrastructure/nmdk-refactor-changes.md" }</script>
+</body>
+</html>
