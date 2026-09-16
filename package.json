@@ -3,11 +3,12 @@
   "version": "0.0.1",
   "description": "Hostr workspace validation, documentation and release tooling",
   "devDependencies": {
-    "semantic-release": "^25.0.9",
     "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/release-notes-generator": "^14.1.1",
     "@semantic-release/github": "^12.0.9",
-    "retypeapp": "^4.6.0"
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "npm": "12.0.2",
+    "retypeapp": "^4.6.0",
+    "semantic-release": "^25.0.9"
   },
   "scripts": {
     "analyze": "(cd dependencies/nmdk/packages/marketplace_models && dart analyze) && (cd dependencies/nmdk/packages/marketplace_evm && dart analyze) && (cd hostr_sdk && dart analyze) && (cd escrow && dart analyze) && (cd app && flutter analyze)",
