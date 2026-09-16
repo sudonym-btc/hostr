@@ -22,7 +22,7 @@ Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-
 - Production Hostr web build, native CLI and escrow bundles, and compiled CLI help smoke check passed.
 - 1,109 Dart tests passed: SDK 768, models 126, drivers 128, app 59, CLI 22, escrow service 6. Three CLI development-stack tests were skipped.
 - TypeScript package suites, shared conformance fixtures, installed-package smoke tests, marketplace app and documentation builds passed.
-- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 19; boundary guard: 15.
+- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 19; boundary guard: 16.
 - Clean-v7 initializer checks: six tests; the deployment regression verifies replacement of an old configured address.
 - All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.
 - NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.
@@ -92,5 +92,7 @@ Verification in clean committed checkouts identified and corrected issues that t
 - Integrated pinned Cashu SAT/USD mints with canonical NMDK config/readiness helpers, correct Lightning endpoints and a separate invoice payer. Disposable mint/Redis/relay startup, config readiness, TLS and startup failure checks passed. The SAT startup smoke used FakeWallet; it did not exercise Lightning payment settlement.
 - Replaced timing sleeps in the SDK zap test with subscription-completion signals. Thirty focused repetitions and all 768 SDK unit tests passed.
 - Made the plugin checkout and Hostr submodule configuration track the published `main`; preserved the old unrelated local plugin history on a separate branch.
+- Fixed the Dart environment generator to emit NMDK imports and extended the boundary guard to generator scripts and package tools. All four generated environments match the committed sources after formatting.
+- Routed the generated Cashu payment command through the shared Hostr Compose configuration, preserving the selected local/test environment and its payer service.
 
 The clean-checkout verification also covers Widgetbook's production web build, all seven packed TypeScript packages in a blank consumer, both documentation production builds, repeated Dart binding generation without tracked drift, and the Linux MCP container build and daemon startup smoke check. A fresh recursive GitHub clone retrieved all 37 submodules and matched the verified repository trees. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.
