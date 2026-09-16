@@ -134,6 +134,12 @@ generate_cert "arbitrum.${DOMAIN}" \
 generate_cert "boltz.${DOMAIN}" \
   "DNS:boltz.${DOMAIN},DNS:boltz,DNS:localhost,IP:127.0.0.1"
 
+generate_cert "mint.${DOMAIN}" \
+  "DNS:mint.${DOMAIN},DNS:cashu-mint,DNS:localhost,IP:127.0.0.1"
+
+generate_cert "mint-usd.${DOMAIN}" \
+  "DNS:mint-usd.${DOMAIN},DNS:cashu-mint-usd,DNS:localhost,IP:127.0.0.1"
+
 generate_cert "paymaster.${DOMAIN}" \
   "DNS:paymaster.${DOMAIN},DNS:paymaster,DNS:localhost,IP:127.0.0.1"
 

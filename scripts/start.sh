@@ -62,6 +62,7 @@ if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then
     wait_for_oneshot_service arbitrum-init
     wait_for_oneshot_service contract-deployer false
     wait_for_oneshot_service escrow-contract-deploy false
+    wait_for_oneshot_service stack-ready false
 fi
 
 if [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "test" ]; then

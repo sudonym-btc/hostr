@@ -164,8 +164,8 @@ services:
   lnd:
     <<: *lnd-base
     ports:
-      - "12209:8080"
-      - "12219:8081"
+      - "12209:${LIGHTNING_REST_PORT}"
+      - "12219:${LIGHTNING_RPC_PORT}"
     volumes:
       - ./docker/data/lightning_data/1:/lnd
 

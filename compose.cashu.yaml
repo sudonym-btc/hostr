@@ -1,0 +1,158 @@
+# Marketplace Cashu services embedded into the Hostr local/test stack.
+#
+# The standalone NMDK marketplace-cashu-stack repo still owns the full isolated
+# Bitcoin/LND/relay setup. Hostr runs SAT and USD development mints and Redis.
+# The SAT mint uses Hostr's existing LND backend and Lightning liquidity; the
+# USD mint uses the canonical stack's test backend. Both use Hostr's relay.
+
+services:
+  cashu-redis:
+    image: ${MARKETPLACE_CASHU_REDIS_IMAGE:-redis:8.10.1-alpine@sha256:becdda6c7f4b3fb42e42fd7f120bbf5c54c4caaaf16f26da24e4563d2c1f0576}
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - cashu-redis-data:/data
+
+  cashu-mint:
+    image: ${MARKETPLACE_CASHU_MINT_IMAGE:-cashubtc/nutshell:0.20.3@sha256:f039b0e61f64d67c7212f5472eb5d021c3703cd9e72170aa924906ce6bd1f2ed}
+    restart: unless-stopped
+    command: ["python3", "-m", "cashu.mint", "--host", "0.0.0.0", "--port", "3338"]
+    depends_on:
+      cashu-redis:
+        condition: service_started
+      lnd:
+        condition: service_healthy
+      nginx-proxy:
+        condition: service_healthy
+    environment:
+      MINT_BACKEND_BOLT11_SAT: LndRestWallet
+      MINT_LISTEN_HOST: 0.0.0.0
+      MINT_LISTEN_PORT: "3338"
+      MINT_PRIVATE_KEY: ${MARKETPLACE_CASHU_MINT_PRIVATE_KEY:-TEST_PRIVATE_KEY}
+      MINT_DATABASE: /root/.cashu/mint
+      MINT_URL: https://mint.${DOMAIN}
+      MINT_INFO_NAME: Hostr Development Cashu Mint
+      MINT_INFO_DESCRIPTION: Local Cashu mint for Hostr marketplace development.
+      MINT_INFO_DESCRIPTION_LONG: Cashu mint backed by the Hostr local Lightning node. Do not use for real funds.
+      MINT_INFO_CONTACT: '[["nostr","hostr-marketplace"]]'
+      MINT_LND_REST_ENDPOINT: https://lnd:${LIGHTNING_REST_PORT}
+      MINT_LND_REST_CERT: /lnd/tls.cert
+      MINT_LND_REST_CERT_VERIFY: "FALSE"
+      MINT_LND_REST_MACAROON: /lnd/data/chain/bitcoin/regtest/admin.macaroon
+      MINT_REDIS_CACHE_ENABLED: "TRUE"
+      MINT_REDIS_CACHE_URL: redis://cashu-redis:6379
+      VIRTUAL_HOST: mint.${DOMAIN}
+      VIRTUAL_PORT: 3338
+    ports:
+      - "${MARKETPLACE_CASHU_MINT_PORT:-19338}:3338"
+    volumes:
+      - cashu-mint-data:/root/.cashu
+      - ./docker/data/lightning_data/1:/lnd:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3338/v1/info', timeout=2)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+
+  cashu-mint-usd:
+    image: ${MARKETPLACE_CASHU_MINT_IMAGE:-cashubtc/nutshell:0.20.3@sha256:f039b0e61f64d67c7212f5472eb5d021c3703cd9e72170aa924906ce6bd1f2ed}
+    restart: unless-stopped
+    command: ["python3", "-m", "cashu.mint", "--host", "0.0.0.0", "--port", "3338"]
+    depends_on:
+      cashu-redis:
+        condition: service_started
+      nginx-proxy:
+        condition: service_healthy
+    environment:
+      MINT_BACKEND_BOLT11_USD: FakeWallet
+      MINT_DERIVATION_PATH: "m/0'/2'/0'"
+      MINT_LISTEN_HOST: 0.0.0.0
+      MINT_LISTEN_PORT: "3338"
+      MINT_PRIVATE_KEY: ${MARKETPLACE_CASHU_USD_MINT_PRIVATE_KEY:-TEST_PRIVATE_KEY_USD}
+      MINT_DATABASE: /root/.cashu/mint
+      MINT_URL: https://mint-usd.${DOMAIN}
+      MINT_INFO_NAME: Hostr Development Cashu USD Mint
+      MINT_INFO_DESCRIPTION: Local USD-denominated Cashu mint for marketplace auction and escrow development.
+      MINT_INFO_DESCRIPTION_LONG: Isolated local Cashu mint using the Cashu usd unit where amount 1 is one cent. Do not use for real funds.
+      MINT_INFO_CONTACT: '[["nostr","marketplace-cashu-stack-usd"]]'
+      MINT_REDIS_CACHE_ENABLED: "TRUE"
+      MINT_REDIS_CACHE_URL: redis://cashu-redis:6379
+      VIRTUAL_HOST: mint-usd.${DOMAIN}
+      VIRTUAL_PORT: 3338
+    ports:
+      - "${MARKETPLACE_CASHU_USD_MINT_PORT:-19339}:3338"
+    volumes:
+      - cashu-mint-usd-data:/root/.cashu
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3338/v1/info', timeout=2)",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+
+  write-config:
+    image: busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0
+    profiles: ["tools"]
+    volumes:
+      - cashu-config-data:/data/config
+      - ./dependencies/nmdk/dependencies/marketplace-cashu-stack/scripts:/scripts:ro
+    environment:
+      MARKETPLACE_CASHU_PUBLIC_MINT_URL: https://mint.${DOMAIN}
+      MARKETPLACE_CASHU_PUBLIC_USD_MINT_URL: https://mint-usd.${DOMAIN}
+      MARKETPLACE_SHARED_BITCOIN_RPC_PORT: ${BITCOIN_RPC_PORT}
+      MARKETPLACE_CASHU_LND_MINT_REST_PORT: 12209
+      MARKETPLACE_CASHU_LND_MINT_RPC_PORT: 12219
+      MARKETPLACE_CASHU_LND_BUYER_REST_PORT: 8081
+      MARKETPLACE_CASHU_LND_BUYER_RPC_PORT: 10009
+      MARKETPLACE_CASHU_RELAY_URL: wss://relay.${DOMAIN}
+      MARKETPLACE_CASHU_RELAY_HTTP_URL: https://relay.${DOMAIN}
+      MARKETPLACE_CASHU_CONTAINER_RELAY_URL: ws://relay:80
+      MARKETPLACE_CASHU_CONTAINER_RELAY_HTTP_URL: http://relay:80
+      MARKETPLACE_CASHU_BITCOIN_CONTAINER_RPC_URL: http://hostrbitcoind:${BITCOIN_RPC_PORT}
+      MARKETPLACE_CASHU_LND_MINT_CONTAINER_REST_URL: https://lnd:${LIGHTNING_REST_PORT}
+      MARKETPLACE_CASHU_LND_MINT_CONTAINER_RPC_SERVER: lnd:${LIGHTNING_RPC_PORT}
+      MARKETPLACE_CASHU_LND_BUYER_CONTAINER_REST_URL: https://lnd-1:8081
+      MARKETPLACE_CASHU_LND_BUYER_CONTAINER_RPC_SERVER: lnd-1:10009
+      MARKETPLACE_CASHU_PAY_INVOICE_COMMAND: docker compose exec -T lnd-1 lncli --network=regtest --lnddir=/app/lnd payinvoice --force --fee_limit=1000 <bolt11>
+    entrypoint: ["sh", "/scripts/write-config.sh"]
+
+  stack-ready:
+    image: python:3.14.7-alpine@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc
+    profiles: ["tools"]
+    depends_on:
+      cashu-mint:
+        condition: service_healthy
+      cashu-mint-usd:
+        condition: service_healthy
+      relay:
+        condition: service_healthy
+      write-config:
+        condition: service_completed_successfully
+    volumes:
+      - cashu-config-data:/data/config
+      - ./dependencies/nmdk/dependencies/marketplace-cashu-stack/scripts:/scripts:ro
+    environment:
+      CONFIG_FILE: /data/config/marketplace-cashu-stack.json
+      CASHU_MINT_URL: http://cashu-mint:3338
+      CASHU_USD_MINT_URL: http://cashu-mint-usd:3338
+      NOSTR_RELAY_HTTP_URL: http://relay:80
+    entrypoint: ["python", "/scripts/stack-smoke.py"]
+
+volumes:
+  cashu-config-data:
+  cashu-mint-data:
+  cashu-mint-usd-data:
+  cashu-redis-data:

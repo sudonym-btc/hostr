@@ -55,6 +55,8 @@ services:
           - rsk.${DOMAIN}
           - arbitrum.${DOMAIN}
           - boltz.${DOMAIN}
+          - mint.${DOMAIN}
+          - mint-usd.${DOMAIN}
           - paymaster.${DOMAIN}
 
   relay:
