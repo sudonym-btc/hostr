@@ -69,6 +69,23 @@ export function checkPaymentBoundary(root = resolve(dirname(fileURLToPath(import
       /^hostr_sdk\/lib\/datasources\/swagger_generated\/boltz[^/]*\.dart$/.test(localPath)
   }
 
+  function checkCanonicalImports(path) {
+    const source = withoutComments(readFileSync(path, 'utf8'))
+    for (const [, uri] of source.matchAll(/\b(?:import|export)\s+['"]([^'"]+)['"]/g)) {
+      const destination = uri.startsWith('package:hostr_sdk/')
+        ? join(root, 'hostr_sdk/lib', uri.slice('package:hostr_sdk/'.length))
+        : !uri.includes(':') ? resolve(dirname(path), uri) : null
+      if (uri.startsWith('package:models/') || destination && isRemovedPath(destination)) {
+        errors.push(`${display(path)} imports removed compatibility path ${uri}; import NMDK directly`)
+      }
+    }
+  }
+
+  // Check generator templates as well as the committed code they produce.
+  for (const path of files(join(root, 'scripts')).filter(path => extname(path) === '.dart')) {
+    checkCanonicalImports(path)
+  }
+
   for (const packageName of ['app', 'hostr_sdk', 'hostr_cli', 'escrow']) {
     const buildConfig = join(root, packageName, 'build.yaml')
     if (existsSync(buildConfig) && /\bweb3dart_builders\s*:/.test(readFileSync(buildConfig, 'utf8').replace(/^\s*#.*$/gm, ''))) {
@@ -78,17 +95,9 @@ export function checkPaymentBoundary(root = resolve(dirname(fileURLToPath(import
     if (existsSync(manifest) && /^\s+models:\s*$/m.test(readFileSync(manifest, 'utf8'))) {
       errors.push(`${display(manifest)} depends on removed models; use marketplace_models directly`)
     }
-    for (const directory of ['lib', 'bin', 'test']) {
+    for (const directory of ['lib', 'bin', 'test', 'tool']) {
       for (const path of files(join(root, packageName, directory)).filter(path => extname(path) === '.dart')) {
-        const source = withoutComments(readFileSync(path, 'utf8'))
-        for (const [, uri] of source.matchAll(/\b(?:import|export)\s+['"]([^'"]+)['"]/g)) {
-          const destination = uri.startsWith('package:hostr_sdk/')
-            ? join(root, 'hostr_sdk/lib', uri.slice('package:hostr_sdk/'.length))
-            : !uri.includes(':') ? resolve(dirname(path), uri) : null
-          if (uri.startsWith('package:models/') || destination && isRemovedPath(destination)) {
-            errors.push(`${display(path)} imports removed compatibility path ${uri}; import NMDK directly`)
-          }
-        }
+        checkCanonicalImports(path)
       }
     }
   }

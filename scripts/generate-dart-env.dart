@@ -104,7 +104,7 @@ String _generateDart(String target, Map<String, String> vars) {
       '// ignore_for_file: constant_identifier_names, avoid_escaping_inner_quotes',
     )
     ..writeln()
-    ..writeln("import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';")
+    ..writeln("import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';")
     ..writeln();
 
   // ── Scalar app-level constants ──

@@ -87,6 +87,16 @@ test('rejects old package imports, relative wrappers, and model dependencies', t
   assert.ok(check().some(error => error.includes('depends on removed models')))
 })
 
+test('checks imports emitted by root and package Dart generators', t => {
+  const { put, check } = fixture(t)
+  for (const path of ['scripts/generate-env.dart', 'hostr_sdk/tool/generate-env.dart']) {
+    put(path, `buffer.writeln("import 'package:hostr_sdk/usecase/evm/config/evm_config.dart';");`)
+    assert.ok(check().some(error => error.includes(path) && error.includes('imports removed compatibility path')))
+    put(path, `buffer.writeln("import 'package:marketplace_evm/usecase/evm/config/evm_config.dart';");`)
+  }
+  assert.deepEqual(check(), [])
+})
+
 test('rejects package-relative imports that escape the driver', t => {
   const { put, check } = fixture(t)
   put('dependencies/nmdk/packages/marketplace_evm/lib/bad.dart', "import '../../../../../../hostr_sdk/lib/hostr.dart';\n")
