@@ -22,7 +22,7 @@ Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-
 - Production Hostr web build, native CLI and escrow bundles, and compiled CLI help smoke check passed.
 - 1,109 Dart tests passed: SDK 768, models 126, drivers 128, app 59, CLI 22, escrow service 6. Three CLI development-stack tests were skipped.
 - TypeScript package suites, shared conformance fixtures, installed-package smoke tests, marketplace app and documentation builds passed.
-- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 16 in the clean committed checkout; boundary guard: 15.
+- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 18 in the clean committed checkout; boundary guard: 15.
 - Clean-v7 initializer checks: six tests; the deployment regression verifies replacement of an old configured address.
 - All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.
 - NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.
@@ -81,5 +81,8 @@ Verification in clean committed checkouts identified and corrected issues that t
 - Built NMDK workspace exports before their runtime tests import them. Updated the package consumer check to npm 12's JSON output format.
 - Made Compose structure and image checks independent of ignored local service environment files, while retaining runtime environment requirements.
 - Regenerated the missing optional Boltz transaction confirmation field from the canonical schema and refreshed immutable package documentation links.
+- Pinned Compose 5.5.1 through one checked installer for NMDK CI, integration and release jobs; rejected older local versions with installation guidance.
+- Updated plugin validation to the current production plugin name and replaced broken documentation references with canonical NMDK specification links.
+- Aligned Hostr relay admission with the canonical seed event kind, including authentication regression coverage. Removed obsolete seed, NIP-04 and NWC notification permissions from policy and deployment defaults.
 
-The clean-checkout verification also covers Widgetbook's production web build, all seven packed TypeScript packages in a blank consumer, documentation production output, and repeated Dart binding generation without tracked drift. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.
+The clean-checkout verification also covers Widgetbook's production web build, all seven packed TypeScript packages in a blank consumer, both documentation production builds, repeated Dart binding generation without tracked drift, and the Linux MCP container build and daemon startup smoke check. A fresh recursive GitHub clone retrieved all 37 submodules and matched the verified repository trees. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.
