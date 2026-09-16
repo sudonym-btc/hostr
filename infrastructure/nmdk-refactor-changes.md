@@ -22,7 +22,7 @@ Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-
 - Production Hostr web build, native CLI and escrow bundles, and compiled CLI help smoke check passed.
 - 1,109 Dart tests passed: SDK 768, models 126, drivers 128, app 59, CLI 22, escrow service 6. Three CLI development-stack tests were skipped.
 - TypeScript package suites, shared conformance fixtures, installed-package smoke tests, marketplace app and documentation builds passed.
-- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 18 in the clean committed checkout; boundary guard: 15.
+- Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 19; boundary guard: 16.
 - Clean-v7 initializer checks: six tests; the deployment regression verifies replacement of an old configured address.
 - All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.
 - NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.
@@ -67,9 +67,9 @@ Interval: **293 seconds**. Child repositories are committed before their consumi
 | 28 | `hostr` | 2026-09-15T21:44:08-06:00 | ci: enforce driver boundaries with current toolchains and pinned actions |
 | 29 | `hostr` | 2026-09-15T21:49:01-06:00 | docs: document canonical drivers and the clean v7 development cutover |
 
-## Preserved work
+## Included local work
 
-Preexisting unrelated edits remain outside these feature commits. The user’s seed-kind correction is preserved in the relocated canonical model, and the NMDK gitlink advances from the user-selected checkout. The preexisting Cashu Compose addition remains staged; its dependent image updates stay in the working tree unless explicitly included.
+The requested publication includes the remaining Cashu, relay and bunker edits as separate feature commits. Cashu SAT/USD services consume NMDK configuration and readiness helpers; Hostr defines no second payment protocol. The mint research is preserved and explicitly points to NMDK as the implemented contract. The seed-kind correction is preserved in the canonical model, and every project checkout tracks its published `main`.
 
 ## Publication fixes
 
@@ -86,5 +86,13 @@ Verification in clean committed checkouts identified and corrected issues that t
 - Aligned Hostr relay admission with the canonical seed event kind, including authentication regression coverage. Removed obsolete seed, NIP-04 and NWC notification permissions from policy and deployment defaults.
 - Updated Signet to 1.20.0 with one shared daemon/dashboard Dockerfile and current pnpm configuration. Its frozen SQLite dependency requires the latest Node 24 LTS patch; Hostr's own Node packages remain on Node 26. Both images compile and pass isolated HTTP startup checks.
 - Fixed cold Bitcoin startup by preserving the image's executable path and matching container ownership to host data directories. A fresh Bitcoin 31.1 regtest instance initialized both wallets, mined 151 blocks and funded the test client; failures now print service logs before cleanup.
+- Applied the same host ownership to writable EVM stack services. Fresh CLN 26.06.6 and LND 0.21.3 instances both reached block 151 using user/group 1001; corrected the Bash timeout script and added ownership checks for both stack checkouts.
+- Added authenticated relay admission for canonical order lifecycle events 32122–32127 and reused policy defaults in the server.
+- Standardized Signet configuration, TLS certificates, seed scripts and integration helpers on `bunker.hostr.development`.
+- Integrated pinned Cashu SAT/USD mints with canonical NMDK config/readiness helpers, correct Lightning endpoints and a separate invoice payer. Disposable mint/Redis/relay startup, config readiness, TLS and startup failure checks passed. The SAT startup smoke used FakeWallet; it did not exercise Lightning payment settlement.
+- Replaced timing sleeps in the SDK zap test with subscription-completion signals. Thirty focused repetitions and all 768 SDK unit tests passed.
+- Made the plugin checkout and Hostr submodule configuration track the published `main`; preserved the old unrelated local plugin history on a separate branch.
+- Fixed the Dart environment generator to emit NMDK imports and extended the boundary guard to generator scripts and package tools. All four generated environments match the committed sources after formatting.
+- Routed the generated Cashu payment command through the shared Hostr Compose configuration, preserving the selected local/test environment and its payer service.
 
 The clean-checkout verification also covers Widgetbook's production web build, all seven packed TypeScript packages in a blank consumer, both documentation production builds, repeated Dart binding generation without tracked drift, and the Linux MCP container build and daemon startup smoke check. A fresh recursive GitHub clone retrieved all 37 submodules and matched the verified repository trees. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.

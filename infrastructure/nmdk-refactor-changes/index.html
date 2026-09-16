@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="turbo-root" content="/hostr">
-    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842850253091">
+    <meta name="turbo-cache-control" content="no-cache" data-turbo-track="reload" data-track-token="4.6.0.842908388058">
 
     <!-- See retype.com -->
     <meta name="generator" content="Retype 4.6.0">
@@ -38,11 +38,11 @@
 
     <script data-cfasync="false">(function(){var cl=document.documentElement.classList,ls=localStorage.getItem("retype_scheme"),hd=cl.contains("dark"),hl=cl.contains("light"),wm=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(ls==="dark"||(!ls&&wm&&!hd&&!hl)){cl.remove("light");cl.add("dark")}else if(ls==="light"||(!ls&&!wm&&!hd&&!hl)){cl.remove("dark");cl.add("light")}})();</script>
 
-    <link href="../../resources/css/retype.css?v=4.6.0.842850253091" rel="stylesheet">
+    <link href="../../resources/css/retype.css?v=4.6.0.842908388058" rel="stylesheet">
 
-    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script data-cfasync="false" src="../../resources/js/config.js?v=4.6.0.842908388058" data-turbo-eval="false" defer></script>
     <script data-cfasync="false" src="../../resources/js/retype.js?v=4.6.0" data-turbo-eval="false" defer></script>
-    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842850253091" data-turbo-eval="false" defer></script>
+    <script id="lunr-js" data-cfasync="false" src="../../resources/js/lunr.js?v=4.6.0.842908388058" data-turbo-eval="false" defer></script>
 </head>
 <body>
     <div id="retype-app" class="relative text-base antialiased text-base-text bg-base-bg font-body">
@@ -173,7 +173,7 @@
 <li>Production Hostr web build, native CLI and escrow bundles, and compiled CLI help smoke check passed.</li>
 <li>1,109 Dart tests passed: SDK 768, models 126, drivers 128, app 59, CLI 22, escrow service 6. Three CLI development-stack tests were skipped.</li>
 <li>TypeScript package suites, shared conformance fixtures, installed-package smoke tests, marketplace app and documentation builds passed.</li>
-<li>Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 18 in the clean committed checkout; boundary guard: 15.</li>
+<li>Canonical deployment contracts: 31 tests; Foundry: seven tests with fuzz coverage; MCP: 39; relay: 19; boundary guard: 16.</li>
 <li>Clean-v7 initializer checks: six tests; the deployment regression verifies replacement of an old configured address.</li>
 <li>All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.</li>
 <li>NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.</li>
@@ -402,8 +402,8 @@
 </table>
 </div>
 </retype-table>
-<h2 id="preserved-work">Preserved work</h2>
-<p>Preexisting unrelated edits remain outside these feature commits. The user’s seed-kind correction is preserved in the relocated canonical model, and the NMDK gitlink advances from the user-selected checkout. The preexisting Cashu Compose addition remains staged; its dependent image updates stay in the working tree unless explicitly included.</p>
+<h2 id="included-local-work">Included local work</h2>
+<p>The requested publication includes the remaining Cashu, relay and bunker edits as separate feature commits. Cashu SAT/USD services consume NMDK configuration and readiness helpers; Hostr defines no second payment protocol. The mint research is preserved and explicitly points to NMDK as the implemented contract. The seed-kind correction is preserved in the canonical model, and every project checkout tracks its published <code translate="no" v-pre>main</code>.</p>
 <h2 id="publication-fixes">Publication fixes</h2>
 <p>Verification in clean committed checkouts identified and corrected issues that the existing development workspace concealed:</p>
 <ul>
@@ -418,6 +418,14 @@
 <li>Aligned Hostr relay admission with the canonical seed event kind, including authentication regression coverage. Removed obsolete seed, NIP-04 and NWC notification permissions from policy and deployment defaults.</li>
 <li>Updated Signet to 1.20.0 with one shared daemon/dashboard Dockerfile and current pnpm configuration. Its frozen SQLite dependency requires the latest Node 24 LTS patch; Hostr&#x27;s own Node packages remain on Node 26. Both images compile and pass isolated HTTP startup checks.</li>
 <li>Fixed cold Bitcoin startup by preserving the image&#x27;s executable path and matching container ownership to host data directories. A fresh Bitcoin 31.1 regtest instance initialized both wallets, mined 151 blocks and funded the test client; failures now print service logs before cleanup.</li>
+<li>Applied the same host ownership to writable EVM stack services. Fresh CLN 26.06.6 and LND 0.21.3 instances both reached block 151 using user/group 1001; corrected the Bash timeout script and added ownership checks for both stack checkouts.</li>
+<li>Added authenticated relay admission for canonical order lifecycle events 32122–32127 and reused policy defaults in the server.</li>
+<li>Standardized Signet configuration, TLS certificates, seed scripts and integration helpers on <code translate="no" v-pre>bunker.hostr.development</code>.</li>
+<li>Integrated pinned Cashu SAT/USD mints with canonical NMDK config/readiness helpers, correct Lightning endpoints and a separate invoice payer. Disposable mint/Redis/relay startup, config readiness, TLS and startup failure checks passed. The SAT startup smoke used FakeWallet; it did not exercise Lightning payment settlement.</li>
+<li>Replaced timing sleeps in the SDK zap test with subscription-completion signals. Thirty focused repetitions and all 768 SDK unit tests passed.</li>
+<li>Made the plugin checkout and Hostr submodule configuration track the published <code translate="no" v-pre>main</code>; preserved the old unrelated local plugin history on a separate branch.</li>
+<li>Fixed the Dart environment generator to emit NMDK imports and extended the boundary guard to generator scripts and package tools. All four generated environments match the committed sources after formatting.</li>
+<li>Routed the generated Cashu payment command through the shared Hostr Compose configuration, preserving the selected local/test environment and its payer service.</li>
 </ul>
 <p>The clean-checkout verification also covers Widgetbook&#x27;s production web build, all seven packed TypeScript packages in a blank consumer, both documentation production builds, repeated Dart binding generation without tracked drift, and the Linux MCP container build and daemon startup smoke check. A fresh recursive GitHub clone retrieved all 37 submodules and matched the verified repository trees. Follow-up correctness commits retain their actual creation dates; the original 29 feature commits keep the requested schedule above.</p>
 
