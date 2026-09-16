@@ -1,0 +1,1 @@
+../../dependencies/nmdk/dependencies/nips/auction-nip/XX.md

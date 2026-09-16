@@ -1,0 +1,1 @@
+../../dependencies/nmdk/dependencies/nips/accommodation-nip/XX.md

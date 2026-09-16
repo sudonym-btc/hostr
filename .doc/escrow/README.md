@@ -1,14 +1,14 @@
 # Escrow
 
-Hostr escrow is the settlement layer for reservations. It combines Nostr escrow-service events, on-chain EVM trade funding, payment-proof verification, and arbitration workflows exposed through the Hostr MCP server.
+Hostr uses NMDK's escrow drivers for reservation settlement. NMDK owns on-chain funding, payment-proof verification, swap recovery, and settlement; Hostr connects these mechanisms to its booking flow and MCP tools.
 
-The old `escrow-cli` demo/tool has been removed. Escrow work now flows through the Dart daemon and MCP action catalog used by agents and Hostr automation.
+Escrow operations flow through the Dart daemon and MCP action catalog used by agents and Hostr automation.
 
 ## Structure
 
 ```bash
 escrow
-├── contracts          # MultiEscrow Solidity contracts and tests
+├── contracts          # Deployment tooling for the canonical NMDK contract
 ├── lib                # Escrow daemon/runtime code
 └── bin                # Escrow helper entry points
 
@@ -20,7 +20,9 @@ ai/mcp-server
 └── src/generated      # Generated MCP tool definitions
 ```
 
-- Escrow NIP: [dependencies/nips/escrow-nip/XX.md](../dependencies/nips/escrow-nip/XX.md)
+- [Arbitration services specification](../specifications/arbitration.md)
+- [Orders and settlement specification](../specifications/orders.md)
+- [Payment driver architecture](../infrastructure/payment-drivers.md)
 - Action catalog: [hostr_cli/lib/src/actions/hostr_actions.dart](../source/hostr_cli/lib/src/actions/hostr_actions.dart)
 - Generated MCP tools: [ai/mcp-server/src/generated/hostr-actions.ts](../source/ai/mcp-server/src/generated/hostr-actions.ts)
 - MCP runtime overview: [../ai/README.md](../ai/README.md)
@@ -61,4 +63,4 @@ Escrow service events advertise the escrow operator, deployed contract address, 
 
 On-chain trades move through funded, released, arbitrated, or claimed states. Settlement uses a pull-payment balance mapping instead of direct transfers, and arbitration chooses a split between buyer and seller while crediting the escrow fee to the arbiter.
 
-See the Escrow NIP for the full event and settlement contract details.
+See the arbitration and order specifications for the event and settlement details.

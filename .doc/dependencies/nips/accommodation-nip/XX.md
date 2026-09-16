@@ -1,1 +1,0 @@
-../../../../dependencies/nips/accommodation-nip/XX.md

@@ -21,14 +21,13 @@ This repo contains
 ```bash
 .
 ├── app                 # Flutter client app deployed to stores and web
-├── hostr_sdk           # SDK for relays, Hostr models, trades, messaging, swaps
+├── hostr_sdk           # Hostr relay, booking, messaging, and driver adapters
 ├── hostr_cli           # CLI and Dart daemon used by MCP/local automation
-├── models              # Custom Nostr event types and validations
-├── escrow              # Escrow daemon, contracts, and settlement tooling
+├── escrow              # Escrow daemon and canonical contract deployment tooling
 ├── ai                  # Node/TypeScript MCP server and agent-facing automation
 ├── infrastructure      # Terraform, DNS, CI deploy, and hosted VM setup
 ├── docker              # Local/dev service config for relay, blossom, EVM, observability
-├── dependencies/nips   # Vendored NIP specs plus Hostr draft NIP-XX documents
+├── dependencies/nmdk   # Shared models, payment drivers, contracts, and NIP drafts
 └── scripts             # Bootstrap, deploy, ABI, TLS, screenshot, and helper scripts
 ```
 
@@ -37,13 +36,16 @@ This repo contains
 - Escrow [README](./escrow/README.md)
 - AI [README](./ai/README.md)
 
-## Nips developed
+## Protocol specifications
 
-New nips are needed to facilitate escrowed transactions via nostr. We also need to extend Nip-
+NMDK owns the protocol drafts used by Hostr. These pages render the canonical
+specifications directly from the pinned NMDK submodules.
 
-- [Accommodation listing NIP-XX](./dependencies/nips/accommodation-nip/XX.md)
-- [Reservation lifecycle NIP-XX](./dependencies/nips/reservation-nip/XX.md)
-- [Escrow services NIP-XX](./dependencies/nips/escrow-nip/XX.md)
+- [Marketplace listings](./specifications/listings.md)
+- [Accommodation listings](./specifications/accommodation.md)
+- [Orders and settlement](./specifications/orders.md)
+- [Arbitration services](./specifications/arbitration.md)
+- [Auctions](./specifications/auctions.md)
 
 ## Clone
 

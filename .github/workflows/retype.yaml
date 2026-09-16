@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - ".doc/**"
+      - "dependencies/nmdk"
+      - "retype.yml"
+      - ".github/workflows/retype.yaml"
 
 jobs:
   publish:

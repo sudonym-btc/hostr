@@ -27,7 +27,7 @@ Hostr is a consumer of NMDK payment drivers and canonical models. This is a pre-
 - All 75 Hostr/NMDK action steps use verified release pins, and both workflow collections pass Actionlint.
 - NMDK npm audit reports zero vulnerabilities. Live provider settlement and persistent database migration were not exercised.
 
-See [payment driver ownership](payment-drivers.md), [Dart dependency constraints](dart-dependencies.md), and [cross-language contracts](../../dependencies/nmdk/DRIVER_CONTRACTS.md).
+See [payment driver ownership](payment-drivers.md), [Dart dependency constraints](dart-dependencies.md), and [cross-language contracts](driver-contracts.md).
 
 ## Feature commit schedule
 
