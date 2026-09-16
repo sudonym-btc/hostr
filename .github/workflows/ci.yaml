@@ -17,8 +17,8 @@ jobs:
       mcp: ${{ steps.filter.outputs.mcp }}
       plugins: ${{ steps.filter.outputs.plugins }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -35,19 +35,24 @@ jobs:
               - '**/.env.*'
             sdk:
               - 'hostr_sdk/**'
-              - 'models/**'
+              - 'dependencies/nmdk'
+              - 'dependencies/nmdk/**'
               - '.github/workflows/ci.yaml'
             app:
               - 'app/**'
               - 'hostr_sdk/**'
-              - 'models/**'
+              - 'dependencies/nmdk'
+              - 'dependencies/nmdk/**'
               - '.github/workflows/ci.yaml'
             escrow:
               - 'escrow/**'
+              - 'dependencies/nmdk'
+              - 'dependencies/nmdk/**'
               - 'hostr_sdk/**'
               - '.github/workflows/ci.yaml'
             mcp:
               - 'ai/mcp-server/**'
+              - 'relay-authz/**'
               - '.github/workflows/ci.yaml'
             plugins:
               - 'ai/plugins/**'
@@ -62,25 +67,25 @@ jobs:
     if: needs.changes.outputs.sdk == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     env:
-      DOCKER_COMPOSE_VERSION: v5.1.3
+      DOCKER_COMPOSE_VERSION: v5.5.1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
-          sdk: '3.10.8'
+          sdk: '3.13.3'
 
       - run: dart --version
 
       - name: Cache Dart dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.pub-cache
             hostr_sdk/.dart_tool
-          key: ${{ runner.os }}-dart-${{ hashFiles('hostr_sdk/pubspec.yaml') }}
+          key: ${{ runner.os }}-dart-${{ hashFiles('hostr_sdk/pubspec.yaml', 'hostr_sdk/pubspec.lock', 'dependencies/nmdk/packages/*/pubspec.yaml', 'dependencies/nmdk/packages/*/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-dart-
 
       - name: Install Docker Compose
@@ -106,6 +111,21 @@ jobs:
       - name: Install dependencies
         run: dart pub get
         working-directory: hostr_sdk
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '26.8.2'
+
+      - name: Enforce application and driver ownership
+        run: |
+          node scripts/check-payment-boundary.mjs
+          node --test scripts/check-payment-boundary.test.mjs
+
+      - name: Verify canonical Dart packages
+        run: |
+          for package in marketplace_models marketplace_evm; do
+            (cd "dependencies/nmdk/packages/$package" && dart pub get && dart analyze && dart test)
+          done
 
       # Start the Docker stack in the background while unit tests run.
       # This overlaps ~30-60s of image pulls / container boot with the
@@ -196,19 +216,19 @@ jobs:
     if: needs.changes.outputs.app == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: '3.47.4'
 
       - run: flutter --version
 
       - name: Cache Flutter dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.pub-cache
@@ -240,18 +260,18 @@ jobs:
     if: needs.changes.outputs.escrow == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
-          sdk: '3.10.8'
+          sdk: '3.13.3'
 
       - run: dart --version
 
       - name: Cache Dart dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.pub-cache
@@ -267,6 +287,23 @@ jobs:
         run: dart analyze
         working-directory: escrow
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '26.8.2'
+          cache: npm
+          cache-dependency-path: escrow/contracts/package-lock.json
+
+      - name: Install current npm
+        run: npm install --global npm@12.0.2
+
+      - name: Verify canonical contract deployment
+        run: |
+          npm ci
+          npm run typecheck
+          npm run compile
+          npm test
+        working-directory: escrow/contracts
+
   # ── 5. MCP server checks ───────────────────────────────────────────────────
   test_mcp:
     name: Test — MCP server
@@ -274,13 +311,16 @@ jobs:
     if: needs.changes.outputs.mcp == 'true' || needs.changes.outputs.docker_root == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '26.8.2'
           cache: npm
           cache-dependency-path: ai/mcp-server/package-lock.json
+
+      - name: Install current npm
+        run: npm install --global npm@12.0.2
 
       - name: Install dependencies
         run: npm ci
@@ -294,17 +334,24 @@ jobs:
         run: npm run build
         working-directory: ai/mcp-server
 
+      - name: Relay authorization tests
+        run: npm ci && npm test
+        working-directory: relay-authz
+
   mcp_compile:
     name: Compile — ai/mcp-server
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '26.8.2'
           cache: npm
           cache-dependency-path: ai/mcp-server/package-lock.json
+
+      - name: Install current npm
+        run: npm install --global npm@12.0.2
 
       - name: Install dependencies
         run: npm ci
@@ -320,11 +367,14 @@ jobs:
     if: needs.changes.outputs.plugins == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '26.8.2'
+
+      - name: Install current npm
+        run: npm install --global npm@12.0.2
 
       - name: Validate plugin parity
         run: node scripts/validate-hostr-plugins.mjs
@@ -333,13 +383,13 @@ jobs:
     name: Analyze — hostr_cli + hostr_sdk
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
-          sdk: '3.10.8'
+          sdk: '3.13.3'
 
       - name: Install hostr_sdk dependencies
         run: dart pub get
@@ -356,19 +406,22 @@ jobs:
     name: Focused Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '26.8.2'
           cache: npm
           cache-dependency-path: ai/mcp-server/package-lock.json
 
-      - uses: dart-lang/setup-dart@v1
+      - name: Install current npm
+        run: npm install --global npm@12.0.2
+
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
-          sdk: '3.10.8'
+          sdk: '3.13.3'
 
       - name: MCP unit tests
         run: |
@@ -392,7 +445,7 @@ jobs:
     name: Docker Image Build Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
@@ -466,14 +519,17 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 'lts/*'
+          node-version: '26.8.2'
+
+      - name: Install current npm
+        run: npm install --global npm@12.0.2
 
       - name: Install dependencies
         run: npm clean-install

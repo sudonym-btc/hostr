@@ -91,14 +91,14 @@ jobs:
     # On workflow_call: always build staging. On manual: only when variant=staging.
     if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: '3.47.4'
 
       - name: Install dependencies
         run: flutter pub get
@@ -139,12 +139,12 @@ jobs:
       # ENABLE_APP_STORE_UPLOADS=true when we are ready to submit builds again.
       - name: Upload to Play Store (internal)
         if: env.ENABLE_APP_STORE_UPLOADS == 'true'
-        uses: r0adkll/upload-google-play@v1.1.3
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
           packageName: com.sudonym.hostr
           releaseFiles: app/build/app/outputs/bundle/release/app-release.aab
-          track: internal
+          tracks: internal
           status: completed
 
   # ── Android — Production (points to hostr.network) ──────────────────────────
@@ -156,14 +156,14 @@ jobs:
     # Production builds are manual-only and require explicit confirmation.
     if: github.event_name == 'workflow_dispatch' && inputs.variant == 'production' && inputs.confirm_production_release
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: '3.47.4'
 
       - name: Install dependencies
         run: flutter pub get
@@ -204,12 +204,12 @@ jobs:
       # ENABLE_APP_STORE_UPLOADS=true when we are ready to submit builds again.
       - name: Upload to Play Store
         if: env.ENABLE_APP_STORE_UPLOADS == 'true'
-        uses: r0adkll/upload-google-play@v1.1.3
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_CREDENTIALS }}
           packageName: com.sudonym.hostr
           releaseFiles: app/build/app/outputs/bundle/release/app-release.aab
-          track: ${{ inputs.track || 'internal' }}
+          tracks: ${{ inputs.track || 'internal' }}
           status: completed
 
   # ── iOS — Staging (points to staging.hostr.network) ────────────────────────
@@ -220,14 +220,14 @@ jobs:
     environment: staging
     if: github.event_name != 'workflow_dispatch' || inputs.variant == 'staging'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: '3.47.4'
 
       - name: Install dependencies
         run: flutter pub get
@@ -240,7 +240,7 @@ jobs:
           echo "COMMIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@v6
+        uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
@@ -279,7 +279,7 @@ jobs:
 
       - name: Upload to TestFlight
         if: env.ENABLE_APP_STORE_UPLOADS == 'true'
-        uses: apple-actions/upload-testflight-build@v4
+        uses: apple-actions/upload-testflight-build@5e75ff58276689011512ba87a381d93dc67dbcf8 # v5.3.0
         with:
           app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -295,14 +295,14 @@ jobs:
     # Production builds are manual-only and require explicit confirmation.
     if: github.event_name == 'workflow_dispatch' && inputs.variant == 'production' && inputs.confirm_production_release
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: '3.47.4'
 
       - name: Install dependencies
         run: flutter pub get
@@ -315,7 +315,7 @@ jobs:
           echo "COMMIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Import certificate
-        uses: apple-actions/import-codesign-certs@v6
+        uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
@@ -354,7 +354,7 @@ jobs:
 
       - name: Upload to TestFlight
         if: env.ENABLE_APP_STORE_UPLOADS == 'true'
-        uses: apple-actions/upload-testflight-build@v4
+        uses: apple-actions/upload-testflight-build@5e75ff58276689011512ba87a381d93dc67dbcf8 # v5.3.0
         with:
           app-path: ${{ env.IPA_PATH }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
