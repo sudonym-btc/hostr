@@ -1,0 +1,18 @@
+packages:
+  - apps/signet
+  - apps/signet-ui
+  - packages/*
+
+allowBuilds:
+  '@prisma/engines': true
+  better-sqlite3: true
+  bcrypt: true
+  esbuild: true
+  prisma: true
+  bufferutil: false
+  es5-ext: false
+  spawn-sync: false
+  utf-8-validate: false
+
+overrides:
+  http-proxy: npm:http-proxy-3@^1.23.2

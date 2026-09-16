@@ -7,6 +7,12 @@
 # Loaded automatically via compose.override.yaml (include).
 
 x-templates:
+  signet-build: &signet-build
+    context: ./docker/signet
+    dockerfile: Dockerfile
+    additional_contexts:
+      signet-source: https://github.com/Letdown2491/signet.git#509395cf180908f3dbd69b6ae8d6cb94003a6152
+
   lnd-base: &lnd-base
     image: lightninglabs/lnd:v0.21.3-beta@sha256:d29074335f3bffb2ac0e789b0d023c24fbb85ce67ecbfb7d677399842fe0535c
     user: "0:0"
@@ -233,8 +239,8 @@ services:
 
   signet:
     build:
-      context: https://github.com/Letdown2491/signet.git#7c79aa0f334f661c709705435179b1ac9c2116d5
-      dockerfile: apps/signet/Dockerfile
+      <<: *signet-build
+      target: signet
     depends_on:
       relay:
         condition: service_healthy
@@ -277,8 +283,8 @@ services:
 
   signet-ui:
     build:
-      context: https://github.com/Letdown2491/signet.git#7c79aa0f334f661c709705435179b1ac9c2116d5
-      dockerfile: apps/signet-ui/Dockerfile
+      <<: *signet-build
+      target: signet-ui
     depends_on:
       signet:
         condition: service_healthy
