@@ -12,7 +12,6 @@ export const DEFAULT_AUTHOR_MISMATCH_KINDS = Object.freeze([
 
 export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   0, // NIP-01 profile metadata.
-  4, // NIP-04 legacy encrypted DM, still used by escrow compatibility paths.
   5, // NIP-09 delete event.
   7, // NIP-25 reaction, used inside NIP-17 private chats.
   8, // NIP-58 badge award.
@@ -24,6 +23,7 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   1327, // Hostr custom JSON message rumor.
   1328, // Hostr commit authorization.
   1329, // Hostr trade-key authorization.
+  1330, // Hostr encrypted marketplace seed.
   9734, // NIP-57 zap request.
   9735, // NIP-57 zap receipt.
   10008, // NIP-58 profile badges.
@@ -31,11 +31,9 @@ export const DEFAULT_ALLOWED_KINDS = Object.freeze([
   10050, // NIP-51/NIP-17 DM relay list.
   13194, // NIP-47 NWC info event.
   17388, // Hostr escrow payment method.
-  17389, // Hostr account seed backup.
   22242, // NIP-42 relay authentication event.
   23194, // NIP-47 NWC request.
   23195, // NIP-47 NWC response.
-  23196, // NIP-47 legacy NWC notification.
   23197, // NIP-47 current NWC notification.
   24133, // NIP-46 Nostr Connect.
   30009, // NIP-58 badge definition.
@@ -52,7 +50,6 @@ export const DEFAULT_AUTH_OPTIONAL_KINDS = Object.freeze([
   13194, // NIP-47 NWC info: wallet services publish this before app auth exists.
   23194, // NIP-47 NWC request: ephemeral per-connection wallet traffic.
   23195, // NIP-47 NWC response.
-  23196, // NIP-47 legacy NWC notification.
   23197, // NIP-47 current NWC notification.
 ]);
 

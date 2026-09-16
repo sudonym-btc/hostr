@@ -11,7 +11,7 @@ import {
 } from './policy.js';
 
 const defaultAuthorMismatchKinds = [1059, 32122, 1326];
-const defaultAuthOptionalKinds = [24133, 13194, 23194, 23195, 23196, 23197];
+const defaultAuthOptionalKinds = [24133, 13194, 23194, 23195, 23197];
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const protoPath = join(__dirname, '..', 'proto', 'nauthz.proto');

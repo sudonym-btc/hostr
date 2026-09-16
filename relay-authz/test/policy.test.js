@@ -126,7 +126,7 @@ test('permits NIP-46 Nostr Connect envelopes with a mismatched authenticated pub
 });
 
 test('permits ephemeral NWC request and notification envelopes without authentication', () => {
-  for (const kind of [23194, 23195, 23196, 23197]) {
+  for (const kind of [23194, 23195, 23197]) {
     const decision = decideEventAdmission({
       event: event({ kind }),
     });
@@ -171,4 +171,29 @@ test('accepts snake_case auth_pubkey from alternate proto loader settings', () =
   });
 
   assert.deepEqual(decision, { decision: Decision.PERMIT });
+});
+
+test('permits the current encrypted seed only for its authenticated owner', () => {
+  assert.deepEqual(
+    decideEventAdmission({ event: event({ kind: 1330 }), authPubkey: pubkey }),
+    { decision: Decision.PERMIT },
+  );
+  for (const authPubkey of [undefined, otherPubkey]) {
+    const decision = decideEventAdmission({
+      event: event({ kind: 1330 }),
+      authPubkey,
+    });
+    assert.equal(decision.decision, Decision.DENY);
+    assert.match(decision.message, /auth-required/);
+  }
+});
+
+test('rejects superseded encrypted event kinds', () => {
+  for (const kind of [4, 17389, 23196]) {
+    for (const authPubkey of [undefined, pubkey]) {
+      const decision = decideEventAdmission({ event: event({ kind }), authPubkey });
+      assert.equal(decision.decision, Decision.DENY);
+      assert.equal(decision.message, `unsupported-kind: event kind ${kind} is not allowed`);
+    }
+  }
 });
