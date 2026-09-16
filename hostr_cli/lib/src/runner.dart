@@ -51,14 +51,12 @@ Future<int> runHostrCli(
         ..argParser.addFlag(
           'dry-run',
           negatable: false,
-          help:
-              'Validate and build planned effects without publishing, uploading, or transacting.',
+          help: 'Preview without publishing events or transacting; listing previews stage image uploads.',
         )
         ..argParser.addFlag(
           'allow-insecure-file-secrets',
           negatable: false,
-          help:
-              'Use a chmod 600 JSON secrets file when no OS secure store is available. Development only.',
+          help: 'Use a chmod 600 JSON secrets file when no OS secure store is available. Development only.',
         )
         ..addCommand(SessionCommand(stdout: stdout, stderr: stderr))
         ..addCommand(ProfileCommand(stdout: stdout, stderr: stderr))

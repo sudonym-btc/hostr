@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 
 import 'base.dart';
 

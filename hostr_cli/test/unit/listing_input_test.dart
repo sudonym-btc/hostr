@@ -1,6 +1,6 @@
 import 'package:hostr_cli/src/commands/base.dart';
 import 'package:hostr_cli/src/daemon/listing_helpers.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,8 +1,8 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'package:hostr_sdk/config/generated/development_env.g.dart' as dev;
 import 'package:hostr_sdk/config/generated/production_env.g.dart' as prod;
 import 'package:hostr_sdk/config/generated/staging_env.g.dart' as staging;
 import 'package:hostr_sdk/config/generated/test_env.g.dart' as test_env;
-import 'package:hostr_sdk/hostr_sdk.dart';
 import 'package:hostr_sdk/injection.dart' as sdk_injection;
 
 class HostrCliEnvironment {

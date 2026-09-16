@@ -1,7 +1,7 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:io';
 
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:hostr_sdk/injection.dart' as sdk_injection;
 import 'package:logger/logger.dart';
 import 'package:ndk/ndk.dart'
     as ndk
@@ -61,7 +61,6 @@ class HostrCliContext {
       await hostr.dispose();
     } finally {
       database.close();
-      await sdk_injection.getIt.reset(dispose: true);
     }
   }
 }
@@ -94,7 +93,6 @@ class HostrCliRuntimeContext {
       await runtime.dispose();
     } finally {
       database.close();
-      await sdk_injection.getIt.reset(dispose: true);
     }
   }
 }
@@ -112,10 +110,6 @@ class _HostrCliFoundation {
 
   static Future<_HostrCliFoundation> create(HostrCliOptions options) async {
     await options.stateDir.create(recursive: true);
-
-    if (sdk_injection.getIt.isRegistered<HostrConfig>()) {
-      await sdk_injection.getIt.reset(dispose: true);
-    }
 
     final env = options.relayOverride == null
         ? options.environment
@@ -156,16 +150,13 @@ class _HostrCliFoundation {
     );
     final eventVerifier = CoinlibVerifier();
     const eventSignerFactory = CoinlibEventSignerFactory();
-    final nip44Cryptography = CoinlibNip44Cryptography();
     final ndkConfig = ndk.NdkConfig(
       eventVerifier: eventVerifier,
       eventSignerFactory: eventSignerFactory,
-      nip44Cryptography: nip44Cryptography,
       cache: ndk.MemCacheManager(),
       fetchedRangesEnabled: true,
       engine: ndk.NdkEngine.RELAY_SETS,
       defaultQueryTimeout: const Duration(seconds: 10),
-      eagerAuth: false,
       bootstrapRelays: [if (env.hostrRelay.trim().isNotEmpty) env.hostrRelay],
       ignoreRelays: env.hostrRelay == 'wss://relay.hostr.development'
           ? const []
@@ -192,7 +183,6 @@ class _HostrCliFoundation {
       appDatabase: AppDatabase(db),
       eventVerifier: eventVerifier,
       eventSignerFactory: eventSignerFactory,
-      nip44Cryptography: nip44Cryptography,
       ndk: ndkConfig,
     );
 

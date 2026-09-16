@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_cli/hostr_cli.dart';
 import 'package:hostr_cli/src/output/qr.dart';
 import 'package:test/test.dart';
@@ -106,27 +107,26 @@ void main() {
       );
     });
 
-    test(
-      'listing create dry-run works after local mnemonic session',
-      () async {
-        final stateDir = await Directory.systemTemp.createTemp(
-          'hostr-cli-test-',
-        );
-        final session = await _run([
-          '--env',
-          'development',
-          '--json',
-          '--state-dir',
-          stateDir.path,
-          '--allow-insecure-file-secrets',
-          'session',
-          'ensure',
-          '--mnemonic',
-          'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
-        ]);
-        expect(session.exitCode, 0);
+    test('listing create dry-run works after local mnemonic session', () async {
+      final stateDir = await Directory.systemTemp.createTemp('hostr-cli-test-');
+      final session = await _run([
+        '--env',
+        'development',
+        '--json',
+        '--state-dir',
+        stateDir.path,
+        '--allow-insecure-file-secrets',
+        'session',
+        'ensure',
+        '--mnemonic',
+        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+      ]);
+      expect(session.exitCode, 0);
 
-        final create = await _run([
+      final blossom = await _BlossomFixture.start();
+      addTearDown(blossom.close);
+      final create = await HttpOverrides.runWithHttpOverrides(
+        () => _run([
           '--env',
           'development',
           '--json',
@@ -148,8 +148,7 @@ void main() {
             'bathrooms': 1,
             'images': [
               {
-                'dataUrl':
-                    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+                'dataUrl': 'data:image/png;base64,$_listingPng',
                 'filename': 'listing.png',
               },
             ],
@@ -158,46 +157,57 @@ void main() {
               'frequency': 'day',
             },
           }),
-        ]);
-        expect(create.exitCode, 0);
-        final json = jsonDecode(create.stdout) as Map<String, dynamic>;
-        expect(json['data']['dryRun'], isTrue);
-        expect(json['data']['event']['kind'], 30402);
+        ]),
+        blossom,
+      );
+      expect(create.exitCode, 0, reason: '${create.stdout}\n${create.stderr}');
+      final json = jsonDecode(create.stdout) as Map<String, dynamic>;
+      expect(json['data']['dryRun'], isTrue);
+      expect(json['data']['event']['kind'], 30402);
+      expect(blossom.uploadCount, 1);
+      expect(blossom.uploadedBytes, base64Decode(_listingPng));
+      expect(json['data']['listing']['images'], [blossom.imageUrl]);
+      expect(jsonEncode(json['data']['event']), contains(blossom.imageUrl));
+      final tags = json['data']['event']['tags'] as List;
+      expect(
+        tags.where((tag) => tag[0] == 'd').single[1],
+        json['data']['dTag'],
+      );
+      expect(json['data']['plannedUploads'], hasLength(1));
+      expect(json['data']['plannedUploads'][0]['source'], 'dataUrl');
 
-        final profile = await _run([
-          '--env',
-          'development',
-          '--json',
-          '--dry-run',
-          '--state-dir',
-          stateDir.path,
-          '--allow-insecure-file-secrets',
-          'profile',
-          'edit',
-          '--input',
-          jsonEncode({'name': 'CLI Test Host'}),
-        ]);
-        expect(profile.exitCode, 0);
-        final profileJson = jsonDecode(profile.stdout) as Map<String, dynamic>;
-        expect(profileJson['data']['dryRun'], isTrue);
-        expect(profileJson['data']['event']['kind'], 0);
+      final profile = await _run([
+        '--env',
+        'development',
+        '--json',
+        '--dry-run',
+        '--state-dir',
+        stateDir.path,
+        '--allow-insecure-file-secrets',
+        'profile',
+        'edit',
+        '--input',
+        jsonEncode({'name': 'CLI Test Host'}),
+      ]);
+      expect(profile.exitCode, 0);
+      final profileJson = jsonDecode(profile.stdout) as Map<String, dynamic>;
+      expect(profileJson['data']['dryRun'], isTrue);
+      expect(profileJson['data']['event']['kind'], 0);
 
-        final swaps = await _run([
-          '--env',
-          'development',
-          '--json',
-          '--state-dir',
-          stateDir.path,
-          '--allow-insecure-file-secrets',
-          'swaps',
-          'list',
-        ]);
-        expect(swaps.exitCode, 0);
-        final swapsJson = jsonDecode(swaps.stdout) as Map<String, dynamic>;
-        expect(swapsJson['data']['entries'], isA<List>());
-      },
-      timeout: const Timeout(Duration(seconds: 45)),
-    );
+      final swaps = await _run([
+        '--env',
+        'development',
+        '--json',
+        '--state-dir',
+        stateDir.path,
+        '--allow-insecure-file-secrets',
+        'swaps',
+        'list',
+      ]);
+      expect(swaps.exitCode, 0);
+      final swapsJson = jsonDecode(swaps.stdout) as Map<String, dynamic>;
+      expect(swapsJson['data']['entries'], isA<List>());
+    }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }
 
@@ -261,4 +271,114 @@ class _MemoryConsumer implements StreamConsumer<List<int>> {
 
   @override
   Future<void> close() async {}
+}
+
+const _listingPng =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
+
+/// Isolates the real NDK Blossom HTTP protocol on a loopback test server.
+/// Other network requests are rejected, so this preview never needs dev services.
+class _BlossomFixture extends HttpOverrides {
+  final HttpServer server;
+  final _clients = <HttpClient>[];
+  int uploadCount = 0;
+  List<int> uploadedBytes = [];
+  _BlossomFixture._(this.server);
+
+  String get imageUrl =>
+      'https://blossom.test/${crypto.sha256.convert(base64Decode(_listingPng))}.png';
+
+  static Future<_BlossomFixture> start() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final fixture = _BlossomFixture._(server);
+    server.listen((request) async {
+      expect(request.method, 'PUT');
+      expect(request.uri.path, '/upload');
+      expect(
+        request.headers.value(HttpHeaders.authorizationHeader),
+        startsWith('Nostr '),
+      );
+      expect(request.headers.contentType?.mimeType, 'image/png');
+      fixture.uploadCount++;
+      fixture.uploadedBytes = await request.fold<List<int>>(
+        [],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'url': fixture.imageUrl,
+          'sha256': crypto.sha256.convert(fixture.uploadedBytes).toString(),
+          'size': fixture.uploadedBytes.length,
+          'type': 'image/png',
+          'uploaded': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        }),
+      );
+      await request.response.close();
+    });
+    return fixture;
+  }
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final inner = super.createHttpClient(context);
+    _clients.add(inner);
+    return _BlossomHttpClient(
+      inner,
+      Uri.parse('http://127.0.0.1:${server.port}'),
+    );
+  }
+
+  Future<void> close() async {
+    for (final client in _clients) {
+      client.close(force: true);
+    }
+    await server.close(force: true);
+  }
+}
+
+class _BlossomHttpClient implements HttpClient {
+  final HttpClient inner;
+  final Uri target;
+  _BlossomHttpClient(this.inner, this.target);
+
+  @override
+  Future<HttpClientRequest> openUrl(String method, Uri url) {
+    if (method != 'PUT' || url.path != '/upload') {
+      return Future.error(
+        SocketException('Network request disabled in test: $method $url'),
+      );
+    }
+    return inner.openUrl(method, target.replace(path: url.path));
+  }
+
+  @override
+  set badCertificateCallback(
+    bool Function(X509Certificate, String, int)? callback,
+  ) {
+    inner.badCertificateCallback = callback;
+  }
+
+  @override
+  set autoUncompress(bool value) => inner.autoUncompress = value;
+
+  @override
+  set idleTimeout(Duration value) => inner.idleTimeout = value;
+
+  @override
+  set connectionTimeout(Duration? value) => inner.connectionTimeout = value;
+
+  @override
+  set maxConnectionsPerHost(int? value) => inner.maxConnectionsPerHost = value;
+
+  @override
+  set userAgent(String? value) => inner.userAgent = value;
+
+  @override
+  void close({bool force = false}) => inner.close(force: force);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
+    'Unexpected HTTP client call: ${invocation.memberName}',
+  );
 }

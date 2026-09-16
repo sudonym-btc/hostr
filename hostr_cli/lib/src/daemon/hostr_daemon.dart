@@ -1,3 +1,4 @@
+import 'package:marketplace_evm/marketplace_evm.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -5,7 +6,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:hostr_sdk/hostr_sdk.dart';
-import 'package:models/main.dart';
+import 'package:marketplace_models/main.dart';
 import 'package:ndk/domain_layer/usecases/bunkers/models/bunker_request.dart';
 import 'package:ndk/ndk.dart';
 import 'package:ndk/shared/nips/nip01/helpers.dart';
@@ -2287,25 +2288,13 @@ class HostrDaemon {
     }
     final swap = plan.preparer.configuredChain.swapIn(params: swapParams);
     await swap.init();
-    await swap.runUntil(
-      (state) => state.stateName == 'requestCreated' || state.isTerminal,
-    );
-
-    final state = swap.state;
+    final state = await swap.prepareExternalPayment();
     final data = state.data;
-    final invoice = data?.invoiceString;
-    if (state is SwapInRequestCreated && data != null) {
-      final awaiting = SwapInAwaitingOnChain(data);
-      await hostr.operationStateStore.write(
-        'swap_in',
-        data.boltzId,
-        awaiting.toJson(),
-      );
-    }
-    if (data?.boltzId != null) {
+    final invoice = data.invoiceString;
+    if (data.boltzId.isNotEmpty) {
       await _persistPaymentContext(
         hostr,
-        swapId: data!.boltzId,
+        swapId: data.boltzId,
         tradeId: input.tradeId,
         listing: plan.listing,
         order: plan.order,
@@ -2319,16 +2308,14 @@ class HostrDaemon {
       'mode': 'create-swap',
       'selectedEscrow': _escrowSelectionJson(plan.selectedEscrow),
       'selectionRelayResponses': selectionResponses,
-      'swapState': state is SwapInRequestCreated && data != null
-          ? SwapInAwaitingOnChain(data).toJson()
-          : state.toJson(),
+      'swapState': state.toJson(),
     };
     if (invoice != null) {
       response['invoice'] = invoice;
       response['qrImage'] = renderQrImageDataUri(invoice);
     }
-    if (data?.boltzId != null) {
-      response['boltzId'] = data!.boltzId;
+    if (data.boltzId.isNotEmpty) {
+      response['boltzId'] = data.boltzId;
     }
     return response;
   }
@@ -4618,7 +4605,6 @@ class SignerRequestNotificationBridge {
       kNostrKindEscrowService => 'escrow service advertisement',
       kNostrKindEscrowMethod => 'escrow payment methods',
       kNostrKindEscrowServiceSelected => 'escrow selection',
-      kNostrKindLegacyDM => 'legacy direct message',
       kNostrKindDM => 'direct message',
       kNostrKindJsonMessage => 'Hostr message',
       kNostrKindSeenStatus => 'seen status',
