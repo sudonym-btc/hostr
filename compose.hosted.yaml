@@ -9,7 +9,7 @@ services:
       - never
 
   acme-companion:
-    image: nginxproxy/acme-companion
+    image: nginxproxy/acme-companion:2.8.2@sha256:e3c5fb08bf623ae93dbc945d78fe50040c1fa107ddf59f7ee04ba6a61f34cbc1
     depends_on:
       nginx-proxy:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
       - ./docker/data/mcp:/data/mcp
 
   otelcol:
-    image: otel/opentelemetry-collector-contrib:0.151.0
+    image: otel/opentelemetry-collector-contrib:0.160.0@sha256:799dc6cf12c96192af37b5bdba804da8c10b3bc563b43cb90c3f3c58d9572ad6
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./docker/otelcol/config.yaml:/etc/otelcol/config.yaml:ro

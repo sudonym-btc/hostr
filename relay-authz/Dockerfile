@@ -1,4 +1,5 @@
-FROM node:22-bookworm-slim
+FROM node:26.8.2-bookworm-slim
+RUN npm install --global npm@12.0.2 --no-fund --no-audit
 
 WORKDIR /app
 

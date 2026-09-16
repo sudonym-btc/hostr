@@ -8,7 +8,7 @@
 
 services:
   contract-deployer:
-    image: ghcr.io/pimlicolabs/mock-contract-deployer:main
+    image: ghcr.io/pimlicolabs/mock-contract-deployer:main@sha256:fbaf0004a5fefdbc34520558b06d8268131a4709066d3bd02310be64b92724cf
     depends_on:
       anvil-arbitrum:
         condition: service_healthy
@@ -23,7 +23,7 @@ services:
       - default
 
   alto:
-    image: ghcr.io/pimlicolabs/alto:latest
+    image: ghcr.io/pimlicolabs/alto:latest@sha256:f2661042aadefc6a4fc9c5826a14404f574c7ef2de76bdf83fe6a0829137b3c5
     entrypoint:
       - node
       - src/lib/cli/alto.js
@@ -47,7 +47,7 @@ services:
       - default
 
   paymaster:
-    image: ghcr.io/pimlicolabs/mock-verifying-paymaster:main
+    image: ghcr.io/pimlicolabs/mock-verifying-paymaster:main@sha256:df79a80c01d8d9bef5c1c9a938dd10cb466f3c0a00bee6c953432c5e9435273a
     depends_on:
       contract-deployer:
         condition: service_completed_successfully

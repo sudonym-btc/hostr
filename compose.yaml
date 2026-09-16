@@ -16,12 +16,12 @@
 
 services:
   anvil:
-    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:latest}
+    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.3@sha256:2e4287278639262de76db72477301d5d3212fa1b1cce710d7d148750a46ce9e7}
     networks:
       - default
 
   nginx-proxy:
-    image: jwilder/nginx-proxy
+    image: nginxproxy/nginx-proxy:1.11.6@sha256:dd78565eca9742624655bb743723e0aeeab552153c4eea01095e4266c59150d5
     restart: unless-stopped
     ports:
       - 80:80
@@ -109,7 +109,7 @@ services:
       - default
 
   blossom:
-    image: ghcr.io/hzrd149/blossom-server:6.1.5
+    image: ghcr.io/hzrd149/blossom-server:6.3.1@sha256:c91fb7820ebf4c9874b2cc1f3998baad68233c909c12c6603a98cc74d13d39d0
     platform: linux/amd64
     restart: unless-stopped
     environment:

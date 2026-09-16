@@ -35,7 +35,7 @@ x-boltz-bitcoind-command: &boltz-bitcoind-command
   - -txindex
   - -rpcallowip=0.0.0.0/0
   - -rpcbind=0.0.0.0
-  - -deprecatedrpc=warnings
+
 
 services:
 
@@ -61,7 +61,8 @@ services:
   anvil-arbitrum:
     hostname: anvil-arbitrum
     container_name: boltz-anvil-arbitrum
-    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:latest}
+    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.3@sha256:2e4287278639262de76db72477301d5d3212fa1b1cce710d7d148750a46ce9e7}
+    user: "0:0"
     entrypoint: "anvil --host 0.0.0.0 --chain-id 412346"
     environment:
       - VIRTUAL_HOST=arbitrum.${DOMAIN}
@@ -80,7 +81,8 @@ services:
       - default
 
   arbitrum-init:
-    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:latest}
+    image: ${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:v1.8.3@sha256:2e4287278639262de76db72477301d5d3212fa1b1cce710d7d148750a46ce9e7}
+    user: "0:0"
     container_name: boltz-arbitrum-init
     restart: "no"
     depends_on:

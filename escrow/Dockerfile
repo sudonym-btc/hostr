@@ -1,10 +1,10 @@
 # ── Toolchain base ────────────────────────────────────────────────────
-FROM dart:stable AS dart-sdk
+FROM dart:3.13.3 AS dart-sdk
 
-FROM rust:1.95.0-bookworm AS toolchain
+FROM rust:1.98.1-bookworm AS toolchain
 
 ENV PATH="/usr/local/bin:/usr/lib/dart/bin:/usr/local/cargo/bin:${PATH}" \
-    RUSTUP_TOOLCHAIN="1.95.0"
+    RUSTUP_TOOLCHAIN="1.98.1"
 
 COPY --from=dart-sdk /usr/lib/dart /usr/lib/dart
 
@@ -15,7 +15,7 @@ RUN apt-get update \
       'set -e' \
       '' \
       'if [ "$1" = "show" ] && [ "$2" = "active-toolchain" ]; then' \
-      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.95.0}"' \
+      '  printf '\''%s (default)\n'\'' "${RUSTUP_TOOLCHAIN:-1.98.1}"' \
       '  exit 0' \
       'fi' \
       '' \
@@ -50,7 +50,8 @@ WORKDIR /workspace
 
 COPY escrow /workspace/escrow
 COPY hostr_sdk /workspace/hostr_sdk
-COPY models /workspace/models
+COPY dependencies/nmdk/packages/marketplace_models /workspace/dependencies/nmdk/packages/marketplace_models
+COPY dependencies/nmdk/packages/marketplace_evm /workspace/dependencies/nmdk/packages/marketplace_evm
 
 WORKDIR /workspace/escrow
 

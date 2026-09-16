@@ -1,4 +1,14 @@
-FROM ghcr.io/cirruslabs/flutter:stable AS build
+FROM debian:13-slim AS build
+
+# Install the official SDK tag directly; third-party images can lag releases.
+ARG FLUTTER_VERSION=3.47.4
+ARG FLUTTER_COMMIT=9584c6713b324636289d067944a46fd6b49df14b
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl git unzip xz-utils zip python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git /opt/flutter \
+    && test "$(git -C /opt/flutter rev-parse HEAD)" = "$FLUTTER_COMMIT"
+ENV PATH=/opt/flutter/bin:$PATH
 
 WORKDIR /workspace
 
@@ -12,9 +22,9 @@ ENV APP_PROFILE=$APP_PROFILE \
     COMMIT_SHA=$COMMIT_SHA \
     BUILD_DATE=$BUILD_DATE
 
-COPY models /workspace/models
 COPY hostr_sdk /workspace/hostr_sdk
-COPY dependencies/google_maps_flutter_web /workspace/dependencies/google_maps_flutter_web
+COPY dependencies/nmdk/packages/marketplace_models /workspace/dependencies/nmdk/packages/marketplace_models
+COPY dependencies/nmdk/packages/marketplace_evm /workspace/dependencies/nmdk/packages/marketplace_evm
 COPY app /workspace/app
 
 WORKDIR /workspace/app
@@ -70,7 +80,7 @@ RUN case "$APP_PROFILE" in \
     --dart-define=BUILD_DATE=$BUILD_DATE \
     --target="$FLUTTER_TARGET"
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.30.4-alpine AS runtime
 
 COPY app/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /workspace/app/build/web /usr/share/nginx/html

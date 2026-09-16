@@ -8,7 +8,7 @@
 
 x-templates:
   lnd-base: &lnd-base
-    image: lightninglabs/lnd:v0.20.1-beta
+    image: lightninglabs/lnd:v0.21.3-beta@sha256:d29074335f3bffb2ac0e789b0d023c24fbb85ce67ecbfb7d677399842fe0535c
     user: "0:0"
     depends_on:
       hostrbitcoind:
@@ -41,7 +41,7 @@ x-templates:
         condition: service_healthy
       nginx-proxy:
         condition: service_healthy
-    image: ghcr.io/getalby/hub:master-25c027b
+    image: ghcr.io/getalby/hub:v1.24.0@sha256:0227bdc79afd20eb689c922c96cf0546576b608c5cbb07b13658956d54e8133d
     networks:
       - default
 
@@ -49,7 +49,7 @@ services:
   # ── Overrides for shared-base services ──────────────────────────────────
 
   tls-init:
-    image: alpine:3.23
+    image: alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     volumes:
       - ./docker/certs:/certs
       - ./docker/tls/ca:/ca
@@ -102,7 +102,8 @@ services:
       - ./escrow/lib:/workspace/escrow/lib
       - ./escrow/bin:/workspace/escrow/bin
       - ./hostr_sdk/lib:/workspace/hostr_sdk/lib
-      - ./models/lib:/workspace/models/lib
+      - ./dependencies/nmdk/packages/marketplace_models/lib:/workspace/dependencies/nmdk/packages/marketplace_models/lib
+      - ./dependencies/nmdk/packages/marketplace_evm/lib:/workspace/dependencies/nmdk/packages/marketplace_evm/lib
     environment:
       - EVM_CHAIN_ARBITRUM_REGTEST_RPC_URL=http://anvil-arbitrum:8545
     entrypoint:
@@ -113,7 +114,7 @@ services:
   # ── Local-only services ─────────────────────────────────────────────────
 
   hostrbitcoind:
-    image: bitcoin/bitcoin
+    image: bitcoin/bitcoin:31.1@sha256:da25cedc66b1daefff9f412ee196c901a899c3fa68a33b20849c3e08b5c40d63
     healthcheck:
       test:
         [
@@ -163,7 +164,7 @@ services:
       - ./docker/data/lightning_data/1:/lnd
 
   lnbits:
-    image: lnbits/lnbits:v1.5.4
+    image: lnbits/lnbits:v1.6.1@sha256:fe328a130414d54e45c54e4c12b44ea10b4b542eace7df9e66f5b076b2e33816
     depends_on:
       lnd:
         condition: service_healthy
@@ -308,6 +309,8 @@ services:
     build:
       context: ./escrow/contracts
       dockerfile: Dockerfile
+      additional_contexts:
+        nmdk-contracts: ./dependencies/nmdk/dependencies/marketplace-evm-contracts
     depends_on:
       anvil-arbitrum:
         condition: service_healthy
@@ -325,7 +328,7 @@ services:
     restart: "no"
 
   telemetry:
-    image: grafana/otel-lgtm:0.27.1
+    image: grafana/otel-lgtm:0.33.0@sha256:475319e883b66594d1a2f22ef168c2459802bb94548e6f25d9782bd5f5c19a3a
     environment:
       - VIRTUAL_HOST=telemetry.${DOMAIN}
       - VIRTUAL_PORT=3000
@@ -339,7 +342,7 @@ services:
       - default
 
   bootstrap:
-    image: docker:29-cli
+    image: docker:29.8.1-cli@sha256:9f36dfce2d1fd053d700a4eca00c358df79bf7d8cb69d4a9e8d9981af18834ea
     depends_on:
       hostrbitcoind:
         condition: service_healthy
@@ -362,7 +365,7 @@ services:
     restart: "no"
 
   lnbits-init:
-    image: python:3.14-alpine
+    image: python:3.14.7-alpine@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc
     depends_on:
       lnbits:
         condition: service_healthy
@@ -381,7 +384,7 @@ services:
       - default
 
   alby-init:
-    image: python:3.14-alpine
+    image: python:3.14.7-alpine@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc
     depends_on:
       albyhub:
         condition: service_healthy
@@ -396,7 +399,7 @@ services:
       - default
 
   seed-relay:
-    image: dart:stable
+    image: dart:3.13.3
     depends_on:
       relay:
         condition: service_healthy

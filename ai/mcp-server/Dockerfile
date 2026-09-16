@@ -1,4 +1,5 @@
-FROM node:22-bookworm-slim AS deps
+FROM node:26.8.2-bookworm-slim AS deps
+RUN npm install --global npm@12.0.2 --no-fund --no-audit
 
 WORKDIR /app
 COPY ai/mcp-server/package*.json ./
@@ -11,7 +12,7 @@ COPY ai/mcp-server/src ./src
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM dart:stable AS daemon-build
+FROM dart:3.13.3 AS daemon-build
 
 ENV PUB_CACHE=/workspace/.pub-cache
 ENV PATH=/root/.cargo/bin:/usr/lib/dart/bin:$PATH
@@ -19,16 +20,17 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential ca-certificates clang cmake curl git pkg-config \
   && rm -rf /var/lib/apt/lists/* \
   && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --default-toolchain 1.95.0
+    | sh -s -- -y --default-toolchain 1.98.1
 WORKDIR /workspace
-COPY models ./models
 COPY hostr_sdk ./hostr_sdk
+COPY dependencies/nmdk/packages/marketplace_models /workspace/dependencies/nmdk/packages/marketplace_models
+COPY dependencies/nmdk/packages/marketplace_evm /workspace/dependencies/nmdk/packages/marketplace_evm
 COPY hostr_cli ./hostr_cli
 WORKDIR /workspace/hostr_cli
 RUN dart pub get
 RUN dart build cli -t bin/hostr_daemon.dart -o /out
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:26.8.2-bookworm-slim AS runtime
 
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
@@ -59,7 +61,7 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=daemon-build /out/bundle /opt/hostr-daemon
-COPY --from=daemon-build /workspace/models/native /opt/hostr-daemon/native
+COPY --from=daemon-build /workspace/dependencies/nmdk/packages/marketplace_models/native /opt/hostr-daemon/native
 
 EXPOSE 8787
 CMD ["node", "dist/index.js"]
